@@ -1,0 +1,141 @@
+package constructor
+
+import (
+	"github.com/coroot/coroot-focus/model"
+	"k8s.io/klog"
+	"strings"
+)
+
+type podId struct {
+	pod string
+	ns  string
+}
+
+func loadKubernetesMetadata(w *model.World, metrics map[string][]model.MetricValues) {
+	loadServices(w, metrics["kube_service_info"])
+
+	pods := podInfo(w, metrics["kube_pod_info"])
+
+	for queryName := range QUERIES {
+		switch {
+		case strings.HasPrefix(queryName, "kube_pod_status_"):
+			podStatus(queryName, metrics[queryName], pods)
+		case strings.HasPrefix(queryName, "kube_pod_init_container_"):
+			podContainerStatus(queryName, metrics[queryName], pods)
+		case strings.HasPrefix(queryName, "kube_pod_container_status_"):
+			podContainerStatus(queryName, metrics[queryName], pods)
+		}
+	}
+}
+
+func loadServices(w *model.World, metrics []model.MetricValues) {
+	for _, m := range metrics {
+		name := m.Labels["service"]
+		if name == "kubernetes" {
+			name = "kube-apiserver"
+		}
+		if clusterIP := m.Labels["cluster_ip"]; clusterIP != "" {
+			w.Services = append(w.Services, &model.Service{
+				Name:      name,
+				Namespace: m.Labels["namespace"],
+				ClusterIP: clusterIP,
+			})
+		}
+	}
+}
+
+func podInfo(w *model.World, metrics []model.MetricValues) map[podId]*model.Instance {
+	pods := map[podId]*model.Instance{}
+	for _, m := range metrics {
+		pod := m.Labels["pod"]
+		ns := m.Labels["namespace"]
+		ownerName := m.Labels["created_by_name"]
+		ownerKind := m.Labels["created_by_kind"]
+		var appId model.ApplicationId
+
+		switch {
+		case ownerKind == "" || ownerKind == "<none>" || ownerKind == "Node":
+			appId = model.NewApplicationId(ns, model.ApplicationKindStaticPods, strings.TrimSuffix(pod, "-"+m.Labels["node"]))
+		case ownerName != "" && ownerKind != "":
+			appId = model.NewApplicationId(ns, model.ApplicationKind(ownerKind), ownerName)
+		default:
+			continue
+		}
+		instance := w.GetOrCreateApplication(appId).GetOrCreateInstance(pod)
+		instance.Pod = &model.Pod{}
+		pods[podId{
+			pod: instance.Name,
+			ns:  instance.InstanceId.OwnerId.Namespace,
+		}] = instance
+	}
+	return pods
+}
+
+func podStatus(queryName string, metrics []model.MetricValues, pods map[podId]*model.Instance) {
+	for _, m := range metrics {
+		id := podId{pod: m.Labels["pod"], ns: m.Labels["namespace"]}
+		instance := pods[id]
+		if instance == nil {
+			klog.Warningln("unknown pod:", id)
+			continue
+		}
+		switch queryName {
+		case "kube_pod_status_phase":
+			if m.Values.Last() > 0 {
+				instance.Pod.Phase = m.Labels["phase"]
+			}
+			if m.Labels["phase"] == "Running" {
+				instance.Pod.Running = update(instance.Pod.Running, m.Values)
+			}
+		case "kube_pod_status_ready":
+			if m.Labels["condition"] == "true" {
+				instance.Pod.Ready = update(instance.Pod.Ready, m.Values)
+			}
+		case "kube_pod_status_scheduled":
+			if m.Values.Last() > 0 && m.Labels["condition"] == "true" {
+				instance.Pod.Scheduled = true
+			}
+		}
+	}
+}
+
+func podContainerStatus(queryName string, metrics []model.MetricValues, pods map[podId]*model.Instance) {
+	for _, m := range metrics {
+		id := podId{pod: m.Labels["pod"], ns: m.Labels["namespace"]}
+		instance := pods[id]
+		if instance == nil {
+			klog.Warningln("unknown pod:", id)
+			continue
+		}
+		container := instance.GetOrCreateContainer(m.Labels["container"])
+
+		switch queryName {
+		case "kube_pod_init_container_info":
+			container.InitContainer = true
+		case "kube_pod_container_status_ready":
+			container.Ready = m.Values.Last() > 0
+		case "kube_pod_container_status_waiting":
+			if m.Values.Last() > 0 {
+				container.Status = model.ContainerStatusWaiting
+			}
+		case "kube_pod_container_status_running":
+			if m.Values.Last() > 0 {
+				container.Status = model.ContainerStatusRunning
+				container.Reason = ""
+			}
+		case "kube_pod_container_status_terminated":
+			if m.Values.Last() > 0 {
+				container.Status = model.ContainerStatusTerminated
+			}
+		case "kube_pod_container_status_waiting_reason":
+			if m.Values.Last() > 0 {
+				container.Status = model.ContainerStatusWaiting
+				container.Reason = m.Labels["reason"]
+			}
+		case "kube_pod_container_status_last_terminated_reason":
+			if m.Values.Last() > 0 {
+				container.LastTerminatedReason = m.Labels["reason"]
+			}
+		}
+	}
+}

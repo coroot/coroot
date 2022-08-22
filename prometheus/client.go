@@ -1,0 +1,80 @@
+package prometheus
+
+import (
+	"context"
+	"crypto/tls"
+	"fmt"
+	"github.com/coroot/coroot-focus/model"
+	"github.com/coroot/coroot-focus/timeseries"
+	"github.com/prometheus/client_golang/api"
+	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
+	promModel "github.com/prometheus/common/model"
+	"net"
+	"net/http"
+	"strings"
+	"time"
+)
+
+type Client struct {
+	scrapeInterval time.Duration
+	api            v1.API
+}
+
+func NewClient(address string, skipTlsVerify bool, scrapeInterval time.Duration) (*Client, error) {
+	transport := &http.Transport{
+		DialContext: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		TLSHandshakeTimeout: 10 * time.Second,
+		TLSClientConfig:     &tls.Config{InsecureSkipVerify: skipTlsVerify},
+	}
+	cfg := api.Config{Address: address, RoundTripper: transport}
+	c, err := api.NewClient(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return &Client{api: v1.NewAPI(c), scrapeInterval: scrapeInterval}, nil
+}
+
+func (c *Client) QueryRange(ctx context.Context, query string, from, to time.Time) ([]model.MetricValues, error) {
+	query = strings.ReplaceAll(query, "$RANGE", fmt.Sprintf(`%.0fs`, (c.scrapeInterval*3).Seconds()))
+	step := c.scrapeInterval
+	from = from.Truncate(step)
+	to = to.Truncate(step)
+	value, _, err := c.api.QueryRange(ctx, query, v1.Range{Start: from, End: to.Add(step), Step: step})
+	if err != nil {
+		return nil, err
+	}
+	if value.Type() != promModel.ValMatrix {
+		return nil, fmt.Errorf("result isn't a Matrix")
+	}
+
+	matrix := value.(promModel.Matrix)
+	if len(matrix) == 0 {
+		return nil, nil
+	}
+
+	res := make([]model.MetricValues, 0, matrix.Len())
+	for _, m := range matrix {
+		values := timeseries.NewNan(timeseries.Context{
+			From: timeseries.Time(from.Unix()),
+			To:   timeseries.Time(to.Unix()),
+			Step: timeseries.Duration(step.Seconds()),
+		})
+
+		mv := model.MetricValues{
+			Labels:     make(map[string]string, len(m.Metric)),
+			LabelsHash: uint64(m.Metric.Fingerprint()),
+			Values:     values,
+		}
+		for k, v := range m.Metric {
+			mv.Labels[string(k)] = string(v)
+		}
+		for _, p := range m.Values {
+			values.Set(timeseries.Time(p.Timestamp.Time().Unix()), float64(p.Value))
+		}
+		res = append(res, mv)
+	}
+	return res, nil
+}
