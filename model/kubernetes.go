@@ -17,6 +17,7 @@ const (
 	ApplicationKindStaticPods           ApplicationKind = "StaticPods"
 	ApplicationKindStandaloneContainers ApplicationKind = "StandaloneContainers"
 	ApplicationKindExternalService      ApplicationKind = "ExternalService"
+	ApplicationKindDatabaseCluster      ApplicationKind = "DatabaseCluster"
 )
 
 type Job struct{}

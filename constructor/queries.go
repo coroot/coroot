@@ -27,6 +27,7 @@ var QUERIES = map[string]string{
 	"kube_service_info": `kube_service_info`,
 
 	"kube_pod_info":             `kube_pod_info`,
+	"kube_pod_labels":           `kube_pod_labels`,
 	"kube_pod_status_phase":     `kube_pod_status_phase`,
 	"kube_pod_status_ready":     `kube_pod_status_ready{condition="true"}`,
 	"kube_pod_status_scheduled": `kube_pod_status_scheduled{condition="true"} > 0`,

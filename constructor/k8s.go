@@ -15,6 +15,7 @@ func loadKubernetesMetadata(w *model.World, metrics map[string][]model.MetricVal
 	loadServices(w, metrics["kube_service_info"])
 
 	pods := podInfo(w, metrics["kube_pod_info"])
+	podLabels(metrics["kube_pod_labels"], pods)
 
 	for queryName := range QUERIES {
 		switch {
@@ -69,6 +70,38 @@ func podInfo(w *model.World, metrics []model.MetricValues) map[podId]*model.Inst
 		}] = instance
 	}
 	return pods
+}
+
+func podLabels(metrics []model.MetricValues, pods map[podId]*model.Instance) {
+	for _, m := range metrics {
+		id := podId{pod: m.Labels["pod"], ns: m.Labels["namespace"]}
+		instance := pods[id]
+		if instance == nil {
+			klog.Warningln("unknown pod:", id)
+			continue
+		}
+		cluster, role := "", ""
+		switch {
+		case m.Labels["label_postgres_operator_crunchydata_com_cluster"] != "":
+			cluster = m.Labels["label_postgres_operator_crunchydata_com_cluster"]
+			role = m.Labels["label_postgres_operator_crunchydata_com_role"]
+		case m.Labels["label_cluster_name"] != "" && m.Labels["label_team"] != "": // zalando pg operator
+			cluster = m.Labels["label_cluster_name"]
+			if m.Labels["label_application"] == "spilo" { // not a pooler (pgbouncer)
+				role = m.Labels["label_spilo_role"]
+			}
+		case m.Labels["label_k8s_enterprisedb_io_cluster"] != "":
+			cluster = m.Labels["label_k8s_enterprisedb_io_cluster"]
+			role = m.Labels["label_role"]
+		}
+		if cluster != "" {
+			instance.ClusterName.Update(m.Values, cluster)
+		}
+		if role == "master" {
+			role = "primary"
+		}
+		instance.UpdateClusterRole(role, m.Values)
+	}
 }
 
 func podStatus(queryName string, metrics []model.MetricValues, pods map[podId]*model.Instance) {

@@ -29,6 +29,7 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to time.Time) (*model
 	loadNodes(w, metrics)
 	loadKubernetesMetadata(w, metrics)
 	loadContainers(w, metrics)
+	joinDBClusterComponents(w)
 	klog.Infof("got %d nodes, %d services, %d applications", len(w.Nodes), len(w.Services), len(w.Applications))
 	//for _, a := range w.Applications {
 	//	klog.Infoln(a.ApplicationId)
@@ -57,4 +58,35 @@ func update(dest, v timeseries.TimeSeries) timeseries.TimeSeries {
 	}
 	dest.(*timeseries.AggregatedTimeseries).AddInput(v)
 	return dest
+}
+
+func joinDBClusterComponents(w *model.World) {
+	clusters := map[model.ApplicationId]*model.Application{}
+	toDelete := map[model.ApplicationId]bool{}
+	for _, app := range w.Applications {
+		for _, instance := range app.Instances {
+			if instance.ClusterName.Value() == "" {
+				continue
+			}
+			id := model.NewApplicationId(app.ApplicationId.Namespace, model.ApplicationKindDatabaseCluster, instance.ClusterName.Value())
+			a := clusters[id]
+			if a == nil {
+				a = model.NewApplication(id)
+				clusters[id] = a
+				w.Applications = append(w.Applications, a)
+			}
+			a.Instances = append(a.Instances, instance)
+			instance.OwnerId = id
+			toDelete[app.ApplicationId] = true
+		}
+	}
+	if len(toDelete) > 0 {
+		var apps []*model.Application
+		for _, app := range w.Applications {
+			if !toDelete[app.ApplicationId] {
+				apps = append(apps, app)
+			}
+		}
+		w.Applications = apps
+	}
 }

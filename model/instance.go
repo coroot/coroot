@@ -11,6 +11,24 @@ type InstanceId struct {
 	OwnerId ApplicationId
 }
 
+type ClusterRole int
+
+const (
+	ClusterRoleNone ClusterRole = iota
+	ClusterRolePrimary
+	ClusterRoleReplica
+)
+
+func (r ClusterRole) String() string {
+	switch r {
+	case ClusterRolePrimary:
+		return "primary"
+	case ClusterRoleReplica:
+		return "replica"
+	}
+	return "-"
+}
+
 type Instance struct {
 	InstanceId
 
@@ -29,6 +47,9 @@ type Instance struct {
 
 	LogMessagesByLevel map[LogLevel]timeseries.TimeSeries
 	LogPatterns        map[string]*LogPattern
+
+	ClusterName LabelLastValue
+	clusterRole timeseries.TimeSeries
 }
 
 func NewInstance(name string, owner ApplicationId) *Instance {
@@ -102,6 +123,30 @@ func (instance *Instance) NodeName() string {
 		return instance.Node.Name.Value()
 	}
 	return ""
+}
+
+func (instance *Instance) UpdateClusterRole(role string, v timeseries.TimeSeries) {
+	if instance.clusterRole == nil {
+		instance.clusterRole = timeseries.Aggregate(timeseries.Any)
+	}
+	switch role {
+	case "primary":
+		instance.clusterRole.(*timeseries.AggregatedTimeseries).AddInput(
+			timeseries.Map(func(v float64) float64 {
+				if v == 1 {
+					return float64(ClusterRolePrimary)
+				}
+				return timeseries.NaN
+			}, v))
+	case "replica":
+		instance.clusterRole.(*timeseries.AggregatedTimeseries).AddInput(
+			timeseries.Map(func(v float64) float64 {
+				if v == 1 {
+					return float64(ClusterRoleReplica)
+				}
+				return timeseries.NaN
+			}, v))
+	}
 }
 
 func (instance *Instance) IsListenActive(ip, port string) bool {
