@@ -53,11 +53,16 @@ func main() {
 	if err != nil {
 		klog.Fatalln(err)
 	}
-	focus := &Focus{constructor: constructor.New(prom)}
+	focus := &Focus{constructor: constructor.New(prom, *scrapeInterval)}
 
 	r := mux.NewRouter()
 	r.HandleFunc("/health", focus.Health).Methods(http.MethodGet)
-	r.HandleFunc("/app/{app}", focus.App).Methods(http.MethodGet)
+	r.HandleFunc("/api/app/{app}", focus.App).Methods(http.MethodGet)
+
+	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("./static"))))
+	r.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "./static/index.html")
+	})
 
 	klog.Infoln("listening on :8080")
 	klog.Fatalln(http.ListenAndServe(":8080", r))

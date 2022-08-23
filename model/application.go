@@ -3,13 +3,13 @@ package model
 type ApplicationType string
 
 type Application struct {
-	ApplicationId ApplicationId
+	Id ApplicationId
 
 	Instances []*Instance
 }
 
 func NewApplication(id ApplicationId) *Application {
-	app := &Application{ApplicationId: id}
+	app := &Application{Id: id}
 	return app
 }
 
@@ -25,7 +25,7 @@ func (app *Application) GetInstance(name string) *Instance {
 func (app *Application) GetOrCreateInstance(name string) *Instance {
 	instance := app.GetInstance(name)
 	if instance == nil {
-		instance = NewInstance(name, app.ApplicationId)
+		instance = NewInstance(name, app.Id)
 		app.Instances = append(app.Instances, instance)
 	}
 	return instance

@@ -1,16 +1,16 @@
 package view
 
 type Dashboard struct {
-	Name    string
-	Widgets []*Widget
+	Name    string    `json:"name"`
+	Widgets []*Widget `json:"widgets"`
 }
 
 type Widget struct {
-	Chart         *Chart
-	ChartGroup    *ChartGroup
-	Table         *Table
-	LogPatterns   *LogPatterns
-	DependencyMap *DependencyMap
+	Chart         *Chart         `json:"chart"`
+	ChartGroup    *ChartGroup    `json:"chart_group"`
+	Table         *Table         `json:"table"`
+	LogPatterns   *LogPatterns   `json:"log_patterns"`
+	DependencyMap *DependencyMap `json:"dependency_map"`
 }
 
 func (d *Dashboard) GetOrCreateChartGroup(title string) *ChartGroup {

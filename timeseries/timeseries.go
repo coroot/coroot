@@ -78,15 +78,11 @@ func MarshalJSON(ts TimeSeries) ([]byte, error) {
 	}
 
 	d, err := json.Marshal(struct {
-		Start  Time
-		End    Time
-		Step   Duration
-		Values []Value
+		Context
+		Values []Value `json:"values"`
 	}{
-		Start:  ctx.From,
-		End:    ctx.To,
-		Step:   ctx.Step,
-		Values: vs,
+		Context: ctx,
+		Values:  vs,
 	})
 	return d, err
 }

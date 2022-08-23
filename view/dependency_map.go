@@ -5,22 +5,30 @@ import (
 )
 
 type DependencyMap struct {
-	Nodes []*DependencyMapNode
-	Links []*DependencyMapLink
+	Nodes []*DependencyMapNode `json:"nodes"`
+	Links []*DependencyMapLink `json:"links"`
 }
 
 type DependencyMapInstance struct {
-	Name     string
-	Obsolete bool
+	Name     string `json:"name"`
+	Obsolete bool   `json:"obsolete"`
 }
 
 type DependencyMapNode struct {
-	Name         string
-	Provider     string
-	Region       string
-	AZ           string
-	SrcInstances []DependencyMapInstance
-	DstInstances []DependencyMapInstance
+	Name     string `json:"name"`
+	Provider string `json:"provider"`
+	Region   string `json:"region"`
+	AZ       string `json:"az"`
+
+	SrcInstances []DependencyMapInstance `json:"src_instances"`
+	DstInstances []DependencyMapInstance `json:"dst_instances"`
+}
+
+type DependencyMapLink struct {
+	SrcInstance string `json:"src_instance"`
+	DstInstance string `json:"dst_instance"`
+
+	Status model.Status `json:"status"`
 }
 
 func (m *DependencyMap) GetOrCreateNode(node DependencyMapNode) *DependencyMapNode {
@@ -57,10 +65,4 @@ func (m *DependencyMap) UpdateLink(src DependencyMapInstance, sNode DependencyMa
 	dn := m.GetOrCreateNode(dNode)
 	dn.AddDstInstance(dst)
 	m.Links = append(m.Links, &DependencyMapLink{SrcInstance: src.Name, DstInstance: dst.Name, Status: linkStatus})
-}
-
-type DependencyMapLink struct {
-	SrcInstance string
-	DstInstance string
-	Status      model.Status
 }

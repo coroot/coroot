@@ -5,13 +5,15 @@ import "github.com/coroot/coroot-focus/timeseries"
 type ChartType string
 
 type Chart struct {
-	Title     string
-	Series    []*Series
-	Threshold *Series
-	Featured  bool
-	IsStacked bool
-	IsSorted  bool
-	IsColumn  bool
+	Ctx timeseries.Context `json:"ctx"`
+
+	Title     string    `json:"title"`
+	Series    []*Series `json:"series"`
+	Threshold *Series   `json:"threshold"`
+	Featured  bool      `json:"featured"`
+	IsStacked bool      `json:"stacked"`
+	IsSorted  bool      `json:"sorted"`
+	IsColumn  bool      `json:"column"`
 }
 
 func NewChart(title string) *Chart {
@@ -45,7 +47,7 @@ func (chart *Chart) AddSeries(name string, data timeseries.TimeSeries, color ...
 	if data == nil || data.IsEmpty() {
 		return chart
 	}
-	s := &Series{Name: name, Timeseries: data}
+	s := &Series{Name: name, Data: data}
 	if len(color) > 0 {
 		s.Color = color[0]
 	}
@@ -58,9 +60,9 @@ func (chart *Chart) SetThreshold(name string, data timeseries.TimeSeries, aggFun
 		return chart
 	}
 	if chart.Threshold == nil {
-		chart.Threshold = &Series{Name: name, Timeseries: timeseries.Aggregate(aggFunc), Color: "black"}
+		chart.Threshold = &Series{Name: name, Data: timeseries.Aggregate(aggFunc), Color: "black"}
 	}
-	chart.Threshold.Timeseries.(*timeseries.AggregatedTimeseries).AddInput(data)
+	chart.Threshold.Data.(*timeseries.AggregatedTimeseries).AddInput(data)
 	return chart
 }
 
@@ -70,14 +72,15 @@ func (chart *Chart) Feature() *Chart {
 }
 
 type Series struct {
-	Name       string
-	Color      string
-	Timeseries timeseries.TimeSeries
+	Name  string `json:"name"`
+	Color string `json:"color"`
+
+	Data timeseries.TimeSeries `json:"data"`
 }
 
 type ChartGroup struct {
-	Title  string
-	Charts []*Chart
+	Title  string   `json:"title"`
+	Charts []*Chart `json:"charts"`
 }
 
 func (cg *ChartGroup) GetOrCreateChart(title string) *Chart {

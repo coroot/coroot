@@ -33,7 +33,7 @@ func getMetricContext(w *model.World, ls model.Labels) *metricContext {
 
 func getInstanceByPod(w *model.World, ns, pod string) *model.Instance {
 	for _, a := range w.Applications {
-		if a.ApplicationId.Namespace != ns {
+		if a.Id.Namespace != ns {
 			continue
 		}
 		for _, i := range a.Instances {

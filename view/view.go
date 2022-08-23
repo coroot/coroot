@@ -7,32 +7,44 @@ import (
 )
 
 type Application struct {
-	Id     model.ApplicationId
-	Labels model.Labels
+	Id     model.ApplicationId `json:"id"`
+	Labels model.Labels        `json:"labels"`
 }
 
 type ApplicationLink struct {
-	Id        model.ApplicationId
-	Status    model.Status
-	Direction string
+	Id        model.ApplicationId `json:"id"`
+	Status    model.Status        `json:"status"`
+	Direction string              `json:"direction"`
 }
 
 type AppView struct {
-	Application *Application
-	Instances   []*Instance
-	Dashboards  []*Dashboard
+	Application *Application `json:"application"`
+	Instances   []*Instance  `json:"instances"`
 
-	Clients      []*Application
-	Dependencies []*Application
+	Clients      []*Application `json:"clients"`
+	Dependencies []*Application `json:"dependencies"`
+
+	Dashboards []*Dashboard `json:"dashboards"`
 }
 
-func (v *AppView) addDashboard(d *Dashboard) {
+func (v *AppView) addDashboard(ctx timeseries.Context, d *Dashboard) {
 	if len(d.Widgets) == 0 {
 		return
 	}
 	for _, w := range d.Widgets {
+		if w.Chart != nil {
+			w.Chart.Ctx = ctx
+		}
 		if w.ChartGroup != nil {
+			for _, ch := range w.ChartGroup.Charts {
+				ch.Ctx = ctx
+			}
 			autoFeatureChartInGroup(w.ChartGroup)
+		}
+		if w.LogPatterns != nil {
+			for _, p := range w.LogPatterns.Patterns {
+				p.Instances.Ctx = ctx
+			}
 		}
 	}
 	v.Dashboards = append(v.Dashboards, d)
@@ -66,7 +78,7 @@ func (v *AppView) addClient(w *model.World, id model.ApplicationId) {
 
 func RenderApp(world *model.World, app *model.Application) *AppView {
 	view := &AppView{Application: &Application{
-		Id:     app.ApplicationId,
+		Id:     app.Id,
 		Labels: app.Labels(),
 	}}
 
@@ -80,7 +92,7 @@ func RenderApp(world *model.World, app *model.Application) *AppView {
 			if connection.RemoteInstance == nil {
 				continue
 			}
-			if connection.RemoteInstance.OwnerId != app.ApplicationId {
+			if connection.RemoteInstance.OwnerId != app.Id {
 				deps[connection.RemoteInstance.OwnerId] = true
 				i.addDependency(connection.RemoteInstance.OwnerId, connection.Status(), "to")
 			} else if connection.RemoteInstance.Name != instance.Name {
@@ -88,7 +100,7 @@ func RenderApp(world *model.World, app *model.Application) *AppView {
 			}
 		}
 		for _, connection := range instance.Downstreams {
-			if connection.Instance.OwnerId != app.ApplicationId {
+			if connection.Instance.OwnerId != app.Id {
 				i.addClient(connection.Instance.OwnerId, connection.Status(), "to")
 			}
 		}
@@ -126,11 +138,12 @@ func RenderApp(world *model.World, app *model.Application) *AppView {
 		return view.Dependencies[i].Id.Name < view.Dependencies[j].Id.Name
 	})
 
-	view.addDashboard(cpu(app))
-	view.addDashboard(memory(app))
-	view.addDashboard(storage(app))
-	view.addDashboard(network(app, world))
-	view.addDashboard(logs(app))
+	view.addDashboard(world.Ctx, cpu(app))
+	view.addDashboard(world.Ctx, memory(app))
+	view.addDashboard(world.Ctx, storage(app))
+	view.addDashboard(world.Ctx, network(app, world))
+	view.addDashboard(world.Ctx, logs(app))
+
 	return view
 }
 
@@ -151,7 +164,7 @@ func autoFeatureChartInGroup(cg *ChartGroup) {
 	for _, ch := range cg.Charts {
 		var w float64
 		for _, s := range ch.Series {
-			w += timeseries.Reduce(timeseries.NanSum, s.Timeseries)
+			w += timeseries.Reduce(timeseries.NanSum, s.Data)
 		}
 		charts = append(charts, weightedChart{ch: ch, w: w})
 	}

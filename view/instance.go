@@ -5,18 +5,18 @@ import (
 )
 
 type InstanceLink struct {
-	Id        string
-	Status    model.Status
-	Direction string
+	Id        string       `json:"id"`
+	Status    model.Status `json:"status"`
+	Direction string       `json:"direction"`
 }
 
 type Instance struct {
-	Id     string
-	Labels model.Labels
+	Id     string       `json:"id"`
+	Labels model.Labels `json:"labels"`
 
-	Clients       []*ApplicationLink
-	Dependencies  []*ApplicationLink
-	InternalLinks []*InstanceLink
+	Clients       []*ApplicationLink `json:"clients"`
+	Dependencies  []*ApplicationLink `json:"dependencies"`
+	InternalLinks []*InstanceLink    `json:"internal_links"`
 }
 
 func (i *Instance) addDependency(id model.ApplicationId, status model.Status, direction string) {

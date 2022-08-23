@@ -1,0 +1,56 @@
+{
+  "name": "focus",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "vue-cli-service build --dest=../static --watch",
+    "lint": "vue-cli-service lint"
+  },
+  "dependencies": {
+    "@mdi/font": "^7.0.96",
+    "axios": "^0.27.2",
+    "color-convert": "^2.0.1",
+    "core-js": "^3.8.3",
+    "uplot": "^1.6.22",
+    "vue": "^2.6.14",
+    "vue-router": "^3.6.2",
+    "vuetify": "^2.6.9"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.12.16",
+    "@babel/eslint-parser": "^7.12.16",
+    "@vue/cli-plugin-babel": "~5.0.0",
+    "@vue/cli-plugin-eslint": "~5.0.0",
+    "@vue/cli-plugin-router": "~5.0.0",
+    "@vue/cli-service": "~5.0.0",
+    "eslint": "^7.32.0",
+    "eslint-plugin-vue": "^8.0.3",
+    "prettier": "^2.4.1",
+    "sass": "~1.32.0",
+    "sass-loader": "^10.0.0",
+    "vue-cli-plugin-vuetify": "~2.5.4",
+    "vue-template-compiler": "^2.6.14",
+    "vuetify-loader": "^1.7.0"
+  },
+  "eslintConfig": {
+    "root": true,
+    "env": {
+      "node": true
+    },
+    "extends": [
+      "plugin:vue/essential",
+      "eslint:recommended"
+    ],
+    "parserOptions": {
+      "parser": "@babel/eslint-parser"
+    },
+    "rules": {
+      "vue/valid-v-for": "off",
+      "vue/require-v-for-key": "off",
+      "vue/multi-word-component-names": "off"
+    }
+  },
+  "browserslist": [
+    "defaults"
+  ]
+}

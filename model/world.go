@@ -1,6 +1,10 @@
 package model
 
+import "github.com/coroot/coroot-focus/timeseries"
+
 type World struct {
+	Ctx timeseries.Context
+
 	Nodes        []*Node
 	Applications []*Application
 	Services     []*Service
@@ -8,7 +12,7 @@ type World struct {
 
 func (w *World) GetApplication(id ApplicationId) *Application {
 	for _, a := range w.Applications {
-		if a.ApplicationId == id {
+		if a.Id == id {
 			return a
 		}
 	}

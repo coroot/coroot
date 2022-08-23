@@ -50,10 +50,10 @@ func network(app *model.Application, world *model.World) *Dashboard {
 			if upstreamApp == nil {
 				continue
 			}
-			summary := upstreams[upstreamApp.ApplicationId]
+			summary := upstreams[upstreamApp.Id]
 			if summary == nil {
 				summary = newNetSummary()
-				upstreams[upstreamApp.ApplicationId] = summary
+				upstreams[upstreamApp.Id] = summary
 			}
 			linkStatus := u.Status()
 			if linkStatus > summary.status {
@@ -80,7 +80,7 @@ func network(app *model.Application, world *model.World) *Dashboard {
 		}
 	}
 	for appId, summary := range upstreams {
-		dash.GetOrCreateChartInGroup("Network round-trip time to <select>, seconds", appId.Name).
+		dash.GetOrCreateChartInGroup("Network round-trip time to <selector>, seconds", appId.Name).
 			AddSeries("min", summary.rttMin).
 			AddSeries("avg", timeseries.Aggregate(timeseries.Div, summary.rttSum, summary.rttCount)).
 			AddSeries("max", summary.rttMax)

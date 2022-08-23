@@ -41,7 +41,7 @@ func cpu(app *model.Application) *Dashboard {
 						appUsage.(*timeseries.AggregatedTimeseries).AddInput(c.CpuUsage)
 					}
 				}
-				dash.GetOrCreateChartInGroup("CPU consumers on <select>, cores", nodeName).
+				dash.GetOrCreateChartInGroup("CPU consumers on <selector>, cores", nodeName).
 					Stacked().
 					SetThreshold("total", node.MemoryTotalBytes, timeseries.Any).
 					AddMany(timeseries.TopByCumSum(usageByApp, 5, 1))
@@ -76,7 +76,7 @@ func cpuByMode(modes map[string]timeseries.TimeSeries) []*Series {
 		case "nice":
 			color = "lightGreen"
 		}
-		res = append(res, &Series{Name: mode, Color: color, Timeseries: v})
+		res = append(res, &Series{Name: mode, Color: color, Data: v})
 	}
 	return res
 }

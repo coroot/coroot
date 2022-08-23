@@ -10,21 +10,22 @@ import (
 )
 
 type LogPatternInfo struct {
-	Pattern    *logpattern.Pattern `json:"-"`
-	Featured   bool
-	Level      string
-	Color      string
-	Sample     string
-	Multiline  bool
-	Sum        timeseries.TimeSeries
-	Percentage uint64
-	Events     uint64
-	Instances  *Chart
+	Pattern *logpattern.Pattern `json:"-"`
+
+	Featured   bool                  `json:"featured"`
+	Level      string                `json:"level"`
+	Color      string                `json:"color"`
+	Sample     string                `json:"sample"`
+	Multiline  bool                  `json:"multiline"`
+	Sum        timeseries.TimeSeries `json:"sum"`
+	Percentage uint64                `json:"percentage"`
+	Events     uint64                `json:"events"`
+	Instances  *Chart                `json:"instances"`
 }
 
 type LogPatterns struct {
-	Title    string
-	Patterns []*LogPatternInfo
+	Title    string            `json:"title"`
+	Patterns []*LogPatternInfo `json:"patterns"`
 }
 
 var (
@@ -45,7 +46,7 @@ func logs(app *model.Application) *Dashboard {
 	dash := &Dashboard{Name: "Logs"}
 
 	patterns := &LogPatterns{
-		Title: fmt.Sprintf("Repeated patters from the <var>%s</var>'s log", app.ApplicationId.Name),
+		Title: fmt.Sprintf("Repeated patters from the <var>%s</var>'s log", app.Id.Name),
 	}
 	totalEvents := uint64(0)
 
@@ -98,7 +99,7 @@ func logs(app *model.Application) *Dashboard {
 	}
 
 	for _, l := range logLevels {
-		dash.GetOrCreateChart("Events by severity").
+		dash.GetOrCreateChart("Events by severity").Column().
 			AddSeries(strings.ToUpper(string(l)), byLevel[l], logLevelColors[l])
 	}
 	sort.Slice(patterns.Patterns, func(i, j int) bool {

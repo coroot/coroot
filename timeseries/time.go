@@ -5,9 +5,9 @@ import (
 )
 
 type Context struct {
-	From Time
-	To   Time
-	Step Duration
+	From Time     `json:"from"`
+	To   Time     `json:"to"`
+	Step Duration `json:"step"`
 }
 
 type Duration int64

@@ -11,10 +11,11 @@ import (
 
 type Constructor struct {
 	prom *prometheus.Client
+	step time.Duration
 }
 
-func New(prom *prometheus.Client) *Constructor {
-	return &Constructor{prom: prom}
+func New(prom *prometheus.Client, step time.Duration) *Constructor {
+	return &Constructor{prom: prom, step: step}
 }
 
 func (c *Constructor) LoadWorld(ctx context.Context, from, to time.Time) (*model.World, error) {
@@ -23,8 +24,14 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to time.Time) (*model
 	if err != nil {
 		return nil, err
 	}
-	w := &model.World{}
 	klog.Infof("got metrics in %s", time.Since(now))
+	w := &model.World{
+		Ctx: timeseries.Context{
+			From: timeseries.Time(from.Unix()),
+			To:   timeseries.Time(to.Unix()),
+			Step: timeseries.Duration(c.step.Seconds()),
+		},
+	}
 
 	loadNodes(w, metrics)
 	loadKubernetesMetadata(w, metrics)
@@ -68,7 +75,7 @@ func joinDBClusterComponents(w *model.World) {
 			if instance.ClusterName.Value() == "" {
 				continue
 			}
-			id := model.NewApplicationId(app.ApplicationId.Namespace, model.ApplicationKindDatabaseCluster, instance.ClusterName.Value())
+			id := model.NewApplicationId(app.Id.Namespace, model.ApplicationKindDatabaseCluster, instance.ClusterName.Value())
 			a := clusters[id]
 			if a == nil {
 				a = model.NewApplication(id)
@@ -77,13 +84,13 @@ func joinDBClusterComponents(w *model.World) {
 			}
 			a.Instances = append(a.Instances, instance)
 			instance.OwnerId = id
-			toDelete[app.ApplicationId] = true
+			toDelete[app.Id] = true
 		}
 	}
 	if len(toDelete) > 0 {
 		var apps []*model.Application
 		for _, app := range w.Applications {
-			if !toDelete[app.ApplicationId] {
+			if !toDelete[app.Id] {
 				apps = append(apps, app)
 			}
 		}
