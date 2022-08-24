@@ -43,7 +43,7 @@ func cpu(app *model.Application) *Dashboard {
 				}
 				dash.GetOrCreateChartInGroup("CPU consumers on <selector>, cores", nodeName).
 					Stacked().
-					SetThreshold("total", node.MemoryTotalBytes, timeseries.Any).
+					SetThreshold("total", node.CpuCapacity, timeseries.Any).
 					AddMany(timeseries.TopByCumSum(usageByApp, 5, 1))
 
 			}
