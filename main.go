@@ -52,6 +52,8 @@ func main() {
 	prometheusUrl := kingpin.Flag("prometheus", `Prometheus URL`).Required().String()
 	scrapeInterval := kingpin.Flag("scrapeInterval", `Prometheus scrape interval`).Default("30s").Duration()
 	skipTlsVerify := kingpin.Flag("skipTlsVerify", `Don't verify the certificate of the Prometheus`).Bool()
+	cacheTTL := kingpin.Flag("cache-ttl", `Cache TTL`).Default("720h").Duration()
+	cacheGcInterval := kingpin.Flag("cache-gc-interval", `Cache GC interval`).Default("10m").Duration()
 
 	kingpin.Parse()
 
@@ -66,7 +68,16 @@ func main() {
 	if err != nil {
 		klog.Exitln(err)
 	}
-	promCache, err := cache.NewCache(path.Join(*dataDir, "cache"), db, promApiClient, cache.DefaultCompactionConfig, *scrapeInterval)
+
+	cacheConfig := cache.Config{
+		Path: path.Join(*dataDir, "cache"),
+		GC: &cache.GcConfig{
+			TTL:      *cacheTTL,
+			Interval: *cacheGcInterval,
+		},
+	}
+
+	promCache, err := cache.NewCache(cacheConfig, db, promApiClient, *scrapeInterval)
 	if err != nil {
 		klog.Exitln(err)
 	}

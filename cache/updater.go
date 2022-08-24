@@ -132,7 +132,7 @@ func (c *Cache) saveChunk(queryHash string, chunk *Chunk) error {
 		qData = newQueryData()
 		c.data[queryHash] = qData
 	}
-	chunkFilePath := path.Join(c.dir, fmt.Sprintf(
+	chunkFilePath := path.Join(c.cfg.Path, fmt.Sprintf(
 		"%s-%d-%d-%d.db",
 		queryHash, chunk.from, chunk.duration, chunk.step))
 	if err := atomic.WriteFile(chunkFilePath, chunk.buf); err != nil {

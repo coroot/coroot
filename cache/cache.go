@@ -32,10 +32,10 @@ const (
 
 type Cache struct {
 	lock       sync.RWMutex
-	dir        string
 	data       map[string]*queryData
 	db         *db.DB
 	promClient prom.Client
+	cfg        Config
 
 	pendingCompactions prometheus.Gauge
 	compactedChunks    *prometheus.CounterVec
@@ -61,12 +61,13 @@ func newQueryData() *queryData {
 	}
 }
 
-func NewCache(cacheDir string, db *db.DB, promClient prom.Client, compactionCfg CompactionConfig, scrapeInterval time.Duration) (*Cache, error) {
-	if err := utils.CreateDirectoryIfNotExists(cacheDir); err != nil {
+func NewCache(cfg Config, db *db.DB, promClient prom.Client, scrapeInterval time.Duration) (*Cache, error) {
+	if err := utils.CreateDirectoryIfNotExists(cfg.Path); err != nil {
 		return nil, err
 	}
+
 	cache := &Cache{
-		dir:            cacheDir,
+		cfg:            cfg,
 		data:           map[string]*queryData{},
 		scrapeInterval: scrapeInterval,
 		db:             db,
@@ -92,7 +93,8 @@ func NewCache(cacheDir string, db *db.DB, promClient prom.Client, compactionCfg 
 	prometheus.MustRegister(cache.compactedChunks)
 
 	go cache.updater()
-	go cache.compaction(compactionCfg)
+	go cache.gc()
+	go cache.compaction()
 	return cache, nil
 }
 
@@ -100,14 +102,14 @@ func (c *Cache) initCacheIndexFromDir() error {
 	t := time.Now()
 	klog.Infoln("loading cache from disk")
 
-	_, err := os.Stat(c.dir)
+	_, err := os.Stat(c.cfg.Path)
 	if os.IsNotExist(err) {
-		klog.Infof("creating dir %s", c.dir)
-		if err := os.Mkdir(c.dir, 0755); err != nil {
+		klog.Infof("creating dir %s", c.cfg.Path)
+		if err := os.Mkdir(c.cfg.Path, 0755); err != nil {
 			return err
 		}
 	}
-	files, err := ioutil.ReadDir(c.dir)
+	files, err := ioutil.ReadDir(c.cfg.Path)
 	if err != nil {
 		return err
 	}
@@ -115,7 +117,7 @@ func (c *Cache) initCacheIndexFromDir() error {
 		if !strings.HasSuffix(chunkFile.Name(), ".db") {
 			continue
 		}
-		queryId, chunkInfo, err := getChunkInfo(c.dir, chunkFile.Name())
+		queryId, chunkInfo, err := getChunkInfo(c.cfg.Path, chunkFile.Name())
 		if err != nil {
 			klog.Errorln(err)
 			continue

@@ -13,27 +13,6 @@ import (
 	"time"
 )
 
-type CompactionConfig struct {
-	Interval   time.Duration `yaml:"interval"`
-	WorkersNum int           `yaml:"workers_num"`
-
-	Compactors []Compactor `yaml:"compactors"`
-}
-
-type Compactor struct {
-	SrcChunkDuration timeseries.Duration `yaml:"src_chunk_duration_seconds"`
-	DstChunkDuration timeseries.Duration `yaml:"dst_chunk_duration_seconds"`
-}
-
-var DefaultCompactionConfig = CompactionConfig{
-	Interval:   time.Minute * 10,
-	WorkersNum: 1,
-	Compactors: []Compactor{
-		{SrcChunkDuration: 3600, DstChunkDuration: 4 * 3600},
-		{SrcChunkDuration: 4 * 3600, DstChunkDuration: 12 * 3600},
-	},
-}
-
 type CompactionTask struct {
 	queryHash string
 	dstChunk  timeseries.Time
@@ -83,7 +62,11 @@ func calcCompactionTasks(compactor Compactor, queryHash string, chunks map[strin
 	return res
 }
 
-func (c *Cache) compaction(cfg CompactionConfig) {
+func (c *Cache) compaction() {
+	cfg := c.cfg.Compaction
+	if cfg == nil {
+		cfg = &DefaultCompactionConfig
+	}
 	if len(cfg.Compactors) == 0 {
 		klog.Warningln("no compactors configured, deactivating compaction")
 	}
