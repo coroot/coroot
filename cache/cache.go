@@ -136,7 +136,7 @@ func getChunkInfo(cacheDir, filename string) (string, *ChunkInfo, error) {
 	if len(parts) != 4 {
 		return "", nil, fmt.Errorf("invalid filename %s", filename)
 	}
-	queryId := parts[1]
+	queryId := parts[0]
 	info := &ChunkInfo{
 		path: path.Join(cacheDir, filename),
 	}
