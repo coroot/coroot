@@ -54,7 +54,14 @@ func Render(world *model.World, app *model.Application) *View {
 		if instance.Pod != nil && instance.Pod.IsObsolete() {
 			continue
 		}
-		i := &Instance{Id: instance.Name}
+		i := &Instance{Id: instance.Name, Labels: model.Labels{}}
+		if role := instance.ClusterRoleLast(); role != model.ClusterRoleNone {
+			i.Labels["role"] = role.String()
+		}
+		if instance.ApplicationTypes()[model.ApplicationTypePgbouncer] {
+			i.Labels["pooler"] = "pgbouncer"
+		}
+
 		for _, connection := range instance.Upstreams {
 			if connection.RemoteInstance == nil {
 				continue

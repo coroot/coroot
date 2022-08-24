@@ -85,6 +85,7 @@ export default {
 <style scoped>
 .title {
     font-size: 14px !important;
+    font-weight: normal !important;
 }
 .pattern {
     display: flex;

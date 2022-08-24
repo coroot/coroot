@@ -83,5 +83,6 @@ export default {
     text-transform: none;
     padding: 0 4px !important;
     letter-spacing: inherit;
+    font-weight: normal !important;
 }
 </style>

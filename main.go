@@ -28,7 +28,10 @@ func (f *Focus) Overview(w http.ResponseWriter, r *http.Request) {
 	world, err := f.loadWorld(r)
 	if err != nil {
 		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
 	}
+	klog.Infoln("world", world == nil)
 	utils.WriteJson(w, views.Overview(world))
 }
 
@@ -42,7 +45,7 @@ func (f *Focus) App(w http.ResponseWriter, r *http.Request) {
 	world, err := f.loadWorld(r)
 	if err != nil {
 		klog.Errorln(err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 	app := world.GetApplication(id)

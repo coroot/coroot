@@ -13,7 +13,7 @@
                     <router-link :to="{name: 'application', params: {id: app.id}}" class="name">
                         {{$api.appId(app.id).name}}
                     </router-link>
-                    <Labels :labels="app.labels" class="d-none d-sm-block ml-4" />
+                    <Labels :labels="app.labels" class="d-none d-sm-block" />
                 </div>
             </div>
         </div>
@@ -27,7 +27,7 @@
                     <span class="name">
                         {{$api.appId(application.id).name}}
                     </span>
-                    <Labels :labels="application.labels" class="d-none d-sm-block ml-4" />
+                    <Labels :labels="application.labels" class="d-none d-sm-block" />
                 </div>
                 <div v-if="instances && instances.length" class="instances">
                     <div v-for="i in instances" class="instance" :ref="'instance:'+i.id"
@@ -40,8 +40,10 @@
 <!--                        </AppHealth>-->
                         <span class="name">
                             {{i.id}}
+                            <v-icon v-if="i.labels && i.labels['role'] === 'primary'" small color="rgba(0,0,0,0.87)">mdi-database-edit-outline</v-icon>
+                            <v-icon v-if="i.labels && i.labels['role'] === 'replica'" small color="grey">mdi-database-import-outline</v-icon>
                         </span>
-                        <Labels :labels="i.labels" class="d-none d-sm-block ml-4" />
+                        <Labels :labels="i.labels" class="d-none d-sm-block" />
                     </div>
                 </div>
             </div>
@@ -59,7 +61,7 @@
                     <router-link :to="{name: 'application', params: {id: app.id}}" class="name">
                         {{$api.appId(app.id).name}}
                     </router-link>
-                    <Labels :labels="app.labels" class="d-none d-sm-block ml-4" />
+                    <Labels :labels="app.labels" class="d-none d-sm-block" />
                 </div>
             </div>
         </div>
@@ -260,11 +262,11 @@ export default {
     align-self: center;
 }
 .app, .client, .dependency {
-    max-width: 200px;
+    max-width: 300px;
     border-radius: 3px;
     border: 1px solid #BDBDBD;
     white-space: nowrap;
-    padding: 4px;
+    padding: 6px 12px;
 }
 .instances {
     padding: 8px 16px;
@@ -276,7 +278,7 @@ export default {
     border-radius: 3px;
     border: 1px solid #BDBDBD;
     white-space: nowrap;
-    padding: 4px;
+    padding: 4px 8px;
     max-width: 12rem;
 }
 .name {

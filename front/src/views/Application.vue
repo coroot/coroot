@@ -19,7 +19,7 @@
                     {{d.name}}
                 </v-tab>
                 <v-tab-item transition="none">
-                    <Widget v-for="w in d.widgets" :w="w" />
+                    <Widget v-for="w in d.widgets" :w="w" class="my-5" />
                 </v-tab-item>
             </template>
         </v-tabs>

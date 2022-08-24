@@ -14,7 +14,7 @@
                         <router-link :to="{name: 'application', params: {id: a.id}}" class="name">
                             {{$api.appId(a.id).name}}
                         </router-link>
-                        <Labels :labels="a.Labels" class="d-none d-sm-block ml-4" />
+                        <Labels :labels="a.labels" class="d-none d-sm-block" />
                     </span>
                 </div>
             </div>
@@ -263,7 +263,7 @@ export default {
     border: 1px solid #BDBDBD;
     border-radius: 3px;
     white-space: nowrap;
-    padding: 4px;
+    padding: 6px 12px;
     background-color: white;
     display: inline-flex;
     flex-direction: column;

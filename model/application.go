@@ -2,10 +2,9 @@ package model
 
 import (
 	"github.com/coroot/coroot-focus/utils"
+	"strconv"
 	"strings"
 )
-
-type ApplicationType string
 
 type Application struct {
 	Id ApplicationId
@@ -37,7 +36,40 @@ func (app *Application) GetOrCreateInstance(name string) *Instance {
 }
 
 func (app *Application) Labels() Labels {
-	return nil
+	res := Labels{}
+	switch app.Id.Kind {
+	case ApplicationKindStandaloneContainers:
+		res["instances"] = strconv.Itoa(len(app.Instances))
+	case ApplicationKindExternalService:
+		eps := utils.NewStringSet()
+		for _, instance := range app.Instances {
+			for listen := range instance.TcpListens {
+				eps.Add(listen.IP)
+			}
+		}
+		if eps.Len() > 0 {
+			name := "external endpoint"
+			if eps.Len() > 1 {
+				name += "s"
+			}
+			res[name] = strings.Join(eps.Items(), ", ")
+		}
+	default:
+		res["ns"] = app.Id.Namespace
+	}
+	for _, i := range app.Instances {
+		for _, c := range i.Containers {
+			for t := range c.ApplicationTypes {
+				if t.IsDatabase() {
+					res["db"] = string(t)
+				}
+				if t.IsQueue() {
+					res["queue"] = string(t)
+				}
+			}
+		}
+	}
+	return res
 }
 
 func (app *Application) IsControlPlane() bool {

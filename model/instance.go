@@ -149,6 +149,21 @@ func (instance *Instance) UpdateClusterRole(role string, v timeseries.TimeSeries
 	}
 }
 
+func (instance *Instance) ClusterRole() timeseries.TimeSeries {
+	if instance.Pod == nil || instance.Pod.Ready == nil || instance.clusterRole.IsEmpty() {
+		return instance.clusterRole
+	}
+	return timeseries.Aggregate(timeseries.Mul, instance.clusterRole, instance.Pod.Ready)
+}
+
+func (instance *Instance) ClusterRoleLast() ClusterRole {
+	role := instance.ClusterRole()
+	if role == nil || role.IsEmpty() {
+		return ClusterRoleNone
+	}
+	return ClusterRole(role.Last())
+}
+
 func (instance *Instance) IsListenActive(ip, port string) bool {
 	for l, active := range instance.TcpListens {
 		if l.IP == ip && l.Port == port {

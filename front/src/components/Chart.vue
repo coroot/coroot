@@ -356,6 +356,7 @@ export default {
 <style scoped>
 .title {
     font-size: 14px !important;
+    font-weight: normal !important;
     text-align: center;
     line-height: 1.5em;
 }

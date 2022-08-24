@@ -18,6 +18,10 @@
 
 <style>
 a {
-    text-decoration: none;
+    text-decoration: none !important;
+    color: #0000ee !important;
+}
+a:visited {
+    color: #0000ee !important;
 }
 </style>
