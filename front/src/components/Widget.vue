@@ -12,7 +12,6 @@ import Chart from "@/components/Chart";
 import ChartGroup from "@/components/ChartGroup";
 import LogPatterns from "@/components/LogPatterns";
 import DependencyMap from "@/components/DependencyMap";
-import AppMap from "@/components/AppMap";
 
 export default {
     props: {
