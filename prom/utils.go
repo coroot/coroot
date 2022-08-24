@@ -1,4 +1,4 @@
-package prometheus
+package prom
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func ParallelQueryRange(ctx context.Context, client *Client, from, to time.Time, queries map[string]string) (map[string][]model.MetricValues, error) {
+func ParallelQueryRange(ctx context.Context, client Client, from, to time.Time, queries map[string]string) (map[string][]model.MetricValues, error) {
 	res := make(map[string][]model.MetricValues, len(queries))
 	var lock sync.Mutex
 	var lastErr error

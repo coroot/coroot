@@ -62,7 +62,7 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues) {
 			switch {
 			case mc.pod != "" && mc.ns != "":
 				if instance = getInstanceByPod(w, mc.ns, mc.pod); instance == nil {
-					klog.Warningln("unknown pod: %s/%s", mc.ns, mc.pod)
+					klog.Warningf("unknown pod: %s/%s", mc.ns, mc.pod)
 					continue
 				}
 			case mc.container != "" && mc.node != nil:

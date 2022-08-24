@@ -1,12 +1,15 @@
 package timeseries
 
 import (
+	"bytes"
+	"encoding/binary"
+	"fmt"
+	"github.com/pierrec/lz4"
 	"strings"
 )
 
 type InMemoryTimeSeries struct {
-	ctx Context
-
+	ctx  Context
 	data []float64
 }
 
@@ -40,7 +43,7 @@ func (ts *InMemoryTimeSeries) String() string {
 		_, v := iter.Value()
 		values = append(values, Value(v).String())
 	}
-	return "InMemoryTimeSeries(" + strings.Join(values, " ") + ")"
+	return fmt.Sprintf("InMemoryTimeSeries(%d, %d, %d, [%s])", ts.ctx.From, ts.ctx.To, ts.ctx.Step, strings.Join(values, " "))
 }
 
 func (ts *InMemoryTimeSeries) Set(t Time, v float64) {
@@ -98,4 +101,43 @@ func (ts *InMemoryTimeSeries) MarshalJSON() ([]byte, error) {
 
 func (ts *InMemoryTimeSeries) IsEmpty() bool {
 	return len(ts.data) == 0
+}
+
+func (ts *InMemoryTimeSeries) ToBinary() ([]byte, error) {
+	buf := &bytes.Buffer{}
+	if err := binary.Write(buf, binary.LittleEndian, ts.ctx); err != nil {
+		return nil, err
+	}
+	if err := binary.Write(buf, binary.LittleEndian, ts.data); err != nil {
+		return nil, err
+	}
+	res := make([]byte, 8+lz4.CompressBlockBound(buf.Len()))
+	binary.PutUvarint(res, uint64(buf.Len()))
+	n, err := lz4.CompressBlock(buf.Bytes(), res[8:], nil)
+	if err != nil {
+		return nil, err
+	}
+	return res[:n+8], nil
+}
+
+func InMemoryTimeSeriesFromBinary(data []byte) (*InMemoryTimeSeries, error) {
+	if len(data) < 8 {
+		return nil, fmt.Errorf("invalid input")
+	}
+	l, _ := binary.Uvarint(data)
+	uncompressed := make([]byte, l)
+	if _, err := lz4.UncompressBlock(data[8:], uncompressed); err != nil {
+		return nil, err
+	}
+	r := bytes.NewReader(uncompressed)
+
+	ctx := Context{}
+	if err := binary.Read(r, binary.LittleEndian, &ctx); err != nil {
+		return nil, err
+	}
+	ts := NewNan(ctx)
+	if err := binary.Read(r, binary.LittleEndian, &ts.data); err != nil {
+		return nil, err
+	}
+	return ts, nil
 }

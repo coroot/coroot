@@ -2,25 +2,42 @@ package constructor
 
 import (
 	"context"
+	"fmt"
 	"github.com/coroot/coroot-focus/model"
-	"github.com/coroot/coroot-focus/prometheus"
+	"github.com/coroot/coroot-focus/prom"
 	"github.com/coroot/coroot-focus/timeseries"
+	"github.com/coroot/coroot-focus/utils"
 	"k8s.io/klog"
 	"time"
 )
 
 type Constructor struct {
-	prom *prometheus.Client
+	prom prom.Client
 	step time.Duration
 }
 
-func New(prom *prometheus.Client, step time.Duration) *Constructor {
+func New(prom prom.Client, step time.Duration) *Constructor {
 	return &Constructor{prom: prom, step: step}
 }
 
 func (c *Constructor) LoadWorld(ctx context.Context, from, to time.Time) (*model.World, error) {
 	now := time.Now()
-	metrics, err := prometheus.ParallelQueryRange(ctx, c.prom, from, to, QUERIES)
+
+	actualQueries := utils.NewStringSet()
+	for _, q := range QUERIES {
+		actualQueries.Add(q)
+	}
+
+	lastUpdateTs := c.prom.LastUpdateTime(actualQueries)
+	if !lastUpdateTs.IsZero() && lastUpdateTs.Before(to) {
+		if lastUpdateTs.Before(from) {
+			return nil, fmt.Errorf("out of cache time range")
+		}
+		from = from.Add(lastUpdateTs.Sub(to))
+		to = lastUpdateTs
+	}
+
+	metrics, err := prom.ParallelQueryRange(ctx, c.prom, from, to, QUERIES)
 	if err != nil {
 		return nil, err
 	}

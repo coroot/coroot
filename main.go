@@ -1,15 +1,18 @@
 package main
 
 import (
+	"github.com/coroot/coroot-focus/cache"
 	"github.com/coroot/coroot-focus/constructor"
+	"github.com/coroot/coroot-focus/db"
 	"github.com/coroot/coroot-focus/model"
-	"github.com/coroot/coroot-focus/prometheus"
+	"github.com/coroot/coroot-focus/prom"
 	"github.com/coroot/coroot-focus/utils"
 	"github.com/coroot/coroot-focus/view"
 	"github.com/gorilla/mux"
 	"gopkg.in/alecthomas/kingpin.v2"
 	"k8s.io/klog"
 	"net/http"
+	"path"
 	"time"
 )
 
@@ -29,9 +32,11 @@ func (f *Focus) App(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	now := time.Now()
-	world, err := f.constructor.LoadWorld(r.Context(), now.Add(-4*time.Hour), now)
+	world, err := f.constructor.LoadWorld(r.Context(), now.Add(-1*time.Hour), now)
 	if err != nil {
 		klog.Errorln(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 	app := world.GetApplication(id)
 	if app == nil {
@@ -43,17 +48,29 @@ func (f *Focus) App(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	dataDir := kingpin.Flag("datadir", `Path to data directory`).Required().String()
 	prometheusUrl := kingpin.Flag("prometheus", `Prometheus URL`).Required().String()
 	scrapeInterval := kingpin.Flag("scrapeInterval", `Prometheus scrape interval`).Default("30s").Duration()
 	skipTlsVerify := kingpin.Flag("skipTlsVerify", `Don't verify the certificate of the Prometheus`).Bool()
 
 	kingpin.Parse()
 
-	prom, err := prometheus.NewClient(*prometheusUrl, *skipTlsVerify, *scrapeInterval)
-	if err != nil {
-		klog.Fatalln(err)
+	if err := utils.CreateDirectoryIfNotExists(*dataDir); err != nil {
+		klog.Exitln(err)
 	}
-	focus := &Focus{constructor: constructor.New(prom, *scrapeInterval)}
+	db, err := db.Open(path.Join(*dataDir, "db.sqlite"))
+	if err != nil {
+		klog.Exitln(err)
+	}
+	promApiClient, err := prom.NewApiClient(*prometheusUrl, *skipTlsVerify, *scrapeInterval)
+	if err != nil {
+		klog.Exitln(err)
+	}
+	promCache, err := cache.NewCache(path.Join(*dataDir, "cache"), db, promApiClient, cache.DefaultCompactionConfig, *scrapeInterval)
+	if err != nil {
+		klog.Exitln(err)
+	}
+	focus := &Focus{constructor: constructor.New(promCache.GetCacheClient(), *scrapeInterval)}
 
 	r := mux.NewRouter()
 	r.HandleFunc("/health", focus.Health).Methods(http.MethodGet)

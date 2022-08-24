@@ -1,4 +1,4 @@
-package prometheus
+package prom
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/coroot/coroot-focus/model"
 	"github.com/coroot/coroot-focus/timeseries"
+	"github.com/coroot/coroot-focus/utils"
 	"github.com/prometheus/client_golang/api"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	promModel "github.com/prometheus/common/model"
@@ -15,12 +16,12 @@ import (
 	"time"
 )
 
-type Client struct {
+type ApiClient struct {
 	scrapeInterval time.Duration
 	api            v1.API
 }
 
-func NewClient(address string, skipTlsVerify bool, scrapeInterval time.Duration) (*Client, error) {
+func NewApiClient(address string, skipTlsVerify bool, scrapeInterval time.Duration) (Client, error) {
 	transport := &http.Transport{
 		DialContext: (&net.Dialer{
 			Timeout:   30 * time.Second,
@@ -34,10 +35,14 @@ func NewClient(address string, skipTlsVerify bool, scrapeInterval time.Duration)
 	if err != nil {
 		return nil, err
 	}
-	return &Client{api: v1.NewAPI(c), scrapeInterval: scrapeInterval}, nil
+	return &ApiClient{api: v1.NewAPI(c), scrapeInterval: scrapeInterval}, nil
 }
 
-func (c *Client) QueryRange(ctx context.Context, query string, from, to time.Time) ([]model.MetricValues, error) {
+func (c *ApiClient) LastUpdateTime(*utils.StringSet) time.Time {
+	return time.Time{}
+}
+
+func (c *ApiClient) QueryRange(ctx context.Context, query string, from, to time.Time) ([]model.MetricValues, error) {
 	query = strings.ReplaceAll(query, "$RANGE", fmt.Sprintf(`%.0fs`, (c.scrapeInterval*3).Seconds()))
 	step := c.scrapeInterval
 	from = from.Truncate(step)
