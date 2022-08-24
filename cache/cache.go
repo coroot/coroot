@@ -98,7 +98,7 @@ func NewCache(cacheDir string, db *db.DB, promClient prom.Client, compactionCfg 
 
 func (c *Cache) initCacheIndexFromDir() error {
 	t := time.Now()
-	klog.Infoln("loading cache metadata from disk")
+	klog.Infoln("loading cache from disk")
 
 	_, err := os.Stat(c.dir)
 	if os.IsNotExist(err) {
@@ -127,7 +127,7 @@ func (c *Cache) initCacheIndexFromDir() error {
 		}
 		byQuery.chunksOnDisk[chunkInfo.path] = chunkInfo
 	}
-	klog.Infof("cache metadata loaded from disk in %s", time.Since(t))
+	klog.Infof("cache loaded from disk in %s", time.Since(t))
 	return nil
 }
 

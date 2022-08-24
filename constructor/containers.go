@@ -133,7 +133,7 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues) {
 			case "container_application_type":
 				container.ApplicationTypes[model.ApplicationType(m.Labels["application_type"])] = true
 			case "container_log_messages":
-				logMessage(instance, m)
+				logMessage(instance, m.Labels, timeseries.Increase(m.Values, promJobStatus))
 			case "container_volume_size":
 				v := getOrCreateInstanceVolume(instance, m)
 				v.CapacityBytes = update(v.CapacityBytes, m.Values)
@@ -226,19 +226,19 @@ func getOrCreateInstanceVolume(instance *model.Instance, m model.MetricValues) *
 	return volume
 }
 
-func logMessage(instance *model.Instance, m model.MetricValues) {
-	level := model.LogLevel(m.Labels["level"])
+func logMessage(instance *model.Instance, ls model.Labels, values timeseries.TimeSeries) {
+	level := model.LogLevel(ls["level"])
 	byLevel, ok := instance.LogMessagesByLevel[level]
 	if !ok {
 		byLevel = timeseries.Aggregate(timeseries.NanSum)
 		instance.LogMessagesByLevel[level] = byLevel
 	}
-	byLevel.(*timeseries.AggregatedTimeseries).AddInput(m.Values)
+	byLevel.(*timeseries.AggregatedTimeseries).AddInput(values)
 
-	if hash := m.Labels["pattern_hash"]; hash != "" {
+	if hash := ls["pattern_hash"]; hash != "" {
 		p := instance.LogPatterns[hash]
 		if p == nil {
-			sample := m.Labels["sample"]
+			sample := ls["sample"]
 			pattern := logpattern.NewPattern(sample)
 
 			p = &model.LogPattern{
@@ -253,7 +253,7 @@ func logMessage(instance *model.Instance, m model.MetricValues) {
 			}
 			instance.LogPatterns[hash] = p
 		}
-		p.Sum.(*timeseries.AggregatedTimeseries).AddInput(m.Values)
+		p.Sum.(*timeseries.AggregatedTimeseries).AddInput(values)
 	}
 }
 

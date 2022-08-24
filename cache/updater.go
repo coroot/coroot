@@ -23,7 +23,7 @@ const (
 
 func (c *Cache) updater() {
 	for {
-		klog.Infoln("worker iteration")
+		klog.Infoln("refreshing cache")
 		now := time.Now()
 		func() {
 			byQuery, err := c.db.LoadStates()
@@ -73,7 +73,7 @@ func (c *Cache) updater() {
 			wg.Wait()
 		}()
 		duration := time.Since(now)
-		klog.Infof("worker iteration done in %dms", duration.Milliseconds())
+		klog.Infof("cache refreshed in %dms", duration.Milliseconds())
 		time.Sleep(c.scrapeInterval - duration)
 	}
 }
