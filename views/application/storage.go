@@ -1,12 +1,13 @@
-package view
+package application
 
 import (
 	"github.com/coroot/coroot-focus/model"
 	"github.com/coroot/coroot-focus/timeseries"
+	"github.com/coroot/coroot-focus/views/widgets"
 )
 
-func storage(app *model.Application) *Dashboard {
-	dash := &Dashboard{Name: "Storage"}
+func storage(app *model.Application) *widgets.Dashboard {
+	dash := &widgets.Dashboard{Name: "Storage"}
 
 	for _, i := range app.Instances {
 		for _, v := range i.Volumes {

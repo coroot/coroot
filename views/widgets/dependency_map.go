@@ -1,4 +1,4 @@
-package view
+package widgets
 
 import (
 	"github.com/coroot/coroot-focus/model"

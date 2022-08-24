@@ -1,12 +1,13 @@
-package view
+package application
 
 import (
 	"github.com/coroot/coroot-focus/model"
 	"github.com/coroot/coroot-focus/timeseries"
+	"github.com/coroot/coroot-focus/views/widgets"
 )
 
-func memory(app *model.Application) *Dashboard {
-	dash := &Dashboard{Name: "Memory"}
+func memory(app *model.Application) *widgets.Dashboard {
+	dash := &widgets.Dashboard{Name: "Memory"}
 	relevantNodes := map[string]*model.Node{}
 
 	for _, i := range app.Instances {

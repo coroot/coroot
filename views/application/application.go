@@ -1,14 +1,34 @@
-package view
+package application
 
 import (
 	"github.com/coroot/coroot-focus/model"
 	"github.com/coroot/coroot-focus/timeseries"
+	"github.com/coroot/coroot-focus/views/widgets"
 	"sort"
 )
+
+type View struct {
+	Application *Application `json:"application"`
+	Instances   []*Instance  `json:"instances"`
+
+	Clients      []*Application `json:"clients"`
+	Dependencies []*Application `json:"dependencies"`
+
+	Dashboards []*widgets.Dashboard `json:"dashboards"`
+}
 
 type Application struct {
 	Id     model.ApplicationId `json:"id"`
 	Labels model.Labels        `json:"labels"`
+}
+
+type Instance struct {
+	Id     string       `json:"id"`
+	Labels model.Labels `json:"labels"`
+
+	Clients       []*ApplicationLink `json:"clients"`
+	Dependencies  []*ApplicationLink `json:"dependencies"`
+	InternalLinks []*InstanceLink    `json:"internal_links"`
 }
 
 type ApplicationLink struct {
@@ -17,67 +37,14 @@ type ApplicationLink struct {
 	Direction string              `json:"direction"`
 }
 
-type AppView struct {
-	Application *Application `json:"application"`
-	Instances   []*Instance  `json:"instances"`
-
-	Clients      []*Application `json:"clients"`
-	Dependencies []*Application `json:"dependencies"`
-
-	Dashboards []*Dashboard `json:"dashboards"`
+type InstanceLink struct {
+	Id        string       `json:"id"`
+	Status    model.Status `json:"status"`
+	Direction string       `json:"direction"`
 }
 
-func (v *AppView) addDashboard(ctx timeseries.Context, d *Dashboard) {
-	if len(d.Widgets) == 0 {
-		return
-	}
-	for _, w := range d.Widgets {
-		if w.Chart != nil {
-			w.Chart.Ctx = ctx
-		}
-		if w.ChartGroup != nil {
-			for _, ch := range w.ChartGroup.Charts {
-				ch.Ctx = ctx
-			}
-			autoFeatureChartInGroup(w.ChartGroup)
-		}
-		if w.LogPatterns != nil {
-			for _, p := range w.LogPatterns.Patterns {
-				p.Instances.Ctx = ctx
-			}
-		}
-	}
-	v.Dashboards = append(v.Dashboards, d)
-}
-
-func (v *AppView) addDependency(w *model.World, id model.ApplicationId) {
-	for _, a := range v.Dependencies {
-		if a.Id == id {
-			return
-		}
-	}
-	app := w.GetApplication(id)
-	if app == nil {
-		return
-	}
-	v.Dependencies = append(v.Dependencies, &Application{Id: id, Labels: app.Labels()})
-}
-
-func (v *AppView) addClient(w *model.World, id model.ApplicationId) {
-	for _, a := range v.Clients {
-		if a.Id == id {
-			return
-		}
-	}
-	app := w.GetApplication(id)
-	if app == nil {
-		return
-	}
-	v.Clients = append(v.Clients, &Application{Id: id, Labels: app.Labels()})
-}
-
-func RenderApp(world *model.World, app *model.Application) *AppView {
-	view := &AppView{Application: &Application{
+func Render(world *model.World, app *model.Application) *View {
+	view := &View{Application: &Application{
 		Id:     app.Id,
 		Labels: app.Labels(),
 	}}
@@ -147,31 +114,51 @@ func RenderApp(world *model.World, app *model.Application) *AppView {
 	return view
 }
 
-func autoFeatureChartInGroup(cg *ChartGroup) {
-	if len(cg.Charts) < 2 {
-		return
-	}
-	type weightedChart struct {
-		ch *Chart
-		w  float64
-	}
-	for _, ch := range cg.Charts {
-		if ch.Featured {
+func (v *View) addDependency(w *model.World, id model.ApplicationId) {
+	for _, a := range v.Dependencies {
+		if a.Id == id {
 			return
 		}
 	}
-	charts := make([]weightedChart, 0, len(cg.Charts))
-	for _, ch := range cg.Charts {
-		var w float64
-		for _, s := range ch.Series {
-			w += timeseries.Reduce(timeseries.NanSum, s.Data)
+	app := w.GetApplication(id)
+	if app == nil {
+		return
+	}
+	v.Dependencies = append(v.Dependencies, &Application{Id: id, Labels: app.Labels()})
+}
+
+func (v *View) addClient(w *model.World, id model.ApplicationId) {
+	for _, a := range v.Clients {
+		if a.Id == id {
+			return
 		}
-		charts = append(charts, weightedChart{ch: ch, w: w})
 	}
-	sort.Slice(charts, func(i, j int) bool {
-		return charts[i].w > charts[j].w
-	})
-	if charts[0].w/charts[1].w > 1.2 {
-		charts[0].ch.Featured = true
+	app := w.GetApplication(id)
+	if app == nil {
+		return
 	}
+	v.Clients = append(v.Clients, &Application{Id: id, Labels: app.Labels()})
+}
+
+func (v *View) addDashboard(ctx timeseries.Context, d *widgets.Dashboard) {
+	if len(d.Widgets) == 0 {
+		return
+	}
+	for _, w := range d.Widgets {
+		if w.Chart != nil {
+			w.Chart.Ctx = ctx
+		}
+		if w.ChartGroup != nil {
+			for _, ch := range w.ChartGroup.Charts {
+				ch.Ctx = ctx
+			}
+			w.ChartGroup.AutoFeatureChart()
+		}
+		if w.LogPatterns != nil {
+			for _, p := range w.LogPatterns.Patterns {
+				p.Instances.Ctx = ctx
+			}
+		}
+	}
+	v.Dashboards = append(v.Dashboards, d)
 }

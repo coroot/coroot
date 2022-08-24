@@ -1,6 +1,9 @@
-package view
+package widgets
 
-import "github.com/coroot/coroot-focus/timeseries"
+import (
+	"github.com/coroot/coroot-focus/timeseries"
+	"sort"
+)
 
 type ChartType string
 
@@ -92,4 +95,33 @@ func (cg *ChartGroup) GetOrCreateChart(title string) *Chart {
 	ch := NewChart(title)
 	cg.Charts = append(cg.Charts, ch)
 	return ch
+}
+
+func (cg *ChartGroup) AutoFeatureChart() {
+	if len(cg.Charts) < 2 {
+		return
+	}
+	type weightedChart struct {
+		ch *Chart
+		w  float64
+	}
+	for _, ch := range cg.Charts {
+		if ch.Featured {
+			return
+		}
+	}
+	charts := make([]weightedChart, 0, len(cg.Charts))
+	for _, ch := range cg.Charts {
+		var w float64
+		for _, s := range ch.Series {
+			w += timeseries.Reduce(timeseries.NanSum, s.Data)
+		}
+		charts = append(charts, weightedChart{ch: ch, w: w})
+	}
+	sort.Slice(charts, func(i, j int) bool {
+		return charts[i].w > charts[j].w
+	})
+	if charts[0].w/charts[1].w > 1.2 {
+		charts[0].ch.Featured = true
+	}
 }

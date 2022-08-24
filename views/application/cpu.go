@@ -1,12 +1,13 @@
-package view
+package application
 
 import (
 	"github.com/coroot/coroot-focus/model"
 	"github.com/coroot/coroot-focus/timeseries"
+	"github.com/coroot/coroot-focus/views/widgets"
 )
 
-func cpu(app *model.Application) *Dashboard {
-	dash := &Dashboard{Name: "CPU"}
+func cpu(app *model.Application) *widgets.Dashboard {
+	dash := &widgets.Dashboard{Name: "CPU"}
 	relevantNodes := map[string]*model.Node{}
 
 	for _, i := range app.Instances {
@@ -52,8 +53,8 @@ func cpu(app *model.Application) *Dashboard {
 	return dash
 }
 
-func cpuByMode(modes map[string]timeseries.TimeSeries) []*Series {
-	var res []*Series
+func cpuByMode(modes map[string]timeseries.TimeSeries) []*widgets.Series {
+	var res []*widgets.Series
 	for _, mode := range []string{"user", "nice", "system", "wait", "iowait", "steal", "irq", "softirq"} {
 		v, ok := modes[mode]
 		if !ok {
@@ -76,7 +77,7 @@ func cpuByMode(modes map[string]timeseries.TimeSeries) []*Series {
 		case "nice":
 			color = "lightGreen"
 		}
-		res = append(res, &Series{Name: mode, Color: color, Data: v})
+		res = append(res, &widgets.Series{Name: mode, Color: color, Data: v})
 	}
 	return res
 }

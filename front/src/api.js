@@ -27,6 +27,10 @@ export default class Api {
         })
     }
 
+    getOverview(cb) {
+        this.get(`overview`, cb);
+    }
+
     getApplication(id, cb) {
         this.get(`app/${id}`, cb);
     }

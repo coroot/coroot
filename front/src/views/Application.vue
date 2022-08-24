@@ -1,7 +1,8 @@
 <template>
 <div>
     <h1 class="text-h5 my-5">
-        Applications / {{$api.appId(id).name}}
+        <router-link :to="{name: 'overview'}">Applications</router-link>
+        / {{$api.appId(id).name}}
         <v-progress-linear v-if="loading" indeterminate color="green" />
     </h1>
 

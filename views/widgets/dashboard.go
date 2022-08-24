@@ -1,4 +1,4 @@
-package view
+package widgets
 
 type Dashboard struct {
 	Name    string    `json:"name"`

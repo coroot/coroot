@@ -7,7 +7,7 @@ import (
 	"github.com/coroot/coroot-focus/model"
 	"github.com/coroot/coroot-focus/prom"
 	"github.com/coroot/coroot-focus/utils"
-	"github.com/coroot/coroot-focus/view"
+	"github.com/coroot/coroot-focus/views"
 	"github.com/gorilla/mux"
 	"gopkg.in/alecthomas/kingpin.v2"
 	"k8s.io/klog"
@@ -24,6 +24,14 @@ func (f *Focus) Health(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
+func (f *Focus) Overview(w http.ResponseWriter, r *http.Request) {
+	world, err := f.loadWorld(r)
+	if err != nil {
+		klog.Errorln(err)
+	}
+	utils.WriteJson(w, views.Overview(world))
+}
+
 func (f *Focus) App(w http.ResponseWriter, r *http.Request) {
 	id, err := model.NewApplicationIdFromString(mux.Vars(r)["app"])
 	if err != nil {
@@ -31,8 +39,7 @@ func (f *Focus) App(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid application_id: "+mux.Vars(r)["app"], http.StatusBadRequest)
 		return
 	}
-	now := time.Now()
-	world, err := f.constructor.LoadWorld(r.Context(), now.Add(-1*time.Hour), now)
+	world, err := f.loadWorld(r)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -44,7 +51,12 @@ func (f *Focus) App(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "application not found", http.StatusNotFound)
 		return
 	}
-	utils.WriteJson(w, view.RenderApp(world, app))
+	utils.WriteJson(w, views.Application(world, app))
+}
+
+func (f *Focus) loadWorld(r *http.Request) (*model.World, error) {
+	now := time.Now()
+	return f.constructor.LoadWorld(r.Context(), now.Add(-1*time.Hour), now)
 }
 
 func main() {
@@ -85,6 +97,7 @@ func main() {
 
 	r := mux.NewRouter()
 	r.HandleFunc("/health", focus.Health).Methods(http.MethodGet)
+	r.HandleFunc("/api/overview", focus.Overview).Methods(http.MethodGet)
 	r.HandleFunc("/api/app/{app}", focus.App).Methods(http.MethodGet)
 
 	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("./static"))))

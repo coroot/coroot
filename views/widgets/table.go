@@ -1,4 +1,4 @@
-package view
+package widgets
 
 type Table struct {
 	Header []string

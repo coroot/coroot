@@ -1,32 +1,13 @@
-package view
+package application
 
 import (
 	"fmt"
 	"github.com/coroot/coroot-focus/model"
 	"github.com/coroot/coroot-focus/timeseries"
-	"github.com/coroot/logpattern"
+	"github.com/coroot/coroot-focus/views/widgets"
 	"sort"
 	"strings"
 )
-
-type LogPatternInfo struct {
-	Pattern *logpattern.Pattern `json:"-"`
-
-	Featured   bool                  `json:"featured"`
-	Level      string                `json:"level"`
-	Color      string                `json:"color"`
-	Sample     string                `json:"sample"`
-	Multiline  bool                  `json:"multiline"`
-	Sum        timeseries.TimeSeries `json:"sum"`
-	Percentage uint64                `json:"percentage"`
-	Events     uint64                `json:"events"`
-	Instances  *Chart                `json:"instances"`
-}
-
-type LogPatterns struct {
-	Title    string            `json:"title"`
-	Patterns []*LogPatternInfo `json:"patterns"`
-}
 
 var (
 	logLevelColors = map[model.LogLevel]string{
@@ -40,12 +21,12 @@ var (
 	logLevels = []model.LogLevel{"unknown", "debug", "info", "warning", "error", "critical"}
 )
 
-func logs(app *model.Application) *Dashboard {
-	byHash := map[string]*LogPatternInfo{}
+func logs(app *model.Application) *widgets.Dashboard {
+	byHash := map[string]*widgets.LogPatternInfo{}
 	byLevel := map[model.LogLevel]timeseries.TimeSeries{}
-	dash := &Dashboard{Name: "Logs"}
+	dash := &widgets.Dashboard{Name: "Logs"}
 
-	patterns := &LogPatterns{
+	patterns := &widgets.LogPatterns{
 		Title: fmt.Sprintf("Repeated patters from the <var>%s</var>'s log", app.Id.Name),
 	}
 	totalEvents := uint64(0)
@@ -78,14 +59,14 @@ func logs(app *model.Application) *Dashboard {
 					}
 				}
 				if pattern == nil {
-					pattern = &LogPatternInfo{
+					pattern = &widgets.LogPatternInfo{
 						Level:     string(p.Level),
 						Sample:    p.Sample,
 						Multiline: p.Multiline,
 						Pattern:   p.Pattern,
 						Sum:       timeseries.Aggregate(timeseries.NanSum),
 						Color:     logLevelColors[p.Level],
-						Instances: NewChart("Events by instance").Column(),
+						Instances: widgets.NewChart("Events by instance").Column(),
 					}
 					byHash[hash] = pattern
 					patterns.Patterns = append(patterns.Patterns, pattern)
@@ -108,6 +89,6 @@ func logs(app *model.Application) *Dashboard {
 	for _, p := range patterns.Patterns {
 		p.Percentage = p.Events * 100 / totalEvents
 	}
-	dash.Widgets = append(dash.Widgets, &Widget{LogPatterns: patterns})
+	dash.Widgets = append(dash.Widgets, &widgets.Widget{LogPatterns: patterns})
 	return dash
 }
