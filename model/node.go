@@ -25,9 +25,8 @@ type InterfaceStats struct {
 }
 
 type Node struct {
-	Name           LabelLastValue
-	MachineID      string
-	AgentInstances map[string]bool
+	Name      LabelLastValue
+	MachineID string
 
 	//Ip              string
 	CpuCapacity     timeseries.TimeSeries
@@ -53,7 +52,6 @@ type Node struct {
 func NewNode(machineId string) *Node {
 	return &Node{
 		MachineID:      machineId,
-		AgentInstances: map[string]bool{},
 		Disks:          map[string]*DiskStats{},
 		CpuUsageByMode: map[string]timeseries.TimeSeries{},
 	}

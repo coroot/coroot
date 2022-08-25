@@ -7,9 +7,9 @@ import (
 )
 
 func getNode(w *model.World, ls model.Labels) *model.Node {
-	agentInstance := ls["instance"]
+	machineId := ls["machine_id"]
 	for _, node := range w.Nodes {
-		if node.AgentInstances[agentInstance] {
+		if node.MachineID == machineId {
 			return node
 		}
 	}
@@ -34,7 +34,6 @@ func initNodesList(w *model.World, nodeInfoMetrics []model.MetricValues) {
 			node = model.NewNode(machineID)
 			w.Nodes = append(w.Nodes, node)
 		}
-		node.AgentInstances[m.Labels["instance"]] = true
 		node.Name.Update(m.Values, name)
 	}
 }
