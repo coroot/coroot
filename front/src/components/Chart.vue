@@ -202,7 +202,7 @@ export default {
             const f = (s) => ({
                 label: s.name,
                 stroke: !s.stacked && s.color,
-                width: 2,
+                width: c.column ? 0 : 2,
                 fill: s.fill && s.color + (s.stacked ? 'ff' : '44'),
                 points: {show: false},
                 paths: c.column && uPlot.paths.bars(),
