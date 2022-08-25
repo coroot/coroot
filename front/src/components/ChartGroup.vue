@@ -2,17 +2,17 @@
     <Chart :chart="chart">
         <template v-slot:title>
             <span>{{splitTitle.head}}</span>
-            <v-menu>
+            <v-menu offset-y>
                 <template #activator="{ on, attrs }">
                     <v-btn v-bind="attrs" v-on="on" text outlined x-small class="selector">
                         <span style="max-width: 90%; overflow: hidden; text-overflow: ellipsis">{{selected}}</span>
                         <v-icon small class="ml-1">mdi-menu-down</v-icon>
                     </v-btn>
                 </template>
-                <v-list dense>
+                <v-list dense class="pa-0">
                     <v-list-item-group :value="selected">
-                        <v-list-item v-for="ch in sorted" @click="selected = ch.title" class="py-0" style="min-height: 0">
-                            <v-list-item-title class="text">{{ ch.title }}</v-list-item-title>
+                        <v-list-item v-for="ch in sorted" @click="selected = ch.title" class="py-1 px-2" style="min-height: 0">
+                            <v-list-item-title class="font-weight-regular">{{ ch.title }}</v-list-item-title>
                         </v-list-item>
                     </v-list-item-group>
                 </v-list>
