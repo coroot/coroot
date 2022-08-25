@@ -1,7 +1,7 @@
 <template>
 <div>
     <h1 class="text-h5 my-5">
-        <router-link :to="{name: 'overview'}">Applications</router-link>
+        <router-link :to="{name: 'overview', query: $route.query}">Applications</router-link>
         / {{$api.appId(id).name}}
         <v-progress-linear v-if="loading" indeterminate color="green" />
     </h1>
@@ -11,7 +11,7 @@
     </v-alert>
 
     <div v-if="app">
-        <AppMap :application="app.application" :instances="app.instances" :clients="app.clients" :dependencies="app.dependencies" class="my-5" />
+        <AppMap v-if="app.app_map" :map="app.app_map" class="my-5" />
 
         <v-tabs v-if="app.dashboards && app.dashboards.length">
             <template v-for="d in app.dashboards">
@@ -48,13 +48,14 @@ export default {
 
     mounted() {
         this.get();
+        this.$api.timeContextWatch(this, this.get);
     },
 
     watch: {
         id() {
             this.app = null;
             this.get();
-        }
+        },
     },
 
     methods: {

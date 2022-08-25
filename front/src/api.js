@@ -5,6 +5,11 @@ export default class Api {
         baseURL: '/api/',
         timeout: 30000,
     });
+    router = null;
+
+    constructor(router) {
+        this.router = router;
+    }
 
     appId(id) {
         const parts = id.split(':');
@@ -15,12 +20,22 @@ export default class Api {
         }
     }
 
+    timeContextWatch(component, cb) {
+        component.$watch('$route.query', (newVal, oldVal) => {
+            if (newVal.from !== oldVal.from || newVal.to !== oldVal.to) {
+                cb();
+            }
+        })
+    }
+
     get(url, cb) {
-        this.axios.get(url).then((response) => {
+        const q = this.router.currentRoute.query;
+        const params = {from: q.from, to: q.to};
+        this.axios.get(url, {params}).then((response) => {
             cb(response.data, '');
         }).catch((error) => {
             if (error.code === 'ECONNABORTED') {
-                cb(null, 'Request timeout');
+                cb(null, 'Request timeout, please try again later.');
                 return;
             }
             cb(null, error.response.data.trim() || 'Something went wrong, please try again later.');

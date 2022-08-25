@@ -8,13 +8,16 @@ import (
 )
 
 type View struct {
+	AppMap     *AppMap              `json:"app_map"`
+	Dashboards []*widgets.Dashboard `json:"dashboards"`
+}
+
+type AppMap struct {
 	Application *Application `json:"application"`
 	Instances   []*Instance  `json:"instances"`
 
 	Clients      []*Application `json:"clients"`
 	Dependencies []*Application `json:"dependencies"`
-
-	Dashboards []*widgets.Dashboard `json:"dashboards"`
 }
 
 type Application struct {
@@ -44,10 +47,12 @@ type InstanceLink struct {
 }
 
 func Render(world *model.World, app *model.Application) *View {
-	view := &View{Application: &Application{
-		Id:     app.Id,
-		Labels: app.Labels(),
-	}}
+	appMap := &AppMap{
+		Application: &Application{
+			Id:     app.Id,
+			Labels: app.Labels(),
+		},
+	}
 
 	deps := map[model.ApplicationId]bool{}
 	for _, instance := range app.Instances {
@@ -81,9 +86,9 @@ func Render(world *model.World, app *model.Application) *View {
 				i.addClient(connection.Instance.OwnerId, connection.Status(), "to")
 			}
 		}
-		view.Instances = append(view.Instances, i)
+		appMap.Instances = append(appMap.Instances, i)
 	}
-	for _, i := range view.Instances {
+	for _, i := range appMap.Instances {
 		clients := make([]*ApplicationLink, 0, len(i.Clients))
 		for _, c := range i.Clients {
 			if deps[c.Id] {
@@ -95,37 +100,37 @@ func Render(world *model.World, app *model.Application) *View {
 		i.Clients = clients
 	}
 
-	for _, i := range view.Instances {
+	for _, i := range appMap.Instances {
 		for _, a := range i.Dependencies {
-			view.addDependency(world, a.Id)
+			appMap.addDependency(world, a.Id)
 		}
 	}
-	for _, i := range view.Instances {
+	for _, i := range appMap.Instances {
 		for _, a := range i.Clients {
-			view.addClient(world, a.Id)
+			appMap.addClient(world, a.Id)
 		}
 	}
-	sort.Slice(view.Instances, func(i1, i2 int) bool {
-		return view.Instances[i1].Id < view.Instances[i2].Id
+	sort.Slice(appMap.Instances, func(i1, i2 int) bool {
+		return appMap.Instances[i1].Id < appMap.Instances[i2].Id
 	})
-	sort.Slice(view.Clients, func(i, j int) bool {
-		return view.Clients[i].Id.Name < view.Clients[j].Id.Name
+	sort.Slice(appMap.Clients, func(i, j int) bool {
+		return appMap.Clients[i].Id.Name < appMap.Clients[j].Id.Name
 	})
-	sort.Slice(view.Dependencies, func(i, j int) bool {
-		return view.Dependencies[i].Id.Name < view.Dependencies[j].Id.Name
+	sort.Slice(appMap.Dependencies, func(i, j int) bool {
+		return appMap.Dependencies[i].Id.Name < appMap.Dependencies[j].Id.Name
 	})
 
+	view := &View{AppMap: appMap}
 	view.addDashboard(world.Ctx, cpu(app))
 	view.addDashboard(world.Ctx, memory(app))
 	view.addDashboard(world.Ctx, storage(app))
 	view.addDashboard(world.Ctx, network(app, world))
 	view.addDashboard(world.Ctx, logs(app))
-
 	return view
 }
 
-func (v *View) addDependency(w *model.World, id model.ApplicationId) {
-	for _, a := range v.Dependencies {
+func (m *AppMap) addDependency(w *model.World, id model.ApplicationId) {
+	for _, a := range m.Dependencies {
 		if a.Id == id {
 			return
 		}
@@ -134,11 +139,11 @@ func (v *View) addDependency(w *model.World, id model.ApplicationId) {
 	if app == nil {
 		return
 	}
-	v.Dependencies = append(v.Dependencies, &Application{Id: id, Labels: app.Labels()})
+	m.Dependencies = append(m.Dependencies, &Application{Id: id, Labels: app.Labels()})
 }
 
-func (v *View) addClient(w *model.World, id model.ApplicationId) {
-	for _, a := range v.Clients {
+func (m *AppMap) addClient(w *model.World, id model.ApplicationId) {
+	for _, a := range m.Clients {
 		if a.Id == id {
 			return
 		}
@@ -147,7 +152,7 @@ func (v *View) addClient(w *model.World, id model.ApplicationId) {
 	if app == nil {
 		return
 	}
-	v.Clients = append(v.Clients, &Application{Id: id, Labels: app.Labels()})
+	m.Clients = append(m.Clients, &Application{Id: id, Labels: app.Labels()})
 }
 
 func (v *View) addDashboard(ctx timeseries.Context, d *widgets.Dashboard) {

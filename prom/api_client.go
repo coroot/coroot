@@ -17,11 +17,10 @@ import (
 )
 
 type ApiClient struct {
-	scrapeInterval time.Duration
-	api            v1.API
+	api v1.API
 }
 
-func NewApiClient(address string, skipTlsVerify bool, scrapeInterval time.Duration) (Client, error) {
+func NewApiClient(address string, skipTlsVerify bool) (Client, error) {
 	transport := &http.Transport{
 		DialContext: (&net.Dialer{
 			Timeout:   30 * time.Second,
@@ -35,16 +34,15 @@ func NewApiClient(address string, skipTlsVerify bool, scrapeInterval time.Durati
 	if err != nil {
 		return nil, err
 	}
-	return &ApiClient{api: v1.NewAPI(c), scrapeInterval: scrapeInterval}, nil
+	return &ApiClient{api: v1.NewAPI(c)}, nil
 }
 
 func (c *ApiClient) LastUpdateTime(*utils.StringSet) time.Time {
 	return time.Time{}
 }
 
-func (c *ApiClient) QueryRange(ctx context.Context, query string, from, to time.Time) ([]model.MetricValues, error) {
-	query = strings.ReplaceAll(query, "$RANGE", fmt.Sprintf(`%.0fs`, (c.scrapeInterval*3).Seconds()))
-	step := c.scrapeInterval
+func (c *ApiClient) QueryRange(ctx context.Context, query string, from, to time.Time, step time.Duration) ([]model.MetricValues, error) {
+	query = strings.ReplaceAll(query, "$RANGE", fmt.Sprintf(`%.0fs`, (step*3).Seconds()))
 	from = from.Truncate(step)
 	to = to.Truncate(step)
 	value, _, err := c.api.QueryRange(ctx, query, v1.Range{Start: from, End: to.Add(step), Step: step})

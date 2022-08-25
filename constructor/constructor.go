@@ -30,16 +30,34 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to time.Time) (*model
 		actualQueries.Add(q)
 	}
 
+	step := c.step
+	duration := to.Sub(from)
+	switch {
+	case duration > 5*24*time.Hour:
+		step = maxDuration(step, 60*time.Minute)
+	case duration > 24*time.Hour:
+		step = maxDuration(step, 15*time.Minute)
+	case duration > 12*time.Hour:
+		step = maxDuration(step, 10*time.Minute)
+	case duration > 6*time.Hour:
+		step = maxDuration(step, 5*time.Minute)
+	case duration > 4*time.Hour:
+		step = maxDuration(step, time.Minute)
+	}
+
 	lastUpdateTs := c.prom.LastUpdateTime(actualQueries)
 	if !lastUpdateTs.IsZero() && lastUpdateTs.Before(to) {
 		if lastUpdateTs.Before(from) {
 			return nil, fmt.Errorf("out of cache time range")
 		}
+		lastUpdateTs = lastUpdateTs.Add(-c.step)
 		from = from.Add(lastUpdateTs.Sub(to))
 		to = lastUpdateTs
 	}
+	from = from.Truncate(step)
+	to = to.Truncate(step)
 
-	metrics, err := prom.ParallelQueryRange(ctx, c.prom, from, to, QUERIES)
+	metrics, err := prom.ParallelQueryRange(ctx, c.prom, from, to, step, QUERIES)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +66,7 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to time.Time) (*model
 		Ctx: timeseries.Context{
 			From: timeseries.Time(from.Unix()),
 			To:   timeseries.Time(to.Unix()),
-			Step: timeseries.Duration(c.step.Seconds()),
+			Step: timeseries.Duration(step.Seconds()),
 		},
 	}
 
@@ -58,15 +76,6 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to time.Time) (*model
 	enrichInstances(w, metrics)
 	joinDBClusterComponents(w)
 	klog.Infof("got %d nodes, %d services, %d applications", len(w.Nodes), len(w.Services), len(w.Applications))
-	//for _, a := range w.Applications {
-	//	klog.Infoln(a.ApplicationId)
-	//	for _, i := range a.Instances {
-	//		klog.Infof("\t%s", i.Name)
-	//		for _, c := range i.Containers {
-	//			klog.Infof("\t\t%s", c.Name)
-	//		}
-	//	}
-	//}
 	return w, nil
 }
 
@@ -176,4 +185,11 @@ func getActualServiceInstance(instance *model.Instance, applicationType model.Ap
 		applicationType, instance.Name, instance.ApplicationTypes(),
 	)
 	return nil
+}
+
+func maxDuration(d1, d2 time.Duration) time.Duration {
+	if d1 >= d2 {
+		return d1
+	}
+	return d2
 }

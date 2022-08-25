@@ -17,17 +17,15 @@ const (
 type ClientOption int
 
 type Client struct {
-	cache          *Cache
-	scrapeInterval time.Duration
-	promClient     prom.Client
-	options        map[ClientOption]bool
+	cache      *Cache
+	promClient prom.Client
+	options    map[ClientOption]bool
 }
 
 func (c *Cache) GetCacheClient(options ...ClientOption) prom.Client {
 	cl := &Client{
-		cache:          c,
-		scrapeInterval: c.scrapeInterval,
-		options:        map[ClientOption]bool{},
+		cache:   c,
+		options: map[ClientOption]bool{},
 	}
 	for _, o := range options {
 		cl.options[o] = true
@@ -35,23 +33,7 @@ func (c *Cache) GetCacheClient(options ...ClientOption) prom.Client {
 	return cl
 }
 
-func (c *Client) QueryRange(ctx context.Context, query string, from, to time.Time) ([]model.MetricValues, error) {
-	step := c.scrapeInterval
-	duration := to.Sub(from)
-	if !c.options[RawData] {
-		switch {
-		case duration > 5*24*time.Hour:
-			step = maxDuration(step, 60*time.Minute)
-		case duration > 24*time.Hour:
-			step = maxDuration(step, 15*time.Minute)
-		case duration > 12*time.Hour:
-			step = maxDuration(step, 10*time.Minute)
-		case duration > 6*time.Hour:
-			step = maxDuration(step, 5*time.Minute)
-		case duration > 4*time.Hour:
-			step = maxDuration(step, time.Minute)
-		}
-	}
+func (c *Client) QueryRange(ctx context.Context, query string, from, to time.Time, step time.Duration) ([]model.MetricValues, error) {
 	from = from.Truncate(step)
 	to = to.Truncate(step)
 	c.cache.lock.RLock()
@@ -114,9 +96,6 @@ func (c *Client) LastUpdateTime(actualQueries *utils.StringSet) time.Time {
 		if ts.IsZero() || lastTs.Before(ts) {
 			ts = lastTs
 		}
-	}
-	if !ts.IsZero() {
-		ts = ts.Add(-c.scrapeInterval)
 	}
 	return ts
 }

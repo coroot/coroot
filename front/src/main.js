@@ -2,6 +2,7 @@ import Vue from "vue";
 import VueRouter from "vue-router";
 import Vuetify from "vuetify/lib";
 import "@mdi/font/css/materialdesignicons.css";
+import moment from 'moment';
 import Api from "@/api";
 import App from "@/App";
 import Overview from "@/views/Overview";
@@ -25,7 +26,8 @@ const vuetify = new Vuetify({
   },
 });
 
-Vue.prototype.$api = new Api();
+Vue.prototype.$moment = moment;
+Vue.prototype.$api = new Api(router);
 
 new Vue({
   router,

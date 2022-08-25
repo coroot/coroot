@@ -59,7 +59,10 @@ func (f *Focus) App(w http.ResponseWriter, r *http.Request) {
 
 func (f *Focus) loadWorld(r *http.Request) (*model.World, error) {
 	now := time.Now()
-	return f.constructor.LoadWorld(r.Context(), now.Add(-1*time.Hour), now)
+	q := r.URL.Query()
+	from := utils.ParseTimeFromUrl(now, q, "from", now.Add(-time.Hour))
+	to := utils.ParseTimeFromUrl(now, q, "to", now)
+	return f.constructor.LoadWorld(r.Context(), from, to)
 }
 
 func main() {
@@ -79,7 +82,7 @@ func main() {
 	if err != nil {
 		klog.Exitln(err)
 	}
-	promApiClient, err := prom.NewApiClient(*prometheusUrl, *skipTlsVerify, *scrapeInterval)
+	promApiClient, err := prom.NewApiClient(*prometheusUrl, *skipTlsVerify)
 	if err != nil {
 		klog.Exitln(err)
 	}

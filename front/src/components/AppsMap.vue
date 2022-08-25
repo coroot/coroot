@@ -11,7 +11,7 @@
 <!--                        <AppHealth :indicators="a.Indicators" :health="a.Health">-->
 <!--                            <AppLink :id="$coroot.appIdToStr(a.Id)" :openApp="openApp"/>-->
 <!--                        </AppHealth>-->
-                        <router-link :to="{name: 'application', params: {id: a.id}}" class="name">
+                        <router-link :to="{name: 'application', params: {id: a.id}, query: $route.query}" class="name">
                             {{$api.appId(a.id).name}}
                         </router-link>
                         <Labels :labels="a.labels" class="d-none d-sm-block" />

@@ -85,7 +85,7 @@ func (c *Cache) download(ctx context.Context, state *db.PrometheusQueryState) {
 
 	for _, i := range calcIntervals(time.Unix(state.LastTs, 0), c.scrapeInterval, time.Now().Add(-c.scrapeInterval), jitter) {
 		promCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
-		vs, err := c.promClient.QueryRange(promCtx, state.Query, i.chunkTs, i.toTs)
+		vs, err := c.promClient.QueryRange(promCtx, state.Query, i.chunkTs, i.toTs, c.scrapeInterval)
 		cancel()
 		if err != nil {
 			state.LastError = err.Error()

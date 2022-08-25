@@ -29,6 +29,7 @@ export default {
 
     mounted() {
         this.get();
+        this.$api.timeContextWatch(this, this.get);
     },
 
     methods: {

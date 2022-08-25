@@ -76,13 +76,9 @@ export default {
 
 <style scoped>
 .selector {
-    font-family: Roboto, sans-serif;
     font-size: 14px;
     display: inline;
     max-width: 30%;
-    text-transform: none;
     padding: 0 4px !important;
-    letter-spacing: inherit;
-    font-weight: normal !important;
 }
 </style>

@@ -2,7 +2,7 @@
     <div v-resize="calcArrows" class="map">
         <div></div> <!-- empty div to use justify-content:space-between to fix overflow-x:auto -->
         <div class="column">
-            <div v-for="app in clients" class="client" :ref="app.id"
+            <div v-for="app in map.clients" class="client" :ref="app.id"
                  :class="{hi: highlighted.clients.has(app.id)}"
                  @mouseenter="focus('client', app.id)" @mouseleave="unfocus"
             >
@@ -10,7 +10,7 @@
 <!--                    <AppHealth :indicators="app.Indicators">-->
 <!--                        <AppLink :id="appId(app.Id)" :openApp="openApp"/>-->
 <!--                    </AppHealth>-->
-                    <router-link :to="{name: 'application', params: {id: app.id}}" class="name">
+                    <router-link :to="{name: 'application', params: {id: app.id}, query: $route.query}" class="name">
                         {{$api.appId(app.id).name}}
                     </router-link>
                     <Labels :labels="app.labels" class="d-none d-sm-block" />
@@ -19,18 +19,18 @@
         </div>
 
         <div class="column">
-            <div v-if="application" class="app" :ref="application.id">
+            <div v-if="map.application" class="app" :ref="map.application.id">
                 <div>
 <!--                    <AppHealth :indicators="map.Application.Indicators">-->
 <!--                        <span>{{ map.Application.Id.Name }}</span>-->
 <!--                    </AppHealth>-->
                     <span class="name">
-                        {{$api.appId(application.id).name}}
+                        {{$api.appId(map.application.id).name}}
                     </span>
-                    <Labels :labels="application.labels" class="d-none d-sm-block" />
+                    <Labels :labels="map.application.labels" class="d-none d-sm-block" />
                 </div>
-                <div v-if="instances && instances.length" class="instances">
-                    <div v-for="i in instances" class="instance" :ref="'instance:'+i.id"
+                <div v-if="map.instances && map.instances.length" class="instances">
+                    <div v-for="i in map.instances" class="instance" :ref="'instance:'+i.id"
                          :class="{hi: highlighted.instances.has(i.id)}"
                          @mouseenter="focus('instance', i.id)" @mouseleave="unfocus"
                     >
@@ -50,7 +50,7 @@
         </div>
 
         <div class="column">
-            <div v-for="app in dependencies" class="dependency" :ref="app.id"
+            <div v-for="app in map.dependencies" class="dependency" :ref="app.id"
                  :class="{hi: highlighted.dependencies.has(app.id)}"
                  @mouseenter="focus('dependency', app.id)" @mouseleave="unfocus"
             >
@@ -58,7 +58,7 @@
 <!--                    <AppHealth :indicators="app.Indicators">-->
 <!--                        <AppLink :id="appId(app.Id)" :openApp="openApp"/>-->
 <!--                    </AppHealth>-->
-                    <router-link :to="{name: 'application', params: {id: app.id}}" class="name">
+                    <router-link :to="{name: 'application', params: {id: app.id}, query: $route.query}" class="name">
                         {{$api.appId(app.id).name}}
                     </router-link>
                     <Labels :labels="app.labels" class="d-none d-sm-block" />
@@ -88,10 +88,7 @@ import Labels from '@/components/Labels';
 
 export default {
     props: {
-        application: Object,
-        instances: Array,
-        clients: Array,
-        dependencies: Array,
+        map: Object,
         // openApp: Function,
     },
 
@@ -109,12 +106,12 @@ export default {
         requestAnimationFrame(this.calcArrows);
     },
 
-    // watch: {
-    //     map() {
-    //         requestAnimationFrame(this.calcArrows);
-    //         this.unfocus();
-    //     },
-    // },
+    watch: {
+        map() {
+            requestAnimationFrame(this.calcArrows);
+            this.unfocus();
+        },
+    },
 
     computed: {
         highlighted() {
@@ -123,7 +120,7 @@ export default {
                 dependencies: new Set(),
                 instances: new Set(),
             };
-            const instances = this.instances || [];
+            const instances = this.map.instances || [];
             if (this.focused.instance) {
                 res.instances.add(this.focused.instance);
                 const instance = instances.find((i) => i.id === this.focused.instance);
@@ -165,7 +162,7 @@ export default {
         },
         links() {
             const links = [];
-            (this.instances || []).forEach((i) => {
+            (this.map.instances || []).forEach((i) => {
                 const me = (focused) => focused.instance && focused.instance === i.id;
                 const lo = (focused) => Object.keys(focused).length ? 'lo': '';
                 (i.clients || []).forEach((a) => {
@@ -194,7 +191,7 @@ export default {
     methods: {
         focus(type, id) {
             this.focused = {};
-            if (!this.instances) {
+            if (!this.map.instances) {
                 return;
             }
             this.focused[type] = id;
