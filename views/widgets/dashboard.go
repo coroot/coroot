@@ -53,3 +53,14 @@ func (d *Dashboard) GetOrCreateDependencyMap() *DependencyMap {
 	d.Widgets = append(d.Widgets, &Widget{DependencyMap: dm})
 	return dm
 }
+
+func (d *Dashboard) GetOrCreateTable(header ...string) *Table {
+	for _, w := range d.Widgets {
+		if t := w.Table; t != nil {
+			return t
+		}
+	}
+	t := &Table{Header: header}
+	d.Widgets = append(d.Widgets, &Widget{Table: t})
+	return t
+}

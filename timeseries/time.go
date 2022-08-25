@@ -2,6 +2,7 @@ package timeseries
 
 import (
 	"encoding/json"
+	"time"
 )
 
 type Context struct {
@@ -17,6 +18,10 @@ func (d Duration) Truncate(m Duration) Duration {
 		return d
 	}
 	return d - d%m
+}
+
+func (d Duration) ToStandart() time.Duration {
+	return time.Duration(d) * time.Second
 }
 
 func (d Duration) MarshalJSON() ([]byte, error) {

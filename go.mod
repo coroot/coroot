@@ -4,7 +4,9 @@ go 1.18
 
 require (
 	github.com/coroot/logpattern v1.0.0
+	github.com/dustin/go-humanize v1.0.0
 	github.com/gorilla/mux v1.8.0
+	github.com/hako/durafmt v0.0.0-20210608085754-5c1018a4e16b
 	github.com/mattn/go-sqlite3 v1.14.15
 	github.com/natefinch/atomic v1.0.1
 	github.com/pierrec/lz4 v2.6.1+incompatible
