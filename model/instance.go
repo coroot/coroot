@@ -26,7 +26,7 @@ func (r ClusterRole) String() string {
 	case ClusterRoleReplica:
 		return "replica"
 	}
-	return "-"
+	return ""
 }
 
 type Instance struct {

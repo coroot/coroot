@@ -4,13 +4,14 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/hako/durafmt"
 	"math"
+	"strings"
 	"time"
 )
 
 func FormatFloat(v float64) string {
 	switch {
 	case math.IsNaN(v):
-		return "-"
+		return ""
 	case v == 0:
 		return "0"
 	case v > 10:
@@ -25,4 +26,13 @@ func FormatFloat(v float64) string {
 
 func FormatDuration(d time.Duration, limitFirstN int) string {
 	return durafmt.Parse(d).LimitFirstN(limitFirstN).String()
+}
+
+func FormatBytes(b float64) (string, string) {
+	s := humanize.Bytes(uint64(b))
+	parts := strings.Fields(s)
+	if len(parts) != 2 {
+		return "", ""
+	}
+	return parts[0], parts[1]
 }

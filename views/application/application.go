@@ -176,5 +176,8 @@ func (v *View) addDashboard(ctx timeseries.Context, d *widgets.Dashboard) {
 			}
 		}
 	}
+	sort.Slice(d.Widgets, func(i, j int) bool {
+		return d.Widgets[i].Table != nil
+	})
 	v.Dashboards = append(v.Dashboards, d)
 }

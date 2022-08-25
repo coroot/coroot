@@ -6,7 +6,6 @@ import (
 	"github.com/coroot/coroot-focus/timeseries"
 	"github.com/coroot/coroot-focus/utils"
 	"github.com/coroot/coroot-focus/views/widgets"
-	"github.com/dustin/go-humanize"
 	"math"
 )
 
@@ -28,14 +27,14 @@ func postgres(app *model.Application) *widgets.Dashboard {
 		icon := widgets.Icon{}
 		switch role {
 		case model.ClusterRolePrimary:
-			icon.Icon = "mdi-database-edit-outline"
+			icon.Name = "mdi-database-edit-outline"
 			icon.Color = "rgba(0,0,0,0.87)"
 		case model.ClusterRoleReplica:
-			icon.Icon = "mdi-database-import-outline"
+			icon.Name = "mdi-database-import-outline"
 			icon.Color = "grey"
 		}
 		qps := sumQueries(i.Postgres.QueriesByDB)
-		latencyMs := "-"
+		latencyMs := ""
 		if i.Postgres.Avg != nil && !i.Postgres.Avg.IsEmpty() {
 			latencyMs = utils.FormatFloat(i.Postgres.Avg.Last() * 1000)
 		}
@@ -53,8 +52,7 @@ func postgres(app *model.Application) *widgets.Dashboard {
 			statusMsg = "down (no metrics)"
 		}
 
-		replicationLag := "-"
-
+		replicationLag := &widgets.TableCell{}
 		if !primaryLsn.IsEmpty() {
 			lag := timeseries.Aggregate(func(accumulator, v float64) float64 {
 				res := accumulator - v
@@ -85,9 +83,9 @@ func postgres(app *model.Application) *widgets.Dashboard {
 					if tPast == primaryLsn.Range().From {
 						greaterThanWorldWindow = ">"
 					}
-					replicationLag = humanize.Bytes(uint64(last))
+					replicationLag.Value, replicationLag.Unit = utils.FormatBytes(last)
 					if lagTime > 0 {
-						replicationLag += fmt.Sprintf(" (%s%s)", greaterThanWorldWindow, utils.FormatDuration(lagTime.ToStandart(), 1))
+						replicationLag.Tags = append(replicationLag.Tags, fmt.Sprintf("%s%s", greaterThanWorldWindow, utils.FormatDuration(lagTime.ToStandart(), 1)))
 					}
 				}
 			}
@@ -97,13 +95,13 @@ func postgres(app *model.Application) *widgets.Dashboard {
 			GetOrCreateTable("instance", "role", "status", "queries", "latency", "errors", "replication lag").
 			AddRow()
 		row.
-			Text(i.Name).
+			Text(i.Name, fmt.Sprintf("version: %s", i.Postgres.Version.Value())).
 			WithIcon(role.String(), icon).
 			Status(statusMsg, status).
 			WithUnit(utils.FormatFloat(qps.Last()), "/s").
 			WithUnit(latencyMs, "ms").
 			Text(fmt.Sprintf("%d", totalErrors)).
-			Text(replicationLag)
+			Add(replicationLag)
 	}
 	return dash
 }
