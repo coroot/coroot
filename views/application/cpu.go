@@ -12,11 +12,11 @@ func cpu(app *model.Application) *widgets.Dashboard {
 
 	for _, i := range app.Instances {
 		for _, c := range i.Containers {
-			dash.GetOrCreateChartInGroup("CPU usage <selector>, cores", c.Name).
-				AddSeries(c.Name, c.CpuUsage).
+			dash.GetOrCreateChartInGroup("CPU usage of container <selector>, cores", c.Name).
+				AddSeries(i.Name, c.CpuUsage).
 				SetThreshold("limit", c.CpuLimit, timeseries.Max)
-			dash.GetOrCreateChartInGroup("CPU delay <selector>, seconds/second", c.Name).AddSeries(c.Name, c.CpuDelay)
-			dash.GetOrCreateChartInGroup("Throttled time <selector>, seconds/second", c.Name).AddSeries(c.Name, c.ThrottledTime)
+			dash.GetOrCreateChartInGroup("CPU delay of container <selector>, seconds/second", c.Name).AddSeries(i.Name, c.CpuDelay)
+			dash.GetOrCreateChartInGroup("Throttled time of container <selector>, seconds/second", c.Name).AddSeries(i.Name, c.ThrottledTime)
 		}
 		if node := i.Node; i.Node != nil {
 			nodeName := node.Name.Value()
