@@ -14,7 +14,7 @@ type PgConnectionKey struct {
 }
 
 func (k PgConnectionKey) String() string {
-	return fmt.Sprintf(`%s: %s`, k.Db, k.Query)
+	return fmt.Sprintf("%s@%s: %s", k.User, k.Db, k.Query)
 }
 
 type PgSetting struct {
@@ -26,6 +26,10 @@ type QueryKey struct {
 	Db    string
 	User  string
 	Query string
+}
+
+func (k QueryKey) String() string {
+	return fmt.Sprintf("%s@%s: %s", k.User, k.Db, k.Query)
 }
 
 type QueryStat struct {

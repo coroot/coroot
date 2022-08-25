@@ -45,7 +45,7 @@ func memory(app *model.Application) *widgets.Dashboard {
 				dash.GetOrCreateChartInGroup("Memory consumers <selector>, bytes", nodeName).
 					Stacked().
 					SetThreshold("total", node.MemoryTotalBytes, timeseries.Any).
-					AddMany(timeseries.TopByMax(usageByApp, 5))
+					AddMany(timeseries.Top(usageByApp, timeseries.Max, 5))
 			}
 		}
 	}

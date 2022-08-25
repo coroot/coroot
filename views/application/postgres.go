@@ -7,6 +7,21 @@ import (
 	"github.com/coroot/coroot-focus/utils"
 	"github.com/coroot/coroot-focus/views/widgets"
 	"math"
+	"regexp"
+)
+
+const pgActiveLockedState = "active (locked)"
+
+var (
+	pgLogErrRegexp = regexp.MustCompile(`.*(ERROR|FATAL|PANIC)\s*:\s*(.+)`)
+
+	pgConnectionStateColors = map[string]string{
+		"idle":                "grey-lighten2",
+		pgActiveLockedState:   "red-lighten2",
+		"active":              "green",
+		"idle in transaction": "lime",
+		"reserved":            "blue-lighten3",
+	}
 )
 
 func postgres(app *model.Application) *widgets.Dashboard {
@@ -23,18 +38,19 @@ func postgres(app *model.Application) *widgets.Dashboard {
 		if i.Postgres == nil {
 			continue
 		}
-		role := i.ClusterRoleLast()
-		roleCell := widgets.NewTableCell(role.String())
-		switch role {
-		case model.ClusterRolePrimary:
-			roleCell.SetIcon("mdi-database-edit-outline", "rgba(0,0,0,0.87)")
-		case model.ClusterRoleReplica:
-			roleCell.SetIcon("mdi-database-import-outline", "grey")
-		}
-		latencyMs := ""
-		if i.Postgres.Avg != nil && !i.Postgres.Avg.IsEmpty() {
-			latencyMs = utils.FormatFloat(i.Postgres.Avg.Last() * 1000)
-		}
+		dash.
+			GetOrCreateChartInGroup("Postgres query latency <selector>, seconds", "overview").
+			Feature().
+			AddSeries(i.Name, i.Postgres.Avg)
+		dash.
+			GetOrCreateChartInGroup("Postgres query latency <selector>, seconds", i.Name).
+			AddSeries("avg", i.Postgres.Avg).
+			AddSeries("p50", i.Postgres.P50).
+			AddSeries("p95", i.Postgres.P95).
+			AddSeries("p99", i.Postgres.P99)
+
+		qps := sumQueries(i.Postgres.QueriesByDB)
+		dash.GetOrCreateChart("Queries per second").AddSeries(i.Name, qps)
 
 		errors := timeseries.Aggregate(
 			timeseries.NanSum,
@@ -42,27 +58,69 @@ func postgres(app *model.Application) *widgets.Dashboard {
 			i.LogMessagesByLevel[model.LogLevelCritical],
 		)
 
-		status := widgets.NewTableCell("up").SetStatus(model.OK)
-		if !i.Postgres.IsUp() {
-			status.SetStatus(model.WARNING).SetValue("down (no metrics)")
-		}
+		dash.
+			GetOrCreateChartInGroup("Errors <selector>", "overview").
+			Column().
+			Feature().
+			AddSeries(i.Name, errors)
+		dash.
+			GetOrCreateChartInGroup("Errors <selector>", i.Name).
+			Column().
+			AddMany(timeseries.Top(errorsByPattern(i), timeseries.NanSum, 5))
 
+		pgConnections(dash, i)
+		pgLocks(dash, i)
 		lag := pgReplicationLag(primaryLsn, i.Postgres.WalReplyLsn)
 		dash.GetOrCreateChart("Replication lag, bytes").AddSeries(i.Name, lag)
 
-		dash.
-			GetOrCreateTable("instance", "role", "status", "queries", "latency", "errors", "replication lag").
-			AddRow(
-				widgets.NewTableCell(i.Name).AddTag("version: %s", i.Postgres.Version.Value()),
-				roleCell,
-				status,
-				widgets.NewTableCell(utils.FormatFloat(sumQueries(i.Postgres.QueriesByDB).Last())).SetUnit("/s"),
-				widgets.NewTableCell(latencyMs).SetUnit("ms"),
-				widgets.NewTableCell(fmt.Sprintf("%.0f", timeseries.Reduce(timeseries.NanSum, errors))),
-				pgReplicationLagCell(primaryLsn, lag, role),
-			)
+		pgTable(dash, i, primaryLsn, lag, qps, errors)
 	}
 	return dash
+}
+
+func pgTable(dash *widgets.Dashboard, i *model.Instance, primaryLsn, lag, qps, errors timeseries.TimeSeries) {
+	role := i.ClusterRoleLast()
+	roleCell := widgets.NewTableCell(role.String())
+	switch role {
+	case model.ClusterRolePrimary:
+		roleCell.SetIcon("mdi-database-edit-outline", "rgba(0,0,0,0.87)")
+	case model.ClusterRoleReplica:
+		roleCell.SetIcon("mdi-database-import-outline", "grey")
+	}
+	latencyMs := ""
+	if i.Postgres.Avg != nil && !i.Postgres.Avg.IsEmpty() {
+		latencyMs = utils.FormatFloat(i.Postgres.Avg.Last() * 1000)
+	}
+	status := widgets.NewTableCell("up").SetStatus(model.OK)
+	if !i.Postgres.IsUp() {
+		status.SetStatus(model.WARNING).SetValue("down (no metrics)")
+	}
+	dash.
+		GetOrCreateTable("instance", "role", "status", "queries", "latency", "errors", "replication lag").
+		AddRow(
+			widgets.NewTableCell(i.Name).AddTag("version: %s", i.Postgres.Version.Value()),
+			roleCell,
+			status,
+			widgets.NewTableCell(utils.FormatFloat(qps.Last())).SetUnit("/s"),
+			widgets.NewTableCell(latencyMs).SetUnit("ms"),
+			widgets.NewTableCell(fmt.Sprintf("%.0f", timeseries.Reduce(timeseries.NanSum, errors))),
+			pgReplicationLagCell(primaryLsn, lag, role),
+		)
+}
+
+func errorsByPattern(instance *model.Instance) map[string]timeseries.TimeSeries {
+	res := map[string]timeseries.TimeSeries{}
+	for _, p := range instance.LogPatterns {
+		if p.Level != model.LogLevelError && p.Level != model.LogLevelCritical {
+			continue
+		}
+		if groups := pgLogErrRegexp.FindStringSubmatch(p.Sample); len(groups) == 3 {
+			res[groups[1]+": "+groups[2]] = p.Sum
+		} else {
+			res[p.Sample] = p.Sum
+		}
+	}
+	return res
 }
 
 func pgReplicationLagCell(primaryLsn, lag timeseries.TimeSeries, role model.ClusterRole) *widgets.TableCell {
@@ -112,6 +170,67 @@ func pgReplicationLag(primaryLsn, relayLsn timeseries.TimeSeries) timeseries.Tim
 		}
 		return res
 	}, primaryLsn, relayLsn)
+}
+
+func pgConnections(dash *widgets.Dashboard, instance *model.Instance) {
+	connectionByState := map[string]*timeseries.AggregatedTimeseries{}
+	for k, v := range instance.Postgres.Connections {
+		state := k.State
+		if k.State == "active" && k.WaitEventType == "Lock" {
+			state = pgActiveLockedState
+		}
+		byState, ok := connectionByState[state]
+		if !ok {
+			byState = timeseries.Aggregate(timeseries.NanSum)
+			connectionByState[state] = byState
+		}
+		byState.AddInput(v)
+	}
+	connectionByState["reserved"] = timeseries.Aggregate(timeseries.NanSum)
+	connectionByState["reserved"].AddInput(
+		instance.Postgres.Settings["superuser_reserved_connections"].Samples,
+		instance.Postgres.Settings["rds.rds_superuser_reserved_connections"].Samples,
+	)
+	chart := dash.
+		GetOrCreateChartInGroup("Postgres connections <selector>", instance.Name).
+		Stacked().
+		SetThreshold("max_connections", instance.Postgres.Settings["max_connections"].Samples, timeseries.Max)
+
+	for state, v := range connectionByState {
+		chart.AddSeries(state, v, pgConnectionStateColors[state])
+	}
+
+	idleInTransaction := map[string]timeseries.TimeSeries{}
+	locked := map[string]timeseries.TimeSeries{}
+
+	for k, v := range instance.Postgres.Connections {
+		switch {
+		case k.State == "idle in transaction":
+			idleInTransaction[k.String()] = v
+		case k.State == "active" && k.WaitEventType == "Lock":
+			locked[k.String()] = v
+		}
+	}
+	dash.
+		GetOrCreateChartInGroup("Idle transactions on <selector>", instance.Name).
+		Stacked().
+		AddMany(timeseries.Top(idleInTransaction, timeseries.NanSum, 5))
+	dash.
+		GetOrCreateChartInGroup("Locked queries on <selector>", instance.Name).
+		Stacked().
+		AddMany(timeseries.Top(locked, timeseries.NanSum, 5))
+}
+
+func pgLocks(dash *widgets.Dashboard, instance *model.Instance) {
+	blockingQueries := make(map[string]timeseries.TimeSeries, len(instance.Postgres.AwaitingQueriesByLockingQuery))
+	for k, v := range instance.Postgres.AwaitingQueriesByLockingQuery {
+		blockingQueries[k.Query] = v
+	}
+	dash.
+		GetOrCreateChartInGroup("Blocking queries by the number of awaiting queries on <selector>", instance.Name).
+		Stacked().
+		AddMany(timeseries.Top(blockingQueries, timeseries.NanSum, 5)).
+		ShiftColors()
 }
 
 func sumQueries(byDB map[string]timeseries.TimeSeries) *timeseries.AggregatedTimeseries {

@@ -1,6 +1,7 @@
 package timeseries
 
 import (
+	"math"
 	"sort"
 )
 
@@ -9,40 +10,12 @@ type weighted struct {
 	weight float64
 }
 
-func TopByCumSum(input map[string]TimeSeries, n int, minPercent float64) []Named {
+func Top(input map[string]TimeSeries, by F, n int) []Named {
 	sortable := make([]weighted, 0, len(input))
-	var total float64
 	for name, series := range input {
-		sum := Reduce(NanSum, series)
-		total += sum
-		sortable = append(sortable, weighted{Named: WithName(name, series), weight: sum})
-	}
-	sort.Slice(sortable, func(i, j int) bool {
-		return sortable[i].weight > sortable[j].weight
-	})
-	res := make([]Named, 0, n+1)
-	var other *AggregatedTimeseries
-	for i, s := range sortable {
-		if s.weight/total*100 > minPercent && (i+1) < n {
-			res = append(res, WithName(s.Name, s.Series))
-		} else {
-			if other == nil {
-				other = Aggregate(NanSum)
-			}
-			other.AddInput(s.Series)
+		if w := Reduce(by, series); !math.IsNaN(w) {
+			sortable = append(sortable, weighted{Named: WithName(name, series), weight: w})
 		}
-	}
-	if other != nil {
-		res = append(res, WithName("other", other))
-	}
-	return res
-}
-
-func TopByMax(input map[string]TimeSeries, n int) []Named {
-	sortable := make([]weighted, 0, len(input))
-	for name, series := range input {
-		max := Reduce(Max, series)
-		sortable = append(sortable, weighted{Named: WithName(name, series), weight: max})
 	}
 	sort.Slice(sortable, func(i, j int) bool {
 		return sortable[i].weight > sortable[j].weight

@@ -10,13 +10,14 @@ type ChartType string
 type Chart struct {
 	Ctx timeseries.Context `json:"ctx"`
 
-	Title     string    `json:"title"`
-	Series    []*Series `json:"series"`
-	Threshold *Series   `json:"threshold"`
-	Featured  bool      `json:"featured"`
-	IsStacked bool      `json:"stacked"`
-	IsSorted  bool      `json:"sorted"`
-	IsColumn  bool      `json:"column"`
+	Title      string    `json:"title"`
+	Series     []*Series `json:"series"`
+	Threshold  *Series   `json:"threshold"`
+	Featured   bool      `json:"featured"`
+	IsStacked  bool      `json:"stacked"`
+	IsSorted   bool      `json:"sorted"`
+	IsColumn   bool      `json:"column"`
+	ColorShift int       `json:"color_shift"`
 }
 
 func NewChart(title string) *Chart {
@@ -36,6 +37,11 @@ func (chart *Chart) Sorted() *Chart {
 func (chart *Chart) Column() *Chart {
 	chart.IsColumn = true
 	chart.IsStacked = true
+	return chart
+}
+
+func (chart *Chart) ShiftColors() *Chart {
+	chart.ColorShift = 1
 	return chart
 }
 
