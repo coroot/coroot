@@ -2,6 +2,7 @@ package search
 
 import (
 	"github.com/coroot/coroot-focus/model"
+	"sort"
 )
 
 type View struct {
@@ -25,5 +26,11 @@ func Render(w *model.World) *View {
 	for _, n := range w.Nodes {
 		res.Nodes = append(res.Nodes, Node{Name: n.Name.Value()})
 	}
+	sort.Slice(res.Applications, func(i, j int) bool {
+		return res.Applications[i].Id.Name < res.Applications[j].Id.Name
+	})
+	sort.Slice(res.Nodes, func(i, j int) bool {
+		return res.Nodes[i].Name < res.Nodes[j].Name
+	})
 	return res
 }
