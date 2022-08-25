@@ -27,10 +27,11 @@
 
 <script>
 export default {
+    props: {
+        small: Boolean,
+    },
+
     computed: {
-        small() {
-            return this.$vuetify.breakpoint.xsOnly;
-        },
         intervals() {
             return [
                 {text: 'last hour', query: {from: 'now-1h', to: 'now'}},
@@ -66,6 +67,6 @@ export default {
 
 <style scoped>
 .selector {
-    color: rgba(255,255,255,0.7);
+    color: rgba(255,255,255,0.4);
 }
 </style>

@@ -49,4 +49,8 @@ export default class Api {
     getApplication(id, cb) {
         this.get(`app/${id}`, cb);
     }
+
+    search(cb) {
+        this.get(`search`, cb);
+    }
 }

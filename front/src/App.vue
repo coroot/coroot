@@ -6,7 +6,9 @@
                 <img src="/static/logo.svg" height="38" style="vertical-align: middle;">
             </router-link>
             <v-spacer />
-            <TimePicker />
+            <Search v-if="$vuetify.breakpoint.mdAndUp" />
+            <v-spacer />
+            <TimePicker :small="$vuetify.breakpoint.xsOnly"/>
         </v-container>
     </v-app-bar>
 
@@ -20,19 +22,22 @@
 
 <script>
 import TimePicker from "@/components/TimePicker";
+import Search from "@/components/Search";
 
 export default {
-    components: {TimePicker},
+    components: {Search, TimePicker},
 }
 </script>
 
 <style>
 a {
     text-decoration: none !important;
+}
+.theme--light a {
     color: #0000ee !important;
 }
-a:visited {
-    color: #0000ee !important;
+.theme--dark a {
+    color: #ffffff !important;
 }
 .v-btn {
     text-transform: none !important;

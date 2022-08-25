@@ -31,8 +31,17 @@ func (f *Focus) Overview(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
-	klog.Infoln("world", world == nil)
 	utils.WriteJson(w, views.Overview(world))
+}
+
+func (f *Focus) Search(w http.ResponseWriter, r *http.Request) {
+	world, err := f.loadWorld(r)
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	utils.WriteJson(w, views.Search(world))
 }
 
 func (f *Focus) App(w http.ResponseWriter, r *http.Request) {
@@ -104,6 +113,7 @@ func main() {
 	r := mux.NewRouter()
 	r.HandleFunc("/health", focus.Health).Methods(http.MethodGet)
 	r.HandleFunc("/api/overview", focus.Overview).Methods(http.MethodGet)
+	r.HandleFunc("/api/search", focus.Search).Methods(http.MethodGet)
 	r.HandleFunc("/api/app/{app}", focus.App).Methods(http.MethodGet)
 
 	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("./static"))))
