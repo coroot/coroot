@@ -55,6 +55,9 @@ func Render(world *model.World, app *model.Application) *View {
 			continue
 		}
 		i := &Instance{Id: instance.Name, Labels: model.Labels{}}
+		if instance.Postgres != nil && instance.Postgres.Version.Value() != "" {
+			i.Labels["version"] = instance.Postgres.Version.Value()
+		}
 		if role := instance.ClusterRoleLast(); role != model.ClusterRoleNone {
 			i.Labels["role"] = role.String()
 		}

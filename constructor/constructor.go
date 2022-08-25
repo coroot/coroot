@@ -8,6 +8,8 @@ import (
 	"github.com/coroot/coroot-focus/timeseries"
 	"github.com/coroot/coroot-focus/utils"
 	"k8s.io/klog"
+	"net"
+	"strings"
 	"time"
 )
 
@@ -53,6 +55,7 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to time.Time) (*model
 	loadNodes(w, metrics)
 	loadKubernetesMetadata(w, metrics)
 	loadContainers(w, metrics)
+	enrichInstances(w, metrics)
 	joinDBClusterComponents(w)
 	klog.Infof("got %d nodes, %d services, %d applications", len(w.Nodes), len(w.Services), len(w.Applications))
 	//for _, a := range w.Applications {
@@ -65,6 +68,17 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to time.Time) (*model
 	//	}
 	//}
 	return w, nil
+}
+
+func enrichInstances(w *model.World, metrics map[string][]model.MetricValues) {
+	for queryName := range metrics {
+		for _, m := range metrics[queryName] {
+			switch {
+			case strings.HasPrefix(queryName, "pg_"):
+				postgres(w, queryName, m)
+			}
+		}
+	}
 }
 
 func prometheusJobStatus(metrics map[string][]model.MetricValues, job, instance string) timeseries.TimeSeries {
@@ -113,4 +127,53 @@ func joinDBClusterComponents(w *model.World) {
 		}
 		w.Applications = apps
 	}
+}
+
+func guessPod(ls model.Labels) string {
+	for _, l := range []string{"pod", "pod_name", "kubernetes_pod", "k8s_pod"} {
+		if pod := ls[l]; pod != "" {
+			return pod
+		}
+	}
+	return ""
+}
+
+func guessNamespace(ls model.Labels) string {
+	for _, l := range []string{"namespace", "ns", "kubernetes_namespace", "kubernetes_ns", "k8s_namespace", "k8s_ns"} {
+		if ns := ls[l]; ns != "" {
+			return ns
+		}
+	}
+	return ""
+}
+
+func findInstance(w *model.World, ls model.Labels, applicationType model.ApplicationType) *model.Instance {
+	if host, port, err := net.SplitHostPort(ls["instance"]); err == nil {
+		if ip := net.ParseIP(host); ip != nil && !ip.IsLoopback() {
+			return getActualServiceInstance(w.FindInstanceByListen(host, port), applicationType)
+		}
+	}
+	if ns, pod := guessNamespace(ls), guessPod(ls); ns != "" && pod != "" {
+		return getActualServiceInstance(w.FindInstanceByPod(ns, pod), applicationType)
+	}
+	return nil
+}
+
+func getActualServiceInstance(instance *model.Instance, applicationType model.ApplicationType) *model.Instance {
+	if applicationType == "" {
+		return instance
+	}
+	if instance.ApplicationTypes()[applicationType] {
+		return instance
+	}
+	for _, u := range instance.Upstreams {
+		if ri := u.RemoteInstance; ri != nil && ri.ApplicationTypes()[applicationType] {
+			return ri
+		}
+	}
+	klog.Warningf(
+		`couldn't find actual instance for "%s", initial instance is "%s" (%+v)`,
+		applicationType, instance.Name, instance.ApplicationTypes(),
+	)
+	return nil
 }

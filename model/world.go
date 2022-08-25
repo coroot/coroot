@@ -1,6 +1,8 @@
 package model
 
-import "github.com/coroot/coroot-focus/timeseries"
+import (
+	"github.com/coroot/coroot-focus/timeseries"
+)
 
 type World struct {
 	Ctx timeseries.Context
@@ -36,6 +38,32 @@ func (w *World) GetServiceForConnection(c *Connection) *Service {
 		for _, sc := range s.Connections {
 			if sc.ActualRemoteIP == c.ActualRemoteIP {
 				return s
+			}
+		}
+	}
+	return nil
+}
+
+func (w *World) FindInstanceByListen(ip, port string) *Instance {
+	l := Listen{IP: ip, Port: port}
+	for _, app := range w.Applications {
+		for _, i := range app.Instances {
+			if i.TcpListens[l] {
+				return i
+			}
+		}
+	}
+	return nil
+}
+
+func (w *World) FindInstanceByPod(ns, pod string) *Instance {
+	for _, app := range w.Applications {
+		if app.Id.Namespace != ns {
+			continue
+		}
+		for _, i := range app.Instances {
+			if i.Pod != nil && i.Name == pod {
+				return i
 			}
 		}
 	}

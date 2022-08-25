@@ -50,6 +50,8 @@ type Instance struct {
 
 	ClusterName LabelLastValue
 	clusterRole timeseries.TimeSeries
+
+	Postgres *Postgres
 }
 
 func NewInstance(name string, owner ApplicationId) *Instance {

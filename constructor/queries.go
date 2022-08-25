@@ -57,4 +57,18 @@ var QUERIES = map[string]string{
 	"kube_pod_container_status_terminated":             `kube_pod_container_status_terminated > 0`,
 	"kube_pod_container_status_waiting_reason":         `kube_pod_container_status_waiting_reason > 0`,
 	"kube_pod_container_status_last_terminated_reason": `kube_pod_container_status_last_terminated_reason`,
+
+	"pg_connections":                  `pg_connections{db!="postgres"}`,
+	"pg_up":                           `pg_up`,
+	"pg_info":                         `pg_info`,
+	"pg_setting":                      `pg_setting`,
+	"pg_lock_awaiting_queries":        `pg_lock_awaiting_queries`,
+	"pg_latency_seconds":              `pg_latency_seconds`,
+	"pg_top_query_calls_per_second":   `pg_top_query_calls_per_second`,
+	"pg_top_query_time_per_second":    `pg_top_query_time_per_second`,
+	"pg_top_query_io_time_per_second": `pg_top_query_io_time_per_second`,
+	"pg_db_queries_per_second":        `pg_db_queries_per_second`,
+	"pg_wal_current_lsn":              `pg_wal_current_lsn`,
+	"pg_wal_receive_lsn":              `pg_wal_receive_lsn`,
+	"pg_wal_reply_lsn":                `pg_wal_reply_lsn`,
 }
