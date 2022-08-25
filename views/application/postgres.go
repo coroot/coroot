@@ -24,16 +24,13 @@ func postgres(app *model.Application) *widgets.Dashboard {
 			continue
 		}
 		role := i.ClusterRoleLast()
-		icon := widgets.Icon{}
+		roleCell := widgets.NewTableCell(role.String())
 		switch role {
 		case model.ClusterRolePrimary:
-			icon.Name = "mdi-database-edit-outline"
-			icon.Color = "rgba(0,0,0,0.87)"
+			roleCell.SetIcon("mdi-database-edit-outline", "rgba(0,0,0,0.87)")
 		case model.ClusterRoleReplica:
-			icon.Name = "mdi-database-import-outline"
-			icon.Color = "grey"
+			roleCell.SetIcon("mdi-database-import-outline", "grey")
 		}
-		qps := sumQueries(i.Postgres.QueriesByDB)
 		latencyMs := ""
 		if i.Postgres.Avg != nil && !i.Postgres.Avg.IsEmpty() {
 			latencyMs = utils.FormatFloat(i.Postgres.Avg.Last() * 1000)
@@ -44,66 +41,77 @@ func postgres(app *model.Application) *widgets.Dashboard {
 			i.LogMessagesByLevel[model.LogLevelError],
 			i.LogMessagesByLevel[model.LogLevelCritical],
 		)
-		totalErrors := int64(timeseries.Reduce(timeseries.NanSum, errors))
-		status := model.OK
-		statusMsg := "up"
+
+		status := widgets.NewTableCell("up").SetStatus(model.OK)
 		if !i.Postgres.IsUp() {
-			status = model.WARNING
-			statusMsg = "down (no metrics)"
+			status.SetStatus(model.WARNING).SetValue("down (no metrics)")
 		}
 
-		replicationLag := &widgets.TableCell{}
-		if !primaryLsn.IsEmpty() {
-			lag := timeseries.Aggregate(func(accumulator, v float64) float64 {
-				res := accumulator - v
-				if res < 0 {
-					return 0
-				}
-				return res
-			}, primaryLsn, i.Postgres.WalReplyLsn)
-			dash.GetOrCreateChart("Replication lag, bytes").AddSeries(i.Name, lag)
+		lag := pgReplicationLag(primaryLsn, i.Postgres.WalReplyLsn)
+		dash.GetOrCreateChart("Replication lag, bytes").AddSeries(i.Name, lag)
 
-			if last := lag.Last(); !math.IsNaN(last) {
-				tCurr, vCurr := timeseries.LastNotNull(primaryLsn)
-				tPast, vPast := timeseries.Time(0), math.NaN()
-				iter := primaryLsn.Iter()
-				for iter.Next() {
-					tPast, vPast = iter.Value()
-					if vPast > vCurr { // wraparound (e.g., complete cluster redeploy)
-						continue
-					}
-					if vPast > vCurr-last {
-						break
-					}
-				}
-
-				if role == model.ClusterRoleReplica {
-					lagTime := tCurr.Sub(tPast)
-					greaterThanWorldWindow := ""
-					if tPast == primaryLsn.Range().From {
-						greaterThanWorldWindow = ">"
-					}
-					replicationLag.Value, replicationLag.Unit = utils.FormatBytes(last)
-					if lagTime > 0 {
-						replicationLag.Tags = append(replicationLag.Tags, fmt.Sprintf("%s%s", greaterThanWorldWindow, utils.FormatDuration(lagTime.ToStandart(), 1)))
-					}
-				}
-			}
-		}
-
-		row := dash.
+		dash.
 			GetOrCreateTable("instance", "role", "status", "queries", "latency", "errors", "replication lag").
-			AddRow()
-		row.
-			Text(i.Name, fmt.Sprintf("version: %s", i.Postgres.Version.Value())).
-			WithIcon(role.String(), icon).
-			Status(statusMsg, status).
-			WithUnit(utils.FormatFloat(qps.Last()), "/s").
-			WithUnit(latencyMs, "ms").
-			Text(fmt.Sprintf("%d", totalErrors)).
-			Add(replicationLag)
+			AddRow(
+				widgets.NewTableCell(i.Name).AddTag("version: %s", i.Postgres.Version.Value()),
+				roleCell,
+				status,
+				widgets.NewTableCell(utils.FormatFloat(sumQueries(i.Postgres.QueriesByDB).Last())).SetUnit("/s"),
+				widgets.NewTableCell(latencyMs).SetUnit("ms"),
+				widgets.NewTableCell(fmt.Sprintf("%.0f", timeseries.Reduce(timeseries.NanSum, errors))),
+				pgReplicationLagCell(primaryLsn, lag, role),
+			)
 	}
 	return dash
+}
+
+func pgReplicationLagCell(primaryLsn, lag timeseries.TimeSeries, role model.ClusterRole) *widgets.TableCell {
+	res := &widgets.TableCell{}
+	if primaryLsn.IsEmpty() {
+		return res
+	}
+	if role != model.ClusterRoleReplica {
+		return res
+	}
+	last := lag.Last()
+	if math.IsNaN(last) {
+		return res
+	}
+
+	tCurr, vCurr := timeseries.LastNotNull(primaryLsn)
+	tPast, vPast := timeseries.Time(0), math.NaN()
+	iter := primaryLsn.Iter()
+	for iter.Next() {
+		tPast, vPast = iter.Value()
+		if vPast > vCurr { // wraparound (e.g., complete cluster redeploy)
+			continue
+		}
+		if vPast > vCurr-last {
+			break
+		}
+	}
+
+	lagTime := tCurr.Sub(tPast)
+	greaterThanWorldWindow := ""
+	if tPast == primaryLsn.Range().From {
+		greaterThanWorldWindow = ">"
+	}
+	res.Value, res.Unit = utils.FormatBytes(last)
+	if lagTime > 0 {
+		res.Tags = append(res.Tags,
+			fmt.Sprintf("%s%s", greaterThanWorldWindow, utils.FormatDuration(lagTime.ToStandart(), 1)))
+	}
+	return res
+}
+
+func pgReplicationLag(primaryLsn, relayLsn timeseries.TimeSeries) timeseries.TimeSeries {
+	return timeseries.Aggregate(func(accumulator, v float64) float64 {
+		res := accumulator - v
+		if res < 0 {
+			return 0
+		}
+		return res
+	}, primaryLsn, relayLsn)
 }
 
 func sumQueries(byDB map[string]timeseries.TimeSeries) *timeseries.AggregatedTimeseries {
