@@ -33,12 +33,12 @@ export default {
 a {
     text-decoration: none !important;
 }
-.theme--light a {
-    color: #0000ee !important;
-}
-.theme--dark a {
-    color: #ffffff !important;
-}
+/*.theme--light a {*/
+/*    color: #0000ee !important;*/
+/*}*/
+/*.theme--dark a {*/
+/*    color: #ffffff !important;*/
+/*}*/
 .v-btn {
     text-transform: none !important;
     font-weight: normal !important;
