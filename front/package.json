@@ -7,6 +7,7 @@
     "lint": "vue-cli-service lint"
   },
   "dependencies": {
+    "@juggle/resize-observer": "^3.4.0",
     "@mdi/font": "^7.0.96",
     "axios": "^0.27.2",
     "color-convert": "^2.0.1",

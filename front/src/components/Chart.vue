@@ -6,7 +6,7 @@
             </slot>
         </div>
 
-        <div ref="uplot" v-resize="redraw" style="position: relative">
+        <div ref="uplot" v-on-resize="redraw" style="position: relative">
             <div v-for="f in flags" class="flag" :style="{left: f.left+'px', height: f.height+'px'}">
                 <v-tooltip bottom>
                     <template #activator="{on}">

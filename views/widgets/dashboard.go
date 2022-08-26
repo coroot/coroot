@@ -11,6 +11,8 @@ type Widget struct {
 	Table         *Table         `json:"table"`
 	LogPatterns   *LogPatterns   `json:"log_patterns"`
 	DependencyMap *DependencyMap `json:"dependency_map"`
+
+	Width string `json:"width"`
 }
 
 func (d *Dashboard) GetOrCreateChartGroup(title string) *ChartGroup {
@@ -50,7 +52,7 @@ func (d *Dashboard) GetOrCreateDependencyMap() *DependencyMap {
 		}
 	}
 	dm := &DependencyMap{}
-	d.Widgets = append(d.Widgets, &Widget{DependencyMap: dm})
+	d.Widgets = append(d.Widgets, &Widget{DependencyMap: dm, Width: "100%"})
 	return dm
 }
 
@@ -61,6 +63,6 @@ func (d *Dashboard) GetOrCreateTable(header ...string) *Table {
 		}
 	}
 	t := &Table{Header: header}
-	d.Widgets = append(d.Widgets, &Widget{Table: t})
+	d.Widgets = append(d.Widgets, &Widget{Table: t, Width: "100%"})
 	return t
 }

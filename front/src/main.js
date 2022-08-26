@@ -1,7 +1,7 @@
 import Vue from "vue";
 import VueRouter from "vue-router";
-import Vuetify from "vuetify/lib";
-import "@mdi/font/css/materialdesignicons.css";
+import vuetify from '@/plugins/vuetify';
+import '@/plugins/resize';
 import moment from 'moment';
 import Api from "@/api";
 import App from "@/App";
@@ -19,12 +19,6 @@ const router = new VueRouter({
   ],
 });
 
-Vue.use(Vuetify);
-const vuetify = new Vuetify({
-  icons: {
-    iconfont: 'mdi',
-  },
-});
 
 Vue.prototype.$moment = moment;
 Vue.prototype.$api = new Api(router);

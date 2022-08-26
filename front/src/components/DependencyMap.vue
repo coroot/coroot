@@ -1,5 +1,5 @@
 <template>
-    <div v-resize="calc" class="wrapper">
+    <div v-on-resize="calc" class="wrapper">
         <div class="map">
             <div v-for="az in azs" class="az">
                 <div class="az-title" title="availability zone">{{az.name}}</div>

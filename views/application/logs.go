@@ -79,9 +79,9 @@ func logs(app *model.Application) *widgets.Dashboard {
 		}
 	}
 
+	eventsBySeverity := widgets.NewChart("Events by severity").Column()
 	for _, l := range logLevels {
-		dash.GetOrCreateChart("Events by severity").Column().
-			AddSeries(strings.ToUpper(string(l)), byLevel[l], logLevelColors[l])
+		eventsBySeverity.AddSeries(strings.ToUpper(string(l)), byLevel[l], logLevelColors[l])
 	}
 	sort.Slice(patterns.Patterns, func(i, j int) bool {
 		return patterns.Patterns[i].Events > patterns.Patterns[j].Events
@@ -89,6 +89,7 @@ func logs(app *model.Application) *widgets.Dashboard {
 	for _, p := range patterns.Patterns {
 		p.Percentage = p.Events * 100 / totalEvents
 	}
-	dash.Widgets = append(dash.Widgets, &widgets.Widget{LogPatterns: patterns})
+	dash.Widgets = append(dash.Widgets, &widgets.Widget{Chart: eventsBySeverity, Width: "100%"})
+	dash.Widgets = append(dash.Widgets, &widgets.Widget{LogPatterns: patterns, Width: "100%"})
 	return dash
 }

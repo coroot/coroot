@@ -1,5 +1,5 @@
 <template>
-    <div v-resize="calcArrows" class="map">
+    <div v-on-resize="calcArrows" class="map">
         <div></div> <!-- empty div to use justify-content:space-between to fix overflow-x:auto -->
         <div class="column">
             <div v-for="app in map.clients" class="client" :ref="app.id"

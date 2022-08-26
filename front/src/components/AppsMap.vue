@@ -4,7 +4,7 @@
             <v-spacer v-if="$vuetify.breakpoint.mdAndUp"></v-spacer>
             <v-checkbox v-for="f in filters" v-model="f.value" :label="f.name" class="filter" color="green" hide-details @click="calc" />
         </div>
-        <div class="applications" v-resize="calc" @scroll="calc">
+        <div class="applications" v-on-resize="calc" @scroll="calc">
             <div v-for="apps in levels" class="level" style="z-index: 2" :style="{rowGap: 200 / apps.length + 'px'}">
                 <div v-for="a in apps" style="text-align: center">
                     <span :ref="a.id" class="app" :class="a.hi(hi) ? 'selected' : ''" @mouseenter="hi = a.id" @mouseleave="hi = null">

@@ -19,7 +19,9 @@
                     {{d.name}}
                 </v-tab>
                 <v-tab-item transition="none">
-                    <Widget v-for="w in d.widgets" :w="w" class="my-5" />
+                    <div class="d-flex flex-wrap">
+                        <Widget v-for="w in d.widgets" :w="w" class="my-5" :style="{width: $vuetify.breakpoint.mdAndUp ? (w.width || '50%') : '100%'}" />
+                    </div>
                 </v-tab-item>
             </template>
         </v-tabs>
