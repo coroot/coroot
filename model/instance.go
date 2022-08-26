@@ -52,6 +52,7 @@ type Instance struct {
 	clusterRole timeseries.TimeSeries
 
 	Postgres *Postgres
+	Redis    *Redis
 }
 
 func NewInstance(name string, owner ApplicationId) *Instance {

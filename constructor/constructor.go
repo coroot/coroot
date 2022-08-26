@@ -85,6 +85,8 @@ func enrichInstances(w *model.World, metrics map[string][]model.MetricValues) {
 			switch {
 			case strings.HasPrefix(queryName, "pg_"):
 				postgres(w, queryName, m)
+			case strings.HasPrefix(queryName, "redis_"):
+				redis(w, queryName, m)
 			}
 		}
 	}

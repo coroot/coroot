@@ -127,8 +127,8 @@ func Render(world *model.World, app *model.Application) *View {
 	view.addDashboard(world.Ctx, storage(app), events)
 	view.addDashboard(world.Ctx, network(app, world), events)
 	view.addDashboard(world.Ctx, postgres(app), events)
+	view.addDashboard(world.Ctx, redis(app), events)
 	view.addDashboard(world.Ctx, logs(app), events)
-
 	return view
 }
 

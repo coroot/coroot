@@ -71,4 +71,9 @@ var QUERIES = map[string]string{
 	"pg_wal_current_lsn":              `pg_wal_current_lsn`,
 	"pg_wal_receive_lsn":              `pg_wal_receive_lsn`,
 	"pg_wal_reply_lsn":                `pg_wal_reply_lsn`,
+
+	"redis_up":                              `redis_up`,
+	"redis_instance_info":                   `redis_instance_info`,
+	"redis_commands_duration_seconds_total": `rate(redis_commands_duration_seconds_total[$RANGE])`,
+	"redis_commands_total":                  `rate(redis_commands_total[$RANGE])`,
 }
