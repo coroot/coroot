@@ -34,11 +34,7 @@ export default class Api {
         this.axios.get(url, {params}).then((response) => {
             cb(response.data, '');
         }).catch((error) => {
-            if (error.code === 'ECONNABORTED') {
-                cb(null, 'Request timeout, please try again later.');
-                return;
-            }
-            cb(null, error.response.data.trim() || 'Something went wrong, please try again later.');
+            cb(null, error.response.data && error.response.data.trim() || 'Something went wrong, please try again later.');
         })
     }
 
