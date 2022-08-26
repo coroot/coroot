@@ -10,7 +10,10 @@
             <td v-for="c in r.cells">
                 <v-icon v-if="c.icon" :color="c.icon.color" small class="mr-1">{{c.icon.name}}</v-icon>
                 <Led v-if="c.status" :status="c.status" class="mr-1" />
-                <span>{{c.value || '&mdash;'}}</span>
+                <div v-for="v in c.values">
+                    {{v}}
+                </div>
+                <span v-if="!c.values">{{c.value || '&mdash;'}}</span>
                 <span v-if="c.unit && c.value" class="caption grey--text ml-1">{{c.unit}}</span>
                 <div v-if="c.tags">
                     <span v-for="t in c.tags" class="tag">{{t}}</span>

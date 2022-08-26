@@ -102,7 +102,7 @@ func instances(app *model.Application) *widgets.Dashboard {
 			widgets.NewTableCell(i.Name),
 			status,
 			widgets.NewTableCell(strconv.FormatInt(restarts, 10)),
-			widgets.NewTableCell(instanceIPs(i.TcpListens)),
+			widgets.NewTableCell("").SetValues(instanceIPs(i.TcpListens)),
 			widgets.NewTableCell(i.NodeName()),
 		)
 	}
@@ -115,12 +115,12 @@ func instances(app *model.Application) *widgets.Dashboard {
 	return dash
 }
 
-func instanceIPs(listens map[model.Listen]bool) string {
+func instanceIPs(listens map[model.Listen]bool) []string {
 	ips := utils.NewStringSet()
 	for l := range listens {
 		if ip := net.ParseIP(l.IP); !ip.IsLoopback() {
 			ips.Add(l.IP)
 		}
 	}
-	return strings.Join(ips.Items(), "<br>")
+	return ips.Items()
 }

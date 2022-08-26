@@ -31,6 +31,7 @@ type TableRow struct {
 type TableCell struct {
 	Icon   *Icon         `json:"icon"`
 	Value  string        `json:"value"`
+	Values []string      `json:"values"`
 	Tags   []string      `json:"tags"`
 	Unit   string        `json:"unit"`
 	Status *model.Status `json:"status"`
@@ -48,6 +49,11 @@ func (c *TableCell) SetStatus(status model.Status, msg string) *TableCell {
 
 func (c *TableCell) SetValue(value string) *TableCell {
 	c.Value = value
+	return c
+}
+
+func (c *TableCell) SetValues(values []string) *TableCell {
+	c.Values = values
 	return c
 }
 
