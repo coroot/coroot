@@ -5,11 +5,9 @@ import (
 )
 
 type Volume struct {
-	Name         LabelLastValue
-	Phase        LabelLastValue
-	StorageClass LabelLastValue
-	Device       LabelLastValue
-	MountPoint   string
+	Name       LabelLastValue
+	Device     LabelLastValue
+	MountPoint string
 
 	CapacityBytes timeseries.TimeSeries
 	UsedBytes     timeseries.TimeSeries

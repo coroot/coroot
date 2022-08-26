@@ -53,7 +53,9 @@ func (c *TableCell) SetUnit(unit string) *TableCell {
 }
 
 func (c *TableCell) AddTag(format string, a ...any) *TableCell {
-	c.Tags = append(c.Tags, fmt.Sprintf(format, a...))
+	if format != "" {
+		c.Tags = append(c.Tags, fmt.Sprintf(format, a...))
+	}
 	return c
 }
 
