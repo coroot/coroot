@@ -7,8 +7,8 @@ import (
 	"github.com/coroot/coroot-focus/views/widgets"
 )
 
-func cpu(app *model.Application) *widgets.Dashboard {
-	dash := &widgets.Dashboard{Name: "CPU"}
+func cpu(ctx timeseries.Context, app *model.Application) *widgets.Dashboard {
+	dash := widgets.NewDashboard(ctx, "CPU")
 	relevantNodes := map[string]*model.Node{}
 
 	for _, i := range app.Instances {

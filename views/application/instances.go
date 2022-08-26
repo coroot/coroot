@@ -12,8 +12,8 @@ import (
 	"strings"
 )
 
-func instances(app *model.Application) *widgets.Dashboard {
-	dash := &widgets.Dashboard{Name: "Instances"}
+func instances(ctx timeseries.Context, app *model.Application) *widgets.Dashboard {
+	dash := widgets.NewDashboard(ctx, "Instances")
 
 	up := timeseries.Aggregate(timeseries.NanSum)
 
@@ -103,7 +103,7 @@ func instances(app *model.Application) *widgets.Dashboard {
 			status,
 			widgets.NewTableCell(strconv.FormatInt(restarts, 10)),
 			widgets.NewTableCell("").SetValues(instanceIPs(i.TcpListens)),
-			widgets.NewTableCell(i.NodeName()),
+			widgets.NewTableCell(i.NodeName()).SetLink("node"),
 		)
 	}
 	chart := dash.GetOrCreateChart("Instances").Stacked().AddSeries("up", up)

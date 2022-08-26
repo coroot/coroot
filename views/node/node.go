@@ -8,7 +8,7 @@ import (
 )
 
 func Render(w *model.World, node *model.Node) *widgets.Dashboard {
-	dash := &widgets.Dashboard{Name: ""}
+	dash := widgets.NewDashboard(w.Ctx, "Node")
 
 	cpu := dash.GetOrCreateChart("CPU usage, %").Sorted().Stacked()
 	for _, s := range utils.CpuByModeSeries(node.CpuUsageByMode) {
@@ -40,7 +40,7 @@ func Render(w *model.World, node *model.Node) *widgets.Dashboard {
 
 	for _, i := range node.NetInterfaces {
 		dash.
-			GetOrCreateChartInGroup("Network bandwidth <select>, bits/second", i.Name).
+			GetOrCreateChartInGroup("Network bandwidth <selector>, bits/second", i.Name).
 			AddSeries("in", timeseries.Map(func(v float64) float64 { return v * 8 }, i.RxBytes), "green").
 			AddSeries("out", timeseries.Map(func(v float64) float64 { return v * 8 }, i.TxBytes), "blue")
 	}

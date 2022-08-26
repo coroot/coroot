@@ -35,6 +35,7 @@ type TableCell struct {
 	Tags   []string      `json:"tags"`
 	Unit   string        `json:"unit"`
 	Status *model.Status `json:"status"`
+	Link   string        `json:"link"`
 }
 
 func NewTableCell(value string) *TableCell {
@@ -71,6 +72,11 @@ func (c *TableCell) AddTag(format string, a ...any) *TableCell {
 	if format != "" {
 		c.Tags = append(c.Tags, fmt.Sprintf(format, a...))
 	}
+	return c
+}
+
+func (c *TableCell) SetLink(link string) *TableCell {
+	c.Link = link
 	return c
 }
 

@@ -1,8 +1,7 @@
 <template>
 <div>
     <h1 class="text-h5 my-5">
-        <router-link :to="{name: 'overview', query: $route.query}">Applications</router-link>
-        / {{$api.appId(id).name}}
+        Applications / {{$api.appId(id).name}}
         <v-progress-linear v-if="loading" indeterminate color="green" />
     </h1>
 
@@ -18,16 +17,14 @@
                 {{d.name}}
             </v-tab>
         </v-tabs>
-        <div v-if="dash" class="d-flex flex-wrap pt-3">
-            <Widget v-for="w in dash.widgets" :w="w" class="my-5" :style="{width: $vuetify.breakpoint.mdAndUp ? (w.width || '50%') : '100%'}" />
-        </div>
+        <Dashboard v-if="dash" :widgets="dash.widgets" class="mt-3" />
     </div>
 </div>
 </template>
 
 <script>
 import AppMap from "@/components/AppMap";
-import Widget from "@/components/Widget";
+import Dashboard from "@/components/Dashboard";
 
 export default {
     props: {
@@ -35,7 +32,7 @@ export default {
         dashboard: String,
     },
 
-    components: {AppMap, Widget},
+    components: {AppMap, Dashboard},
 
     data() {
         return {

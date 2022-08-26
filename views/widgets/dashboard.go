@@ -1,8 +1,15 @@
 package widgets
 
+import "github.com/coroot/coroot-focus/timeseries"
+
 type Dashboard struct {
+	ctx     timeseries.Context
 	Name    string    `json:"name"`
 	Widgets []*Widget `json:"widgets"`
+}
+
+func NewDashboard(ctx timeseries.Context, name string) *Dashboard {
+	return &Dashboard{Name: name, ctx: ctx}
 }
 
 type Widget struct {
@@ -29,7 +36,7 @@ func (d *Dashboard) GetOrCreateChartGroup(title string) *ChartGroup {
 }
 
 func (d *Dashboard) GetOrCreateChartInGroup(title string, chartTitle string) *Chart {
-	return d.GetOrCreateChartGroup(title).GetOrCreateChart(chartTitle)
+	return d.GetOrCreateChartGroup(title).GetOrCreateChart(d.ctx, chartTitle)
 }
 
 func (d *Dashboard) GetOrCreateChart(title string) *Chart {
@@ -40,7 +47,7 @@ func (d *Dashboard) GetOrCreateChart(title string) *Chart {
 			}
 		}
 	}
-	ch := &Chart{Title: title}
+	ch := NewChart(d.ctx, title)
 	d.Widgets = append(d.Widgets, &Widget{Chart: ch})
 	return ch
 }

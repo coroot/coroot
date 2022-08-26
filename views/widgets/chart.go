@@ -28,8 +28,8 @@ type Chart struct {
 	Annotations []Annotation `json:"annotations"`
 }
 
-func NewChart(title string) *Chart {
-	return &Chart{Title: title}
+func NewChart(ctx timeseries.Context, title string) *Chart {
+	return &Chart{Ctx: ctx, Title: title}
 }
 
 func (chart *Chart) Stacked() *Chart {
@@ -106,13 +106,13 @@ type ChartGroup struct {
 	Charts []*Chart `json:"charts"`
 }
 
-func (cg *ChartGroup) GetOrCreateChart(title string) *Chart {
+func (cg *ChartGroup) GetOrCreateChart(ctx timeseries.Context, title string) *Chart {
 	for _, ch := range cg.Charts {
 		if ch.Title == title {
 			return ch
 		}
 	}
-	ch := NewChart(title)
+	ch := NewChart(ctx, title)
 	cg.Charts = append(cg.Charts, ch)
 	return ch
 }

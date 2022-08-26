@@ -122,14 +122,14 @@ func Render(world *model.World, app *model.Application) *View {
 
 	view := &View{AppMap: appMap}
 	events := calcAppEvents(app)
-	view.addDashboard(world.Ctx, instances(app), events)
-	view.addDashboard(world.Ctx, cpu(app), events)
-	view.addDashboard(world.Ctx, memory(app), events)
-	view.addDashboard(world.Ctx, storage(app), events)
-	view.addDashboard(world.Ctx, network(app, world), events)
-	view.addDashboard(world.Ctx, postgres(app), events)
-	view.addDashboard(world.Ctx, redis(app), events)
-	view.addDashboard(world.Ctx, logs(app), events)
+	view.addDashboard(instances(world.Ctx, app), events)
+	view.addDashboard(cpu(world.Ctx, app), events)
+	view.addDashboard(memory(world.Ctx, app), events)
+	view.addDashboard(storage(world.Ctx, app), events)
+	view.addDashboard(network(world.Ctx, app, world), events)
+	view.addDashboard(postgres(world.Ctx, app), events)
+	view.addDashboard(redis(world.Ctx, app), events)
+	view.addDashboard(logs(world.Ctx, app), events)
 	return view
 }
 
@@ -159,26 +159,19 @@ func (m *AppMap) addClient(w *model.World, id model.ApplicationId) {
 	m.Clients = append(m.Clients, &Application{Id: id, Labels: app.Labels()})
 }
 
-func (v *View) addDashboard(ctx timeseries.Context, d *widgets.Dashboard, events []*Event) {
+func (v *View) addDashboard(d *widgets.Dashboard, events []*Event) {
 	if len(d.Widgets) == 0 {
 		return
 	}
 	for _, w := range d.Widgets {
 		if w.Chart != nil {
-			w.Chart.Ctx = ctx
 			addAnnotations(events, w.Chart)
 		}
 		if w.ChartGroup != nil {
 			for _, ch := range w.ChartGroup.Charts {
-				ch.Ctx = ctx
 				addAnnotations(events, ch)
 			}
 			w.ChartGroup.AutoFeatureChart()
-		}
-		if w.LogPatterns != nil {
-			for _, p := range w.LogPatterns.Patterns {
-				p.Instances.Ctx = ctx
-			}
 		}
 	}
 	sort.SliceStable(d.Widgets, func(i, j int) bool {

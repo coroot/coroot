@@ -10,8 +10,8 @@ import (
 	"math"
 )
 
-func storage(app *model.Application) *widgets.Dashboard {
-	dash := &widgets.Dashboard{Name: "Storage"}
+func storage(ctx timeseries.Context, app *model.Application) *widgets.Dashboard {
+	dash := widgets.NewDashboard(ctx, "Storage")
 
 	for _, i := range app.Instances {
 		for _, v := range i.Volumes {

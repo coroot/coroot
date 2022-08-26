@@ -6,8 +6,8 @@ import (
 	"github.com/coroot/coroot-focus/views/widgets"
 )
 
-func redis(app *model.Application) *widgets.Dashboard {
-	dash := &widgets.Dashboard{Name: "Redis"}
+func redis(ctx timeseries.Context, app *model.Application) *widgets.Dashboard {
+	dash := widgets.NewDashboard(ctx, "Redis")
 
 	for _, i := range app.Instances {
 		if i.Redis == nil {

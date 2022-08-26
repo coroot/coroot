@@ -21,10 +21,10 @@ var (
 	logLevels = []model.LogLevel{"unknown", "debug", "info", "warning", "error", "critical"}
 )
 
-func logs(app *model.Application) *widgets.Dashboard {
+func logs(ctx timeseries.Context, app *model.Application) *widgets.Dashboard {
 	byHash := map[string]*widgets.LogPatternInfo{}
 	byLevel := map[model.LogLevel]timeseries.TimeSeries{}
-	dash := &widgets.Dashboard{Name: "Logs"}
+	dash := widgets.NewDashboard(ctx, "Logs")
 
 	patterns := &widgets.LogPatterns{
 		Title: fmt.Sprintf("Repeated patters from the <var>%s</var>'s log", app.Id.Name),
@@ -66,7 +66,7 @@ func logs(app *model.Application) *widgets.Dashboard {
 						Pattern:   p.Pattern,
 						Sum:       timeseries.Aggregate(timeseries.NanSum),
 						Color:     logLevelColors[p.Level],
-						Instances: widgets.NewChart("Events by instance").Column(),
+						Instances: widgets.NewChart(ctx, "Events by instance").Column(),
 					}
 					byHash[hash] = pattern
 					patterns.Patterns = append(patterns.Patterns, pattern)
@@ -79,7 +79,7 @@ func logs(app *model.Application) *widgets.Dashboard {
 		}
 	}
 
-	eventsBySeverity := widgets.NewChart("Events by severity").Column()
+	eventsBySeverity := widgets.NewChart(ctx, "Events by severity").Column()
 	for _, l := range logLevels {
 		eventsBySeverity.AddSeries(strings.ToUpper(string(l)), byLevel[l], logLevelColors[l])
 	}

@@ -13,7 +13,10 @@
                 <div v-for="v in c.values">
                     {{v}}
                 </div>
-                <span v-if="!c.values">{{c.value || '&mdash;'}}</span>
+                <span v-if="!c.values">
+                    <router-link v-if="c.link === 'node'" :to="{name: 'node', params: {name: c.value}, query: $route.query}">{{c.value}}</router-link>
+                    <span v-else>{{c.value || '&mdash;'}}</span>
+                </span>
                 <span v-if="c.unit && c.value" class="caption grey--text ml-1">{{c.unit}}</span>
                 <div v-if="c.tags">
                     <span v-for="t in c.tags" class="tag">{{t}}</span>

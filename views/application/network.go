@@ -38,8 +38,8 @@ func (s *netSummary) addRtt(rtt timeseries.TimeSeries) {
 	s.rttCount.AddInput(rtt)
 }
 
-func network(app *model.Application, world *model.World) *widgets.Dashboard {
-	dash := &widgets.Dashboard{Name: "Network"}
+func network(ctx timeseries.Context, app *model.Application, world *model.World) *widgets.Dashboard {
+	dash := widgets.NewDashboard(ctx, "Network")
 	upstreams := map[model.ApplicationId]*netSummary{}
 
 	for _, instance := range app.Instances {

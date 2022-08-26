@@ -24,8 +24,8 @@ var (
 	}
 )
 
-func postgres(app *model.Application) *widgets.Dashboard {
-	dash := &widgets.Dashboard{Name: "Postgres"}
+func postgres(ctx timeseries.Context, app *model.Application) *widgets.Dashboard {
+	dash := widgets.NewDashboard(ctx, "Postgres")
 
 	primaryLsn := timeseries.Aggregate(timeseries.Max)
 	for _, i := range app.Instances {

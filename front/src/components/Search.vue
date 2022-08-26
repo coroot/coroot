@@ -43,7 +43,7 @@
                         <v-list-item-title>Nodes</v-list-item-title>
                     </v-list-item-content>
                 </v-list-item>
-                <v-list-item v-for="n in results.nodes">
+                <v-list-item v-for="n in results.nodes" :to="{name: 'node', params: {name: n.name}, query: $route.query}">
                     <v-list-item-title class="ml-3">
                         <Led :status="n.status" />
                         {{n.name}}

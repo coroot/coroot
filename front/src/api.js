@@ -46,6 +46,10 @@ export default class Api {
         this.get(`app/${id}`, cb);
     }
 
+    getNode(name, cb) {
+        this.get(`node/${name}`, cb);
+    }
+
     search(cb) {
         this.get(`search`, cb);
     }
