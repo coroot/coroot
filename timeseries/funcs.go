@@ -59,6 +59,10 @@ func Mul(mul, v float64) float64 {
 	return mul / v
 }
 
+func Sub(sub, v float64) float64 {
+	return sub - v
+}
+
 func Defined(v float64) float64 {
 	if math.IsNaN(v) {
 		return 0

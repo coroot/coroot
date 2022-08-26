@@ -69,3 +69,12 @@ func (w *World) FindInstanceByPod(ns, pod string) *Instance {
 	}
 	return nil
 }
+
+func (w *World) GetNode(name string) *Node {
+	for _, n := range w.Nodes {
+		if n.Name.Value() == name {
+			return n
+		}
+	}
+	return nil
+}

@@ -66,6 +66,23 @@ func (f *Focus) App(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJson(w, views.Application(world, app))
 }
 
+func (f *Focus) Node(w http.ResponseWriter, r *http.Request) {
+	nodeName := mux.Vars(r)["node"]
+	world, err := f.loadWorld(r)
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	node := world.GetNode(nodeName)
+	if node == nil {
+		klog.Warningf("node not found: %s ", nodeName, err)
+		http.Error(w, "node not found", http.StatusNotFound)
+		return
+	}
+	utils.WriteJson(w, views.Node(world, node))
+}
+
 func (f *Focus) loadWorld(r *http.Request) (*model.World, error) {
 	now := time.Now()
 	q := r.URL.Query()
@@ -115,6 +132,7 @@ func main() {
 	r.HandleFunc("/api/overview", focus.Overview).Methods(http.MethodGet)
 	r.HandleFunc("/api/search", focus.Search).Methods(http.MethodGet)
 	r.HandleFunc("/api/app/{app}", focus.App).Methods(http.MethodGet)
+	r.HandleFunc("/api/node/{node}", focus.Node).Methods(http.MethodGet)
 
 	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("./static"))))
 	r.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
