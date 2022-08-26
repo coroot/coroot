@@ -71,7 +71,7 @@ func loadApplications(w *model.World, metrics map[string][]model.MetricValues) {
 				continue
 			}
 			switch queryName {
-			case "kube_deployment_spec_replicas", "kube_statefulset_replicas", "status_desired_number_scheduled":
+			case "kube_deployment_spec_replicas", "kube_statefulset_replicas", "kube_daemonset_status_desired_number_scheduled":
 				app.DesiredInstances = update(app.DesiredInstances, m.Values)
 			}
 		}
