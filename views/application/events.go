@@ -110,10 +110,16 @@ func calcRollouts(app *model.Application) []*Event {
 func calcUpDownEvents(app *model.Application) []*Event {
 	var events []*Event
 	for _, instance := range app.Instances {
-		if instance.Postgres == nil || instance.Postgres.Up == nil {
+		var up timeseries.TimeSeries
+		switch {
+		case instance.Postgres != nil && instance.Postgres.Up != nil:
+			up = instance.Postgres.Up
+		case instance.Redis != nil && instance.Redis.Up != nil:
+			up = instance.Redis.Up
+		default:
 			continue
 		}
-		iter := instance.Postgres.Up.Iter()
+		iter := up.Iter()
 		status := ""
 
 		for iter.Next() {
