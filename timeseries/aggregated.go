@@ -39,13 +39,14 @@ type AggregatedTimeseries struct {
 	aggFunc F
 }
 
-func (ts *AggregatedTimeseries) AddInput(tss ...TimeSeries) {
+func (ts *AggregatedTimeseries) AddInput(tss ...TimeSeries) *AggregatedTimeseries {
 	for _, t := range tss {
 		if t == nil {
 			continue
 		}
 		ts.input = append(ts.input, t)
 	}
+	return ts
 }
 
 func (ts *AggregatedTimeseries) Len() int {

@@ -3,6 +3,7 @@ package widgets
 import (
 	"fmt"
 	"github.com/coroot/coroot-focus/model"
+	"sort"
 )
 
 type Table struct {
@@ -13,7 +14,14 @@ type Table struct {
 func (t *Table) AddRow(cells ...*TableCell) *TableRow {
 	r := &TableRow{Cells: cells}
 	t.Rows = append(t.Rows, r)
+	t.SortRows()
 	return r
+}
+
+func (t *Table) SortRows() {
+	sort.SliceStable(t.Rows, func(i, j int) bool {
+		return t.Rows[i].Cells[0].Value < t.Rows[j].Cells[0].Value
+	})
 }
 
 type TableRow struct {
@@ -32,8 +40,9 @@ func NewTableCell(value string) *TableCell {
 	return &TableCell{Value: value}
 }
 
-func (c *TableCell) SetStatus(status model.Status) *TableCell {
+func (c *TableCell) SetStatus(status model.Status, msg string) *TableCell {
 	c.Status = &status
+	c.Value = msg
 	return c
 }
 

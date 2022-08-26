@@ -65,3 +65,10 @@ func Defined(v float64) float64 {
 	}
 	return 1
 }
+
+func NanToZero(v float64) float64 {
+	if math.IsNaN(v) {
+		return 0
+	}
+	return v
+}

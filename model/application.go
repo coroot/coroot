@@ -1,6 +1,7 @@
 package model
 
 import (
+	"github.com/coroot/coroot-focus/timeseries"
 	"github.com/coroot/coroot-focus/utils"
 	"strconv"
 	"strings"
@@ -10,6 +11,8 @@ type Application struct {
 	Id ApplicationId
 
 	Instances []*Instance
+
+	DesiredInstances timeseries.TimeSeries
 }
 
 func NewApplication(id ApplicationId) *Application {

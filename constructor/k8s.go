@@ -14,7 +14,6 @@ type podId struct {
 
 func loadKubernetesMetadata(w *model.World, metrics map[string][]model.MetricValues) {
 	loadServices(w, metrics["kube_service_info"])
-
 	pods := podInfo(w, metrics["kube_pod_info"])
 	podLabels(metrics["kube_pod_labels"], pods)
 
@@ -28,6 +27,7 @@ func loadKubernetesMetadata(w *model.World, metrics map[string][]model.MetricVal
 			podContainerStatus(queryName, metrics[queryName], pods)
 		}
 	}
+	loadApplications(w, metrics)
 }
 
 func loadServices(w *model.World, metrics []model.MetricValues) {
@@ -42,6 +42,38 @@ func loadServices(w *model.World, metrics []model.MetricValues) {
 				Namespace: m.Labels["namespace"],
 				ClusterIP: clusterIP,
 			})
+		}
+	}
+}
+
+func loadApplications(w *model.World, metrics map[string][]model.MetricValues) {
+	for queryName := range metrics {
+		var (
+			kind      model.ApplicationKind
+			nameLabel string
+		)
+		switch {
+		case strings.HasPrefix(queryName, "kube_deployment_"):
+			kind = model.ApplicationKindDeployment
+			nameLabel = "deployment"
+		case strings.HasPrefix(queryName, "kube_statefulset_"):
+			kind = model.ApplicationKindStatefulSet
+			nameLabel = "statefulset"
+		case strings.HasPrefix(queryName, "kube_daemonset_"):
+			kind = model.ApplicationKindDaemonSet
+			nameLabel = "daemonset"
+		default:
+			continue
+		}
+		for _, m := range metrics[queryName] {
+			app := w.GetApplication(model.NewApplicationId(m.Labels["namespace"], kind, m.Labels[nameLabel]))
+			if app == nil {
+				continue
+			}
+			switch queryName {
+			case "kube_deployment_spec_replicas", "kube_statefulset_replicas", "status_desired_number_scheduled":
+				app.DesiredInstances = update(app.DesiredInstances, m.Values)
+			}
 		}
 	}
 }

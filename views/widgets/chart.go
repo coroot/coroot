@@ -96,6 +96,7 @@ func (chart *Chart) Feature() *Chart {
 type Series struct {
 	Name  string `json:"name"`
 	Color string `json:"color"`
+	Fill  bool   `json:"fill"`
 
 	Data timeseries.TimeSeries `json:"data"`
 }

@@ -48,6 +48,12 @@ func Map(f func(v float64) float64, x TimeSeries) TimeSeries {
 	)
 }
 
+func Replace(x TimeSeries, newValue float64) TimeSeries {
+	return Map(func(v float64) float64 {
+		return newValue
+	}, x)
+}
+
 func LastNotNull(ts TimeSeries) (Time, float64) {
 	if ts == nil {
 		return 0, NaN

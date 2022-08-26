@@ -13,9 +13,9 @@ func redis(app *model.Application) *widgets.Dashboard {
 		if i.Redis == nil {
 			continue
 		}
-		status := widgets.NewTableCell("up").SetStatus(model.OK)
+		status := widgets.NewTableCell("").SetStatus(model.OK, "up")
 		if !(i.Redis.Up != nil && i.Redis.Up.Last() > 0) {
-			status.SetStatus(model.WARNING).SetValue("down (no metrics)")
+			status.SetStatus(model.WARNING, "down (no metrics)")
 		}
 		roleCell := widgets.NewTableCell(i.Redis.Role.Value())
 		switch i.Redis.Role.Value() {

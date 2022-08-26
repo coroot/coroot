@@ -122,6 +122,7 @@ func Render(world *model.World, app *model.Application) *View {
 
 	view := &View{AppMap: appMap}
 	events := calcAppEvents(app)
+	view.addDashboard(world.Ctx, instances(app), events)
 	view.addDashboard(world.Ctx, cpu(app), events)
 	view.addDashboard(world.Ctx, memory(app), events)
 	view.addDashboard(world.Ctx, storage(app), events)

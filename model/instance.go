@@ -3,6 +3,7 @@ package model
 import (
 	"github.com/coroot/coroot-focus/timeseries"
 	"k8s.io/klog"
+	"math"
 	"net"
 )
 
@@ -175,6 +176,34 @@ func (instance *Instance) LifeSpan() timeseries.TimeSeries {
 		return timeseries.Map(timeseries.Defined, c.MemoryRss)
 	}
 	return nil
+}
+
+func (instance *Instance) IsUp() bool {
+	for _, c := range instance.Containers {
+		if c.MemoryRss != nil && !math.IsNaN(c.MemoryRss.Last()) {
+			return true
+		}
+	}
+	return false
+}
+
+func (instance *Instance) UpAndRunning() timeseries.TimeSeries {
+	mem := timeseries.Aggregate(timeseries.Any)
+	for _, c := range instance.Containers {
+		mem.AddInput(c.MemoryRss)
+	}
+	up := timeseries.Map(func(v float64) float64 {
+		if v > 0 {
+			return 1
+		}
+		return 0
+	}, mem)
+	if instance.Pod == nil {
+		return up
+	}
+	running := timeseries.Map(timeseries.NanToZero, instance.Pod.Running)
+	ready := timeseries.Map(timeseries.NanToZero, instance.Pod.Ready)
+	return timeseries.Aggregate(timeseries.Min).AddInput(running, ready, up)
 }
 
 func (instance *Instance) IsListenActive(ip, port string) bool {

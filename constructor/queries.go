@@ -57,6 +57,9 @@ var QUERIES = map[string]string{
 	"kube_pod_container_status_terminated":             `kube_pod_container_status_terminated > 0`,
 	"kube_pod_container_status_waiting_reason":         `kube_pod_container_status_waiting_reason > 0`,
 	"kube_pod_container_status_last_terminated_reason": `kube_pod_container_status_last_terminated_reason`,
+	"kube_deployment_spec_replicas":                    `kube_deployment_spec_replicas`,
+	"kube_daemonset_status_desired_number_scheduled":   `kube_daemonset_status_desired_number_scheduled`,
+	"kube_statefulset_replicas":                        `kube_statefulset_replicas`,
 
 	"pg_connections":                  `pg_connections{db!="postgres"}`,
 	"pg_up":                           `pg_up`,

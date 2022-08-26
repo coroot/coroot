@@ -92,9 +92,9 @@ func pgTable(dash *widgets.Dashboard, i *model.Instance, primaryLsn, lag, qps, e
 	if i.Postgres.Avg != nil && !i.Postgres.Avg.IsEmpty() {
 		latencyMs = utils.FormatFloat(i.Postgres.Avg.Last() * 1000)
 	}
-	status := widgets.NewTableCell("up").SetStatus(model.OK)
+	status := widgets.NewTableCell("").SetStatus(model.OK, "up")
 	if !i.Postgres.IsUp() {
-		status.SetStatus(model.WARNING).SetValue("down (no metrics)")
+		status.SetStatus(model.WARNING, "down (no metrics)")
 	}
 	dash.
 		GetOrCreateTable("instance", "role", "status", "queries", "latency", "errors", "replication lag").
