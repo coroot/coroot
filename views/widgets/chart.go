@@ -7,17 +7,25 @@ import (
 
 type ChartType string
 
+type Annotation struct {
+	Name string          `json:"name"`
+	X1   timeseries.Time `json:"x1"`
+	X2   timeseries.Time `json:"x2"`
+	Icon string          `json:"icon"`
+}
+
 type Chart struct {
 	Ctx timeseries.Context `json:"ctx"`
 
-	Title      string    `json:"title"`
-	Series     []*Series `json:"series"`
-	Threshold  *Series   `json:"threshold"`
-	Featured   bool      `json:"featured"`
-	IsStacked  bool      `json:"stacked"`
-	IsSorted   bool      `json:"sorted"`
-	IsColumn   bool      `json:"column"`
-	ColorShift int       `json:"color_shift"`
+	Title       string       `json:"title"`
+	Series      []*Series    `json:"series"`
+	Threshold   *Series      `json:"threshold"`
+	Featured    bool         `json:"featured"`
+	IsStacked   bool         `json:"stacked"`
+	IsSorted    bool         `json:"sorted"`
+	IsColumn    bool         `json:"column"`
+	ColorShift  int          `json:"color_shift"`
+	Annotations []Annotation `json:"annotations"`
 }
 
 func NewChart(title string) *Chart {
@@ -42,6 +50,11 @@ func (chart *Chart) Column() *Chart {
 
 func (chart *Chart) ShiftColors() *Chart {
 	chart.ColorShift = 1
+	return chart
+}
+
+func (chart *Chart) AddAnnotation(name string, start, end timeseries.Time, icon string) *Chart {
+	chart.Annotations = append(chart.Annotations, Annotation{X1: start, X2: end, Name: name, Icon: icon})
 	return chart
 }
 

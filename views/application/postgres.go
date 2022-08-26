@@ -57,6 +57,7 @@ func postgres(app *model.Application) *widgets.Dashboard {
 			i.LogMessagesByLevel[model.LogLevelError],
 			i.LogMessagesByLevel[model.LogLevelCritical],
 		)
+		pgQueries(dash, i)
 
 		dash.
 			GetOrCreateChartInGroup("Errors <selector>", "overview").
@@ -231,6 +232,26 @@ func pgLocks(dash *widgets.Dashboard, instance *model.Instance) {
 		Stacked().
 		AddMany(timeseries.Top(blockingQueries, timeseries.NanSum, 5)).
 		ShiftColors()
+}
+
+func pgQueries(dash *widgets.Dashboard, instance *model.Instance) {
+	totalTime := map[string]timeseries.TimeSeries{}
+	ioTime := map[string]timeseries.TimeSeries{}
+	for k, stat := range instance.Postgres.PerQuery {
+		q := k.String()
+		totalTime[q] = stat.TotalTime
+		ioTime[q] = stat.IoTime
+	}
+	dash.
+		GetOrCreateChartInGroup("Queries by total time on <selector>, query seconds/second", instance.Name).
+		Stacked().
+		Sorted().
+		AddMany(timeseries.Top(totalTime, timeseries.NanSum, 5))
+	dash.
+		GetOrCreateChartInGroup("Queries by I/O time on <selector>, query seconds/second", instance.Name).
+		Stacked().
+		Sorted().
+		AddMany(timeseries.Top(ioTime, timeseries.NanSum, 5))
 }
 
 func sumQueries(byDB map[string]timeseries.TimeSeries) *timeseries.AggregatedTimeseries {

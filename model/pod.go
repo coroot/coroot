@@ -7,8 +7,11 @@ type Pod struct {
 	Reason    string
 	Scheduled bool
 
-	Running timeseries.TimeSeries
-	Ready   timeseries.TimeSeries
+	Running  timeseries.TimeSeries
+	Ready    timeseries.TimeSeries
+	LifeSpan timeseries.TimeSeries
+
+	ReplicaSet string
 
 	InitContainers map[string]*Container
 }

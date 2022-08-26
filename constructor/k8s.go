@@ -2,6 +2,7 @@ package constructor
 
 import (
 	"github.com/coroot/coroot-focus/model"
+	"github.com/coroot/coroot-focus/timeseries"
 	"k8s.io/klog"
 	"strings"
 )
@@ -64,6 +65,9 @@ func podInfo(w *model.World, metrics []model.MetricValues) map[podId]*model.Inst
 		}
 		instance := w.GetOrCreateApplication(appId).GetOrCreateInstance(pod)
 		instance.Pod = &model.Pod{}
+		if model.ApplicationKind(ownerKind) == model.ApplicationKindReplicaSet {
+			instance.Pod.ReplicaSet = ownerKind
+		}
 		pods[podId{
 			pod: instance.Name,
 			ns:  instance.InstanceId.OwnerId.Namespace,
@@ -114,6 +118,10 @@ func podStatus(queryName string, metrics []model.MetricValues, pods map[podId]*m
 		}
 		switch queryName {
 		case "kube_pod_status_phase":
+			if instance.Pod.LifeSpan == nil {
+				instance.Pod.LifeSpan = timeseries.Aggregate(timeseries.NanSum)
+			}
+			instance.Pod.LifeSpan.(*timeseries.AggregatedTimeseries).AddInput(m.Values)
 			if m.Values.Last() > 0 {
 				instance.Pod.Phase = m.Labels["phase"]
 			}

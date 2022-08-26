@@ -166,6 +166,16 @@ func (instance *Instance) ClusterRoleLast() ClusterRole {
 	return ClusterRole(role.Last())
 }
 
+func (instance *Instance) LifeSpan() timeseries.TimeSeries {
+	if instance.Pod != nil {
+		return instance.Pod.LifeSpan
+	}
+	for _, c := range instance.Containers {
+		return timeseries.Map(timeseries.Defined, c.MemoryRss)
+	}
+	return nil
+}
+
 func (instance *Instance) IsListenActive(ip, port string) bool {
 	for l, active := range instance.TcpListens {
 		if l.IP == ip && l.Port == port {
