@@ -172,6 +172,9 @@ func getActualServiceInstance(instance *model.Instance, applicationType model.Ap
 	if applicationType == "" {
 		return instance
 	}
+	if instance == nil {
+		return nil
+	}
 	if instance.ApplicationTypes()[applicationType] {
 		return instance
 	}

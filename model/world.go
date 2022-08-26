@@ -48,7 +48,7 @@ func (w *World) FindInstanceByListen(ip, port string) *Instance {
 	l := Listen{IP: ip, Port: port}
 	for _, app := range w.Applications {
 		for _, i := range app.Instances {
-			if i.TcpListens[l] {
+			if _, ok := i.TcpListens[l]; ok {
 				return i
 			}
 		}
