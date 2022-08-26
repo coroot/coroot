@@ -15,7 +15,7 @@ const router = new VueRouter({
   mode: "history",
   routes: [
       {path: "/", name: "overview", component: Overview},
-      {path: "/app/:id", name: "application", component: Application, props: true},
+      {path: "/app/:id/:dashboard?", name: "application", component: Application, props: true},
   ],
 });
 

@@ -13,18 +13,14 @@
     <div v-if="app">
         <AppMap v-if="app.app_map" :map="app.app_map" class="my-5" />
 
-        <v-tabs v-if="app.dashboards && app.dashboards.length">
-            <template v-for="d in app.dashboards">
-                <v-tab>
-                    {{d.name}}
-                </v-tab>
-                <v-tab-item transition="none">
-                    <div class="d-flex flex-wrap">
-                        <Widget v-for="w in d.widgets" :w="w" class="my-5" :style="{width: $vuetify.breakpoint.mdAndUp ? (w.width || '50%') : '100%'}" />
-                    </div>
-                </v-tab-item>
-            </template>
+        <v-tabs v-if="app.dashboards && app.dashboards.length" height="40" show-arrows slider-size="2">
+            <v-tab v-for="d in app.dashboards" :to="{params: {dashboard: d.name}, query: $route.query}">
+                {{d.name}}
+            </v-tab>
         </v-tabs>
+        <div v-if="dash" class="d-flex flex-wrap pt-3">
+            <Widget v-for="w in dash.widgets" :w="w" class="my-5" :style="{width: $vuetify.breakpoint.mdAndUp ? (w.width || '50%') : '100%'}" />
+        </div>
     </div>
 </div>
 </template>
@@ -36,6 +32,7 @@ import Widget from "@/components/Widget";
 export default {
     props: {
         id: String,
+        dashboard: String,
     },
 
     components: {AppMap, Widget},
@@ -45,6 +42,7 @@ export default {
             app: null,
             loading: false,
             error: '',
+            dash: null,
         }
     },
 
@@ -58,6 +56,9 @@ export default {
             this.app = null;
             this.get();
         },
+        dashboard() {
+            this.showDash();
+        },
     },
 
     methods: {
@@ -70,8 +71,25 @@ export default {
                     return;
                 }
                 this.app = data;
+                this.showDash();
             });
-        }
+        },
+        showDash() {
+            if (!this.app || !this.app.dashboards || !this.app.dashboards.length) {
+                this.dash = null;
+                return;
+            }
+            if (!this.dashboard) {
+                this.dash = this.app.dashboards[0];
+                return;
+            }
+            const dash = this.app.dashboards.find((d) => d.name === this.dashboard);
+            if (!dash) {
+                this.$router.replace({params: {dashboard: null}}).catch(err => err);
+                return;
+            }
+            this.dash = dash;
+        },
     },
 };
 </script>
