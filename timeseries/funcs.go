@@ -1,6 +1,8 @@
 package timeseries
 
-import "math"
+import (
+	"math"
+)
 
 type F func(accumulator, v float64) float64
 
@@ -23,6 +25,10 @@ func NanSum(sum, v float64) float64 {
 		sum += v
 	}
 	return sum
+}
+
+func Sum(sum, v float64) float64 {
+	return sum + v
 }
 
 func Max(max, v float64) float64 {

@@ -21,18 +21,20 @@ func Render(w *model.World, node *model.Node) *widgets.Dashboard {
 		SetThreshold("total", node.CpuCapacity, timeseries.Any).
 		AddMany(timeseries.Top(utils.CpuConsumers(node), timeseries.NanSum, 5))
 
+	used := timeseries.Aggregate(
+		timeseries.Sub,
+		node.MemoryTotalBytes,
+		timeseries.Aggregate(timeseries.Sum, node.MemoryCachedBytes, node.MemoryFreeBytes),
+	)
 	dash.
 		GetOrCreateChart("Memory usage, bytes").
 		Stacked().
 		Sorted().
 		AddSeries("free", node.MemoryFreeBytes, "light-blue").
 		AddSeries("cache", node.MemoryCachedBytes, "amber").
-		AddSeries(
-			"used",
-			timeseries.Aggregate(timeseries.Sub, node.MemoryTotalBytes, node.MemoryFreeBytes, node.MemoryCachedBytes),
-			"red")
+		AddSeries("used", used, "red")
 
-	dash.GetOrCreateChart("Memory consumer, bytes").
+	dash.GetOrCreateChart("Memory consumers, bytes").
 		Stacked().
 		SetThreshold("total", node.MemoryTotalBytes, timeseries.Any).
 		AddMany(timeseries.Top(utils.MemoryConsumers(node), timeseries.Max, 5))
