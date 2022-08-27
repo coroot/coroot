@@ -59,7 +59,7 @@ func storage(ctx timeseries.Context, app *model.Application) *widgets.Dashboard 
 							)
 						}
 					}
-					dash.GetOrCreateTable("volume", "latency", "I/O", "space", "device").AddRow(
+					dash.GetOrCreateTable("Volume", "Latency", "I/O", "Space", "Device").AddRow(
 						widgets.NewTableCell(fullName),
 						latencyMs,
 						ioPercent,

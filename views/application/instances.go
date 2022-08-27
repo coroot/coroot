@@ -98,7 +98,7 @@ func instances(ctx timeseries.Context, app *model.Application) *widgets.Dashboar
 				restarts += int64(r)
 			}
 		}
-		dash.GetOrCreateTable("instance", "status", "restarts", "IP", "node").AddRow(
+		dash.GetOrCreateTable("Instance", "Status", "Restarts", "IP", "Node").AddRow(
 			widgets.NewTableCell(i.Name),
 			status,
 			widgets.NewTableCell(strconv.FormatInt(restarts, 10)),

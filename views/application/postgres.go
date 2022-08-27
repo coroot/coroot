@@ -97,7 +97,7 @@ func pgTable(dash *widgets.Dashboard, i *model.Instance, primaryLsn, lag, qps, e
 		status.SetStatus(model.WARNING, "down (no metrics)")
 	}
 	dash.
-		GetOrCreateTable("instance", "role", "status", "queries", "latency", "errors", "replication lag").
+		GetOrCreateTable("Instance", "Role", "Status", "Queries", "Latency", "Errors", "Replication lag").
 		AddRow(
 			widgets.NewTableCell(i.Name).AddTag("version: %s", i.Postgres.Version.Value()),
 			roleCell,

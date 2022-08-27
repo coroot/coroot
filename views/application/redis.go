@@ -25,7 +25,7 @@ func redis(ctx timeseries.Context, app *model.Application) *widgets.Dashboard {
 			roleCell.SetIcon("mdi-database-import-outline", "grey")
 		}
 
-		dash.GetOrCreateTable("instance", "role", "status").AddRow(
+		dash.GetOrCreateTable("Instance", "Role", "Status").AddRow(
 			widgets.NewTableCell(i.Name).AddTag("version: %s", i.Redis.Version.Value()),
 			roleCell,
 			status,

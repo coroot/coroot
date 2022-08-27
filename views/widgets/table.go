@@ -28,14 +28,20 @@ type TableRow struct {
 	Cells []*TableCell `json:"cells"`
 }
 
+type Progress struct {
+	Percent int    `json:"percent"`
+	Color   string `json:"color"`
+}
+
 type TableCell struct {
-	Icon   *Icon         `json:"icon"`
-	Value  string        `json:"value"`
-	Values []string      `json:"values"`
-	Tags   []string      `json:"tags"`
-	Unit   string        `json:"unit"`
-	Status *model.Status `json:"status"`
-	Link   string        `json:"link"`
+	Icon     *Icon         `json:"icon"`
+	Value    string        `json:"value"`
+	Values   []string      `json:"values"`
+	Tags     []string      `json:"tags"`
+	Unit     string        `json:"unit"`
+	Status   *model.Status `json:"status"`
+	Link     string        `json:"link"`
+	Progress *Progress     `json:"progress"`
 }
 
 func NewTableCell(value string) *TableCell {
@@ -77,6 +83,11 @@ func (c *TableCell) AddTag(format string, a ...any) *TableCell {
 
 func (c *TableCell) SetLink(link string) *TableCell {
 	c.Link = link
+	return c
+}
+
+func (c *TableCell) SetProgress(percent int, color string) *TableCell {
+	c.Progress = &Progress{Percent: percent, Color: color}
 	return c
 }
 

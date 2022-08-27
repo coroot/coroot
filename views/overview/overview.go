@@ -81,17 +81,29 @@ func Render(w *model.World) *View {
 		appsUsed = append(appsUsed, a)
 	}
 
-	nodes := &widgets.Table{Header: []string{"node", "status", "availability zone", "IP"}}
+	table := &widgets.Table{Header: []string{"Node", "Status", "Availability zone", "IP", "CPU", "Memory"}}
 	for _, n := range w.Nodes {
 		node := widgets.NewTableCell(n.Name.Value()).SetLink("node")
 		ips := utils.NewStringSet()
+
+		cpuPercent, memoryPercent := widgets.NewTableCell(""), widgets.NewTableCell("")
+
 		if n.CpuCapacity != nil {
 			if vcpu := n.CpuCapacity.Last(); !math.IsNaN(vcpu) {
 				node.AddTag("vCPU: " + strconv.Itoa(int(vcpu)))
 			}
 		}
+		if n.CpuUsagePercent != nil {
+			if l := n.CpuUsagePercent.Last(); !math.IsNaN(l) {
+				cpuPercent.SetProgress(int(l), "blue")
+			}
+		}
+
 		if total := n.MemoryTotalBytes.Last(); !math.IsNaN(total) {
 			node.AddTag("memory: " + humanize.Bytes(uint64(total)))
+			if avail := n.MemoryAvailableBytes.Last(); !math.IsNaN(avail) {
+				memoryPercent.SetProgress(int(100-avail/total*100), "deep-purple")
+			}
 		}
 
 		status := widgets.NewTableCell("").SetStatus(model.OK, "up")
@@ -103,14 +115,16 @@ func Render(w *model.World) *View {
 				ips.Add(ip)
 			}
 		}
-		nodes.AddRow(
+		table.AddRow(
 			node,
 			status,
-			widgets.NewTableCell(n.AvailabilityZone.Value()).AddTag("cloud: "+strings.ToLower(n.CloudProvider.Value())),
+			widgets.NewTableCell(n.AvailabilityZone.Value()).SetUnit("("+strings.ToLower(n.CloudProvider.Value())+")"),
 			widgets.NewTableCell("").SetValues(ips.Items()),
+			cpuPercent,
+			memoryPercent,
 		)
 	}
-	return &View{Applications: appsUsed, Nodes: nodes}
+	return &View{Applications: appsUsed, Nodes: table}
 }
 
 func category(app *model.Application) string {
