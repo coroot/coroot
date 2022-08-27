@@ -46,6 +46,6 @@ export default {
     color: #9E9E9E;
 }
 .tag:not(:last-child):after {
-    content: " ";
+    content: " / ";
 }
 </style>

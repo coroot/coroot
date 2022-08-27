@@ -1,9 +1,18 @@
 package overview
 
-import "github.com/coroot/coroot-focus/model"
+import (
+	"github.com/coroot/coroot-focus/model"
+	"github.com/coroot/coroot-focus/utils"
+	"github.com/coroot/coroot-focus/views/widgets"
+	"github.com/dustin/go-humanize"
+	"math"
+	"strconv"
+	"strings"
+)
 
 type View struct {
 	Applications []*Application `json:"applications"`
+	Nodes        *widgets.Table `json:"nodes"`
 }
 
 type Application struct {
@@ -71,7 +80,37 @@ func Render(w *model.World) *View {
 		}
 		appsUsed = append(appsUsed, a)
 	}
-	return &View{Applications: appsUsed}
+
+	nodes := &widgets.Table{Header: []string{"node", "status", "availability zone", "IP"}}
+	for _, n := range w.Nodes {
+		node := widgets.NewTableCell(n.Name.Value()).SetLink("node")
+		ips := utils.NewStringSet()
+		if n.CpuCapacity != nil {
+			if vcpu := n.CpuCapacity.Last(); !math.IsNaN(vcpu) {
+				node.AddTag("vCPU: " + strconv.Itoa(int(vcpu)))
+			}
+		}
+		if total := n.MemoryTotalBytes.Last(); !math.IsNaN(total) {
+			node.AddTag("memory: " + humanize.Bytes(uint64(total)))
+		}
+
+		status := widgets.NewTableCell("").SetStatus(model.OK, "up")
+		if !n.IsUp() {
+			status.SetStatus(model.WARNING, "down (no metrics)")
+		}
+		for _, iface := range n.NetInterfaces {
+			for _, ip := range iface.Addresses {
+				ips.Add(ip)
+			}
+		}
+		nodes.AddRow(
+			node,
+			status,
+			widgets.NewTableCell(n.AvailabilityZone.Value()).AddTag("cloud: "+strings.ToLower(n.CloudProvider.Value())),
+			widgets.NewTableCell("").SetValues(ips.Items()),
+		)
+	}
+	return &View{Applications: appsUsed, Nodes: nodes}
 }
 
 func category(app *model.Application) string {

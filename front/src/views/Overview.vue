@@ -10,14 +10,21 @@
     </v-alert>
 
     <AppsMap v-if="overview" :applications="overview.applications" />
+
+    <h1 class="text-h5 my-5">
+        Nodes
+    </h1>
+
+    <Table v-if="overview.nodes" :header="overview.nodes.header" :rows="overview.nodes.rows" />
 </div>
 </template>
 
 <script>
 import AppsMap from "@/components/AppsMap";
+import Table from "@/components/Table";
 
 export default {
-    components: {AppsMap},
+    components: {AppsMap, Table},
 
     data() {
         return {

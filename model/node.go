@@ -28,7 +28,6 @@ type Node struct {
 	Name      LabelLastValue
 	MachineID string
 
-	//Ip              string
 	CpuCapacity     timeseries.TimeSeries
 	CpuUsagePercent timeseries.TimeSeries
 	CpuUsageByMode  map[string]timeseries.TimeSeries
