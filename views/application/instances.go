@@ -98,12 +98,22 @@ func instances(ctx timeseries.Context, app *model.Application) *widgets.Dashboar
 				restarts += int64(r)
 			}
 		}
+
+		nodeStatus := model.UNKNOWN
+
+		if i.Node != nil {
+			if i.Node.IsUp() {
+				nodeStatus = model.OK
+			} else {
+				nodeStatus = model.WARNING
+			}
+		}
 		dash.GetOrCreateTable("Instance", "Status", "Restarts", "IP", "Node").AddRow(
 			widgets.NewTableCell(i.Name),
 			status,
 			widgets.NewTableCell(strconv.FormatInt(restarts, 10)),
 			widgets.NewTableCell("").SetValues(instanceIPs(i.TcpListens)),
-			widgets.NewTableCell(i.NodeName()).SetLink("node"),
+			widgets.NewTableCell("").SetLink("node").SetStatus(nodeStatus, i.NodeName()),
 		)
 	}
 	chart := dash.GetOrCreateChart("Instances").Stacked().AddSeries("up", up)

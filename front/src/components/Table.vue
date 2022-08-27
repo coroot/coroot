@@ -9,7 +9,7 @@
         <tr v-for="r in rows">
             <td v-for="c in r.cells">
                 <v-icon v-if="c.icon" :color="c.icon.color" small class="mr-1">{{c.icon.name}}</v-icon>
-                <Led v-if="c.status" :status="c.status" class="mr-1" />
+                <Led v-if="c.status && c.value" :status="c.status" class="mr-1" />
                 <div v-for="v in c.values">
                     {{v}}
                 </div>
