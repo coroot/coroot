@@ -92,7 +92,7 @@ func pgTable(dash *widgets.Dashboard, i *model.Instance, primaryLsn, lag, qps, e
 	if i.Postgres.Avg != nil && !i.Postgres.Avg.IsEmpty() {
 		latencyMs = utils.FormatFloat(i.Postgres.Avg.Last() * 1000)
 	}
-	status := widgets.NewTableCell("").SetStatus(model.OK, "up")
+	status := widgets.NewTableCell().SetStatus(model.OK, "up")
 	if !i.Postgres.IsUp() {
 		status.SetStatus(model.WARNING, "down (no metrics)")
 	}

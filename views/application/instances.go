@@ -20,7 +20,7 @@ func instances(ctx timeseries.Context, app *model.Application) *widgets.Dashboar
 	for _, i := range app.Instances {
 		up.AddInput(i.UpAndRunning())
 
-		status := widgets.NewTableCell("").SetStatus(model.UNKNOWN, "unknown")
+		status := widgets.NewTableCell().SetStatus(model.UNKNOWN, "unknown")
 		if i.Pod == nil {
 			if i.IsUp() {
 				status.SetStatus(model.OK, "ok")
@@ -112,8 +112,8 @@ func instances(ctx timeseries.Context, app *model.Application) *widgets.Dashboar
 			widgets.NewTableCell(i.Name),
 			status,
 			widgets.NewTableCell(strconv.FormatInt(restarts, 10)),
-			widgets.NewTableCell("").SetValues(instanceIPs(i.TcpListens)),
-			widgets.NewTableCell("").SetLink("node").SetStatus(nodeStatus, i.NodeName()),
+			widgets.NewTableCell(instanceIPs(i.TcpListens)...),
+			widgets.NewTableCell().SetLink("node").SetStatus(nodeStatus, i.NodeName()),
 		)
 	}
 	chart := dash.GetOrCreateChart("Instances").Stacked().AddSeries("up", up)

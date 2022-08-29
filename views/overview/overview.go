@@ -6,6 +6,7 @@ import (
 	"github.com/coroot/coroot-focus/views/widgets"
 	"github.com/dustin/go-humanize"
 	"math"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -81,12 +82,12 @@ func Render(w *model.World) *View {
 		appsUsed = append(appsUsed, a)
 	}
 
-	table := &widgets.Table{Header: []string{"Node", "Status", "Availability zone", "IP", "CPU", "Memory"}}
+	table := &widgets.Table{Header: []string{"Node", "Status", "Availability zone", "IP", "CPU", "Memory", "Network"}}
 	for _, n := range w.Nodes {
 		node := widgets.NewTableCell(n.Name.Value()).SetLink("node")
 		ips := utils.NewStringSet()
 
-		cpuPercent, memoryPercent := widgets.NewTableCell(""), widgets.NewTableCell("")
+		cpuPercent, memoryPercent := widgets.NewTableCell(), widgets.NewTableCell("")
 
 		if n.CpuCapacity != nil {
 			if vcpu := n.CpuCapacity.Last(); !math.IsNaN(vcpu) {
@@ -106,22 +107,40 @@ func Render(w *model.World) *View {
 			}
 		}
 
-		status := widgets.NewTableCell("").SetStatus(model.OK, "up")
+		status := widgets.NewTableCell().SetStatus(model.OK, "up")
 		if !n.IsUp() {
 			status.SetStatus(model.WARNING, "down (no metrics)")
 		}
+
+		network := widgets.NewTableCell()
 		for _, iface := range n.NetInterfaces {
+			if iface.Up != nil && iface.Up.Last() != 1 {
+				continue
+			}
+			if iface.RxBytes == nil || iface.TxBytes == nil {
+				continue
+			}
 			for _, ip := range iface.Addresses {
 				ips.Add(ip)
 			}
+			network.NetInterfaces = append(network.NetInterfaces, widgets.NetInterface{
+				Name: iface.Name,
+				Rx:   utils.HumanBits(iface.RxBytes.Last() * 8),
+				Tx:   utils.HumanBits(iface.TxBytes.Last() * 8),
+			})
 		}
+		sort.Slice(network.NetInterfaces, func(i, j int) bool {
+			return network.NetInterfaces[i].Name < network.NetInterfaces[j].Name
+		})
+
 		table.AddRow(
 			node,
 			status,
 			widgets.NewTableCell(n.AvailabilityZone.Value()).SetUnit("("+strings.ToLower(n.CloudProvider.Value())+")"),
-			widgets.NewTableCell("").SetValues(ips.Items()),
+			widgets.NewTableCell(ips.Items()...),
 			cpuPercent,
 			memoryPercent,
+			network,
 		)
 	}
 	return &View{Applications: appsUsed, Nodes: table}

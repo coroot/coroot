@@ -13,7 +13,7 @@ func redis(ctx timeseries.Context, app *model.Application) *widgets.Dashboard {
 		if i.Redis == nil {
 			continue
 		}
-		status := widgets.NewTableCell("").SetStatus(model.OK, "up")
+		status := widgets.NewTableCell().SetStatus(model.OK, "up")
 		if !(i.Redis.Up != nil && i.Redis.Up.Last() > 0) {
 			status.SetStatus(model.WARNING, "down (no metrics)")
 		}

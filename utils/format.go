@@ -36,3 +36,10 @@ func FormatBytes(b float64) (string, string) {
 	}
 	return parts[0], parts[1]
 }
+
+func HumanBits(v float64) string {
+	if math.IsNaN(v) {
+		return ""
+	}
+	return strings.Replace(humanize.Bytes(uint64(v)), "B", "b", -1) + "ps"
+}

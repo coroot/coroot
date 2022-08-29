@@ -36,17 +36,17 @@ func storage(ctx timeseries.Context, app *model.Application) *widgets.Dashboard 
 						AddSeries("read", d.ReadBytes, "blue").
 						AddSeries("written", d.WrittenBytes, "amber")
 
-					latencyMs := widgets.NewTableCell("").SetUnit("ms")
+					latencyMs := widgets.NewTableCell().SetUnit("ms")
 					if d.Await != nil {
 						latencyMs.SetValue(utils.FormatFloat(d.Await.Last() * 1000))
 					}
-					ioPercent := widgets.NewTableCell("")
+					ioPercent := widgets.NewTableCell()
 					if d.IOUtilizationPercent != nil {
 						if last := d.IOUtilizationPercent.Last(); !math.IsNaN(last) {
 							ioPercent.SetValue(fmt.Sprintf("%.0f%%", last))
 						}
 					}
-					space := widgets.NewTableCell("")
+					space := widgets.NewTableCell()
 					if v.UsedBytes != nil && v.CapacityBytes != nil {
 						capacity := v.CapacityBytes.Last()
 						usage := v.UsedBytes.Last()

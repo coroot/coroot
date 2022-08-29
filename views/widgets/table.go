@@ -33,19 +33,32 @@ type Progress struct {
 	Color   string `json:"color"`
 }
 
-type TableCell struct {
-	Icon     *Icon         `json:"icon"`
-	Value    string        `json:"value"`
-	Values   []string      `json:"values"`
-	Tags     []string      `json:"tags"`
-	Unit     string        `json:"unit"`
-	Status   *model.Status `json:"status"`
-	Link     string        `json:"link"`
-	Progress *Progress     `json:"progress"`
+type NetInterface struct {
+	Name string
+	Rx   string
+	Tx   string
 }
 
-func NewTableCell(value string) *TableCell {
-	return &TableCell{Value: value}
+type TableCell struct {
+	Icon          *Icon          `json:"icon"`
+	Value         string         `json:"value"`
+	Values        []string       `json:"values"`
+	Tags          []string       `json:"tags"`
+	Unit          string         `json:"unit"`
+	Status        *model.Status  `json:"status"`
+	Link          string         `json:"link"`
+	Progress      *Progress      `json:"progress"`
+	NetInterfaces []NetInterface `json:"net_interfaces"`
+}
+
+func NewTableCell(values ...string) *TableCell {
+	if len(values) == 0 {
+		return &TableCell{}
+	}
+	if len(values) == 1 {
+		return &TableCell{Value: values[0]}
+	}
+	return &TableCell{Values: values}
 }
 
 func (c *TableCell) SetStatus(status model.Status, msg string) *TableCell {
@@ -56,11 +69,6 @@ func (c *TableCell) SetStatus(status model.Status, msg string) *TableCell {
 
 func (c *TableCell) SetValue(value string) *TableCell {
 	c.Value = value
-	return c
-}
-
-func (c *TableCell) SetValues(values []string) *TableCell {
-	c.Values = values
 	return c
 }
 
