@@ -4,7 +4,7 @@ Coroot is a monitoring and troubleshooting tool for microservice architectures.
 
 #
 
-<img width="800" src="./assets/coroot-demo.gif"> 
+<img width="800" src="https://user-images.githubusercontent.com/194465/187667684-224cfa32-96cd-44f0-87f7-0528b3dd7bb9.gif"> 
 
 # Features
 
