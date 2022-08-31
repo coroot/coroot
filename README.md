@@ -1,0 +1,59 @@
+<img width="200" src="https://coroot.com/static/logo_u.png"> 
+
+Coroot is a monitoring and troubleshooting tool for microservice architectures. 
+
+<img width="600" src="./assets/coroot-demo.gif"> 
+
+# Features
+
+## eBPF-based service mapping
+Thanks to eBPF, Coroot shows you a comprehensive [map of your services](https://coroot.com/blog/building-a-service-map-using-ebpf) without any code changes.
+
+<img width="600" src="./assets/service-map.png"> 
+
+## Log analysis without storage costs
+
+[Node-agent](https://github.com/coroot/coroot-node-agent) turns terabytes of logs into just a few dozen metrics by extracting 
+[repeated patterns](https://coroot.com/blog/mining-logs-from-unstructured-logs) right on the node. 
+Using these metrics allows you to quickly and cost-effectively find the errors relevant to a particular outage.
+
+<img width="600" src="./assets/logs.png"> 
+
+## Cloud topology awareness
+
+Coroot uses [cloud metadata](https://coroot.com/blog/cloud-metadata) to show which regions and availability zones 
+each application runs in.
+It's very important to known, because:
+ * Network latency between availability zones within the same region can be higher than within one particular zone.
+ * Data transfer between availability zones in the same region is paid, while data transfer within a zone is free.
+
+<img width="600" src="./assets/topology.png"> 
+
+## Advanced Postgres observability
+ 
+Coroot [makes](https://coroot.com/blog/pg-agent) troubleshooting Postgres-related issues easier not only for experienced DBAs but also for engineers not specialized in databases.
+
+<img width="600" src="./assets/postgres.png"> 
+
+
+## Integration into your existing monitoring stack
+
+Coroot uses Prometheus as a Time-Series Databases (TSDB):
+* The agents are Prometheus-compatible exporters 
+* Coroot itself is a Prometheus client (like Grafana)
+
+<img width="600" src="./assets/prometheus.svg">
+
+## Built-in Prometheus cache
+
+The built-in Prometheus cache allows Coroot to provide you with a blazing fast UI and not overload your Prometheus.
+
+
+# License
+
+Coroot is licensed under the [Apache License, Version 2.0](https://github.com/coroot/coroot/blob/main/LICENSE).
+
+
+
+
+
