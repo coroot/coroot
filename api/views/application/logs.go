@@ -2,9 +2,9 @@ package application
 
 import (
 	"fmt"
+	widgets2 "github.com/coroot/coroot-focus/api/views/widgets"
 	"github.com/coroot/coroot-focus/model"
 	"github.com/coroot/coroot-focus/timeseries"
-	"github.com/coroot/coroot-focus/views/widgets"
 	"sort"
 	"strings"
 )
@@ -21,12 +21,12 @@ var (
 	logLevels = []model.LogLevel{"unknown", "debug", "info", "warning", "error", "critical"}
 )
 
-func logs(ctx timeseries.Context, app *model.Application) *widgets.Dashboard {
-	byHash := map[string]*widgets.LogPatternInfo{}
+func logs(ctx timeseries.Context, app *model.Application) *widgets2.Dashboard {
+	byHash := map[string]*widgets2.LogPatternInfo{}
 	byLevel := map[model.LogLevel]timeseries.TimeSeries{}
-	dash := widgets.NewDashboard(ctx, "Logs")
+	dash := widgets2.NewDashboard(ctx, "Logs")
 
-	patterns := &widgets.LogPatterns{
+	patterns := &widgets2.LogPatterns{
 		Title: fmt.Sprintf("Repeated patters from the <var>%s</var>'s log", app.Id.Name),
 	}
 	totalEvents := uint64(0)
@@ -59,14 +59,14 @@ func logs(ctx timeseries.Context, app *model.Application) *widgets.Dashboard {
 					}
 				}
 				if pattern == nil {
-					pattern = &widgets.LogPatternInfo{
+					pattern = &widgets2.LogPatternInfo{
 						Level:     string(p.Level),
 						Sample:    p.Sample,
 						Multiline: p.Multiline,
 						Pattern:   p.Pattern,
 						Sum:       timeseries.Aggregate(timeseries.NanSum),
 						Color:     logLevelColors[p.Level],
-						Instances: widgets.NewChart(ctx, "Events by instance").Column(),
+						Instances: widgets2.NewChart(ctx, "Events by instance").Column(),
 					}
 					byHash[hash] = pattern
 					patterns.Patterns = append(patterns.Patterns, pattern)
@@ -79,7 +79,7 @@ func logs(ctx timeseries.Context, app *model.Application) *widgets.Dashboard {
 		}
 	}
 
-	eventsBySeverity := widgets.NewChart(ctx, "Events by severity").Column()
+	eventsBySeverity := widgets2.NewChart(ctx, "Events by severity").Column()
 	for _, l := range logLevels {
 		eventsBySeverity.AddSeries(strings.ToUpper(string(l)), byLevel[l], logLevelColors[l])
 	}
@@ -89,7 +89,7 @@ func logs(ctx timeseries.Context, app *model.Application) *widgets.Dashboard {
 	for _, p := range patterns.Patterns {
 		p.Percentage = p.Events * 100 / totalEvents
 	}
-	dash.Widgets = append(dash.Widgets, &widgets.Widget{Chart: eventsBySeverity, Width: "100%"})
-	dash.Widgets = append(dash.Widgets, &widgets.Widget{LogPatterns: patterns, Width: "100%"})
+	dash.Widgets = append(dash.Widgets, &widgets2.Widget{Chart: eventsBySeverity, Width: "100%"})
+	dash.Widgets = append(dash.Widgets, &widgets2.Widget{LogPatterns: patterns, Width: "100%"})
 	return dash
 }

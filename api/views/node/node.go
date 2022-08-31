@@ -1,17 +1,17 @@
 package node
 
 import (
+	utils2 "github.com/coroot/coroot-focus/api/views/utils"
+	"github.com/coroot/coroot-focus/api/views/widgets"
 	"github.com/coroot/coroot-focus/model"
 	"github.com/coroot/coroot-focus/timeseries"
-	"github.com/coroot/coroot-focus/views/utils"
-	"github.com/coroot/coroot-focus/views/widgets"
 )
 
 func Render(w *model.World, node *model.Node) *widgets.Dashboard {
 	dash := widgets.NewDashboard(w.Ctx, "Node")
 
 	cpu := dash.GetOrCreateChart("CPU usage, %").Sorted().Stacked()
-	for _, s := range utils.CpuByModeSeries(node.CpuUsageByMode) {
+	for _, s := range utils2.CpuByModeSeries(node.CpuUsageByMode) {
 		cpu.Series = append(cpu.Series, s)
 	}
 
@@ -19,7 +19,7 @@ func Render(w *model.World, node *model.Node) *widgets.Dashboard {
 		Stacked().
 		Sorted().
 		SetThreshold("total", node.CpuCapacity, timeseries.Any).
-		AddMany(timeseries.Top(utils.CpuConsumers(node), timeseries.NanSum, 5))
+		AddMany(timeseries.Top(utils2.CpuConsumers(node), timeseries.NanSum, 5))
 
 	used := timeseries.Aggregate(
 		timeseries.Sub,
@@ -37,7 +37,7 @@ func Render(w *model.World, node *model.Node) *widgets.Dashboard {
 	dash.GetOrCreateChart("Memory consumers, bytes").
 		Stacked().
 		SetThreshold("total", node.MemoryTotalBytes, timeseries.Any).
-		AddMany(timeseries.Top(utils.MemoryConsumers(node), timeseries.Max, 5))
+		AddMany(timeseries.Top(utils2.MemoryConsumers(node), timeseries.Max, 5))
 	netLatency(dash, w, node)
 
 	for _, i := range node.NetInterfaces {

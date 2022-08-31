@@ -2,25 +2,25 @@ package application
 
 import (
 	"fmt"
+	widgets2 "github.com/coroot/coroot-focus/api/views/widgets"
 	"github.com/coroot/coroot-focus/model"
 	"github.com/coroot/coroot-focus/timeseries"
 	"github.com/coroot/coroot-focus/utils"
-	"github.com/coroot/coroot-focus/views/widgets"
 	"math"
 	"net"
 	"strconv"
 	"strings"
 )
 
-func instances(ctx timeseries.Context, app *model.Application) *widgets.Dashboard {
-	dash := widgets.NewDashboard(ctx, "Instances")
+func instances(ctx timeseries.Context, app *model.Application) *widgets2.Dashboard {
+	dash := widgets2.NewDashboard(ctx, "Instances")
 
 	up := timeseries.Aggregate(timeseries.NanSum)
 
 	for _, i := range app.Instances {
 		up.AddInput(i.UpAndRunning())
 
-		status := widgets.NewTableCell().SetStatus(model.UNKNOWN, "unknown")
+		status := widgets2.NewTableCell().SetStatus(model.UNKNOWN, "unknown")
 		if i.Pod == nil {
 			if i.IsUp() {
 				status.SetStatus(model.OK, "ok")
@@ -109,11 +109,11 @@ func instances(ctx timeseries.Context, app *model.Application) *widgets.Dashboar
 			}
 		}
 		dash.GetOrCreateTable("Instance", "Status", "Restarts", "IP", "Node").AddRow(
-			widgets.NewTableCell(i.Name),
+			widgets2.NewTableCell(i.Name),
 			status,
-			widgets.NewTableCell(strconv.FormatInt(restarts, 10)),
-			widgets.NewTableCell(instanceIPs(i.TcpListens)...),
-			widgets.NewTableCell().SetLink("node").SetStatus(nodeStatus, i.NodeName()),
+			widgets2.NewTableCell(strconv.FormatInt(restarts, 10)),
+			widgets2.NewTableCell(instanceIPs(i.TcpListens)...),
+			widgets2.NewTableCell().SetLink("node").SetStatus(nodeStatus, i.NodeName()),
 		)
 	}
 	chart := dash.GetOrCreateChart("Instances").Stacked().AddSeries("up", up)

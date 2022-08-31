@@ -1,5 +1,7 @@
 import axios from "axios";
 
+const defaultErrorMessage = 'Something went wrong, please try again later.';
+
 export default class Api {
     axios = axios.create({
         baseURL: '/api/',
@@ -34,23 +36,50 @@ export default class Api {
         this.axios.get(url, {params}).then((response) => {
             cb(response.data, '');
         }).catch((error) => {
-            cb(null, error.response.data && error.response.data.trim() || 'Something went wrong, please try again later.');
+            const err = error.response.data && error.response.data.trim() || defaultErrorMessage;
+            cb(null, err);
         })
     }
 
+    post(url, data, cb) {
+        this.axios.post(url, data).then((response) => {
+            cb(response.data, '');
+        }).catch((error) => {
+            const err = error.response.data && error.response.data.trim() || defaultErrorMessage;
+            cb(null, err);
+        })
+    }
+
+    getProjects(cb) {
+        this.get(`projects`, cb);
+    }
+
+    getProject(projectId, cb) {
+        this.get(`project/${projectId || ''}`, cb);
+    }
+
+    saveProject(projectId, form, cb) {
+        this.post(`project/${projectId || ''}`, form, cb);
+    }
+
+    projectPath(subPath) {
+        const projectId = this.router.currentRoute.params.projectId;
+        return `project/${projectId}/${subPath}`;
+    }
+
     getOverview(cb) {
-        this.get(`overview`, cb);
+        this.get(this.projectPath(`overview`), cb);
     }
 
-    getApplication(id, cb) {
-        this.get(`app/${id}`, cb);
+    getApplication(appId, cb) {
+        this.get(this.projectPath(`app/${appId}`), cb);
     }
 
-    getNode(name, cb) {
-        this.get(`node/${name}`, cb);
+    getNode(nodeName, cb) {
+        this.get(this.projectPath(`node/${nodeName}`), cb);
     }
 
     search(cb) {
-        this.get(`search`, cb);
+        this.get(this.projectPath(`search`), cb);
     }
 }

@@ -7,12 +7,14 @@ require (
 	github.com/dustin/go-humanize v1.0.0
 	github.com/gorilla/mux v1.8.0
 	github.com/hako/durafmt v0.0.0-20210608085754-5c1018a4e16b
+	github.com/matoous/go-nanoid v1.5.0
 	github.com/mattn/go-sqlite3 v1.14.15
 	github.com/natefinch/atomic v1.0.1
 	github.com/pierrec/lz4 v2.6.1+incompatible
 	github.com/prometheus/client_golang v1.13.0
 	github.com/prometheus/common v0.37.0
 	github.com/stretchr/testify v1.6.1
+	github.com/xhit/go-str2duration/v2 v2.0.0
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
 	k8s.io/klog v1.0.0
 )
@@ -32,7 +34,6 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/procfs v0.8.0 // indirect
-	github.com/xhit/go-str2duration/v2 v2.0.0 // indirect
 	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c // indirect

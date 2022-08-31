@@ -1,95 +1,17 @@
 package main
 
 import (
+	"github.com/coroot/coroot-focus/api"
 	"github.com/coroot/coroot-focus/cache"
-	"github.com/coroot/coroot-focus/constructor"
 	"github.com/coroot/coroot-focus/db"
-	"github.com/coroot/coroot-focus/model"
 	"github.com/coroot/coroot-focus/prom"
 	"github.com/coroot/coroot-focus/utils"
-	"github.com/coroot/coroot-focus/views"
 	"github.com/gorilla/mux"
 	"gopkg.in/alecthomas/kingpin.v2"
 	"k8s.io/klog"
 	"net/http"
 	"path"
-	"time"
 )
-
-type Focus struct {
-	constructor *constructor.Constructor
-}
-
-func (f *Focus) Health(w http.ResponseWriter, r *http.Request) {
-	return
-}
-
-func (f *Focus) Overview(w http.ResponseWriter, r *http.Request) {
-	world, err := f.loadWorld(r)
-	if err != nil {
-		klog.Errorln(err)
-		http.Error(w, "", http.StatusInternalServerError)
-		return
-	}
-	utils.WriteJson(w, views.Overview(world))
-}
-
-func (f *Focus) Search(w http.ResponseWriter, r *http.Request) {
-	world, err := f.loadWorld(r)
-	if err != nil {
-		klog.Errorln(err)
-		http.Error(w, "", http.StatusInternalServerError)
-		return
-	}
-	utils.WriteJson(w, views.Search(world))
-}
-
-func (f *Focus) App(w http.ResponseWriter, r *http.Request) {
-	id, err := model.NewApplicationIdFromString(mux.Vars(r)["app"])
-	if err != nil {
-		klog.Warningf("invalid application_id %s: %s ", mux.Vars(r)["app"], err)
-		http.Error(w, "invalid application_id: "+mux.Vars(r)["app"], http.StatusBadRequest)
-		return
-	}
-	world, err := f.loadWorld(r)
-	if err != nil {
-		klog.Errorln(err)
-		http.Error(w, "", http.StatusInternalServerError)
-		return
-	}
-	app := world.GetApplication(id)
-	if app == nil {
-		klog.Warningf("application not found: %s ", id, err)
-		http.Error(w, "application not found", http.StatusNotFound)
-		return
-	}
-	utils.WriteJson(w, views.Application(world, app))
-}
-
-func (f *Focus) Node(w http.ResponseWriter, r *http.Request) {
-	nodeName := mux.Vars(r)["node"]
-	world, err := f.loadWorld(r)
-	if err != nil {
-		klog.Errorln(err)
-		http.Error(w, "", http.StatusInternalServerError)
-		return
-	}
-	node := world.GetNode(nodeName)
-	if node == nil {
-		klog.Warningf("node not found: %s ", nodeName, err)
-		http.Error(w, "node not found", http.StatusNotFound)
-		return
-	}
-	utils.WriteJson(w, views.Node(world, node))
-}
-
-func (f *Focus) loadWorld(r *http.Request) (*model.World, error) {
-	now := time.Now()
-	q := r.URL.Query()
-	from := utils.ParseTimeFromUrl(now, q, "from", now.Add(-time.Hour))
-	to := utils.ParseTimeFromUrl(now, q, "to", now)
-	return f.constructor.LoadWorld(r.Context(), from, to)
-}
 
 func main() {
 	dataDir := kingpin.Flag("datadir", `Path to data directory`).Required().String()
@@ -125,14 +47,19 @@ func main() {
 	if err != nil {
 		klog.Exitln(err)
 	}
-	focus := &Focus{constructor: constructor.New(promCache.GetCacheClient(), *scrapeInterval)}
+
+	api := api.NewApi(promCache, db)
 
 	r := mux.NewRouter()
-	r.HandleFunc("/health", focus.Health).Methods(http.MethodGet)
-	r.HandleFunc("/api/overview", focus.Overview).Methods(http.MethodGet)
-	r.HandleFunc("/api/search", focus.Search).Methods(http.MethodGet)
-	r.HandleFunc("/api/app/{app}", focus.App).Methods(http.MethodGet)
-	r.HandleFunc("/api/node/{node}", focus.Node).Methods(http.MethodGet)
+	r.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {}).Methods(http.MethodGet)
+
+	r.HandleFunc("/api/projects", api.Projects).Methods(http.MethodGet)
+	r.HandleFunc("/api/project/", api.Project).Methods(http.MethodGet, http.MethodPost)
+	r.HandleFunc("/api/project/{project}", api.Project).Methods(http.MethodGet, http.MethodPost)
+	r.HandleFunc("/api/project/{project}/overview", api.Overview).Methods(http.MethodGet)
+	r.HandleFunc("/api/project/{project}/search", api.Search).Methods(http.MethodGet)
+	r.HandleFunc("/api/project/{project}/app/{app}", api.App).Methods(http.MethodGet)
+	r.HandleFunc("/api/project/{project}/node/{node}", api.Node).Methods(http.MethodGet)
 
 	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("./static"))))
 	r.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

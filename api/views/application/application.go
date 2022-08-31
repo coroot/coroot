@@ -1,16 +1,16 @@
 package application
 
 import (
+	widgets2 "github.com/coroot/coroot-focus/api/views/widgets"
 	"github.com/coroot/coroot-focus/model"
 	"github.com/coroot/coroot-focus/timeseries"
-	"github.com/coroot/coroot-focus/views/widgets"
 	"sort"
 	"strings"
 )
 
 type View struct {
-	AppMap     *AppMap              `json:"app_map"`
-	Dashboards []*widgets.Dashboard `json:"dashboards"`
+	AppMap     *AppMap               `json:"app_map"`
+	Dashboards []*widgets2.Dashboard `json:"dashboards"`
 }
 
 type AppMap struct {
@@ -159,7 +159,7 @@ func (m *AppMap) addClient(w *model.World, id model.ApplicationId) {
 	m.Clients = append(m.Clients, &Application{Id: id, Labels: app.Labels()})
 }
 
-func (v *View) addDashboard(d *widgets.Dashboard, events []*Event) {
+func (v *View) addDashboard(d *widgets2.Dashboard, events []*Event) {
 	if len(d.Widgets) == 0 {
 		return
 	}
@@ -180,7 +180,7 @@ func (v *View) addDashboard(d *widgets.Dashboard, events []*Event) {
 	v.Dashboards = append(v.Dashboards, d)
 }
 
-func addAnnotations(events []*Event, chart *widgets.Chart) {
+func addAnnotations(events []*Event, chart *widgets2.Chart) {
 	if len(events) == 0 {
 		return
 	}

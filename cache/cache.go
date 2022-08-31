@@ -92,9 +92,9 @@ func NewCache(cfg Config, db *db.DB, promClient prom.Client, scrapeInterval time
 	prometheus.MustRegister(cache.pendingCompactions)
 	prometheus.MustRegister(cache.compactedChunks)
 
-	go cache.updater()
-	go cache.gc()
-	go cache.compaction()
+	//go cache.updater()
+	//go cache.gc()
+	//go cache.compaction()
 	return cache, nil
 }
 

@@ -1,9 +1,9 @@
 package utils
 
 import (
+	"github.com/coroot/coroot-focus/api/views/widgets"
 	"github.com/coroot/coroot-focus/model"
 	"github.com/coroot/coroot-focus/timeseries"
-	"github.com/coroot/coroot-focus/views/widgets"
 )
 
 func CpuByModeSeries(modes map[string]timeseries.TimeSeries) []*widgets.Series {
