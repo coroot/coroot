@@ -4,7 +4,7 @@
             <v-btn v-if="small" icon plain dark v-on="on">
                 <v-icon>mdi-clock-outline</v-icon>
             </v-btn>
-            <v-btn v-else v-on="on" class="px-3 selector" outlined>
+            <v-btn v-else v-on="on" plain>
                 <v-icon>mdi-clock-outline</v-icon>
                 <span class="ml-2">{{selected.text}}</span>
             </v-btn>
@@ -66,7 +66,4 @@ export default {
 </script>
 
 <style scoped>
-.selector {
-    color: rgba(255,255,255,0.4);
-}
 </style>

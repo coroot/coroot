@@ -1,14 +1,39 @@
 <template>
 <v-app>
-    <v-app-bar app flat dark color="#080d1b">
+    <v-app-bar app flat dark color="#080d1b" class="menu">
         <v-container class="py-0 fill-height">
             <router-link :to="{name: 'index'}">
                 <img src="/static/logo.svg" height="38" style="vertical-align: middle;">
             </router-link>
+
+            <v-menu v-if="projects && projects.length" dark offset-y tile>
+                <template #activator="{ on }">
+                    <v-btn v-on="on" plain class="ml-3">
+                        {{project ? project.name : 'Choose a project'}}
+                        <v-icon>mdi-menu-down</v-icon>
+                    </v-btn>
+                </template>
+                <v-list dense color="#080d1b">
+                    <v-list-item v-for="p in projects" :to="{name: 'overview', params: {projectId: p.id}}">
+                        {{p.name}}
+                    </v-list-item>
+                    <v-list-item :to="{name: 'project_new'}" exact>
+                        <v-icon small>mdi-plus</v-icon> new project
+                    </v-list-item>
+                </v-list>
+            </v-menu>
+
             <v-spacer />
-            <Search v-if="$vuetify.breakpoint.mdAndUp && $route.params.projectId" />
+
+            <Search v-if="$vuetify.breakpoint.mdAndUp && project" />
+
             <v-spacer />
-            <TimePicker v-if="$route.params.projectId" :small="$vuetify.breakpoint.xsOnly"/>
+
+            <TimePicker v-if="project && $route.name !== 'project_settings'" :small="$vuetify.breakpoint.xsOnly"/>
+
+            <v-btn v-if="project" icon small :to="{name: 'project_settings', params: {projectId: project.id}}" plain>
+                <v-icon>mdi-cog</v-icon>
+            </v-btn>
         </v-container>
     </v-app-bar>
 
@@ -32,6 +57,7 @@ export default {
 
     data() {
         return {
+            projects: [],
             loading: false,
             error: '',
         }
@@ -39,6 +65,16 @@ export default {
 
     created() {
         this.getProjects();
+    },
+
+    computed: {
+        project() {
+            const id = this.$route.params.projectId;
+            if (!id) {
+                return null;
+            }
+            return this.projects.find((p) => p.id === id);
+        }
     },
 
     methods: {
@@ -50,13 +86,13 @@ export default {
                     this.error = error;
                     return;
                 }
-                const projects = data;
+                this.projects = data || [];
                 if (this.$route.name === 'index') {
-                    if (!projects || !projects.length) {
+                    if (!this.projects.length) {
                         this.$router.replace({name: 'project_new'});
                         return;
                     }
-                    this.$router.replace({name: 'overview', params: {projectId: projects[0].id}});
+                    this.$router.replace({name: 'overview', params: {projectId: this.projects[0].id}});
                 }
             });
         }

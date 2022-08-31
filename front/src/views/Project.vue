@@ -30,7 +30,7 @@
         <div class="caption">
             How often Coroot retrieves telemetry data from a Prometheus.
         </div>
-        <v-select v-model="form.prometheus.refresh_interval" :items="refresh_intervals" outlined dense :menu-props="{offsetY: true}" />
+        <v-select v-model="form.prometheus.refresh_interval" :items="refreshIntervals" outlined dense :menu-props="{offsetY: true}" />
     </v-form>
     <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
         {{error}}
@@ -40,6 +40,12 @@
 </template>
 
 <script>
+const refreshIntervals = [
+    {value: 30 * 1000, text: '30 seconds'},
+    {value: 60 * 1000, text: '1 minute'},
+    {value: 2 * 60 * 1000, text: '2 minutes'},
+    {value: 5 * 60 * 1000, text: '5 minutes'},
+];
 
 export default {
     props: {
@@ -53,11 +59,8 @@ export default {
                 prometheus: {
                     url: '',
                     tls_skip_verify: false,
-                    basic_auth: {
-                        user: '',
-                        password: '',
-                    },
-                    refresh_interval: ''
+                    basic_auth: null,
+                    refresh_interval: refreshIntervals[0].value,
                 },
             },
             valid: false,
@@ -67,24 +70,26 @@ export default {
     },
 
     mounted() {
-        if (this.projectId) {
+        this.get();
+    },
+
+    watch: {
+        projectId() {
             this.get();
         }
     },
 
     computed: {
-        refresh_intervals() {
-            return [
-                {value: 30 * 1000, text: '30 seconds'},
-                {value: 60 * 1000, text: '1 minute'},
-                {value: 2 * 60 * 1000, text: '2 minutes'},
-                {value: 5 * 60 * 1000, text: '5 minutes'},
-            ];
+        refreshIntervals() {
+            return refreshIntervals;
         },
     },
 
     methods: {
         get() {
+            if (!this.projectId) {
+                return;
+            }
             this.loading = true;
             this.error = '';
             this.$api.getProject(this.projectId, (data, error) => {
