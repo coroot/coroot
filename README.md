@@ -44,7 +44,7 @@ Coroot uses Prometheus as a Time-Series Databases (TSDB):
 * The agents are Prometheus-compatible exporters 
 * Coroot itself is a Prometheus client (like Grafana)
 
-<img width="600" src="./assets/prometheus.svg">
+<p align="center"><img width="600" src="./assets/prometheus.svg"></p>
 
 ## Built-in Prometheus cache
 
