@@ -136,24 +136,24 @@ func (c *Cache) initCacheIndexFromDir() error {
 
 func getChunkInfo(cacheDir, filename string) (string, *ChunkInfo, error) {
 	parts := strings.Split(strings.TrimSuffix(filename, ".db"), "-")
-	if len(parts) != 4 {
+	if len(parts) != 5 {
 		return "", nil, fmt.Errorf("invalid filename %s", filename)
 	}
-	queryId := parts[0]
+	queryId := parts[1]
 	info := &ChunkInfo{
 		path: path.Join(cacheDir, filename),
 	}
-	chunkTsUnix, err := strconv.ParseInt(parts[1], 10, 64)
+	chunkTsUnix, err := strconv.ParseInt(parts[2], 10, 64)
 	if err != nil {
 		return "", nil, err
 	}
 	info.ts = timeseries.Time(chunkTsUnix)
-	d, err := strconv.ParseInt(parts[2], 10, 32)
+	d, err := strconv.ParseInt(parts[3], 10, 32)
 	if err != nil {
 		return "", nil, err
 	}
 	info.duration = timeseries.Duration(d)
-	step, err := strconv.ParseInt(parts[3], 10, 32)
+	step, err := strconv.ParseInt(parts[4], 10, 32)
 	if err != nil {
 		return "", nil, err
 	}
