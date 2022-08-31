@@ -155,6 +155,6 @@ func (api *Api) loadWorld(r *http.Request) (*model.World, error) {
 		return nil, err
 	}
 	step := time.Duration(project.Prometheus.RefreshInterval) * time.Second
-	c := constructor.New(api.cache.GetCacheClient(), step)
+	c := constructor.New(api.cache.GetCacheClient(project), step)
 	return c.LoadWorld(r.Context(), from, to)
 }

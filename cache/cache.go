@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"github.com/coroot/coroot-focus/db"
 	"github.com/coroot/coroot-focus/model"
-	"github.com/coroot/coroot-focus/prom"
 	"github.com/coroot/coroot-focus/timeseries"
 	"github.com/coroot/coroot-focus/utils"
 	"github.com/prometheus/client_golang/prometheus"
@@ -27,20 +26,19 @@ import (
 )
 
 const (
-	chunkSize = time.Hour
+	chunkSize = timeseries.Hour
 )
 
 type Cache struct {
-	lock       sync.RWMutex
-	data       map[string]*queryData
-	db         *db.DB
-	promClient prom.Client
-	cfg        Config
+	lock      sync.RWMutex
+	byProject map[db.ProjectId]map[string]*queryData
+	db        *db.DB
+	cfg       Config
+
+	refreshIntervalMin timeseries.Duration
 
 	pendingCompactions prometheus.Gauge
 	compactedChunks    *prometheus.CounterVec
-
-	scrapeInterval time.Duration
 }
 
 type ChunkInfo struct {
@@ -61,17 +59,15 @@ func newQueryData() *queryData {
 	}
 }
 
-func NewCache(cfg Config, db *db.DB, promClient prom.Client, scrapeInterval time.Duration) (*Cache, error) {
+func NewCache(cfg Config, database *db.DB) (*Cache, error) {
 	if err := utils.CreateDirectoryIfNotExists(cfg.Path); err != nil {
 		return nil, err
 	}
 
 	cache := &Cache{
-		cfg:            cfg,
-		data:           map[string]*queryData{},
-		scrapeInterval: scrapeInterval,
-		db:             db,
-		promClient:     promClient,
+		cfg:       cfg,
+		byProject: map[db.ProjectId]map[string]*queryData{},
+		db:        database,
 
 		pendingCompactions: prometheus.NewGauge(
 			prometheus.GaugeOpts{
@@ -92,42 +88,47 @@ func NewCache(cfg Config, db *db.DB, promClient prom.Client, scrapeInterval time
 	prometheus.MustRegister(cache.pendingCompactions)
 	prometheus.MustRegister(cache.compactedChunks)
 
-	//go cache.updater()
+	go cache.updater()
 	//go cache.gc()
-	//go cache.compaction()
+	go cache.compaction()
 	return cache, nil
 }
 
 func (c *Cache) initCacheIndexFromDir() error {
 	t := time.Now()
-	klog.Infoln("loading cache from disk")
-
-	_, err := os.Stat(c.cfg.Path)
-	if os.IsNotExist(err) {
-		klog.Infof("creating dir %s", c.cfg.Path)
-		if err := os.Mkdir(c.cfg.Path, 0755); err != nil {
-			return err
-		}
-	}
 	files, err := ioutil.ReadDir(c.cfg.Path)
 	if err != nil {
 		return err
 	}
-	for _, chunkFile := range files {
-		if !strings.HasSuffix(chunkFile.Name(), ".db") {
+	for _, f := range files {
+		if !f.IsDir() {
 			continue
 		}
-		queryId, chunkInfo, err := getChunkInfo(c.cfg.Path, chunkFile.Name())
+		projectId := f.Name()
+		projectDir := path.Join(c.cfg.Path, projectId)
+		projFiles, err := ioutil.ReadDir(projectDir)
 		if err != nil {
-			klog.Errorln(err)
-			continue
+			return err
 		}
-		byQuery, ok := c.data[queryId]
-		if !ok {
-			byQuery = newQueryData()
-			c.data[queryId] = byQuery
+		byProject := map[string]*queryData{}
+		c.byProject[db.ProjectId(projectId)] = byProject
+
+		for _, chunkFile := range projFiles {
+			if !strings.HasSuffix(chunkFile.Name(), ".db") {
+				continue
+			}
+			queryId, chunkInfo, err := getChunkInfo(projectDir, chunkFile.Name())
+			if err != nil {
+				klog.Errorln(err)
+				continue
+			}
+			byQuery, ok := byProject[queryId]
+			if !ok {
+				byQuery = newQueryData()
+				byProject[queryId] = byQuery
+			}
+			byQuery.chunksOnDisk[chunkInfo.path] = chunkInfo
 		}
-		byQuery.chunksOnDisk[chunkInfo.path] = chunkInfo
 	}
 	klog.Infof("cache loaded from disk in %s", time.Since(t))
 	return nil
@@ -336,8 +337,15 @@ func hash(query string) string {
 	return fmt.Sprintf(`%x`, md5.Sum([]byte(query)))
 }
 
-func queryJitter(queryHash string) time.Duration {
+func chunkJitter(projectId db.ProjectId, queryHash string) timeseries.Duration {
+	queryKey := fmt.Sprintf("%s-%s", projectId, queryHash)
 	h := fnv.New32a()
-	_, _ = h.Write([]byte(queryHash))
-	return time.Duration(h.Sum32()%uint32(chunkSize.Minutes())) * time.Minute
+	_, _ = h.Write([]byte(queryKey))
+	return timeseries.Duration(h.Sum32()%uint32(chunkSize/timeseries.Minute)) * timeseries.Minute
+}
+
+func QueryId(projectId db.ProjectId, query string) (string, timeseries.Duration) {
+	queryHash := hash(query)
+	jitter := chunkJitter(projectId, queryHash)
+	return queryHash, jitter
 }

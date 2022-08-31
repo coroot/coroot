@@ -158,7 +158,7 @@ func pgReplicationLagCell(primaryLsn, lag timeseries.TimeSeries, role model.Clus
 	res.Value, res.Unit = utils.FormatBytes(last)
 	if lagTime > 0 {
 		res.Tags = append(res.Tags,
-			fmt.Sprintf("%s%s", greaterThanWorldWindow, utils.FormatDuration(lagTime.ToStandart(), 1)))
+			fmt.Sprintf("%s%s", greaterThanWorldWindow, utils.FormatDuration(lagTime.ToStandard(), 1)))
 	}
 	return res
 }

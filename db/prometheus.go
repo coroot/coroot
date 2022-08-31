@@ -24,7 +24,7 @@ type BasicAuth struct {
 type PrometheusQueryState struct {
 	ProjectId ProjectId
 	Query     string
-	LastTs    int64
+	LastTs    timeseries.Time
 	LastError string
 }
 
@@ -42,14 +42,14 @@ func (p *PrometheusQueryState) Migrate(db *sql.DB) error {
 
 func (db *DB) SaveState(state *PrometheusQueryState) error {
 	_, err := db.db.Exec(
-		"INSERT OR REPLACE INTO prometheus_query_state (query, last_ts, last_error) values ($1, $2, $3)",
-		state.Query, state.LastTs, state.LastError)
+		"INSERT OR REPLACE INTO prometheus_query_state (project_id, query, last_ts, last_error) values ($1, $2, $3, $4)",
+		state.ProjectId, state.Query, state.LastTs, state.LastError)
 	return err
 }
 
-func (db *DB) LoadStates() (map[string]*PrometheusQueryState, error) {
+func (db *DB) LoadStates(id ProjectId) (map[string]*PrometheusQueryState, error) {
 	res := map[string]*PrometheusQueryState{}
-	rows, err := db.db.Query("SELECT project_id, query, last_ts, last_error FROM prometheus_query_state")
+	rows, err := db.db.Query("SELECT project_id, query, last_ts, last_error FROM prometheus_query_state WHERE project_id = $1", id)
 	if err != nil {
 		return nil, err
 	}
@@ -65,6 +65,6 @@ func (db *DB) LoadStates() (map[string]*PrometheusQueryState, error) {
 }
 
 func (db *DB) DeleteState(state *PrometheusQueryState) error {
-	_, err := db.db.Exec("DELETE FROM prometheus_query_state WHERE query = $1", state.Query)
+	_, err := db.db.Exec("DELETE FROM prometheus_query_state WHERE project_id = $1 AND query = $2", state.ProjectId, state.Query)
 	return err
 }

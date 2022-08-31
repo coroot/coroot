@@ -5,6 +5,11 @@ import (
 	"time"
 )
 
+const (
+	Hour   = Duration(3600)
+	Minute = Duration(60)
+)
+
 type Context struct {
 	From Time     `json:"from"`
 	To   Time     `json:"to"`
@@ -20,7 +25,7 @@ func (d Duration) Truncate(m Duration) Duration {
 	return d - d%m
 }
 
-func (d Duration) ToStandart() time.Duration {
+func (d Duration) ToStandard() time.Duration {
 	return time.Duration(d) * time.Second
 }
 
@@ -39,6 +44,10 @@ func (d *Duration) UnmarshalJSON(b []byte) error {
 
 type Time int64
 
+func Now() Time {
+	return Time(time.Now().Unix())
+}
+
 func (t Time) IsZero() bool {
 	return t == 0
 }
@@ -53,6 +62,10 @@ func (t Time) Sub(other Time) Duration {
 
 func (t Time) Add(d Duration) Time {
 	return t + Time(d)
+}
+
+func (t Time) ToStandard() time.Time {
+	return time.Unix(int64(t), 0)
 }
 
 func (t Time) MarshalJSON() ([]byte, error) {

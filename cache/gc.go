@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"github.com/coroot/coroot-focus/db"
 	"github.com/coroot/coroot-focus/timeseries"
 	"k8s.io/klog"
 	"os"
@@ -17,33 +18,41 @@ func (c *Cache) gc() {
 		c.lock.RLock()
 
 		minTs := timeseries.Time(now.Add(-c.cfg.GC.TTL).Unix())
+		toDelete := map[db.ProjectId]map[string][]string{}
 
-		toDelete := map[string][]string{}
-
-		for queryHash, qData := range c.data {
-			for path, chunk := range qData.chunksOnDisk {
-				if chunk.ts.Add(chunk.duration) < minTs {
-					toDelete[queryHash] = append(toDelete[queryHash], path)
+		for projectId, byQuery := range c.byProject {
+			toDeleteInProject := map[string][]string{}
+			for queryHash, qData := range byQuery {
+				for path, chunk := range qData.chunksOnDisk {
+					if chunk.ts.Add(chunk.duration) < minTs {
+						toDeleteInProject[queryHash] = append(toDeleteInProject[queryHash], path)
+					}
 				}
+			}
+			if len(toDeleteInProject) > 0 {
+				toDelete[projectId] = toDeleteInProject
 			}
 		}
 		c.lock.RUnlock()
 
 		c.lock.Lock()
-		for queryHash, chunks := range toDelete {
-			qData := c.data[queryHash]
-			for _, path := range chunks {
-				klog.Infoln("deleting obsolete chunk:", path)
-				if err := os.Remove(path); err != nil {
-					klog.Errorf("failed to delete chunk %s: %s", path, err)
-				} else {
-					delete(qData.chunksOnDisk, path)
+		for projectId, toDeleteInProject := range toDelete {
+			for queryHash, chunks := range toDeleteInProject {
+				qData := c.byProject[projectId][queryHash]
+				for _, path := range chunks {
+					klog.Infoln("deleting obsolete chunk:", path)
+					if err := os.Remove(path); err != nil {
+						klog.Errorf("failed to delete chunk %s: %s", path, err)
+					} else {
+						delete(qData.chunksOnDisk, path)
+					}
+				}
+				if len(qData.chunksOnDisk) == 0 {
+					delete(c.byProject[projectId], queryHash)
 				}
 			}
-			if len(qData.chunksOnDisk) == 0 {
-				delete(c.data, queryHash)
-			}
 		}
+
 		c.lock.Unlock()
 		klog.Infof("GC done in %s", time.Since(now))
 	}

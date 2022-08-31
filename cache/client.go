@@ -2,6 +2,7 @@ package cache
 
 import (
 	"context"
+	"github.com/coroot/coroot-focus/db"
 	"github.com/coroot/coroot-focus/model"
 	"github.com/coroot/coroot-focus/prom"
 	"github.com/coroot/coroot-focus/timeseries"
@@ -17,15 +18,19 @@ const (
 type ClientOption int
 
 type Client struct {
-	cache      *Cache
-	promClient prom.Client
-	options    map[ClientOption]bool
+	cache          *Cache
+	projectId      db.ProjectId
+	promClient     prom.Client
+	scrapeInterval timeseries.Duration
+	options        map[ClientOption]bool
 }
 
-func (c *Cache) GetCacheClient(options ...ClientOption) prom.Client {
+func (c *Cache) GetCacheClient(p *db.Project, options ...ClientOption) prom.Client {
 	cl := &Client{
-		cache:   c,
-		options: map[ClientOption]bool{},
+		cache:          c,
+		projectId:      p.Id,
+		scrapeInterval: p.Prometheus.RefreshInterval,
+		options:        map[ClientOption]bool{},
 	}
 	for _, o := range options {
 		cl.options[o] = true
@@ -38,8 +43,13 @@ func (c *Client) QueryRange(ctx context.Context, query string, from, to time.Tim
 	to = to.Truncate(step)
 	c.cache.lock.RLock()
 	defer c.cache.lock.RUnlock()
+
+	byProject, ok := c.cache.byProject[c.projectId]
+	if !ok {
+		return nil, nil
+	}
 	queryHash := hash(query)
-	qData, ok := c.cache.data[queryHash]
+	qData, ok := byProject[queryHash]
 	if !ok {
 		return nil, nil
 	}
@@ -78,7 +88,7 @@ func (c *Client) LastUpdateTime(actualQueries *utils.StringSet) time.Time {
 		actualHashes.Add(hash(q))
 	}
 
-	for queryHash, v := range c.cache.data {
+	for queryHash, v := range c.cache.byProject[c.projectId] {
 		if !actualHashes.Has(queryHash) {
 			continue
 		}
@@ -97,12 +107,32 @@ func (c *Client) LastUpdateTime(actualQueries *utils.StringSet) time.Time {
 			ts = lastTs
 		}
 	}
+	if !ts.IsZero() {
+		ts = ts.Add(-c.scrapeInterval.ToStandard())
+	}
 	return ts
 }
 
-func maxDuration(d1, d2 time.Duration) time.Duration {
-	if d1 >= d2 {
-		return d1
+func (c *Cache) GetPromClient(p db.Project) prom.Client {
+	client, err := prom.NewApiClient(p.Prometheus.Url, p.Prometheus.TlsSkipVerify)
+	if err != nil {
+		return NewErrorClient(err)
 	}
-	return d2
+	return client
+}
+
+type ErrorClient struct {
+	err error
+}
+
+func NewErrorClient(err error) *ErrorClient {
+	return &ErrorClient{err: err}
+}
+
+func (e ErrorClient) QueryRange(ctx context.Context, query string, from, to time.Time, step time.Duration) ([]model.MetricValues, error) {
+	return nil, e.err
+}
+
+func (e ErrorClient) LastUpdateTime(actualQueries *utils.StringSet) time.Time {
+	return time.Time{}
 }

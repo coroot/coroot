@@ -3,6 +3,7 @@ package cache
 import (
 	"bytes"
 	"fmt"
+	"github.com/coroot/coroot-focus/db"
 	"github.com/coroot/coroot-focus/model"
 	"github.com/coroot/coroot-focus/timeseries"
 	"k8s.io/klog"
@@ -14,6 +15,7 @@ import (
 )
 
 type CompactionTask struct {
+	projectID db.ProjectId
 	queryHash string
 	dstChunk  timeseries.Time
 	src       []*ChunkInfo
@@ -31,9 +33,9 @@ func (ct CompactionTask) String() string {
 	)
 }
 
-func calcCompactionTasks(compactor Compactor, queryHash string, chunks map[string]*ChunkInfo) []*CompactionTask {
+func calcCompactionTasks(compactor Compactor, projectID db.ProjectId, queryHash string, chunks map[string]*ChunkInfo) []*CompactionTask {
 	tasks := map[timeseries.Time]*CompactionTask{}
-	jitter := timeseries.Duration(queryJitter(queryHash).Seconds())
+	jitter := chunkJitter(projectID, queryHash)
 	for _, chunk := range chunks {
 		if chunk.duration != compactor.SrcChunkDuration {
 			continue
@@ -45,6 +47,7 @@ func calcCompactionTasks(compactor Compactor, queryHash string, chunks map[strin
 		task := tasks[dstChunkTs]
 		if task == nil {
 			task = &CompactionTask{
+				projectID: projectID,
 				queryHash: queryHash,
 				dstChunk:  dstChunkTs,
 				compactor: compactor,
@@ -63,10 +66,11 @@ func calcCompactionTasks(compactor Compactor, queryHash string, chunks map[strin
 }
 
 func (c *Cache) compaction() {
-	cfg := c.cfg.Compaction
-	if cfg == nil {
-		cfg = &DefaultCompactionConfig
+	cfg := DefaultCompactionConfig
+	if c.cfg.Compaction != nil {
+		cfg = *c.cfg.Compaction
 	}
+
 	if len(cfg.Compactors) == 0 {
 		klog.Warningln("no compactors configured, deactivating compaction")
 	}
@@ -90,9 +94,11 @@ func (c *Cache) compaction() {
 		var tasks []*CompactionTask
 		c.lock.RLock()
 
-		for queryHash, qData := range c.data {
-			for _, cfg := range cfg.Compactors {
-				tasks = append(tasks, calcCompactionTasks(cfg, queryHash, qData.chunksOnDisk)...)
+		for projectID, queries := range c.byProject {
+			for queryHash, qData := range queries {
+				for _, cfg := range cfg.Compactors {
+					tasks = append(tasks, calcCompactionTasks(cfg, projectID, queryHash, qData.chunksOnDisk)...)
+				}
 			}
 		}
 		c.lock.RUnlock()
@@ -141,12 +147,12 @@ func (c *Cache) compact(t CompactionTask, buf *bytes.Buffer) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	if err := c.saveChunk(t.queryHash, dst); err != nil {
+	if err := c.saveChunk(t.projectID, t.queryHash, dst); err != nil {
 		return err
 	}
-	qData := c.data[t.queryHash]
+	qData := c.byProject[t.projectID][t.queryHash]
 	if qData == nil {
-		klog.Errorf("query data not found: %s", t.queryHash)
+		klog.Errorf("query data not found: %s-%s", t.projectID, t.queryHash)
 	} else {
 		for _, src := range t.src {
 			klog.Infoln("deleting chunk after compaction:", src.path)

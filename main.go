@@ -4,7 +4,6 @@ import (
 	"github.com/coroot/coroot-focus/api"
 	"github.com/coroot/coroot-focus/cache"
 	"github.com/coroot/coroot-focus/db"
-	"github.com/coroot/coroot-focus/prom"
 	"github.com/coroot/coroot-focus/utils"
 	"github.com/gorilla/mux"
 	"gopkg.in/alecthomas/kingpin.v2"
@@ -15,9 +14,6 @@ import (
 
 func main() {
 	dataDir := kingpin.Flag("datadir", `Path to data directory`).Required().String()
-	prometheusUrl := kingpin.Flag("prometheus", `Prometheus URL`).Required().String()
-	scrapeInterval := kingpin.Flag("scrapeInterval", `Prometheus scrape interval`).Default("30s").Duration()
-	skipTlsVerify := kingpin.Flag("skipTlsVerify", `Don't verify the certificate of the Prometheus`).Bool()
 	cacheTTL := kingpin.Flag("cache-ttl", `Cache TTL`).Default("720h").Duration()
 	cacheGcInterval := kingpin.Flag("cache-gc-interval", `Cache GC interval`).Default("10m").Duration()
 
@@ -30,10 +26,10 @@ func main() {
 	if err != nil {
 		klog.Exitln(err)
 	}
-	promApiClient, err := prom.NewApiClient(*prometheusUrl, *skipTlsVerify)
-	if err != nil {
-		klog.Exitln(err)
-	}
+	//promApiClient, err := prom.NewApiClient(*prometheusUrl, *skipTlsVerify)
+	//if err != nil {
+	//	klog.Exitln(err)
+	//}
 
 	cacheConfig := cache.Config{
 		Path: path.Join(*dataDir, "cache"),
@@ -43,7 +39,7 @@ func main() {
 		},
 	}
 
-	promCache, err := cache.NewCache(cacheConfig, db, promApiClient, *scrapeInterval)
+	promCache, err := cache.NewCache(cacheConfig, db)
 	if err != nil {
 		klog.Exitln(err)
 	}

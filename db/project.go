@@ -26,15 +26,22 @@ func (p *Project) Migrate(db *sql.DB) error {
 }
 
 func (db *DB) GetProjects() ([]Project, error) {
-	rows, err := db.db.Query("SELECT id, name FROM project")
+	rows, err := db.db.Query("SELECT id, name, prometheus FROM project")
 	if err != nil {
 		return nil, err
 	}
 	var res []Project
 	var p Project
+	var prometheus string
 	for rows.Next() {
-		if err := rows.Scan(&p.Id, &p.Name); err != nil {
+		if err := rows.Scan(&p.Id, &p.Name, &prometheus); err != nil {
 			return nil, err
+		}
+		if err := json.Unmarshal([]byte(prometheus), &p.Prometheus); err != nil {
+			return nil, err
+		}
+		if p.Prometheus.RefreshInterval == 0 {
+			p.Prometheus.RefreshInterval = DefaultRefreshInterval
 		}
 		res = append(res, p)
 	}

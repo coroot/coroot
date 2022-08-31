@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"github.com/coroot/coroot-focus/constructor"
 	"github.com/coroot/coroot-focus/db"
+	"github.com/coroot/coroot-focus/prom"
 	"github.com/coroot/coroot-focus/timeseries"
+	"github.com/coroot/coroot-focus/utils"
 	"github.com/natefinch/atomic"
 	promModel "github.com/prometheus/common/model"
 	"k8s.io/klog"
@@ -18,15 +20,47 @@ import (
 const (
 	ChunkVersion     uint8 = 2
 	QueryConcurrency       = 10
-	BackFillInterval       = 2 * time.Hour
+	BackFillInterval       = 2 * timeseries.Hour
 )
 
 func (c *Cache) updater() {
+	workers := &sync.Map{}
+	for range time.Tick(time.Second) {
+		projects, err := c.db.GetProjects()
+		if err != nil {
+			klog.Errorln("failed to get projects:", err)
+			continue
+		}
+		ids := map[db.ProjectId]bool{}
+		for _, project := range projects {
+			ids[project.Id] = true
+			_, ok := workers.Load(project.Id)
+			workers.Store(project.Id, project)
+			if !ok {
+				go c.updaterWorker(workers, project.Id)
+			}
+		}
+		workers.Range(func(key, value interface{}) bool {
+			if !ids[key.(db.ProjectId)] {
+				workers.Delete(key)
+			}
+			return true
+		})
+	}
+}
+
+func (c *Cache) updaterWorker(projects *sync.Map, projectID db.ProjectId) {
 	for {
-		klog.Infoln("refreshing cache")
-		now := time.Now()
+		klog.Infoln("worker iteration for", projectID)
+		p, ok := projects.Load(projectID)
+		if !ok {
+			klog.Infoln("stopping worker for project:", projectID)
+			return
+		}
+		project := p.(db.Project)
+		now := timeseries.Now()
 		func() {
-			byQuery, err := c.db.LoadStates()
+			byQuery, err := c.db.LoadStates(projectID)
 			if err != nil {
 				klog.Errorln("could not get query states:", err)
 				return
@@ -36,7 +70,7 @@ func (c *Cache) updater() {
 			for _, q := range queries {
 				state := byQuery[q]
 				if state == nil {
-					state = &db.PrometheusQueryState{Query: q, LastTs: now.Add(-BackFillInterval).Unix()}
+					state = &db.PrometheusQueryState{ProjectId: projectID, Query: q, LastTs: now.Add(-BackFillInterval)}
 					if err := c.db.SaveState(state); err != nil {
 						klog.Errorln("failed to create query state:", err)
 						return
@@ -55,6 +89,7 @@ func (c *Cache) updater() {
 				}
 			}
 
+			promClient := c.GetPromClient(project)
 			wg := sync.WaitGroup{}
 			tasks := make(chan *db.PrometheusQueryState)
 			for i := 0; i < QueryConcurrency; i++ {
@@ -62,7 +97,7 @@ func (c *Cache) updater() {
 				go func() {
 					defer wg.Done()
 					for state := range tasks {
-						c.download(context.Background(), state)
+						c.download(context.Background(), promClient, project, state)
 					}
 				}()
 			}
@@ -72,20 +107,23 @@ func (c *Cache) updater() {
 			close(tasks)
 			wg.Wait()
 		}()
-		duration := time.Since(now)
-		klog.Infof("cache refreshed in %dms", duration.Milliseconds())
-		time.Sleep(c.scrapeInterval - duration)
+		refreshInterval := project.Prometheus.RefreshInterval
+		if refreshInterval < c.refreshIntervalMin {
+			refreshInterval = c.refreshIntervalMin
+		}
+		time.Sleep(refreshInterval.ToStandard() - time.Since(now.ToStandard()))
 	}
 }
 
-func (c *Cache) download(ctx context.Context, state *db.PrometheusQueryState) {
+func (c *Cache) download(ctx context.Context, promClient prom.Client, project db.Project, state *db.PrometheusQueryState) {
 	buf := &bytes.Buffer{}
-	queryHash := hash(state.Query)
-	jitter := queryJitter(queryHash)
+	queryHash, jitter := QueryId(project.Id, state.Query)
+	refreshInterval := project.Prometheus.RefreshInterval
+	now := timeseries.Time(time.Now().Unix())
 
-	for _, i := range calcIntervals(time.Unix(state.LastTs, 0), c.scrapeInterval, time.Now().Add(-c.scrapeInterval), jitter) {
+	for _, i := range calcIntervals(state.LastTs, refreshInterval, now.Add(-refreshInterval), jitter) {
 		promCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
-		vs, err := c.promClient.QueryRange(promCtx, state.Query, i.chunkTs, i.toTs, c.scrapeInterval)
+		vs, err := promClient.QueryRange(promCtx, state.Query, i.chunkTs.ToStandard(), i.toTs.ToStandard(), project.Prometheus.RefreshInterval.ToStandard())
 		cancel()
 		if err != nil {
 			state.LastError = err.Error()
@@ -95,13 +133,7 @@ func (c *Cache) download(ctx context.Context, state *db.PrometheusQueryState) {
 			return
 		}
 
-		chunk := NewChunk(
-			timeseries.Time(i.chunkTs.Unix()),
-			timeseries.Time(i.toTs.Unix()),
-			timeseries.Duration(i.chunkDuration.Seconds()),
-			timeseries.Duration(c.scrapeInterval.Seconds()),
-			buf,
-		)
+		chunk := NewChunk(i.chunkTs, i.toTs, i.chunkDuration, project.Prometheus.RefreshInterval, buf)
 		for _, v := range vs {
 			delete(v.Labels, promModel.MetricNameLabel)
 			if err = chunk.WriteMetric(v); err != nil {
@@ -110,14 +142,14 @@ func (c *Cache) download(ctx context.Context, state *db.PrometheusQueryState) {
 			}
 		}
 		c.lock.Lock()
-		err = c.saveChunk(queryHash, chunk)
+		err = c.saveChunk(project.Id, queryHash, chunk)
 		c.lock.Unlock()
 
 		if err != nil {
 			klog.Errorln("failed to save chunk:", err)
 			return
 		}
-		state.LastTs = i.toTs.Unix()
+		state.LastTs = i.toTs
 		state.LastError = ""
 		if err := c.db.SaveState(state); err != nil {
 			klog.Errorln("failed to save state:", err)
@@ -126,15 +158,24 @@ func (c *Cache) download(ctx context.Context, state *db.PrometheusQueryState) {
 	}
 }
 
-func (c *Cache) saveChunk(queryHash string, chunk *Chunk) error {
-	qData, ok := c.data[queryHash]
+func (c *Cache) saveChunk(projectID db.ProjectId, queryHash string, chunk *Chunk) error {
+	byProject, ok := c.byProject[projectID]
+	projectDir := path.Join(c.cfg.Path, string(projectID))
+	if !ok {
+		byProject = map[string]*queryData{}
+		c.byProject[projectID] = byProject
+		if err := utils.CreateDirectoryIfNotExists(projectDir); err != nil {
+			return err
+		}
+	}
+	qData, ok := byProject[queryHash]
 	if !ok {
 		qData = newQueryData()
-		c.data[queryHash] = qData
+		byProject[queryHash] = qData
 	}
-	chunkFilePath := path.Join(c.cfg.Path, fmt.Sprintf(
-		"%s-%d-%d-%d.db",
-		queryHash, chunk.from, chunk.duration, chunk.step))
+	chunkFilePath := path.Join(projectDir, fmt.Sprintf(
+		"%s-%s-%d-%d-%d.db",
+		projectID, queryHash, chunk.from, chunk.duration, chunk.step))
 	if err := atomic.WriteFile(chunkFilePath, chunk.buf); err != nil {
 		return err
 	}
@@ -150,30 +191,33 @@ func (c *Cache) saveChunk(queryHash string, chunk *Chunk) error {
 }
 
 type interval struct {
-	chunkTs, toTs time.Time
-	chunkDuration time.Duration
+	chunkTs, toTs timeseries.Time
+	chunkDuration timeseries.Duration
 }
 
 func (i interval) String() string {
 	format := "2006-01-02T15:04:05"
-	return fmt.Sprintf(`(%s, %d, %s)`, i.chunkTs.Format(format), int(i.chunkDuration.Seconds()), i.toTs.Format(format))
+	return fmt.Sprintf(
+		`(%s, %d, %s)`,
+		i.chunkTs.ToStandard().Format(format), i.chunkDuration, i.toTs.ToStandard().Format(format),
+	)
 }
 
-func calcIntervals(lastSavedTime time.Time, scrapeInterval time.Duration, now time.Time, jitter time.Duration) []interval {
+func calcIntervals(lastSavedTime timeseries.Time, scrapeInterval timeseries.Duration, now timeseries.Time, jitter timeseries.Duration) []interval {
 	to := now.Truncate(scrapeInterval)
 	from := lastSavedTime.Add(scrapeInterval)
-	if to.Before(from) {
+	if to < from {
 		return nil
 	}
 	from = from.Truncate(scrapeInterval)
 	var res []interval
-	for f := from.Add(-jitter).Truncate(chunkSize).Add(jitter); !f.After(to); f = f.Add(chunkSize) {
+	for f := from.Add(-jitter).Truncate(chunkSize).Add(jitter); f < to; f = f.Add(chunkSize) {
 		i := interval{chunkTs: f, chunkDuration: chunkSize, toTs: f.Add(chunkSize)}
-		if i.toTs.After(to) {
+		if i.toTs > to {
 			i.toTs = to
 		}
 		i.toTs = i.toTs.Add(-scrapeInterval)
-		if i.chunkTs.After(i.toTs) {
+		if i.chunkTs > i.toTs {
 			continue
 		}
 		res = append(res, i)
