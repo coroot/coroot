@@ -4,8 +4,11 @@
         Project settings
         <v-progress-linear v-if="loading" indeterminate color="green" />
     </h1>
+    <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
+        {{error}}
+    </v-alert>
 
-    <v-form v-model="valid">
+    <v-form v-if="form" v-model="valid" ref="form">
         <div class="subtitle-1">Project name</div>
         <div class="caption">
             Project is a separate infrastructure or environment with a dedicated Prometheus, e.g. <var>production</var>, <var>staging</var> or <var>prod-us-west</var>.
@@ -19,8 +22,8 @@
         <v-text-field outlined dense v-model="form.prometheus.url" :rules="[$validators.isUrl]" placeholder="https://prom.example.com:9090" class="flex-grow-1" />
         <v-checkbox v-model="form.prometheus.tls_skip_verify" :disabled="!form.prometheus.url.startsWith('https')" label="Skip TLS verify" class="mt-1" />
         <div class="d-md-flex gap">
-            <v-checkbox v-model="form.prometheus.basic_auth" :true-value="{user: '', password: ''}" :false-value="null" label="HTTP basic auth" class="mt-1" />
-            <template v-if="!!form.prometheus.basic_auth">
+            <v-checkbox v-model="basic_auth" label="HTTP basic auth" class="mt-1" />
+            <template v-if="basic_auth">
                 <v-text-field outlined dense v-model="form.prometheus.basic_auth.user" label="username"  />
                 <v-text-field v-model="form.prometheus.basic_auth.password" label="password" type="password" outlined dense />
             </template>
@@ -29,22 +32,21 @@
         <div class="subtitle-1">Refresh interval</div>
         <div class="caption">
             How often Coroot retrieves telemetry data from a Prometheus.
+            The value must be greater than the <a href="https://prometheus.io/docs/prometheus/latest/configuration/configuration/" target="_blank" rel="noopener noreferrer"><var>scrape_interval</var></a> of the Prometheus server.
         </div>
         <v-select v-model="form.prometheus.refresh_interval" :items="refreshIntervals" outlined dense :menu-props="{offsetY: true}" />
+        <v-btn block color="primary" @click="post" :disabled="!valid" class="mt-5">Save</v-btn>
     </v-form>
-    <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
-        {{error}}
-    </v-alert>
-    <v-btn block color="primary" @click="post" :disabled="!valid" class="mt-5">Save</v-btn>
 </div>
 </template>
 
 <script>
 const refreshIntervals = [
-    {value: 30 * 1000, text: '30 seconds'},
-    {value: 60 * 1000, text: '1 minute'},
-    {value: 2 * 60 * 1000, text: '2 minutes'},
-    {value: 5 * 60 * 1000, text: '5 minutes'},
+    {value: 5000, text: '5 seconds'},
+    {value: 10000, text: '10 seconds'},
+    {value: 15000, text: '15 seconds'},
+    {value: 30000, text: '30 seconds'},
+    {value: 60000, text: '60 seconds'},
 ];
 
 export default {
@@ -54,15 +56,8 @@ export default {
 
     data() {
         return {
-            form: {
-                name: '',
-                prometheus: {
-                    url: '',
-                    tls_skip_verify: false,
-                    basic_auth: null,
-                    refresh_interval: refreshIntervals[0].value,
-                },
-            },
+            form: null,
+            basic_auth: false,
             valid: false,
             loading: false,
             error: '',
@@ -87,9 +82,6 @@ export default {
 
     methods: {
         get() {
-            if (!this.projectId) {
-                return;
-            }
             this.loading = true;
             this.error = '';
             this.$api.getProject(this.projectId, (data, error) => {
@@ -99,12 +91,24 @@ export default {
                     return;
                 }
                 this.form = data;
+                if (!this.form.prometheus.basic_auth) {
+                    this.form.prometheus.basic_auth = {user: '', password: ''};
+                } else {
+                    this.basic_auth = true;
+                }
+                if (!this.projectId && this.$refs.form) {
+                    this.$refs.form.resetValidation();
+                }
             })
         },
         post() {
             this.loading = true;
             this.error = '';
+            if (!this.basic_auth) {
+                this.form.prometheus.basic_auth = null;
+            }
             this.$api.saveProject(this.projectId, this.form, (data, error) => {
+                this.$root.$emit('project-saved');
                 this.loading = false;
                 if (error) {
                     this.error = error;

@@ -15,7 +15,7 @@
         Nodes
     </h1>
 
-    <Table v-if="overview.nodes" :header="overview.nodes.header" :rows="overview.nodes.rows" />
+    <Table v-if="overview" :header="overview.nodes.header" :rows="overview.nodes.rows" />
 </div>
 </template>
 
@@ -36,7 +36,7 @@ export default {
 
     mounted() {
         this.get();
-        this.$api.timeContextWatch(this, this.get);
+        this.$api.contextWatch(this, this.get);
     },
 
     methods: {

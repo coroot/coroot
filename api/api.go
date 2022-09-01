@@ -48,15 +48,19 @@ func (api *Api) Project(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 
 	case http.MethodGet:
-		project, err := api.db.GetProject(id)
-		if err != nil {
-			klog.Errorln("failed to get project:", err)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
+		form := forms.ProjectForm{}
+		if id != "" {
+			project, err := api.db.GetProject(id)
+			if err != nil {
+				klog.Errorln("failed to get project:", err)
+				http.Error(w, "", http.StatusInternalServerError)
+				return
+			}
+			form.Name = project.Name
+			form.Prometheus = project.Prometheus
 		}
-		form := forms.ProjectForm{
-			Name:       project.Name,
-			Prometheus: project.Prometheus,
+		if form.Prometheus.RefreshInterval == 0 {
+			form.Prometheus.RefreshInterval = db.DefaultRefreshInterval
 		}
 		utils.WriteJson(w, form)
 

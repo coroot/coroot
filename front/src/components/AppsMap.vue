@@ -91,7 +91,7 @@ export default {
     },
 
     watch: {
-        map() {
+        applications() {
             this.calcFilters();
             this.calc();
         },

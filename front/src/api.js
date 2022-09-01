@@ -22,32 +22,39 @@ export default class Api {
         }
     }
 
-    timeContextWatch(component, cb) {
-        component.$watch('$route.query', (newVal, oldVal) => {
-            if (newVal.from !== oldVal.from || newVal.to !== oldVal.to) {
+    contextWatch(component, cb) {
+        component.$watch('$route', (newVal, oldVal) => {
+            if (
+                newVal.params.projectId !== oldVal.params.projectId ||
+                newVal.query.from !== oldVal.query.from ||
+                newVal.query.to !== oldVal.query.to
+            ) {
                 cb();
             }
+        })
+    }
+
+    request(req, cb) {
+        this.axios(req).then((response) => {
+            try {
+                cb(response.data, '');
+            } catch (e) {
+                console.error(e);
+            }
+        }).catch((error) => {
+            const err = error.response && error.response.data && error.response.data.trim() || defaultErrorMessage;
+            cb(null, err);
         })
     }
 
     get(url, cb) {
         const q = this.router.currentRoute.query;
         const params = {from: q.from, to: q.to};
-        this.axios.get(url, {params}).then((response) => {
-            cb(response.data, '');
-        }).catch((error) => {
-            const err = error.response.data && error.response.data.trim() || defaultErrorMessage;
-            cb(null, err);
-        })
+        this.request({method: 'get', url, params}, cb);
     }
 
     post(url, data, cb) {
-        this.axios.post(url, data).then((response) => {
-            cb(response.data, '');
-        }).catch((error) => {
-            const err = error.response.data && error.response.data.trim() || defaultErrorMessage;
-            cb(null, err);
-        })
+        this.request({method: 'post', url, data}, cb);
     }
 
     getProjects(cb) {

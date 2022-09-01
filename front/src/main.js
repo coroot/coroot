@@ -4,6 +4,7 @@ import vuetify from '@/plugins/vuetify';
 import '@/plugins/resize';
 import moment from 'moment';
 import * as validators from "@/utils/validators";
+import * as storage from "@/utils/storage";
 import Api from "@/api";
 import App from "@/App";
 import Project from "@/views/Project";
@@ -27,12 +28,12 @@ const router = new VueRouter({
   ],
 });
 
-
 Vue.prototype.$moment = moment;
 Vue.prototype.$api = new Api(router);
 Vue.prototype.$validators = validators;
+Vue.prototype.$storage = storage;
 
-new Vue({
+const vue = new Vue({
   router,
   vuetify,
   render: (h) => h(App)

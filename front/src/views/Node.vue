@@ -33,7 +33,7 @@ export default {
 
     mounted() {
         this.get();
-        this.$api.timeContextWatch(this, this.get);
+        this.$api.contextWatch(this, this.get);
     },
 
     watch: {

@@ -1,16 +1,19 @@
 <template>
 <v-app>
     <v-app-bar app flat dark color="#080d1b" class="menu">
-        <v-container class="py-0 fill-height">
-            <router-link :to="{name: 'index'}">
+        <v-container class="py-0 fill-height flex-nowrap">
+            <router-link :to="project ? {name: 'overview', query: $route.query} : {name: 'index'}">
                 <img src="/static/logo.svg" height="38" style="vertical-align: middle;">
             </router-link>
 
             <v-menu v-if="projects && projects.length" dark offset-y tile>
                 <template #activator="{ on }">
-                    <v-btn v-on="on" plain class="ml-3">
-                        {{project ? project.name : 'Choose a project'}}
-                        <v-icon>mdi-menu-down</v-icon>
+                    <v-btn v-on="on" plain class="ml-3 px-1">
+                        <v-icon small class="mr-2">mdi-hexagon-multiple</v-icon>
+                        <span class="project-name">
+                            <template v-if="project">{{project.name}}</template>
+                            <i v-else>new project</i>
+                        </span>
                     </v-btn>
                 </template>
                 <v-list dense color="#080d1b">
@@ -65,6 +68,7 @@ export default {
 
     created() {
         this.getProjects();
+        this.$root.$on('project-saved', this.getProjects);
     },
 
     computed: {
@@ -74,6 +78,15 @@ export default {
                 return null;
             }
             return this.projects.find((p) => p.id === id);
+        }
+    },
+
+    watch: {
+        '$route.params.projectId': {
+            handler: function(newValue) {
+                this.lastProject(newValue);
+            },
+            immediate: true,
         }
     },
 
@@ -92,13 +105,30 @@ export default {
                         this.$router.replace({name: 'project_new'});
                         return;
                     }
-                    this.$router.replace({name: 'overview', params: {projectId: this.projects[0].id}});
+                    let id = this.projects[0].id;
+                    const lastId = this.lastProject();
+                    console.log(id, lastId)
+                    if (lastId && this.projects.find((p) => p.id === lastId)) {
+                        id = lastId;
+                    }
+                    this.$router.replace({name: 'overview', params: {projectId: id}});
                 }
             });
-        }
+        },
+        lastProject(id) {
+            return this.$storage.local('last-project', id);
+        },
     },
 }
 </script>
+
+<style scoped>
+.project-name {
+    max-width: 10ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+</style>
 
 <style>
 a {
@@ -109,5 +139,10 @@ a {
     font-weight: normal !important;
     letter-spacing: inherit !important;
     font-size: inherit !important;
+}
+/* don't want smaller and bold items in dense lists, e.g. <v-select dense /> */
+.v-list--dense .v-list-item .v-list-item__title {
+    font-size: inherit;
+    font-weight: inherit;
 }
 </style>
