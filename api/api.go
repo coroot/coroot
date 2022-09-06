@@ -12,7 +12,6 @@ import (
 	"github.com/gorilla/mux"
 	"k8s.io/klog"
 	"net/http"
-	"time"
 )
 
 type Api struct {
@@ -150,9 +149,9 @@ func (api *Api) Node(w http.ResponseWriter, r *http.Request) {
 }
 
 func (api *Api) loadWorld(r *http.Request) (*model.World, error) {
-	now := time.Now()
+	now := timeseries.Now()
 	q := r.URL.Query()
-	from := utils.ParseTimeFromUrl(now, q, "from", now.Add(-time.Hour))
+	from := utils.ParseTimeFromUrl(now, q, "from", now.Add(-timeseries.Hour))
 	to := utils.ParseTimeFromUrl(now, q, "to", now)
 	projectId := db.ProjectId(mux.Vars(r)["project"])
 	project, err := api.db.GetProject(projectId)
@@ -160,5 +159,5 @@ func (api *Api) loadWorld(r *http.Request) (*model.World, error) {
 		return nil, err
 	}
 	c := constructor.New(api.cache.GetCacheClient(project), project.Prometheus.RefreshInterval)
-	return c.LoadWorld(r.Context(), timeseries.Time(from.Unix()), timeseries.Time(to.Unix()))
+	return c.LoadWorld(r.Context(), from, to)
 }

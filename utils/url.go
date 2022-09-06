@@ -1,15 +1,15 @@
 package utils
 
 import (
+	"github.com/coroot/coroot/timeseries"
 	"github.com/xhit/go-str2duration/v2"
 	"k8s.io/klog"
 	"net/url"
 	"strconv"
 	"strings"
-	"time"
 )
 
-func ParseTimeFromUrl(now time.Time, query url.Values, key string, def time.Time) time.Time {
+func ParseTimeFromUrl(now timeseries.Time, query url.Values, key string, def timeseries.Time) timeseries.Time {
 	s := query.Get(key)
 	if s == "" {
 		return def
@@ -23,12 +23,12 @@ func ParseTimeFromUrl(now time.Time, query url.Values, key string, def time.Time
 			klog.Warningf("invalid %s=%s: %s", key, s, err)
 			return def
 		}
-		return now.Add(d)
+		return now.Add(timeseries.Duration(d.Seconds()))
 	}
 	ms, err := strconv.ParseInt(s, 10, 64)
 	if err != nil {
 		klog.Warningf("invalid %s=%s: %s", key, s, err)
 		return def
 	}
-	return time.Unix(ms/1000, 0)
+	return timeseries.Time(ms / 1000)
 }

@@ -13,9 +13,10 @@ import (
 )
 
 func main() {
-	dataDir := kingpin.Flag("datadir", `Path to data directory`).Required().String()
-	cacheTTL := kingpin.Flag("cache-ttl", `Cache TTL`).Default("720h").Duration()
-	cacheGcInterval := kingpin.Flag("cache-gc-interval", `Cache GC interval`).Default("10m").Duration()
+	listen := kingpin.Flag("listen", "listen address - ip:port or :port").Default("0.0.0.0:8080").String()
+	dataDir := kingpin.Flag("datadir", `path to data directory`).Required().String()
+	cacheTTL := kingpin.Flag("cache-ttl", `cache TTL`).Default("720h").Duration()
+	cacheGcInterval := kingpin.Flag("cache-gc-interval", `cache GC interval`).Default("10m").Duration()
 
 	kingpin.Parse()
 
@@ -26,11 +27,6 @@ func main() {
 	if err != nil {
 		klog.Exitln(err)
 	}
-	//promApiClient, err := prom.NewApiClient(*prometheusUrl, *skipTlsVerify)
-	//if err != nil {
-	//	klog.Exitln(err)
-	//}
-
 	cacheConfig := cache.Config{
 		Path: path.Join(*dataDir, "cache"),
 		GC: &cache.GcConfig{
@@ -62,6 +58,6 @@ func main() {
 		http.ServeFile(w, r, "./static/index.html")
 	})
 
-	klog.Infoln("listening on :8080")
-	klog.Fatalln(http.ListenAndServe(":8080", r))
+	klog.Infoln("listening on", *listen)
+	klog.Fatalln(http.ListenAndServe(*listen, r))
 }
