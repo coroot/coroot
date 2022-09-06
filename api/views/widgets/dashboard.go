@@ -1,6 +1,6 @@
 package widgets
 
-import "github.com/coroot/coroot-focus/timeseries"
+import "github.com/coroot/coroot/timeseries"
 
 type Dashboard struct {
 	ctx     timeseries.Context

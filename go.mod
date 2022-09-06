@@ -1,4 +1,4 @@
-module github.com/coroot/coroot-focus
+module github.com/coroot/coroot
 
 go 1.18
 

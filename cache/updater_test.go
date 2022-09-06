@@ -2,25 +2,26 @@ package cache
 
 import (
 	"fmt"
+	"github.com/coroot/coroot/timeseries"
 	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
 )
 
-func TestUpdater_calcIntervals(t *testing.T) {
-	scrapeInterval := 30 * time.Second
+func TestCacheUpdater_calcIntervals(t *testing.T) {
+	scrapeInterval := 30 * timeseries.Second
 
-	ts := func(s string) time.Time {
+	ts := func(s string) timeseries.Time {
 		if s == "" {
-			return time.Time{}
+			return 0
 		}
 		res, err := time.Parse("2006-01-02T15:04:05", s)
 		assert.NoError(t, err)
-		return res
+		return timeseries.Time(res.Unix())
 	}
 
 	calc := func(lastSaved, now string) string {
-		jitter := 12 * time.Minute
+		jitter := 12 * timeseries.Minute
 		return fmt.Sprintf(`%s`, calcIntervals(ts(lastSaved), scrapeInterval, ts(now), jitter))
 	}
 

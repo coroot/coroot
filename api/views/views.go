@@ -1,12 +1,12 @@
 package views
 
 import (
-	"github.com/coroot/coroot-focus/api/views/application"
-	"github.com/coroot/coroot-focus/api/views/node"
-	"github.com/coroot/coroot-focus/api/views/overview"
-	"github.com/coroot/coroot-focus/api/views/search"
-	"github.com/coroot/coroot-focus/api/views/widgets"
-	"github.com/coroot/coroot-focus/model"
+	"github.com/coroot/coroot/api/views/application"
+	"github.com/coroot/coroot/api/views/node"
+	"github.com/coroot/coroot/api/views/overview"
+	"github.com/coroot/coroot/api/views/search"
+	"github.com/coroot/coroot/api/views/widgets"
+	"github.com/coroot/coroot/model"
 )
 
 func Overview(w *model.World) *overview.View {

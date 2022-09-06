@@ -1,8 +1,8 @@
 package cache
 
 import (
-	"github.com/coroot/coroot-focus/db"
-	"github.com/coroot/coroot-focus/timeseries"
+	"github.com/coroot/coroot/db"
+	"github.com/coroot/coroot/timeseries"
 	"k8s.io/klog"
 	"os"
 	"time"
@@ -24,7 +24,7 @@ func (c *Cache) gc() {
 			toDeleteInProject := map[string][]string{}
 			for queryHash, qData := range byQuery {
 				for path, chunk := range qData.chunksOnDisk {
-					if chunk.ts.Add(chunk.duration) < minTs {
+					if chunk.startTs.Add(chunk.duration) < minTs {
 						toDeleteInProject[queryHash] = append(toDeleteInProject[queryHash], path)
 					}
 				}

@@ -1,8 +1,8 @@
 package constructor
 
 import (
-	"github.com/coroot/coroot-focus/model"
-	"github.com/coroot/coroot-focus/timeseries"
+	"github.com/coroot/coroot/model"
+	"github.com/coroot/coroot/timeseries"
 	"k8s.io/klog"
 	"strings"
 )

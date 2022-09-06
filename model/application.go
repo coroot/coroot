@@ -1,8 +1,8 @@
 package model
 
 import (
-	"github.com/coroot/coroot-focus/timeseries"
-	"github.com/coroot/coroot-focus/utils"
+	"github.com/coroot/coroot/timeseries"
+	"github.com/coroot/coroot/utils"
 	"strconv"
 	"strings"
 )

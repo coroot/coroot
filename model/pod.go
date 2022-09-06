@@ -1,6 +1,6 @@
 package model
 
-import "github.com/coroot/coroot-focus/timeseries"
+import "github.com/coroot/coroot/timeseries"
 
 type Pod struct {
 	Phase     string

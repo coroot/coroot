@@ -33,7 +33,7 @@ Vue.prototype.$api = new Api(router);
 Vue.prototype.$validators = validators;
 Vue.prototype.$storage = storage;
 
-const vue = new Vue({
+new Vue({
   router,
   vuetify,
   render: (h) => h(App)

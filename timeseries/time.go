@@ -8,6 +8,7 @@ import (
 const (
 	Hour   = Duration(3600)
 	Minute = Duration(60)
+	Second = Duration(1)
 )
 
 type Context struct {
@@ -48,6 +49,10 @@ func Now() Time {
 	return Time(time.Now().Unix())
 }
 
+func Since(t Time) Duration {
+	return Now().Sub(t)
+}
+
 func (t Time) IsZero() bool {
 	return t == 0
 }
@@ -64,8 +69,12 @@ func (t Time) Add(d Duration) Time {
 	return t + Time(d)
 }
 
+func (t Time) Before(other Time) bool {
+	return t < other
+}
+
 func (t Time) ToStandard() time.Time {
-	return time.Unix(int64(t), 0)
+	return time.Unix(int64(t), 0).UTC()
 }
 
 func (t Time) MarshalJSON() ([]byte, error) {

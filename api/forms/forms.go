@@ -2,8 +2,8 @@ package forms
 
 import (
 	"errors"
-	"github.com/coroot/coroot-focus/db"
-	"github.com/coroot/coroot-focus/utils"
+	"github.com/coroot/coroot/db"
+	"github.com/coroot/coroot/utils"
 	"net/http"
 	"regexp"
 )

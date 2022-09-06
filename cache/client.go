@@ -2,13 +2,12 @@ package cache
 
 import (
 	"context"
-	"github.com/coroot/coroot-focus/db"
-	"github.com/coroot/coroot-focus/model"
-	"github.com/coroot/coroot-focus/prom"
-	"github.com/coroot/coroot-focus/timeseries"
-	"github.com/coroot/coroot-focus/utils"
+	"github.com/coroot/coroot/db"
+	"github.com/coroot/coroot/model"
+	"github.com/coroot/coroot/prom"
+	"github.com/coroot/coroot/timeseries"
+	"github.com/coroot/coroot/utils"
 	"sort"
-	"time"
 )
 
 const (
@@ -38,7 +37,7 @@ func (c *Cache) GetCacheClient(p *db.Project, options ...ClientOption) prom.Clie
 	return cl
 }
 
-func (c *Client) QueryRange(ctx context.Context, query string, from, to time.Time, step time.Duration) ([]model.MetricValues, error) {
+func (c *Client) QueryRange(ctx context.Context, query string, from, to timeseries.Time, step timeseries.Duration) ([]model.MetricValues, error) {
 	from = from.Truncate(step)
 	to = to.Truncate(step)
 	c.cache.lock.RLock()
@@ -53,19 +52,19 @@ func (c *Client) QueryRange(ctx context.Context, query string, from, to time.Tim
 	if !ok {
 		return nil, nil
 	}
-	start := timeseries.Time(from.Unix())
-	end := timeseries.Time(to.Unix())
+	start := from
+	end := to
 	res := map[uint64]model.MetricValues{}
 
 	for _, chunkInfo := range qData.chunksOnDisk {
-		if chunkInfo.ts > end || chunkInfo.lastTs < start {
+		if chunkInfo.startTs > end || chunkInfo.lastTs < start {
 			continue
 		}
-		chunk, err := NewChunkFromInfo(chunkInfo)
+		chunk, err := OpenChunk(chunkInfo)
 		if err != nil {
 			return nil, err
 		}
-		err = chunk.ReadMetrics(timeseries.Time(from.Unix()), timeseries.Time(to.Unix()), timeseries.Duration(step.Seconds()), res)
+		err = chunk.ReadMetrics(from, to, step, res)
 		chunk.Close()
 		if err != nil {
 			return nil, err
@@ -78,10 +77,10 @@ func (c *Client) QueryRange(ctx context.Context, query string, from, to time.Tim
 	return r, nil
 }
 
-func (c *Client) LastUpdateTime(actualQueries *utils.StringSet) time.Time {
+func (c *Client) LastUpdateTime(actualQueries *utils.StringSet) timeseries.Time {
 	c.cache.lock.RLock()
 	defer c.cache.lock.RUnlock()
-	var ts time.Time
+	var ts timeseries.Time
 
 	actualHashes := utils.NewStringSet()
 	for _, q := range actualQueries.Items() {
@@ -95,20 +94,20 @@ func (c *Client) LastUpdateTime(actualQueries *utils.StringSet) time.Time {
 		if len(v.chunksOnDisk) == 0 {
 			continue
 		}
-		chunks := make([]*ChunkInfo, 0, len(v.chunksOnDisk))
+		chunks := make([]*ChunkMeta, 0, len(v.chunksOnDisk))
 		for _, chunk := range v.chunksOnDisk {
 			chunks = append(chunks, chunk)
 		}
 		sort.Slice(chunks, func(i, j int) bool {
 			return chunks[i].lastTs > chunks[j].lastTs
 		})
-		lastTs := time.Unix(int64(chunks[0].lastTs), 0)
+		lastTs := chunks[0].lastTs
 		if ts.IsZero() || lastTs.Before(ts) {
 			ts = lastTs
 		}
 	}
 	if !ts.IsZero() {
-		ts = ts.Add(-c.scrapeInterval.ToStandard())
+		ts = ts.Add(-c.scrapeInterval)
 	}
 	return ts
 }
@@ -129,10 +128,10 @@ func NewErrorClient(err error) *ErrorClient {
 	return &ErrorClient{err: err}
 }
 
-func (e ErrorClient) QueryRange(ctx context.Context, query string, from, to time.Time, step time.Duration) ([]model.MetricValues, error) {
+func (e ErrorClient) QueryRange(ctx context.Context, query string, from, to timeseries.Time, step timeseries.Duration) ([]model.MetricValues, error) {
 	return nil, e.err
 }
 
-func (e ErrorClient) LastUpdateTime(actualQueries *utils.StringSet) time.Time {
-	return time.Time{}
+func (e ErrorClient) LastUpdateTime(actualQueries *utils.StringSet) timeseries.Time {
+	return 0
 }

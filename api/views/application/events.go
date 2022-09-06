@@ -1,8 +1,8 @@
 package application
 
 import (
-	"github.com/coroot/coroot-focus/model"
-	"github.com/coroot/coroot-focus/timeseries"
+	"github.com/coroot/coroot/model"
+	"github.com/coroot/coroot/timeseries"
 	"math"
 	"sort"
 	"strconv"

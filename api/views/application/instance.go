@@ -1,6 +1,6 @@
 package application
 
-import "github.com/coroot/coroot-focus/model"
+import "github.com/coroot/coroot/model"
 
 func (i *Instance) addClient(id model.ApplicationId, status model.Status, direction string) {
 	for _, a := range i.Clients {

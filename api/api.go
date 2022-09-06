@@ -1,13 +1,14 @@
 package api
 
 import (
-	"github.com/coroot/coroot-focus/api/forms"
-	"github.com/coroot/coroot-focus/api/views"
-	"github.com/coroot/coroot-focus/cache"
-	"github.com/coroot/coroot-focus/constructor"
-	"github.com/coroot/coroot-focus/db"
-	"github.com/coroot/coroot-focus/model"
-	"github.com/coroot/coroot-focus/utils"
+	"github.com/coroot/coroot/api/forms"
+	"github.com/coroot/coroot/api/views"
+	"github.com/coroot/coroot/cache"
+	"github.com/coroot/coroot/constructor"
+	"github.com/coroot/coroot/db"
+	"github.com/coroot/coroot/model"
+	"github.com/coroot/coroot/timeseries"
+	"github.com/coroot/coroot/utils"
 	"github.com/gorilla/mux"
 	"k8s.io/klog"
 	"net/http"
@@ -124,7 +125,7 @@ func (api *Api) App(w http.ResponseWriter, r *http.Request) {
 	}
 	app := world.GetApplication(id)
 	if app == nil {
-		klog.Warningf("application not found: %s ", id, err)
+		klog.Warningf("application not found: %s ", id)
 		http.Error(w, "application not found", http.StatusNotFound)
 		return
 	}
@@ -141,7 +142,7 @@ func (api *Api) Node(w http.ResponseWriter, r *http.Request) {
 	}
 	node := world.GetNode(nodeName)
 	if node == nil {
-		klog.Warningf("node not found: %s ", nodeName, err)
+		klog.Warningf("node not found: %s ", nodeName)
 		http.Error(w, "node not found", http.StatusNotFound)
 		return
 	}
@@ -158,7 +159,6 @@ func (api *Api) loadWorld(r *http.Request) (*model.World, error) {
 	if err != nil {
 		return nil, err
 	}
-	step := time.Duration(project.Prometheus.RefreshInterval) * time.Second
-	c := constructor.New(api.cache.GetCacheClient(project), step)
-	return c.LoadWorld(r.Context(), from, to)
+	c := constructor.New(api.cache.GetCacheClient(project), project.Prometheus.RefreshInterval)
+	return c.LoadWorld(r.Context(), timeseries.Time(from.Unix()), timeseries.Time(to.Unix()))
 }

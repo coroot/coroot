@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/coroot/coroot-focus/constructor"
-	"github.com/coroot/coroot-focus/db"
-	"github.com/coroot/coroot-focus/prom"
-	"github.com/coroot/coroot-focus/timeseries"
-	"github.com/coroot/coroot-focus/utils"
+	"github.com/coroot/coroot/constructor"
+	"github.com/coroot/coroot/db"
+	"github.com/coroot/coroot/prom"
+	"github.com/coroot/coroot/timeseries"
+	"github.com/coroot/coroot/utils"
 	"github.com/natefinch/atomic"
 	promModel "github.com/prometheus/common/model"
 	"k8s.io/klog"
@@ -111,7 +111,7 @@ func (c *Cache) updaterWorker(projects *sync.Map, projectID db.ProjectId) {
 		if refreshInterval < c.refreshIntervalMin {
 			refreshInterval = c.refreshIntervalMin
 		}
-		time.Sleep(refreshInterval.ToStandard() - time.Since(now.ToStandard()))
+		time.Sleep(time.Duration(refreshInterval-timeseries.Since(now)) * time.Second)
 	}
 }
 
@@ -119,11 +119,11 @@ func (c *Cache) download(ctx context.Context, promClient prom.Client, project db
 	buf := &bytes.Buffer{}
 	queryHash, jitter := QueryId(project.Id, state.Query)
 	refreshInterval := project.Prometheus.RefreshInterval
-	now := timeseries.Time(time.Now().Unix())
+	now := timeseries.Now()
 
 	for _, i := range calcIntervals(state.LastTs, refreshInterval, now.Add(-refreshInterval), jitter) {
 		promCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
-		vs, err := promClient.QueryRange(promCtx, state.Query, i.chunkTs.ToStandard(), i.toTs.ToStandard(), project.Prometheus.RefreshInterval.ToStandard())
+		vs, err := promClient.QueryRange(promCtx, state.Query, i.chunkTs, i.toTs, project.Prometheus.RefreshInterval)
 		cancel()
 		if err != nil {
 			state.LastError = err.Error()
@@ -179,14 +179,13 @@ func (c *Cache) saveChunk(projectID db.ProjectId, queryHash string, chunk *Chunk
 	if err := atomic.WriteFile(chunkFilePath, chunk.buf); err != nil {
 		return err
 	}
-	chunkInfo := &ChunkInfo{
+	qData.chunksOnDisk[chunkFilePath] = &ChunkMeta{
 		path:     chunkFilePath,
-		ts:       chunk.from,
+		startTs:  chunk.from,
 		duration: chunk.duration,
 		step:     chunk.step,
 		lastTs:   chunk.to,
 	}
-	qData.chunksOnDisk[chunkInfo.path] = chunkInfo
 	return nil
 }
 

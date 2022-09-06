@@ -1,6 +1,6 @@
 package constructor
 
-import "github.com/coroot/coroot-focus/model"
+import "github.com/coroot/coroot/model"
 
 func redis(w *model.World, queryName string, m model.MetricValues) {
 	instance := findInstance(w, m.Labels, model.ApplicationTypeRedis)

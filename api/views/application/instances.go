@@ -2,10 +2,10 @@ package application
 
 import (
 	"fmt"
-	widgets2 "github.com/coroot/coroot-focus/api/views/widgets"
-	"github.com/coroot/coroot-focus/model"
-	"github.com/coroot/coroot-focus/timeseries"
-	"github.com/coroot/coroot-focus/utils"
+	widgets2 "github.com/coroot/coroot/api/views/widgets"
+	"github.com/coroot/coroot/model"
+	"github.com/coroot/coroot/timeseries"
+	"github.com/coroot/coroot/utils"
 	"math"
 	"net"
 	"strconv"

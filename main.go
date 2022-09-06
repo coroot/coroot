@@ -1,10 +1,10 @@
 package main
 
 import (
-	"github.com/coroot/coroot-focus/api"
-	"github.com/coroot/coroot-focus/cache"
-	"github.com/coroot/coroot-focus/db"
-	"github.com/coroot/coroot-focus/utils"
+	"github.com/coroot/coroot/api"
+	"github.com/coroot/coroot/cache"
+	"github.com/coroot/coroot/db"
+	"github.com/coroot/coroot/utils"
 	"github.com/gorilla/mux"
 	"gopkg.in/alecthomas/kingpin.v2"
 	"k8s.io/klog"

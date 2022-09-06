@@ -1,7 +1,7 @@
 package model
 
 import (
-	"github.com/coroot/coroot-focus/timeseries"
+	"github.com/coroot/coroot/timeseries"
 	"k8s.io/klog"
 	"math"
 	"net"

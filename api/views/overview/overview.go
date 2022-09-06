@@ -1,9 +1,9 @@
 package overview
 
 import (
-	"github.com/coroot/coroot-focus/api/views/widgets"
-	"github.com/coroot/coroot-focus/model"
-	"github.com/coroot/coroot-focus/utils"
+	"github.com/coroot/coroot/api/views/widgets"
+	"github.com/coroot/coroot/model"
+	"github.com/coroot/coroot/utils"
 	"github.com/dustin/go-humanize"
 	"math"
 	"sort"

@@ -1,7 +1,7 @@
 package constructor
 
 import (
-	"github.com/coroot/coroot-focus/model"
+	"github.com/coroot/coroot/model"
 )
 
 func postgres(w *model.World, queryName string, m model.MetricValues) {

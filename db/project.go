@@ -3,7 +3,7 @@ package db
 import (
 	"database/sql"
 	"encoding/json"
-	"github.com/coroot/coroot-focus/utils"
+	"github.com/coroot/coroot/utils"
 )
 
 type ProjectId string

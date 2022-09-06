@@ -1,7 +1,7 @@
 package widgets
 
 import (
-	"github.com/coroot/coroot-focus/model"
+	"github.com/coroot/coroot/model"
 )
 
 type DependencyMap struct {

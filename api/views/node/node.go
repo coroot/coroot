@@ -1,10 +1,10 @@
 package node
 
 import (
-	utils2 "github.com/coroot/coroot-focus/api/views/utils"
-	"github.com/coroot/coroot-focus/api/views/widgets"
-	"github.com/coroot/coroot-focus/model"
-	"github.com/coroot/coroot-focus/timeseries"
+	utils2 "github.com/coroot/coroot/api/views/utils"
+	"github.com/coroot/coroot/api/views/widgets"
+	"github.com/coroot/coroot/model"
+	"github.com/coroot/coroot/timeseries"
 )
 
 func Render(w *model.World, node *model.Node) *widgets.Dashboard {

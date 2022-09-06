@@ -3,9 +3,9 @@ package cache
 import (
 	"bytes"
 	"fmt"
-	"github.com/coroot/coroot-focus/db"
-	"github.com/coroot/coroot-focus/model"
-	"github.com/coroot/coroot-focus/timeseries"
+	"github.com/coroot/coroot/db"
+	"github.com/coroot/coroot/model"
+	"github.com/coroot/coroot/timeseries"
 	"k8s.io/klog"
 	"os"
 	"sort"
@@ -18,14 +18,14 @@ type CompactionTask struct {
 	projectID db.ProjectId
 	queryHash string
 	dstChunk  timeseries.Time
-	src       []*ChunkInfo
+	src       []*ChunkMeta
 	compactor Compactor
 }
 
 func (ct CompactionTask) String() string {
 	src := make([]string, 0, len(ct.src))
 	for _, s := range ct.src {
-		src = append(src, strconv.Itoa(int(s.ts)))
+		src = append(src, strconv.Itoa(int(s.startTs)))
 	}
 	return fmt.Sprintf(
 		"compaction task %s [%s]:%d -> %d:%d",
@@ -33,17 +33,17 @@ func (ct CompactionTask) String() string {
 	)
 }
 
-func calcCompactionTasks(compactor Compactor, projectID db.ProjectId, queryHash string, chunks map[string]*ChunkInfo) []*CompactionTask {
+func calcCompactionTasks(compactor Compactor, projectID db.ProjectId, queryHash string, chunks map[string]*ChunkMeta) []*CompactionTask {
 	tasks := map[timeseries.Time]*CompactionTask{}
 	jitter := chunkJitter(projectID, queryHash)
 	for _, chunk := range chunks {
 		if chunk.duration != compactor.SrcChunkDuration {
 			continue
 		}
-		if chunk.lastTs != chunk.ts.Add(chunk.duration-chunk.step) { //incomplete
+		if chunk.lastTs != chunk.startTs.Add(chunk.duration-chunk.step) { //incomplete
 			continue
 		}
-		dstChunkTs := chunk.ts.Add(-jitter).Truncate(compactor.DstChunkDuration).Add(jitter)
+		dstChunkTs := chunk.startTs.Add(-jitter).Truncate(compactor.DstChunkDuration).Add(jitter)
 		task := tasks[dstChunkTs]
 		if task == nil {
 			task = &CompactionTask{
@@ -116,7 +116,7 @@ func (c *Cache) compact(t CompactionTask, buf *bytes.Buffer) error {
 	start := time.Now()
 	metrics := map[uint64]model.MetricValues{}
 	sort.Slice(t.src, func(i, j int) bool {
-		return t.src[i].ts < t.src[j].ts
+		return t.src[i].startTs < t.src[j].startTs
 	})
 	dstStep := t.src[0].step
 	dst := NewChunk(
@@ -127,7 +127,7 @@ func (c *Cache) compact(t CompactionTask, buf *bytes.Buffer) error {
 		buf,
 	)
 	for _, i := range t.src {
-		src, err := NewChunkFromInfo(i)
+		src, err := OpenChunk(i)
 		if err != nil {
 			return fmt.Errorf("failed to open chunk for compaction: %s", err)
 		}

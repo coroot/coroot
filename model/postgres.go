@@ -2,7 +2,7 @@ package model
 
 import (
 	"fmt"
-	"github.com/coroot/coroot-focus/timeseries"
+	"github.com/coroot/coroot/timeseries"
 )
 
 type PgConnectionKey struct {

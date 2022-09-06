@@ -2,12 +2,12 @@ package prom
 
 import (
 	"context"
-	"github.com/coroot/coroot-focus/model"
-	"github.com/coroot/coroot-focus/utils"
-	"time"
+	"github.com/coroot/coroot/model"
+	"github.com/coroot/coroot/timeseries"
+	"github.com/coroot/coroot/utils"
 )
 
 type Client interface {
-	QueryRange(ctx context.Context, query string, from, to time.Time, step time.Duration) ([]model.MetricValues, error)
-	LastUpdateTime(set *utils.StringSet) time.Time
+	QueryRange(ctx context.Context, query string, from, to timeseries.Time, step timeseries.Duration) ([]model.MetricValues, error)
+	LastUpdateTime(set *utils.StringSet) timeseries.Time
 }

@@ -2,7 +2,7 @@ package widgets
 
 import (
 	"fmt"
-	"github.com/coroot/coroot-focus/model"
+	"github.com/coroot/coroot/model"
 	"sort"
 )
 

@@ -2,7 +2,7 @@ package db
 
 import (
 	"database/sql"
-	"github.com/coroot/coroot-focus/timeseries"
+	"github.com/coroot/coroot/timeseries"
 )
 
 const (

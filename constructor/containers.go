@@ -2,8 +2,8 @@ package constructor
 
 import (
 	"fmt"
-	"github.com/coroot/coroot-focus/model"
-	"github.com/coroot/coroot-focus/timeseries"
+	"github.com/coroot/coroot/model"
+	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/logpattern"
 	"k8s.io/klog"
 	"net"
@@ -177,7 +177,6 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues) {
 					} else {
 						appId.Name = u.ActualRemoteIP + ":" + u.ActualRemotePort
 					}
-					klog.Infoln(u.Instance.Name, "->", u.ActualRemoteIP, u.ActualRemotePort)
 					ri := w.GetOrCreateApplication(appId).GetOrCreateInstance(appId.Name)
 					ri.TcpListens[model.Listen{IP: u.ActualRemoteIP, Port: u.ActualRemotePort}] = true
 					u.RemoteInstance = ri

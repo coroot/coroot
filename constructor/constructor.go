@@ -3,10 +3,10 @@ package constructor
 import (
 	"context"
 	"fmt"
-	"github.com/coroot/coroot-focus/model"
-	"github.com/coroot/coroot-focus/prom"
-	"github.com/coroot/coroot-focus/timeseries"
-	"github.com/coroot/coroot-focus/utils"
+	"github.com/coroot/coroot/model"
+	"github.com/coroot/coroot/prom"
+	"github.com/coroot/coroot/timeseries"
+	"github.com/coroot/coroot/utils"
 	"k8s.io/klog"
 	"net"
 	"strings"
@@ -15,15 +15,15 @@ import (
 
 type Constructor struct {
 	prom prom.Client
-	step time.Duration
+	step timeseries.Duration
 }
 
-func New(prom prom.Client, step time.Duration) *Constructor {
+func New(prom prom.Client, step timeseries.Duration) *Constructor {
 	return &Constructor{prom: prom, step: step}
 }
 
-func (c *Constructor) LoadWorld(ctx context.Context, from, to time.Time) (*model.World, error) {
-	now := time.Now()
+func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time) (*model.World, error) {
+	start := time.Now()
 
 	actualQueries := utils.NewStringSet()
 	for _, q := range QUERIES {
@@ -33,16 +33,16 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to time.Time) (*model
 	step := c.step
 	duration := to.Sub(from)
 	switch {
-	case duration > 5*24*time.Hour:
-		step = maxDuration(step, 60*time.Minute)
-	case duration > 24*time.Hour:
-		step = maxDuration(step, 15*time.Minute)
-	case duration > 12*time.Hour:
-		step = maxDuration(step, 10*time.Minute)
-	case duration > 6*time.Hour:
-		step = maxDuration(step, 5*time.Minute)
-	case duration > 4*time.Hour:
-		step = maxDuration(step, time.Minute)
+	case duration > 5*24*timeseries.Hour:
+		step = maxDuration(step, 60*timeseries.Minute)
+	case duration > 24*timeseries.Hour:
+		step = maxDuration(step, 15*timeseries.Minute)
+	case duration > 12*timeseries.Hour:
+		step = maxDuration(step, 10*timeseries.Minute)
+	case duration > 6*timeseries.Hour:
+		step = maxDuration(step, 5*timeseries.Minute)
+	case duration > 4*timeseries.Hour:
+		step = maxDuration(step, timeseries.Minute)
 	}
 
 	lastUpdateTs := c.prom.LastUpdateTime(actualQueries)
@@ -61,14 +61,8 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to time.Time) (*model
 	if err != nil {
 		return nil, err
 	}
-	klog.Infof("got metrics in %s", time.Since(now))
-	w := &model.World{
-		Ctx: timeseries.Context{
-			From: timeseries.Time(from.Unix()),
-			To:   timeseries.Time(to.Unix()),
-			Step: timeseries.Duration(step.Seconds()),
-		},
-	}
+	klog.Infof("got metrics in %s", time.Since(start))
+	w := &model.World{Ctx: timeseries.Context{From: from, To: to, Step: step}}
 
 	loadNodes(w, metrics)
 	loadKubernetesMetadata(w, metrics)
@@ -192,7 +186,7 @@ func getActualServiceInstance(instance *model.Instance, applicationType model.Ap
 	return nil
 }
 
-func maxDuration(d1, d2 time.Duration) time.Duration {
+func maxDuration(d1, d2 timeseries.Duration) timeseries.Duration {
 	if d1 >= d2 {
 		return d1
 	}

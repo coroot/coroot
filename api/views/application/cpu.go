@@ -1,10 +1,10 @@
 package application
 
 import (
-	"github.com/coroot/coroot-focus/api/views/utils"
-	"github.com/coroot/coroot-focus/api/views/widgets"
-	"github.com/coroot/coroot-focus/model"
-	"github.com/coroot/coroot-focus/timeseries"
+	"github.com/coroot/coroot/api/views/utils"
+	"github.com/coroot/coroot/api/views/widgets"
+	"github.com/coroot/coroot/model"
+	"github.com/coroot/coroot/timeseries"
 )
 
 func cpu(ctx timeseries.Context, app *model.Application) *widgets.Dashboard {

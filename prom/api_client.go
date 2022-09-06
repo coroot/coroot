@@ -4,9 +4,9 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/coroot/coroot-focus/model"
-	"github.com/coroot/coroot-focus/timeseries"
-	"github.com/coroot/coroot-focus/utils"
+	"github.com/coroot/coroot/model"
+	"github.com/coroot/coroot/timeseries"
+	"github.com/coroot/coroot/utils"
 	"github.com/prometheus/client_golang/api"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	promModel "github.com/prometheus/common/model"
@@ -37,15 +37,15 @@ func NewApiClient(address string, skipTlsVerify bool) (Client, error) {
 	return &ApiClient{api: v1.NewAPI(c)}, nil
 }
 
-func (c *ApiClient) LastUpdateTime(*utils.StringSet) time.Time {
-	return time.Time{}
+func (c *ApiClient) LastUpdateTime(*utils.StringSet) timeseries.Time {
+	return 0
 }
 
-func (c *ApiClient) QueryRange(ctx context.Context, query string, from, to time.Time, step time.Duration) ([]model.MetricValues, error) {
-	query = strings.ReplaceAll(query, "$RANGE", fmt.Sprintf(`%.0fs`, (step*3).Seconds()))
+func (c *ApiClient) QueryRange(ctx context.Context, query string, from, to timeseries.Time, step timeseries.Duration) ([]model.MetricValues, error) {
+	query = strings.ReplaceAll(query, "$RANGE", fmt.Sprintf(`%.0fs`, (step*3).ToStandard().Seconds()))
 	from = from.Truncate(step)
 	to = to.Truncate(step)
-	value, _, err := c.api.QueryRange(ctx, query, v1.Range{Start: from, End: to.Add(step), Step: step})
+	value, _, err := c.api.QueryRange(ctx, query, v1.Range{Start: from.ToStandard(), End: to.Add(step).ToStandard(), Step: step.ToStandard()})
 	if err != nil {
 		return nil, err
 	}
@@ -60,11 +60,7 @@ func (c *ApiClient) QueryRange(ctx context.Context, query string, from, to time.
 
 	res := make([]model.MetricValues, 0, matrix.Len())
 	for _, m := range matrix {
-		values := timeseries.NewNan(timeseries.Context{
-			From: timeseries.Time(from.Unix()),
-			To:   timeseries.Time(to.Unix()),
-			Step: timeseries.Duration(step.Seconds()),
-		})
+		values := timeseries.NewNan(timeseries.Context{From: from, To: to, Step: step})
 
 		mv := model.MetricValues{
 			Labels:     make(map[string]string, len(m.Metric)),

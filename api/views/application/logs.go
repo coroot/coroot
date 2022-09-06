@@ -2,9 +2,9 @@ package application
 
 import (
 	"fmt"
-	widgets2 "github.com/coroot/coroot-focus/api/views/widgets"
-	"github.com/coroot/coroot-focus/model"
-	"github.com/coroot/coroot-focus/timeseries"
+	widgets2 "github.com/coroot/coroot/api/views/widgets"
+	"github.com/coroot/coroot/model"
+	"github.com/coroot/coroot/timeseries"
 	"sort"
 	"strings"
 )

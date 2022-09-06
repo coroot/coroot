@@ -2,12 +2,12 @@ package prom
 
 import (
 	"context"
-	"github.com/coroot/coroot-focus/model"
+	"github.com/coroot/coroot/model"
+	"github.com/coroot/coroot/timeseries"
 	"sync"
-	"time"
 )
 
-func ParallelQueryRange(ctx context.Context, client Client, from, to time.Time, step time.Duration, queries map[string]string) (map[string][]model.MetricValues, error) {
+func ParallelQueryRange(ctx context.Context, client Client, from, to timeseries.Time, step timeseries.Duration, queries map[string]string) (map[string][]model.MetricValues, error) {
 	res := make(map[string][]model.MetricValues, len(queries))
 	var lock sync.Mutex
 	var lastErr error

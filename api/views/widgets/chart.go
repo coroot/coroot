@@ -1,7 +1,7 @@
 package widgets
 
 import (
-	"github.com/coroot/coroot-focus/timeseries"
+	"github.com/coroot/coroot/timeseries"
 	"sort"
 )
 
