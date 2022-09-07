@@ -51,6 +51,45 @@ Coroot uses Prometheus as a Time-Series Databases (TSDB):
 The built-in Prometheus cache allows Coroot to provide you with a blazing fast UI and not overload your Prometheus.
 
 
+# Quick start
+
+## Kubernetes
+
+Apply the manifest:
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/coroot/coroot/main/manifests/coroot.yaml
+```
+
+Forward the Coroot port to your machine:
+```bash
+kubectl port-forward -n coroot service/coroot 8080:8080
+```
+
+Then, you can access Coroot at http://localhost:8080/
+
+
+## Docker
+
+```bash
+docker run -d --name coroot -p 8080:8080 ghcr.io/coroot/coroot 
+```
+
+Then, you can access Coroot at http://localhost:8080/
+
+To view the Coroot's log, run:
+
+```bash
+docker logs -f coroot
+```
+
+To run Coroot on a different port:
+
+```bash
+docker run -d --name coroot -p <PORT>:8080 ghcr.io/coroot/coroot
+```
+
+
 # License
 
 Coroot is licensed under the [Apache License, Version 2.0](https://github.com/coroot/coroot/blob/main/LICENSE).
