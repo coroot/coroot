@@ -4,12 +4,30 @@ import (
 	"github.com/coroot/coroot/timeseries"
 )
 
+type IntegrationStatus struct {
+	NodeAgent struct {
+		Installed bool
+	}
+	KubeStateMetrics struct {
+		Required  bool
+		Installed bool
+	}
+}
+
 type World struct {
 	Ctx timeseries.Context
 
 	Nodes        []*Node
 	Applications []*Application
 	Services     []*Service
+
+	IntegrationStatus IntegrationStatus
+}
+
+func NewWorld(from, to timeseries.Time, step timeseries.Duration) *World {
+	return &World{
+		Ctx: timeseries.Context{From: from, To: to, Step: step},
+	}
 }
 
 func (w *World) GetApplication(id ApplicationId) *Application {

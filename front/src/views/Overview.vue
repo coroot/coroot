@@ -9,13 +9,19 @@
         {{error}}
     </v-alert>
 
-    <AppsMap v-if="overview" :applications="overview.applications" />
+    <AppsMap v-if="overview && overview.applications" :applications="overview.applications" />
+    <div v-else-if="overview" class="pa-3 text-center grey--text">
+        No data is available yet
+    </div>
 
     <h1 class="text-h5 my-5">
         Nodes
     </h1>
 
-    <Table v-if="overview" :header="overview.nodes.header" :rows="overview.nodes.rows" />
+    <Table v-if="overview && overview.nodes && overview.nodes.rows" :header="overview.nodes.header" :rows="overview.nodes.rows" />
+    <div v-else-if="overview" class="pa-3 text-center grey--text">
+        No data is available yet
+    </div>
 </div>
 </template>
 
@@ -36,7 +42,7 @@ export default {
 
     mounted() {
         this.get();
-        this.$api.contextWatch(this, this.get);
+        this.$events.watch(this, this.get, 'refresh');
     },
 
     methods: {

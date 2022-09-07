@@ -32,6 +32,10 @@ type Link struct {
 }
 
 func Render(w *model.World) *View {
+	if w == nil {
+		return &View{}
+	}
+
 	var apps []*Application
 	used := map[model.ApplicationId]bool{}
 	for _, a := range w.Applications {

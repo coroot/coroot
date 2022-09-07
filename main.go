@@ -48,6 +48,7 @@ func main() {
 	r.HandleFunc("/api/projects", api.Projects).Methods(http.MethodGet)
 	r.HandleFunc("/api/project/", api.Project).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/project/{project}", api.Project).Methods(http.MethodGet, http.MethodPost)
+	r.HandleFunc("/api/project/{project}/status", api.Status).Methods(http.MethodGet)
 	r.HandleFunc("/api/project/{project}/overview", api.Overview).Methods(http.MethodGet)
 	r.HandleFunc("/api/project/{project}/search", api.Search).Methods(http.MethodGet)
 	r.HandleFunc("/api/project/{project}/app/{app}", api.App).Methods(http.MethodGet)

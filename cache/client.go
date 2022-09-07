@@ -2,39 +2,24 @@ package cache
 
 import (
 	"context"
+	"fmt"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/prom"
 	"github.com/coroot/coroot/timeseries"
-	"github.com/coroot/coroot/utils"
-	"sort"
 )
-
-const (
-	RawData ClientOption = iota
-)
-
-type ClientOption int
 
 type Client struct {
-	cache          *Cache
-	projectId      db.ProjectId
-	promClient     prom.Client
-	scrapeInterval timeseries.Duration
-	options        map[ClientOption]bool
+	cache      *Cache
+	projectId  db.ProjectId
+	promClient prom.Client
 }
 
-func (c *Cache) GetCacheClient(p *db.Project, options ...ClientOption) prom.Client {
-	cl := &Client{
-		cache:          c,
-		projectId:      p.Id,
-		scrapeInterval: p.Prometheus.RefreshInterval,
-		options:        map[ClientOption]bool{},
+func (c *Cache) GetCacheClient(projectId db.ProjectId) prom.Client {
+	return &Client{
+		cache:     c,
+		projectId: projectId,
 	}
-	for _, o := range options {
-		cl.options[o] = true
-	}
-	return cl
 }
 
 func (c *Client) QueryRange(ctx context.Context, query string, from, to timeseries.Time, step timeseries.Duration) ([]model.MetricValues, error) {
@@ -77,43 +62,16 @@ func (c *Client) QueryRange(ctx context.Context, query string, from, to timeseri
 	return r, nil
 }
 
-func (c *Client) LastUpdateTime(actualQueries *utils.StringSet) timeseries.Time {
-	c.cache.lock.RLock()
-	defer c.cache.lock.RUnlock()
-	var ts timeseries.Time
-
-	actualHashes := utils.NewStringSet()
-	for _, q := range actualQueries.Items() {
-		actualHashes.Add(hash(q))
-	}
-
-	for queryHash, v := range c.cache.byProject[c.projectId] {
-		if !actualHashes.Has(queryHash) {
-			continue
-		}
-		if len(v.chunksOnDisk) == 0 {
-			continue
-		}
-		chunks := make([]*ChunkMeta, 0, len(v.chunksOnDisk))
-		for _, chunk := range v.chunksOnDisk {
-			chunks = append(chunks, chunk)
-		}
-		sort.Slice(chunks, func(i, j int) bool {
-			return chunks[i].lastTs > chunks[j].lastTs
-		})
-		lastTs := chunks[0].lastTs
-		if ts.IsZero() || lastTs.Before(ts) {
-			ts = lastTs
-		}
-	}
-	if !ts.IsZero() {
-		ts = ts.Add(-c.scrapeInterval)
-	}
-	return ts
+func (c *Client) Ping(ctx context.Context) error {
+	return fmt.Errorf("not implemented")
 }
 
 func (c *Cache) GetPromClient(p db.Project) prom.Client {
-	client, err := prom.NewApiClient(p.Prometheus.Url, p.Prometheus.TlsSkipVerify)
+	user, password := "", ""
+	if p.Prometheus.BasicAuth != nil {
+		user, password = p.Prometheus.BasicAuth.User, p.Prometheus.BasicAuth.Password
+	}
+	client, err := prom.NewApiClient(p.Prometheus.Url, user, password, p.Prometheus.TlsSkipVerify)
 	if err != nil {
 		return NewErrorClient(err)
 	}
@@ -132,6 +90,6 @@ func (e ErrorClient) QueryRange(ctx context.Context, query string, from, to time
 	return nil, e.err
 }
 
-func (e ErrorClient) LastUpdateTime(actualQueries *utils.StringSet) timeseries.Time {
-	return 0
+func (e ErrorClient) Ping(ctx context.Context) error {
+	return e.err
 }

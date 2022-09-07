@@ -23,6 +23,7 @@ func initNodesList(w *model.World, nodeInfoMetrics []model.MetricValues) {
 		if machineID == "" {
 			continue
 		}
+		w.IntegrationStatus.NodeAgent.Installed = true
 		var node *model.Node
 		for _, n := range w.Nodes {
 			if n.MachineID == machineID {

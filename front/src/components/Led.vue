@@ -26,7 +26,7 @@
 <style scoped>
 .led {
     display: inline-block;
-    vertical-align: middle;
+    /*vertical-align: middle;*/
     width: 10px;
     height: 10px;
     border-radius: 50%;

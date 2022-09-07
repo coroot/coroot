@@ -28,5 +28,6 @@ func Open(path string) (*DB, error) {
 			return nil, err
 		}
 	}
+	db.SetMaxOpenConns(1)
 	return &DB{db: db}, nil
 }

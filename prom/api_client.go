@@ -6,12 +6,13 @@ import (
 	"fmt"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
-	"github.com/coroot/coroot/utils"
 	"github.com/prometheus/client_golang/api"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	promModel "github.com/prometheus/common/model"
+	"k8s.io/klog"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -20,7 +21,15 @@ type ApiClient struct {
 	api v1.API
 }
 
-func NewApiClient(address string, skipTlsVerify bool) (Client, error) {
+func NewApiClient(address, user, password string, skipTlsVerify bool) (Client, error) {
+	if user != "" {
+		if u, err := url.Parse(address); err != nil {
+			klog.Errorln("failed to parse url:", err)
+		} else {
+			u.User = url.UserPassword(user, password)
+			address = u.String()
+		}
+	}
 	transport := &http.Transport{
 		DialContext: (&net.Dialer{
 			Timeout:   30 * time.Second,
@@ -37,8 +46,9 @@ func NewApiClient(address string, skipTlsVerify bool) (Client, error) {
 	return &ApiClient{api: v1.NewAPI(c)}, nil
 }
 
-func (c *ApiClient) LastUpdateTime(*utils.StringSet) timeseries.Time {
-	return 0
+func (c *ApiClient) Ping(ctx context.Context) error {
+	_, _, err := c.api.Query(ctx, "node_info", time.Now())
+	return err
 }
 
 func (c *ApiClient) QueryRange(ctx context.Context, query string, from, to timeseries.Time, step timeseries.Duration) ([]model.MetricValues, error) {

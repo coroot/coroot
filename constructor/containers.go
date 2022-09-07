@@ -61,8 +61,9 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues) {
 			var instance *model.Instance
 			switch {
 			case mc.pod != "" && mc.ns != "":
+				w.IntegrationStatus.KubeStateMetrics.Required = true
 				if instance = getInstanceByPod(w, mc.ns, mc.pod); instance == nil {
-					klog.Warningf("unknown pod: %s/%s", mc.ns, mc.pod)
+					klog.Warningf("unknown pod: %s/%s, seems like no kube-state-metrics installed", mc.ns, mc.pod)
 					continue
 				}
 			case mc.container != "" && mc.node != nil:

@@ -30,6 +30,7 @@ func (db *DB) GetProjects() ([]Project, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 	var res []Project
 	var p Project
 	var prometheus string

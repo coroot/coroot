@@ -34,16 +34,43 @@
 
             <TimePicker v-if="project && $route.name !== 'project_settings'" :small="$vuetify.breakpoint.xsOnly"/>
 
-            <v-btn v-if="project" icon small :to="{name: 'project_settings', params: {projectId: project.id}}" plain>
-                <v-icon>mdi-cog</v-icon>
-            </v-btn>
+            <span v-if="project" style="position: relative">
+                <v-btn v-if="project" icon small :to="{name: 'project_settings', params: {projectId: project.id}}" plain>
+                    <v-icon>mdi-cog</v-icon>
+                </v-btn>
+                <Led v-if="status" :status="status.ok ? 'ok' : 'warning'" style="position: absolute; top: 1px; right: 1px;" />
+            </span>
         </v-container>
     </v-app-bar>
 
     <v-main>
         <v-container>
-            <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
-                {{error}}
+            <v-alert v-if="status && !status.ok && $route.name !== 'project_settings'" color="red" elevation="2" border="left" class="mt-4" colored-border>
+                <div class="d-sm-flex align-center">
+                    <template v-if="status.prometheus.status !== 'ok'">
+                        <template v-if="status.prometheus.error">
+                            <div class="flex-grow-1 mb-3 mb-sm-0">An error has been occurred while querying Prometheus</div>
+                            <v-btn outlined :to="{name: 'project_settings'}">Review the configuration</v-btn>
+                        </template>
+                        <template v-else>
+                            <div class="flex-grow-1 mb-3 mb-sm-0">
+                                Prometheus cache is {{$moment.duration(status.prometheus.lag, 'ms').format('h [hour] m [minute]', {trim: 'all'})}} behind.
+                                Please wait until synchronization is complete.
+                            </div>
+                            <v-btn outlined @click="refresh">refresh</v-btn>
+                        </template>
+                    </template>
+                    <template v-else-if="status.node_agent.status !== 'ok'">
+                        <div class="flex-grow-1 mb-3 mb-sm-0">No metrics found. Looks like you didn't install <b>node-agent</b>.</div>
+                        <v-btn outlined :to="{name: 'project_settings'}">Install node-agent</v-btn>
+                    </template>
+                    <template v-else-if="status.kube_state_metrics && status.kube_state_metrics.status !== 'ok'">
+                        <div class="flex-grow-1 mb-3 mb-sm-0">
+                            It looks like you use Kubernetes, so Coroot requires <b>kube-state-metrics</b> to combine individual containers into applications.
+                        </div>
+                        <v-btn outlined :to="{name: 'project_settings'}">Install kube-state-metrics</v-btn>
+                    </template>
+                </div>
             </v-alert>
             <router-view />
         </v-container>
@@ -54,13 +81,15 @@
 <script>
 import TimePicker from "@/components/TimePicker";
 import Search from "@/components/Search";
+import Led from "@/components/Led";
 
 export default {
-    components: {Search, TimePicker},
+    components: {Search, TimePicker, Led},
 
     data() {
         return {
             projects: [],
+            status: null,
             loading: false,
             error: '',
         }
@@ -68,7 +97,7 @@ export default {
 
     created() {
         this.getProjects();
-        this.$root.$on('project-saved', this.getProjects);
+        this.$events.watch(this, this.getProjects, 'project-saved');
     },
 
     computed: {
@@ -78,13 +107,19 @@ export default {
                 return null;
             }
             return this.projects.find((p) => p.id === id);
-        }
+        },
     },
 
     watch: {
+        '$route': {
+            handler: function() {
+                this.getStatus();
+            },
+            immediate: true,
+        },
         '$route.params.projectId': {
-            handler: function(newValue) {
-                this.lastProject(newValue);
+            handler: function(id) {
+                this.lastProject(id);
             },
             immediate: true,
         }
@@ -107,7 +142,6 @@ export default {
                     }
                     let id = this.projects[0].id;
                     const lastId = this.lastProject();
-                    console.log(id, lastId)
                     if (lastId && this.projects.find((p) => p.id === lastId)) {
                         id = lastId;
                     }
@@ -115,8 +149,32 @@ export default {
                 }
             });
         },
+        getStatus() {
+            this.status = null;
+            if (!this.$route.params.projectId) {
+                return
+            }
+            this.$api.getStatus((data, error) => {
+                if (error) {
+                    return;
+                }
+                this.status = data;
+                this.status.ok = true;
+                for (const i in data) {
+                    const s = data[i];
+                    if (s && s.status && (s.status === 'warning' || s.status === 'critical')) {
+                        this.status.ok = false;
+                        break;
+                    }
+                }
+            });
+        },
         lastProject(id) {
             return this.$storage.local('last-project', id);
+        },
+        refresh() {
+            this.$events.emit('refresh');
+            this.getStatus();
         },
     },
 }

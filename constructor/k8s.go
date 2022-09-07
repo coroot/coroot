@@ -81,6 +81,7 @@ func loadApplications(w *model.World, metrics map[string][]model.MetricValues) {
 func podInfo(w *model.World, metrics []model.MetricValues) map[podId]*model.Instance {
 	pods := map[podId]*model.Instance{}
 	for _, m := range metrics {
+		w.IntegrationStatus.KubeStateMetrics.Installed = true
 		pod := m.Labels["pod"]
 		ns := m.Labels["namespace"]
 		ownerName := m.Labels["created_by_name"]

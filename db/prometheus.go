@@ -2,6 +2,7 @@ package db
 
 import (
 	"database/sql"
+	"errors"
 	"github.com/coroot/coroot/timeseries"
 )
 
@@ -67,4 +68,28 @@ func (db *DB) LoadStates(id ProjectId) (map[string]*PrometheusQueryState, error)
 func (db *DB) DeleteState(state *PrometheusQueryState) error {
 	_, err := db.db.Exec("DELETE FROM prometheus_query_state WHERE project_id = $1 AND query = $2", state.ProjectId, state.Query)
 	return err
+}
+
+func (db *DB) GetCacheUpdateTime(id ProjectId) (timeseries.Time, error) {
+	var res timeseries.Time
+	err := db.db.QueryRow("SELECT last_ts FROM prometheus_query_state WHERE project_id = $1 ORDER BY last_ts LIMIT 1", id).Scan(&res)
+	if err == nil {
+		return res, nil
+	}
+	if errors.Is(err, sql.ErrNoRows) {
+		return res, nil
+	}
+	return res, err
+}
+
+func (db *DB) GetCacheError(id ProjectId) (string, error) {
+	var res string
+	err := db.db.QueryRow("SELECT last_error FROM prometheus_query_state WHERE project_id = $1 AND last_error != '' LIMIT 1", id).Scan(&res)
+	if err == nil {
+		return res, nil
+	}
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", nil
+	}
+	return "", err
 }

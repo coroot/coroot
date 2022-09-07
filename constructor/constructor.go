@@ -2,11 +2,9 @@ package constructor
 
 import (
 	"context"
-	"fmt"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/prom"
 	"github.com/coroot/coroot/timeseries"
-	"github.com/coroot/coroot/utils"
 	"k8s.io/klog"
 	"net"
 	"strings"
@@ -15,54 +13,21 @@ import (
 
 type Constructor struct {
 	prom prom.Client
-	step timeseries.Duration
 }
 
-func New(prom prom.Client, step timeseries.Duration) *Constructor {
-	return &Constructor{prom: prom, step: step}
+func New(prom prom.Client) *Constructor {
+	return &Constructor{prom: prom}
 }
 
-func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time) (*model.World, error) {
-	start := time.Now()
+func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, step timeseries.Duration) (*model.World, error) {
+	w := model.NewWorld(from, to, step)
 
-	actualQueries := utils.NewStringSet()
-	for _, q := range QUERIES {
-		actualQueries.Add(q)
-	}
-
-	step := c.step
-	duration := to.Sub(from)
-	switch {
-	case duration > 5*24*timeseries.Hour:
-		step = maxDuration(step, 60*timeseries.Minute)
-	case duration > 24*timeseries.Hour:
-		step = maxDuration(step, 15*timeseries.Minute)
-	case duration > 12*timeseries.Hour:
-		step = maxDuration(step, 10*timeseries.Minute)
-	case duration > 6*timeseries.Hour:
-		step = maxDuration(step, 5*timeseries.Minute)
-	case duration > 4*timeseries.Hour:
-		step = maxDuration(step, timeseries.Minute)
-	}
-
-	lastUpdateTs := c.prom.LastUpdateTime(actualQueries)
-	if !lastUpdateTs.IsZero() && lastUpdateTs.Before(to) {
-		if lastUpdateTs.Before(from) {
-			return nil, fmt.Errorf("out of cache time range")
-		}
-		lastUpdateTs = lastUpdateTs.Add(-c.step)
-		from = from.Add(lastUpdateTs.Sub(to))
-		to = lastUpdateTs
-	}
-	from = from.Truncate(step)
-	to = to.Truncate(step)
-
+	t := time.Now()
 	metrics, err := prom.ParallelQueryRange(ctx, c.prom, from, to, step, QUERIES)
 	if err != nil {
 		return nil, err
 	}
-	klog.Infof("got metrics in %s", time.Since(start))
-	w := &model.World{Ctx: timeseries.Context{From: from, To: to, Step: step}}
+	klog.Infof("got metrics in %s", time.Since(t))
 
 	loadNodes(w, metrics)
 	loadKubernetesMetadata(w, metrics)
@@ -184,11 +149,4 @@ func getActualServiceInstance(instance *model.Instance, applicationType model.Ap
 		applicationType, instance.Name, instance.ApplicationTypes(),
 	)
 	return nil
-}
-
-func maxDuration(d1, d2 timeseries.Duration) timeseries.Duration {
-	if d1 >= d2 {
-		return d1
-	}
-	return d2
 }

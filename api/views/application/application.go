@@ -48,6 +48,10 @@ type InstanceLink struct {
 }
 
 func Render(world *model.World, app *model.Application) *View {
+	if world == nil {
+		return &View{}
+	}
+
 	appMap := &AppMap{
 		Application: &Application{
 			Id:     app.Id,

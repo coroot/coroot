@@ -22,18 +22,6 @@ export default class Api {
         }
     }
 
-    contextWatch(component, cb) {
-        component.$watch('$route', (newVal, oldVal) => {
-            if (
-                newVal.params.projectId !== oldVal.params.projectId ||
-                newVal.query.from !== oldVal.query.from ||
-                newVal.query.to !== oldVal.query.to
-            ) {
-                cb();
-            }
-        })
-    }
-
     request(req, cb) {
         this.axios(req).then((response) => {
             try {
@@ -72,6 +60,10 @@ export default class Api {
     projectPath(subPath) {
         const projectId = this.router.currentRoute.params.projectId;
         return `project/${projectId}/${subPath}`;
+    }
+
+    getStatus(cb) {
+        this.get(this.projectPath(`status`), cb);
     }
 
     getOverview(cb) {

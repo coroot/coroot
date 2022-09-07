@@ -8,6 +8,10 @@ import (
 )
 
 func Render(w *model.World, node *model.Node) *widgets.Dashboard {
+	if w == nil {
+		return nil
+	}
+
 	dash := widgets.NewDashboard(w.Ctx, "Node")
 
 	cpu := dash.GetOrCreateChart("CPU usage, %").Sorted().Stacked()

@@ -3,6 +3,10 @@ import VueRouter from "vue-router";
 import vuetify from '@/plugins/vuetify';
 import '@/plugins/resize';
 import moment from 'moment';
+import momentDurationFormatSetup from 'moment-duration-format';
+momentDurationFormatSetup(moment);
+import pluralize from 'pluralize';
+import events from '@/utils/events';
 import * as validators from "@/utils/validators";
 import * as storage from "@/utils/storage";
 import Api from "@/api";
@@ -28,7 +32,19 @@ const router = new VueRouter({
   ],
 });
 
+router.afterEach((to, from) => {
+    if (
+        to.params.projectId !== from.params.projectId ||
+        to.query.from !== from.query.from ||
+        to.query.to !== from.query.to
+    ) {
+        events.emit('refresh');
+    }
+})
+
+Vue.prototype.$events = events;
 Vue.prototype.$moment = moment;
+Vue.prototype.$pluralize = pluralize;
 Vue.prototype.$api = new Api(router);
 Vue.prototype.$validators = validators;
 Vue.prototype.$storage = storage;

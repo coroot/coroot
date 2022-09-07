@@ -33,7 +33,7 @@ export default {
 
     mounted() {
         this.get();
-        this.$api.contextWatch(this, this.get);
+        this.$events.watch(this, this.get, 'refresh');
     },
 
     watch: {
