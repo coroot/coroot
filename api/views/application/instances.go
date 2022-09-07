@@ -25,9 +25,11 @@ func instances(ctx timeseries.Context, app *model.Application) *widgets2.Dashboa
 			if i.IsUp() {
 				status.SetStatus(model.OK, "ok")
 			} else {
-				status.SetStatus(model.WARNING, "down (no metrics)")
-				if i.Node != nil && !i.Node.IsUp() {
-					status.SetStatus(model.WARNING, "down (node down)")
+				if app.Id.Kind != model.ApplicationKindExternalService {
+					status.SetStatus(model.WARNING, "down (no metrics)")
+					if i.Node != nil && !i.Node.IsUp() {
+						status.SetStatus(model.WARNING, "down (node down)")
+					}
 				}
 			}
 		} else {
@@ -98,6 +100,10 @@ func instances(ctx timeseries.Context, app *model.Application) *widgets2.Dashboa
 				restarts += int64(r)
 			}
 		}
+		restartsCell := widgets2.NewTableCell()
+		if restarts > 0 {
+			restartsCell.SetValue(strconv.FormatInt(restarts, 10))
+		}
 
 		nodeStatus := model.UNKNOWN
 
@@ -111,11 +117,12 @@ func instances(ctx timeseries.Context, app *model.Application) *widgets2.Dashboa
 		dash.GetOrCreateTable("Instance", "Status", "Restarts", "IP", "Node").AddRow(
 			widgets2.NewTableCell(i.Name),
 			status,
-			widgets2.NewTableCell(strconv.FormatInt(restarts, 10)),
+			restartsCell,
 			widgets2.NewTableCell(instanceIPs(i.TcpListens)...),
 			widgets2.NewTableCell().SetLink("node").SetStatus(nodeStatus, i.NodeName()),
 		)
 	}
+
 	chart := dash.GetOrCreateChart("Instances").Stacked().AddSeries("up", up)
 	if app.DesiredInstances != nil {
 		chart.SetThreshold("desired", app.DesiredInstances, timeseries.Any)

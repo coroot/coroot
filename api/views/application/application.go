@@ -160,11 +160,12 @@ func (m *AppMap) addClient(w *model.World, id model.ApplicationId) {
 }
 
 func (v *View) addDashboard(d *widgets2.Dashboard, events []*Event) {
-	if len(d.Widgets) == 0 {
-		return
-	}
+	var widgets []*widgets2.Widget
 	for _, w := range d.Widgets {
 		if w.Chart != nil {
+			if len(w.Chart.Series) == 0 {
+				continue
+			}
 			addAnnotations(events, w.Chart)
 		}
 		if w.ChartGroup != nil {
@@ -173,10 +174,20 @@ func (v *View) addDashboard(d *widgets2.Dashboard, events []*Event) {
 			}
 			w.ChartGroup.AutoFeatureChart()
 		}
+		if w.LogPatterns != nil {
+			if len(w.LogPatterns.Patterns) == 0 {
+				continue
+			}
+		}
+		widgets = append(widgets, w)
 	}
-	sort.SliceStable(d.Widgets, func(i, j int) bool {
-		return d.Widgets[i].Table != nil
+	if len(widgets) == 0 {
+		return
+	}
+	sort.SliceStable(widgets, func(i, j int) bool {
+		return widgets[i].Table != nil
 	})
+	d.Widgets = widgets
 	v.Dashboards = append(v.Dashboards, d)
 }
 

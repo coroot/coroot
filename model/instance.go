@@ -192,6 +192,9 @@ func (instance *Instance) UpAndRunning() timeseries.TimeSeries {
 	for _, c := range instance.Containers {
 		mem.AddInput(c.MemoryRss)
 	}
+	if mem.IsEmpty() {
+		return nil
+	}
 	up := timeseries.Map(func(v float64) float64 {
 		if v > 0 {
 			return 1
