@@ -12,7 +12,7 @@
                 <v-list dense class="pa-0">
                     <v-list-item-group :value="selected">
                         <v-list-item v-for="ch in sorted" :key="ch.title" @click="selected = ch.title" class="py-1 px-2" style="min-height: 0">
-                            <v-list-item-title class="font-weight-regular">{{ ch.title }}</v-list-item-title>
+                            <v-list-item-title class="item">{{ ch.title }}</v-list-item-title>
                         </v-list-item>
                     </v-list-item-group>
                 </v-list>
@@ -80,5 +80,8 @@ export default {
     display: inline;
     max-width: 30%;
     padding: 0 4px !important;
+}
+.item {
+    font-size: 14px !important;
 }
 </style>
