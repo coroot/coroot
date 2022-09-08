@@ -37,7 +37,7 @@
 
             <div v-if="status.kube_state_metrics" class="d-flex align-center">
                 <Led :status="status.kube_state_metrics.status" class="mr-1" />
-                kube-state-metrics:
+                <span class="font-weight-medium">kube-state-metrics</span>:
                 <template v-if="status.kube_state_metrics.status === 'ok'">
                     {{$pluralize('application', status.kube_state_metrics.applications, true)}} found
                 </template>
