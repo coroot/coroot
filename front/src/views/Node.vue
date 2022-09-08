@@ -9,7 +9,7 @@
         {{error}}
     </v-alert>
 
-    <Dashboard v-if="node" :widgets="node.widgets" class="mt-3" />
+    <Dashboard v-if="node" :name="name" :widgets="node.widgets" class="mt-3" />
 </div>
 </template>
 

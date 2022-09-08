@@ -13,11 +13,11 @@
         <AppMap v-if="app.app_map" :map="app.app_map" class="my-5" />
 
         <v-tabs v-if="app.dashboards && app.dashboards.length" height="40" show-arrows slider-size="2">
-            <v-tab v-for="d in app.dashboards" :to="{params: {dashboard: d.name}, query: $route.query}">
+            <v-tab v-for="d in app.dashboards" :key="d.name" :to="{params: {dashboard: d.name}, query: $route.query}">
                 {{d.name}}
             </v-tab>
         </v-tabs>
-        <Dashboard v-if="dash" :widgets="dash.widgets" class="mt-3" />
+        <Dashboard v-if="dash" :name="dash.name" :widgets="dash.widgets" class="mt-3" />
     </div>
 </div>
 </template>

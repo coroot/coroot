@@ -11,7 +11,7 @@
                 </template>
                 <v-list dense class="pa-0">
                     <v-list-item-group :value="selected">
-                        <v-list-item v-for="ch in sorted" @click="selected = ch.title" class="py-1 px-2" style="min-height: 0">
+                        <v-list-item v-for="ch in sorted" :key="ch.title" @click="selected = ch.title" class="py-1 px-2" style="min-height: 0">
                             <v-list-item-title class="font-weight-regular">{{ ch.title }}</v-list-item-title>
                         </v-list-item>
                     </v-list-item-group>

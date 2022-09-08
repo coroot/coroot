@@ -17,7 +17,7 @@
                     </v-btn>
                 </template>
                 <v-list dense color="#080d1b">
-                    <v-list-item v-for="p in projects" :to="{name: 'overview', params: {projectId: p.id}}">
+                    <v-list-item v-for="p in projects" :key="p.name" :to="{name: 'overview', params: {projectId: p.id}}">
                         {{p.name}}
                     </v-list-item>
                     <v-list-item :to="{name: 'project_new'}" exact>

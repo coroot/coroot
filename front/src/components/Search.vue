@@ -29,7 +29,7 @@
                         <v-list-item-title>Applications</v-list-item-title>
                     </v-list-item-content>
                 </v-list-item>
-                <v-list-item v-for="a in results.apps" :to="{name: 'application', params: {id: a.id}, query: $route.query}">
+                <v-list-item v-for="a in results.apps" :key="a.id" :to="{name: 'application', params: {id: a.id}, query: $route.query}">
                     <v-list-item-title class="ml-3">
                         <Led :status="a.status" />
                         {{$api.appId(a.id).name}}
@@ -43,7 +43,7 @@
                         <v-list-item-title>Nodes</v-list-item-title>
                     </v-list-item-content>
                 </v-list-item>
-                <v-list-item v-for="n in results.nodes" :to="{name: 'node', params: {name: n.name}, query: $route.query}">
+                <v-list-item v-for="n in results.nodes" :key="n.name" :to="{name: 'node', params: {name: n.name}, query: $route.query}">
                     <v-list-item-title class="ml-3">
                         <Led :status="n.status" />
                         {{n.name}}

@@ -18,7 +18,7 @@
                 </v-list-item>
                 <v-divider />
             </template>
-            <v-list-item v-for="i in intervals" @click="changeInterval(i.query)" :input-value="selected.text === i.text">
+            <v-list-item v-for="i in intervals" :key="i.text" @click="changeInterval(i.query)" :input-value="selected.text === i.text">
                 {{i.text}}
             </v-list-item>
         </v-list>

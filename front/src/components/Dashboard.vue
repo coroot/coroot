@@ -1,6 +1,6 @@
 <template>
     <div class="d-flex flex-wrap">
-        <Widget v-for="w in widgets" :w="w" class="my-5" :style="{width: $vuetify.breakpoint.mdAndUp ? (w.width || '50%') : '100%'}" />
+        <Widget v-for="(w, i) in widgets" :key="name+':'+i" :w="w" class="my-5" :style="{width: $vuetify.breakpoint.mdAndUp ? (w.width || '50%') : '100%'}" />
     </div>
 </template>
 
@@ -9,6 +9,7 @@ import Widget from "@/components/Widget";
 
 export default {
     props: {
+        name: String,
         widgets: Array,
     },
 
