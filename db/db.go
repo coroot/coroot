@@ -2,8 +2,13 @@ package db
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	_ "github.com/mattn/go-sqlite3"
+)
+
+var (
+	ErrConflict = errors.New("conflict")
 )
 
 type DB struct {

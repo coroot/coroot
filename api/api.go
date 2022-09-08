@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"github.com/coroot/coroot/api/views"
 	"github.com/coroot/coroot/cache"
 	"github.com/coroot/coroot/constructor"
@@ -96,6 +97,10 @@ func (api *Api) Project(w http.ResponseWriter, r *http.Request) {
 		}
 		id, err := api.db.SaveProject(project)
 		if err != nil {
+			if errors.Is(err, db.ErrConflict) {
+				http.Error(w, "This project name is already being used.", http.StatusConflict)
+				return
+			}
 			klog.Errorln("failed to save project:", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return

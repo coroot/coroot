@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"github.com/coroot/coroot/utils"
+	"github.com/mattn/go-sqlite3"
 )
 
 type ProjectId string
@@ -75,6 +76,9 @@ func (db *DB) SaveProject(p Project) (ProjectId, error) {
 	if p.Id == "" {
 		p.Id = ProjectId(utils.NanoId(8))
 		_, err := db.db.Exec("INSERT INTO project (id, name, prometheus) VALUES ($1, $2, $3)", p.Id, p.Name, string(prometheus))
+		if e, ok := err.(sqlite3.Error); ok && e.Code == sqlite3.ErrConstraint {
+			return "", ErrConflict
+		}
 		return p.Id, err
 	}
 	if _, err := db.db.Exec("UPDATE project SET name = $1, prometheus = $2 WHERE id = $3", p.Name, string(prometheus), p.Id); err != nil {
