@@ -2,6 +2,7 @@ package cache
 
 import (
 	"crypto/md5"
+	"database/sql"
 	"fmt"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/timeseries"
@@ -24,6 +25,7 @@ type Cache struct {
 	lock      sync.RWMutex
 	byProject map[db.ProjectId]map[string]*queryData
 	db        *db.DB
+	state     *sql.DB
 	cfg       Config
 
 	refreshIntervalMin timeseries.Duration
@@ -47,10 +49,16 @@ func NewCache(cfg Config, database *db.DB) (*Cache, error) {
 		return nil, err
 	}
 
+	state, err := openStateDB(path.Join(cfg.Path, "db.sqlite"))
+	if err != nil {
+		return nil, err
+	}
+
 	cache := &Cache{
 		cfg:       cfg,
 		byProject: map[db.ProjectId]map[string]*queryData{},
 		db:        database,
+		state:     state,
 
 		pendingCompactions: prometheus.NewGauge(
 			prometheus.GaugeOpts{

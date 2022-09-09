@@ -66,7 +66,7 @@ func (c *Client) Ping(ctx context.Context) error {
 	return fmt.Errorf("not implemented")
 }
 
-func (c *Cache) GetPromClient(p db.Project) prom.Client {
+func (c *Cache) getPromClient(p db.Project) prom.Client {
 	user, password := "", ""
 	if p.Prometheus.BasicAuth != nil {
 		user, password = p.Prometheus.BasicAuth.User, p.Prometheus.BasicAuth.Password

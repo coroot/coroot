@@ -7,6 +7,7 @@ require (
 	github.com/dustin/go-humanize v1.0.0
 	github.com/gorilla/mux v1.8.0
 	github.com/hako/durafmt v0.0.0-20210608085754-5c1018a4e16b
+	github.com/lib/pq v1.10.7
 	github.com/matoous/go-nanoid v1.5.0
 	github.com/mattn/go-sqlite3 v1.14.15
 	github.com/natefinch/atomic v1.0.1

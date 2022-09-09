@@ -15,18 +15,21 @@ import (
 func main() {
 	listen := kingpin.Flag("listen", "listen address - ip:port or :port").Default("0.0.0.0:8080").String()
 	dataDir := kingpin.Flag("datadir", `path to data directory`).Required().String()
-	cacheTTL := kingpin.Flag("cache-ttl", `cache TTL`).Default("720h").Duration()
-	cacheGcInterval := kingpin.Flag("cache-gc-interval", `cache GC interval`).Default("10m").Duration()
+	cacheTTL := kingpin.Flag("cache-ttl", "cache TTL").Default("720h").Duration()
+	cacheGcInterval := kingpin.Flag("cache-gc-interval", "cache GC interval").Default("10m").Duration()
+	dsn := kingpin.Flag("database-url", "database URL (sqlite is used by default)").String()
 
 	kingpin.Parse()
 
 	if err := utils.CreateDirectoryIfNotExists(*dataDir); err != nil {
 		klog.Exitln(err)
 	}
-	db, err := db.Open(path.Join(*dataDir, "db.sqlite"))
+
+	db, err := db.Open(*dsn, *dataDir)
 	if err != nil {
 		klog.Exitln(err)
 	}
+
 	cacheConfig := cache.Config{
 		Path: path.Join(*dataDir, "cache"),
 		GC: &cache.GcConfig{
@@ -34,7 +37,6 @@ func main() {
 			Interval: *cacheGcInterval,
 		},
 	}
-
 	promCache, err := cache.NewCache(cacheConfig, db)
 	if err != nil {
 		klog.Exitln(err)
@@ -47,7 +49,7 @@ func main() {
 
 	r.HandleFunc("/api/projects", api.Projects).Methods(http.MethodGet)
 	r.HandleFunc("/api/project/", api.Project).Methods(http.MethodGet, http.MethodPost)
-	r.HandleFunc("/api/project/{project}", api.Project).Methods(http.MethodGet, http.MethodPost)
+	r.HandleFunc("/api/project/{project}", api.Project).Methods(http.MethodGet, http.MethodPost, http.MethodDelete)
 	r.HandleFunc("/api/project/{project}/status", api.Status).Methods(http.MethodGet)
 	r.HandleFunc("/api/project/{project}/overview", api.Overview).Methods(http.MethodGet)
 	r.HandleFunc("/api/project/{project}/search", api.Search).Methods(http.MethodGet)

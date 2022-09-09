@@ -32,7 +32,7 @@
         <v-alert v-if="message" color="green" outlined text>
             {{message}}
         </v-alert>
-        <v-btn block color="primary" @click="post" :disabled="!valid" :loading="loading">Save</v-btn>
+        <v-btn block color="primary" @click="save" :disabled="!valid" :loading="loading">Save</v-btn>
     </v-form>
 </template>
 
@@ -58,7 +58,7 @@ export default {
             loading: false,
             error: '',
             message: '',
-        }
+        };
     },
 
     mounted() {
@@ -99,7 +99,7 @@ export default {
                 }
             })
         },
-        post() {
+        save() {
             this.loading = true;
             this.error = '';
             const form = JSON.parse(JSON.stringify(this.form));
@@ -108,12 +108,12 @@ export default {
             }
             this.message = '';
             this.$api.saveProject(this.projectId, form, (data, error) => {
-                this.$events.emit('project-saved');
                 this.loading = false;
                 if (error) {
                     this.error = error;
                     return;
                 }
+                this.$events.emit('project-saved');
                 this.message = 'Settings were successfully updated. The changes will take effect in a minute or two.';
                 if (!this.projectId) {
                     const projectId = data.trim();

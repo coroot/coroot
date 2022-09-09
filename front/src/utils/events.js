@@ -6,6 +6,7 @@ export default new Vue({
             events: {
                 'refresh': 0,
                 'project-saved': 0,
+                'project-deleted': 0,
             }
         }
     },

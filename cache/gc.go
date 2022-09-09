@@ -15,11 +15,28 @@ func (c *Cache) gc() {
 	for range time.Tick(c.cfg.GC.Interval) {
 		klog.Infoln("starting cache GC")
 		now := time.Now()
-		c.lock.RLock()
+
+		if ids, err := c.db.GetProjectIds(); err != nil {
+			klog.Errorln("failed to get projects:", err)
+		} else {
+			c.lock.Lock()
+			for projectId := range c.byProject {
+				if ids[projectId] {
+					continue
+				}
+				klog.Infoln("deleting obsolete project:", projectId)
+				if err := c.deleteProject(projectId); err != nil {
+					klog.Errorln("failed to delete project:", err)
+					continue
+				}
+				delete(c.byProject, projectId)
+			}
+			c.lock.Unlock()
+		}
 
 		minTs := timeseries.Time(now.Add(-c.cfg.GC.TTL).Unix())
 		toDelete := map[db.ProjectId]map[string][]string{}
-
+		c.lock.RLock()
 		for projectId, byQuery := range c.byProject {
 			toDeleteInProject := map[string][]string{}
 			for queryHash, qData := range byQuery {

@@ -97,7 +97,7 @@ export default {
 
     created() {
         this.getProjects();
-        this.$events.watch(this, this.getProjects, 'project-saved');
+        this.$events.watch(this, this.getProjects, 'project-saved', 'project-deleted');
     },
 
     computed: {

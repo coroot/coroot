@@ -107,6 +107,14 @@ func (api *Api) Project(w http.ResponseWriter, r *http.Request) {
 		}
 		http.Error(w, string(id), http.StatusOK)
 
+	case http.MethodDelete:
+		if err := api.db.DeleteProject(id); err != nil {
+			klog.Errorln("failed to delete project:", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		http.Error(w, "", http.StatusOK)
+
 	default:
 		http.Error(w, "", http.StatusMethodNotAllowed)
 	}
@@ -121,7 +129,7 @@ func (api *Api) Status(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
-	cacheError, err := api.db.GetCacheError(projectId)
+	cacheError, err := api.cache.GetError(projectId)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
@@ -200,7 +208,7 @@ func (api *Api) loadWorld(r *http.Request) (*model.World, timeseries.Time, error
 	if err != nil {
 		return nil, 0, err
 	}
-	cacheUpdateTime, err := api.db.GetCacheUpdateTime(projectId)
+	cacheUpdateTime, err := api.cache.GetUpdateTime(projectId)
 	if err != nil {
 		return nil, 0, err
 	}

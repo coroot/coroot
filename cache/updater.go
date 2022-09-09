@@ -49,29 +49,29 @@ func (c *Cache) updater() {
 	}
 }
 
-func (c *Cache) updaterWorker(projects *sync.Map, projectID db.ProjectId) {
+func (c *Cache) updaterWorker(projects *sync.Map, projectId db.ProjectId) {
 	for {
-		klog.Infoln("worker iteration for", projectID)
-		p, ok := projects.Load(projectID)
+		klog.Infoln("worker iteration for", projectId)
+		p, ok := projects.Load(projectId)
 		if !ok {
-			klog.Infoln("stopping worker for project:", projectID)
+			klog.Infoln("stopping worker for project:", projectId)
 			return
 		}
 		project := p.(db.Project)
 		now := timeseries.Now()
 		func() {
-			byQuery, err := c.db.LoadStates(projectID)
+			byQuery, err := c.loadStates(projectId)
 			if err != nil {
 				klog.Errorln("could not get query states:", err)
 				return
 			}
 			queries := constructor.QUERIES
-			actualQueries := map[string]*db.PrometheusQueryState{}
+			actualQueries := map[string]*PrometheusQueryState{}
 			for _, q := range queries {
 				state := byQuery[q]
 				if state == nil {
-					state = &db.PrometheusQueryState{ProjectId: projectID, Query: q, LastTs: now.Add(-BackFillInterval)}
-					if err := c.db.SaveState(state); err != nil {
+					state = &PrometheusQueryState{ProjectId: projectId, Query: q, LastTs: now.Add(-BackFillInterval)}
+					if err := c.saveState(state); err != nil {
 						klog.Errorln("failed to create query state:", err)
 						return
 					}
@@ -83,15 +83,15 @@ func (c *Cache) updaterWorker(projects *sync.Map, projectID db.ProjectId) {
 				if _, ok := actualQueries[q]; ok {
 					continue
 				}
-				if err := c.db.DeleteState(s); err != nil {
+				if err := c.deleteState(s); err != nil {
 					klog.Warningln("failed to delete obsolete query state:", err)
 					continue
 				}
 			}
 
-			promClient := c.GetPromClient(project)
+			promClient := c.getPromClient(project)
 			wg := sync.WaitGroup{}
-			tasks := make(chan *db.PrometheusQueryState)
+			tasks := make(chan *PrometheusQueryState)
 			for i := 0; i < QueryConcurrency; i++ {
 				wg.Add(1)
 				go func() {
@@ -115,7 +115,7 @@ func (c *Cache) updaterWorker(projects *sync.Map, projectID db.ProjectId) {
 	}
 }
 
-func (c *Cache) download(ctx context.Context, promClient prom.Client, project db.Project, state *db.PrometheusQueryState) {
+func (c *Cache) download(ctx context.Context, promClient prom.Client, project db.Project, state *PrometheusQueryState) {
 	buf := &bytes.Buffer{}
 	queryHash, jitter := QueryId(project.Id, state.Query)
 	refreshInterval := project.Prometheus.RefreshInterval
@@ -127,7 +127,7 @@ func (c *Cache) download(ctx context.Context, promClient prom.Client, project db
 		cancel()
 		if err != nil {
 			state.LastError = err.Error()
-			if err := c.db.SaveState(state); err != nil {
+			if err := c.saveState(state); err != nil {
 				klog.Errorln("failed to save query state:", err)
 			}
 			return
@@ -151,7 +151,7 @@ func (c *Cache) download(ctx context.Context, promClient prom.Client, project db
 		}
 		state.LastTs = i.toTs
 		state.LastError = ""
-		if err := c.db.SaveState(state); err != nil {
+		if err := c.saveState(state); err != nil {
 			klog.Errorln("failed to save state:", err)
 			return
 		}

@@ -45,6 +45,10 @@ export default class Api {
         this.request({method: 'post', url, data}, cb);
     }
 
+    del(url, cb) {
+        this.request({method: 'delete', url}, cb);
+    }
+
     getProjects(cb) {
         this.get(`projects`, cb);
     }
@@ -55,6 +59,10 @@ export default class Api {
 
     saveProject(projectId, form, cb) {
         this.post(`project/${projectId || ''}`, form, cb);
+    }
+
+    delProject(projectId, cb) {
+        this.del(`project/${projectId}`, cb);
     }
 
     projectPath(subPath) {
