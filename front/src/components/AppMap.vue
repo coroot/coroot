@@ -245,7 +245,7 @@ export default {
 .map {
     display: flex;
     justify-content: space-between; /* need empty divs around to center .columns */
-    line-height: 1;
+    line-height: 1.1;
     position: relative;
     gap: 16px;
     overflow-x: auto; /* need justify-content:space-between to fix scroll on narrow views */

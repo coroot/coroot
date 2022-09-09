@@ -267,7 +267,7 @@ export default {
     background-color: white;
     display: inline-flex;
     flex-direction: column;
-    line-height: 1;
+    line-height: 1.1;
     text-align: left;
 }
 .app.selected {
