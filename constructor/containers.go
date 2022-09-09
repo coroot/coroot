@@ -15,11 +15,15 @@ type metricContext struct {
 	pod       string
 	node      *model.Node
 	container string
+	rdsId     string
 }
 
 func getMetricContext(w *model.World, ls model.Labels) *metricContext {
-	containerId := ls["container_id"]
+	if rdsId := ls["rds_instance_id"]; rdsId != "" {
+		return &metricContext{rdsId: rdsId}
+	}
 	mc := &metricContext{node: getNode(w, ls)}
+	containerId := ls["container_id"]
 	parts := strings.Split(containerId, "/")
 	if parts[1] == "k8s" && len(parts) == 5 {
 		mc.ns = parts[2]
@@ -47,7 +51,6 @@ func getInstanceByPod(w *model.World, ns, pod string) *model.Instance {
 
 func loadContainers(w *model.World, metrics map[string][]model.MetricValues) {
 	rttByInstance := map[model.InstanceId]map[string]timeseries.TimeSeries{}
-	instancesByListen := map[model.Listen]*model.Instance{}
 
 	for queryName := range metrics {
 		if !strings.HasPrefix(queryName, "container_") {
@@ -105,14 +108,6 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues) {
 				isActive := m.Values.Last() == 1
 				l := model.Listen{IP: ip, Port: port, Proxied: m.Labels["proxy"] != ""}
 				instance.TcpListens[l] = isActive
-				if ip := net.ParseIP(l.IP); ip.IsLoopback() {
-					if instance.Node != nil {
-						l.IP = instance.Node.Name.Value()
-						instancesByListen[l] = instance
-					}
-				} else {
-					instancesByListen[l] = instance
-				}
 			case "container_cpu_limit":
 				container.CpuLimit = update(container.CpuLimit, m.Values)
 			case "container_cpu_usage":
@@ -141,6 +136,25 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues) {
 			case "container_volume_used":
 				v := getOrCreateInstanceVolume(instance, m)
 				v.UsedBytes = update(v.UsedBytes, m.Values)
+			}
+		}
+	}
+
+	instancesByListen := map[model.Listen]*model.Instance{}
+	for _, app := range w.Applications {
+		for _, instance := range app.Instances {
+			for l, active := range instance.TcpListens {
+				if !active {
+					continue
+				}
+				if ip := net.ParseIP(l.IP); ip.IsLoopback() {
+					if instance.Node != nil {
+						l.IP = instance.Node.Name.Value()
+						instancesByListen[l] = instance
+					}
+				} else {
+					instancesByListen[l] = instance
+				}
 			}
 		}
 	}

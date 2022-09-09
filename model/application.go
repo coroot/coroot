@@ -1,6 +1,7 @@
 package model
 
 import (
+	"fmt"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 	"strconv"
@@ -41,6 +42,8 @@ func (app *Application) GetOrCreateInstance(name string) *Instance {
 func (app *Application) Labels() Labels {
 	res := Labels{}
 	switch app.Id.Kind {
+	case ApplicationKindRds:
+		res["db"] = fmt.Sprintf(`%s (RDS)`, app.Instances[0].Rds.Engine.Value())
 	case ApplicationKindStandaloneContainers:
 		res["instances"] = strconv.Itoa(len(app.Instances))
 	case ApplicationKindExternalService:

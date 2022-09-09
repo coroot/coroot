@@ -21,7 +21,16 @@ func instances(ctx timeseries.Context, app *model.Application) *widgets2.Dashboa
 		up.AddInput(i.UpAndRunning())
 
 		status := widgets2.NewTableCell().SetStatus(model.UNKNOWN, "unknown")
-		if i.Pod == nil {
+		if i.Rds != nil {
+			switch {
+			case math.IsNaN(i.Rds.LifeSpan.Last()):
+				status.SetStatus(model.WARNING, "down (no metrics)")
+			case i.Rds.Status.Value() != "available":
+				status.SetStatus(model.WARNING, i.Rds.Status.Value())
+			default:
+				status.SetStatus(model.OK, i.Rds.Status.Value())
+			}
+		} else if i.Pod == nil {
 			if i.IsUp() {
 				status.SetStatus(model.OK, "ok")
 			} else {

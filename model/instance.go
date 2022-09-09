@@ -37,6 +37,8 @@ type Instance struct {
 
 	Pod *Pod
 
+	Rds *Rds
+
 	Volumes []*Volume
 
 	Upstreams   []*Connection

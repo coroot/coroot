@@ -173,9 +173,18 @@ func (v *View) addDashboard(d *widgets2.Dashboard, events []*Event) {
 			addAnnotations(events, w.Chart)
 		}
 		if w.ChartGroup != nil {
+			var charts []*widgets2.Chart
 			for _, ch := range w.ChartGroup.Charts {
+				if len(ch.Series) == 0 {
+					continue
+				}
+				charts = append(charts, ch)
 				addAnnotations(events, ch)
 			}
+			if len(charts) == 0 {
+				continue
+			}
+			w.ChartGroup.Charts = charts
 			w.ChartGroup.AutoFeatureChart()
 		}
 		if w.LogPatterns != nil {

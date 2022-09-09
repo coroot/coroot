@@ -6,6 +6,7 @@ import (
 	"github.com/coroot/coroot/utils"
 	"github.com/dustin/go-humanize"
 	"math"
+	"net"
 	"sort"
 	"strconv"
 	"strings"
@@ -126,6 +127,15 @@ func Render(w *model.World) *View {
 			}
 			for _, ip := range iface.Addresses {
 				ips.Add(ip)
+			}
+			if ips.Len() == 0 {
+				for _, instance := range n.Instances {
+					for l := range instance.TcpListens {
+						if ip := net.ParseIP(l.IP); ip != nil && !ip.IsLoopback() {
+							ips.Add(l.IP)
+						}
+					}
+				}
 			}
 			network.NetInterfaces = append(network.NetInterfaces, widgets.NetInterface{
 				Name: iface.Name,
