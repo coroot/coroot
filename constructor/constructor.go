@@ -119,7 +119,9 @@ func guessNamespace(ls model.Labels) string {
 }
 
 func findInstance(w *model.World, ls model.Labels, applicationType model.ApplicationType) *model.Instance {
-
+	if rdsId := ls["rds_instance_id"]; rdsId != "" {
+		return getOrCreateRdsInstance(w, rdsId)
+	}
 	if host, port, err := net.SplitHostPort(ls["instance"]); err == nil {
 		if ip := net.ParseIP(host); ip != nil && !ip.IsLoopback() {
 			return getActualServiceInstance(w.FindInstanceByListen(host, port), applicationType)

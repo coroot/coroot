@@ -15,13 +15,9 @@ type metricContext struct {
 	pod       string
 	node      *model.Node
 	container string
-	rdsId     string
 }
 
 func getMetricContext(w *model.World, ls model.Labels) *metricContext {
-	if rdsId := ls["rds_instance_id"]; rdsId != "" {
-		return &metricContext{rdsId: rdsId}
-	}
 	mc := &metricContext{node: getNode(w, ls)}
 	containerId := ls["container_id"]
 	parts := strings.Split(containerId, "/")

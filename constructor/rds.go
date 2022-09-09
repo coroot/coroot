@@ -43,6 +43,7 @@ func loadRds(w *model.World, metrics map[string][]model.MetricValues) {
 				})
 			}
 			volume := instance.Volumes[0]
+			promJobStatus := prometheusJobStatus(metrics, m.Labels["job"], m.Labels["instance"])
 			switch queryName {
 			case "aws_rds_info":
 				instance.TcpListens[model.Listen{IP: m.Labels["ipv4"], Port: m.Labels["port"]}] = true
@@ -110,6 +111,7 @@ func loadRds(w *model.World, metrics map[string][]model.MetricValues) {
 					}
 				}
 			case "aws_rds_log_messages_total":
+				logMessage(instance, m.Labels, timeseries.Increase(m.Values, promJobStatus))
 			case "aws_rds_net_rx_bytes_per_second", "aws_rds_net_tx_bytes_per_second":
 				name := m.Labels["interface"]
 				var stat *model.InterfaceStats

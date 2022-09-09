@@ -96,6 +96,10 @@ func pgTable(dash *widgets2.Dashboard, i *model.Instance, primaryLsn, lag, qps, 
 	if !i.Postgres.IsUp() {
 		status.SetStatus(model.WARNING, "down (no metrics)")
 	}
+	errorsCell := widgets2.NewTableCell()
+	if total := timeseries.Reduce(timeseries.NanSum, errors); !math.IsNaN(total) {
+		errorsCell.SetValue(fmt.Sprintf("%.0f", total))
+	}
 	dash.
 		GetOrCreateTable("Instance", "Role", "Status", "Queries", "Latency", "Errors", "Replication lag").
 		AddRow(
@@ -104,7 +108,7 @@ func pgTable(dash *widgets2.Dashboard, i *model.Instance, primaryLsn, lag, qps, 
 			status,
 			widgets2.NewTableCell(utils.FormatFloat(qps.Last())).SetUnit("/s"),
 			widgets2.NewTableCell(latencyMs).SetUnit("ms"),
-			widgets2.NewTableCell(fmt.Sprintf("%.0f", timeseries.Reduce(timeseries.NanSum, errors))),
+			errorsCell,
 			pgReplicationLagCell(primaryLsn, lag, role),
 		)
 }
