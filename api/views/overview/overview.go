@@ -94,6 +94,9 @@ func Render(w *model.World) *View {
 
 		cpuPercent, memoryPercent := widgets.NewTableCell(), widgets.NewTableCell("")
 
+		if t := n.InstanceType.Value(); t != "" {
+			node.AddTag("Type: " + t)
+		}
 		if n.CpuCapacity != nil {
 			if vcpu := n.CpuCapacity.Last(); !math.IsNaN(vcpu) {
 				node.AddTag("vCPU: " + strconv.Itoa(int(vcpu)))
