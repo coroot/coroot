@@ -6,33 +6,30 @@ import (
 	"fmt"
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
+	"k8s.io/klog"
 	"path"
-	"strings"
 )
 
 var (
-	ErrUnsupported = errors.New("unsupported database")
-	ErrConflict    = errors.New("conflict")
+	ErrConflict = errors.New("conflict")
 )
 
 type DB struct {
 	db *sql.DB
 }
 
-func Open(dsn string, dir string) (*DB, error) {
+func Open(dir string, pgConnString string) (*DB, error) {
 	var db *sql.DB
 	var err error
-	switch {
-	case dsn == "":
+	if pgConnString != "" {
+		klog.Infoln("using postgres database")
+		db, err = postgres(pgConnString)
+	} else {
+		klog.Infoln("using sqlite database")
 		db, err = sqlite(path.Join(dir, "db.sqlite"))
-	case strings.HasPrefix(dsn, "postgres://") || strings.HasPrefix(dsn, "postgresql://"):
-		db, err = postgres(dsn)
 	}
 	if err != nil {
 		return nil, err
-	}
-	if db == nil {
-		return nil, ErrUnsupported
 	}
 	db.SetMaxOpenConns(1)
 	if err := Migrate(db, &Project{}); err != nil {

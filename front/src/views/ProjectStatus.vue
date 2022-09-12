@@ -32,7 +32,7 @@
                         <v-btn small icon @click="get" :loading="loading"><v-icon size="20">mdi-refresh</v-icon></v-btn>
                     </template>
                 </template>
-                (<a href="" target="_blank">docs</a>)
+                (<a href="https://coroot.com/docs/metric-exporters/node-agent/installation" target="_blank">docs</a>)
             </div>
 
             <div v-if="status.kube_state_metrics" class="d-flex align-center">
@@ -46,7 +46,7 @@
                     <template v-else>no kube-state-metrics installed</template>
                     <v-btn small icon @click="get" :loading="loading"><v-icon size="20">mdi-refresh</v-icon></v-btn>
                 </template>
-                (<a href="">docs</a>)
+                (<a href="https://coroot.com/docs/metric-exporters/kube-state-metrics" target="_blank">docs</a>)
             </div>
         </div>
     </div>

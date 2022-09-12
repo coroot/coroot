@@ -28,4 +28,4 @@ COPY --from=frontend-builder /tmp/front/dist /opt/coroot/static
 VOLUME /data
 EXPOSE 8080
 
-ENTRYPOINT ["/opt/coroot/coroot", "--datadir=/data"]
+ENTRYPOINT ["/opt/coroot/coroot"]

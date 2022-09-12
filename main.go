@@ -13,11 +13,11 @@ import (
 )
 
 func main() {
-	listen := kingpin.Flag("listen", "listen address - ip:port or :port").Default("0.0.0.0:8080").String()
-	dataDir := kingpin.Flag("datadir", `path to data directory`).Required().String()
-	cacheTTL := kingpin.Flag("cache-ttl", "cache TTL").Default("720h").Duration()
-	cacheGcInterval := kingpin.Flag("cache-gc-interval", "cache GC interval").Default("10m").Duration()
-	dsn := kingpin.Flag("database-url", "database URL (sqlite is used by default)").String()
+	listen := kingpin.Flag("listen", "listen address - ip:port or :port").Envar("LISTEN").Default("0.0.0.0:8080").String()
+	dataDir := kingpin.Flag("data-dir", `path to data directory`).Envar("DATA_DIR").Default("/data").String()
+	cacheTTL := kingpin.Flag("cache-ttl", "cache TTL").Envar("CACHE_TTL").Default("720h").Duration()
+	cacheGcInterval := kingpin.Flag("cache-gc-interval", "cache GC interval").Envar("CACHE_GC_INTERVAL").Default("10m").Duration()
+	pgConnString := kingpin.Flag("pg-connection-string", "Postgres connection string (sqlite is used if not set)").Envar("PG_CONNECTION_STRING").String()
 
 	kingpin.Parse()
 
@@ -25,7 +25,7 @@ func main() {
 		klog.Exitln(err)
 	}
 
-	db, err := db.Open(*dsn, *dataDir)
+	db, err := db.Open(*dataDir, *pgConnString)
 	if err != nil {
 		klog.Exitln(err)
 	}
