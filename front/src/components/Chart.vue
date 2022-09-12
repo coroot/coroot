@@ -49,7 +49,7 @@ import uPlot from 'uplot';
 import {palette} from "@/utils/colors";
 import convert from 'color-convert';
 
-const font = '12px Poppins, sans-serif'
+const font = '12px Roboto, sans-serif'
 const tsFormat = '{MMM} {DD}, {HH}:{mm}:{ss}';
 const fmtDate = uPlot.fmtDate(tsFormat);
 const fmtTs = (ts) => fmtDate(new Date(ts));
@@ -132,7 +132,6 @@ export default {
                     const hsl = convert.hex.hsl(c);
                     const idx = colors[s.color].findIndex((ii) => ii === i);
                     hsl[2] = 70 - Math.trunc(idx * 30 / colors[s.color].length)
-                    // console.log(s.color, c, convert.hex.hsl(c), hsl)
                     s.color = '#' + convert.hsl.hex(hsl);
                 } else {
                     s.color = palette.get(s.color, i + (c.color_shift || 0));
@@ -236,10 +235,9 @@ export default {
                 width: this.$refs.uplot.clientWidth,
                 ms: 1,
                 axes: [
-                    // {space: 80, font, values: tsFormat},
                     {space: 80, font, values: [
-                            [60 * 1000, "{HH}:{mm}", null, null, "{MMM} {DD}", null, null, null, 0],
-                            [1 * 1000, "{HH}:{mm}:{ss}", null, null, "{MMM} {DD}", null, null, null, 0],
+                            [60000, "{HH}:{mm}", null, null, "{MMM} {DD}", null, null, null, 0],
+                            [1000, "{HH}:{mm}:{ss}", null, null, "{MMM} {DD}", null, null, null, 0],
                         ],
                     },
                     {space: 20, font, size: 60, values: (u, splits) => splits.map(v => fmtVal(Math.max(...splits), c.unit)(v))},
@@ -250,7 +248,6 @@ export default {
                 hooks: {
                     draw: [
                         this.drawOutages,
-                        // this.drawFlags,
                     ],
                 },
                 plugins: [
@@ -281,32 +278,6 @@ export default {
                 const x1 = Math.max(b.left, b.left + b.width * norm(o.x1 - c.ctx.step/2));
                 const x2 = Math.min(b.left + b.width, b.left + b.width * norm(o.x2 + c.ctx.step/2));
                 u.ctx.fillRect(x1, y,x2-x1, h);
-            });
-            u.ctx.restore();
-        },
-        drawFlags(u) {
-            const c = this.config;
-            if (!c.flags || !c.flags.length) {
-                return;
-            }
-            const norm = (x) => (x - c.ctx.from) / (c.ctx.to - c.ctx.from);
-            const b = u.bbox;
-            u.ctx.save();
-            u.ctx.strokeStyle = 'rgba(0,0,0,0.5)';
-            u.ctx.fillStyle = 'rgba(0,0,0,0.7)';
-            u.ctx.lineWidth = window.devicePixelRatio;
-            u.ctx.setLineDash([4*window.devicePixelRatio]);
-            c.flags.forEach((f) => {
-                const x = b.left + b.width * norm(f.x);
-                u.ctx.save();
-                u.ctx.translate(x, b.top-5*window.devicePixelRatio);
-                u.ctx.beginPath();
-                u.ctx.moveTo(0, b.height+5*window.devicePixelRatio);
-                u.ctx.lineTo(0, 0);
-                u.ctx.stroke();
-                u.ctx.rotate(-Math.PI/2);
-                u.ctx.fillText(f.msg, 0, -7*window.devicePixelRatio);
-                u.ctx.restore();
             });
             u.ctx.restore();
         },

@@ -8,9 +8,6 @@
             <div v-for="apps in levels" class="level" style="z-index: 2" :style="{rowGap: 200 / apps.length + 'px'}">
                 <div v-for="a in apps" style="text-align: center">
                     <span :ref="a.id" class="app" :class="a.hi(hi) ? 'selected' : ''" @mouseenter="hi = a.id" @mouseleave="hi = null">
-<!--                        <AppHealth :indicators="a.Indicators" :health="a.Health">-->
-<!--                            <AppLink :id="$coroot.appIdToStr(a.Id)" :openApp="openApp"/>-->
-<!--                        </AppHealth>-->
                         <router-link :to="{name: 'application', params: {id: a.id}, query: $route.query}" class="name">
                             {{$api.appId(a.id).name}}
                         </router-link>
@@ -37,7 +34,6 @@
 <script>
 import Labels from "@/components/Labels";
 
-// https://stackoverflow.com/a/53995651
 function findBackLinks(index, a, discovered, finished, found) {
     discovered.add(a.id);
     for (const u of a.upstreams) {
@@ -73,7 +69,6 @@ export default {
         noFilter: Boolean,
     },
 
-    // components: {AppHealth, AppLink, Labels},
     components: {Labels},
 
     data() {

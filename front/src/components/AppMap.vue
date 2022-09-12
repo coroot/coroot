@@ -7,9 +7,6 @@
                  @mouseenter="focus('client', app.id)" @mouseleave="unfocus"
             >
                 <div>
-<!--                    <AppHealth :indicators="app.Indicators">-->
-<!--                        <AppLink :id="appId(app.Id)" :openApp="openApp"/>-->
-<!--                    </AppHealth>-->
                     <router-link :to="{name: 'application', params: {id: app.id}, query: $route.query}" class="name">
                         {{$api.appId(app.id).name}}
                     </router-link>
@@ -21,9 +18,6 @@
         <div class="column">
             <div v-if="map.application" class="app" :ref="map.application.id">
                 <div>
-<!--                    <AppHealth :indicators="map.Application.Indicators">-->
-<!--                        <span>{{ map.Application.Id.Name }}</span>-->
-<!--                    </AppHealth>-->
                     <span class="name">
                         {{$api.appId(map.application.id).name}}
                     </span>
@@ -34,10 +28,6 @@
                          :class="{hi: highlighted.instances.has(i.id)}"
                          @mouseenter="focus('instance', i.id)" @mouseleave="unfocus"
                     >
-<!--                        <AppHealth :indicators="i.Status">{{i.Id}}-->
-<!--                            <v-icon v-if="i.Labels && i.Labels.find(l => l.Name === 'role' && l.Value==='primary')" small color="rgba(0,0,0,0.87)">mdi-database-edit-outline</v-icon>-->
-<!--                            <v-icon v-if="i.Labels && i.Labels.find(l => l.Name === 'role' && l.Value==='replica')" small color="grey">mdi-database-import-outline</v-icon>-->
-<!--                        </AppHealth>-->
                         <span class="name">
                             {{i.id}}
                             <v-icon v-if="i.labels && i.labels['role'] === 'primary'" small color="rgba(0,0,0,0.87)">mdi-database-edit-outline</v-icon>
@@ -55,9 +45,6 @@
                  @mouseenter="focus('dependency', app.id)" @mouseleave="unfocus"
             >
                 <div>
-<!--                    <AppHealth :indicators="app.Indicators">-->
-<!--                        <AppLink :id="appId(app.Id)" :openApp="openApp"/>-->
-<!--                    </AppHealth>-->
                     <router-link :to="{name: 'application', params: {id: app.id}, query: $route.query}" class="name">
                         {{$api.appId(app.id).name}}
                     </router-link>
@@ -82,17 +69,13 @@
 </template>
 
 <script>
-// import AppHealth from '@/components/AppHealth';
-// import {AppLink} from '@/components/RichText';
 import Labels from '@/components/Labels';
 
 export default {
     props: {
         map: Object,
-        // openApp: Function,
     },
 
-    // components: {AppLink, AppHealth, Labels},
     components: {Labels},
 
     data() {
