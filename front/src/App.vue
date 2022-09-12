@@ -11,11 +11,11 @@
                     <template #activator="{ on, attrs }">
                         <v-btn v-on="on" plain outlined class="ml-3 px-2" height="40">
                             <v-icon small class="mr-2">mdi-hexagon-multiple</v-icon>
-                            <span class="project-name">
-                            <template v-if="project">{{project.name}}</template>
-                            <template v-else>new project</template>
-                        </span>
-                            <v-icon small class="ml-2">
+                            <span v-if="$vuetify.breakpoint.mdAndUp" class="project-name">
+                                <template v-if="project">{{project.name}}</template>
+                                <template v-else>new project</template>
+                            </span>
+                            <v-icon v-if="$vuetify.breakpoint.mdAndUp" small class="ml-2">
                                 mdi-chevron-{{attrs['aria-expanded'] === 'true' ? 'up' : 'down'}}
                             </v-icon>
                         </v-btn>
@@ -31,14 +31,14 @@
                 </v-menu>
             </div>
 
-            <div v-if="$vuetify.breakpoint.mdAndUp && project" class="ml-3">
+            <div v-if="$vuetify.breakpoint.mdAndUp && project" class="ml-3 flex-grow-1">
                 <Search />
             </div>
 
             <v-spacer />
 
-            <div class="ml-3">
-                <v-menu dark offset-y tile eager>
+            <div v-if="$vuetify.breakpoint.mdAndUp" class="ml-3">
+                <v-menu dark offset-y tile>
                     <template #activator="{ on }">
                         <v-btn v-on="on" plain outlined height="40" class="px-2">
                             <v-icon>mdi-help-circle-outline</v-icon>
@@ -47,7 +47,6 @@
                     <v-list dense color="#080d1b">
                         <v-list-item href="https://coroot.com/docs/coroot-community-edition" target="_blank">Documentation</v-list-item>
                         <v-list-item href="https://github.com/coroot/coroot" target="_blank">GitHub</v-list-item>
-                        <v-list-item>v1.1.2</v-list-item>
                     </v-list>
                 </v-menu>
             </div>
