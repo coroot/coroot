@@ -2,7 +2,7 @@ package application
 
 import (
 	"fmt"
-	widgets2 "github.com/coroot/coroot/api/views/widgets"
+	"github.com/coroot/coroot/api/views/widgets"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
@@ -10,8 +10,8 @@ import (
 	"math"
 )
 
-func storage(ctx timeseries.Context, app *model.Application) *widgets2.Dashboard {
-	dash := widgets2.NewDashboard(ctx, "Storage")
+func storage(ctx timeseries.Context, app *model.Application) *widgets.Dashboard {
+	dash := widgets.NewDashboard(ctx, "Storage")
 
 	for _, i := range app.Instances {
 		for _, v := range i.Volumes {
@@ -36,17 +36,17 @@ func storage(ctx timeseries.Context, app *model.Application) *widgets2.Dashboard
 						AddSeries("read", d.ReadBytes, "blue").
 						AddSeries("written", d.WrittenBytes, "amber")
 
-					latencyMs := widgets2.NewTableCell().SetUnit("ms")
+					latencyMs := widgets.NewTableCell().SetUnit("ms")
 					if d.Await != nil {
 						latencyMs.SetValue(utils.FormatFloat(d.Await.Last() * 1000))
 					}
-					ioPercent := widgets2.NewTableCell()
+					ioPercent := widgets.NewTableCell()
 					if d.IOUtilizationPercent != nil {
 						if last := d.IOUtilizationPercent.Last(); !math.IsNaN(last) {
 							ioPercent.SetValue(fmt.Sprintf("%.0f%%", last))
 						}
 					}
-					space := widgets2.NewTableCell()
+					space := widgets.NewTableCell()
 					if v.UsedBytes != nil && v.CapacityBytes != nil {
 						capacity := v.CapacityBytes.Last()
 						usage := v.UsedBytes.Last()
@@ -60,11 +60,11 @@ func storage(ctx timeseries.Context, app *model.Application) *widgets2.Dashboard
 						}
 					}
 					dash.GetOrCreateTable("Volume", "Latency", "I/O", "Space", "Device").AddRow(
-						widgets2.NewTableCell(fullName),
+						widgets.NewTableCell(fullName),
 						latencyMs,
 						ioPercent,
 						space,
-						widgets2.NewTableCell(v.Device.Value()).AddTag(v.Name.Value()),
+						widgets.NewTableCell(v.Device.Value()).AddTag(v.Name.Value()),
 					)
 				}
 				dash.GetOrCreateChartInGroup("Disk space <selector>, bytes", fullName).

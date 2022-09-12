@@ -1,7 +1,7 @@
 package application
 
 import (
-	widgets2 "github.com/coroot/coroot/api/views/widgets"
+	"github.com/coroot/coroot/api/views/widgets"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"math"
@@ -38,8 +38,8 @@ func (s *netSummary) addRtt(rtt timeseries.TimeSeries) {
 	s.rttCount.AddInput(rtt)
 }
 
-func network(ctx timeseries.Context, app *model.Application, world *model.World) *widgets2.Dashboard {
-	dash := widgets2.NewDashboard(ctx, "Network")
+func network(ctx timeseries.Context, app *model.Application, world *model.World) *widgets.Dashboard {
+	dash := widgets.NewDashboard(ctx, "Network")
 	upstreams := map[model.ApplicationId]*netSummary{}
 
 	for _, instance := range app.Instances {
@@ -71,10 +71,10 @@ func network(ctx timeseries.Context, app *model.Application, world *model.World)
 				sn := instance.Node
 				dn := u.RemoteInstance.Node
 				dash.GetOrCreateDependencyMap().UpdateLink(
-					widgets2.DependencyMapInstance{Name: instance.Name, Obsolete: instanceObsolete},
-					widgets2.DependencyMapNode{Name: sn.Name.Value(), Provider: sn.CloudProvider.Value(), Region: sn.Region.Value(), AZ: sn.AvailabilityZone.Value()},
-					widgets2.DependencyMapInstance{Name: u.RemoteInstance.Name, Obsolete: u.Obsolete()},
-					widgets2.DependencyMapNode{Name: dn.Name.Value(), Provider: dn.CloudProvider.Value(), Region: dn.Region.Value(), AZ: dn.AvailabilityZone.Value()},
+					widgets.DependencyMapInstance{Name: instance.Name, Obsolete: instanceObsolete},
+					widgets.DependencyMapNode{Name: sn.Name.Value(), Provider: sn.CloudProvider.Value(), Region: sn.Region.Value(), AZ: sn.AvailabilityZone.Value()},
+					widgets.DependencyMapInstance{Name: u.RemoteInstance.Name, Obsolete: u.Obsolete()},
+					widgets.DependencyMapNode{Name: dn.Name.Value(), Provider: dn.CloudProvider.Value(), Region: dn.Region.Value(), AZ: dn.AvailabilityZone.Value()},
 					linkStatus,
 				)
 			}

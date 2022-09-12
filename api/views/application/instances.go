@@ -2,7 +2,7 @@ package application
 
 import (
 	"fmt"
-	widgets2 "github.com/coroot/coroot/api/views/widgets"
+	"github.com/coroot/coroot/api/views/widgets"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
@@ -12,15 +12,15 @@ import (
 	"strings"
 )
 
-func instances(ctx timeseries.Context, app *model.Application) *widgets2.Dashboard {
-	dash := widgets2.NewDashboard(ctx, "Instances")
+func instances(ctx timeseries.Context, app *model.Application) *widgets.Dashboard {
+	dash := widgets.NewDashboard(ctx, "Instances")
 
 	up := timeseries.Aggregate(timeseries.NanSum)
 
 	for _, i := range app.Instances {
 		up.AddInput(i.UpAndRunning())
 
-		status := widgets2.NewTableCell().SetStatus(model.UNKNOWN, "unknown")
+		status := widgets.NewTableCell().SetStatus(model.UNKNOWN, "unknown")
 		if i.Rds != nil {
 			switch {
 			case math.IsNaN(i.Rds.LifeSpan.Last()):
@@ -109,7 +109,7 @@ func instances(ctx timeseries.Context, app *model.Application) *widgets2.Dashboa
 				restarts += int64(r)
 			}
 		}
-		restartsCell := widgets2.NewTableCell()
+		restartsCell := widgets.NewTableCell()
 		if restarts > 0 {
 			restartsCell.SetValue(strconv.FormatInt(restarts, 10))
 		}
@@ -124,11 +124,11 @@ func instances(ctx timeseries.Context, app *model.Application) *widgets2.Dashboa
 			}
 		}
 		dash.GetOrCreateTable("Instance", "Status", "Restarts", "IP", "Node").AddRow(
-			widgets2.NewTableCell(i.Name),
+			widgets.NewTableCell(i.Name),
 			status,
 			restartsCell,
-			widgets2.NewTableCell(instanceIPs(i.TcpListens)...),
-			widgets2.NewTableCell().SetLink("node").SetStatus(nodeStatus, i.NodeName()),
+			widgets.NewTableCell(instanceIPs(i.TcpListens)...),
+			widgets.NewTableCell().SetLink("node").SetStatus(nodeStatus, i.NodeName()),
 		)
 	}
 

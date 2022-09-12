@@ -2,7 +2,7 @@ package application
 
 import (
 	"fmt"
-	widgets2 "github.com/coroot/coroot/api/views/widgets"
+	"github.com/coroot/coroot/api/views/widgets"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
@@ -24,8 +24,8 @@ var (
 	}
 )
 
-func postgres(ctx timeseries.Context, app *model.Application) *widgets2.Dashboard {
-	dash := widgets2.NewDashboard(ctx, "Postgres")
+func postgres(ctx timeseries.Context, app *model.Application) *widgets.Dashboard {
+	dash := widgets.NewDashboard(ctx, "Postgres")
 
 	primaryLsn := timeseries.Aggregate(timeseries.Max)
 	for _, i := range app.Instances {
@@ -79,9 +79,9 @@ func postgres(ctx timeseries.Context, app *model.Application) *widgets2.Dashboar
 	return dash
 }
 
-func pgTable(dash *widgets2.Dashboard, i *model.Instance, primaryLsn, lag, qps, errors timeseries.TimeSeries) {
+func pgTable(dash *widgets.Dashboard, i *model.Instance, primaryLsn, lag, qps, errors timeseries.TimeSeries) {
 	role := i.ClusterRoleLast()
-	roleCell := widgets2.NewTableCell(role.String())
+	roleCell := widgets.NewTableCell(role.String())
 	switch role {
 	case model.ClusterRolePrimary:
 		roleCell.SetIcon("mdi-database-edit-outline", "rgba(0,0,0,0.87)")
@@ -92,22 +92,22 @@ func pgTable(dash *widgets2.Dashboard, i *model.Instance, primaryLsn, lag, qps, 
 	if i.Postgres.Avg != nil && !i.Postgres.Avg.IsEmpty() {
 		latencyMs = utils.FormatFloat(i.Postgres.Avg.Last() * 1000)
 	}
-	status := widgets2.NewTableCell().SetStatus(model.OK, "up")
+	status := widgets.NewTableCell().SetStatus(model.OK, "up")
 	if !i.Postgres.IsUp() {
 		status.SetStatus(model.WARNING, "down (no metrics)")
 	}
-	errorsCell := widgets2.NewTableCell()
+	errorsCell := widgets.NewTableCell()
 	if total := timeseries.Reduce(timeseries.NanSum, errors); !math.IsNaN(total) {
 		errorsCell.SetValue(fmt.Sprintf("%.0f", total))
 	}
 	dash.
 		GetOrCreateTable("Instance", "Role", "Status", "Queries", "Latency", "Errors", "Replication lag").
 		AddRow(
-			widgets2.NewTableCell(i.Name).AddTag("version: %s", i.Postgres.Version.Value()),
+			widgets.NewTableCell(i.Name).AddTag("version: %s", i.Postgres.Version.Value()),
 			roleCell,
 			status,
-			widgets2.NewTableCell(utils.FormatFloat(qps.Last())).SetUnit("/s"),
-			widgets2.NewTableCell(latencyMs).SetUnit("ms"),
+			widgets.NewTableCell(utils.FormatFloat(qps.Last())).SetUnit("/s"),
+			widgets.NewTableCell(latencyMs).SetUnit("ms"),
 			errorsCell,
 			pgReplicationLagCell(primaryLsn, lag, role),
 		)
@@ -128,8 +128,8 @@ func errorsByPattern(instance *model.Instance) map[string]timeseries.TimeSeries 
 	return res
 }
 
-func pgReplicationLagCell(primaryLsn, lag timeseries.TimeSeries, role model.ClusterRole) *widgets2.TableCell {
-	res := &widgets2.TableCell{}
+func pgReplicationLagCell(primaryLsn, lag timeseries.TimeSeries, role model.ClusterRole) *widgets.TableCell {
+	res := &widgets.TableCell{}
 	if primaryLsn.IsEmpty() {
 		return res
 	}
@@ -177,7 +177,7 @@ func pgReplicationLag(primaryLsn, relayLsn timeseries.TimeSeries) timeseries.Tim
 	}, primaryLsn, relayLsn)
 }
 
-func pgConnections(dash *widgets2.Dashboard, instance *model.Instance) {
+func pgConnections(dash *widgets.Dashboard, instance *model.Instance) {
 	connectionByState := map[string]*timeseries.AggregatedTimeseries{}
 	for k, v := range instance.Postgres.Connections {
 		state := k.State
@@ -226,7 +226,7 @@ func pgConnections(dash *widgets2.Dashboard, instance *model.Instance) {
 		AddMany(timeseries.Top(locked, timeseries.NanSum, 5))
 }
 
-func pgLocks(dash *widgets2.Dashboard, instance *model.Instance) {
+func pgLocks(dash *widgets.Dashboard, instance *model.Instance) {
 	blockingQueries := make(map[string]timeseries.TimeSeries, len(instance.Postgres.AwaitingQueriesByLockingQuery))
 	for k, v := range instance.Postgres.AwaitingQueriesByLockingQuery {
 		blockingQueries[k.Query] = v
@@ -238,7 +238,7 @@ func pgLocks(dash *widgets2.Dashboard, instance *model.Instance) {
 		ShiftColors()
 }
 
-func pgQueries(dash *widgets2.Dashboard, instance *model.Instance) {
+func pgQueries(dash *widgets.Dashboard, instance *model.Instance) {
 	totalTime := map[string]timeseries.TimeSeries{}
 	ioTime := map[string]timeseries.TimeSeries{}
 	for k, stat := range instance.Postgres.PerQuery {

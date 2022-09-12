@@ -1,23 +1,23 @@
 package application
 
 import (
-	widgets2 "github.com/coroot/coroot/api/views/widgets"
+	"github.com/coroot/coroot/api/views/widgets"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 )
 
-func redis(ctx timeseries.Context, app *model.Application) *widgets2.Dashboard {
-	dash := widgets2.NewDashboard(ctx, "Redis")
+func redis(ctx timeseries.Context, app *model.Application) *widgets.Dashboard {
+	dash := widgets.NewDashboard(ctx, "Redis")
 
 	for _, i := range app.Instances {
 		if i.Redis == nil {
 			continue
 		}
-		status := widgets2.NewTableCell().SetStatus(model.OK, "up")
+		status := widgets.NewTableCell().SetStatus(model.OK, "up")
 		if !(i.Redis.Up != nil && i.Redis.Up.Last() > 0) {
 			status.SetStatus(model.WARNING, "down (no metrics)")
 		}
-		roleCell := widgets2.NewTableCell(i.Redis.Role.Value())
+		roleCell := widgets.NewTableCell(i.Redis.Role.Value())
 		switch i.Redis.Role.Value() {
 		case "master":
 			roleCell.SetIcon("mdi-database-edit-outline", "rgba(0,0,0,0.87)")
@@ -26,7 +26,7 @@ func redis(ctx timeseries.Context, app *model.Application) *widgets2.Dashboard {
 		}
 
 		dash.GetOrCreateTable("Instance", "Role", "Status").AddRow(
-			widgets2.NewTableCell(i.Name).AddTag("version: %s", i.Redis.Version.Value()),
+			widgets.NewTableCell(i.Name).AddTag("version: %s", i.Redis.Version.Value()),
 			roleCell,
 			status,
 		)
