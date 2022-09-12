@@ -1,15 +1,15 @@
 <template>
     <v-menu close-on-content-click offset-y>
-        <template #activator="{ on }">
-            <v-btn v-if="small" icon plain dark v-on="on">
+        <template #activator="{ on, attrs }">
+            <v-btn v-on="on" plain outlined height="40" class="px-2">
                 <v-icon>mdi-clock-outline</v-icon>
-            </v-btn>
-            <v-btn v-else v-on="on" plain>
-                <v-icon>mdi-clock-outline</v-icon>
-                <span class="ml-2">{{selected.text}}</span>
+                <span v-if="!small" class="ml-2">{{selected.text}}</span>
+                <v-icon v-if="!small" small class="ml-2">
+                    mdi-chevron-{{attrs['aria-expanded'] === 'true' ? 'up' : 'down'}}
+                </v-icon>
             </v-btn>
         </template>
-        <v-list dense dark class="black">
+        <v-list dense dark>
             <template v-if="small && selected.custom">
                 <v-list-item class="d-block text-center">
                     <div>{{selected.from}}</div>

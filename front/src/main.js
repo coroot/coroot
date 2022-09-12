@@ -15,6 +15,7 @@ import Project from "@/views/Project";
 import Overview from "@/views/Overview";
 import Application from "@/views/Application";
 import Node from "@/views/Node";
+import Welcome from "@/views/Welcome";
 
 Vue.config.productionTip = false;
 
@@ -27,6 +28,7 @@ const router = new VueRouter({
       {path: "/p/:projectId", name: "overview", component: Overview, props: true},
       {path: "/p/:projectId/app/:id/:dashboard?", name: "application", component: Application, props: true},
       {path: "/p/:projectId/node/:name", name: "node", component: Node, props: true},
+      {path: '/welcome', name: 'welcome', component: Welcome},
       {path: '/', name: 'index', component: App},
       {path: '*', redirect: {name: 'index'}},
   ],

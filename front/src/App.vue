@@ -6,45 +6,66 @@
                 <img src="/static/logo.svg" height="38" style="vertical-align: middle;">
             </router-link>
 
-            <v-menu v-if="projects && projects.length" dark offset-y tile>
-                <template #activator="{ on }">
-                    <v-btn v-on="on" plain class="ml-3 px-1">
-                        <v-icon small class="mr-2">mdi-hexagon-multiple</v-icon>
-                        <span class="project-name">
+            <div v-if="$route.name !== 'welcome'">
+                <v-menu dark offset-y tile>
+                    <template #activator="{ on, attrs }">
+                        <v-btn v-on="on" plain outlined class="ml-3 px-2" height="40">
+                            <v-icon small class="mr-2">mdi-hexagon-multiple</v-icon>
+                            <span class="project-name">
                             <template v-if="project">{{project.name}}</template>
-                            <i v-else>new project</i>
+                            <template v-else>new project</template>
                         </span>
-                    </v-btn>
-                </template>
-                <v-list dense color="#080d1b">
-                    <v-list-item v-for="p in projects" :key="p.name" :to="{name: 'overview', params: {projectId: p.id}}">
-                        {{p.name}}
-                    </v-list-item>
-                    <v-list-item :to="{name: 'project_new'}" exact>
-                        <v-icon small>mdi-plus</v-icon> new project
-                    </v-list-item>
-                </v-list>
-            </v-menu>
+                            <v-icon small class="ml-2">
+                                mdi-chevron-{{attrs['aria-expanded'] === 'true' ? 'up' : 'down'}}
+                            </v-icon>
+                        </v-btn>
+                    </template>
+                    <v-list dense color="#080d1b">
+                        <v-list-item v-for="p in projects" :key="p.name" :to="{name: 'overview', params: {projectId: p.id}}">
+                            {{p.name}}
+                        </v-list-item>
+                        <v-list-item :to="{name: 'project_new'}" exact>
+                            <v-icon small>mdi-plus</v-icon> new project
+                        </v-list-item>
+                    </v-list>
+                </v-menu>
+            </div>
+
+            <div v-if="$vuetify.breakpoint.mdAndUp && project" class="ml-3">
+                <Search />
+            </div>
 
             <v-spacer />
 
-            <Search v-if="$vuetify.breakpoint.mdAndUp && project" />
+            <div class="ml-3">
+                <v-menu dark offset-y tile eager>
+                    <template #activator="{ on }">
+                        <v-btn v-on="on" plain outlined height="40" class="px-2">
+                            <v-icon>mdi-help-circle-outline</v-icon>
+                        </v-btn>
+                    </template>
+                    <v-list dense color="#080d1b">
+                        <v-list-item href="https://coroot.com/docs/coroot-community-edition" target="_blank">Documentation</v-list-item>
+                        <v-list-item href="https://github.com/coroot/coroot" target="_blank">GitHub</v-list-item>
+                        <v-list-item>v1.1.2</v-list-item>
+                    </v-list>
+                </v-menu>
+            </div>
+            <div v-if="$route.params.projectId && $route.name !== 'project_settings'" class="ml-3">
+                <TimePicker :small="$vuetify.breakpoint.xsOnly"/>
+            </div>
 
-            <v-spacer />
-
-            <TimePicker v-if="project && $route.name !== 'project_settings'" :small="$vuetify.breakpoint.xsOnly"/>
-
-            <span v-if="project" style="position: relative">
-                <v-btn v-if="project" icon small :to="{name: 'project_settings', params: {projectId: project.id}}" plain>
+            <div v-if="$route.params.projectId" class="ml-3">
+                <v-btn :to="{name: 'project_settings', params: {projectId: $route.params.projectId}}" plain outlined height="40" class="px-2">
                     <v-icon>mdi-cog</v-icon>
+                    <Led v-if="status" :status="status.ok ? 'ok' : 'warning'" style="position: absolute; bottom: 0; right: 0;" />
                 </v-btn>
-                <Led v-if="status" :status="status.ok ? 'ok' : 'warning'" style="position: absolute; top: 1px; right: 1px;" />
-            </span>
+            </div>
         </v-container>
     </v-app-bar>
 
     <v-main>
-        <v-container>
+        <v-container style="padding-bottom: 128px">
             <v-alert v-if="status && !status.ok && $route.name !== 'project_settings'" color="red" elevation="2" border="left" class="mt-4" colored-border>
                 <div class="d-sm-flex align-center">
                     <template v-if="status.prometheus.status !== 'ok'">
@@ -137,7 +158,7 @@ export default {
                 this.projects = data || [];
                 if (this.$route.name === 'index') {
                     if (!this.projects.length) {
-                        this.$router.replace({name: 'project_new'});
+                        this.$router.replace({name: 'welcome'});
                         return;
                     }
                     let id = this.projects[0].id;
@@ -181,6 +202,13 @@ export default {
 </script>
 
 <style scoped>
+.menu >>> .v-btn {
+    min-width: unset !important;
+    border-color: rgba(255,255,255,0.2);
+}
+.menu >>> .v-btn:hover {
+    border-color: rgba(255,255,255,1);
+}
 .project-name {
     max-width: 10ch;
     overflow: hidden;

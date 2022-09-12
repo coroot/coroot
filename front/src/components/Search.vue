@@ -1,7 +1,7 @@
 <template>
     <v-menu :value="!!query" offset-y max-height="50vh">
         <template #activator="{ }">
-            <v-text-field v-model="query" outlined hide-details dense flat placeholder="search for apps and nodes" @focus="open" @blur="close" @keydown.esc="close">
+            <v-text-field v-model="query" dense outlined hide-details flat placeholder="search for apps and nodes" @focus="open" @blur="close" @keydown.esc="close">
                 <template #prepend-inner>
                     <v-icon color="grey">mdi-magnify</v-icon>
                 </template>
