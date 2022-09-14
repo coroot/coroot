@@ -27,7 +27,7 @@ Using these metrics allows you to quickly and cost-effectively find the errors r
 
 Coroot uses [cloud metadata](https://coroot.com/blog/cloud-metadata) to show which regions and availability zones 
 each application runs in.
-It's very important to known, because:
+This is very important to known, because:
  * Network latency between availability zones within the same region can be higher than within one particular zone.
  * Data transfer between availability zones in the same region is paid, while data transfer within a zone is free.
 
@@ -42,7 +42,7 @@ Coroot [makes](https://coroot.com/blog/pg-agent) troubleshooting Postgres-relate
 
 ### Integration into your existing monitoring stack
 
-Coroot uses Prometheus as a Time-Series Databases (TSDB):
+Coroot uses Prometheus as a Time-Series Database (TSDB):
 * The agents are Prometheus-compatible exporters 
 * Coroot itself is a Prometheus client (like Grafana)
 
@@ -50,7 +50,7 @@ Coroot uses Prometheus as a Time-Series Databases (TSDB):
 
 ### Built-in Prometheus cache
 
-The built-in Prometheus cache allows Coroot to provide you with a blazing fast UI and not overload your Prometheus.
+The built-in Prometheus cache allows Coroot to provide you with a blazing fast UI without overloading your Prometheus.
 
 
 ## Installation
