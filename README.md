@@ -13,7 +13,7 @@ Coroot is a monitoring and troubleshooting tool for microservice architectures.
 ### eBPF-based service mapping
 Thanks to eBPF, Coroot shows you a comprehensive [map of your services](https://coroot.com/blog/building-a-service-map-using-ebpf) without any code changes.
 
-<p align="center"><img width="800" src="./assets/service-map.png"></p>
+<p align="center"><img width="800" src="./front/public/readme/service-map.png"></p>
 
 ### Log analysis without storage costs
 
@@ -21,7 +21,7 @@ Thanks to eBPF, Coroot shows you a comprehensive [map of your services](https://
 [repeated patterns](https://coroot.com/blog/mining-logs-from-unstructured-logs) right on the node. 
 Using these metrics allows you to quickly and cost-effectively find the errors relevant to a particular outage.
 
-<p align="center"><img width="800" src="./assets/logs.png"></p>
+<p align="center"><img width="800" src="./front/public/readme/logs.png"></p>
 
 ### Cloud topology awareness
 
@@ -31,13 +31,13 @@ This is very important to known, because:
  * Network latency between availability zones within the same region can be higher than within one particular zone.
  * Data transfer between availability zones in the same region is paid, while data transfer within a zone is free.
 
-<p align="center"><img width="800" src="./assets/topology.png"></p>
+<p align="center"><img width="800" src="./front/public/readme/topology.png"></p>
 
 ### Advanced Postgres observability
  
 Coroot [makes](https://coroot.com/blog/pg-agent) troubleshooting Postgres-related issues easier not only for experienced DBAs but also for engineers not specialized in databases.
 
-<p align="center"><img width="800" src="./assets/postgres.png"></p> 
+<p align="center"><img width="800" src="./front/public/readme/postgres.png"></p> 
 
 
 ### Integration into your existing monitoring stack
@@ -46,7 +46,7 @@ Coroot uses Prometheus as a Time-Series Database (TSDB):
 * The agents are Prometheus-compatible exporters 
 * Coroot itself is a Prometheus client (like Grafana)
 
-<p align="center"><img width="600" src="./assets/prometheus.svg"></p>
+<p align="center"><img width="600" src="./front/public/readme/prometheus.svg"></p>
 
 ### Built-in Prometheus cache
 
