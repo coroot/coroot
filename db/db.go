@@ -15,18 +15,22 @@ var (
 )
 
 type DB struct {
-	db *sql.DB
+	typ string
+	db  *sql.DB
 }
 
-func Open(dir string, pgConnString string) (*DB, error) {
+func Open(dataDir string, pgConnString string) (*DB, error) {
 	var db *sql.DB
 	var err error
+	var typ string
 	if pgConnString != "" {
 		klog.Infoln("using postgres database")
+		typ = "postgres"
 		db, err = postgres(pgConnString)
 	} else {
 		klog.Infoln("using sqlite database")
-		db, err = sqlite(path.Join(dir, "db.sqlite"))
+		typ = "sqlite"
+		db, err = sqlite(path.Join(dataDir, "db.sqlite"))
 	}
 	if err != nil {
 		return nil, err
@@ -35,7 +39,11 @@ func Open(dir string, pgConnString string) (*DB, error) {
 	if err := Migrate(db, &Project{}); err != nil {
 		return nil, err
 	}
-	return &DB{db: db}, nil
+	return &DB{typ: typ, db: db}, nil
+}
+
+func (db *DB) Type() string {
+	return db.typ
 }
 
 func sqlite(path string) (*sql.DB, error) {

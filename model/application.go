@@ -44,7 +44,7 @@ func (app *Application) Labels() Labels {
 	switch app.Id.Kind {
 	case ApplicationKindRds:
 		res["db"] = fmt.Sprintf(`%s (RDS)`, app.Instances[0].Rds.Engine.Value())
-	case ApplicationKindStandaloneContainers:
+	case ApplicationKindUnknown:
 		res["instances"] = strconv.Itoa(len(app.Instances))
 	case ApplicationKindExternalService:
 		eps := utils.NewStringSet()
@@ -113,4 +113,20 @@ func (app *Application) IsMonitoring() bool {
 		}
 	}
 	return false
+}
+
+func (app *Application) IsStandalone() bool {
+	for _, i := range app.Instances {
+		for _, u := range i.Upstreams {
+			if u.RemoteInstance != nil && u.RemoteInstance.OwnerId != app.Id && !u.Obsolete() {
+				return false
+			}
+		}
+		for _, d := range i.Downstreams {
+			if d.Instance != nil && d.Instance.OwnerId != app.Id && !d.Obsolete() {
+				return false
+			}
+		}
+	}
+	return true
 }

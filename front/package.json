@@ -16,6 +16,7 @@
     "moment-duration-format": "^2.3.2",
     "pluralize": "^8.0.0",
     "uplot": "^1.6.22",
+    "uuid": "^9.0.0",
     "vue": "^2.6.14",
     "vue-router": "^3.6.2",
     "vuetify": "^2.6.9"

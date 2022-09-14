@@ -116,7 +116,6 @@ export default {
     },
 
     created() {
-        this.getProjects();
         this.$events.watch(this, this.getProjects, 'project-saved', 'project-deleted');
     },
 
@@ -133,6 +132,7 @@ export default {
     watch: {
         '$route': {
             handler: function() {
+                this.getProjects();
                 this.getStatus();
             },
             immediate: true,

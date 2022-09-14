@@ -78,6 +78,16 @@ func (instance *Instance) ApplicationTypes() map[ApplicationType]bool {
 	return res
 }
 
+func (instance *Instance) InstrumentedType() ApplicationType {
+	switch {
+	case instance.Postgres != nil:
+		return ApplicationTypePostgres
+	case instance.Redis != nil:
+		return ApplicationTypeRedis
+	}
+	return ApplicationTypeUnknown
+}
+
 func (instance *Instance) GetOrCreateContainer(name string) *Container {
 	c := instance.Containers[name]
 	if c == nil {

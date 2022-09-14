@@ -66,7 +66,7 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues) {
 					continue
 				}
 			case mc.container != "" && mc.node != nil:
-				appId := model.NewApplicationId("", model.ApplicationKindStandaloneContainers, mc.container)
+				appId := model.NewApplicationId("", model.ApplicationKindUnknown, mc.container)
 				instanceName := fmt.Sprintf("%s@%s", mc.container, mc.node.Name.Value())
 				instance = w.GetOrCreateApplication(appId).GetOrCreateInstance(instanceName)
 			}

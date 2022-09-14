@@ -47,7 +47,7 @@ router.afterEach((to, from) => {
 Vue.prototype.$events = events;
 Vue.prototype.$moment = moment;
 Vue.prototype.$pluralize = pluralize;
-Vue.prototype.$api = new Api(router);
+Vue.prototype.$api = new Api(router, vuetify);
 Vue.prototype.$validators = validators;
 Vue.prototype.$storage = storage;
 

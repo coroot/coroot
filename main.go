@@ -4,6 +4,7 @@ import (
 	"github.com/coroot/coroot/api"
 	"github.com/coroot/coroot/cache"
 	"github.com/coroot/coroot/db"
+	"github.com/coroot/coroot/stats"
 	"github.com/coroot/coroot/utils"
 	"github.com/gorilla/mux"
 	"gopkg.in/alecthomas/kingpin.v2"
@@ -12,14 +13,19 @@ import (
 	"path"
 )
 
+var version = "unknown"
+
 func main() {
 	listen := kingpin.Flag("listen", "listen address - ip:port or :port").Envar("LISTEN").Default("0.0.0.0:8080").String()
 	dataDir := kingpin.Flag("data-dir", `path to data directory`).Envar("DATA_DIR").Default("/data").String()
 	cacheTTL := kingpin.Flag("cache-ttl", "cache TTL").Envar("CACHE_TTL").Default("720h").Duration()
 	cacheGcInterval := kingpin.Flag("cache-gc-interval", "cache GC interval").Envar("CACHE_GC_INTERVAL").Default("10m").Duration()
 	pgConnString := kingpin.Flag("pg-connection-string", "Postgres connection string (sqlite is used if not set)").Envar("PG_CONNECTION_STRING").String()
-
+	disableStats := kingpin.Flag("disable-usage-statistics", "disable usage statistic").Bool()
+	kingpin.Version(version)
 	kingpin.Parse()
+
+	klog.Infoln("version:", version)
 
 	if err := utils.CreateDirectoryIfNotExists(*dataDir); err != nil {
 		klog.Exitln(err)
@@ -42,7 +48,12 @@ func main() {
 		klog.Exitln(err)
 	}
 
-	api := api.NewApi(promCache, db)
+	var statsCollector *stats.Collector
+	if !*disableStats {
+		statsCollector = stats.NewCollector(*dataDir, version, db, promCache)
+	}
+
+	api := api.NewApi(promCache, db, statsCollector)
 
 	r := mux.NewRouter()
 	r.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {}).Methods(http.MethodGet)

@@ -9,6 +9,7 @@ import (
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/prom"
+	"github.com/coroot/coroot/stats"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 	"github.com/gorilla/mux"
@@ -20,13 +21,15 @@ import (
 type Api struct {
 	cache *cache.Cache
 	db    *db.DB
+	stats *stats.Collector
 }
 
-func NewApi(cache *cache.Cache, db *db.DB) *Api {
-	return &Api{cache: cache, db: db}
+func NewApi(cache *cache.Cache, db *db.DB, stats *stats.Collector) *Api {
+	return &Api{cache: cache, db: db, stats: stats}
 }
 
 func (api *Api) Projects(w http.ResponseWriter, r *http.Request) {
+	api.stats.RegisterRequest(r)
 	projects, err := api.db.GetProjects()
 	if err != nil {
 		klog.Errorln("failed to get projects:", err)
@@ -129,6 +132,7 @@ func (api *Api) Status(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
+
 	cacheError, err := api.cache.GetError(projectId)
 	if err != nil {
 		klog.Errorln(err)

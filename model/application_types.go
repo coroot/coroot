@@ -3,6 +3,7 @@ package model
 type ApplicationType string
 
 const (
+	ApplicationTypeUnknown       ApplicationType = ""
 	ApplicationTypePostgres      ApplicationType = "postgres"
 	ApplicationTypePgbouncer     ApplicationType = "pgbouncer"
 	ApplicationTypeMysql         ApplicationType = "mysql"

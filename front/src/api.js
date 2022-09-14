@@ -1,16 +1,29 @@
 import axios from "axios";
+import * as storage from "@/utils/storage";
+import {v4} from 'uuid';
 
 const defaultErrorMessage = 'Something went wrong, please try again later.';
 
 export default class Api {
-    axios = axios.create({
-        baseURL: '/api/',
-        timeout: 30000,
-    });
+    axios = null;
     router = null;
+    vuetify = null;
 
-    constructor(router) {
+    constructor(router, vuetify) {
         this.router = router;
+        this.vuetify = vuetify.framework;
+        let deviceId = storage.local('device-id');
+        if (!deviceId) {
+            deviceId = v4();
+            storage.local('device-id', deviceId);
+        }
+        this.axios = axios.create({
+            baseURL: '/api/',
+            timeout: 30000,
+            headers: {
+                'x-device-id': deviceId,
+            },
+        })
     }
 
     appId(id) {
@@ -23,6 +36,7 @@ export default class Api {
     }
 
     request(req, cb) {
+        req.headers = {...req.headers, 'x-device-size': this.vuetify.breakpoint.name};
         this.axios(req).then((response) => {
             try {
                 cb(response.data, '');

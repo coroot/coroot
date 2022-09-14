@@ -4,7 +4,8 @@ COPY go.mod .
 COPY go.sum .
 RUN go mod download
 COPY . .
-RUN go install -mod=readonly .
+ARG VERSION=unknown
+RUN go install -mod=readonly -ldflags "-X main.version=$VERSION" .
 RUN go test ./...
 
 
