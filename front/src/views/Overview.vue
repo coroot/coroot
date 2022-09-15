@@ -10,27 +10,23 @@
     </v-alert>
 
     <AppsMap v-if="overview && overview.applications" :applications="overview.applications" />
-    <div v-else-if="overview" class="pa-3 text-center grey--text">
-        No data is available yet
-    </div>
+    <NoData v-else-if="!loading" />
 
     <h1 class="text-h5 my-5">
         Nodes
     </h1>
-
     <Table v-if="overview && overview.nodes && overview.nodes.rows" :header="overview.nodes.header" :rows="overview.nodes.rows" />
-    <div v-else-if="overview" class="pa-3 text-center grey--text">
-        No data is available yet
-    </div>
+    <NoData v-else-if="!loading" />
 </div>
 </template>
 
 <script>
 import AppsMap from "@/components/AppsMap";
 import Table from "@/components/Table";
+import NoData from "@/components/NoData";
 
 export default {
-    components: {AppsMap, Table},
+    components: {AppsMap, Table, NoData},
 
     data() {
         return {

@@ -19,12 +19,14 @@
         </v-tabs>
         <Dashboard v-if="dash" :name="dash.name" :widgets="dash.widgets" class="mt-3" />
     </div>
+    <NoData v-else-if="!loading" />
 </div>
 </template>
 
 <script>
 import AppMap from "@/components/AppMap";
 import Dashboard from "@/components/Dashboard";
+import NoData from "@/components/NoData";
 
 export default {
     props: {
@@ -32,7 +34,7 @@ export default {
         dashboard: String,
     },
 
-    components: {AppMap, Dashboard},
+    components: {AppMap, Dashboard, NoData},
 
     data() {
         return {

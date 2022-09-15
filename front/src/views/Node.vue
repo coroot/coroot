@@ -10,18 +10,20 @@
     </v-alert>
 
     <Dashboard v-if="node" :name="name" :widgets="node.widgets" class="mt-3" />
+    <NoData v-else-if="!loading" />
 </div>
 </template>
 
 <script>
 import Dashboard from "@/components/Dashboard";
+import NoData from "@/components/NoData";
 
 export default {
     props: {
         name: String,
     },
 
-    components: {Dashboard},
+    components: {Dashboard, NoData},
 
     data() {
         return {

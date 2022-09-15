@@ -166,21 +166,19 @@ func (c *Collector) collect() Stats {
 	var loadTime []time.Duration
 	now := timeseries.Now()
 	for _, p := range projects {
-		cacheUpdateTime, err := c.cache.GetUpdateTime(p.Id)
+		cc := c.cache.GetCacheClient(p)
+		cacheTo, err := cc.GetTo()
 		if err != nil {
-			klog.Errorln("failed to get cache update time:", err)
+			klog.Errorln(err)
 			continue
 		}
-		if cacheUpdateTime.IsZero() || cacheUpdateTime.Before(now.Add(-worldWindow)) {
+		if cacheTo.IsZero() || cacheTo.Before(now.Add(-worldWindow)) {
 			continue
 		}
 		stats.Integration.Prometheus = true
 
-		step := p.Prometheus.RefreshInterval
-		to := cacheUpdateTime.Add(-step)
-		from := to.Add(-worldWindow)
 		t := time.Now()
-		w, err := constructor.New(c.cache.GetCacheClient(p.Id)).LoadWorld(context.Background(), from, to, step)
+		w, err := constructor.New(cc).LoadWorld(context.Background(), cacheTo.Add(-worldWindow), cacheTo, p.Prometheus.RefreshInterval)
 		if err != nil {
 			klog.Errorln("failed to load world:", err)
 			continue

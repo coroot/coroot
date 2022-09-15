@@ -1,14 +1,19 @@
 package project
 
 import (
+	"github.com/coroot/coroot/cache"
+	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 )
 
 type Prometheus struct {
-	Status model.Status        `json:"status"`
-	Error  string              `json:"error"`
-	Lag    timeseries.Duration `json:"lag"`
+	Status model.Status `json:"status"`
+	Error  string       `json:"error"`
+	Cache  struct {
+		LagMax timeseries.Duration `json:"lag_max"`
+		LagAvg timeseries.Duration `json:"lag_avg"`
+	} `json:"cache"`
 }
 
 type NodeAgent struct {
@@ -27,38 +32,41 @@ type Status struct {
 	KubeStateMetrics *KubeStateMetrics `json:"kube_state_metrics"`
 }
 
-func RenderStatus(now timeseries.Time, cacheUpdateTime timeseries.Time, cacheError string, world *model.World) *Status {
+func RenderStatus(p *db.Project, cacheStatus *cache.Status, w *model.World) *Status {
 	res := &Status{}
 
-	if cacheError != "" {
-		res.Prometheus.Error = cacheError
+	if cacheStatus.Error != "" {
+		res.Prometheus.Error = cacheStatus.Error
 		res.Prometheus.Status = model.WARNING
 	} else {
-		res.Prometheus.Status = model.OK
-		if !cacheUpdateTime.IsZero() {
-			res.Prometheus.Lag = now.Sub(cacheUpdateTime)
-			if world == nil {
-				res.Prometheus.Status = model.WARNING
-			}
+		res.Prometheus.Cache.LagMax = cacheStatus.LagMax
+		res.Prometheus.Cache.LagAvg = cacheStatus.LagAvg
+		switch {
+		case w == nil:
+			res.Prometheus.Status = model.WARNING
+		case cacheStatus.LagMax > 5*p.Prometheus.RefreshInterval:
+			res.Prometheus.Status = model.INFO
+		default:
+			res.Prometheus.Status = model.OK
 		}
 	}
 
-	if world == nil {
+	if w == nil {
 		return res
 	}
 
-	is := world.IntegrationStatus
+	is := w.IntegrationStatus
 	if !is.NodeAgent.Installed {
 		res.NodeAgent.Status = model.WARNING
 	} else {
 		res.NodeAgent.Status = model.OK
-		res.NodeAgent.Nodes = len(world.Nodes)
+		res.NodeAgent.Nodes = len(w.Nodes)
 	}
 	if is.KubeStateMetrics.Required {
 		res.KubeStateMetrics = &KubeStateMetrics{}
 		if is.KubeStateMetrics.Installed {
 			res.KubeStateMetrics.Status = model.OK
-			res.KubeStateMetrics.Applications = len(world.Applications) // TODO: count k8s apps only,
+			res.KubeStateMetrics.Applications = len(w.Applications) // TODO: count k8s apps only,
 		} else {
 			res.KubeStateMetrics.Status = model.WARNING
 		}

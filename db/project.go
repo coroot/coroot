@@ -44,16 +44,16 @@ func (p *Project) Migrate(db *sql.DB) error {
 	return err
 }
 
-func (db *DB) GetProjects() ([]Project, error) {
+func (db *DB) GetProjects() ([]*Project, error) {
 	rows, err := db.db.Query("SELECT id, name, prometheus FROM project")
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var res []Project
-	var p Project
+	var res []*Project
 	var prometheus string
 	for rows.Next() {
+		var p Project
 		if err := rows.Scan(&p.Id, &p.Name, &prometheus); err != nil {
 			return nil, err
 		}
@@ -63,7 +63,7 @@ func (db *DB) GetProjects() ([]Project, error) {
 		if p.Prometheus.RefreshInterval == 0 {
 			p.Prometheus.RefreshInterval = DefaultRefreshInterval
 		}
-		res = append(res, p)
+		res = append(res, &p)
 	}
 	return res, nil
 }

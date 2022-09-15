@@ -10,15 +10,17 @@ import (
 )
 
 type Client struct {
-	cache      *Cache
-	projectId  db.ProjectId
-	promClient prom.Client
+	cache           *Cache
+	projectId       db.ProjectId
+	refreshInterval timeseries.Duration
+	promClient      prom.Client
 }
 
-func (c *Cache) GetCacheClient(projectId db.ProjectId) prom.Client {
+func (c *Cache) GetCacheClient(p *db.Project) *Client {
 	return &Client{
-		cache:     c,
-		projectId: projectId,
+		cache:           c,
+		projectId:       p.Id,
+		refreshInterval: p.Prometheus.RefreshInterval,
 	}
 }
 
@@ -66,7 +68,22 @@ func (c *Client) Ping(ctx context.Context) error {
 	return fmt.Errorf("not implemented")
 }
 
-func (c *Cache) getPromClient(p db.Project) prom.Client {
+func (c *Client) GetTo() (timeseries.Time, error) {
+	to, err := c.cache.getMinUpdateTime(c.projectId)
+	if err != nil {
+		return 0, err
+	}
+	if to.IsZero() {
+		return 0, nil
+	}
+	return to.Add(-c.refreshInterval), nil
+}
+
+func (c *Client) GetStatus() (*Status, error) {
+	return c.cache.getStatus(c.projectId)
+}
+
+func (c *Cache) getPromClient(p *db.Project) prom.Client {
 	user, password := "", ""
 	if p.Prometheus.BasicAuth != nil {
 		user, password = p.Prometheus.BasicAuth.User, p.Prometheus.BasicAuth.Password

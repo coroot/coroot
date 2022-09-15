@@ -74,8 +74,10 @@
                         </template>
                         <template v-else>
                             <div class="flex-grow-1 mb-3 mb-sm-0">
-                                Prometheus cache is {{$moment.duration(status.prometheus.lag, 'ms').format('h [hour] m [minute]', {trim: 'all'})}} behind.
-                                Please wait until synchronization is complete.
+                                Prometheus cache is {{$moment.duration(status.prometheus.cache.lag_avg, 'ms').format('h [hour] m [minute]', {trim: 'all'})}} behind.
+                                <template v-if="status.prometheus.status === 'warning'">
+                                    Please wait until synchronization is complete.
+                                </template>
                             </div>
                             <v-btn outlined @click="refresh">refresh</v-btn>
                         </template>
@@ -100,7 +102,7 @@
 
 <script>
 import TimePicker from "@/components/TimePicker";
-import Search from "@/components/Search";
+import Search from "@/views/Search";
 import Led from "@/components/Led";
 
 export default {
@@ -182,7 +184,7 @@ export default {
                 this.status.ok = true;
                 for (const i in data) {
                     const s = data[i];
-                    if (s && s.status && (s.status === 'warning' || s.status === 'critical')) {
+                    if (s && s.status && s.status !== 'ok') {
                         this.status.ok = false;
                         break;
                     }

@@ -20,9 +20,6 @@ type Node struct {
 
 func Render(w *model.World) *View {
 	res := &View{}
-	if w == nil {
-		return res
-	}
 	for _, a := range w.Applications {
 		res.Applications = append(res.Applications, Application{Id: a.Id})
 	}

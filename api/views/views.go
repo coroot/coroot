@@ -7,12 +7,13 @@ import (
 	"github.com/coroot/coroot/api/views/project"
 	"github.com/coroot/coroot/api/views/search"
 	"github.com/coroot/coroot/api/views/widgets"
+	"github.com/coroot/coroot/cache"
+	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
-	"github.com/coroot/coroot/timeseries"
 )
 
-func Status(now timeseries.Time, cacheUpdateTime timeseries.Time, cacheError string, world *model.World) *project.Status {
-	return project.RenderStatus(now, cacheUpdateTime, cacheError, world)
+func Status(p *db.Project, cacheStatus *cache.Status, w *model.World) *project.Status {
+	return project.RenderStatus(p, cacheStatus, w)
 }
 
 func Overview(w *model.World) *overview.View {

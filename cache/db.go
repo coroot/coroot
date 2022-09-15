@@ -30,6 +30,12 @@ func (p *PrometheusQueryState) Migrate(db *sql.DB) error {
 	return err
 }
 
+type Status struct {
+	Error  string
+	LagMax timeseries.Duration
+	LagAvg timeseries.Duration
+}
+
 func openStateDB(path string) (*sql.DB, error) {
 	database, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?mode=rwc", path))
 	if err != nil {
@@ -82,26 +88,27 @@ func (c *Cache) deleteProject(projectId db.ProjectId) error {
 	return nil
 }
 
-func (c *Cache) GetUpdateTime(projectId db.ProjectId) (timeseries.Time, error) {
-	var res timeseries.Time
-	err := c.state.QueryRow("SELECT last_ts FROM prometheus_query_state WHERE project_id = $1 ORDER BY last_ts LIMIT 1", projectId).Scan(&res)
-	if err == nil {
-		return res, nil
+func (c *Cache) getMinUpdateTime(projectId db.ProjectId) (timeseries.Time, error) {
+	var min sql.NullInt64
+	err := c.state.QueryRow("SELECT min(last_ts) FROM prometheus_query_state WHERE project_id = $1", projectId).Scan(&min)
+	if err != nil {
+		return 0, err
 	}
-	if errors.Is(err, sql.ErrNoRows) {
-		return res, nil
-	}
-	return res, err
+	return timeseries.Time(min.Int64), nil
 }
 
-func (c *Cache) GetError(projectId db.ProjectId) (string, error) {
-	var res string
-	err := c.state.QueryRow("SELECT last_error FROM prometheus_query_state WHERE project_id = $1 AND last_error != '' LIMIT 1", projectId).Scan(&res)
-	if err == nil {
-		return res, nil
+func (c *Cache) getStatus(projectId db.ProjectId) (*Status, error) {
+	var s Status
+	err := c.state.QueryRow("SELECT last_error FROM prometheus_query_state WHERE project_id = $1 AND last_error != '' LIMIT 1", projectId).Scan(&s.Error)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
 	}
-	if errors.Is(err, sql.ErrNoRows) {
-		return "", nil
+	now := timeseries.Now()
+	var max, avg sql.NullFloat64
+	if err := c.state.QueryRow("SELECT max($1 - last_ts), avg($1 - last_ts) FROM prometheus_query_state WHERE project_id = $2", now, projectId).Scan(&max, &avg); err != nil {
+		return nil, err
 	}
-	return "", err
+	s.LagMax = timeseries.Duration(max.Float64)
+	s.LagAvg = timeseries.Duration(avg.Float64)
+	return &s, nil
 }

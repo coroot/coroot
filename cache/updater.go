@@ -57,7 +57,7 @@ func (c *Cache) updaterWorker(projects *sync.Map, projectId db.ProjectId) {
 			klog.Infoln("stopping worker for project:", projectId)
 			return
 		}
-		project := p.(db.Project)
+		project := p.(*db.Project)
 		now := timeseries.Now()
 		func() {
 			byQuery, err := c.loadStates(projectId)
@@ -115,7 +115,7 @@ func (c *Cache) updaterWorker(projects *sync.Map, projectId db.ProjectId) {
 	}
 }
 
-func (c *Cache) download(ctx context.Context, promClient prom.Client, project db.Project, state *PrometheusQueryState) {
+func (c *Cache) download(ctx context.Context, promClient prom.Client, project *db.Project, state *PrometheusQueryState) {
 	buf := &bytes.Buffer{}
 	queryHash, jitter := QueryId(project.Id, state.Query)
 	refreshInterval := project.Prometheus.RefreshInterval

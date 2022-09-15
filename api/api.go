@@ -124,39 +124,49 @@ func (api *Api) Project(w http.ResponseWriter, r *http.Request) {
 }
 
 func (api *Api) Status(w http.ResponseWriter, r *http.Request) {
+	project, err := api.getProject(r)
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	cacheStatus, err := api.cache.GetCacheClient(project).GetStatus()
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
 	now := timeseries.Now()
-	projectId := db.ProjectId(mux.Vars(r)["project"])
-	world, cacheUpdateTime, err := api.loadWorld(r)
+	world, err := api.loadWorld(r.Context(), project, now.Add(-timeseries.Hour), now)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
-
-	cacheError, err := api.cache.GetError(projectId)
-	if err != nil {
-		klog.Errorln(err)
-		http.Error(w, "", http.StatusInternalServerError)
-		return
-	}
-	utils.WriteJson(w, views.Status(now, cacheUpdateTime, cacheError, world))
+	utils.WriteJson(w, views.Status(project, cacheStatus, world))
 }
 
 func (api *Api) Overview(w http.ResponseWriter, r *http.Request) {
-	world, _, err := api.loadWorld(r)
+	world, err := api.loadWorldByRequest(r)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	if world == nil {
 		return
 	}
 	utils.WriteJson(w, views.Overview(world))
 }
 
 func (api *Api) Search(w http.ResponseWriter, r *http.Request) {
-	world, _, err := api.loadWorld(r)
+	world, err := api.loadWorldByRequest(r)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	if world == nil {
 		return
 	}
 	utils.WriteJson(w, views.Search(world))
@@ -169,16 +179,19 @@ func (api *Api) App(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid application_id: "+mux.Vars(r)["app"], http.StatusBadRequest)
 		return
 	}
-	world, _, err := api.loadWorld(r)
+	world, err := api.loadWorldByRequest(r)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
+	if world == nil {
+		return
+	}
 	app := world.GetApplication(id)
 	if app == nil {
 		klog.Warningf("application not found: %s ", id)
-		http.Error(w, "application not found", http.StatusNotFound)
+		http.Error(w, "Application not found", http.StatusNotFound)
 		return
 	}
 	utils.WriteJson(w, views.Application(world, app))
@@ -186,56 +199,65 @@ func (api *Api) App(w http.ResponseWriter, r *http.Request) {
 
 func (api *Api) Node(w http.ResponseWriter, r *http.Request) {
 	nodeName := mux.Vars(r)["node"]
-	world, _, err := api.loadWorld(r)
+	world, err := api.loadWorldByRequest(r)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
+	if world == nil {
+		return
+	}
 	node := world.GetNode(nodeName)
 	if node == nil {
 		klog.Warningf("node not found: %s ", nodeName)
-		http.Error(w, "node not found", http.StatusNotFound)
+		http.Error(w, "Node not found", http.StatusNotFound)
 		return
 	}
 	utils.WriteJson(w, views.Node(world, node))
 }
 
-func (api *Api) loadWorld(r *http.Request) (*model.World, timeseries.Time, error) {
-	now := timeseries.Now()
+func (api *Api) getProject(r *http.Request) (*db.Project, error) {
 	projectId := db.ProjectId(mux.Vars(r)["project"])
-	q := r.URL.Query()
-	from := utils.ParseTimeFromUrl(now, q, "from", now.Add(-timeseries.Hour))
-	to := utils.ParseTimeFromUrl(now, q, "to", now)
+	return api.db.GetProject(projectId)
+}
 
-	project, err := api.db.GetProject(projectId)
+func (api *Api) loadWorld(ctx context.Context, project *db.Project, from, to timeseries.Time) (*model.World, error) {
+	cc := api.cache.GetCacheClient(project)
+	cacheTo, err := cc.GetTo()
 	if err != nil {
-		return nil, 0, err
-	}
-	cacheUpdateTime, err := api.cache.GetUpdateTime(projectId)
-	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 
 	step := project.Prometheus.RefreshInterval
 	from = from.Truncate(step)
 	to = to.Truncate(step)
 
-	if cacheUpdateTime.IsZero() || cacheUpdateTime.Before(from) {
-		return nil, cacheUpdateTime, nil
+	if cacheTo.IsZero() || cacheTo.Before(from) {
+		return nil, nil
 	}
 
 	duration := to.Sub(from)
-	availableTo := cacheUpdateTime.Add(-step).Truncate(step)
-	if availableTo.Before(to) {
-		to = availableTo
+	if cacheTo.Before(to) {
+		to = cacheTo
 		from = to.Add(-duration)
 	}
 	step = increaseStepForBigDurations(duration, step)
 
-	c := constructor.New(api.cache.GetCacheClient(projectId))
-	world, err := c.LoadWorld(r.Context(), from, to, step)
-	return world, cacheUpdateTime, err
+	world, err := constructor.New(cc).LoadWorld(ctx, from, to, step)
+	return world, err
+}
+
+func (api *Api) loadWorldByRequest(r *http.Request) (*model.World, error) {
+	now := timeseries.Now()
+	q := r.URL.Query()
+	from := utils.ParseTimeFromUrl(now, q, "from", now.Add(-timeseries.Hour))
+	to := utils.ParseTimeFromUrl(now, q, "to", now)
+	project, err := api.getProject(r)
+	if err != nil {
+		return nil, err
+	}
+	return api.loadWorld(r.Context(), project, from, to)
 }
 
 func increaseStepForBigDurations(duration, step timeseries.Duration) timeseries.Duration {

@@ -62,8 +62,7 @@ export default {
 
     data() {
         return {
-            apps: null,
-            nodes: null,
+            items: null,
             query: '',
             loading: false,
             error: '',
@@ -72,13 +71,13 @@ export default {
 
     computed: {
         results() {
-            if (!this.query) {
+            if (!this.query || !this.items) {
                 return {};
             }
             const q = this.query.toLowerCase();
             const match = (s) => s.toLowerCase().includes(q);
-            const apps = (this.apps || []).filter((a) => match(a.id));
-            const nodes = (this.nodes || []).filter((n) => match(n.name));
+            const apps = (this.items.applications || []).filter((a) => match(a.id));
+            const nodes = (this.items.nodes || []).filter((n) => match(n.name));
             const empty = !apps.length && !nodes.length;
             return {apps, nodes, empty};
         },
@@ -99,8 +98,7 @@ export default {
                     this.error = error;
                     return;
                 }
-                this.apps = data.applications;
-                this.nodes = data.nodes;
+                this.items = data;
             });
         },
         open() {
