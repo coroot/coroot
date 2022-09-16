@@ -56,7 +56,7 @@ func (ss *StringSet) Items() []string {
 
 func (ss *StringSet) MarshalJSON() ([]byte, error) {
 	sl := make([]string, 0, len(ss.m))
-	for el, _ := range ss.m {
+	for el := range ss.m {
 		sl = append(sl, el)
 	}
 	sort.Strings(sl)
