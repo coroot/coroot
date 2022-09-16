@@ -37,7 +37,7 @@ type Status struct {
 }
 
 func openStateDB(path string) (*sql.DB, error) {
-	database, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?mode=rwc", path))
+	database, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?mode=rwc&_sync=full", path))
 	if err != nil {
 		return nil, err
 	}

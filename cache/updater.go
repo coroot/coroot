@@ -144,14 +144,17 @@ func (c *Cache) download(ctx context.Context, promClient prom.Client, project *d
 		c.lock.Lock()
 		err = c.saveChunk(project.Id, queryHash, chunk)
 		c.lock.Unlock()
-
 		if err != nil {
 			klog.Errorln("failed to save chunk:", err)
 			return
 		}
+
 		state.LastTs = i.toTs
 		state.LastError = ""
-		if err := c.saveState(state); err != nil {
+		c.lock.Lock()
+		err = c.saveState(state)
+		c.lock.Unlock()
+		if err != nil {
 			klog.Errorln("failed to save state:", err)
 			return
 		}
