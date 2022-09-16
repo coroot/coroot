@@ -97,6 +97,11 @@ export default {
                     return;
                 }
                 this.status = data;
+                if (this.status.error) {
+                    this.error = this.status.error;
+                    this.status = null;
+                    return;
+                }
             })
         },
     },

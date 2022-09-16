@@ -59,6 +59,10 @@ func (api *Api) Project(w http.ResponseWriter, r *http.Request) {
 		if id != "" {
 			project, err := api.db.GetProject(id)
 			if err != nil {
+				if errors.Is(err, db.ErrNotFound) {
+					klog.Warningln("project not found:", id)
+					return
+				}
 				klog.Errorln("failed to get project:", err)
 				http.Error(w, "", http.StatusInternalServerError)
 				return
@@ -124,8 +128,14 @@ func (api *Api) Project(w http.ResponseWriter, r *http.Request) {
 }
 
 func (api *Api) Status(w http.ResponseWriter, r *http.Request) {
-	project, err := api.getProject(r)
+	projectId := db.ProjectId(mux.Vars(r)["project"])
+	project, err := api.db.GetProject(projectId)
 	if err != nil {
+		if errors.Is(err, db.ErrNotFound) {
+			klog.Warningln("project not found:", projectId)
+			utils.WriteJson(w, views.Status(nil, nil, nil))
+			return
+		}
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
 		return
@@ -190,7 +200,7 @@ func (api *Api) App(w http.ResponseWriter, r *http.Request) {
 	}
 	app := world.GetApplication(id)
 	if app == nil {
-		klog.Warningf("application not found: %s ", id)
+		klog.Warningln("application not found:", id)
 		http.Error(w, "Application not found", http.StatusNotFound)
 		return
 	}
@@ -215,11 +225,6 @@ func (api *Api) Node(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	utils.WriteJson(w, views.Node(world, node))
-}
-
-func (api *Api) getProject(r *http.Request) (*db.Project, error) {
-	projectId := db.ProjectId(mux.Vars(r)["project"])
-	return api.db.GetProject(projectId)
 }
 
 func (api *Api) loadWorld(ctx context.Context, project *db.Project, from, to timeseries.Time) (*model.World, error) {
@@ -249,12 +254,17 @@ func (api *Api) loadWorld(ctx context.Context, project *db.Project, from, to tim
 }
 
 func (api *Api) loadWorldByRequest(r *http.Request) (*model.World, error) {
+	projectId := db.ProjectId(mux.Vars(r)["project"])
 	now := timeseries.Now()
 	q := r.URL.Query()
 	from := utils.ParseTimeFromUrl(now, q, "from", now.Add(-timeseries.Hour))
 	to := utils.ParseTimeFromUrl(now, q, "to", now)
-	project, err := api.getProject(r)
+	project, err := api.db.GetProject(projectId)
 	if err != nil {
+		if errors.Is(err, db.ErrNotFound) {
+			klog.Warningln("project not found:", projectId)
+			return nil, nil
+		}
 		return nil, err
 	}
 	return api.loadWorld(r.Context(), project, from, to)

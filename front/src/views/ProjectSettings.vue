@@ -88,6 +88,9 @@ export default {
                     return;
                 }
                 this.form = data;
+                if (!this.form) {
+                    return;
+                }
                 if (!this.form.prometheus.basic_auth) {
                     this.form.prometheus.basic_auth = {user: '', password: ''};
                     this.basic_auth = false;

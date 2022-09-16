@@ -1,5 +1,5 @@
 <template>
-    <div>
+    <div v-if="project">
         <div class="d-block d-md-flex align-center">
             <div class="flex-grow-1">
                 <div><b>Delete this project</b></div>
@@ -10,8 +10,8 @@
             </div>
         </div>
         <v-dialog v-model="dialog" max-width="600">
-            <v-card v-if="!project" class="pa-10">
-                <v-progress-linear v-if="!project" indeterminate />
+            <v-card v-if="loading" class="pa-10">
+                <v-progress-linear indeterminate />
             </v-card>
             <v-card v-else class="pa-4">
                 <div class="d-flex align-center font-weight-bold mb-4">
@@ -48,9 +48,14 @@ export default {
         return {
             project: null,
             dialog: false,
+            loading: false,
             confirmation: '',
             error: '',
         };
+    },
+
+    mounted() {
+        this.get();
     },
 
     watch: {
@@ -64,7 +69,9 @@ export default {
     methods: {
         get() {
             this.error = '';
+            this.loading = true;
             this.$api.getProject(this.projectId, (data, error) => {
+                this.loading = false;
                 if (error) {
                     this.error = error;
                     return;

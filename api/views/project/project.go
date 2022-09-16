@@ -27,6 +27,7 @@ type KubeStateMetrics struct {
 }
 
 type Status struct {
+	Error            string            `json:"error"`
 	Prometheus       Prometheus        `json:"prometheus"`
 	NodeAgent        NodeAgent         `json:"node_agent"`
 	KubeStateMetrics *KubeStateMetrics `json:"kube_state_metrics"`
@@ -34,6 +35,11 @@ type Status struct {
 
 func RenderStatus(p *db.Project, cacheStatus *cache.Status, w *model.World) *Status {
 	res := &Status{}
+
+	if p == nil {
+		res.Error = "Project not found"
+		return res
+	}
 
 	if cacheStatus.Error != "" {
 		res.Prometheus.Error = cacheStatus.Error

@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 	"github.com/lib/pq"
@@ -89,6 +90,9 @@ func (db *DB) GetProject(id ProjectId) (*Project, error) {
 	p := Project{Id: id}
 	var prometheus string
 	if err := db.db.QueryRow("SELECT name, prometheus FROM project WHERE id = $1", id).Scan(&p.Name, &prometheus); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrNotFound
+		}
 		return nil, err
 	}
 	if err := json.Unmarshal([]byte(prometheus), &p.Prometheus); err != nil {

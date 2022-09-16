@@ -11,13 +11,16 @@
                     <template #activator="{ on, attrs }">
                         <v-btn v-on="on" plain outlined class="ml-3 px-2" height="40">
                             <v-icon small class="mr-2">mdi-hexagon-multiple</v-icon>
-                            <span v-if="$vuetify.breakpoint.mdAndUp" class="project-name">
-                                <template v-if="project">{{project.name}}</template>
-                                <template v-else>new project</template>
-                            </span>
-                            <v-icon v-if="$vuetify.breakpoint.mdAndUp" small class="ml-2">
-                                mdi-chevron-{{attrs['aria-expanded'] === 'true' ? 'up' : 'down'}}
-                            </v-icon>
+                            <template v-if="$vuetify.breakpoint.smAndUp">
+                                <span class="project-name">
+                                    <template v-if="project">{{project.name}}</template>
+                                    <template v-else-if="$route.params.projectId">choose a project</template>
+                                    <template v-else>new project</template>
+                                </span>
+                                <v-icon small class="ml-2">
+                                    mdi-chevron-{{attrs['aria-expanded'] === 'true' ? 'up' : 'down'}}
+                                </v-icon>
+                            </template>
                         </v-btn>
                     </template>
                     <v-list dense color="#080d1b">
@@ -37,7 +40,7 @@
 
             <v-spacer />
 
-            <div v-if="$vuetify.breakpoint.mdAndUp" class="ml-3">
+            <div v-if="$vuetify.breakpoint.smAndUp" class="ml-3">
                 <v-menu dark offset-y tile>
                     <template #activator="{ on }">
                         <v-btn v-on="on" plain outlined height="40" class="px-2">
@@ -50,12 +53,12 @@
                     </v-list>
                 </v-menu>
             </div>
-            <div v-if="$route.params.projectId && $route.name !== 'project_settings'" class="ml-3">
+            <div v-if="project && $route.name !== 'project_settings'" class="ml-3">
                 <TimePicker :small="$vuetify.breakpoint.xsOnly"/>
             </div>
 
-            <div v-if="$route.params.projectId" class="ml-3">
-                <v-btn :to="{name: 'project_settings', params: {projectId: $route.params.projectId}}" plain outlined height="40" class="px-2">
+            <div v-if="project" class="ml-3">
+                <v-btn :to="{name: 'project_settings'}" plain outlined height="40" class="px-2">
                     <v-icon>mdi-cog</v-icon>
                     <Led v-if="status" :status="status.ok ? 'ok' : 'warning'" style="position: absolute; bottom: 0; right: 0;" />
                 </v-btn>
@@ -67,7 +70,10 @@
         <v-container style="padding-bottom: 128px">
             <v-alert v-if="status && !status.ok && $route.name !== 'project_settings'" color="red" elevation="2" border="left" class="mt-4" colored-border>
                 <div class="d-sm-flex align-center">
-                    <template v-if="status.prometheus.status !== 'ok'">
+                    <template v-if="status.error">
+                        {{status.error}}
+                    </template>
+                    <template v-else-if="status.prometheus.status !== 'ok'">
                         <template v-if="status.prometheus.error">
                             <div class="flex-grow-1 mb-3 mb-sm-0">An error has been occurred while querying Prometheus</div>
                             <v-btn outlined :to="{name: 'project_settings'}">Review the configuration</v-btn>
@@ -112,8 +118,6 @@ export default {
         return {
             projects: [],
             status: null,
-            loading: false,
-            error: '',
         }
     },
 
@@ -149,11 +153,8 @@ export default {
 
     methods: {
         getProjects() {
-            this.loading = true;
             this.$api.getProjects((data, error) => {
-                this.loading = false;
                 if (error) {
-                    this.error = error;
                     return;
                 }
                 this.projects = data || [];
@@ -181,6 +182,9 @@ export default {
                     return;
                 }
                 this.status = data;
+                if (this.status.error) {
+                    return;
+                }
                 this.status.ok = true;
                 for (const i in data) {
                     const s = data[i];
@@ -211,7 +215,7 @@ export default {
     border-color: rgba(255,255,255,1);
 }
 .project-name {
-    max-width: 10ch;
+    max-width: 15ch;
     overflow: hidden;
     text-overflow: ellipsis;
 }
