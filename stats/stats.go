@@ -195,7 +195,7 @@ func (c *Collector) collect() Stats {
 
 		stats.Infra.Nodes += len(w.Nodes)
 		for _, n := range w.Nodes {
-			clouds.Add(n.CloudProvider.Value())
+			clouds.Add(strings.ToLower(n.CloudProvider.Value()))
 		}
 
 		for _, a := range w.Applications {
