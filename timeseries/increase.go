@@ -6,6 +6,9 @@ import (
 )
 
 func Increase(x, status TimeSeries) TimeSeries {
+	if x == nil || x.IsEmpty() || status == nil || status.IsEmpty() {
+		return nil
+	}
 	return &IncreaseTimeseries{input: x, status: status}
 }
 
@@ -45,10 +48,6 @@ type IncreaseTimeseries struct {
 	status TimeSeries
 }
 
-func (ts *IncreaseTimeseries) Range() Context {
-	return ts.input.Range()
-}
-
 func (ts *IncreaseTimeseries) Len() int {
 	return ts.input.Len()
 }
@@ -72,14 +71,7 @@ func (ts *IncreaseTimeseries) String() string {
 }
 
 func (ts *IncreaseTimeseries) Iter() Iterator {
-	var statusIter Iterator
-	if ts.status != nil {
-		statusIter = ts.status.Iter()
-	} else {
-		ctx := ts.Range()
-		statusIter = &NanIterator{startTs: ctx.From, endTs: ctx.To, step: ctx.Step}
-	}
-	return &increaseIterator{input: ts.input.Iter(), status: statusIter, prev: NaN}
+	return &increaseIterator{input: ts.input.Iter(), status: ts.status.Iter(), prev: NaN}
 }
 
 func (ts *IncreaseTimeseries) MarshalJSON() ([]byte, error) {

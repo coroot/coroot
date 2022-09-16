@@ -3,6 +3,7 @@ package cache
 import (
 	"context"
 	"fmt"
+	"github.com/coroot/coroot/cache/chunk"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/prom"
@@ -42,17 +43,12 @@ func (c *Client) QueryRange(ctx context.Context, query string, from, to timeseri
 	start := from
 	end := to
 	res := map[uint64]model.MetricValues{}
-
-	for _, chunkInfo := range qData.chunksOnDisk {
-		if chunkInfo.startTs > end || chunkInfo.lastTs < start {
+	resPoints := int(to.Sub(from)/step + 1)
+	for _, ch := range qData.chunksOnDisk {
+		if ch.From > end || ch.From.Add(timeseries.Duration(ch.PointsCount-1)*ch.Step) < start {
 			continue
 		}
-		chunk, err := OpenChunk(chunkInfo)
-		if err != nil {
-			return nil, err
-		}
-		err = chunk.ReadMetrics(from, to, step, res)
-		chunk.Close()
+		err := chunk.Read(ch.Path, from, resPoints, step, res)
 		if err != nil {
 			return nil, err
 		}

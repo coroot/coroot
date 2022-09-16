@@ -142,21 +142,23 @@ func pgReplicationLagCell(primaryLsn, lag timeseries.TimeSeries, role model.Clus
 	}
 
 	tCurr, vCurr := timeseries.LastNotNull(primaryLsn)
-	tPast, vPast := timeseries.Time(0), math.NaN()
+	t, tPast, vPast := timeseries.Time(0), timeseries.Time(0), math.NaN()
 	iter := primaryLsn.Iter()
+
 	for iter.Next() {
-		tPast, vPast = iter.Value()
+		t, vPast = iter.Value()
 		if vPast > vCurr { // wraparound (e.g., complete cluster redeploy)
 			continue
 		}
 		if vPast > vCurr-last {
 			break
 		}
+		tPast = t
 	}
 
 	lagTime := tCurr.Sub(tPast)
 	greaterThanWorldWindow := ""
-	if tPast == primaryLsn.Range().From {
+	if tPast.IsZero() {
 		greaterThanWorldWindow = ">"
 	}
 	res.Value, res.Unit = utils.FormatBytes(last)

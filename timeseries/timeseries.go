@@ -13,8 +13,6 @@ type TimeSeries interface {
 	Len() int
 	Iter() Iterator
 
-	Range() Context
-
 	MarshalJSON() ([]byte, error)
 
 	IsEmpty() bool
@@ -48,11 +46,11 @@ func Map(f func(v float64) float64, x TimeSeries) TimeSeries {
 	)
 }
 
-func Replace(x TimeSeries, newValue float64) TimeSeries {
-	return Map(func(v float64) float64 {
-		return newValue
-	}, x)
-}
+//func Replace(x TimeSeries, newValue float64) TimeSeries {
+//	return Map(func(v float64) float64 {
+//		return newValue
+//	}, x)
+//}
 
 func LastNotNull(ts TimeSeries) (Time, float64) {
 	if ts == nil {
@@ -74,7 +72,6 @@ func LastNotNull(ts TimeSeries) (Time, float64) {
 func MarshalJSON(ts TimeSeries) ([]byte, error) {
 	vs := make([]Value, 0, ts.Len())
 	iter := ts.Iter()
-	ctx := ts.Range()
 	for iter.Next() {
 		_, v := iter.Value()
 		vs = append(vs, Value(v))
@@ -82,13 +79,6 @@ func MarshalJSON(ts TimeSeries) ([]byte, error) {
 	if len(vs) == 0 {
 		return json.Marshal(nil)
 	}
-
-	d, err := json.Marshal(struct {
-		Context
-		Values []Value `json:"values"`
-	}{
-		Context: ctx,
-		Values:  vs,
-	})
+	d, err := json.Marshal(vs)
 	return d, err
 }

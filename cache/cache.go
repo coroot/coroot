@@ -4,6 +4,7 @@ import (
 	"crypto/md5"
 	"database/sql"
 	"fmt"
+	"github.com/coroot/coroot/cache/chunk"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
@@ -35,12 +36,12 @@ type Cache struct {
 }
 
 type queryData struct {
-	chunksOnDisk map[string]*ChunkMeta
+	chunksOnDisk map[string]*chunk.Meta
 }
 
 func newQueryData() *queryData {
 	return &queryData{
-		chunksOnDisk: map[string]*ChunkMeta{},
+		chunksOnDisk: map[string]*chunk.Meta{},
 	}
 }
 
@@ -76,6 +77,8 @@ func NewCache(cfg Config, database *db.DB) (*Cache, error) {
 		return nil, err
 	}
 
+	//return nil, fmt.Errorf("swww")
+
 	prometheus.MustRegister(cache.pendingCompactions)
 	prometheus.MustRegister(cache.compactedChunks)
 
@@ -108,7 +111,12 @@ func (c *Cache) initCacheIndexFromDir() error {
 			if !strings.HasSuffix(chunkFile.Name(), ".db") {
 				continue
 			}
-			queryId, chunkMeta, err := readChunkMeta(projectDir, chunkFile.Name())
+			parts := strings.Split(chunkFile.Name(), "-")
+			if len(parts) != 5 {
+				continue
+			}
+			queryId := parts[1]
+			meta, err := chunk.ReadMeta(path.Join(projectDir, chunkFile.Name()))
 			if err != nil {
 				klog.Errorln(err)
 				continue
@@ -118,7 +126,7 @@ func (c *Cache) initCacheIndexFromDir() error {
 				byQuery = newQueryData()
 				byProject[queryId] = byQuery
 			}
-			byQuery.chunksOnDisk[chunkMeta.path] = chunkMeta
+			byQuery.chunksOnDisk[meta.Path] = meta
 		}
 	}
 	klog.Infof("cache loaded from disk in %s", time.Since(t))

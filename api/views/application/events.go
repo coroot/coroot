@@ -81,12 +81,11 @@ func calcRollouts(app *model.Application) []*Event {
 				return 0
 			}, rs))
 		}
-		ctx := activeRss.Range()
 		iter := activeRss.Iter()
-		t := ctx.From
+
 		for iter.Next() {
+			t, v := iter.Value()
 			lastTs = t
-			_, v := iter.Value()
 			if v > 1 {
 				if currentRollout == nil {
 					currentRollout = &Event{Start: t, Type: EventTypeRollout}
@@ -98,7 +97,6 @@ func calcRollouts(app *model.Application) []*Event {
 					currentRollout = nil
 				}
 			}
-			t = t.Add(ctx.Step)
 		}
 	}
 	if currentRollout != nil {

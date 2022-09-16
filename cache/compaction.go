@@ -1,8 +1,8 @@
 package cache
 
 import (
-	"bytes"
 	"fmt"
+	"github.com/coroot/coroot/cache/chunk"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
@@ -18,14 +18,14 @@ type CompactionTask struct {
 	projectID db.ProjectId
 	queryHash string
 	dstChunk  timeseries.Time
-	src       []*ChunkMeta
+	src       []*chunk.Meta
 	compactor Compactor
 }
 
 func (ct CompactionTask) String() string {
 	src := make([]string, 0, len(ct.src))
 	for _, s := range ct.src {
-		src = append(src, strconv.Itoa(int(s.startTs)))
+		src = append(src, strconv.Itoa(int(s.From)))
 	}
 	return fmt.Sprintf(
 		"compaction task %s [%s]:%d -> %d:%d",
@@ -33,17 +33,17 @@ func (ct CompactionTask) String() string {
 	)
 }
 
-func calcCompactionTasks(compactor Compactor, projectID db.ProjectId, queryHash string, chunks map[string]*ChunkMeta) []*CompactionTask {
+func calcCompactionTasks(compactor Compactor, projectID db.ProjectId, queryHash string, chunks map[string]*chunk.Meta) []*CompactionTask {
 	tasks := map[timeseries.Time]*CompactionTask{}
 	jitter := chunkJitter(projectID, queryHash)
-	for _, chunk := range chunks {
-		if chunk.duration != compactor.SrcChunkDuration {
+	for _, ch := range chunks {
+		if timeseries.Duration(ch.PointsCount)*ch.Step != compactor.SrcChunkDuration {
 			continue
 		}
-		if chunk.lastTs != chunk.startTs.Add(chunk.duration-chunk.step) { //incomplete
+		if !ch.Finalized {
 			continue
 		}
-		dstChunkTs := chunk.startTs.Add(-jitter).Truncate(compactor.DstChunkDuration).Add(jitter)
+		dstChunkTs := ch.From.Add(-jitter).Truncate(compactor.DstChunkDuration).Add(jitter)
 		task := tasks[dstChunkTs]
 		if task == nil {
 			task = &CompactionTask{
@@ -54,7 +54,7 @@ func calcCompactionTasks(compactor Compactor, projectID db.ProjectId, queryHash 
 			}
 			tasks[dstChunkTs] = task
 		}
-		task.src = append(task.src, chunk)
+		task.src = append(task.src, ch)
 	}
 	res := make([]*CompactionTask, 0, len(tasks))
 	for _, task := range tasks {
@@ -79,9 +79,8 @@ func (c *Cache) compaction() {
 	for i := 0; i < cfg.WorkersNum; i++ {
 		go func(ch <-chan CompactionTask) {
 			klog.Infoln("compaction worker started")
-			buf := &bytes.Buffer{}
 			for t := range ch {
-				if err := c.compact(t, buf); err != nil {
+				if err := c.compact(t); err != nil {
 					klog.Errorln(err)
 					continue
 				}
@@ -109,45 +108,32 @@ func (c *Cache) compaction() {
 	}
 }
 
-func (c *Cache) compact(t CompactionTask, buf *bytes.Buffer) error {
+func (c *Cache) compact(t CompactionTask) error {
 	if len(t.src) == 0 {
 		return fmt.Errorf("no src chunks")
 	}
 	start := time.Now()
 	metrics := map[uint64]model.MetricValues{}
 	sort.Slice(t.src, func(i, j int) bool {
-		return t.src[i].startTs < t.src[j].startTs
+		return t.src[i].From < t.src[j].From
 	})
-	dstStep := t.src[0].step
-	dst := NewChunk(
-		t.dstChunk,
-		t.dstChunk.Add(t.compactor.DstChunkDuration-dstStep),
-		t.compactor.DstChunkDuration,
-		dstStep,
-		buf,
-	)
+	step := t.src[0].Step
+	pointsCount := int(t.compactor.DstChunkDuration / step)
 	for _, i := range t.src {
-		src, err := OpenChunk(i)
-		if err != nil {
-			return fmt.Errorf("failed to open chunk for compaction: %s", err)
-		}
-		err = src.ReadMetrics(dst.from, dst.to, dst.step, metrics)
-		src.Close()
-		if err != nil {
-			return fmt.Errorf("failed to read metrics from src chunk for compaction: %s", err)
+		if err := chunk.Read(i.Path, t.dstChunk, pointsCount, step, metrics); err != nil {
+			return fmt.Errorf("failed to read metrics from src chunk while compaction: %s", err)
 		}
 	}
 
+	dst := make([]model.MetricValues, 0, len(metrics))
 	for _, m := range metrics {
-		if err := dst.WriteMetric(m); err != nil {
-			return err
-		}
+		dst = append(dst, m)
 	}
 
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	if err := c.saveChunk(t.projectID, t.queryHash, dst); err != nil {
+	if err := c.writeChunk(t.projectID, t.queryHash, t.dstChunk, pointsCount, step, true, dst); err != nil {
 		return err
 	}
 	qData := c.byProject[t.projectID][t.queryHash]
@@ -155,11 +141,11 @@ func (c *Cache) compact(t CompactionTask, buf *bytes.Buffer) error {
 		klog.Errorf("query data not found: %s-%s", t.projectID, t.queryHash)
 	} else {
 		for _, src := range t.src {
-			klog.Infoln("deleting chunk after compaction:", src.path)
-			if err := os.Remove(src.path); err != nil {
-				klog.Errorf("failed to delete chunk %s: %s", src.path, err)
+			klog.Infoln("deleting chunk after compaction:", src.Path)
+			if err := os.Remove(src.Path); err != nil {
+				klog.Errorf("failed to delete chunk %s: %s", src.Path, err)
 			}
-			delete(qData.chunksOnDisk, src.path)
+			delete(qData.chunksOnDisk, src.Path)
 		}
 	}
 	c.compactedChunks.WithLabelValues(

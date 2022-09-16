@@ -41,7 +41,7 @@ func (c *Cache) gc() {
 			toDeleteInProject := map[string][]string{}
 			for queryHash, qData := range byQuery {
 				for path, chunk := range qData.chunksOnDisk {
-					if chunk.startTs.Add(chunk.duration) < minTs {
+					if chunk.From.Add(timeseries.Duration(chunk.PointsCount)*chunk.Step) < minTs {
 						toDeleteInProject[queryHash] = append(toDeleteInProject[queryHash], path)
 					}
 				}

@@ -29,7 +29,7 @@ type Compactor struct {
 }
 
 var DefaultCompactionConfig = CompactionConfig{
-	Interval:   time.Minute * 10,
+	Interval:   time.Second * 10,
 	WorkersNum: 1,
 	Compactors: []Compactor{
 		{SrcChunkDuration: 3600, DstChunkDuration: 4 * 3600},

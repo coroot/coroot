@@ -10,6 +10,7 @@ import (
 	"gopkg.in/alecthomas/kingpin.v2"
 	"k8s.io/klog"
 	"net/http"
+	_ "net/http/pprof"
 	"path"
 )
 
@@ -56,6 +57,7 @@ func main() {
 	api := api.NewApi(promCache, db, statsCollector)
 
 	r := mux.NewRouter()
+	r.PathPrefix("/debug/pprof/").Handler(http.DefaultServeMux)
 	r.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {}).Methods(http.MethodGet)
 
 	r.HandleFunc("/api/projects", api.Projects).Methods(http.MethodGet)

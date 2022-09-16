@@ -126,7 +126,6 @@ export default {
 
             c.series.forEach((s, i) => {
                 s.stacked = s.stacked !== undefined ? s.stacked : c.stacked;
-                s.data = s.data.values;
                 if (colors[s.color] && colors[s.color].length > 1) {
                     const c = palette.get(s.color, 0);
                     const hsl = convert.hex.hsl(c);

@@ -66,15 +66,6 @@ func (ts *AggregatedTimeseries) IsEmpty() bool {
 	return len(ts.input) == 0
 }
 
-func (ts *AggregatedTimeseries) Range() Context {
-	for _, i := range ts.input {
-		if i != nil && !i.IsEmpty() {
-			return i.Range()
-		}
-	}
-	return Context{}
-}
-
 func (ts *AggregatedTimeseries) String() string {
 	values := make([]string, 0)
 	iter := ts.Iter()

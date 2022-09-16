@@ -55,7 +55,7 @@ func (c *ApiClient) QueryRange(ctx context.Context, query string, from, to times
 	query = strings.ReplaceAll(query, "$RANGE", fmt.Sprintf(`%.0fs`, (step*3).ToStandard().Seconds()))
 	from = from.Truncate(step)
 	to = to.Truncate(step)
-	value, _, err := c.api.QueryRange(ctx, query, v1.Range{Start: from.ToStandard(), End: to.Add(step).ToStandard(), Step: step.ToStandard()})
+	value, _, err := c.api.QueryRange(ctx, query, v1.Range{Start: from.ToStandard(), End: to.ToStandard(), Step: step.ToStandard()})
 	if err != nil {
 		return nil, err
 	}
@@ -70,8 +70,7 @@ func (c *ApiClient) QueryRange(ctx context.Context, query string, from, to times
 
 	res := make([]model.MetricValues, 0, matrix.Len())
 	for _, m := range matrix {
-		values := timeseries.NewNan(timeseries.Context{From: from, To: to, Step: step})
-
+		values := timeseries.New(from, int(to.Sub(from)/step)+1, step)
 		mv := model.MetricValues{
 			Labels:     make(map[string]string, len(m.Metric)),
 			LabelsHash: uint64(m.Metric.Fingerprint()),

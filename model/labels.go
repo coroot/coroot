@@ -9,5 +9,5 @@ type Labels map[string]string
 type MetricValues struct {
 	Labels     Labels
 	LabelsHash uint64
-	Values     timeseries.TimeSeries
+	Values     *timeseries.InMemoryTimeSeries
 }

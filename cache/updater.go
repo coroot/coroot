@@ -1,15 +1,15 @@
 package cache
 
 import (
-	"bytes"
 	"context"
 	"fmt"
+	"github.com/coroot/coroot/cache/chunk"
 	"github.com/coroot/coroot/constructor"
 	"github.com/coroot/coroot/db"
+	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/prom"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
-	"github.com/natefinch/atomic"
 	promModel "github.com/prometheus/common/model"
 	"k8s.io/klog"
 	"path"
@@ -18,9 +18,8 @@ import (
 )
 
 const (
-	ChunkVersion     uint8 = 2
-	QueryConcurrency       = 10
-	BackFillInterval       = 2 * timeseries.Hour
+	QueryConcurrency = 10
+	BackFillInterval = 4 * timeseries.Hour
 )
 
 func (c *Cache) updater() {
@@ -116,10 +115,11 @@ func (c *Cache) updaterWorker(projects *sync.Map, projectId db.ProjectId) {
 }
 
 func (c *Cache) download(ctx context.Context, promClient prom.Client, project *db.Project, state *PrometheusQueryState) {
-	buf := &bytes.Buffer{}
 	queryHash, jitter := QueryId(project.Id, state.Query)
 	refreshInterval := project.Prometheus.RefreshInterval
 	now := timeseries.Now()
+	step := project.Prometheus.RefreshInterval
+	pointsCount := int(chunkSize / step)
 
 	for _, i := range calcIntervals(state.LastTs, refreshInterval, now.Add(-refreshInterval), jitter) {
 		promCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
@@ -132,17 +132,14 @@ func (c *Cache) download(ctx context.Context, promClient prom.Client, project *d
 			}
 			return
 		}
-
-		chunk := NewChunk(i.chunkTs, i.toTs, i.chunkDuration, project.Prometheus.RefreshInterval, buf)
 		for _, v := range vs {
 			delete(v.Labels, promModel.MetricNameLabel)
-			if err = chunk.WriteMetric(v); err != nil {
-				klog.Errorln("failed to write metric to chunk:", err)
-				return
-			}
 		}
 		c.lock.Lock()
-		err = c.saveChunk(project.Id, queryHash, chunk)
+		chunkEnd := i.chunkTs.Add(timeseries.Duration(pointsCount-1) * step)
+		finalized := chunkEnd == i.toTs
+
+		err = c.writeChunk(project.Id, queryHash, i.chunkTs, pointsCount, step, finalized, vs)
 		c.lock.Unlock()
 		if err != nil {
 			klog.Errorln("failed to save chunk:", err)
@@ -161,7 +158,7 @@ func (c *Cache) download(ctx context.Context, promClient prom.Client, project *d
 	}
 }
 
-func (c *Cache) saveChunk(projectID db.ProjectId, queryHash string, chunk *Chunk) error {
+func (c *Cache) writeChunk(projectID db.ProjectId, queryHash string, from timeseries.Time, pointsCount int, step timeseries.Duration, finalized bool, metrics []model.MetricValues) error {
 	byProject, ok := c.byProject[projectID]
 	projectDir := path.Join(c.cfg.Path, string(projectID))
 	if !ok {
@@ -178,18 +175,16 @@ func (c *Cache) saveChunk(projectID db.ProjectId, queryHash string, chunk *Chunk
 	}
 	chunkFilePath := path.Join(projectDir, fmt.Sprintf(
 		"%s-%s-%d-%d-%d.db",
-		projectID, queryHash, chunk.from, chunk.duration, chunk.step))
-	if err := atomic.WriteFile(chunkFilePath, chunk.buf); err != nil {
-		return err
+		projectID, queryHash, from, pointsCount, step))
+	qData.chunksOnDisk[chunkFilePath] = &chunk.Meta{
+		Path:        chunkFilePath,
+		From:        from,
+		PointsCount: uint32(pointsCount),
+		Step:        step,
+		Finalized:   finalized,
 	}
-	qData.chunksOnDisk[chunkFilePath] = &ChunkMeta{
-		path:     chunkFilePath,
-		startTs:  chunk.from,
-		duration: chunk.duration,
-		step:     chunk.step,
-		lastTs:   chunk.to,
-	}
-	return nil
+
+	return chunk.Write(chunkFilePath, from, pointsCount, step, finalized, metrics)
 }
 
 type interval struct {

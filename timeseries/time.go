@@ -58,7 +58,7 @@ func (t Time) IsZero() bool {
 }
 
 func (t Time) Truncate(d Duration) Time {
-	return t / Time(d) * Time(d)
+	return t - t%Time(d)
 }
 
 func (t Time) Sub(other Time) Duration {
