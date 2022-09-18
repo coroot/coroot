@@ -7,6 +7,7 @@ import (
 	"github.com/coroot/coroot/cache"
 	"github.com/coroot/coroot/constructor"
 	"github.com/coroot/coroot/db"
+	"github.com/coroot/coroot/prom"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 	"github.com/google/uuid"
@@ -33,9 +34,10 @@ type Stats struct {
 		DatabaseType string `json:"database_type"`
 	} `json:"instance"`
 	Integration struct {
-		Prometheus       bool  `json:"prometheus"`
-		NodeAgent        bool  `json:"node_agent"`
-		KubeStateMetrics *bool `json:"kube_state_metrics"`
+		Prometheus                bool  `json:"prometheus"`
+		PrometheusRefreshInterval int   `json:"prometheus_refresh_interval"`
+		NodeAgent                 bool  `json:"node_agent"`
+		KubeStateMetrics          *bool `json:"kube_state_metrics"`
 	} `json:"integration"`
 	Stack struct {
 		Clouds               []string `json:"clouds"`
@@ -50,8 +52,11 @@ type Stats struct {
 	} `json:"infra"`
 	UX struct {
 		UsersByScreenSize map[string]int `json:"users_by_screen_size"`
-		WorldLoadTimeAvg  float64        `json:"world_load_time_avg"`
+		WorldLoadTimeAvg  float32        `json:"world_load_time_avg"`
 	} `json:"ux"`
+	Performance struct {
+		Constructor constructor.Profile `json:"constructor"`
+	} `json:"performance"`
 }
 
 type Collector struct {
@@ -163,6 +168,8 @@ func (c *Collector) collect() Stats {
 	clouds := utils.NewStringSet()
 	services := utils.NewStringSet()
 	servicesInstrumented := utils.NewStringSet()
+	stats.Performance.Constructor.Stages = map[string]float32{}
+	stats.Performance.Constructor.Queries = map[string]prom.QueryStats{}
 	var loadTime []time.Duration
 	now := timeseries.Now()
 	for _, p := range projects {
@@ -176,9 +183,12 @@ func (c *Collector) collect() Stats {
 			continue
 		}
 		stats.Integration.Prometheus = true
+		if stats.Integration.PrometheusRefreshInterval == 0 || int(p.Prometheus.RefreshInterval) < stats.Integration.PrometheusRefreshInterval {
+			stats.Integration.PrometheusRefreshInterval = int(p.Prometheus.RefreshInterval)
+		}
 
 		t := time.Now()
-		w, err := constructor.New(cc).LoadWorld(context.Background(), cacheTo.Add(-worldWindow), cacheTo, p.Prometheus.RefreshInterval)
+		w, err := constructor.New(cc).LoadWorld(context.Background(), cacheTo.Add(-worldWindow), cacheTo, p.Prometheus.RefreshInterval, &stats.Performance.Constructor)
 		if err != nil {
 			klog.Errorln("failed to load world:", err)
 			continue
@@ -221,7 +231,7 @@ func (c *Collector) collect() Stats {
 		for _, t := range loadTime {
 			total += t
 		}
-		stats.UX.WorldLoadTimeAvg = total.Seconds() / float64(len(loadTime))
+		stats.UX.WorldLoadTimeAvg = float32(total.Seconds() / float64(len(loadTime)))
 	}
 
 	return stats

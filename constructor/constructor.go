@@ -19,22 +19,48 @@ func New(prom prom.Client) *Constructor {
 	return &Constructor{prom: prom}
 }
 
-func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, step timeseries.Duration) (*model.World, error) {
+type Profile struct {
+	Stages  map[string]float32         `json:"stages"`
+	Queries map[string]prom.QueryStats `json:"queries"`
+}
+
+func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, step timeseries.Duration, prof *Profile) (*model.World, error) {
 	w := model.NewWorld(from, to, step)
 
+	if prof == nil {
+		prof = &Profile{}
+	}
+
 	t := time.Now()
-	metrics, err := prom.ParallelQueryRange(ctx, c.prom, from, to, step, QUERIES)
+	stage := func(stage string, f func()) {
+		f()
+		if prof.Stages != nil {
+			now := time.Now()
+			duration := float32(now.Sub(t).Seconds())
+			if duration > prof.Stages[stage] {
+				prof.Stages[stage] = duration
+			}
+			t = now
+		}
+	}
+
+	var metrics map[string][]model.MetricValues
+	var err error
+	stage("query", func() {
+		metrics, err = prom.ParallelQueryRange(ctx, c.prom, from, to, step, QUERIES, prof.Queries)
+	})
 	if err != nil {
 		return nil, err
 	}
 	klog.Infof("got metrics in %s", time.Since(t))
 
-	loadNodes(w, metrics)
-	loadKubernetesMetadata(w, metrics)
-	loadRds(w, metrics)
-	loadContainers(w, metrics)
-	enrichInstances(w, metrics)
-	joinDBClusterComponents(w)
+	stage("load_nodes", func() { loadNodes(w, metrics) })
+	stage("load_k8s_metadata", func() { loadKubernetesMetadata(w, metrics) })
+	stage("load_rds", func() { loadRds(w, metrics) })
+	stage("load_containers", func() { loadContainers(w, metrics) })
+	stage("enrich_instances", func() { enrichInstances(w, metrics) })
+	stage("join_db_cluster", func() { joinDBClusterComponents(w) })
+
 	klog.Infof("got %d nodes, %d services, %d applications", len(w.Nodes), len(w.Services), len(w.Applications))
 	return w, nil
 }
