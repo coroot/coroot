@@ -3,6 +3,7 @@ module github.com/coroot/coroot
 go 1.18
 
 require (
+	github.com/buger/jsonparser v1.1.1
 	github.com/coroot/logpattern v1.0.0
 	github.com/dustin/go-humanize v1.0.0
 	github.com/google/uuid v1.3.0

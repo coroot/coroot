@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/json"
+	"github.com/buger/jsonparser"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	pool "github.com/libp2p/go-buffer-pool"
@@ -193,7 +194,12 @@ func Read(path string, from timeseries.Time, pointsCount int, step timeseries.Du
 				defer pool.Put(meta)
 			}
 			offset := int(m.MetaOffset)
-			if err := json.Unmarshal(meta[offset:offset+int(m.MetaSize)], &mv.Labels); err != nil {
+			mv.Labels = model.Labels{}
+			err := jsonparser.ObjectEach(meta[offset:offset+int(m.MetaSize)], func(key []byte, value []byte, dataType jsonparser.ValueType, offset int) error {
+				mv.Labels[string(key)] = string(value)
+				return nil
+			})
+			if err != nil {
 				return err
 			}
 			mv.Values = timeseries.New(from, pointsCount, step)
