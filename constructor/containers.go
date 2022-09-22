@@ -103,7 +103,9 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues) {
 				}
 				isActive := m.Values.Last() == 1
 				l := model.Listen{IP: ip, Port: port, Proxied: m.Labels["proxy"] != ""}
-				instance.TcpListens[l] = isActive
+				if !instance.TcpListens[l] {
+					instance.TcpListens[l] = isActive
+				}
 			case "container_cpu_limit":
 				container.CpuLimit = update(container.CpuLimit, m.Values)
 			case "container_cpu_usage":
