@@ -141,10 +141,7 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues) {
 	instancesByListen := map[model.Listen]*model.Instance{}
 	for _, app := range w.Applications {
 		for _, instance := range app.Instances {
-			for l, active := range instance.TcpListens {
-				if !active {
-					continue
-				}
+			for l := range instance.TcpListens {
 				if ip := net.ParseIP(l.IP); ip.IsLoopback() {
 					if instance.Node != nil {
 						l.IP = instance.Node.Name.Value()
