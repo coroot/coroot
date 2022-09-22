@@ -3,6 +3,7 @@ package api
 import (
 	"errors"
 	"github.com/coroot/coroot/db"
+	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/utils"
 	"net/http"
 	"net/url"
@@ -42,5 +43,14 @@ func (f *ProjectForm) Valid() bool {
 	if _, err := url.Parse(f.Prometheus.Url); err != nil {
 		return false
 	}
+	return true
+}
+
+type ProjectStatusForm struct {
+	Mute   *model.ApplicationType `json:"mute"`
+	UnMute *model.ApplicationType `json:"unmute"`
+}
+
+func (f *ProjectStatusForm) Valid() bool {
 	return true
 }

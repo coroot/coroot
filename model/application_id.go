@@ -1,7 +1,6 @@
 package model
 
 import (
-	"encoding/json"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -53,6 +52,6 @@ func (a ApplicationId) String() string {
 	return fmt.Sprintf("%s:%s:%s", a.Namespace, a.Kind, a.Name)
 }
 
-func (a ApplicationId) MarshalJSON() ([]byte, error) {
-	return json.Marshal(a.String())
+func (a ApplicationId) MarshalText() ([]byte, error) {
+	return []byte(a.String()), nil
 }

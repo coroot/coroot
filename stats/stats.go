@@ -148,7 +148,7 @@ func (c *Collector) collect() Stats {
 
 	stats.Instance.Uuid = c.instanceUuid
 	stats.Instance.Version = c.instanceVersion
-	stats.Instance.DatabaseType = c.db.Type()
+	stats.Instance.DatabaseType = string(c.db.Type())
 
 	c.lock.Lock()
 	stats.UX.UsersByScreenSize = map[string]int{}

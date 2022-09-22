@@ -133,3 +133,26 @@ func (app *Application) IsStandalone() bool {
 	}
 	return true
 }
+
+func (app *Application) InstrumentationStatus() map[ApplicationType]bool {
+	res := map[ApplicationType]bool{}
+	for _, i := range app.Instances {
+		if i.Pod != nil && i.Pod.IsObsolete() {
+			continue
+		}
+		for t := range i.ApplicationTypes() {
+			var instanceInstrumented bool
+			switch t {
+			case ApplicationTypePostgres:
+				instanceInstrumented = i.Postgres != nil
+			case ApplicationTypeRedis:
+				instanceInstrumented = i.Redis != nil
+			default:
+				continue
+			}
+			appInstrumented, visited := res[t]
+			res[t] = (appInstrumented || !visited) && instanceInstrumented
+		}
+	}
+	return res
+}

@@ -77,8 +77,6 @@ func NewCache(cfg Config, database *db.DB) (*Cache, error) {
 		return nil, err
 	}
 
-	//return nil, fmt.Errorf("swww")
-
 	prometheus.MustRegister(cache.pendingCompactions)
 	prometheus.MustRegister(cache.compactedChunks)
 

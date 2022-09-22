@@ -18,8 +18,8 @@ type PrometheusQueryState struct {
 	LastError string
 }
 
-func (p *PrometheusQueryState) Migrate(db *sql.DB) error {
-	_, err := db.Exec(`
+func (p *PrometheusQueryState) Migrate(m *db.Migrator) error {
+	err := m.Exec(`
 	CREATE TABLE IF NOT EXISTS prometheus_query_state (
 		project_id TEXT NOT NULL,
 		query TEXT NOT NULL,
@@ -42,7 +42,7 @@ func openStateDB(path string) (*sql.DB, error) {
 		return nil, err
 	}
 	database.SetMaxOpenConns(1)
-	if err := db.Migrate(database, &PrometheusQueryState{}); err != nil {
+	if err := db.NewMigrator(db.TypeSqlite, database).Migrate(&PrometheusQueryState{}); err != nil {
 		return nil, err
 	}
 	return database, nil

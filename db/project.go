@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 	"github.com/lib/pq"
@@ -21,6 +22,7 @@ type Project struct {
 	Name string
 
 	Prometheus Prometheus
+	Settings   Settings
 }
 
 type Prometheus struct {
@@ -30,19 +32,29 @@ type Prometheus struct {
 	BasicAuth       *BasicAuth          `json:"basic_auth"`
 }
 
+type Settings struct {
+	ConfigurationHintsMuted map[model.ApplicationType]bool `json:"configuration_hints_muted"`
+}
+
 type BasicAuth struct {
 	User     string `json:"user"`
 	Password string `json:"password"`
 }
 
-func (p *Project) Migrate(db *sql.DB) error {
-	_, err := db.Exec(`
+func (p *Project) Migrate(m *Migrator) error {
+	err := m.Exec(`
 	CREATE TABLE IF NOT EXISTS project (
 		id TEXT NOT NULL PRIMARY KEY,
 		name TEXT NOT NULL UNIQUE,
 		prometheus TEXT
 	)`)
-	return err
+	if err != nil {
+		return err
+	}
+	if err := m.AddColumnIfNotExists("project", "settings", "text"); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (db *DB) GetProjects() ([]*Project, error) {
@@ -89,7 +101,8 @@ func (db *DB) GetProjectIds() (map[ProjectId]bool, error) {
 func (db *DB) GetProject(id ProjectId) (*Project, error) {
 	p := Project{Id: id}
 	var prometheus string
-	if err := db.db.QueryRow("SELECT name, prometheus FROM project WHERE id = $1", id).Scan(&p.Name, &prometheus); err != nil {
+	var settings sql.NullString
+	if err := db.db.QueryRow("SELECT name, prometheus, settings FROM project WHERE id = $1", id).Scan(&p.Name, &prometheus, &settings); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNotFound
 		}
@@ -100,6 +113,11 @@ func (db *DB) GetProject(id ProjectId) (*Project, error) {
 	}
 	if p.Prometheus.RefreshInterval == 0 {
 		p.Prometheus.RefreshInterval = DefaultRefreshInterval
+	}
+	if settings.Valid {
+		if err := json.Unmarshal([]byte(settings.String), &p.Settings); err != nil {
+			return nil, err
+		}
 	}
 	return &p, nil
 }
@@ -134,4 +152,25 @@ func (db *DB) DeleteProject(id ProjectId) error {
 		return err
 	}
 	return nil
+}
+
+func (db *DB) ToggleConfigurationHint(id ProjectId, appType model.ApplicationType, mute bool) error {
+	p, err := db.GetProject(id)
+	if err != nil {
+		return err
+	}
+	if mute {
+		if p.Settings.ConfigurationHintsMuted == nil {
+			p.Settings.ConfigurationHintsMuted = map[model.ApplicationType]bool{}
+		}
+		p.Settings.ConfigurationHintsMuted[appType] = true
+	} else {
+		delete(p.Settings.ConfigurationHintsMuted, appType)
+	}
+	settings, err := json.Marshal(p.Settings)
+	if err != nil {
+		return err
+	}
+	_, err = db.db.Exec("UPDATE project SET settings = $1 WHERE id = $2", settings, id)
+	return err
 }

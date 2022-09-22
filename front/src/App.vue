@@ -60,7 +60,7 @@
             <div v-if="project" class="ml-3">
                 <v-btn :to="{name: 'project_settings'}" plain outlined height="40" class="px-2">
                     <v-icon>mdi-cog</v-icon>
-                    <Led v-if="status" :status="status.ok ? 'ok' : 'warning'" style="position: absolute; bottom: 0; right: 0;" />
+                    <Led v-if="status" :status="status.status !== 'ok' ? 'warning' : 'ok'" style="position: absolute; bottom: 0; right: 0;" />
                 </v-btn>
             </div>
         </v-container>
@@ -68,7 +68,7 @@
 
     <v-main>
         <v-container style="padding-bottom: 128px">
-            <v-alert v-if="status && !status.ok && $route.name !== 'project_settings'" color="red" elevation="2" border="left" class="mt-4" colored-border>
+            <v-alert v-if="status && status.status === 'warning' && $route.name !== 'project_settings'" color="red" elevation="2" border="left" class="mt-4" colored-border>
                 <div class="d-sm-flex align-center">
                     <template v-if="status.error">
                         {{status.error}}
@@ -123,6 +123,7 @@ export default {
 
     created() {
         this.$events.watch(this, this.getProjects, 'project-saved', 'project-deleted');
+        this.$events.watch(this, this.getStatus, 'project-saved');
     },
 
     computed: {
@@ -182,17 +183,6 @@ export default {
                     return;
                 }
                 this.status = data;
-                if (this.status.error) {
-                    return;
-                }
-                this.status.ok = true;
-                for (const i in data) {
-                    const s = data[i];
-                    if (s && s.status && s.status !== 'ok') {
-                        this.status.ok = false;
-                        break;
-                    }
-                }
             });
         },
         lastProject(id) {

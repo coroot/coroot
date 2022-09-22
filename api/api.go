@@ -129,6 +129,30 @@ func (api *Api) Project(w http.ResponseWriter, r *http.Request) {
 
 func (api *Api) Status(w http.ResponseWriter, r *http.Request) {
 	projectId := db.ProjectId(mux.Vars(r)["project"])
+	if r.Method == http.MethodPost {
+		var form ProjectStatusForm
+		if err := ReadAndValidate(r, &form); err != nil {
+			klog.Warningln("bad request:", err)
+			http.Error(w, "", http.StatusBadRequest)
+			return
+		}
+		var appType model.ApplicationType
+		var mute bool
+		switch {
+		case form.Mute != nil:
+			mute = true
+			appType = *form.Mute
+		case form.UnMute != nil:
+			mute = false
+			appType = *form.UnMute
+		}
+		if err := api.db.ToggleConfigurationHint(projectId, appType, mute); err != nil {
+			klog.Errorln("failed to toggle:", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		return
+	}
 	project, err := api.db.GetProject(projectId)
 	if err != nil {
 		if errors.Is(err, db.ErrNotFound) {
