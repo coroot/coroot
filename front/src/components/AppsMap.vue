@@ -174,18 +174,17 @@ export default {
             });
 
             const depth = Math.max(...applications.map((a) => a.level));
-            const levels = Array.from({length: depth}, () => []);
+            const levels = Array.from({length: depth+1}, () => []);
             applications.forEach((a) => {
                 let l = a.level;
                 if (a.upstreams.length === 0 && a.downstreams.length === 0) {
-                    l = 0;
+                    l = depth;
                 } else if (a.downstreams.length === 0) {
-                    l = 1;
-                }else if (a.upstreams.length === 0) {
+                    l = 0;
+                } else if (a.upstreams.length === 0) {
                     l = depth;
                 }
-                l = a.upstreams.length === 0 ? depth : a.level;
-                levels[l-1].push(a);
+                levels[l].push(a);
             });
             this.levels = levels;
         },
