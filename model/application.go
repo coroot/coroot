@@ -87,6 +87,9 @@ func (app *Application) IsControlPlane() bool {
 		return true
 	}
 	for _, i := range app.Instances {
+		if i.ApplicationTypes()["k3s"] {
+			return true
+		}
 		if !i.ApplicationTypes()["etcd"] {
 			continue
 		}
