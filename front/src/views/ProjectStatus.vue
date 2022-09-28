@@ -11,7 +11,7 @@
                     {{status.prometheus.error}}
                 </span>
                 <span v-else-if="status.prometheus.status !== 'ok'">
-                    cache is {{$moment.duration(status.prometheus.lag, 'ms').format('h [hour] m [minute]', {trim: 'all'})}} behind
+                    cache is {{$moment.duration(status.prometheus.cache.lag_avg, 'ms').format('h [hour] m [minute]', {trim: 'all'})}} behind
                 </span>
                 <span v-else>ok</span>
             </div>
