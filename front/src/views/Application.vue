@@ -12,12 +12,12 @@
     <div v-if="app">
         <AppMap v-if="app.app_map" :map="app.app_map" class="my-5" />
 
-        <v-tabs v-if="app.dashboards && app.dashboards.length" height="40" show-arrows slider-size="2">
-            <v-tab v-for="d in app.dashboards" :key="d.name" :to="{params: {dashboard: d.name}, query: $route.query}">
-                {{d.name}}
+        <v-tabs v-if="app.reports && app.reports.length" height="40" show-arrows slider-size="2">
+            <v-tab v-for="r in app.reports" :key="r.name" :to="{params: {report: r.name}, query: $route.query}">
+                {{r.name}}
             </v-tab>
         </v-tabs>
-        <Dashboard v-if="dash" :name="dash.name" :widgets="dash.widgets" class="mt-3" />
+        <Dashboard v-if="r" :name="r.name" :widgets="r.widgets" class="mt-3" />
     </div>
     <NoData v-else-if="!loading" />
 </div>
@@ -31,7 +31,7 @@ import NoData from "@/components/NoData";
 export default {
     props: {
         id: String,
-        dashboard: String,
+        report: String,
     },
 
     components: {AppMap, Dashboard, NoData},
@@ -41,7 +41,7 @@ export default {
             app: null,
             loading: false,
             error: '',
-            dash: null,
+            r: null,
         }
     },
 
@@ -55,8 +55,8 @@ export default {
             this.app = null;
             this.get();
         },
-        dashboard() {
-            this.showDash();
+        report() {
+            this.showReport();
         },
     },
 
@@ -70,24 +70,24 @@ export default {
                     return;
                 }
                 this.app = data;
-                this.showDash();
+                this.showReport();
             });
         },
-        showDash() {
-            if (!this.app || !this.app.dashboards || !this.app.dashboards.length) {
-                this.dash = null;
+        showReport() {
+            if (!this.app || !this.app.reports || !this.app.reports.length) {
+                this.r = null;
                 return;
             }
-            if (!this.dashboard) {
-                this.dash = this.app.dashboards[0];
+            if (!this.report) {
+                this.r = this.app.reports[0];
                 return;
             }
-            const dash = this.app.dashboards.find((d) => d.name === this.dashboard);
-            if (!dash) {
-                this.$router.replace({params: {dashboard: null}}).catch(err => err);
+            const r = this.app.reports.find((r) => r.name === this.report);
+            if (!r) {
+                this.$router.replace({params: {report: null}}).catch(err => err);
                 return;
             }
-            this.dash = dash;
+            this.r = r;
         },
     },
 };

@@ -1,4 +1,4 @@
-package application
+package auditor
 
 import (
 	"fmt"
@@ -11,12 +11,12 @@ import (
 	"strings"
 )
 
-func instances(ctx timeseries.Context, app *model.Application) *model.Dashboard {
-	dash := model.NewDashboard(ctx, "Instances")
+func (a *appAuditor) instances() {
+	report := model.NewAuditReport(a.w.Ctx, "Instances")
 
 	up := timeseries.Aggregate(timeseries.NanSum)
 
-	for _, i := range app.Instances {
+	for _, i := range a.app.Instances {
 		up.AddInput(i.UpAndRunning())
 
 		status := model.NewTableCell().SetStatus(model.UNKNOWN, "unknown")
@@ -33,7 +33,7 @@ func instances(ctx timeseries.Context, app *model.Application) *model.Dashboard 
 			if i.IsUp() {
 				status.SetStatus(model.OK, "ok")
 			} else {
-				if app.Id.Kind != model.ApplicationKindExternalService {
+				if a.app.Id.Kind != model.ApplicationKindExternalService {
 					status.SetStatus(model.WARNING, "down (no metrics)")
 					if i.Node != nil && !i.Node.IsUp() {
 						status.SetStatus(model.WARNING, "down (node down)")
@@ -122,7 +122,7 @@ func instances(ctx timeseries.Context, app *model.Application) *model.Dashboard 
 				nodeStatus = model.WARNING
 			}
 		}
-		dash.GetOrCreateTable("Instance", "Status", "Restarts", "IP", "Node").AddRow(
+		report.GetOrCreateTable("Instance", "Status", "Restarts", "IP", "Node").AddRow(
 			model.NewTableCell(i.Name),
 			status,
 			restartsCell,
@@ -131,13 +131,13 @@ func instances(ctx timeseries.Context, app *model.Application) *model.Dashboard 
 		)
 	}
 
-	chart := dash.GetOrCreateChart("Instances").Stacked().AddSeries("up", up)
-	if app.DesiredInstances != nil {
-		chart.SetThreshold("desired", app.DesiredInstances, timeseries.Any)
+	chart := report.GetOrCreateChart("Instances").Stacked().AddSeries("up", up)
+	if a.app.DesiredInstances != nil {
+		chart.SetThreshold("desired", a.app.DesiredInstances, timeseries.Any)
 		chart.Threshold.Color = "red"
 		chart.Threshold.Fill = true
 	}
-	return dash
+	a.addReport(report)
 }
 
 func instanceIPs(listens map[model.Listen]bool) []string {

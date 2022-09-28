@@ -1,4 +1,4 @@
-package application
+package auditor
 
 import (
 	"fmt"
@@ -9,27 +9,27 @@ import (
 	"math"
 )
 
-func storage(ctx timeseries.Context, app *model.Application) *model.Dashboard {
-	dash := model.NewDashboard(ctx, "Storage")
+func (a *appAuditor) storage() {
+	report := model.NewAuditReport(a.w.Ctx, "Storage")
 
-	for _, i := range app.Instances {
+	for _, i := range a.app.Instances {
 		for _, v := range i.Volumes {
 			fullName := i.Name + ":" + v.MountPoint
 			if i.Node != nil {
 				if d := i.Node.Disks[v.Device.Value()]; d != nil {
-					dash.GetOrCreateChartInGroup("I/O latency <selector>, seconds", v.MountPoint).
+					report.GetOrCreateChartInGroup("I/O latency <selector>, seconds", v.MountPoint).
 						AddSeries(i.Name, d.Await)
 
-					dash.GetOrCreateChartInGroup("I/O utilization <selector>, %", v.MountPoint).
+					report.GetOrCreateChartInGroup("I/O utilization <selector>, %", v.MountPoint).
 						AddSeries(i.Name, d.IOUtilizationPercent)
 
-					dash.GetOrCreateChartInGroup("IOPS <selector>", fullName).
+					report.GetOrCreateChartInGroup("IOPS <selector>", fullName).
 						Stacked().
 						Sorted().
 						AddSeries("read", d.ReadOps, "blue").
 						AddSeries("write", d.WriteOps, "amber")
 
-					dash.GetOrCreateChartInGroup("Bandwidth <selector>, bytes/second", fullName).
+					report.GetOrCreateChartInGroup("Bandwidth <selector>, bytes/second", fullName).
 						Stacked().
 						Sorted().
 						AddSeries("read", d.ReadBytes, "blue").
@@ -58,7 +58,7 @@ func storage(ctx timeseries.Context, app *model.Application) *model.Dashboard {
 							)
 						}
 					}
-					dash.GetOrCreateTable("Volume", "Latency", "I/O", "Space", "Device").AddRow(
+					report.GetOrCreateTable("Volume", "Latency", "I/O", "Space", "Device").AddRow(
 						model.NewTableCell(fullName),
 						latencyMs,
 						ioPercent,
@@ -66,12 +66,12 @@ func storage(ctx timeseries.Context, app *model.Application) *model.Dashboard {
 						model.NewTableCell(v.Device.Value()).AddTag(v.Name.Value()),
 					)
 				}
-				dash.GetOrCreateChartInGroup("Disk space <selector>, bytes", fullName).
+				report.GetOrCreateChartInGroup("Disk space <selector>, bytes", fullName).
 					Stacked().
 					AddSeries("used", v.UsedBytes).
 					SetThreshold("total", v.CapacityBytes, timeseries.Max)
 			}
 		}
 	}
-	return dash
+	a.addReport(report)
 }

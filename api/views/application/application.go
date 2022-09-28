@@ -1,15 +1,14 @@
 package application
 
 import (
+	"github.com/coroot/coroot/auditor"
 	"github.com/coroot/coroot/model"
-	"github.com/coroot/coroot/timeseries"
 	"sort"
-	"strings"
 )
 
 type View struct {
-	AppMap     *AppMap            `json:"app_map"`
-	Dashboards []*model.Dashboard `json:"dashboards"`
+	AppMap  *AppMap              `json:"app_map"`
+	Reports []*model.AuditReport `json:"reports"`
 }
 
 type AppMap struct {
@@ -119,17 +118,10 @@ func Render(world *model.World, app *model.Application) *View {
 		return appMap.Dependencies[i].Id.Name < appMap.Dependencies[j].Id.Name
 	})
 
-	view := &View{AppMap: appMap}
-	events := calcAppEvents(app)
-	view.addDashboard(instances(world.Ctx, app), events)
-	view.addDashboard(cpu(world.Ctx, app), events)
-	view.addDashboard(memory(world.Ctx, app), events)
-	view.addDashboard(storage(world.Ctx, app), events)
-	view.addDashboard(network(world.Ctx, app, world), events)
-	view.addDashboard(postgres(world.Ctx, app), events)
-	view.addDashboard(redis(world.Ctx, app), events)
-	view.addDashboard(logs(world.Ctx, app), events)
-	return view
+	return &View{
+		AppMap:  appMap,
+		Reports: auditor.AuditApplication(world, app),
+	}
 }
 
 func (m *AppMap) addDependency(w *model.World, id model.ApplicationId) {
@@ -156,102 +148,4 @@ func (m *AppMap) addClient(w *model.World, id model.ApplicationId) {
 		return
 	}
 	m.Clients = append(m.Clients, &Application{Id: id, Labels: app.Labels()})
-}
-
-func (v *View) addDashboard(d *model.Dashboard, events []*Event) {
-	var ws []*model.Widget
-	for _, w := range d.Widgets {
-		if w.Chart != nil {
-			if len(w.Chart.Series) == 0 {
-				continue
-			}
-			addAnnotations(events, w.Chart)
-		}
-		if w.ChartGroup != nil {
-			var charts []*model.Chart
-			for _, ch := range w.ChartGroup.Charts {
-				if len(ch.Series) == 0 {
-					continue
-				}
-				charts = append(charts, ch)
-				addAnnotations(events, ch)
-			}
-			if len(charts) == 0 {
-				continue
-			}
-			w.ChartGroup.Charts = charts
-			w.ChartGroup.AutoFeatureChart()
-		}
-		if w.LogPatterns != nil {
-			if len(w.LogPatterns.Patterns) == 0 {
-				continue
-			}
-		}
-		ws = append(ws, w)
-	}
-	if len(ws) == 0 {
-		return
-	}
-	sort.SliceStable(ws, func(i, j int) bool {
-		return ws[i].Table != nil
-	})
-	d.Widgets = ws
-	v.Dashboards = append(v.Dashboards, d)
-}
-
-func addAnnotations(events []*Event, chart *model.Chart) {
-	if len(events) == 0 {
-		return
-	}
-	var annotations []*annotation
-	getLast := func() *annotation {
-		if len(annotations) == 0 {
-			return nil
-		}
-		return annotations[len(annotations)-1]
-	}
-	for _, e := range events {
-		last := getLast()
-		if last == nil || e.Start.Sub(last.start) > 3*chart.Ctx.Step {
-			a := &annotation{start: e.Start, end: e.End, events: []*Event{e}}
-			annotations = append(annotations, a)
-			continue
-		}
-		last.events = append(last.events, e)
-		last.end = e.End
-	}
-	for _, a := range annotations {
-		sort.Slice(a.events, func(i, j int) bool {
-			return a.events[i].Type < a.events[j].Type
-		})
-		icon := ""
-		var msgs []string
-		for _, e := range a.events {
-			i := ""
-			switch e.Type {
-			case EventTypeRollout:
-				msgs = append(msgs, "application rollout")
-				i = "mdi-swap-horizontal-circle-outline"
-			case EventTypeSwitchover:
-				msgs = append(msgs, "switchover "+e.Details)
-				i = "mdi-database-sync-outline"
-			case EventTypeInstanceUp:
-				msgs = append(msgs, e.Details+" is up")
-				i = "mdi-alert-octagon-outline"
-			case EventTypeInstanceDown:
-				msgs = append(msgs, e.Details+" is down")
-				i = "mdi-alert-octagon-outline"
-			}
-			if icon == "" {
-				icon = i
-			}
-		}
-		chart.AddAnnotation(strings.Join(msgs, "<br>"), a.start, a.end, icon)
-	}
-}
-
-type annotation struct {
-	start  timeseries.Time
-	end    timeseries.Time
-	events []*Event
 }

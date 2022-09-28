@@ -1,4 +1,4 @@
-package application
+package auditor
 
 import (
 	"fmt"
@@ -23,25 +23,25 @@ var (
 	}
 )
 
-func postgres(ctx timeseries.Context, app *model.Application) *model.Dashboard {
-	dash := model.NewDashboard(ctx, "Postgres")
+func (a *appAuditor) postgres() {
+	report := model.NewAuditReport(a.w.Ctx, "Postgres")
 
 	primaryLsn := timeseries.Aggregate(timeseries.Max)
-	for _, i := range app.Instances {
+	for _, i := range a.app.Instances {
 		if i.Postgres != nil && i.Postgres.WalCurrentLsn != nil {
 			primaryLsn.AddInput(i.Postgres.WalCurrentLsn)
 		}
 	}
 
-	for _, i := range app.Instances {
+	for _, i := range a.app.Instances {
 		if i.Postgres == nil {
 			continue
 		}
-		dash.
+		report.
 			GetOrCreateChartInGroup("Postgres query latency <selector>, seconds", "overview").
 			Feature().
 			AddSeries(i.Name, i.Postgres.Avg)
-		dash.
+		report.
 			GetOrCreateChartInGroup("Postgres query latency <selector>, seconds", i.Name).
 			AddSeries("avg", i.Postgres.Avg).
 			AddSeries("p50", i.Postgres.P50).
@@ -49,36 +49,36 @@ func postgres(ctx timeseries.Context, app *model.Application) *model.Dashboard {
 			AddSeries("p99", i.Postgres.P99)
 
 		qps := sumQueries(i.Postgres.QueriesByDB)
-		dash.GetOrCreateChart("Queries per second").AddSeries(i.Name, qps)
+		report.GetOrCreateChart("Queries per second").AddSeries(i.Name, qps)
 
 		errors := timeseries.Aggregate(
 			timeseries.NanSum,
 			i.LogMessagesByLevel[model.LogLevelError],
 			i.LogMessagesByLevel[model.LogLevelCritical],
 		)
-		pgQueries(dash, i)
+		pgQueries(report, i)
 
-		dash.
+		report.
 			GetOrCreateChartInGroup("Errors <selector>", "overview").
 			Column().
 			Feature().
 			AddSeries(i.Name, errors)
-		dash.
+		report.
 			GetOrCreateChartInGroup("Errors <selector>", i.Name).
 			Column().
 			AddMany(timeseries.Top(errorsByPattern(i), timeseries.NanSum, 5))
 
-		pgConnections(dash, i)
-		pgLocks(dash, i)
+		pgConnections(report, i)
+		pgLocks(report, i)
 		lag := pgReplicationLag(primaryLsn, i.Postgres.WalReplyLsn)
-		dash.GetOrCreateChart("Replication lag, bytes").AddSeries(i.Name, lag)
+		report.GetOrCreateChart("Replication lag, bytes").AddSeries(i.Name, lag)
 
-		pgTable(dash, i, primaryLsn, lag, qps, errors)
+		pgTable(report, i, primaryLsn, lag, qps, errors)
 	}
-	return dash
+	a.addReport(report)
 }
 
-func pgTable(dash *model.Dashboard, i *model.Instance, primaryLsn, lag, qps, errors timeseries.TimeSeries) {
+func pgTable(report *model.AuditReport, i *model.Instance, primaryLsn, lag, qps, errors timeseries.TimeSeries) {
 	role := i.ClusterRoleLast()
 	roleCell := model.NewTableCell(role.String())
 	switch role {
@@ -99,7 +99,7 @@ func pgTable(dash *model.Dashboard, i *model.Instance, primaryLsn, lag, qps, err
 	if total := timeseries.Reduce(timeseries.NanSum, errors); !math.IsNaN(total) {
 		errorsCell.SetValue(fmt.Sprintf("%.0f", total))
 	}
-	dash.
+	report.
 		GetOrCreateTable("Instance", "Role", "Status", "Queries", "Latency", "Errors", "Replication lag").
 		AddRow(
 			model.NewTableCell(i.Name).AddTag("version: %s", i.Postgres.Version.Value()),
@@ -178,7 +178,7 @@ func pgReplicationLag(primaryLsn, relayLsn timeseries.TimeSeries) timeseries.Tim
 	}, primaryLsn, relayLsn)
 }
 
-func pgConnections(dash *model.Dashboard, instance *model.Instance) {
+func pgConnections(report *model.AuditReport, instance *model.Instance) {
 	connectionByState := map[string]*timeseries.AggregatedTimeseries{}
 	for k, v := range instance.Postgres.Connections {
 		state := k.State
@@ -197,7 +197,7 @@ func pgConnections(dash *model.Dashboard, instance *model.Instance) {
 		instance.Postgres.Settings["superuser_reserved_connections"].Samples,
 		instance.Postgres.Settings["rds.rds_superuser_reserved_connections"].Samples,
 	)
-	chart := dash.
+	chart := report.
 		GetOrCreateChartInGroup("Postgres connections <selector>", instance.Name).
 		Stacked().
 		SetThreshold("max_connections", instance.Postgres.Settings["max_connections"].Samples, timeseries.Max)
@@ -217,29 +217,29 @@ func pgConnections(dash *model.Dashboard, instance *model.Instance) {
 			locked[k.String()] = v
 		}
 	}
-	dash.
+	report.
 		GetOrCreateChartInGroup("Idle transactions on <selector>", instance.Name).
 		Stacked().
 		AddMany(timeseries.Top(idleInTransaction, timeseries.NanSum, 5))
-	dash.
+	report.
 		GetOrCreateChartInGroup("Locked queries on <selector>", instance.Name).
 		Stacked().
 		AddMany(timeseries.Top(locked, timeseries.NanSum, 5))
 }
 
-func pgLocks(dash *model.Dashboard, instance *model.Instance) {
+func pgLocks(report *model.AuditReport, instance *model.Instance) {
 	blockingQueries := make(map[string]timeseries.TimeSeries, len(instance.Postgres.AwaitingQueriesByLockingQuery))
 	for k, v := range instance.Postgres.AwaitingQueriesByLockingQuery {
 		blockingQueries[k.Query] = v
 	}
-	dash.
+	report.
 		GetOrCreateChartInGroup("Blocking queries by the number of awaiting queries on <selector>", instance.Name).
 		Stacked().
 		AddMany(timeseries.Top(blockingQueries, timeseries.NanSum, 5)).
 		ShiftColors()
 }
 
-func pgQueries(dash *model.Dashboard, instance *model.Instance) {
+func pgQueries(report *model.AuditReport, instance *model.Instance) {
 	totalTime := map[string]timeseries.TimeSeries{}
 	ioTime := map[string]timeseries.TimeSeries{}
 	for k, stat := range instance.Postgres.PerQuery {
@@ -247,12 +247,12 @@ func pgQueries(dash *model.Dashboard, instance *model.Instance) {
 		totalTime[q] = stat.TotalTime
 		ioTime[q] = stat.IoTime
 	}
-	dash.
+	report.
 		GetOrCreateChartInGroup("Queries by total time on <selector>, query seconds/second", instance.Name).
 		Stacked().
 		Sorted().
 		AddMany(timeseries.Top(totalTime, timeseries.NanSum, 5))
-	dash.
+	report.
 		GetOrCreateChartInGroup("Queries by I/O time on <selector>, query seconds/second", instance.Name).
 		Stacked().
 		Sorted().

@@ -1,4 +1,4 @@
-package application
+package auditor
 
 import (
 	"github.com/coroot/coroot/model"
@@ -37,16 +37,16 @@ func (s *netSummary) addRtt(rtt timeseries.TimeSeries) {
 	s.rttCount.AddInput(rtt)
 }
 
-func network(ctx timeseries.Context, app *model.Application, world *model.World) *model.Dashboard {
-	dash := model.NewDashboard(ctx, "Network")
+func (a *appAuditor) network() {
+	report := model.NewAuditReport(a.w.Ctx, "Network")
 	upstreams := map[model.ApplicationId]*netSummary{}
 
-	for _, instance := range app.Instances {
+	for _, instance := range a.app.Instances {
 		for _, u := range instance.Upstreams {
 			if u.RemoteInstance == nil {
 				continue
 			}
-			upstreamApp := world.GetApplication(u.RemoteInstance.OwnerId)
+			upstreamApp := a.w.GetApplication(u.RemoteInstance.OwnerId)
 			if upstreamApp == nil {
 				continue
 			}
@@ -69,7 +69,7 @@ func network(ctx timeseries.Context, app *model.Application, world *model.World)
 			if instance.Node != nil && u.RemoteInstance.Node != nil {
 				sn := instance.Node
 				dn := u.RemoteInstance.Node
-				dash.GetOrCreateDependencyMap().UpdateLink(
+				report.GetOrCreateDependencyMap().UpdateLink(
 					model.DependencyMapInstance{Name: instance.Name, Obsolete: instanceObsolete},
 					model.DependencyMapNode{Name: sn.Name.Value(), Provider: sn.CloudProvider.Value(), Region: sn.Region.Value(), AZ: sn.AvailabilityZone.Value()},
 					model.DependencyMapInstance{Name: u.RemoteInstance.Name, Obsolete: u.Obsolete()},
@@ -80,10 +80,10 @@ func network(ctx timeseries.Context, app *model.Application, world *model.World)
 		}
 	}
 	for appId, summary := range upstreams {
-		dash.GetOrCreateChartInGroup("Network round-trip time to <selector>, seconds", appId.Name).
+		report.GetOrCreateChartInGroup("Network round-trip time to <selector>, seconds", appId.Name).
 			AddSeries("min", summary.rttMin).
 			AddSeries("avg", timeseries.Aggregate(timeseries.Div, summary.rttSum, summary.rttCount)).
 			AddSeries("max", summary.rttMax)
 	}
-	return dash
+	a.addReport(report)
 }

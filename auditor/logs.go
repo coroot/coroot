@@ -1,4 +1,4 @@
-package application
+package auditor
 
 import (
 	"fmt"
@@ -20,17 +20,17 @@ var (
 	logLevels = []model.LogLevel{"unknown", "debug", "info", "warning", "error", "critical"}
 )
 
-func logs(ctx timeseries.Context, app *model.Application) *model.Dashboard {
+func (a *appAuditor) logs() {
 	byHash := map[string]*model.LogPatternInfo{}
 	byLevel := map[model.LogLevel]timeseries.TimeSeries{}
-	dash := model.NewDashboard(ctx, "Logs")
+	report := model.NewAuditReport(a.w.Ctx, "Logs")
 
 	patterns := &model.LogPatterns{
-		Title: fmt.Sprintf("Repeated patters from the <var>%s</var>'s log", app.Id.Name),
+		Title: fmt.Sprintf("Repeated patters from the <var>%s</var>'s log", a.app.Id.Name),
 	}
 	totalEvents := uint64(0)
 
-	for _, instance := range app.Instances {
+	for _, instance := range a.app.Instances {
 		for level, samples := range instance.LogMessagesByLevel {
 			data, ok := byLevel[level]
 			if !ok {
@@ -65,7 +65,7 @@ func logs(ctx timeseries.Context, app *model.Application) *model.Dashboard {
 						Pattern:   p.Pattern,
 						Sum:       timeseries.Aggregate(timeseries.NanSum),
 						Color:     logLevelColors[p.Level],
-						Instances: model.NewChart(ctx, "Events by instance").Column(),
+						Instances: model.NewChart(a.w.Ctx, "Events by instance").Column(),
 					}
 					byHash[hash] = pattern
 					patterns.Patterns = append(patterns.Patterns, pattern)
@@ -78,7 +78,7 @@ func logs(ctx timeseries.Context, app *model.Application) *model.Dashboard {
 		}
 	}
 
-	eventsBySeverity := model.NewChart(ctx, "Events by severity").Column()
+	eventsBySeverity := model.NewChart(a.w.Ctx, "Events by severity").Column()
 	for _, l := range logLevels {
 		eventsBySeverity.AddSeries(strings.ToUpper(string(l)), byLevel[l], logLevelColors[l])
 	}
@@ -88,7 +88,7 @@ func logs(ctx timeseries.Context, app *model.Application) *model.Dashboard {
 	for _, p := range patterns.Patterns {
 		p.Percentage = p.Events * 100 / totalEvents
 	}
-	dash.Widgets = append(dash.Widgets, &model.Widget{Chart: eventsBySeverity, Width: "100%"})
-	dash.Widgets = append(dash.Widgets, &model.Widget{LogPatterns: patterns, Width: "100%"})
-	return dash
+	report.Widgets = append(report.Widgets, &model.Widget{Chart: eventsBySeverity, Width: "100%"})
+	report.Widgets = append(report.Widgets, &model.Widget{LogPatterns: patterns, Width: "100%"})
+	a.addReport(report)
 }

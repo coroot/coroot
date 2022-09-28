@@ -1,4 +1,4 @@
-package application
+package auditor
 
 import (
 	"github.com/coroot/coroot/model"

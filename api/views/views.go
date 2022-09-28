@@ -23,7 +23,7 @@ func Application(w *model.World, app *model.Application) *application.View {
 	return application.Render(w, app)
 }
 
-func Node(w *model.World, n *model.Node) *model.Dashboard {
+func Node(w *model.World, n *model.Node) *model.AuditReport {
 	return node.Render(w, n)
 }
 
