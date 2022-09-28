@@ -2,13 +2,12 @@ package node
 
 import (
 	utils2 "github.com/coroot/coroot/api/views/utils"
-	"github.com/coroot/coroot/api/views/widgets"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 )
 
-func Render(w *model.World, node *model.Node) *widgets.Dashboard {
-	dash := widgets.NewDashboard(w.Ctx, "Node")
+func Render(w *model.World, node *model.Node) *model.Dashboard {
+	dash := model.NewDashboard(w.Ctx, "Node")
 
 	cpu := dash.GetOrCreateChart("CPU usage, %").Sorted().Stacked()
 	for _, s := range utils2.CpuByModeSeries(node.CpuUsageByMode) {
@@ -50,7 +49,7 @@ func Render(w *model.World, node *model.Node) *widgets.Dashboard {
 	return dash
 }
 
-func netLatency(dash *widgets.Dashboard, w *model.World, n *model.Node) {
+func netLatency(dash *model.Dashboard, w *model.World, n *model.Node) {
 	zones := map[string]*avgTimeSeries{}
 	nodes := map[string]*avgTimeSeries{}
 

@@ -2,7 +2,6 @@ package application
 
 import (
 	"fmt"
-	"github.com/coroot/coroot/api/views/widgets"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
@@ -12,15 +11,15 @@ import (
 	"strings"
 )
 
-func instances(ctx timeseries.Context, app *model.Application) *widgets.Dashboard {
-	dash := widgets.NewDashboard(ctx, "Instances")
+func instances(ctx timeseries.Context, app *model.Application) *model.Dashboard {
+	dash := model.NewDashboard(ctx, "Instances")
 
 	up := timeseries.Aggregate(timeseries.NanSum)
 
 	for _, i := range app.Instances {
 		up.AddInput(i.UpAndRunning())
 
-		status := widgets.NewTableCell().SetStatus(model.UNKNOWN, "unknown")
+		status := model.NewTableCell().SetStatus(model.UNKNOWN, "unknown")
 		if i.Rds != nil {
 			switch {
 			case math.IsNaN(i.Rds.LifeSpan.Last()):
@@ -109,7 +108,7 @@ func instances(ctx timeseries.Context, app *model.Application) *widgets.Dashboar
 				restarts += int64(r)
 			}
 		}
-		restartsCell := widgets.NewTableCell()
+		restartsCell := model.NewTableCell()
 		if restarts > 0 {
 			restartsCell.SetValue(strconv.FormatInt(restarts, 10))
 		}
@@ -124,11 +123,11 @@ func instances(ctx timeseries.Context, app *model.Application) *widgets.Dashboar
 			}
 		}
 		dash.GetOrCreateTable("Instance", "Status", "Restarts", "IP", "Node").AddRow(
-			widgets.NewTableCell(i.Name),
+			model.NewTableCell(i.Name),
 			status,
 			restartsCell,
-			widgets.NewTableCell(instanceIPs(i.TcpListens)...),
-			widgets.NewTableCell().SetLink("node").SetStatus(nodeStatus, i.NodeName()),
+			model.NewTableCell(instanceIPs(i.TcpListens)...),
+			model.NewTableCell().SetLink("node").SetStatus(nodeStatus, i.NodeName()),
 		)
 	}
 

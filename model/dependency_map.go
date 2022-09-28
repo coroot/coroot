@@ -1,8 +1,4 @@
-package widgets
-
-import (
-	"github.com/coroot/coroot/model"
-)
+package model
 
 type DependencyMap struct {
 	Nodes []*DependencyMapNode `json:"nodes"`
@@ -28,7 +24,7 @@ type DependencyMapLink struct {
 	SrcInstance string `json:"src_instance"`
 	DstInstance string `json:"dst_instance"`
 
-	Status model.Status `json:"status"`
+	Status Status `json:"status"`
 }
 
 func (m *DependencyMap) GetOrCreateNode(node DependencyMapNode) *DependencyMapNode {
@@ -59,7 +55,7 @@ func (n *DependencyMapNode) AddDstInstance(i DependencyMapInstance) {
 	n.DstInstances = append(n.DstInstances, i)
 }
 
-func (m *DependencyMap) UpdateLink(src DependencyMapInstance, sNode DependencyMapNode, dst DependencyMapInstance, dNode DependencyMapNode, linkStatus model.Status) {
+func (m *DependencyMap) UpdateLink(src DependencyMapInstance, sNode DependencyMapNode, dst DependencyMapInstance, dNode DependencyMapNode, linkStatus Status) {
 	sn := m.GetOrCreateNode(sNode)
 	sn.AddSrcInstance(src)
 	dn := m.GetOrCreateNode(dNode)

@@ -1,13 +1,12 @@
 package utils
 
 import (
-	"github.com/coroot/coroot/api/views/widgets"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 )
 
-func CpuByModeSeries(modes map[string]timeseries.TimeSeries) []*widgets.Series {
-	var res []*widgets.Series
+func CpuByModeSeries(modes map[string]timeseries.TimeSeries) []*model.Series {
+	var res []*model.Series
 	for _, mode := range []string{"user", "nice", "system", "wait", "iowait", "steal", "irq", "softirq"} {
 		v, ok := modes[mode]
 		if !ok {
@@ -30,7 +29,7 @@ func CpuByModeSeries(modes map[string]timeseries.TimeSeries) []*widgets.Series {
 		case "nice":
 			color = "lightGreen"
 		}
-		res = append(res, &widgets.Series{Name: mode, Color: color, Data: v})
+		res = append(res, &model.Series{Name: mode, Color: color, Data: v})
 	}
 	return res
 }

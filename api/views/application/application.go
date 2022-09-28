@@ -1,7 +1,6 @@
 package application
 
 import (
-	"github.com/coroot/coroot/api/views/widgets"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"sort"
@@ -9,8 +8,8 @@ import (
 )
 
 type View struct {
-	AppMap     *AppMap              `json:"app_map"`
-	Dashboards []*widgets.Dashboard `json:"dashboards"`
+	AppMap     *AppMap            `json:"app_map"`
+	Dashboards []*model.Dashboard `json:"dashboards"`
 }
 
 type AppMap struct {
@@ -159,8 +158,8 @@ func (m *AppMap) addClient(w *model.World, id model.ApplicationId) {
 	m.Clients = append(m.Clients, &Application{Id: id, Labels: app.Labels()})
 }
 
-func (v *View) addDashboard(d *widgets.Dashboard, events []*Event) {
-	var ws []*widgets.Widget
+func (v *View) addDashboard(d *model.Dashboard, events []*Event) {
+	var ws []*model.Widget
 	for _, w := range d.Widgets {
 		if w.Chart != nil {
 			if len(w.Chart.Series) == 0 {
@@ -169,7 +168,7 @@ func (v *View) addDashboard(d *widgets.Dashboard, events []*Event) {
 			addAnnotations(events, w.Chart)
 		}
 		if w.ChartGroup != nil {
-			var charts []*widgets.Chart
+			var charts []*model.Chart
 			for _, ch := range w.ChartGroup.Charts {
 				if len(ch.Series) == 0 {
 					continue
@@ -200,7 +199,7 @@ func (v *View) addDashboard(d *widgets.Dashboard, events []*Event) {
 	v.Dashboards = append(v.Dashboards, d)
 }
 
-func addAnnotations(events []*Event, chart *widgets.Chart) {
+func addAnnotations(events []*Event, chart *model.Chart) {
 	if len(events) == 0 {
 		return
 	}

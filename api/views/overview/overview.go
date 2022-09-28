@@ -1,7 +1,6 @@
 package overview
 
 import (
-	"github.com/coroot/coroot/api/views/widgets"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/utils"
 	"github.com/dustin/go-humanize"
@@ -14,7 +13,7 @@ import (
 
 type View struct {
 	Applications []*Application `json:"applications"`
-	Nodes        *widgets.Table `json:"nodes"`
+	Nodes        *model.Table   `json:"nodes"`
 }
 
 type Application struct {
@@ -83,12 +82,12 @@ func Render(w *model.World) *View {
 		appsUsed = append(appsUsed, a)
 	}
 
-	table := &widgets.Table{Header: []string{"Node", "Status", "Availability zone", "IP", "CPU", "Memory", "Network"}}
+	table := &model.Table{Header: []string{"Node", "Status", "Availability zone", "IP", "CPU", "Memory", "Network"}}
 	for _, n := range w.Nodes {
-		node := widgets.NewTableCell(n.Name.Value()).SetLink("node")
+		node := model.NewTableCell(n.Name.Value()).SetLink("node")
 		ips := utils.NewStringSet()
 
-		cpuPercent, memoryPercent := widgets.NewTableCell(), widgets.NewTableCell("")
+		cpuPercent, memoryPercent := model.NewTableCell(), model.NewTableCell("")
 
 		if t := n.InstanceType.Value(); t != "" {
 			node.AddTag("Type: " + t)
@@ -113,12 +112,12 @@ func Render(w *model.World) *View {
 			}
 		}
 
-		status := widgets.NewTableCell().SetStatus(model.OK, "up")
+		status := model.NewTableCell().SetStatus(model.OK, "up")
 		if !n.IsUp() {
 			status.SetStatus(model.WARNING, "down (no metrics)")
 		}
 
-		network := widgets.NewTableCell()
+		network := model.NewTableCell()
 		for _, iface := range n.NetInterfaces {
 			if iface.Up != nil && iface.Up.Last() != 1 {
 				continue
@@ -138,7 +137,7 @@ func Render(w *model.World) *View {
 					}
 				}
 			}
-			network.NetInterfaces = append(network.NetInterfaces, widgets.NetInterface{
+			network.NetInterfaces = append(network.NetInterfaces, model.NetInterface{
 				Name: iface.Name,
 				Rx:   utils.HumanBits(iface.RxBytes.Last() * 8),
 				Tx:   utils.HumanBits(iface.TxBytes.Last() * 8),
@@ -151,8 +150,8 @@ func Render(w *model.World) *View {
 		table.AddRow(
 			node,
 			status,
-			widgets.NewTableCell(n.AvailabilityZone.Value()).SetUnit("("+strings.ToLower(n.CloudProvider.Value())+")"),
-			widgets.NewTableCell(ips.Items()...),
+			model.NewTableCell(n.AvailabilityZone.Value()).SetUnit("("+strings.ToLower(n.CloudProvider.Value())+")"),
+			model.NewTableCell(ips.Items()...),
 			cpuPercent,
 			memoryPercent,
 			network,

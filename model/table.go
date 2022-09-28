@@ -1,8 +1,7 @@
-package widgets
+package model
 
 import (
 	"fmt"
-	"github.com/coroot/coroot/model"
 	"sort"
 )
 
@@ -45,7 +44,7 @@ type TableCell struct {
 	Values        []string       `json:"values"`
 	Tags          []string       `json:"tags"`
 	Unit          string         `json:"unit"`
-	Status        *model.Status  `json:"status"`
+	Status        *Status        `json:"status"`
 	Link          string         `json:"link"`
 	Progress      *Progress      `json:"progress"`
 	NetInterfaces []NetInterface `json:"net_interfaces"`
@@ -61,7 +60,7 @@ func NewTableCell(values ...string) *TableCell {
 	return &TableCell{Values: values}
 }
 
-func (c *TableCell) SetStatus(status model.Status, msg string) *TableCell {
+func (c *TableCell) SetStatus(status Status, msg string) *TableCell {
 	c.Status = &status
 	c.Value = msg
 	return c

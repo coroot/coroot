@@ -2,13 +2,12 @@ package application
 
 import (
 	"github.com/coroot/coroot/api/views/utils"
-	"github.com/coroot/coroot/api/views/widgets"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 )
 
-func memory(ctx timeseries.Context, app *model.Application) *widgets.Dashboard {
-	dash := widgets.NewDashboard(ctx, "Memory")
+func memory(ctx timeseries.Context, app *model.Application) *model.Dashboard {
+	dash := model.NewDashboard(ctx, "Memory")
 	relevantNodes := map[string]*model.Node{}
 
 	for _, i := range app.Instances {

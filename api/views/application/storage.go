@@ -2,7 +2,6 @@ package application
 
 import (
 	"fmt"
-	"github.com/coroot/coroot/api/views/widgets"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
@@ -10,8 +9,8 @@ import (
 	"math"
 )
 
-func storage(ctx timeseries.Context, app *model.Application) *widgets.Dashboard {
-	dash := widgets.NewDashboard(ctx, "Storage")
+func storage(ctx timeseries.Context, app *model.Application) *model.Dashboard {
+	dash := model.NewDashboard(ctx, "Storage")
 
 	for _, i := range app.Instances {
 		for _, v := range i.Volumes {
@@ -36,17 +35,17 @@ func storage(ctx timeseries.Context, app *model.Application) *widgets.Dashboard 
 						AddSeries("read", d.ReadBytes, "blue").
 						AddSeries("written", d.WrittenBytes, "amber")
 
-					latencyMs := widgets.NewTableCell().SetUnit("ms")
+					latencyMs := model.NewTableCell().SetUnit("ms")
 					if d.Await != nil {
 						latencyMs.SetValue(utils.FormatFloat(d.Await.Last() * 1000))
 					}
-					ioPercent := widgets.NewTableCell()
+					ioPercent := model.NewTableCell()
 					if d.IOUtilizationPercent != nil {
 						if last := d.IOUtilizationPercent.Last(); !math.IsNaN(last) {
 							ioPercent.SetValue(fmt.Sprintf("%.0f%%", last))
 						}
 					}
-					space := widgets.NewTableCell()
+					space := model.NewTableCell()
 					if v.UsedBytes != nil && v.CapacityBytes != nil {
 						capacity := v.CapacityBytes.Last()
 						usage := v.UsedBytes.Last()
@@ -60,11 +59,11 @@ func storage(ctx timeseries.Context, app *model.Application) *widgets.Dashboard 
 						}
 					}
 					dash.GetOrCreateTable("Volume", "Latency", "I/O", "Space", "Device").AddRow(
-						widgets.NewTableCell(fullName),
+						model.NewTableCell(fullName),
 						latencyMs,
 						ioPercent,
 						space,
-						widgets.NewTableCell(v.Device.Value()).AddTag(v.Name.Value()),
+						model.NewTableCell(v.Device.Value()).AddTag(v.Name.Value()),
 					)
 				}
 				dash.GetOrCreateChartInGroup("Disk space <selector>, bytes", fullName).

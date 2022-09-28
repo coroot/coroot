@@ -1,4 +1,4 @@
-package widgets
+package model
 
 import (
 	"github.com/coroot/coroot/timeseries"

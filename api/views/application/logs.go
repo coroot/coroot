@@ -2,7 +2,6 @@ package application
 
 import (
 	"fmt"
-	"github.com/coroot/coroot/api/views/widgets"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"sort"
@@ -21,12 +20,12 @@ var (
 	logLevels = []model.LogLevel{"unknown", "debug", "info", "warning", "error", "critical"}
 )
 
-func logs(ctx timeseries.Context, app *model.Application) *widgets.Dashboard {
-	byHash := map[string]*widgets.LogPatternInfo{}
+func logs(ctx timeseries.Context, app *model.Application) *model.Dashboard {
+	byHash := map[string]*model.LogPatternInfo{}
 	byLevel := map[model.LogLevel]timeseries.TimeSeries{}
-	dash := widgets.NewDashboard(ctx, "Logs")
+	dash := model.NewDashboard(ctx, "Logs")
 
-	patterns := &widgets.LogPatterns{
+	patterns := &model.LogPatterns{
 		Title: fmt.Sprintf("Repeated patters from the <var>%s</var>'s log", app.Id.Name),
 	}
 	totalEvents := uint64(0)
@@ -59,14 +58,14 @@ func logs(ctx timeseries.Context, app *model.Application) *widgets.Dashboard {
 					}
 				}
 				if pattern == nil {
-					pattern = &widgets.LogPatternInfo{
+					pattern = &model.LogPatternInfo{
 						Level:     string(p.Level),
 						Sample:    p.Sample,
 						Multiline: p.Multiline,
 						Pattern:   p.Pattern,
 						Sum:       timeseries.Aggregate(timeseries.NanSum),
 						Color:     logLevelColors[p.Level],
-						Instances: widgets.NewChart(ctx, "Events by instance").Column(),
+						Instances: model.NewChart(ctx, "Events by instance").Column(),
 					}
 					byHash[hash] = pattern
 					patterns.Patterns = append(patterns.Patterns, pattern)
@@ -79,7 +78,7 @@ func logs(ctx timeseries.Context, app *model.Application) *widgets.Dashboard {
 		}
 	}
 
-	eventsBySeverity := widgets.NewChart(ctx, "Events by severity").Column()
+	eventsBySeverity := model.NewChart(ctx, "Events by severity").Column()
 	for _, l := range logLevels {
 		eventsBySeverity.AddSeries(strings.ToUpper(string(l)), byLevel[l], logLevelColors[l])
 	}
@@ -89,7 +88,7 @@ func logs(ctx timeseries.Context, app *model.Application) *widgets.Dashboard {
 	for _, p := range patterns.Patterns {
 		p.Percentage = p.Events * 100 / totalEvents
 	}
-	dash.Widgets = append(dash.Widgets, &widgets.Widget{Chart: eventsBySeverity, Width: "100%"})
-	dash.Widgets = append(dash.Widgets, &widgets.Widget{LogPatterns: patterns, Width: "100%"})
+	dash.Widgets = append(dash.Widgets, &model.Widget{Chart: eventsBySeverity, Width: "100%"})
+	dash.Widgets = append(dash.Widgets, &model.Widget{LogPatterns: patterns, Width: "100%"})
 	return dash
 }
