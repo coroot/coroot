@@ -1,8 +1,10 @@
 package auditor
 
 import (
+	"encoding/json"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
+	"k8s.io/klog"
 	"sort"
 	"strings"
 )
@@ -110,13 +112,16 @@ type appAuditor struct {
 	app     *model.Application
 	events  []*Event
 	reports []*model.AuditReport
+
+	checkConfigs map[model.ApplicationId]map[model.CheckId][]byte
 }
 
 func AuditApplication(w *model.World, app *model.Application) []*model.AuditReport {
 	a := &appAuditor{
-		w:      w,
-		app:    app,
-		events: calcAppEvents(app),
+		w:            w,
+		app:          app,
+		events:       calcAppEvents(app),
+		checkConfigs: map[model.ApplicationId]map[model.CheckId][]byte{},
 	}
 	a.instances()
 	a.cpu()
@@ -127,4 +132,33 @@ func AuditApplication(w *model.World, app *model.Application) []*model.AuditRepo
 	a.redis()
 	a.logs()
 	return a.reports
+}
+
+func (a *appAuditor) getRawConfig(id model.CheckId) []byte {
+	for _, i := range []model.ApplicationId{a.app.Id, {}} {
+		if appConfigs, ok := a.checkConfigs[i]; ok {
+			if cfg, ok := appConfigs[id]; ok {
+				return cfg
+			}
+		}
+	}
+	return nil
+}
+
+func (a *appAuditor) getSimpleConfig(id model.CheckId, defaultThreshold float64) CheckConfigSimple {
+	cfg := CheckConfigSimple{Threshold: defaultThreshold}
+	raw := a.getRawConfig(id)
+	if raw == nil {
+		return cfg
+	}
+	var v CheckConfigSimple
+	if err := json.Unmarshal(raw, &v); err != nil {
+		klog.Warningln("failed to unmarshal check config:", err)
+		return cfg
+	}
+	return v
+}
+
+type CheckConfigSimple struct {
+	Threshold float64 `json:"threshold"`
 }

@@ -1,11 +1,32 @@
 package model
 
-import "github.com/coroot/coroot/timeseries"
+import (
+	"fmt"
+	"github.com/coroot/coroot/timeseries"
+)
+
+type CheckId string
+
+const (
+	CheckIdOOM = "OOM"
+)
+
+type Check struct {
+	Id      CheckId `json:"id"`
+	Status  Status  `json:"status"`
+	Message string  `json:"message"`
+}
+
+func (ch *Check) SetStatus(status Status, format string, a ...any) {
+	ch.Status = status
+	ch.Message = fmt.Sprintf(format, a...)
+}
 
 type AuditReport struct {
 	ctx     timeseries.Context
 	Name    string    `json:"name"`
 	Widgets []*Widget `json:"widgets"`
+	Checks  []*Check  `json:"checks"`
 }
 
 func NewAuditReport(ctx timeseries.Context, name string) *AuditReport {
@@ -72,4 +93,10 @@ func (c *AuditReport) GetOrCreateTable(header ...string) *Table {
 	t := &Table{Header: header}
 	c.Widgets = append(c.Widgets, &Widget{Table: t, Width: "100%"})
 	return t
+}
+
+func (c *AuditReport) AddCheck(id CheckId) *Check {
+	ch := &Check{Id: id, Status: OK}
+	c.Checks = append(c.Checks, ch)
+	return ch
 }
