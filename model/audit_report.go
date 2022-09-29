@@ -12,6 +12,8 @@ const (
 	CheckIdNodeCPU      = "Node CPU utilization"
 	CheckIdContainerCPU = "Container CPU utilization"
 	CheckIdLogErrors    = "Log errors"
+	CheckIdRedisStatus  = "Redis status"
+	CheckIdRedisLatency = "Redis latency"
 )
 
 type Check struct {
