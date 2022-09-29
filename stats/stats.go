@@ -187,8 +187,14 @@ func (c *Collector) collect() Stats {
 			stats.Integration.PrometheusRefreshInterval = int(p.Prometheus.RefreshInterval)
 		}
 
+		checkConfigs, err := c.db.GetCheckConfigs(p.Id)
+		if err != nil {
+			klog.Errorln(err)
+			continue
+		}
+
 		t := time.Now()
-		w, err := constructor.New(cc, p).LoadWorld(context.Background(), cacheTo.Add(-worldWindow), cacheTo, p.Prometheus.RefreshInterval, &stats.Performance.Constructor)
+		w, err := constructor.New(cc, checkConfigs).LoadWorld(context.Background(), cacheTo.Add(-worldWindow), cacheTo, p.Prometheus.RefreshInterval, &stats.Performance.Constructor)
 		if err != nil {
 			klog.Errorln("failed to load world:", err)
 			continue

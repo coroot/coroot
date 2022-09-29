@@ -34,7 +34,6 @@ type Prometheus struct {
 
 type Settings struct {
 	ConfigurationHintsMuted map[model.ApplicationType]bool `json:"configuration_hints_muted"`
-	CheckConfigs            model.CheckConfigs             `json:"check_configs"`
 }
 
 type BasicAuth struct {
@@ -168,31 +167,6 @@ func (db *DB) ToggleConfigurationHint(id ProjectId, appType model.ApplicationTyp
 	} else {
 		delete(p.Settings.ConfigurationHintsMuted, appType)
 	}
-	settings, err := json.Marshal(p.Settings)
-	if err != nil {
-		return err
-	}
-	_, err = db.db.Exec("UPDATE project SET settings = $1 WHERE id = $2", settings, id)
-	return err
-}
-
-func (db *DB) SaveCheckConfig(id ProjectId, appId model.ApplicationId, checkId model.CheckId, cfg any) error {
-	p, err := db.GetProject(id)
-	if err != nil {
-		return err
-	}
-	data, err := json.Marshal(cfg)
-	if err != nil {
-		return err
-	}
-	if p.Settings.CheckConfigs == nil {
-		p.Settings.CheckConfigs = map[model.ApplicationId]map[model.CheckId]json.RawMessage{}
-	}
-	if p.Settings.CheckConfigs[appId] == nil {
-		p.Settings.CheckConfigs[appId] = map[model.CheckId]json.RawMessage{}
-	}
-	p.Settings.CheckConfigs[appId][checkId] = data
-
 	settings, err := json.Marshal(p.Settings)
 	if err != nil {
 		return err
