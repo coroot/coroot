@@ -3,16 +3,11 @@ package auditor
 import (
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
-	"github.com/coroot/coroot/utils"
-	"github.com/dustin/go-humanize/english"
 )
 
 func (a *appAuditor) cpu() {
 	report := model.NewAuditReport(a.w.Ctx, "CPU")
 	relevantNodes := map[string]*model.Node{}
-
-	overloadedNodes := utils.NewStringSet()
-	overloadedContainers := utils.NewStringSet()
 
 	for _, i := range a.app.Instances {
 		for _, c := range i.Containers {
@@ -24,8 +19,8 @@ func (a *appAuditor) cpu() {
 
 			if c.CpuLimit != nil && c.CpuUsage != nil {
 				usage := c.CpuUsage.Last() / c.CpuLimit.Last()
-				if usage > a.getSimpleConfig(model.CheckIdContainerCPU, 80).Threshold {
-					overloadedContainers.Add("%s@%s", c.Name, i.Name)
+				if usage > a.getSimpleConfig(model.Checks.CPU.Container, 80).Threshold {
+					report.GetOrCreateCheck(model.Checks.CPU.Container).AddItem("%s@%s", c.Name, i.Name)
 				}
 			}
 		}
@@ -37,8 +32,8 @@ func (a *appAuditor) cpu() {
 					AddSeries(nodeName, i.Node.CpuUsagePercent).
 					Feature()
 
-				if last := i.Node.CpuUsagePercent.Last(); last > a.getSimpleConfig(model.CheckIdNodeCPU, 80).Threshold {
-					overloadedNodes.Add(i.Node.Name.Value())
+				if last := i.Node.CpuUsagePercent.Last(); last > a.getSimpleConfig(model.Checks.CPU.Node, 80).Threshold {
+					report.GetOrCreateCheck(model.Checks.CPU.Node).AddItem(i.Node.Name.Value())
 				}
 
 				byMode := report.GetOrCreateChartInGroup("Node CPU usage <selector>, %", nodeName).Sorted().Stacked()
@@ -55,22 +50,11 @@ func (a *appAuditor) cpu() {
 		}
 	}
 
-	containerCPU := report.AddCheck(model.CheckIdContainerCPU)
-	if overloadedContainers.Len() > 0 {
-		containerCPU.SetStatus(
-			model.WARNING,
-			"high CPU usage of %s",
-			english.Plural(overloadedContainers.Len(), "container", "containers"),
-		)
-	}
-
-	nodeCPU := report.AddCheck(model.CheckIdNodeCPU)
-	if overloadedNodes.Len() > 0 {
-		nodeCPU.SetStatus(
-			model.WARNING,
-			"high CPU utilization of %s",
-			english.Plural(overloadedNodes.Len(), "node", "nodes"),
-		)
-	}
+	report.
+		GetOrCreateCheck(model.Checks.CPU.Container).
+		Format(`high CPU utilization of {{.Plural "container"}}`)
+	report.
+		GetOrCreateCheck(model.Checks.CPU.Node).
+		Format(`high CPU utilization of {{.Plural "node"}}`)
 	a.addReport(report)
 }

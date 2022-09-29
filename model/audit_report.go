@@ -2,6 +2,7 @@ package model
 
 import (
 	"github.com/coroot/coroot/timeseries"
+	"github.com/coroot/coroot/utils"
 )
 
 type AuditReport struct {
@@ -77,8 +78,13 @@ func (c *AuditReport) GetOrCreateTable(header ...string) *Table {
 	return t
 }
 
-func (c *AuditReport) AddCheck(id CheckId) *Check {
-	ch := &Check{Id: id, Status: OK}
+func (c *AuditReport) GetOrCreateCheck(id CheckId) *Check {
+	for _, ch := range c.Checks {
+		if ch.Id == id {
+			return ch
+		}
+	}
+	ch := &Check{Id: id, Status: OK, items: utils.NewStringSet()}
 	c.Checks = append(c.Checks, ch)
 	return ch
 }

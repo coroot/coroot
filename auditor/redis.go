@@ -3,15 +3,10 @@ package auditor
 import (
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
-	"github.com/coroot/coroot/utils"
-	"github.com/dustin/go-humanize/english"
 )
 
 func (a *appAuditor) redis() {
 	report := model.NewAuditReport(a.w.Ctx, "Redis")
-
-	unavailableInstances := utils.NewStringSet()
-	slowInstances := utils.NewStringSet()
 
 	for _, i := range a.app.Instances {
 		if i.Redis == nil {
@@ -19,7 +14,7 @@ func (a *appAuditor) redis() {
 		}
 		status := model.NewTableCell().SetStatus(model.OK, "up")
 		if !(i.Redis.Up != nil && i.Redis.Up.Last() > 0) {
-			unavailableInstances.Add(i.Name)
+			report.GetOrCreateCheck(model.Checks.Redis.Status).AddItem(i.Name)
 			status.SetStatus(model.WARNING, "down (no metrics)")
 		}
 		roleCell := model.NewTableCell(i.Redis.Role.Value())
@@ -54,28 +49,16 @@ func (a *appAuditor) redis() {
 			Sorted().
 			AddMany(timeseries.Top(i.Redis.Calls, timeseries.NanSum, 5))
 
-		if l := avg.Last(); l > a.getSimpleConfig(model.CheckIdRedisLatency, 0.005).Threshold {
-			slowInstances.Add(i.Name)
+		if l := avg.Last(); l > a.getSimpleConfig(model.Checks.Redis.Latency, 0.005).Threshold {
+			report.GetOrCreateCheck(model.Checks.Redis.Latency).AddItem(i.Name)
 		}
 	}
+	report.
+		GetOrCreateCheck(model.Checks.Redis.Status).
+		Format(`{{.Plural "instance"}} {{.IsOrAre}} unavailable`)
+	report.
+		GetOrCreateCheck(model.Checks.Redis.Latency).
+		Format(`{{.Plural "instance"}} {{.IsOrAre}} performing slowly`)
 
-	redisStatus := report.AddCheck(model.CheckIdRedisStatus)
-	if unavailableInstances.Len() > 0 {
-		redisStatus.SetStatus(
-			model.WARNING,
-			"%s %s unavailable",
-			english.Plural(unavailableInstances.Len(), "instance", "instances"),
-			utils.IsOrAre(unavailableInstances.Len()),
-		)
-	}
-	redisLatency := report.AddCheck(model.CheckIdRedisLatency)
-	if slowInstances.Len() > 0 {
-		redisLatency.SetStatus(
-			model.WARNING,
-			"%s %s performing slowly",
-			english.Plural(slowInstances.Len(), "instance", "instances"),
-			utils.IsOrAre(slowInstances.Len()),
-		)
-	}
 	a.addReport(report)
 }

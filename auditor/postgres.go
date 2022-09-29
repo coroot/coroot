@@ -41,6 +41,9 @@ func (a *appAuditor) postgres() {
 			GetOrCreateChartInGroup("Postgres query latency <selector>, seconds", "overview").
 			Feature().
 			AddSeries(i.Name, i.Postgres.Avg)
+		if i.Postgres.Avg != nil && i.Postgres.Avg.Last() > a.getSimpleConfig(model.Checks.Postgres.Latency, 0.1).Threshold {
+			report.GetOrCreateCheck(model.Checks.Postgres.Latency).AddItem(i.Name)
+		}
 		report.
 			GetOrCreateChartInGroup("Postgres query latency <selector>, seconds", i.Name).
 			AddSeries("avg", i.Postgres.Avg).
@@ -67,18 +70,29 @@ func (a *appAuditor) postgres() {
 			GetOrCreateChartInGroup("Errors <selector>", i.Name).
 			Column().
 			AddMany(timeseries.Top(errorsByPattern(i), timeseries.NanSum, 5))
-
 		pgConnections(report, i)
 		pgLocks(report, i)
 		lag := pgReplicationLag(primaryLsn, i.Postgres.WalReplyLsn)
 		report.GetOrCreateChart("Replication lag, bytes").AddSeries(i.Name, lag)
 
-		pgTable(report, i, primaryLsn, lag, qps, errors)
+		a.pgTable(report, i, primaryLsn, lag, qps, errors)
 	}
+	report.
+		GetOrCreateCheck(model.Checks.Postgres.Status).
+		Format(`{{.Plural "instance"}} {{.IsOrAre}} unavailable`)
+	report.
+		GetOrCreateCheck(model.Checks.Postgres.Latency).
+		Format(`{{.Plural "instance"}} {{.IsOrAre}} performing slowly`)
+	report.
+		GetOrCreateCheck(model.Checks.Postgres.Errors).
+		Format(
+			`{{.Value}} errors occurred`,
+			a.getSimpleConfig(model.Checks.Postgres.Errors, 0).Threshold,
+		)
 	a.addReport(report)
 }
 
-func pgTable(report *model.AuditReport, i *model.Instance, primaryLsn, lag, qps, errors timeseries.TimeSeries) {
+func (a *appAuditor) pgTable(report *model.AuditReport, i *model.Instance, primaryLsn, lag, qps, errors timeseries.TimeSeries) {
 	role := i.ClusterRoleLast()
 	roleCell := model.NewTableCell(role.String())
 	switch role {
@@ -93,10 +107,13 @@ func pgTable(report *model.AuditReport, i *model.Instance, primaryLsn, lag, qps,
 	}
 	status := model.NewTableCell().SetStatus(model.OK, "up")
 	if !i.Postgres.IsUp() {
+		report.GetOrCreateCheck(model.Checks.Postgres.Status).AddItem(i.Name)
 		status.SetStatus(model.WARNING, "down (no metrics)")
 	}
 	errorsCell := model.NewTableCell()
+
 	if total := timeseries.Reduce(timeseries.NanSum, errors); !math.IsNaN(total) {
+		report.GetOrCreateCheck(model.Checks.Postgres.Errors).Inc(total)
 		errorsCell.SetValue(fmt.Sprintf("%.0f", total))
 	}
 	report.

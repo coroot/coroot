@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
-	"github.com/dustin/go-humanize/english"
 	"sort"
 	"strings"
 )
@@ -80,21 +79,20 @@ func (a *appAuditor) logs() {
 	}
 
 	eventsBySeverity := model.NewChart(a.w.Ctx, "Events by severity").Column()
-	var errs float64
 	for _, l := range logLevels {
 		if l == model.LogLevelError || l == model.LogLevelCritical {
 			if v := timeseries.Reduce(timeseries.NanSum, byLevel[l]); v > 0 {
-				errs += v
+				report.GetOrCreateCheck(model.Checks.Logs.Errors).Inc(v)
 			}
 		}
 		eventsBySeverity.AddSeries(strings.ToUpper(string(l)), byLevel[l], logLevelColors[l])
 	}
-
-	check := report.AddCheck(model.CheckIdLogErrors)
-	if errs > a.getSimpleConfig(model.CheckIdLogErrors, 0).Threshold {
-		check.SetStatus(model.WARNING, "%s found", english.Plural(int(errs), "error", "errors"))
-	}
-
+	report.
+		GetOrCreateCheck(model.Checks.Logs.Errors).
+		Format(
+			`{{.Value}} errors occurred`,
+			a.getSimpleConfig(model.Checks.Logs.Errors, 0).Threshold,
+		)
 	sort.Slice(patterns.Patterns, func(i, j int) bool {
 		return patterns.Patterns[i].Events > patterns.Patterns[j].Events
 	})
