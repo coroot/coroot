@@ -52,9 +52,9 @@ func (a *appAuditor) cpu() {
 
 	report.
 		GetOrCreateCheck(model.Checks.CPU.Container).
-		Format(`high CPU utilization of {{.Plural "container"}}`)
+		Format(`high CPU utilization of {{.Items "container"}}`)
 	report.
 		GetOrCreateCheck(model.Checks.CPU.Node).
-		Format(`high CPU utilization of {{.Plural "node"}}`)
+		Format(`high CPU utilization of {{.Items "node"}}`)
 	a.addReport(report)
 }

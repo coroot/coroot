@@ -79,14 +79,14 @@ func (a *appAuditor) postgres() {
 	}
 	report.
 		GetOrCreateCheck(model.Checks.Postgres.Status).
-		Format(`{{.Plural "instance"}} {{.IsOrAre}} unavailable`)
+		Format(`{{.ItemsWithToBe "instance"}} unavailable`)
 	report.
 		GetOrCreateCheck(model.Checks.Postgres.Latency).
-		Format(`{{.Plural "instance"}} {{.IsOrAre}} performing slowly`)
+		Format(`{{.ItemsWithToBe "instance"}} performing slowly`)
 	report.
 		GetOrCreateCheck(model.Checks.Postgres.Errors).
 		Format(
-			`{{.Value}} errors occurred`,
+			`{{.Count "error"}} occurred`,
 			a.getSimpleConfig(model.Checks.Postgres.Errors, 0).Threshold,
 		)
 	a.addReport(report)
@@ -113,7 +113,7 @@ func (a *appAuditor) pgTable(report *model.AuditReport, i *model.Instance, prima
 	errorsCell := model.NewTableCell()
 
 	if total := timeseries.Reduce(timeseries.NanSum, errors); !math.IsNaN(total) {
-		report.GetOrCreateCheck(model.Checks.Postgres.Errors).Inc(total)
+		report.GetOrCreateCheck(model.Checks.Postgres.Errors).Inc(int64(total))
 		errorsCell.SetValue(fmt.Sprintf("%.0f", total))
 	}
 	report.

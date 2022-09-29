@@ -55,10 +55,10 @@ func (a *appAuditor) redis() {
 	}
 	report.
 		GetOrCreateCheck(model.Checks.Redis.Status).
-		Format(`{{.Plural "instance"}} {{.IsOrAre}} unavailable`)
+		Format(`{{.ItemsWithToBe "instance"}} unavailable`)
 	report.
 		GetOrCreateCheck(model.Checks.Redis.Latency).
-		Format(`{{.Plural "instance"}} {{.IsOrAre}} performing slowly`)
+		Format(`{{.ItemsWithToBe "instance"}} performing slowly`)
 
 	a.addReport(report)
 }

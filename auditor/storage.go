@@ -23,7 +23,7 @@ func (a *appAuditor) storage() {
 					report.GetOrCreateChartInGroup("I/O utilization <selector>, %", v.MountPoint).
 						AddSeries(i.Name, d.IOUtilizationPercent)
 
-					if l := d.IOUtilizationPercent.Last(); l > a.getSimpleConfig(model.Checks.Storage.IO, 1).Threshold {
+					if l := d.IOUtilizationPercent.Last(); l > a.getSimpleConfig(model.Checks.Storage.IO, 80).Threshold {
 						report.GetOrCreateCheck(model.Checks.Storage.IO).AddItem("%s:%s", i.Name, v.MountPoint)
 					}
 
@@ -83,10 +83,10 @@ func (a *appAuditor) storage() {
 	}
 	report.
 		GetOrCreateCheck(model.Checks.Storage.IO).
-		Format(`high I/O utilization of {{.Plural "volume"}}`)
+		Format(`high I/O utilization of {{.Items "volume"}}`)
 
 	report.
 		GetOrCreateCheck(model.Checks.Storage.Space).
-		Format(`disk space on {{.Plural "volume"}} will be exhausted soon`)
+		Format(`disk space on {{.Items "volume"}} will be exhausted soon`)
 	a.addReport(report)
 }

@@ -84,7 +84,6 @@ func (a *appAuditor) network() {
 		if v := avg.Last(); v > a.getSimpleConfig(model.Checks.Network.Latency, 0.01).Threshold {
 			report.GetOrCreateCheck(model.Checks.Network.Latency).AddItem(appId.Name)
 		}
-
 		report.GetOrCreateChartInGroup("Network round-trip time to <selector>, seconds", appId.Name).
 			AddSeries("min", summary.rttMin).
 			AddSeries("avg", avg).
@@ -92,7 +91,7 @@ func (a *appAuditor) network() {
 	}
 	report.
 		GetOrCreateCheck(model.Checks.Network.Latency).
-		Format(`high network latency to {{.Plural "service"}}`)
+		Format(`high network latency to {{.Items "upstream service"}}`)
 
 	a.addReport(report)
 }

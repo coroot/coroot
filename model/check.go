@@ -14,6 +14,10 @@ import (
 type CheckId string
 
 var Checks struct {
+	Instance struct {
+		Status   CheckId `title:"Instance status"`
+		Restarts CheckId `title:"Instance restarts"`
+	}
 	CPU struct {
 		Node      CheckId `title:"Node CPU utilization"`
 		Container CheckId `title:"Container CPU utilization"`
@@ -66,22 +70,23 @@ func init() {
 
 type CheckContext struct {
 	items *utils.StringSet
-	value float64
+	count int64
 }
 
-func (c CheckContext) Plural(singular string) string {
+func (c CheckContext) Items(singular string) string {
 	return english.Plural(c.items.Len(), singular, "")
 }
 
-func (c CheckContext) IsOrAre() string {
-	if c.items.Len() == 1 {
-		return "is"
+func (c CheckContext) ItemsWithToBe(singular string) string {
+	verb := "is"
+	if c.items.Len() > 1 {
+		verb = "are"
 	}
-	return "are"
+	return c.Items(singular) + " " + verb
 }
 
-func (c CheckContext) Value() string {
-	return fmt.Sprintf("%.0f", c.value)
+func (c CheckContext) Count(singular string) string {
+	return english.Plural(int(c.count), singular, "")
 }
 
 type Check struct {
@@ -90,7 +95,7 @@ type Check struct {
 	Status  Status  `json:"status"`
 	Message string  `json:"message"`
 	items   *utils.StringSet
-	value   float64
+	count   int64
 }
 
 func (ch *Check) SetStatus(status Status, format string, a ...any) {
@@ -106,14 +111,14 @@ func (ch *Check) AddItem(format string, a ...any) {
 	ch.items.Add(fmt.Sprintf(format, a...))
 }
 
-func (ch *Check) Inc(amount float64) {
-	ch.value += amount
+func (ch *Check) Inc(amount int64) {
+	ch.count += amount
 }
 
 func (ch *Check) Format(tmpl string, threshold ...float64) {
 	switch {
 	case len(threshold) > 0:
-		if ch.value <= threshold[0] {
+		if ch.count <= int64(threshold[0]) {
 			return
 		}
 	default:
@@ -127,7 +132,7 @@ func (ch *Check) Format(tmpl string, threshold ...float64) {
 		return
 	}
 	buf := &bytes.Buffer{}
-	if err := t.Execute(buf, CheckContext{items: ch.items, value: ch.value}); err != nil {
+	if err := t.Execute(buf, CheckContext{items: ch.items, count: ch.count}); err != nil {
 		ch.SetStatus(UNKNOWN, "failed to render message: %s", err)
 		return
 	}

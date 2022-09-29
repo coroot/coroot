@@ -34,6 +34,7 @@ func (a *appAuditor) instances() {
 				status.SetStatus(model.OK, "ok")
 			} else {
 				if a.app.Id.Kind != model.ApplicationKindExternalService {
+					report.GetOrCreateCheck(model.Checks.Instance.Status).AddItem(i.Name)
 					status.SetStatus(model.WARNING, "down (no metrics)")
 					if i.Node != nil && !i.Node.IsUp() {
 						status.SetStatus(model.WARNING, "down (node down)")
@@ -102,9 +103,13 @@ func (a *appAuditor) instances() {
 				status.SetStatus(model.WARNING, "down (error)")
 			}
 		}
+		if *status.Status > model.OK {
+			report.GetOrCreateCheck(model.Checks.Instance.Status).AddItem(i.Name)
+		}
 		restarts := int64(0)
 		for _, c := range i.Containers {
 			if r := timeseries.Reduce(timeseries.NanSum, c.Restarts); !math.IsNaN(r) {
+				report.GetOrCreateCheck(model.Checks.Instance.Restarts).Inc(int64(r))
 				restarts += int64(r)
 			}
 		}
@@ -137,6 +142,14 @@ func (a *appAuditor) instances() {
 		chart.Threshold.Color = "red"
 		chart.Threshold.Fill = true
 	}
+
+	report.
+		GetOrCreateCheck(model.Checks.Instance.Status).
+		Format(`{{.ItemsWithToBe "instance"}} unavailable`)
+
+	report.
+		GetOrCreateCheck(model.Checks.Instance.Restarts).
+		Format(`app containers have been restarted {{.Count "time"}}`)
 	a.addReport(report)
 }
 

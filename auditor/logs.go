@@ -82,7 +82,7 @@ func (a *appAuditor) logs() {
 	for _, l := range logLevels {
 		if l == model.LogLevelError || l == model.LogLevelCritical {
 			if v := timeseries.Reduce(timeseries.NanSum, byLevel[l]); v > 0 {
-				report.GetOrCreateCheck(model.Checks.Logs.Errors).Inc(v)
+				report.GetOrCreateCheck(model.Checks.Logs.Errors).Inc(int64(v))
 			}
 		}
 		eventsBySeverity.AddSeries(strings.ToUpper(string(l)), byLevel[l], logLevelColors[l])
@@ -90,7 +90,7 @@ func (a *appAuditor) logs() {
 	report.
 		GetOrCreateCheck(model.Checks.Logs.Errors).
 		Format(
-			`{{.Value}} errors occurred`,
+			`{{.Count "error"}} occurred`,
 			a.getSimpleConfig(model.Checks.Logs.Errors, 0).Threshold,
 		)
 	sort.Slice(patterns.Patterns, func(i, j int) bool {
