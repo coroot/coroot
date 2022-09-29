@@ -1,7 +1,6 @@
 package auditor
 
 import (
-	"github.com/coroot/coroot/api/views/utils"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 )
@@ -39,7 +38,7 @@ func (a *appAuditor) memory() {
 				report.GetOrCreateChartInGroup("Memory consumers <selector>, bytes", nodeName).
 					Stacked().
 					SetThreshold("total", node.MemoryTotalBytes, timeseries.Any).
-					AddMany(timeseries.Top(utils.MemoryConsumers(node), timeseries.Max, 5))
+					AddMany(timeseries.Top(memoryConsumers(node), timeseries.Max, 5))
 			}
 		}
 	}

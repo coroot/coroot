@@ -1,11 +1,26 @@
-package utils
+package auditor
 
 import (
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 )
 
-func CpuByModeSeries(modes map[string]timeseries.TimeSeries) []*model.Series {
+func memoryConsumers(node *model.Node) map[string]timeseries.TimeSeries {
+	usageByApp := map[string]timeseries.TimeSeries{}
+	for _, instance := range node.Instances {
+		for _, c := range instance.Containers {
+			byApp := usageByApp[instance.OwnerId.Name]
+			if byApp == nil {
+				byApp = timeseries.Aggregate(timeseries.NanSum)
+				usageByApp[instance.OwnerId.Name] = byApp
+			}
+			byApp.(*timeseries.AggregatedTimeseries).AddInput(c.MemoryRss)
+		}
+	}
+	return usageByApp
+}
+
+func cpuByModeSeries(modes map[string]timeseries.TimeSeries) []*model.Series {
 	var res []*model.Series
 	for _, mode := range []string{"user", "nice", "system", "wait", "iowait", "steal", "irq", "softirq"} {
 		v, ok := modes[mode]
@@ -34,7 +49,7 @@ func CpuByModeSeries(modes map[string]timeseries.TimeSeries) []*model.Series {
 	return res
 }
 
-func CpuConsumers(node *model.Node) map[string]timeseries.TimeSeries {
+func cpuConsumers(node *model.Node) map[string]timeseries.TimeSeries {
 	usageByApp := map[string]timeseries.TimeSeries{}
 	for _, instance := range node.Instances {
 		appUsage := usageByApp[instance.OwnerId.Name]

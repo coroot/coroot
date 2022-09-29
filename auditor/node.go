@@ -1,7 +1,6 @@
 package auditor
 
 import (
-	"github.com/coroot/coroot/api/views/utils"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 )
@@ -10,7 +9,7 @@ func AuditNode(w *model.World, node *model.Node) *model.AuditReport {
 	report := model.NewAuditReport(w.Ctx, "Node")
 
 	cpu := report.GetOrCreateChart("CPU usage, %").Sorted().Stacked()
-	for _, s := range utils.CpuByModeSeries(node.CpuUsageByMode) {
+	for _, s := range cpuByModeSeries(node.CpuUsageByMode) {
 		cpu.Series = append(cpu.Series, s)
 	}
 
@@ -18,7 +17,7 @@ func AuditNode(w *model.World, node *model.Node) *model.AuditReport {
 		Stacked().
 		Sorted().
 		SetThreshold("total", node.CpuCapacity, timeseries.Any).
-		AddMany(timeseries.Top(utils.CpuConsumers(node), timeseries.NanSum, 5))
+		AddMany(timeseries.Top(cpuConsumers(node), timeseries.NanSum, 5))
 
 	used := timeseries.Aggregate(
 		timeseries.Sub,
@@ -36,7 +35,7 @@ func AuditNode(w *model.World, node *model.Node) *model.AuditReport {
 	report.GetOrCreateChart("Memory consumers, bytes").
 		Stacked().
 		SetThreshold("total", node.MemoryTotalBytes, timeseries.Any).
-		AddMany(timeseries.Top(utils.MemoryConsumers(node), timeseries.Max, 5))
+		AddMany(timeseries.Top(memoryConsumers(node), timeseries.Max, 5))
 	netLatency(report, w, node)
 
 	for _, i := range node.NetInterfaces {
