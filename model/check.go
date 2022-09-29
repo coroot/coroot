@@ -36,6 +36,9 @@ var Checks struct {
 		Space CheckId
 		IO    CheckId
 	}
+	Network struct {
+		Latency CheckId
+	}
 	Postgres struct {
 		Status  CheckId
 		Latency CheckId

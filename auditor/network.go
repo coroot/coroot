@@ -80,10 +80,19 @@ func (a *appAuditor) network() {
 		}
 	}
 	for appId, summary := range upstreams {
+		avg := timeseries.Aggregate(timeseries.Div, summary.rttSum, summary.rttCount)
+		if v := avg.Last(); v > a.getSimpleConfig(model.Checks.Network.Latency, 0.01).Threshold {
+			report.GetOrCreateCheck(model.Checks.Network.Latency).AddItem(appId.Name)
+		}
+
 		report.GetOrCreateChartInGroup("Network round-trip time to <selector>, seconds", appId.Name).
 			AddSeries("min", summary.rttMin).
-			AddSeries("avg", timeseries.Aggregate(timeseries.Div, summary.rttSum, summary.rttCount)).
+			AddSeries("avg", avg).
 			AddSeries("max", summary.rttMax)
 	}
+	report.
+		GetOrCreateCheck(model.Checks.Network.Latency).
+		Format(`high network latency to {{.Plural "service"}}`)
+
 	a.addReport(report)
 }
