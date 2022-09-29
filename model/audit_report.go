@@ -8,9 +8,10 @@ import (
 type CheckId string
 
 const (
-	CheckIdOOM        = "OOM"
-	CheckNodeCPU      = "Node CPU utilization"
-	CheckContainerCPU = "Container CPU utilization"
+	CheckIdOOM          = "OOM"
+	CheckIdNodeCPU      = "Node CPU utilization"
+	CheckIdContainerCPU = "Container CPU utilization"
+	CheckIdLogErrors    = "Log errors"
 )
 
 type Check struct {

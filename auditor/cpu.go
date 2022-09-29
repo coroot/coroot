@@ -24,7 +24,7 @@ func (a *appAuditor) cpu() {
 
 			if c.CpuLimit != nil && c.CpuUsage != nil {
 				usage := c.CpuUsage.Last() / c.CpuLimit.Last()
-				if usage > a.getSimpleConfig(model.CheckContainerCPU, 80).Threshold {
+				if usage > a.getSimpleConfig(model.CheckIdContainerCPU, 80).Threshold {
 					overloadedContainers.Add("%s@%s", c.Name, i.Name)
 				}
 			}
@@ -37,7 +37,7 @@ func (a *appAuditor) cpu() {
 					AddSeries(nodeName, i.Node.CpuUsagePercent).
 					Feature()
 
-				if last := i.Node.CpuUsagePercent.Last(); last > a.getSimpleConfig(model.CheckNodeCPU, 80).Threshold {
+				if last := i.Node.CpuUsagePercent.Last(); last > a.getSimpleConfig(model.CheckIdNodeCPU, 80).Threshold {
 					overloadedNodes.Add(i.Node.Name.Value())
 				}
 
@@ -55,7 +55,7 @@ func (a *appAuditor) cpu() {
 		}
 	}
 
-	containerCPU := report.AddCheck(model.CheckContainerCPU)
+	containerCPU := report.AddCheck(model.CheckIdContainerCPU)
 	if overloadedContainers.Len() > 0 {
 		containerCPU.SetStatus(
 			model.WARNING,
@@ -64,7 +64,7 @@ func (a *appAuditor) cpu() {
 		)
 	}
 
-	nodeCPU := report.AddCheck(model.CheckNodeCPU)
+	nodeCPU := report.AddCheck(model.CheckIdNodeCPU)
 	if overloadedNodes.Len() > 0 {
 		nodeCPU.SetStatus(
 			model.WARNING,
