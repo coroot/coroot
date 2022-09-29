@@ -23,6 +23,10 @@ func (a *appAuditor) storage() {
 					report.GetOrCreateChartInGroup("I/O utilization <selector>, %", v.MountPoint).
 						AddSeries(i.Name, d.IOUtilizationPercent)
 
+					if l := d.IOUtilizationPercent.Last(); l > a.getSimpleConfig(model.Checks.Storage.IO, 1).Threshold {
+						report.GetOrCreateCheck(model.Checks.Storage.IO).AddItem("%s:%s", i.Name, v.MountPoint)
+					}
+
 					report.GetOrCreateChartInGroup("IOPS <selector>", fullName).
 						Stacked().
 						Sorted().
@@ -50,12 +54,16 @@ func (a *appAuditor) storage() {
 						capacity := v.CapacityBytes.Last()
 						usage := v.UsedBytes.Last()
 						if usage > 0 && capacity > 0 {
+							percentage := usage / capacity * 100
 							space.SetValue(fmt.Sprintf(
 								"%.0f%% (%s / %s)",
-								usage/capacity*100,
+								percentage,
 								humanize.Bytes(uint64(usage)),
 								humanize.Bytes(uint64(capacity))),
 							)
+							if percentage > a.getSimpleConfig(model.Checks.Storage.Space, 80).Threshold {
+								report.GetOrCreateCheck(model.Checks.Storage.Space).AddItem("%s:%s", i.Name, v.MountPoint)
+							}
 						}
 					}
 					report.GetOrCreateTable("Volume", "Latency", "I/O", "Space", "Device").AddRow(
@@ -73,5 +81,12 @@ func (a *appAuditor) storage() {
 			}
 		}
 	}
+	report.
+		GetOrCreateCheck(model.Checks.Storage.IO).
+		Format(`high I/O utilization of {{.Plural "volume"}}`)
+
+	report.
+		GetOrCreateCheck(model.Checks.Storage.Space).
+		Format(`disk space on {{.Plural "volume"}} will be exhausted soon`)
 	a.addReport(report)
 }

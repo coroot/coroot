@@ -32,6 +32,10 @@ var Checks struct {
 	Memory struct {
 		OOM CheckId
 	}
+	Storage struct {
+		Space CheckId
+		IO    CheckId
+	}
 	Postgres struct {
 		Status  CheckId
 		Latency CheckId
