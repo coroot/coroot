@@ -84,7 +84,7 @@ func (c *AuditReport) GetOrCreateCheck(id CheckId) *Check {
 			return ch
 		}
 	}
-	ch := &Check{Id: id, Status: OK, items: utils.NewStringSet()}
+	ch := &Check{Id: id, Title: id.Title(), Status: OK, items: utils.NewStringSet()}
 	c.Checks = append(c.Checks, ch)
 	return ch
 }

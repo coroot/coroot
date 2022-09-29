@@ -13,44 +13,39 @@ import (
 
 type CheckId string
 
-//const (
-//	CheckIdOOM             = "OOM"
-//	CheckIdNodeCPU         = "Node CPU utilization"
-//	CheckIdContainerCPU    = "Container CPU utilization"
-//	CheckIdLogErrors       = "Log errors"
-//	CheckIdRedisStatus     = "Redis status"
-//	CheckIdRedisLatency    = "Redis latency"
-//	CheckIdPostgresStatus  = "Postgres status"
-//	CheckIdPostgresLatency = "Postgres latency"
-//)
-
 var Checks struct {
 	CPU struct {
-		Node      CheckId
-		Container CheckId
+		Node      CheckId `title:"Node CPU utilization"`
+		Container CheckId `title:"Container CPU utilization"`
 	}
 	Memory struct {
-		OOM CheckId
+		OOM CheckId `title:"OOM"`
 	}
 	Storage struct {
-		Space CheckId
-		IO    CheckId
+		Space CheckId `title:"Storage space usage"`
+		IO    CheckId `title:"Storage IO usage"`
 	}
 	Network struct {
-		Latency CheckId
+		Latency CheckId `title:"Network latency"`
 	}
 	Postgres struct {
-		Status  CheckId
-		Latency CheckId
-		Errors  CheckId
+		Status  CheckId `title:"Postgres status"`
+		Latency CheckId `title:"Postgres latency"`
+		Errors  CheckId `title:"Postgres errors"`
 	}
 	Redis struct {
-		Status  CheckId
-		Latency CheckId
+		Status  CheckId `title:"Redis status"`
+		Latency CheckId `title:"Redis latency"`
 	}
 	Logs struct {
-		Errors CheckId
+		Errors CheckId `title:"Log errors"`
 	}
+}
+
+var checkTitles = map[CheckId]string{}
+
+func (ci CheckId) Title() string {
+	return checkTitles[ci]
 }
 
 func init() {
@@ -58,7 +53,13 @@ func init() {
 	for i := 0; i < cs.NumField(); i++ {
 		c := cs.Field(i)
 		for j := 0; j < c.NumField(); j++ {
-			c.Field(j).SetString(cs.Type().Field(i).Name + "_" + c.Type().Field(j).Name)
+			id := cs.Type().Field(i).Name + "." + c.Type().Field(j).Name
+			c.Field(j).SetString(id)
+			title, _ := c.Type().Field(j).Tag.Lookup("title")
+			if title == "" {
+				panic("empty title for " + id)
+			}
+			checkTitles[CheckId(id)] = title
 		}
 	}
 }
@@ -85,6 +86,7 @@ func (c CheckContext) Value() string {
 
 type Check struct {
 	Id      CheckId `json:"id"`
+	Title   string  `json:"title"`
 	Status  Status  `json:"status"`
 	Message string  `json:"message"`
 	items   *utils.StringSet
