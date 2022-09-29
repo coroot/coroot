@@ -1,31 +1,8 @@
 package model
 
 import (
-	"fmt"
 	"github.com/coroot/coroot/timeseries"
 )
-
-type CheckId string
-
-const (
-	CheckIdOOM          = "OOM"
-	CheckIdNodeCPU      = "Node CPU utilization"
-	CheckIdContainerCPU = "Container CPU utilization"
-	CheckIdLogErrors    = "Log errors"
-	CheckIdRedisStatus  = "Redis status"
-	CheckIdRedisLatency = "Redis latency"
-)
-
-type Check struct {
-	Id      CheckId `json:"id"`
-	Status  Status  `json:"status"`
-	Message string  `json:"message"`
-}
-
-func (ch *Check) SetStatus(status Status, format string, a ...any) {
-	ch.Status = status
-	ch.Message = fmt.Sprintf(format, a...)
-}
 
 type AuditReport struct {
 	ctx     timeseries.Context

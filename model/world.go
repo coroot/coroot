@@ -17,6 +17,8 @@ type IntegrationStatus struct {
 type World struct {
 	Ctx timeseries.Context
 
+	CheckConfigs CheckConfigs
+
 	Nodes        []*Node
 	Applications []*Application
 	Services     []*Service

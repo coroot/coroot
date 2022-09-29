@@ -273,7 +273,7 @@ func (api *Api) loadWorld(ctx context.Context, project *db.Project, from, to tim
 	}
 	step = increaseStepForBigDurations(duration, step)
 
-	world, err := constructor.New(cc).LoadWorld(ctx, from, to, step, nil)
+	world, err := constructor.New(cc, project).LoadWorld(ctx, from, to, step, nil)
 	return world, err
 }
 

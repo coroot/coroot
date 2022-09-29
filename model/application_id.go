@@ -55,3 +55,9 @@ func (a ApplicationId) String() string {
 func (a ApplicationId) MarshalText() ([]byte, error) {
 	return []byte(a.String()), nil
 }
+
+func (a *ApplicationId) UnmarshalText(text []byte) error {
+	var err error
+	*a, err = NewApplicationIdFromString(string(text))
+	return err
+}

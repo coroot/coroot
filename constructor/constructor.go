@@ -2,6 +2,7 @@ package constructor
 
 import (
 	"context"
+	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/prom"
 	"github.com/coroot/coroot/timeseries"
@@ -12,11 +13,12 @@ import (
 )
 
 type Constructor struct {
-	prom prom.Client
+	prom    prom.Client
+	project *db.Project
 }
 
-func New(prom prom.Client) *Constructor {
-	return &Constructor{prom: prom}
+func New(prom prom.Client, project *db.Project) *Constructor {
+	return &Constructor{prom: prom, project: project}
 }
 
 type Profile struct {
@@ -26,6 +28,8 @@ type Profile struct {
 
 func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, step timeseries.Duration, prof *Profile) (*model.World, error) {
 	w := model.NewWorld(from, to, step)
+
+	w.CheckConfigs = c.project.Settings.CheckConfigs
 
 	if prof == nil {
 		prof = &Profile{}
