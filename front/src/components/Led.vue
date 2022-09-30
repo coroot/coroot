@@ -1,5 +1,7 @@
 <template>
-    <span class="led" :style="{backgroundColor: color}" />
+    <span style="padding-right: 6px">
+        <span class="led" :style="{backgroundColor: color}" />
+    </span>
 </template>
 
 <script>

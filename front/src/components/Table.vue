@@ -34,11 +34,9 @@
 
                 <template v-else>
                     <v-icon v-if="c.icon" :color="c.icon.color" small class="mr-1">{{c.icon.name}}</v-icon>
-                    <Led v-if="c.status && c.value" :status="c.status" class="mr-1" />
+                    <Led v-if="c.status && c.value" :status="c.status" />
                     <router-link v-if="c.link === 'node' && c.value" :to="{name: 'node', params: {name: c.value}, query: $route.query}">{{c.value}}</router-link>
-                    <span v-else>
-                        {{c.value || '&mdash;'}}
-                    </span>
+                    <span v-else>{{c.value || '&mdash;'}}</span>
                     <span v-if="c.unit && c.value" class="caption grey--text ml-1">{{c.unit}}</span>
                     <div v-if="c.tags && !$vuetify.breakpoint.mobile">
                         <span v-for="t in c.tags" class="tag">{{t}}</span>

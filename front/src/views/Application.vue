@@ -17,6 +17,11 @@
                 {{r.name}}
             </v-tab>
         </v-tabs>
+
+        <v-card v-if="r" outlined class="my-4 pa-4 pb-2">
+            <Check v-for="check in r.checks" :key="check.id" :check="check" class="mb-2" />
+        </v-card>
+
         <Dashboard v-if="r" :name="r.name" :widgets="r.widgets" class="mt-3" />
     </div>
     <NoData v-else-if="!loading" />
@@ -27,6 +32,7 @@
 import AppMap from "@/components/AppMap";
 import Dashboard from "@/components/Dashboard";
 import NoData from "@/components/NoData";
+import Check from "@/components/Check";
 
 export default {
     props: {
@@ -34,7 +40,7 @@ export default {
         report: String,
     },
 
-    components: {AppMap, Dashboard, NoData},
+    components: {AppMap, Dashboard, NoData, Check},
 
     data() {
         return {
