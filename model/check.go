@@ -161,25 +161,11 @@ var Checks = struct {
 	},
 }
 
-var checkTitles = map[CheckId]string{}
-
-func (ci CheckId) Title() string {
-	return checkTitles[ci]
-}
-
 func init() {
 	cs := reflect.ValueOf(&Checks).Elem()
 	for i := 0; i < cs.NumField(); i++ {
-		c := cs.Field(i)
-		for j := 0; j < c.NumField(); j++ {
-			id := cs.Type().Field(i).Name + "." + c.Type().Field(j).Name
-			c.Field(j).SetString(id)
-			title, _ := c.Type().Field(j).Tag.Lookup("title")
-			if title == "" {
-				panic("empty title for " + id)
-			}
-			checkTitles[CheckId(id)] = title
-		}
+		ch := cs.Field(i).Addr().Interface().(*CheckConfig)
+		ch.Id = CheckId(cs.Type().Field(i).Name)
 	}
 }
 
