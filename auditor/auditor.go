@@ -7,14 +7,63 @@ import (
 	"strings"
 )
 
-func (a *appAuditor) addReport(report *model.AuditReport) {
-	var ws []*model.Widget
-	for _, w := range report.Widgets {
+type appAuditor struct {
+	w       *model.World
+	app     *model.Application
+	events  []*Event
+	reports []*model.AuditReport
+}
+
+func AuditApplication(w *model.World, app *model.Application) []*model.AuditReport {
+	a := &appAuditor{
+		w:      w,
+		app:    app,
+		events: calcAppEvents(app),
+	}
+	a.instances()
+	a.cpu()
+	a.memory()
+	a.storage()
+	a.network()
+	a.postgres()
+	a.redis()
+	a.logs()
+
+	var res []*model.AuditReport
+	for _, r := range a.reports {
+		widgets := enrichWidgets(r.Widgets, a.events)
+		if len(widgets) == 0 {
+			continue
+		}
+		sort.SliceStable(widgets, func(i, j int) bool {
+			return widgets[i].Table != nil
+		})
+		r.Widgets = widgets
+
+		for _, ch := range r.Checks {
+			ch.Calc()
+		}
+
+		res = append(res, r)
+	}
+
+	return res
+}
+
+func (a *appAuditor) addReport(name string) *model.AuditReport {
+	r := model.NewAuditReport(a.app.Id, a.w.Ctx, a.w.CheckConfigs, name)
+	a.reports = append(a.reports, r)
+	return r
+}
+
+func enrichWidgets(widgets []*model.Widget, events []*Event) []*model.Widget {
+	var res []*model.Widget
+	for _, w := range widgets {
 		if w.Chart != nil {
 			if len(w.Chart.Series) == 0 {
 				continue
 			}
-			addAnnotations(a.events, w.Chart)
+			addAnnotations(events, w.Chart)
 		}
 		if w.ChartGroup != nil {
 			var charts []*model.Chart
@@ -23,7 +72,7 @@ func (a *appAuditor) addReport(report *model.AuditReport) {
 					continue
 				}
 				charts = append(charts, ch)
-				addAnnotations(a.events, ch)
+				addAnnotations(events, ch)
 			}
 			if len(charts) == 0 {
 				continue
@@ -36,16 +85,15 @@ func (a *appAuditor) addReport(report *model.AuditReport) {
 				continue
 			}
 		}
-		ws = append(ws, w)
+		res = append(res, w)
 	}
-	if len(ws) == 0 {
-		return
-	}
-	sort.SliceStable(ws, func(i, j int) bool {
-		return ws[i].Table != nil
-	})
-	report.Widgets = ws
-	a.reports = append(a.reports, report)
+	return res
+}
+
+type annotation struct {
+	start  timeseries.Time
+	end    timeseries.Time
+	events []*Event
 }
 
 func addAnnotations(events []*Event, chart *model.Chart) {
@@ -97,38 +145,4 @@ func addAnnotations(events []*Event, chart *model.Chart) {
 		}
 		chart.AddAnnotation(strings.Join(msgs, "<br>"), a.start, a.end, icon)
 	}
-}
-
-type annotation struct {
-	start  timeseries.Time
-	end    timeseries.Time
-	events []*Event
-}
-
-type appAuditor struct {
-	w       *model.World
-	app     *model.Application
-	events  []*Event
-	reports []*model.AuditReport
-}
-
-func AuditApplication(w *model.World, app *model.Application) []*model.AuditReport {
-	a := &appAuditor{
-		w:      w,
-		app:    app,
-		events: calcAppEvents(app),
-	}
-	a.instances()
-	a.cpu()
-	a.memory()
-	a.storage()
-	a.network()
-	a.postgres()
-	a.redis()
-	a.logs()
-	return a.reports
-}
-
-func (a *appAuditor) getSimpleConfig(id model.CheckId, defaultThreshold float64) model.CheckConfigSimple {
-	return a.w.CheckConfigs.GetSimple(a.app.Id, id, defaultThreshold)
 }

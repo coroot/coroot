@@ -6,14 +6,17 @@ import (
 )
 
 type AuditReport struct {
-	ctx     timeseries.Context
+	appId        ApplicationId
+	ctx          timeseries.Context
+	checkConfigs CheckConfigs
+
 	Name    string    `json:"name"`
 	Widgets []*Widget `json:"widgets"`
 	Checks  []*Check  `json:"checks"`
 }
 
-func NewAuditReport(ctx timeseries.Context, name string) *AuditReport {
-	return &AuditReport{Name: name, ctx: ctx}
+func NewAuditReport(appId ApplicationId, ctx timeseries.Context, checkConfigs CheckConfigs, name string) *AuditReport {
+	return &AuditReport{appId: appId, Name: name, ctx: ctx, checkConfigs: checkConfigs}
 }
 
 type Widget struct {
@@ -76,6 +79,23 @@ func (c *AuditReport) GetOrCreateTable(header ...string) *Table {
 	t := &Table{Header: header}
 	c.Widgets = append(c.Widgets, &Widget{Table: t, Width: "100%"})
 	return t
+}
+
+func (c *AuditReport) CreateCheck(cfg CheckConfig) *Check {
+	ch := &Check{
+		Id:                 cfg.Id,
+		Title:              cfg.Title,
+		Status:             OK,
+		Threshold:          c.checkConfigs.GetSimple(c.appId, cfg.Id, cfg.DefaultThreshold).Threshold,
+		Unit:               cfg.Unit,
+		RuleFormatTemplate: cfg.RuleFormatTemplate,
+
+		typ:             cfg.Type,
+		messageTemplate: cfg.MessageTemplate,
+		items:           utils.NewStringSet(),
+	}
+	c.Checks = append(c.Checks, ch)
+	return ch
 }
 
 func (c *AuditReport) GetOrCreateCheck(id CheckId) *Check {

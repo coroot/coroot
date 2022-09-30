@@ -13,6 +13,31 @@ import (
 
 type CheckId string
 
+type CheckType int
+
+const (
+	CheckTypeEventBased CheckType = iota
+	CheckTypeItemBased
+)
+
+type CheckUnit string
+
+const (
+	CheckUnitPercent  = "percent"
+	CheckUnitDuration = "duration"
+)
+
+type CheckConfig struct {
+	Id    CheckId
+	Type  CheckType
+	Title string
+
+	DefaultThreshold   float64
+	Unit               CheckUnit
+	MessageTemplate    string
+	RuleFormatTemplate string
+}
+
 var Checks struct {
 	Instance struct {
 		Status   CheckId `title:"Instance status"`
@@ -44,6 +69,28 @@ var Checks struct {
 	Logs struct {
 		Errors CheckId `title:"Log errors"`
 	}
+}
+
+var Checks2 = struct {
+	CPUNode      CheckConfig
+	CPUContainer CheckConfig
+}{
+	CPUNode: CheckConfig{
+		Type:               CheckTypeItemBased,
+		Title:              "Node CPU utilization",
+		MessageTemplate:    `high CPU utilization of {{.Items "node"}}`,
+		DefaultThreshold:   80,
+		Unit:               CheckUnitPercent,
+		RuleFormatTemplate: "",
+	},
+	CPUContainer: CheckConfig{
+		Type:               CheckTypeItemBased,
+		Title:              "Container CPU utilization",
+		DefaultThreshold:   80,
+		Unit:               CheckUnitPercent,
+		MessageTemplate:    `high CPU utilization of {{.Items "container"}}`,
+		RuleFormatTemplate: "",
+	},
 }
 
 var checkTitles = map[CheckId]string{}
@@ -90,12 +137,18 @@ func (c CheckContext) Count(singular string) string {
 }
 
 type Check struct {
-	Id      CheckId `json:"id"`
-	Title   string  `json:"title"`
-	Status  Status  `json:"status"`
-	Message string  `json:"message"`
-	items   *utils.StringSet
-	count   int64
+	Id                 CheckId   `json:"id"`
+	Title              string    `json:"title"`
+	Status             Status    `json:"status"`
+	Message            string    `json:"message"`
+	Threshold          float64   `json:"threshold"`
+	Unit               CheckUnit `json:"unit"`
+	RuleFormatTemplate string    `json:"rule_format_template"`
+
+	typ             CheckType
+	messageTemplate string
+	items           *utils.StringSet
+	count           int64
 }
 
 func (ch *Check) SetStatus(status Status, format string, a ...any) {
@@ -115,18 +168,20 @@ func (ch *Check) Inc(amount int64) {
 	ch.count += amount
 }
 
-func (ch *Check) Format(tmpl string, threshold ...float64) {
-	switch {
-	case len(threshold) > 0:
-		if ch.count <= int64(threshold[0]) {
+func (ch *Check) Calc() {
+	switch ch.typ {
+	case CheckTypeEventBased:
+		if ch.count <= int64(ch.Threshold) {
+			return
+		}
+	case CheckTypeItemBased:
+		if ch.items.Len() <= int(ch.Threshold) {
 			return
 		}
 	default:
-		if ch.items.Len() == 0 {
-			return
-		}
+		return
 	}
-	t, err := template.New("").Parse(tmpl)
+	t, err := template.New("").Parse(ch.messageTemplate)
 	if err != nil {
 		ch.SetStatus(UNKNOWN, "invalid template: %s", err)
 		return

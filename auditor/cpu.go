@@ -6,9 +6,10 @@ import (
 )
 
 func (a *appAuditor) cpu() {
-	report := model.NewAuditReport(a.w.Ctx, "CPU")
+	report := a.addReport("CPU")
 	relevantNodes := map[string]*model.Node{}
-
+	nodeCpuCheck := report.CreateCheck(model.Checks2.CPUNode)
+	containerCpuCheck := report.CreateCheck(model.Checks2.CPUContainer)
 	for _, i := range a.app.Instances {
 		for _, c := range i.Containers {
 			report.GetOrCreateChartInGroup("CPU usage of container <selector>, cores", c.Name).
@@ -19,8 +20,8 @@ func (a *appAuditor) cpu() {
 
 			if c.CpuLimit != nil && c.CpuUsage != nil {
 				usage := c.CpuUsage.Last() / c.CpuLimit.Last()
-				if usage > a.getSimpleConfig(model.Checks.CPU.Container, 80).Threshold {
-					report.GetOrCreateCheck(model.Checks.CPU.Container).AddItem("%s@%s", c.Name, i.Name)
+				if usage > containerCpuCheck.Threshold {
+					containerCpuCheck.AddItem("%s@%s", c.Name, i.Name)
 				}
 			}
 		}
@@ -32,8 +33,8 @@ func (a *appAuditor) cpu() {
 					AddSeries(nodeName, i.Node.CpuUsagePercent).
 					Feature()
 
-				if last := i.Node.CpuUsagePercent.Last(); last > a.getSimpleConfig(model.Checks.CPU.Node, 80).Threshold {
-					report.GetOrCreateCheck(model.Checks.CPU.Node).AddItem(i.Node.Name.Value())
+				if last := i.Node.CpuUsagePercent.Last(); last > nodeCpuCheck.Threshold {
+					nodeCpuCheck.AddItem(i.Node.Name.Value())
 				}
 
 				byMode := report.GetOrCreateChartInGroup("Node CPU usage <selector>, %", nodeName).Sorted().Stacked()
@@ -49,12 +50,4 @@ func (a *appAuditor) cpu() {
 			}
 		}
 	}
-
-	report.
-		GetOrCreateCheck(model.Checks.CPU.Container).
-		Format(`high CPU utilization of {{.Items "container"}}`)
-	report.
-		GetOrCreateCheck(model.Checks.CPU.Node).
-		Format(`high CPU utilization of {{.Items "node"}}`)
-	a.addReport(report)
 }
