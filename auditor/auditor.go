@@ -42,6 +42,9 @@ func AuditApplication(w *model.World, app *model.Application) []*model.AuditRepo
 
 		for _, ch := range r.Checks {
 			ch.Calc()
+			if ch.Status > r.Status {
+				r.Status = ch.Status
+			}
 		}
 
 		res = append(res, r)

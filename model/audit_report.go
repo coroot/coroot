@@ -11,6 +11,7 @@ type AuditReport struct {
 	checkConfigs CheckConfigs
 
 	Name    string    `json:"name"`
+	Status  Status    `json:"status"`
 	Widgets []*Widget `json:"widgets"`
 	Checks  []*Check  `json:"checks"`
 }

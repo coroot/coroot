@@ -14,6 +14,7 @@
 
         <v-tabs v-if="app.reports && app.reports.length" height="40" show-arrows slider-size="2">
             <v-tab v-for="r in app.reports" :key="r.name" :to="{params: {report: r.name}, query: $route.query}">
+                <Led :status="r.status" />
                 {{r.name}}
             </v-tab>
         </v-tabs>
@@ -33,6 +34,7 @@ import AppMap from "@/components/AppMap";
 import Dashboard from "@/components/Dashboard";
 import NoData from "@/components/NoData";
 import Check from "@/components/Check";
+import Led from "@/components/Led";
 
 export default {
     props: {
@@ -40,7 +42,7 @@ export default {
         report: String,
     },
 
-    components: {AppMap, Dashboard, NoData, Check},
+    components: {AppMap, Dashboard, NoData, Check, Led},
 
     data() {
         return {
