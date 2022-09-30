@@ -60,7 +60,7 @@
             <div v-if="project" class="ml-3">
                 <v-btn :to="{name: 'project_settings'}" plain outlined height="40" class="px-2">
                     <v-icon>mdi-cog</v-icon>
-                    <Led v-if="status" :status="status.status !== 'ok' ? 'warning' : 'ok'" style="position: absolute; bottom: 0; right: 0;" />
+                    <Led v-if="status" :status="status.status !== 'ok' ? 'warning' : 'ok'" absolute />
                 </v-btn>
             </div>
         </v-container>

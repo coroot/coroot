@@ -5,7 +5,7 @@
         </v-alert>
         <div v-if="status">
             <div class="text-truncate">
-                <Led :status="status.prometheus.status" class="mr-1" />
+                <Led :status="status.prometheus.status" />
                 <span class="font-weight-medium">prometheus</span>:
                 <span v-if="status.prometheus.error">
                     {{status.prometheus.error}}
@@ -17,7 +17,7 @@
             </div>
 
             <div class="d-flex align-center mt-2">
-                <Led :status="status.node_agent.status" class="mr-1" />
+                <Led :status="status.node_agent.status" />
                 <span class="font-weight-medium">coroot-node-agent</span>:
                 <template v-if="status.node_agent.status === 'unknown'">
                     unknown
@@ -36,7 +36,7 @@
             </div>
 
             <div v-if="status.kube_state_metrics" class="d-flex align-center mt-2">
-                <Led :status="status.kube_state_metrics.status" class="mr-1" />
+                <Led :status="status.kube_state_metrics.status" />
                 <span class="font-weight-medium">kube-state-metrics</span>:
                 <template v-if="status.kube_state_metrics.status === 'ok'">
                     {{$pluralize('application', status.kube_state_metrics.applications, true)}} found
@@ -50,7 +50,7 @@
             </div>
 
             <div v-for="ex in exporters" :key="ex.type" class="mt-2" :class="{muted: ex.muted}">
-                <Led :status="ex.status" class="mr-1" />
+                <Led :status="ex.status" />
                 <span class="font-weight-medium">{{ex.type}}</span>
                 <v-btn x-small color="primary" depressed class="ml-1" @click="save(!ex.muted, ex.type)" :loading="saving">
                     <v-tooltip bottom>
@@ -70,7 +70,7 @@
                     </template>
                 </div>
                 <div v-for="(ok, id) in ex.applications" :key="id" class="ml-5">
-                    <Led :status="ok ? 'ok' : 'warning'" class="mr-1" />
+                    <Led :status="ok ? 'ok' : 'warning'" />
                     <router-link :to="{name: 'application', params: {id}}">{{$api.appId(id).name}}</router-link>
                 </div>
             </div>

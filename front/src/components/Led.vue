@@ -1,5 +1,5 @@
 <template>
-    <span style="padding-right: 6px">
+    <span class="wrapper" :class="{absolute}">
         <span class="led" :style="{backgroundColor: color}" />
     </span>
 </template>
@@ -8,6 +8,7 @@
     export default {
         props: {
             status: String,
+            absolute: Boolean,
         },
         computed: {
             color() {
@@ -26,6 +27,16 @@
 </script>
 
 <style scoped>
+.wrapper {
+    padding-right: 6px;
+}
+.wrapper.absolute {
+    position: absolute;
+    padding-right: 0;
+    line-height: 0;
+    bottom: 0;
+    right: 0;
+}
 .led {
     display: inline-block;
     /*vertical-align: middle;*/
