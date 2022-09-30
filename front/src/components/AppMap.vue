@@ -8,9 +8,9 @@
             >
                 <div>
                     <router-link :to="{name: 'application', params: {id: app.id}, query: $route.query}" class="name">
-                        {{$api.appId(app.id).name}}
+                        <Led v-if="app.status" :status="app.status" />{{$api.appId(app.id).name}}
                     </router-link>
-                    <Labels :labels="app.labels" class="d-none d-sm-block" />
+                    <Labels :labels="app.labels" class="d-none d-sm-block ml-4" />
                 </div>
             </div>
         </div>
@@ -19,9 +19,9 @@
             <div v-if="map.application" class="app" :ref="map.application.id">
                 <div>
                     <span class="name">
-                        {{$api.appId(map.application.id).name}}
+                        <Led v-if="map.application.status" :status="map.application.status" />{{$api.appId(map.application.id).name}}
                     </span>
-                    <Labels :labels="map.application.labels" class="d-none d-sm-block" />
+                    <Labels :labels="map.application.labels" class="d-none d-sm-block ml-4" />
                 </div>
                 <div v-if="map.instances && map.instances.length" class="instances">
                     <div v-for="i in map.instances" class="instance" :ref="'instance:'+i.id"
@@ -46,9 +46,9 @@
             >
                 <div>
                     <router-link :to="{name: 'application', params: {id: app.id}, query: $route.query}" class="name">
-                        {{$api.appId(app.id).name}}
+                        <Led v-if="app.status" :status="app.status" />{{$api.appId(app.id).name}}
                     </router-link>
-                    <Labels :labels="app.labels" class="d-none d-sm-block" />
+                    <Labels :labels="app.labels" class="d-none d-sm-block ml-4" />
                 </div>
             </div>
         </div>
@@ -70,13 +70,14 @@
 
 <script>
 import Labels from '@/components/Labels';
+import Led from "@/components/Led";
 
 export default {
     props: {
         map: Object,
     },
 
-    components: {Labels},
+    components: {Labels, Led},
 
     data() {
         return {

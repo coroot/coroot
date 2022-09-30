@@ -138,6 +138,10 @@ func (a *appAuditor) instances() {
 		)
 	}
 
+	if a.app.Id.Kind == model.ApplicationKindExternalService {
+		availability.SetStatus(model.UNKNOWN, "no data")
+		restarts.SetStatus(model.UNKNOWN, "no data")
+	}
 	chart := report.GetOrCreateChart("Instances").Stacked().AddSeries("up", up)
 	if a.app.DesiredInstances != nil {
 		chart.SetThreshold("desired", a.app.DesiredInstances, timeseries.Any)

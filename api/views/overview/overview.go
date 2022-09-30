@@ -1,6 +1,7 @@
 package overview
 
 import (
+	"github.com/coroot/coroot/auditor"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/utils"
 	"github.com/dustin/go-humanize"
@@ -20,6 +21,7 @@ type Application struct {
 	Id       model.ApplicationId `json:"id"`
 	Category string              `json:"category"`
 	Labels   model.Labels        `json:"labels"`
+	Status   model.Status        `json:"status"`
 
 	Upstreams   []Link `json:"upstreams"`
 	Downstreams []Link `json:"downstreams"`
@@ -34,11 +36,13 @@ type Link struct {
 func Render(w *model.World) *View {
 	var apps []*Application
 	used := map[model.ApplicationId]bool{}
+	auditor.Audit(w)
 	for _, a := range w.Applications {
 		app := Application{
 			Id:          a.Id,
 			Category:    category(a),
 			Labels:      a.Labels(),
+			Status:      a.Status,
 			Upstreams:   []Link{},
 			Downstreams: []Link{},
 		}

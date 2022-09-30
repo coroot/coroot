@@ -14,43 +14,46 @@ type appAuditor struct {
 	reports []*model.AuditReport
 }
 
-func AuditApplication(w *model.World, app *model.Application) []*model.AuditReport {
-	a := &appAuditor{
-		w:      w,
-		app:    app,
-		events: calcAppEvents(app),
-	}
-	a.instances()
-	a.cpu()
-	a.memory()
-	a.storage()
-	a.network()
-	a.postgres()
-	a.redis()
-	a.logs()
-
-	var res []*model.AuditReport
-	for _, r := range a.reports {
-		widgets := enrichWidgets(r.Widgets, a.events)
-		if len(widgets) == 0 {
-			continue
+func Audit(w *model.World) {
+	for _, app := range w.Applications {
+		a := &appAuditor{
+			w:      w,
+			app:    app,
+			events: calcAppEvents(app),
 		}
-		sort.SliceStable(widgets, func(i, j int) bool {
-			return widgets[i].Table != nil
-		})
-		r.Widgets = widgets
-
-		for _, ch := range r.Checks {
-			ch.Calc()
-			if ch.Status > r.Status {
-				r.Status = ch.Status
+		a.instances()
+		a.cpu()
+		a.memory()
+		a.storage()
+		a.network()
+		a.postgres()
+		a.redis()
+		a.logs()
+		for _, r := range a.reports {
+			widgets := enrichWidgets(r.Widgets, a.events)
+			if len(widgets) == 0 {
+				continue
 			}
+			sort.SliceStable(widgets, func(i, j int) bool {
+				return widgets[i].Table != nil
+			})
+			r.Widgets = widgets
+
+			for _, ch := range r.Checks {
+				ch.Calc()
+				if ch.Status > r.Status {
+					r.Status = ch.Status
+				}
+			}
+			switch r.Name {
+			case "Postgres", "Redis", "Instances":
+				if app.Status < r.Status {
+					app.Status = r.Status
+				}
+			}
+			app.Reports = append(app.Reports, r)
 		}
-
-		res = append(res, r)
 	}
-
-	return res
 }
 
 func (a *appAuditor) addReport(name string) *model.AuditReport {

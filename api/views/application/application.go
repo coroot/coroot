@@ -21,6 +21,7 @@ type AppMap struct {
 
 type Application struct {
 	Id     model.ApplicationId `json:"id"`
+	Status model.Status        `json:"status"`
 	Labels model.Labels        `json:"labels"`
 }
 
@@ -46,9 +47,12 @@ type InstanceLink struct {
 }
 
 func Render(world *model.World, app *model.Application) *View {
+	auditor.Audit(world)
+
 	appMap := &AppMap{
 		Application: &Application{
 			Id:     app.Id,
+			Status: app.Status,
 			Labels: app.Labels(),
 		},
 	}
@@ -120,7 +124,7 @@ func Render(world *model.World, app *model.Application) *View {
 
 	return &View{
 		AppMap:  appMap,
-		Reports: auditor.AuditApplication(world, app),
+		Reports: app.Reports,
 	}
 }
 
@@ -134,7 +138,7 @@ func (m *AppMap) addDependency(w *model.World, id model.ApplicationId) {
 	if app == nil {
 		return
 	}
-	m.Dependencies = append(m.Dependencies, &Application{Id: id, Labels: app.Labels()})
+	m.Dependencies = append(m.Dependencies, &Application{Id: id, Status: app.Status, Labels: app.Labels()})
 }
 
 func (m *AppMap) addClient(w *model.World, id model.ApplicationId) {
@@ -147,5 +151,5 @@ func (m *AppMap) addClient(w *model.World, id model.ApplicationId) {
 	if app == nil {
 		return
 	}
-	m.Clients = append(m.Clients, &Application{Id: id, Labels: app.Labels()})
+	m.Clients = append(m.Clients, &Application{Id: id, Status: app.Status, Labels: app.Labels()})
 }

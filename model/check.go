@@ -72,7 +72,7 @@ var Checks = struct {
 	},
 	MemoryOOM: CheckConfig{
 		Type:               CheckTypeEventBased,
-		Title:              "Out of Memory events",
+		Title:              "Out of Memory",
 		DefaultThreshold:   0,
 		MessageTemplate:    `app containers have been restarted {{.Count "time"}} by the OOM killer`,
 		RuleFormatTemplate: "The number of container terminations due to Out of Memory > <threshold>",

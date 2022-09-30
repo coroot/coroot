@@ -14,6 +14,9 @@ type Application struct {
 	Instances []*Instance
 
 	DesiredInstances timeseries.TimeSeries
+
+	Status  Status
+	Reports []*AuditReport
 }
 
 func NewApplication(id ApplicationId) *Application {
