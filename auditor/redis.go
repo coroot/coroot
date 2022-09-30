@@ -6,15 +6,17 @@ import (
 )
 
 func (a *appAuditor) redis() {
-	report := model.NewAuditReport(a.w.Ctx, "Redis")
+	report := a.addReport("Redis")
 
+	availability := report.CreateCheck(model.Checks.RedisAvailability)
+	latency := report.CreateCheck(model.Checks.RedisLatency)
 	for _, i := range a.app.Instances {
 		if i.Redis == nil {
 			continue
 		}
 		status := model.NewTableCell().SetStatus(model.OK, "up")
 		if !(i.Redis.Up != nil && i.Redis.Up.Last() > 0) {
-			report.GetOrCreateCheck(model.Checks.Redis.Status).AddItem(i.Name)
+			availability.AddItem(i.Name)
 			status.SetStatus(model.WARNING, "down (no metrics)")
 		}
 		roleCell := model.NewTableCell(i.Redis.Role.Value())
@@ -49,16 +51,8 @@ func (a *appAuditor) redis() {
 			Sorted().
 			AddMany(timeseries.Top(i.Redis.Calls, timeseries.NanSum, 5))
 
-		if l := avg.Last(); l > a.getSimpleConfig(model.Checks.Redis.Latency, 0.005).Threshold {
-			report.GetOrCreateCheck(model.Checks.Redis.Latency).AddItem(i.Name)
+		if l := avg.Last(); l > latency.Threshold {
+			latency.AddItem(i.Name)
 		}
 	}
-	report.
-		GetOrCreateCheck(model.Checks.Redis.Status).
-		Format(`{{.ItemsWithToBe "instance"}} unavailable`)
-	report.
-		GetOrCreateCheck(model.Checks.Redis.Latency).
-		Format(`{{.ItemsWithToBe "instance"}} performing slowly`)
-
-	a.addReport(report)
 }

@@ -98,13 +98,13 @@ func (c *AuditReport) CreateCheck(cfg CheckConfig) *Check {
 	return ch
 }
 
-func (c *AuditReport) GetOrCreateCheck(id CheckId) *Check {
-	for _, ch := range c.Checks {
-		if ch.Id == id {
-			return ch
-		}
-	}
-	ch := &Check{Id: id, Title: id.Title(), Status: OK, items: utils.NewStringSet()}
-	c.Checks = append(c.Checks, ch)
-	return ch
-}
+//func (c *AuditReport) GetOrCreateCheck(id CheckId) *Check {
+//	for _, ch := range c.Checks {
+//		if ch.Id == id {
+//			return ch
+//		}
+//	}
+//	ch := &Check{Id: id, Title: id.Title(), Status: OK, items: utils.NewStringSet()}
+//	c.Checks = append(c.Checks, ch)
+//	return ch
+//}

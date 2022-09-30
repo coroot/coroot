@@ -24,7 +24,10 @@ var (
 )
 
 func (a *appAuditor) postgres() {
-	report := model.NewAuditReport(a.w.Ctx, "Postgres")
+	report := a.addReport("Postgres")
+	availabilityCheck := report.CreateCheck(model.Checks.PostgresAvailability)
+	latencyCheck := report.CreateCheck(model.Checks.PostgresLatency)
+	errorsCheck := report.CreateCheck(model.Checks.PostgresErrors)
 
 	primaryLsn := timeseries.Aggregate(timeseries.Max)
 	for _, i := range a.app.Instances {
@@ -41,8 +44,8 @@ func (a *appAuditor) postgres() {
 			GetOrCreateChartInGroup("Postgres query latency <selector>, seconds", "overview").
 			Feature().
 			AddSeries(i.Name, i.Postgres.Avg)
-		if i.Postgres.Avg != nil && i.Postgres.Avg.Last() > a.getSimpleConfig(model.Checks.Postgres.Latency, 0.1).Threshold {
-			report.GetOrCreateCheck(model.Checks.Postgres.Latency).AddItem(i.Name)
+		if i.Postgres.Avg != nil && i.Postgres.Avg.Last() > latencyCheck.Threshold {
+			latencyCheck.AddItem(i.Name)
 		}
 		report.
 			GetOrCreateChartInGroup("Postgres query latency <selector>, seconds", i.Name).
@@ -75,24 +78,11 @@ func (a *appAuditor) postgres() {
 		lag := pgReplicationLag(primaryLsn, i.Postgres.WalReplyLsn)
 		report.GetOrCreateChart("Replication lag, bytes").AddSeries(i.Name, lag)
 
-		a.pgTable(report, i, primaryLsn, lag, qps, errors)
+		a.pgTable(report, i, primaryLsn, lag, qps, errors, availabilityCheck, errorsCheck)
 	}
-	report.
-		GetOrCreateCheck(model.Checks.Postgres.Status).
-		Format(`{{.ItemsWithToBe "instance"}} unavailable`)
-	report.
-		GetOrCreateCheck(model.Checks.Postgres.Latency).
-		Format(`{{.ItemsWithToBe "instance"}} performing slowly`)
-	report.
-		GetOrCreateCheck(model.Checks.Postgres.Errors).
-		Format(
-			`{{.Count "error"}} occurred`,
-			a.getSimpleConfig(model.Checks.Postgres.Errors, 0).Threshold,
-		)
-	a.addReport(report)
 }
 
-func (a *appAuditor) pgTable(report *model.AuditReport, i *model.Instance, primaryLsn, lag, qps, errors timeseries.TimeSeries) {
+func (a *appAuditor) pgTable(report *model.AuditReport, i *model.Instance, primaryLsn, lag, qps, errors timeseries.TimeSeries, availabilityCheck, errorsCheck *model.Check) {
 	role := i.ClusterRoleLast()
 	roleCell := model.NewTableCell(role.String())
 	switch role {
@@ -107,13 +97,13 @@ func (a *appAuditor) pgTable(report *model.AuditReport, i *model.Instance, prima
 	}
 	status := model.NewTableCell().SetStatus(model.OK, "up")
 	if !i.Postgres.IsUp() {
-		report.GetOrCreateCheck(model.Checks.Postgres.Status).AddItem(i.Name)
+		availabilityCheck.AddItem(i.Name)
 		status.SetStatus(model.WARNING, "down (no metrics)")
 	}
 	errorsCell := model.NewTableCell()
 
 	if total := timeseries.Reduce(timeseries.NanSum, errors); !math.IsNaN(total) {
-		report.GetOrCreateCheck(model.Checks.Postgres.Errors).Inc(int64(total))
+		errorsCheck.Inc(int64(total))
 		errorsCell.SetValue(fmt.Sprintf("%.0f", total))
 	}
 	report.

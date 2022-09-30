@@ -6,9 +6,10 @@ import (
 )
 
 func (a *appAuditor) memory() {
-	report := model.NewAuditReport(a.w.Ctx, "Memory")
+	report := a.addReport("Memory")
 	relevantNodes := map[string]*model.Node{}
 
+	oomCheck := report.CreateCheck(model.Checks.MemoryOOM)
 	for _, i := range a.app.Instances {
 		oom := timeseries.Aggregate(timeseries.NanSum)
 		for _, c := range i.Containers {
@@ -20,7 +21,7 @@ func (a *appAuditor) memory() {
 		report.GetOrCreateChart("Out of memory events").AddSeries(i.Name, oom)
 
 		if ooms := timeseries.Reduce(timeseries.NanSum, oom); ooms > 0 {
-			report.GetOrCreateCheck(model.Checks.Memory.OOM).Inc(int64(ooms))
+			oomCheck.Inc(int64(ooms))
 		}
 		if node := i.Node; node != nil {
 			nodeName := node.Name.Value()
@@ -41,10 +42,4 @@ func (a *appAuditor) memory() {
 			}
 		}
 	}
-
-	report.GetOrCreateCheck(model.Checks.Memory.OOM).Format(
-		`app containers have been restarted {{.Count "time"}} by the OOM killer`,
-		a.getSimpleConfig(model.Checks.Memory.OOM, 0).Threshold,
-	)
-	a.addReport(report)
 }

@@ -10,7 +10,9 @@ import (
 )
 
 func (a *appAuditor) storage() {
-	report := model.NewAuditReport(a.w.Ctx, "Storage")
+	report := a.addReport("Storage")
+	ioCheck := report.CreateCheck(model.Checks.StorageIO)
+	spaceCheck := report.CreateCheck(model.Checks.StorageSpace)
 
 	for _, i := range a.app.Instances {
 		for _, v := range i.Volumes {
@@ -23,8 +25,8 @@ func (a *appAuditor) storage() {
 					report.GetOrCreateChartInGroup("I/O utilization <selector>, %", v.MountPoint).
 						AddSeries(i.Name, d.IOUtilizationPercent)
 
-					if l := d.IOUtilizationPercent.Last(); l > a.getSimpleConfig(model.Checks.Storage.IO, 80).Threshold {
-						report.GetOrCreateCheck(model.Checks.Storage.IO).AddItem("%s:%s", i.Name, v.MountPoint)
+					if l := d.IOUtilizationPercent.Last(); l > ioCheck.Threshold {
+						ioCheck.AddItem("%s:%s", i.Name, v.MountPoint)
 					}
 
 					report.GetOrCreateChartInGroup("IOPS <selector>", fullName).
@@ -61,8 +63,8 @@ func (a *appAuditor) storage() {
 								humanize.Bytes(uint64(usage)),
 								humanize.Bytes(uint64(capacity))),
 							)
-							if percentage > a.getSimpleConfig(model.Checks.Storage.Space, 80).Threshold {
-								report.GetOrCreateCheck(model.Checks.Storage.Space).AddItem("%s:%s", i.Name, v.MountPoint)
+							if percentage > spaceCheck.Threshold {
+								spaceCheck.AddItem("%s:%s", i.Name, v.MountPoint)
 							}
 						}
 					}
@@ -81,12 +83,4 @@ func (a *appAuditor) storage() {
 			}
 		}
 	}
-	report.
-		GetOrCreateCheck(model.Checks.Storage.IO).
-		Format(`high I/O utilization of {{.Items "volume"}}`)
-
-	report.
-		GetOrCreateCheck(model.Checks.Storage.Space).
-		Format(`disk space on {{.Items "volume"}} will be exhausted soon`)
-	a.addReport(report)
 }

@@ -38,42 +38,21 @@ type CheckConfig struct {
 	RuleFormatTemplate string
 }
 
-var Checks struct {
-	Instance struct {
-		Status   CheckId `title:"Instance status"`
-		Restarts CheckId `title:"Instance restarts"`
-	}
-	CPU struct {
-		Node      CheckId `title:"Node CPU utilization"`
-		Container CheckId `title:"Container CPU utilization"`
-	}
-	Memory struct {
-		OOM CheckId `title:"OOM"`
-	}
-	Storage struct {
-		Space CheckId `title:"Storage space usage"`
-		IO    CheckId `title:"Storage IO usage"`
-	}
-	Network struct {
-		Latency CheckId `title:"Network latency"`
-	}
-	Postgres struct {
-		Status  CheckId `title:"Postgres status"`
-		Latency CheckId `title:"Postgres latency"`
-		Errors  CheckId `title:"Postgres errors"`
-	}
-	Redis struct {
-		Status  CheckId `title:"Redis status"`
-		Latency CheckId `title:"Redis latency"`
-	}
-	Logs struct {
-		Errors CheckId `title:"Log errors"`
-	}
-}
-
-var Checks2 = struct {
-	CPUNode      CheckConfig
-	CPUContainer CheckConfig
+var Checks = struct {
+	CPUNode              CheckConfig
+	CPUContainer         CheckConfig
+	MemoryOOM            CheckConfig
+	StorageSpace         CheckConfig
+	StorageIO            CheckConfig
+	NetworkRTT           CheckConfig
+	InstanceAvailability CheckConfig
+	InstanceRestarts     CheckConfig
+	RedisAvailability    CheckConfig
+	RedisLatency         CheckConfig
+	PostgresAvailability CheckConfig
+	PostgresLatency      CheckConfig
+	PostgresErrors       CheckConfig
+	LogErrors            CheckConfig
 }{
 	CPUNode: CheckConfig{
 		Type:               CheckTypeItemBased,
@@ -89,6 +68,95 @@ var Checks2 = struct {
 		DefaultThreshold:   80,
 		Unit:               CheckUnitPercent,
 		MessageTemplate:    `high CPU utilization of {{.Items "container"}}`,
+		RuleFormatTemplate: "",
+	},
+	MemoryOOM: CheckConfig{
+		Type:               CheckTypeEventBased,
+		Title:              "Out of Memory events",
+		DefaultThreshold:   0,
+		MessageTemplate:    `app containers have been restarted {{.Count "time"}} by the OOM killer`,
+		RuleFormatTemplate: "",
+	},
+	StorageIO: CheckConfig{
+		Type:               CheckTypeItemBased,
+		Title:              "Disk I/O",
+		DefaultThreshold:   80,
+		Unit:               CheckUnitPercent,
+		MessageTemplate:    `high I/O utilization of {{.Items "volume"}}`,
+		RuleFormatTemplate: "",
+	},
+	StorageSpace: CheckConfig{
+		Type:               CheckTypeItemBased,
+		Title:              "Disk space",
+		DefaultThreshold:   80,
+		Unit:               CheckUnitPercent,
+		MessageTemplate:    `disk space on {{.Items "volume"}} will be exhausted soon`,
+		RuleFormatTemplate: "",
+	},
+	NetworkRTT: CheckConfig{
+		Type:               CheckTypeItemBased,
+		Title:              "Network latency",
+		DefaultThreshold:   0.01,
+		Unit:               CheckUnitDuration,
+		MessageTemplate:    `high network latency to {{.Items "upstream service"}}`,
+		RuleFormatTemplate: "",
+	},
+	InstanceAvailability: CheckConfig{
+		Type:               CheckTypeItemBased,
+		Title:              "Instance availability",
+		DefaultThreshold:   0,
+		MessageTemplate:    `{{.ItemsWithToBe "instance"}} unavailable`,
+		RuleFormatTemplate: "",
+	},
+	InstanceRestarts: CheckConfig{
+		Type:               CheckTypeEventBased,
+		Title:              "Restarts",
+		DefaultThreshold:   0,
+		MessageTemplate:    `app containers have been restarted {{.Count "time"}}`,
+		RuleFormatTemplate: "",
+	},
+	RedisAvailability: CheckConfig{
+		Type:               CheckTypeItemBased,
+		Title:              "Redis availability",
+		DefaultThreshold:   0,
+		MessageTemplate:    `{{.ItemsWithToBe "redis instance"}} unavailable`,
+		RuleFormatTemplate: "",
+	},
+	RedisLatency: CheckConfig{
+		Type:               CheckTypeItemBased,
+		Title:              "Redis latency",
+		DefaultThreshold:   0.005,
+		Unit:               CheckUnitDuration,
+		MessageTemplate:    `{{.ItemsWithToBe "redis instance"}} performing slowly`,
+		RuleFormatTemplate: "",
+	},
+	PostgresAvailability: CheckConfig{
+		Type:               CheckTypeItemBased,
+		Title:              "Postgres availability",
+		DefaultThreshold:   0,
+		MessageTemplate:    `{{.ItemsWithToBe "postgres instance"}} unavailable`,
+		RuleFormatTemplate: "",
+	},
+	PostgresLatency: CheckConfig{
+		Type:               CheckTypeItemBased,
+		Title:              "Postgres latency",
+		DefaultThreshold:   0.1,
+		Unit:               CheckUnitDuration,
+		MessageTemplate:    `{{.ItemsWithToBe "postgres instance"}} performing slowly`,
+		RuleFormatTemplate: "",
+	},
+	PostgresErrors: CheckConfig{
+		Type:               CheckTypeEventBased,
+		Title:              "Postgres errors",
+		DefaultThreshold:   0,
+		MessageTemplate:    `{{.Count "error"}} occurred`,
+		RuleFormatTemplate: "",
+	},
+	LogErrors: CheckConfig{
+		Type:               CheckTypeEventBased,
+		Title:              "Errors",
+		DefaultThreshold:   0,
+		MessageTemplate:    `{{.Count "error"}} occurred`,
 		RuleFormatTemplate: "",
 	},
 }

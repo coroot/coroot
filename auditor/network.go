@@ -38,9 +38,10 @@ func (s *netSummary) addRtt(rtt timeseries.TimeSeries) {
 }
 
 func (a *appAuditor) network() {
-	report := model.NewAuditReport(a.w.Ctx, "Network")
+	report := a.addReport("Network")
 	upstreams := map[model.ApplicationId]*netSummary{}
 
+	rttCheck := report.CreateCheck(model.Checks.NetworkRTT)
 	for _, instance := range a.app.Instances {
 		for _, u := range instance.Upstreams {
 			if u.RemoteInstance == nil {
@@ -81,17 +82,12 @@ func (a *appAuditor) network() {
 	}
 	for appId, summary := range upstreams {
 		avg := timeseries.Aggregate(timeseries.Div, summary.rttSum, summary.rttCount)
-		if v := avg.Last(); v > a.getSimpleConfig(model.Checks.Network.Latency, 0.01).Threshold {
-			report.GetOrCreateCheck(model.Checks.Network.Latency).AddItem(appId.Name)
+		if v := avg.Last(); v > rttCheck.Threshold {
+			rttCheck.AddItem(appId.Name)
 		}
 		report.GetOrCreateChartInGroup("Network round-trip time to <selector>, seconds", appId.Name).
 			AddSeries("min", summary.rttMin).
 			AddSeries("avg", avg).
 			AddSeries("max", summary.rttMax)
 	}
-	report.
-		GetOrCreateCheck(model.Checks.Network.Latency).
-		Format(`high network latency to {{.Items "upstream service"}}`)
-
-	a.addReport(report)
 }

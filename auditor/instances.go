@@ -12,9 +12,12 @@ import (
 )
 
 func (a *appAuditor) instances() {
-	report := model.NewAuditReport(a.w.Ctx, "Instances")
+	report := a.addReport("Instances")
 
 	up := timeseries.Aggregate(timeseries.NanSum)
+
+	availability := report.CreateCheck(model.Checks.InstanceAvailability)
+	restarts := report.CreateCheck(model.Checks.InstanceRestarts)
 
 	for _, i := range a.app.Instances {
 		up.AddInput(i.UpAndRunning())
@@ -34,7 +37,6 @@ func (a *appAuditor) instances() {
 				status.SetStatus(model.OK, "ok")
 			} else {
 				if a.app.Id.Kind != model.ApplicationKindExternalService {
-					report.GetOrCreateCheck(model.Checks.Instance.Status).AddItem(i.Name)
 					status.SetStatus(model.WARNING, "down (no metrics)")
 					if i.Node != nil && !i.Node.IsUp() {
 						status.SetStatus(model.WARNING, "down (node down)")
@@ -104,18 +106,18 @@ func (a *appAuditor) instances() {
 			}
 		}
 		if *status.Status > model.OK {
-			report.GetOrCreateCheck(model.Checks.Instance.Status).AddItem(i.Name)
+			availability.AddItem(i.Name)
 		}
-		restarts := int64(0)
+		restartsCount := int64(0)
 		for _, c := range i.Containers {
 			if r := timeseries.Reduce(timeseries.NanSum, c.Restarts); !math.IsNaN(r) {
-				report.GetOrCreateCheck(model.Checks.Instance.Restarts).Inc(int64(r))
-				restarts += int64(r)
+				restarts.Inc(int64(r))
+				restartsCount += int64(r)
 			}
 		}
 		restartsCell := model.NewTableCell()
-		if restarts > 0 {
-			restartsCell.SetValue(strconv.FormatInt(restarts, 10))
+		if restartsCount > 0 {
+			restartsCell.SetValue(strconv.FormatInt(restartsCount, 10))
 		}
 
 		nodeStatus := model.UNKNOWN
@@ -142,15 +144,6 @@ func (a *appAuditor) instances() {
 		chart.Threshold.Color = "red"
 		chart.Threshold.Fill = true
 	}
-
-	report.
-		GetOrCreateCheck(model.Checks.Instance.Status).
-		Format(`{{.ItemsWithToBe "instance"}} unavailable`)
-
-	report.
-		GetOrCreateCheck(model.Checks.Instance.Restarts).
-		Format(`app containers have been restarted {{.Count "time"}}`)
-	a.addReport(report)
 }
 
 func instanceIPs(listens map[model.Listen]bool) []string {

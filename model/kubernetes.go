@@ -19,6 +19,7 @@ const (
 	ApplicationKindExternalService ApplicationKind = "ExternalService"
 	ApplicationKindDatabaseCluster ApplicationKind = "DatabaseCluster"
 	ApplicationKindRds             ApplicationKind = "RDS"
+	ApplicationKindNode            ApplicationKind = "Node"
 )
 
 type Job struct{}

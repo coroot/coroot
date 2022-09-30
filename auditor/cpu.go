@@ -8,8 +8,8 @@ import (
 func (a *appAuditor) cpu() {
 	report := a.addReport("CPU")
 	relevantNodes := map[string]*model.Node{}
-	nodeCpuCheck := report.CreateCheck(model.Checks2.CPUNode)
-	containerCpuCheck := report.CreateCheck(model.Checks2.CPUContainer)
+	nodeCpuCheck := report.CreateCheck(model.Checks.CPUNode)
+	containerCpuCheck := report.CreateCheck(model.Checks.CPUContainer)
 	for _, i := range a.app.Instances {
 		for _, c := range i.Containers {
 			report.GetOrCreateChartInGroup("CPU usage of container <selector>, cores", c.Name).

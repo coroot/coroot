@@ -23,7 +23,8 @@ var (
 func (a *appAuditor) logs() {
 	byHash := map[string]*model.LogPatternInfo{}
 	byLevel := map[model.LogLevel]timeseries.TimeSeries{}
-	report := model.NewAuditReport(a.w.Ctx, "Logs")
+	report := a.addReport("Logs")
+	check := report.CreateCheck(model.Checks.LogErrors)
 
 	patterns := &model.LogPatterns{
 		Title: fmt.Sprintf("Repeated patters from the <var>%s</var>'s log", a.app.Id.Name),
@@ -82,17 +83,11 @@ func (a *appAuditor) logs() {
 	for _, l := range logLevels {
 		if l == model.LogLevelError || l == model.LogLevelCritical {
 			if v := timeseries.Reduce(timeseries.NanSum, byLevel[l]); v > 0 {
-				report.GetOrCreateCheck(model.Checks.Logs.Errors).Inc(int64(v))
+				check.Inc(int64(v))
 			}
 		}
 		eventsBySeverity.AddSeries(strings.ToUpper(string(l)), byLevel[l], logLevelColors[l])
 	}
-	report.
-		GetOrCreateCheck(model.Checks.Logs.Errors).
-		Format(
-			`{{.Count "error"}} occurred`,
-			a.getSimpleConfig(model.Checks.Logs.Errors, 0).Threshold,
-		)
 	sort.Slice(patterns.Patterns, func(i, j int) bool {
 		return patterns.Patterns[i].Events > patterns.Patterns[j].Events
 	})
@@ -101,5 +96,4 @@ func (a *appAuditor) logs() {
 	}
 	report.Widgets = append(report.Widgets, &model.Widget{Chart: eventsBySeverity, Width: "100%"})
 	report.Widgets = append(report.Widgets, &model.Widget{LogPatterns: patterns, Width: "100%"})
-	a.addReport(report)
 }
