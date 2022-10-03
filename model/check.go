@@ -68,7 +68,7 @@ var Checks = struct {
 		DefaultThreshold:   80,
 		Unit:               CheckUnitPercent,
 		MessageTemplate:    `high CPU utilization of {{.Items "container"}}`,
-		RuleFormatTemplate: "The CPU usage of a container < <threshold> of its CPU limit",
+		RuleFormatTemplate: "The CPU usage of a container > <threshold> of its CPU limit",
 	},
 	MemoryOOM: CheckConfig{
 		Type:               CheckTypeEventBased,
