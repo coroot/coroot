@@ -36,7 +36,7 @@
                             <td>Override for the <var>{{$api.appId(this.appId).name}}</var> app</td>
                             <td>
                                 <div v-if="config.application_threshold !== null" class="d-flex align-center">
-                                    <div class="flex-grow-1 capfirst">
+                                    <div class="flex-grow-1 capfirst py-3">
                                         {{condition.head}}
                                         <v-text-field outlined hide-details v-model="config.application_threshold" :rules="[$validators.isFloat]" class="input" />
                                         {{unit}} {{condition.tail}}
@@ -52,7 +52,7 @@
                             <td>Project-level default</td>
                             <td>
                                 <div v-if="config.project_threshold !== null" class="d-flex align-center">
-                                    <div class="flex-grow-1 capfirst">
+                                    <div class="flex-grow-1 capfirst py-3">
                                         {{condition.head}}
                                         <v-text-field outlined hide-details v-model="config.project_threshold" :rules="[$validators.isFloat]" class="input" />
                                         {{unit}} {{condition.tail}}
@@ -68,7 +68,7 @@
                             <td>Global default</td>
                             <td>
                                 <div class="cd-flex align-center">
-                                    <div class="flex-grow-1 capfirst">
+                                    <div class="flex-grow-1 capfirst py-3">
                                         {{condition.head}}
                                         <v-text-field outlined hide-details disabled :value="config.global_threshold" class="input" />
                                         {{unit}} {{condition.tail}}
@@ -83,7 +83,7 @@
                 <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
                     {{error}}
                 </v-alert>
-                <v-alert v-if="message" color="green" outlined text>
+                <v-alert v-if="message && !changed" color="green" outlined text>
                     {{message}}
                 </v-alert>
                 <v-btn block color="primary" @click="save" :disabled="!(valid && changed)" :loading="saving" class="mt-5">
@@ -201,10 +201,7 @@ export default {
                 }
                 this.$events.emit('refresh');
                 this.message = 'Settings were successfully updated.';
-                setTimeout(() => {
-                    this.message = '';
-                    this.dialog = false;
-                }, 1000);
+                this.get();
             })
         },
     }

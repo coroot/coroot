@@ -10,5 +10,5 @@ export function isUrl(v) {
 }
 
 export function isFloat(v) {
-    return !!parseFloat(v) || 'number is required';
+    return !isNaN(parseFloat(v)) || 'number is required';
 }
