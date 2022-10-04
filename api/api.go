@@ -231,6 +231,63 @@ func (api *Api) App(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJson(w, views.Application(world, app))
 }
 
+func (api *Api) Check(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	projectId := db.ProjectId(vars["project"])
+	appId, err := model.NewApplicationIdFromString(vars["app"])
+	if err != nil {
+		klog.Warningf("invalid application_id %s: %s ", vars["app"], err)
+		http.Error(w, "invalid application_id: "+vars["app"], http.StatusBadRequest)
+		return
+	}
+	checkId := model.CheckId(vars["check"])
+
+	switch r.Method {
+
+	case http.MethodGet:
+		checkConfigs, err := api.db.GetCheckConfigs(projectId)
+		if err != nil {
+			klog.Errorln("failed to get check configs:", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		configs := checkConfigs.GetSimpleAll(checkId, appId)
+		if len(configs) != 3 {
+			http.Error(w, "", http.StatusNotFound)
+			return
+		}
+		form := CheckConfigForm{GlobalThreshold: configs[0].Threshold}
+		if configs[1] != nil {
+			form.ProjectThreshold = &configs[1].Threshold
+		}
+		if configs[2] != nil {
+			form.ApplicationThreshold = &configs[2].Threshold
+		}
+		utils.WriteJson(w, form)
+		return
+
+	case http.MethodPost:
+		var form CheckConfigForm
+		if err := ReadAndValidate(r, &form); err != nil {
+			klog.Warningln("bad request:", err)
+			http.Error(w, "", http.StatusBadRequest)
+			return
+		}
+		for id, t := range map[model.ApplicationId]*float64{model.ApplicationId{}: form.ProjectThreshold, appId: form.ApplicationThreshold} {
+			var cfg any = nil
+			if t != nil {
+				cfg = model.CheckConfigSimple{Threshold: *t}
+			}
+			if err := api.db.SaveCheckConfig(projectId, id, checkId, cfg); err != nil {
+				klog.Errorln("failed to save check config:", err)
+				http.Error(w, "", http.StatusInternalServerError)
+				return
+			}
+		}
+		return
+	}
+}
+
 func (api *Api) Node(w http.ResponseWriter, r *http.Request) {
 	nodeName := mux.Vars(r)["node"]
 	world, err := api.loadWorldByRequest(r)

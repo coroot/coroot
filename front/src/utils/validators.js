@@ -8,3 +8,7 @@ export function isSlug(v) {
 export function isUrl(v) {
     return urlRe.test(v) || 'a valid URL is required, e.g. https://yourdomain.com';
 }
+
+export function isFloat(v) {
+    return !!parseFloat(v) || 'number is required';
+}

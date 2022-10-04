@@ -68,6 +68,7 @@ func main() {
 	r.HandleFunc("/api/project/{project}/search", api.Search).Methods(http.MethodGet)
 	r.HandleFunc("/api/project/{project}/app/{app}", api.App).Methods(http.MethodGet)
 	r.HandleFunc("/api/project/{project}/node/{node}", api.Node).Methods(http.MethodGet)
+	r.HandleFunc("/api/project/{project}/app/{app}/check/{check}/config", api.Check).Methods(http.MethodGet, http.MethodPost)
 
 	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("./static"))))
 	r.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

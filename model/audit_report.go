@@ -84,12 +84,12 @@ func (c *AuditReport) GetOrCreateTable(header ...string) *Table {
 
 func (c *AuditReport) CreateCheck(cfg CheckConfig) *Check {
 	ch := &Check{
-		Id:                 cfg.Id,
-		Title:              cfg.Title,
-		Status:             OK,
-		Threshold:          c.checkConfigs.GetSimple(c.appId, cfg.Id, cfg.DefaultThreshold).Threshold,
-		Unit:               cfg.Unit,
-		RuleFormatTemplate: cfg.RuleFormatTemplate,
+		Id:                      cfg.Id,
+		Title:                   cfg.Title,
+		Status:                  OK,
+		Threshold:               c.checkConfigs.GetSimple(cfg.Id, c.appId).Threshold,
+		Unit:                    cfg.Unit,
+		ConditionFormatTemplate: cfg.ConditionFormatTemplate,
 
 		typ:             cfg.Type,
 		messageTemplate: cfg.MessageTemplate,
@@ -98,14 +98,3 @@ func (c *AuditReport) CreateCheck(cfg CheckConfig) *Check {
 	c.Checks = append(c.Checks, ch)
 	return ch
 }
-
-//func (c *AuditReport) GetOrCreateCheck(id CheckId) *Check {
-//	for _, ch := range c.Checks {
-//		if ch.Id == id {
-//			return ch
-//		}
-//	}
-//	ch := &Check{Id: id, Title: id.Title(), Status: OK, items: utils.NewStringSet()}
-//	c.Checks = append(c.Checks, ch)
-//	return ch
-//}

@@ -100,6 +100,14 @@ export default class Api {
         this.get(this.projectPath(`app/${appId}`), cb);
     }
 
+    getCheckConfig(appId, checkId, cb) {
+        this.get(this.projectPath(`app/${appId}/check/${checkId}/config`), cb);
+    }
+
+    saveCheckConfig(appId, checkId, form, cb) {
+        this.post(this.projectPath(`app/${appId}/check/${checkId}/config`), form, cb);
+    }
+
     getNode(nodeName, cb) {
         this.get(this.projectPath(`node/${nodeName}`), cb);
     }

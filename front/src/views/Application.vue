@@ -20,7 +20,7 @@
         </v-tabs>
 
         <v-card v-if="r" outlined class="my-4 pa-4 pb-2">
-            <Check v-for="check in r.checks" :key="check.id" :check="check" class="mb-2" />
+            <Check v-for="check in r.checks" :key="check.id" :appId="id" :check="check" class="mb-2" />
         </v-card>
 
         <Dashboard v-if="r" :name="r.name" :widgets="r.widgets" class="mt-3" />

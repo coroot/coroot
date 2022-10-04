@@ -45,7 +45,7 @@ func NewApplicationIdFromString(src string) (ApplicationId, error) {
 	if len(parts) < 3 {
 		return ApplicationId{}, fmt.Errorf("should be ns:kind:name")
 	}
-	return NewApplicationId(parts[0], ApplicationKind(parts[1]), parts[2]), nil
+	return ApplicationId{Namespace: parts[0], Kind: ApplicationKind(parts[1]), Name: parts[2]}, nil
 }
 
 func (a ApplicationId) String() string {
