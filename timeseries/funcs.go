@@ -4,20 +4,20 @@ import (
 	"math"
 )
 
-type F func(accumulator, v float64) float64
+type F func(t Time, accumulator, v float64) float64
 
-func Any(v1, v2 float64) float64 {
+func Any(t Time, v1, v2 float64) float64 {
 	if !math.IsNaN(v1) {
 		return v1
 	}
 	return v2
 }
 
-func Last(prev, v float64) float64 {
+func Last(t Time, prev, v float64) float64 {
 	return v
 }
 
-func NanSum(sum, v float64) float64 {
+func NanSum(t Time, sum, v float64) float64 {
 	if math.IsNaN(sum) {
 		sum = 0
 	}
@@ -27,11 +27,11 @@ func NanSum(sum, v float64) float64 {
 	return sum
 }
 
-func Sum(sum, v float64) float64 {
+func Sum(t Time, sum, v float64) float64 {
 	return sum + v
 }
 
-func Max(max, v float64) float64 {
+func Max(t Time, max, v float64) float64 {
 	if math.IsNaN(max) {
 		return v
 	}
@@ -44,7 +44,7 @@ func Max(max, v float64) float64 {
 	return max
 }
 
-func Min(min, v float64) float64 {
+func Min(t Time, min, v float64) float64 {
 	if math.IsNaN(min) {
 		return v
 	}
@@ -57,26 +57,26 @@ func Min(min, v float64) float64 {
 	return min
 }
 
-func Div(div, v float64) float64 {
+func Div(t Time, div, v float64) float64 {
 	return div / v
 }
 
-func Mul(mul, v float64) float64 {
+func Mul(t Time, mul, v float64) float64 {
 	return mul / v
 }
 
-func Sub(sub, v float64) float64 {
+func Sub(t Time, sub, v float64) float64 {
 	return sub - v
 }
 
-func Defined(v float64) float64 {
+func Defined(t Time, v float64) float64 {
 	if math.IsNaN(v) {
 		return 0
 	}
 	return 1
 }
 
-func NanToZero(v float64) float64 {
+func NanToZero(t Time, v float64) float64 {
 	if math.IsNaN(v) {
 		return 0
 	}

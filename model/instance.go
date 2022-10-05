@@ -148,7 +148,7 @@ func (instance *Instance) UpdateClusterRole(role string, v timeseries.TimeSeries
 	switch role {
 	case "primary":
 		instance.clusterRole.(*timeseries.AggregatedTimeseries).AddInput(
-			timeseries.Map(func(v float64) float64 {
+			timeseries.Map(func(t timeseries.Time, v float64) float64 {
 				if v == 1 {
 					return float64(ClusterRolePrimary)
 				}
@@ -156,7 +156,7 @@ func (instance *Instance) UpdateClusterRole(role string, v timeseries.TimeSeries
 			}, v))
 	case "replica":
 		instance.clusterRole.(*timeseries.AggregatedTimeseries).AddInput(
-			timeseries.Map(func(v float64) float64 {
+			timeseries.Map(func(t timeseries.Time, v float64) float64 {
 				if v == 1 {
 					return float64(ClusterRoleReplica)
 				}
@@ -207,7 +207,7 @@ func (instance *Instance) UpAndRunning() timeseries.TimeSeries {
 	if mem.IsEmpty() {
 		return nil
 	}
-	up := timeseries.Map(func(v float64) float64 {
+	up := timeseries.Map(func(t timeseries.Time, v float64) float64 {
 		if v > 0 {
 			return 1
 		}

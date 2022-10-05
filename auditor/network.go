@@ -20,11 +20,11 @@ func newNetSummary() *netSummary {
 		rttMax: timeseries.Aggregate(timeseries.Max),
 		rttSum: timeseries.Aggregate(timeseries.NanSum),
 		rttCount: timeseries.Aggregate(
-			func(sum, v float64) float64 {
+			func(t timeseries.Time, sum, v float64) float64 {
 				if math.IsNaN(sum) {
 					sum = 0
 				}
-				return sum + timeseries.Defined(v)
+				return sum + timeseries.Defined(0, v)
 			},
 		),
 	}

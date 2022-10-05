@@ -176,7 +176,7 @@ func pgReplicationLagCell(primaryLsn, lag timeseries.TimeSeries, role model.Clus
 }
 
 func pgReplicationLag(primaryLsn, relayLsn timeseries.TimeSeries) timeseries.TimeSeries {
-	return timeseries.Aggregate(func(accumulator, v float64) float64 {
+	return timeseries.Aggregate(func(t timeseries.Time, accumulator, v float64) float64 {
 		res := accumulator - v
 		if res < 0 {
 			return 0

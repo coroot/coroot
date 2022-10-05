@@ -79,7 +79,7 @@ func (p *Postgres) Unavailability() timeseries.TimeSeries {
 	if p.Up == nil {
 		return nil
 	}
-	return timeseries.Map(func(v float64) float64 {
+	return timeseries.Map(func(t timeseries.Time, v float64) float64 {
 		if v != 1 {
 			return 1
 		}

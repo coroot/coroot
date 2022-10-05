@@ -17,6 +17,9 @@ type Application struct {
 
 	Status  Status
 	Reports []*AuditReport
+
+	LatencySLIs      []*LatencySLI
+	AvailabilitySLIs []*AvailabilitySLI
 }
 
 func NewApplication(id ApplicationId) *Application {

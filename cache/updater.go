@@ -64,7 +64,23 @@ func (c *Cache) updaterWorker(projects *sync.Map, projectId db.ProjectId) {
 				klog.Errorln("could not get query states:", err)
 				return
 			}
-			queries := constructor.QUERIES
+			checkConfigs, err := c.db.GetCheckConfigs(projectId)
+			if err != nil {
+				klog.Errorln("could not get check configs:", err)
+				return
+			}
+			var queries []string
+			for _, q := range constructor.QUERIES {
+				queries = append(queries, q)
+			}
+			for appId := range checkConfigs {
+				for _, l := range checkConfigs.GetLatency(appId) {
+					queries = append(queries, l.Histogram(), l.Average())
+				}
+				for _, a := range checkConfigs.GetAvailability(appId) {
+					queries = append(queries, a.Total(), a.Failed())
+				}
+			}
 			actualQueries := map[string]*PrometheusQueryState{}
 			for _, q := range queries {
 				state := byQuery[q]

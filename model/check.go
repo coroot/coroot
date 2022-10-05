@@ -8,6 +8,7 @@ import (
 	"github.com/dustin/go-humanize/english"
 	"k8s.io/klog"
 	"reflect"
+	"strings"
 	"text/template"
 )
 
@@ -18,6 +19,7 @@ type CheckType int
 const (
 	CheckTypeEventBased CheckType = iota
 	CheckTypeItemBased
+	CheckTypeManual
 )
 
 type CheckUnit string
@@ -61,17 +63,17 @@ var Checks = struct {
 	index: map[CheckId]*CheckConfig{},
 
 	SLOAvailability: CheckConfig{
-		Type:                    CheckTypeEventBased,
+		Type:                    CheckTypeManual,
 		Title:                   "Availability",
-		MessageTemplate:         `too many errors`,
+		MessageTemplate:         `the app is serving errors`,
 		DefaultThreshold:        99,
 		Unit:                    CheckUnitPercent,
 		ConditionFormatTemplate: "successful request percentage < <threshold>",
 	},
 	SLOLatency: CheckConfig{
-		Type:                    CheckTypeEventBased,
+		Type:                    CheckTypeManual,
 		Title:                   "Latency",
-		MessageTemplate:         `too many slow responses`,
+		MessageTemplate:         `the app is performing slowly`,
 		DefaultThreshold:        99,
 		Unit:                    CheckUnitPercent,
 		ConditionFormatTemplate: "fast request percentage < <threshold>",
@@ -229,6 +231,11 @@ type Check struct {
 	messageTemplate string
 	items           *utils.StringSet
 	count           int64
+	fired           bool
+}
+
+func (ch *Check) Fire() {
+	ch.fired = true
 }
 
 func (ch *Check) SetStatus(status Status, format string, a ...any) {
@@ -258,6 +265,10 @@ func (ch *Check) Calc() {
 		if ch.items.Len() <= int(ch.Threshold) {
 			return
 		}
+	case CheckTypeManual:
+		if !ch.fired {
+			return
+		}
 	default:
 		return
 	}
@@ -284,10 +295,30 @@ type CheckConfigSLOAvailability struct {
 	ObjectivePercentage float64 `json:"objective_percentage"`
 }
 
+func (cfg *CheckConfigSLOAvailability) Total() string {
+	return fmt.Sprintf(`sum(rate(%s[$RANGE]))`, cfg.TotalRequestsQuery)
+}
+
+func (cfg *CheckConfigSLOAvailability) Failed() string {
+	return fmt.Sprintf(`sum(rate(%s[$RANGE]))`, cfg.FailedRequestsQuery)
+}
+
 type CheckConfigSLOLatency struct {
 	HistogramQuery      string  `json:"histogram_query"`
 	ObjectiveBucket     string  `json:"objective_bucket"`
 	ObjectivePercentage float64 `json:"objective_percentage"`
+}
+
+func (cfg *CheckConfigSLOLatency) Histogram() string {
+	return fmt.Sprintf("sum by(le)(rate(%s[$RANGE]))", cfg.HistogramQuery)
+}
+
+func (cfg *CheckConfigSLOLatency) Average() string {
+	return fmt.Sprintf(
+		"sum(rate(%s[$RANGE])) / sum(rate(%s[$RANGE]))",
+		strings.Replace(cfg.HistogramQuery, "_bucket", "_sum", 1),
+		strings.Replace(cfg.HistogramQuery, "_bucket", "_count", 1),
+	)
 }
 
 type CheckConfigs map[ApplicationId]map[CheckId]json.RawMessage

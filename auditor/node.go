@@ -42,8 +42,8 @@ func AuditNode(w *model.World, node *model.Node) *model.AuditReport {
 	for _, i := range node.NetInterfaces {
 		report.
 			GetOrCreateChartInGroup("Network bandwidth <selector>, bits/second", i.Name).
-			AddSeries("in", timeseries.Map(func(v float64) float64 { return v * 8 }, i.RxBytes), "green").
-			AddSeries("out", timeseries.Map(func(v float64) float64 { return v * 8 }, i.TxBytes), "blue")
+			AddSeries("in", timeseries.Map(func(t timeseries.Time, v float64) float64 { return v * 8 }, i.RxBytes), "green").
+			AddSeries("out", timeseries.Map(func(t timeseries.Time, v float64) float64 { return v * 8 }, i.TxBytes), "blue")
 	}
 
 	return report

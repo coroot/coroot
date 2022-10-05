@@ -126,7 +126,7 @@ func nodeDisk(node *model.Node, queryName string, m model.MetricValues) {
 	case "node_disk_io_time":
 		stat.IOUtilizationPercent = update(
 			stat.IOUtilizationPercent,
-			timeseries.Map(func(v float64) float64 {
+			timeseries.Map(func(t timeseries.Time, v float64) float64 {
 				return v * 100
 			}, m.Values))
 	}

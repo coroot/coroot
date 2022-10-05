@@ -31,7 +31,7 @@ func (a *appAuditor) memory() {
 					AddSeries(
 						nodeName,
 						timeseries.Aggregate(
-							func(avail, total float64) float64 { return (total - avail) / total * 100 },
+							func(t timeseries.Time, avail, total float64) float64 { return (total - avail) / total * 100 },
 							node.MemoryAvailableBytes, node.MemoryTotalBytes,
 						),
 					)

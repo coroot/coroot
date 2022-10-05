@@ -23,13 +23,13 @@ func (i *aggregatingIterator) Value() (Time, float64) {
 	if len(i.input) == 2 {
 		t, v1 := i.input[0].Value()
 		_, v2 := i.input[1].Value()
-		return t, i.aggFunc(v1, v2)
+		return t, i.aggFunc(t, v1, v2)
 	}
 	var v float64
 	var t Time
 	for _, iter := range i.input {
 		t, v = iter.Value()
-		acc = i.aggFunc(acc, v)
+		acc = i.aggFunc(t, acc, v)
 	}
 	return t, acc
 }

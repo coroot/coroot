@@ -87,13 +87,17 @@ func (c *AuditReport) CreateCheck(cfg CheckConfig) *Check {
 		Id:                      cfg.Id,
 		Title:                   cfg.Title,
 		Status:                  OK,
-		Threshold:               c.checkConfigs.GetSimple(cfg.Id, c.appId).Threshold,
 		Unit:                    cfg.Unit,
 		ConditionFormatTemplate: cfg.ConditionFormatTemplate,
 
 		typ:             cfg.Type,
 		messageTemplate: cfg.MessageTemplate,
 		items:           utils.NewStringSet(),
+	}
+	switch cfg.Id {
+	case Checks.SLOLatency.Id, Checks.SLOAvailability.Id:
+	default:
+		ch.Threshold = c.checkConfigs.GetSimple(cfg.Id, c.appId).Threshold
 	}
 	c.Checks = append(c.Checks, ch)
 	return ch

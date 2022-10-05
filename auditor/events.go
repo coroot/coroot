@@ -74,7 +74,7 @@ func calcRollouts(app *model.Application) []*Event {
 	if len(byReplicaSet) > 1 {
 		activeRss := timeseries.Aggregate(timeseries.NanSum)
 		for _, rs := range byReplicaSet {
-			activeRss.AddInput(timeseries.Map(func(v float64) float64 {
+			activeRss.AddInput(timeseries.Map(func(t timeseries.Time, v float64) float64 {
 				if v > 0 {
 					return 1
 				}
@@ -140,7 +140,7 @@ func calcUpDownEvents(app *model.Application) []*Event {
 
 func calcClusterSwitchovers(app *model.Application) []*Event {
 	names := map[int]string{}
-	primaryNum := timeseries.Aggregate(func(accumulator, v float64) float64 {
+	primaryNum := timeseries.Aggregate(func(t timeseries.Time, accumulator, v float64) float64 {
 		if accumulator < 0 {
 			return -1
 		}
@@ -156,7 +156,7 @@ func calcClusterSwitchovers(app *model.Application) []*Event {
 		names[i] = instance.Name
 		if role := instance.ClusterRole(); role != nil {
 			num := float64(i)
-			primaryNum.AddInput(timeseries.Map(func(v float64) float64 {
+			primaryNum.AddInput(timeseries.Map(func(t timeseries.Time, v float64) float64 {
 				if v == float64(model.ClusterRolePrimary) {
 					return num
 				}
