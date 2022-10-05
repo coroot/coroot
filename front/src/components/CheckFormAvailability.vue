@@ -9,8 +9,8 @@
                 <v-spacer />
                 <v-btn icon @click="$emit('input', false)"><v-icon>mdi-close</v-icon></v-btn>
             </div>
-            <v-form v-model="valid">
-                <div v-for="c in configs">
+            <v-form v-if="form" v-model="valid">
+                <div v-for="c in form.configs">
                     Total requests query:
                     <v-text-field outlined v-model="c.total_requests_query" />
                     Failed requests query:
@@ -45,7 +45,7 @@ export default {
             loading: false,
             error: '',
             message: '',
-            configs: null,
+            form: null,
             saved: '',
             valid: false,
             saving: false,
@@ -60,33 +60,29 @@ export default {
 
     computed: {
         changed() {
-            return !!this.configs.length && this.saved !== JSON.stringify(this.toForm());
+            return !!this.form && this.saved !== JSON.stringify(this.form);
         },
     },
 
     methods: {
-        toForm() {
-            return {configs: this.configs};
-        },
         get() {
             this.loading = true;
             this.$api.getCheckConfig(this.appId, this.check.id, (data, error) => {
                 this.loading = false;
                 if (error) {
                     this.error = error;
-                    this.configs = null;
+                    this.form = null;
                     return;
                 }
-                this.configs = data;
-                this.saved = JSON.stringify(this.toForm());
+                this.form = data;
+                this.saved = JSON.stringify(this.form);
             })
         },
         save() {
-            const form = this.toForm();
             this.saving = true;
             this.error = '';
             this.message = '';
-            this.$api.saveCheckConfig(this.appId, this.check.id, form, (data, error) => {
+            this.$api.saveCheckConfig(this.appId, this.check.id, this.form, (data, error) => {
                 this.saving = false;
                 if (error) {
                     this.error = error;

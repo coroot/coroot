@@ -261,7 +261,7 @@ func (api *Api) Check(w http.ResponseWriter, r *http.Request) {
 					ObjectivePercentage: model.Checks.SLOAvailability.DefaultThreshold,
 				})
 			}
-			utils.WriteJson(w, configs)
+			utils.WriteJson(w, CheckConfigAvailabilityForm{Configs: configs})
 			return
 		default:
 			configs := checkConfigs.GetSimpleAll(checkId, appId)
