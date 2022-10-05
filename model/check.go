@@ -13,6 +13,11 @@ import (
 
 type CheckId string
 
+const (
+	CheckIdSLOAvailability CheckId = "SLOAvailability"
+	CheckIdSLOLatency      CheckId = "SLOLatency"
+)
+
 type CheckType int
 
 const (
@@ -260,6 +265,18 @@ type CheckConfigSimple struct {
 	Threshold float64 `json:"threshold"`
 }
 
+type CheckConfigSLOAvailability struct {
+	TotalRequestsQuery  string
+	FailedRequestsQuery string
+	ObjectivePercentage float64
+}
+
+type CheckConfigSLOLatency struct {
+	HistogramQuery      string
+	ObjectiveBucket     string
+	ObjectivePercentage float64
+}
+
 type CheckConfigs map[ApplicationId]map[CheckId]json.RawMessage
 
 func (cc CheckConfigs) getRaw(appId ApplicationId, checkId CheckId) json.RawMessage {
@@ -307,6 +324,42 @@ func (cc CheckConfigs) GetSimpleAll(checkId CheckId, appId ApplicationId) []*Che
 			}
 		}
 		res = append(res, nil)
+	}
+	return res
+}
+
+func (cc CheckConfigs) GetAvailability(appId ApplicationId) []CheckConfigSLOAvailability {
+	appConfigs := cc[appId]
+	if appConfigs == nil {
+		return nil
+	}
+	raw, ok := appConfigs[CheckIdSLOAvailability]
+	if !ok {
+		return nil
+	}
+	var res []CheckConfigSLOAvailability
+	err := json.Unmarshal(raw, &res)
+	if err != nil {
+		klog.Warningln("failed to unmarshal check config:", err)
+		return nil
+	}
+	return res
+}
+
+func (cc CheckConfigs) GetLatency(appId ApplicationId) []CheckConfigSLOLatency {
+	appConfigs := cc[appId]
+	if appConfigs == nil {
+		return nil
+	}
+	raw, ok := appConfigs[CheckIdSLOLatency]
+	if !ok {
+		return nil
+	}
+	var res []CheckConfigSLOLatency
+	err := json.Unmarshal(raw, &res)
+	if err != nil {
+		klog.Warningln("failed to unmarshal check config:", err)
+		return nil
 	}
 	return res
 }
