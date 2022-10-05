@@ -251,40 +251,69 @@ func (api *Api) Check(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
-		configs := checkConfigs.GetSimpleAll(checkId, appId)
-		if len(configs) != 3 {
-			http.Error(w, "", http.StatusNotFound)
+		switch checkId {
+		case model.Checks.SLOAvailability.Id:
+			configs := checkConfigs.GetAvailability(appId)
+			if len(configs) == 0 {
+				configs = append(configs, model.CheckConfigSLOAvailability{
+					TotalRequestsQuery:  "",
+					FailedRequestsQuery: "",
+					ObjectivePercentage: model.Checks.SLOAvailability.DefaultThreshold,
+				})
+			}
+			utils.WriteJson(w, configs)
+			return
+		default:
+			configs := checkConfigs.GetSimpleAll(checkId, appId)
+			if len(configs) != 3 {
+				http.Error(w, "", http.StatusNotFound)
+				return
+			}
+			form := CheckConfigForm{GlobalThreshold: configs[0].Threshold}
+			if configs[1] != nil {
+				form.ProjectThreshold = &configs[1].Threshold
+			}
+			if configs[2] != nil {
+				form.ApplicationThreshold = &configs[2].Threshold
+			}
+			utils.WriteJson(w, form)
 			return
 		}
-		form := CheckConfigForm{GlobalThreshold: configs[0].Threshold}
-		if configs[1] != nil {
-			form.ProjectThreshold = &configs[1].Threshold
-		}
-		if configs[2] != nil {
-			form.ApplicationThreshold = &configs[2].Threshold
-		}
-		utils.WriteJson(w, form)
-		return
 
 	case http.MethodPost:
-		var form CheckConfigForm
-		if err := ReadAndValidate(r, &form); err != nil {
-			klog.Warningln("bad request:", err)
-			http.Error(w, "", http.StatusBadRequest)
-			return
-		}
-		for id, t := range map[model.ApplicationId]*float64{model.ApplicationId{}: form.ProjectThreshold, appId: form.ApplicationThreshold} {
-			var cfg any = nil
-			if t != nil {
-				cfg = model.CheckConfigSimple{Threshold: *t}
+		switch checkId {
+		case model.Checks.SLOAvailability.Id:
+			var form CheckConfigAvailabilityForm
+			if err := ReadAndValidate(r, &form); err != nil {
+				klog.Warningln("bad request:", err)
+				http.Error(w, "", http.StatusBadRequest)
+				return
 			}
-			if err := api.db.SaveCheckConfig(projectId, id, checkId, cfg); err != nil {
+			if err := api.db.SaveCheckConfig(projectId, appId, checkId, form.Configs); err != nil {
 				klog.Errorln("failed to save check config:", err)
 				http.Error(w, "", http.StatusInternalServerError)
 				return
 			}
+		default:
+			var form CheckConfigForm
+			if err := ReadAndValidate(r, &form); err != nil {
+				klog.Warningln("bad request:", err)
+				http.Error(w, "", http.StatusBadRequest)
+				return
+			}
+			for id, t := range map[model.ApplicationId]*float64{model.ApplicationId{}: form.ProjectThreshold, appId: form.ApplicationThreshold} {
+				var cfg any = nil
+				if t != nil {
+					cfg = model.CheckConfigSimple{Threshold: *t}
+				}
+				if err := api.db.SaveCheckConfig(projectId, id, checkId, cfg); err != nil {
+					klog.Errorln("failed to save check config:", err)
+					http.Error(w, "", http.StatusInternalServerError)
+					return
+				}
+			}
+			return
 		}
-		return
 	}
 }
 

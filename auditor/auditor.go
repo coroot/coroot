@@ -21,6 +21,7 @@ func Audit(w *model.World) {
 			app:    app,
 			events: calcAppEvents(app),
 		}
+		a.slo()
 		a.instances()
 		a.cpu()
 		a.memory()
@@ -31,9 +32,9 @@ func Audit(w *model.World) {
 		a.logs()
 		for _, r := range a.reports {
 			widgets := enrichWidgets(r.Widgets, a.events)
-			if len(widgets) == 0 {
-				continue
-			}
+			//if len(widgets) == 0 {
+			//	continue
+			//}
 			sort.SliceStable(widgets, func(i, j int) bool {
 				return widgets[i].Table != nil
 			})

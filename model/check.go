@@ -13,11 +13,6 @@ import (
 
 type CheckId string
 
-const (
-	CheckIdSLOAvailability CheckId = "SLOAvailability"
-	CheckIdSLOLatency      CheckId = "SLOLatency"
-)
-
 type CheckType int
 
 const (
@@ -46,6 +41,8 @@ type CheckConfig struct {
 var Checks = struct {
 	index map[CheckId]*CheckConfig
 
+	SLOAvailability      CheckConfig
+	SLOLatency           CheckConfig
 	CPUNode              CheckConfig
 	CPUContainer         CheckConfig
 	MemoryOOM            CheckConfig
@@ -63,6 +60,22 @@ var Checks = struct {
 }{
 	index: map[CheckId]*CheckConfig{},
 
+	SLOAvailability: CheckConfig{
+		Type:                    CheckTypeEventBased,
+		Title:                   "Availability",
+		MessageTemplate:         `too many errors`,
+		DefaultThreshold:        99,
+		Unit:                    CheckUnitPercent,
+		ConditionFormatTemplate: "successful request percentage < <threshold>",
+	},
+	SLOLatency: CheckConfig{
+		Type:                    CheckTypeEventBased,
+		Title:                   "Latency",
+		MessageTemplate:         `too many slow responses`,
+		DefaultThreshold:        99,
+		Unit:                    CheckUnitPercent,
+		ConditionFormatTemplate: "fast request percentage < <threshold>",
+	},
 	CPUNode: CheckConfig{
 		Type:                    CheckTypeItemBased,
 		Title:                   "Node CPU utilization",
@@ -266,15 +279,15 @@ type CheckConfigSimple struct {
 }
 
 type CheckConfigSLOAvailability struct {
-	TotalRequestsQuery  string
-	FailedRequestsQuery string
-	ObjectivePercentage float64
+	TotalRequestsQuery  string  `json:"total_requests_query"`
+	FailedRequestsQuery string  `json:"failed_requests_query"`
+	ObjectivePercentage float64 `json:"objective_percentage"`
 }
 
 type CheckConfigSLOLatency struct {
-	HistogramQuery      string
-	ObjectiveBucket     string
-	ObjectivePercentage float64
+	HistogramQuery      string  `json:"histogram_query"`
+	ObjectiveBucket     string  `json:"objective_bucket"`
+	ObjectivePercentage float64 `json:"objective_percentage"`
 }
 
 type CheckConfigs map[ApplicationId]map[CheckId]json.RawMessage
@@ -333,7 +346,7 @@ func (cc CheckConfigs) GetAvailability(appId ApplicationId) []CheckConfigSLOAvai
 	if appConfigs == nil {
 		return nil
 	}
-	raw, ok := appConfigs[CheckIdSLOAvailability]
+	raw, ok := appConfigs[Checks.SLOAvailability.Id]
 	if !ok {
 		return nil
 	}
@@ -351,7 +364,7 @@ func (cc CheckConfigs) GetLatency(appId ApplicationId) []CheckConfigSLOLatency {
 	if appConfigs == nil {
 		return nil
 	}
-	raw, ok := appConfigs[CheckIdSLOLatency]
+	raw, ok := appConfigs[Checks.SLOLatency.Id]
 	if !ok {
 		return nil
 	}

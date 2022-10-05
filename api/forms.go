@@ -64,3 +64,16 @@ type CheckConfigForm struct {
 func (f *CheckConfigForm) Valid() bool {
 	return true
 }
+
+type CheckConfigAvailabilityForm struct {
+	Configs []model.CheckConfigSLOAvailability `json:"configs"`
+}
+
+func (f *CheckConfigAvailabilityForm) Valid() bool {
+	for _, c := range f.Configs {
+		if c.TotalRequestsQuery == "" || c.FailedRequestsQuery == "" {
+			return false
+		}
+	}
+	return true
+}
