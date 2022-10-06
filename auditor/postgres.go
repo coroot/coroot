@@ -24,6 +24,10 @@ var (
 )
 
 func (a *appAuditor) postgres() {
+	if !a.app.IsPostgres() {
+		return
+	}
+
 	report := a.addReport("Postgres")
 	availabilityCheck := report.CreateCheck(model.Checks.PostgresAvailability)
 	latencyCheck := report.CreateCheck(model.Checks.PostgresLatency)

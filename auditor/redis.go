@@ -6,6 +6,9 @@ import (
 )
 
 func (a *appAuditor) redis() {
+	if !a.app.IsRedis() {
+		return
+	}
 	report := a.addReport("Redis")
 
 	availability := report.CreateCheck(model.Checks.RedisAvailability)
@@ -14,6 +17,7 @@ func (a *appAuditor) redis() {
 		if i.Redis == nil {
 			continue
 		}
+
 		status := model.NewTableCell().SetStatus(model.OK, "up")
 		if !(i.Redis.Up != nil && i.Redis.Up.Last() > 0) {
 			availability.AddItem(i.Name)

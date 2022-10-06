@@ -25,13 +25,16 @@ func (a *appAuditor) logs() {
 	byLevel := map[model.LogLevel]timeseries.TimeSeries{}
 	report := a.addReport("Logs")
 	check := report.CreateCheck(model.Checks.LogErrors)
-
+	seenContainers := false
 	patterns := &model.LogPatterns{
 		Title: fmt.Sprintf("Repeated patters from the <var>%s</var>'s log", a.app.Id.Name),
 	}
 	totalEvents := uint64(0)
 
 	for _, instance := range a.app.Instances {
+		if len(instance.Containers) > 0 {
+			seenContainers = true
+		}
 		for level, samples := range instance.LogMessagesByLevel {
 			data, ok := byLevel[level]
 			if !ok {
@@ -96,4 +99,8 @@ func (a *appAuditor) logs() {
 	}
 	report.Widgets = append(report.Widgets, &model.Widget{Chart: eventsBySeverity, Width: "100%"})
 	report.Widgets = append(report.Widgets, &model.Widget{LogPatterns: patterns, Width: "100%"})
+
+	if !seenContainers {
+		check.SetStatus(model.UNKNOWN, "no data")
+	}
 }

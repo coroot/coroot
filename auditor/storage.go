@@ -13,11 +13,12 @@ func (a *appAuditor) storage() {
 	report := a.addReport("Storage")
 	ioCheck := report.CreateCheck(model.Checks.StorageIO)
 	spaceCheck := report.CreateCheck(model.Checks.StorageSpace)
-
+	seenVolumes := false
 	for _, i := range a.app.Instances {
 		for _, v := range i.Volumes {
 			fullName := i.Name + ":" + v.MountPoint
 			if i.Node != nil {
+				seenVolumes = true
 				if d := i.Node.Disks[v.Device.Value()]; d != nil {
 					report.GetOrCreateChartInGroup("I/O latency <selector>, seconds", v.MountPoint).
 						AddSeries(i.Name, d.Await)
@@ -82,5 +83,9 @@ func (a *appAuditor) storage() {
 					SetThreshold("total", v.CapacityBytes, timeseries.Max)
 			}
 		}
+	}
+	if !seenVolumes {
+		ioCheck.SetStatus(model.UNKNOWN, "no volumes found")
+		spaceCheck.SetStatus(model.UNKNOWN, "no volumes found")
 	}
 }

@@ -124,6 +124,24 @@ func (app *Application) IsMonitoring() bool {
 	return false
 }
 
+func (app *Application) IsRedis() bool {
+	for _, i := range app.Instances {
+		if i.Redis != nil {
+			return true
+		}
+	}
+	return false
+}
+
+func (app *Application) IsPostgres() bool {
+	for _, i := range app.Instances {
+		if i.Postgres != nil {
+			return true
+		}
+	}
+	return false
+}
+
 func (app *Application) IsStandalone() bool {
 	for _, i := range app.Instances {
 		for _, u := range i.Upstreams {

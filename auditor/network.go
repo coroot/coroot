@@ -42,6 +42,7 @@ func (a *appAuditor) network() {
 	upstreams := map[model.ApplicationId]*netSummary{}
 
 	rttCheck := report.CreateCheck(model.Checks.NetworkRTT)
+	seenConnections := false
 	for _, instance := range a.app.Instances {
 		for _, u := range instance.Upstreams {
 			if u.RemoteInstance == nil {
@@ -51,6 +52,7 @@ func (a *appAuditor) network() {
 			if upstreamApp == nil {
 				continue
 			}
+			seenConnections = true
 			summary := upstreams[upstreamApp.Id]
 			if summary == nil {
 				summary = newNetSummary()
@@ -89,5 +91,8 @@ func (a *appAuditor) network() {
 			AddSeries("min", summary.rttMin).
 			AddSeries("avg", avg).
 			AddSeries("max", summary.rttMax)
+	}
+	if !seenConnections {
+		rttCheck.SetStatus(model.UNKNOWN, "no data")
 	}
 }

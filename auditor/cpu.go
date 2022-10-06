@@ -10,8 +10,10 @@ func (a *appAuditor) cpu() {
 	relevantNodes := map[string]*model.Node{}
 	nodeCpuCheck := report.CreateCheck(model.Checks.CPUNode)
 	containerCpuCheck := report.CreateCheck(model.Checks.CPUContainer)
+	seenContainers, seenRelatedNodes := false, false
 	for _, i := range a.app.Instances {
 		for _, c := range i.Containers {
+			seenContainers = true
 			report.GetOrCreateChartInGroup("CPU usage of container <selector>, cores", c.Name).
 				AddSeries(i.Name, c.CpuUsage).
 				SetThreshold("limit", c.CpuLimit, timeseries.Max)
@@ -26,6 +28,7 @@ func (a *appAuditor) cpu() {
 			}
 		}
 		if node := i.Node; i.Node != nil {
+			seenRelatedNodes = true
 			nodeName := node.Name.Value()
 			if relevantNodes[nodeName] == nil {
 				relevantNodes[nodeName] = i.Node
@@ -49,5 +52,11 @@ func (a *appAuditor) cpu() {
 					AddMany(timeseries.Top(cpuConsumers(node), timeseries.NanSum, 5))
 			}
 		}
+	}
+	if !seenContainers {
+		containerCpuCheck.SetStatus(model.UNKNOWN, "no data")
+	}
+	if !seenRelatedNodes {
+		nodeCpuCheck.SetStatus(model.UNKNOWN, "no data")
 	}
 }

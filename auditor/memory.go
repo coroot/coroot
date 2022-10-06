@@ -10,9 +10,11 @@ func (a *appAuditor) memory() {
 	relevantNodes := map[string]*model.Node{}
 
 	oomCheck := report.CreateCheck(model.Checks.MemoryOOM)
+	seenContainers := false
 	for _, i := range a.app.Instances {
 		oom := timeseries.Aggregate(timeseries.NanSum)
 		for _, c := range i.Containers {
+			seenContainers = true
 			report.GetOrCreateChartInGroup("Memory usage (RSS) <selector>, bytes", c.Name).
 				AddSeries(i.Name, c.MemoryRss).
 				SetThreshold("limit", c.MemoryLimit, timeseries.Max)
@@ -42,4 +44,8 @@ func (a *appAuditor) memory() {
 			}
 		}
 	}
+	if !seenContainers {
+		oomCheck.SetStatus(model.UNKNOWN, "no data")
+	}
+
 }

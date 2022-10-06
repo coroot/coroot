@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
-	"k8s.io/klog"
 	"math"
 	"strconv"
 )
@@ -53,7 +52,6 @@ func availability(ctx timeseries.Context, app *model.Application, report *model.
 	if math.IsNaN(totalFailedRequests) {
 		totalFailedRequests = 0
 	}
-	klog.Infoln("!!!", totalRequests, totalFailedRequests, sli.Config.ObjectivePercentage, (totalRequests-totalFailedRequests)/totalRequests*100)
 	if (totalRequests-totalFailedRequests)/totalRequests*100 < sli.Config.ObjectivePercentage {
 		check.Fire()
 	}

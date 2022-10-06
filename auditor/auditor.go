@@ -32,9 +32,6 @@ func Audit(w *model.World) {
 		a.logs()
 		for _, r := range a.reports {
 			widgets := enrichWidgets(r.Widgets, a.events)
-			//if len(widgets) == 0 {
-			//	continue
-			//}
 			sort.SliceStable(widgets, func(i, j int) bool {
 				return widgets[i].Table != nil
 			})
@@ -47,7 +44,7 @@ func Audit(w *model.World) {
 				}
 			}
 			switch r.Name {
-			case "Postgres", "Redis", "Instances":
+			case "Postgres", "Redis", "Instances", "SLO":
 				if app.Status < r.Status {
 					app.Status = r.Status
 				}
