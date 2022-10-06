@@ -20,12 +20,7 @@ func loadSLIs(ctx context.Context, w *model.World, prom prom.Client, from, to ti
 				klog.Warningln(err)
 				continue
 			}
-			avg, err := prom.QueryRange(ctx, cfg.Average(), from, to, step)
-			if err != nil {
-				klog.Warningln(err)
-				continue
-			}
-			app.LatencySLIs = append(app.LatencySLIs, latencySLI(cfg, hist, avg))
+			app.LatencySLIs = append(app.LatencySLIs, latencySLI(cfg, hist))
 		}
 		for _, cfg := range w.CheckConfigs.GetAvailability(appId) {
 			total, err := prom.QueryRange(ctx, cfg.Total(), from, to, step)
@@ -43,7 +38,7 @@ func loadSLIs(ctx context.Context, w *model.World, prom prom.Client, from, to ti
 	}
 }
 
-func latencySLI(cfg model.CheckConfigSLOLatency, histogram, average []model.MetricValues) *model.LatencySLI {
+func latencySLI(cfg model.CheckConfigSLOLatency, histogram []model.MetricValues) *model.LatencySLI {
 	sli := &model.LatencySLI{
 		Config:    cfg,
 		Histogram: map[string]timeseries.TimeSeries{},
@@ -53,13 +48,10 @@ func latencySLI(cfg model.CheckConfigSLOLatency, histogram, average []model.Metr
 		sli.Histogram[le] = update(sli.Histogram[le], m.Values)
 		switch le {
 		case cfg.ObjectiveBucket:
-			sli.FastRequests = update(m.Values, m.Values)
+			sli.FastRequests = update(sli.FastRequests, m.Values)
 		case "+Inf":
 			sli.TotalRequests = update(sli.TotalRequests, m.Values)
 		}
-	}
-	if len(average) == 1 {
-		sli.Average = average[0].Values
 	}
 	return sli
 }

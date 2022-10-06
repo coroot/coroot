@@ -8,7 +8,6 @@ type LatencySLI struct {
 	Histogram     map[string]timeseries.TimeSeries
 	TotalRequests timeseries.TimeSeries
 	FastRequests  timeseries.TimeSeries
-	Average       timeseries.TimeSeries
 }
 
 type AvailabilitySLI struct {

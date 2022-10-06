@@ -5,7 +5,6 @@ import (
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"math"
-	"strconv"
 )
 
 func (a *appAuditor) slo() {
@@ -71,13 +70,9 @@ func latency(ctx timeseries.Context, app *model.Application, report *model.Audit
 		},
 		sli.TotalRequests, sli.FastRequests,
 	)
-	b := fmt.Sprintf(`%ss`, sli.Config.ObjectiveBucket)
-	if v, err := strconv.ParseFloat(sli.Config.ObjectiveBucket, 64); err == nil && v < 1 {
-		b = fmt.Sprintf(`%.fms`, v*1000)
-	}
 	chart := report.
 		GetOrCreateChart("Latency").
-		AddSeries("requests served in < "+b, fastPercentage)
+		AddSeries("requests served faster than "+model.FormatLatencyBucket(sli.Config.ObjectiveBucket), fastPercentage)
 	chart.Threshold = &model.Series{
 		Name:  "target",
 		Color: "red",

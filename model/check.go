@@ -8,7 +8,6 @@ import (
 	"github.com/dustin/go-humanize/english"
 	"k8s.io/klog"
 	"reflect"
-	"strings"
 	"text/template"
 )
 
@@ -68,7 +67,7 @@ var Checks = struct {
 		MessageTemplate:         `the app is serving errors`,
 		DefaultThreshold:        99,
 		Unit:                    CheckUnitPercent,
-		ConditionFormatTemplate: "successful request percentage < <threshold>",
+		ConditionFormatTemplate: "the successful request percentage < <threshold>",
 	},
 	SLOLatency: CheckConfig{
 		Type:                    CheckTypeManual,
@@ -76,7 +75,7 @@ var Checks = struct {
 		MessageTemplate:         `the app is performing slowly`,
 		DefaultThreshold:        99,
 		Unit:                    CheckUnitPercent,
-		ConditionFormatTemplate: "fast request percentage < <threshold>",
+		ConditionFormatTemplate: "the percentage of requests served faster than <bucket> < <threshold>",
 	},
 	CPUNode: CheckConfig{
 		Type:                    CheckTypeItemBased,
@@ -311,14 +310,6 @@ type CheckConfigSLOLatency struct {
 
 func (cfg *CheckConfigSLOLatency) Histogram() string {
 	return fmt.Sprintf("sum by(le)(rate(%s[$RANGE]))", cfg.HistogramQuery)
-}
-
-func (cfg *CheckConfigSLOLatency) Average() string {
-	return fmt.Sprintf(
-		"sum(rate(%s[$RANGE])) / sum(rate(%s[$RANGE]))",
-		strings.Replace(cfg.HistogramQuery, "_bucket", "_sum", 1),
-		strings.Replace(cfg.HistogramQuery, "_bucket", "_count", 1),
-	)
 }
 
 type CheckConfigs map[ApplicationId]map[CheckId]json.RawMessage

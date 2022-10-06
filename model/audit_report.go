@@ -3,6 +3,7 @@ package model
 import (
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
+	"strings"
 )
 
 type AuditReport struct {
@@ -95,7 +96,27 @@ func (c *AuditReport) CreateCheck(cfg CheckConfig) *Check {
 		items:           utils.NewStringSet(),
 	}
 	switch cfg.Id {
-	case Checks.SLOLatency.Id, Checks.SLOAvailability.Id:
+	case Checks.SLOAvailability.Id:
+		configs := c.checkConfigs.GetAvailability(c.appId)
+		if len(configs) > 0 {
+			ch.Threshold = configs[0].ObjectivePercentage
+		} else {
+			ch.Threshold = Checks.SLOAvailability.DefaultThreshold
+		}
+	case Checks.SLOLatency.Id:
+		configs := c.checkConfigs.GetLatency(c.appId)
+		if len(configs) > 0 {
+			ch.Threshold = configs[0].ObjectivePercentage
+			ch.ConditionFormatTemplate = strings.Replace(
+				ch.ConditionFormatTemplate,
+				"<bucket>",
+				FormatLatencyBucket(configs[0].ObjectiveBucket),
+				1,
+			)
+		} else {
+			ch.Threshold = Checks.SLOLatency.DefaultThreshold
+			ch.ConditionFormatTemplate = strings.Replace(ch.ConditionFormatTemplate, "<bucket>", "100ms", 1)
+		}
 	default:
 		ch.Threshold = c.checkConfigs.GetSimple(cfg.Id, c.appId).Threshold
 	}

@@ -75,7 +75,7 @@ func (c *Cache) updaterWorker(projects *sync.Map, projectId db.ProjectId) {
 			}
 			for appId := range checkConfigs {
 				for _, l := range checkConfigs.GetLatency(appId) {
-					queries = append(queries, l.Histogram(), l.Average())
+					queries = append(queries, l.Histogram())
 				}
 				for _, a := range checkConfigs.GetAvailability(appId) {
 					queries = append(queries, a.Total(), a.Failed())

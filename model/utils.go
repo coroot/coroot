@@ -2,8 +2,10 @@ package model
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/coroot/coroot/timeseries"
 	"math"
+	"strconv"
 )
 
 type LabelLastValue struct {
@@ -26,4 +28,12 @@ func (lv *LabelLastValue) Update(ts timeseries.TimeSeries, value string) {
 
 func (lv LabelLastValue) MarshalJSON() ([]byte, error) {
 	return json.Marshal(lv.v)
+}
+
+func FormatLatencyBucket(bucket string) string {
+	b := fmt.Sprintf(`%ss`, bucket)
+	if v, err := strconv.ParseFloat(bucket, 64); err == nil && v < 1 {
+		b = fmt.Sprintf(`%.fms`, v*1000)
+	}
+	return b
 }
