@@ -206,6 +206,28 @@ func (api *Api) Search(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJson(w, views.Search(world))
 }
 
+func (api *Api) Prom(w http.ResponseWriter, r *http.Request) {
+	projectId := db.ProjectId(mux.Vars(r)["project"])
+	project, err := api.db.GetProject(projectId)
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	p := project.Prometheus
+	user, password := "", ""
+	if p.BasicAuth != nil {
+		user, password = p.BasicAuth.User, p.BasicAuth.Password
+	}
+	c, err := prom.NewApiClient(p.Url, user, password, p.TlsSkipVerify)
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	c.Proxy(r, w)
+}
+
 func (api *Api) App(w http.ResponseWriter, r *http.Request) {
 	id, err := model.NewApplicationIdFromString(mux.Vars(r)["app"])
 	if err != nil {

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
+	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/api"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	promModel "github.com/prometheus/common/model"
@@ -13,15 +14,17 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 )
 
 type ApiClient struct {
-	api v1.API
+	api    v1.API
+	client api.Client
 }
 
-func NewApiClient(address, user, password string, skipTlsVerify bool) (Client, error) {
+func NewApiClient(address, user, password string, skipTlsVerify bool) (*ApiClient, error) {
 	if user != "" {
 		if u, err := url.Parse(address); err != nil {
 			klog.Errorln("failed to parse url:", err)
@@ -43,7 +46,7 @@ func NewApiClient(address, user, password string, skipTlsVerify bool) (Client, e
 	if err != nil {
 		return nil, err
 	}
-	return &ApiClient{api: v1.NewAPI(c)}, nil
+	return &ApiClient{api: v1.NewAPI(c), client: c}, nil
 }
 
 func (c *ApiClient) Ping(ctx context.Context) error {
@@ -85,4 +88,35 @@ func (c *ApiClient) QueryRange(ctx context.Context, query string, from, to times
 		res = append(res, mv)
 	}
 	return res, nil
+}
+
+func (c *ApiClient) Proxy(r *http.Request, w http.ResponseWriter) {
+	reStr, err := mux.CurrentRoute(r).GetPathRegexp()
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	re, err := regexp.Compile(reStr)
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	path := re.ReplaceAllString(r.URL.Path, "")
+	r.URL = c.client.URL(path, nil)
+	r.RequestURI = ""
+	resp, data, err := c.client.Do(r.Context(), r)
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	for k, vv := range resp.Header {
+		for _, v := range vv {
+			w.Header().Add(k, v)
+		}
+	}
+	w.WriteHeader(resp.StatusCode)
+	_, _ = w.Write(data)
 }

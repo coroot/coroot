@@ -13,8 +13,22 @@
             <span>{{condition.tail}}</span>
         </div>
 
-        <CheckFormAvailability v-if="check.id === 'SLOAvailability'" v-model="dialog" :appId="appId" :check="check" />
-        <CheckFormSimple v-else v-model="dialog" :appId="appId" :check="check" />
+        <v-dialog v-model="dialog" max-width="800">
+            <v-card class="pa-4">
+                <div class="d-flex align-center font-weight-medium mb-4">
+                    <template v-if="check.id === 'SLOAvailability'">
+                        Configure "{{ check.title }}" check
+                    </template>
+                    <template v-else>
+                        Adjust the threshold for the "{{ check.title }}" check
+                    </template>
+                    <v-spacer />
+                    <v-btn icon @click="dialog = false"><v-icon>mdi-close</v-icon></v-btn>
+                </div>
+                <CheckFormAvailability v-if="check.id === 'SLOAvailability'" :appId="appId" :check="check" :open="dialog" />
+                <CheckFormSimple v-else :appId="appId" :check="check" :open="dialog" />
+            </v-card>
+        </v-dialog>
     </div>
 </template>
 

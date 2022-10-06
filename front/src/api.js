@@ -2,6 +2,7 @@ import axios from "axios";
 import * as storage from "@/utils/storage";
 import {v4} from 'uuid';
 
+const baseUrl = '/api/';
 const defaultErrorMessage = 'Something went wrong, please try again later.';
 
 export default class Api {
@@ -18,7 +19,7 @@ export default class Api {
             storage.local('device-id', deviceId);
         }
         this.axios = axios.create({
-            baseURL: '/api/',
+            baseURL: baseUrl,
             timeout: 30000,
             headers: {
                 'x-device-id': deviceId,
@@ -114,5 +115,9 @@ export default class Api {
 
     search(cb) {
         this.get(this.projectPath(`search`), cb);
+    }
+
+    getPromPath() {
+        return baseUrl + this.projectPath('prom');
     }
 }

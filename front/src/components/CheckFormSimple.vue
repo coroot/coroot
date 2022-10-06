@@ -1,82 +1,70 @@
 <template>
-    <v-dialog :value="value" max-width="800">
-        <v-card v-if="loading" class="pa-10">
-            <v-progress-linear indeterminate />
-        </v-card>
-        <v-card v-else class="pa-4">
-            <div class="d-flex align-center font-weight-medium mb-4">
-                Adjust the threshold for the "{{ check.title }}" check
-                <v-spacer />
-                <v-btn icon @click="$emit('input', false)"><v-icon>mdi-close</v-icon></v-btn>
-            </div>
-            <v-form v-model="valid">
-                <v-simple-table>
-                    <thead>
-                    <tr>
-                        <th>Level</th>
-                        <th>Condition</th>
-                    </tr>
-                    </thead>
-                    <tbody v-if="config">
-                    <tr>
-                        <td>Override for the <var>{{$api.appId(this.appId).name}}</var> app</td>
-                        <td>
-                            <div v-if="config.application_threshold !== null" class="d-flex align-center">
-                                <div class="flex-grow-1 capfirst py-3">
-                                    {{condition.head}}
-                                    <v-text-field outlined hide-details v-model="config.application_threshold" :rules="[$validators.isFloat]" class="input" />
-                                    {{unit}} {{condition.tail}}
-                                </div>
-                                <v-btn small icon @click="config.application_threshold = null"><v-icon small>mdi-trash-can-outline</v-icon></v-btn>
-                            </div>
-                            <div v-else class="grey--text">
-                                The project-level default &darr; is used. <a @click="override('application')">Override</a>
-                            </div>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>Project-level default</td>
-                        <td>
-                            <div v-if="config.project_threshold !== null" class="d-flex align-center">
-                                <div class="flex-grow-1 capfirst py-3">
-                                    {{condition.head}}
-                                    <v-text-field outlined hide-details v-model="config.project_threshold" :rules="[$validators.isFloat]" class="input" />
-                                    {{unit}} {{condition.tail}}
-                                </div>
-                                <v-btn small icon @click="config.project_threshold = null"><v-icon small>mdi-trash-can-outline</v-icon></v-btn>
-                            </div>
-                            <div v-else class="grey--text">
-                                The global default &darr; is used. <a @click="override('project')">Override</a>
-                            </div>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>Global default</td>
-                        <td>
-                            <div class="cd-flex align-center">
-                                <div class="flex-grow-1 capfirst py-3">
-                                    {{condition.head}}
-                                    <v-text-field outlined hide-details disabled :value="config.global_threshold" class="input" />
-                                    {{unit}} {{condition.tail}}
-                                </div>
-                                <div style="min-width: 28px"></div>
-                            </div>
-                        </td>
-                    </tr>
-                    </tbody>
-                </v-simple-table>
-            </v-form>
-            <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
-                {{error}}
-            </v-alert>
-            <v-alert v-if="message && !changed" color="green" outlined text>
-                {{message}}
-            </v-alert>
-            <v-btn block color="primary" @click="save" :disabled="!(valid && changed)" :loading="saving" class="mt-5">
-                Save
-            </v-btn>
-        </v-card>
-    </v-dialog>
+    <v-form v-model="valid">
+        <v-simple-table>
+            <thead>
+            <tr>
+                <th>Level</th>
+                <th>Condition</th>
+            </tr>
+            </thead>
+            <tbody v-if="config">
+            <tr>
+                <td>Override for the <var>{{$api.appId(this.appId).name}}</var> app</td>
+                <td>
+                    <div v-if="config.application_threshold !== null" class="d-flex align-center">
+                        <div class="flex-grow-1 capfirst py-3">
+                            {{condition.head}}
+                            <v-text-field outlined hide-details v-model="config.application_threshold" :rules="[$validators.isFloat]" class="input" />
+                            {{unit}} {{condition.tail}}
+                        </div>
+                        <v-btn small icon @click="config.application_threshold = null"><v-icon small>mdi-trash-can-outline</v-icon></v-btn>
+                    </div>
+                    <div v-else class="grey--text">
+                        The project-level default &darr; is used. <a @click="override('application')">Override</a>
+                    </div>
+                </td>
+            </tr>
+            <tr>
+                <td>Project-level default</td>
+                <td>
+                    <div v-if="config.project_threshold !== null" class="d-flex align-center">
+                        <div class="flex-grow-1 capfirst py-3">
+                            {{condition.head}}
+                            <v-text-field outlined hide-details v-model="config.project_threshold" :rules="[$validators.isFloat]" class="input" />
+                            {{unit}} {{condition.tail}}
+                        </div>
+                        <v-btn small icon @click="config.project_threshold = null"><v-icon small>mdi-trash-can-outline</v-icon></v-btn>
+                    </div>
+                    <div v-else class="grey--text">
+                        The global default &darr; is used. <a @click="override('project')">Override</a>
+                    </div>
+                </td>
+            </tr>
+            <tr>
+                <td>Global default</td>
+                <td>
+                    <div class="cd-flex align-center">
+                        <div class="flex-grow-1 capfirst py-3">
+                            {{condition.head}}
+                            <v-text-field outlined hide-details disabled :value="config.global_threshold" class="input" />
+                            {{unit}} {{condition.tail}}
+                        </div>
+                        <div style="min-width: 28px"></div>
+                    </div>
+                </td>
+            </tr>
+            </tbody>
+        </v-simple-table>
+        <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
+            {{error}}
+        </v-alert>
+        <v-alert v-if="message && !changed" color="green" outlined text>
+            {{message}}
+        </v-alert>
+        <v-btn block color="primary" @click="save" :disabled="!(valid && changed)" :loading="saving" class="mt-5">
+            Save
+        </v-btn>
+    </v-form>
 </template>
 
 <script>
@@ -84,7 +72,7 @@ export default {
     props: {
         appId: String,
         check: Object,
-        value: Boolean,
+        open: Boolean,
     },
 
     data() {
@@ -99,9 +87,13 @@ export default {
         }
     },
 
+    mounted() {
+        this.get();
+    },
+
     watch: {
-        value() {
-            this.value && this.get();
+        open() {
+            this.open && this.get();
         }
     },
 
