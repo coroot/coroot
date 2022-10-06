@@ -65,13 +65,26 @@ func (f *CheckConfigForm) Valid() bool {
 	return true
 }
 
-type CheckConfigAvailabilityForm struct {
+type CheckConfigSLOAvailabilityForm struct {
 	Configs []model.CheckConfigSLOAvailability `json:"configs"`
 }
 
-func (f *CheckConfigAvailabilityForm) Valid() bool {
+func (f *CheckConfigSLOAvailabilityForm) Valid() bool {
 	for _, c := range f.Configs {
 		if c.TotalRequestsQuery == "" || c.FailedRequestsQuery == "" {
+			return false
+		}
+	}
+	return true
+}
+
+type CheckConfigSLOLatencyForm struct {
+	Configs []model.CheckConfigSLOLatency `json:"configs"`
+}
+
+func (f *CheckConfigSLOLatencyForm) Valid() bool {
+	for _, c := range f.Configs {
+		if c.HistogramQuery == "" || c.ObjectiveBucket == "" {
 			return false
 		}
 	}

@@ -283,7 +283,18 @@ func (api *Api) Check(w http.ResponseWriter, r *http.Request) {
 					ObjectivePercentage: model.Checks.SLOAvailability.DefaultThreshold,
 				})
 			}
-			utils.WriteJson(w, CheckConfigAvailabilityForm{Configs: configs})
+			utils.WriteJson(w, CheckConfigSLOAvailabilityForm{Configs: configs})
+			return
+		case model.Checks.SLOLatency.Id:
+			configs := checkConfigs.GetLatency(appId)
+			if len(configs) == 0 {
+				configs = append(configs, model.CheckConfigSLOLatency{
+					HistogramQuery:      "",
+					ObjectiveBucket:     "",
+					ObjectivePercentage: model.Checks.SLOLatency.DefaultThreshold,
+				})
+			}
+			utils.WriteJson(w, CheckConfigSLOLatencyForm{Configs: configs})
 			return
 		default:
 			configs := checkConfigs.GetSimpleAll(checkId, appId)
@@ -305,7 +316,19 @@ func (api *Api) Check(w http.ResponseWriter, r *http.Request) {
 	case http.MethodPost:
 		switch checkId {
 		case model.Checks.SLOAvailability.Id:
-			var form CheckConfigAvailabilityForm
+			var form CheckConfigSLOAvailabilityForm
+			if err := ReadAndValidate(r, &form); err != nil {
+				klog.Warningln("bad request:", err)
+				http.Error(w, "", http.StatusBadRequest)
+				return
+			}
+			if err := api.db.SaveCheckConfig(projectId, appId, checkId, form.Configs); err != nil {
+				klog.Errorln("failed to save check config:", err)
+				http.Error(w, "", http.StatusInternalServerError)
+				return
+			}
+		case model.Checks.SLOLatency.Id:
+			var form CheckConfigSLOLatencyForm
 			if err := ReadAndValidate(r, &form); err != nil {
 				klog.Warningln("bad request:", err)
 				http.Error(w, "", http.StatusBadRequest)

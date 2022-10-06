@@ -16,8 +16,8 @@
         <v-dialog v-model="dialog" max-width="800">
             <v-card class="pa-4">
                 <div class="d-flex align-center font-weight-medium mb-4">
-                    <template v-if="check.id === 'SLOAvailability'">
-                        Configure "{{ check.title }}" check
+                    <template v-if="check.id === 'SLOAvailability' || check.id === 'SLOLatency'">
+                        Configure the "{{ check.title }}" check
                     </template>
                     <template v-else>
                         Adjust the threshold for the "{{ check.title }}" check
@@ -25,7 +25,8 @@
                     <v-spacer />
                     <v-btn icon @click="dialog = false"><v-icon>mdi-close</v-icon></v-btn>
                 </div>
-                <CheckFormAvailability v-if="check.id === 'SLOAvailability'" :appId="appId" :check="check" :open="dialog" />
+                <CheckFormSLOAvailability v-if="check.id === 'SLOAvailability'" :appId="appId" :check="check" :open="dialog" />
+                <CheckFormSLOLatency v-else-if="check.id === 'SLOLatency'" :appId="appId" :check="check" :open="dialog" />
                 <CheckFormSimple v-else :appId="appId" :check="check" :open="dialog" />
             </v-card>
         </v-dialog>
@@ -35,7 +36,8 @@
 <script>
 import Led from "@/components/Led";
 import CheckFormSimple from "@/components/CheckFormSimple";
-import CheckFormAvailability from "@/components/CheckFormAvailability";
+import CheckFormSLOAvailability from "@/components/CheckFormSLOAvailability";
+import CheckFormSLOLatency from "@/components/CheckFormSLOLatency";
 
 export default {
     props: {
@@ -43,7 +45,7 @@ export default {
         check: Object,
     },
 
-    components: {CheckFormAvailability, CheckFormSimple, Led},
+    components: {CheckFormSLOLatency, CheckFormSLOAvailability, CheckFormSimple, Led},
 
     data() {
         return {

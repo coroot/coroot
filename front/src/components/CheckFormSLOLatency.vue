@@ -1,17 +1,19 @@
 <template>
     <v-form v-if="form" v-model="valid">
         <div v-for="c in form.configs">
-            Total requests query:
-            <MetricSelector v-model="c.total_requests_query" />
-            Failed requests query:
-            <MetricSelector v-model="c.failed_requests_query" />
+            Histogram query:
+            <MetricSelector v-model="c.histogram_query" :rules="[$validators.notEmpty]" wrap="sum by(le)( rate( <input> [..]) )" class="mb-3"/>
+
+            Objective bucket:
+            <v-text-field outlined dense v-model="c.objective_bucket" :rules="[$validators.notEmpty]" hide-details class="input" />
+
             Objective percentage:
-            <v-text-field outlined v-model.number="c.objective_percentage" :rules="[$validators.isFloat]" />
+            <v-text-field outlined dense v-model.number="c.objective_percentage" :rules="[$validators.isFloat]" hide-details class="input" />
         </div>
         <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
             {{error}}
         </v-alert>
-        <v-alert v-if="message && !changed" color="green" outlined text>
+        <v-alert v-if="message" color="green" outlined text>
             {{message}}
         </v-alert>
         <v-btn block color="primary" @click="save" :disabled="!(valid && changed)" :loading="saving" class="mt-5">
@@ -85,6 +87,9 @@ export default {
                 }
                 this.$events.emit('refresh');
                 this.message = 'Settings were successfully updated.';
+                setTimeout(() => {
+                    this.message = '';
+                }, 1000);
                 this.get();
             })
         },
@@ -93,4 +98,8 @@ export default {
 </script>
 
 <style scoped>
+.input >>> .v-input__slot {
+    min-height: initial !important;
+    padding: 0 8px !important;
+}
 </style>
