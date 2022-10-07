@@ -23,6 +23,10 @@ func availability(ctx timeseries.Context, app *model.Application, report *model.
 		return
 	}
 	sli := app.AvailabilitySLIs[0]
+	if sli.TotalRequests == nil {
+		check.SetStatus(model.WARNING, "no data")
+	}
+
 	failed := sli.FailedRequests
 	if failed == nil {
 		failed = timeseries.Replace(sli.TotalRequests, 0)
@@ -48,11 +52,19 @@ func availability(ctx timeseries.Context, app *model.Application, report *model.
 		}
 		return 0
 	}
+	last3pointsDefined := func(t timeseries.Time, v float64) float64 {
+		if t >= ctx.To.Add(-3*ctx.Step) && !math.IsNaN(v) {
+			return 1
+		}
+		return 0
+	}
+	if timeseries.Reduce(timeseries.NanSum, timeseries.Map(last3pointsDefined, sli.TotalRequests)) < 1 {
+		check.SetStatus(model.WARNING, "no data")
+		return
+	}
 	totalRequests := timeseries.Reduce(timeseries.NanSum, timeseries.Map(last3points, sli.TotalRequests)) * 60
 	totalFailedRequests := timeseries.Reduce(timeseries.NanSum, timeseries.Map(last3points, sli.FailedRequests)) * 60
-	if math.IsNaN(totalFailedRequests) {
-		totalFailedRequests = 0
-	}
+
 	if (totalRequests-totalFailedRequests)/totalRequests*100 < sli.Config.ObjectivePercentage {
 		check.Fire()
 	}
@@ -80,7 +92,7 @@ func latency(ctx timeseries.Context, app *model.Application, report *model.Audit
 		}
 	}
 	if total == nil || fast == nil {
-		check.SetStatus(model.UNKNOWN, "no data")
+		check.SetStatus(model.WARNING, "no data")
 	}
 	fastPercentage := timeseries.Aggregate(
 		func(t timeseries.Time, total, fast float64) float64 {
@@ -103,6 +115,18 @@ func latency(ctx timeseries.Context, app *model.Application, report *model.Audit
 		}
 		return 0
 	}
+	last3pointsDefined := func(t timeseries.Time, v float64) float64 {
+		if t >= ctx.To.Add(-3*ctx.Step) && !math.IsNaN(v) {
+			return 1
+		}
+		return 0
+	}
+
+	if timeseries.Reduce(timeseries.NanSum, timeseries.Map(last3pointsDefined, total)) < 1 {
+		check.SetStatus(model.WARNING, "no data")
+		return
+	}
+
 	totalRequests := timeseries.Reduce(timeseries.NanSum, timeseries.Map(last3points, total)) * 60
 	totalFastRequests := timeseries.Reduce(timeseries.NanSum, timeseries.Map(last3points, fast)) * 60
 	if totalFastRequests/totalRequests*100 < sli.Config.ObjectivePercentage {
