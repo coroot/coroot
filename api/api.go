@@ -275,26 +275,32 @@ func (api *Api) Check(w http.ResponseWriter, r *http.Request) {
 		}
 		switch checkId {
 		case model.Checks.SLOAvailability.Id:
-			configs := checkConfigs.GetAvailability(appId)
-			if len(configs) == 0 {
-				configs = append(configs, model.CheckConfigSLOAvailability{
+			form := CheckConfigSLOAvailabilityForm{
+				Configs: checkConfigs.GetAvailability(appId),
+			}
+			if len(form.Configs) == 0 {
+				form.Configs = append(form.Configs, model.CheckConfigSLOAvailability{
 					TotalRequestsQuery:  "",
 					FailedRequestsQuery: "",
 					ObjectivePercentage: model.Checks.SLOAvailability.DefaultThreshold,
 				})
+				form.Empty = true
 			}
-			utils.WriteJson(w, CheckConfigSLOAvailabilityForm{Configs: configs})
+			utils.WriteJson(w, form)
 			return
 		case model.Checks.SLOLatency.Id:
-			configs := checkConfigs.GetLatency(appId)
-			if len(configs) == 0 {
-				configs = append(configs, model.CheckConfigSLOLatency{
+			form := CheckConfigSLOLatencyForm{
+				Configs: checkConfigs.GetLatency(appId),
+			}
+			if len(form.Configs) == 0 {
+				form.Configs = append(form.Configs, model.CheckConfigSLOLatency{
 					HistogramQuery:      "",
-					ObjectiveBucket:     "",
+					ObjectiveBucket:     "0.1",
 					ObjectivePercentage: model.Checks.SLOLatency.DefaultThreshold,
 				})
+				form.Empty = true
 			}
-			utils.WriteJson(w, CheckConfigSLOLatencyForm{Configs: configs})
+			utils.WriteJson(w, form)
 			return
 		default:
 			configs := checkConfigs.GetSimpleAll(checkId, appId)

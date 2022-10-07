@@ -67,6 +67,7 @@ func (f *CheckConfigForm) Valid() bool {
 
 type CheckConfigSLOAvailabilityForm struct {
 	Configs []model.CheckConfigSLOAvailability `json:"configs"`
+	Empty   bool                               `json:"empty"`
 }
 
 func (f *CheckConfigSLOAvailabilityForm) Valid() bool {
@@ -80,6 +81,7 @@ func (f *CheckConfigSLOAvailabilityForm) Valid() bool {
 
 type CheckConfigSLOLatencyForm struct {
 	Configs []model.CheckConfigSLOLatency `json:"configs"`
+	Empty   bool                          `json:"empty"`
 }
 
 func (f *CheckConfigSLOLatencyForm) Valid() bool {
