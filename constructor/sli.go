@@ -46,12 +46,6 @@ func latencySLI(cfg model.CheckConfigSLOLatency, histogram []model.MetricValues)
 	for _, m := range histogram {
 		le := m.Labels["le"]
 		sli.Histogram[le] = update(sli.Histogram[le], m.Values)
-		switch le {
-		case cfg.ObjectiveBucket:
-			sli.FastRequests = update(sli.FastRequests, m.Values)
-		case "+Inf":
-			sli.TotalRequests = update(sli.TotalRequests, m.Values)
-		}
 	}
 	return sli
 }

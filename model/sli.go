@@ -5,9 +5,7 @@ import "github.com/coroot/coroot/timeseries"
 type LatencySLI struct {
 	Config CheckConfigSLOLatency
 
-	Histogram     map[string]timeseries.TimeSeries
-	TotalRequests timeseries.TimeSeries
-	FastRequests  timeseries.TimeSeries
+	Histogram map[string]timeseries.TimeSeries
 }
 
 type AvailabilitySLI struct {

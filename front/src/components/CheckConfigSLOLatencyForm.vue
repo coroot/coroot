@@ -21,7 +21,6 @@ const buckets = [
     {value: '0.005', text: '5ms'},
     {value: '0.01', text: '10ms'},
     {value: '0.025', text: '25ms'},
-    {value: '0.030', text: '30ms'},
     {value: '0.05', text: '50ms'},
     {value: '0.1', text: '100ms'},
     {value: '0.25', text: '250ms'},

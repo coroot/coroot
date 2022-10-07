@@ -89,9 +89,6 @@ func histogramBuckets(histogram map[string]timeseries.TimeSeries) []latencyBucke
 	sort.Slice(buckets, func(i, j int) bool {
 		return buckets[i].Le < buckets[j].Le
 	})
-	for i := len(buckets) - 1; i > 0; i-- {
-		buckets[i].TimeSeries = timeseries.Aggregate(timeseries.Sub, buckets[i].TimeSeries, buckets[i-1].TimeSeries)
-	}
 	return buckets
 }
 
@@ -102,6 +99,10 @@ func histogramSeries(histogram map[string]timeseries.TimeSeries, objectiveBucket
 	buckets := histogramBuckets(histogram)
 	obj, _ := strconv.ParseFloat(objectiveBucket, 64)
 	var res []*model.Series
+
+	for i := len(buckets) - 1; i > 0; i-- {
+		buckets[i].TimeSeries = timeseries.Aggregate(timeseries.Sub, buckets[i].TimeSeries, buckets[i-1].TimeSeries)
+	}
 	for i, b := range buckets {
 		color := "green"
 		if obj > 0 && b.Le > obj {

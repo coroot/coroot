@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
+	"k8s.io/klog"
 	"math"
+	"strconv"
 )
 
 func (a *appAuditor) slo() {
@@ -63,12 +65,28 @@ func latency(ctx timeseries.Context, app *model.Application, report *model.Audit
 		return
 	}
 	sli := app.LatencySLIs[0]
-
+	objectiveBucket, err := strconv.ParseFloat(sli.Config.ObjectiveBucket, 64)
+	if err != nil {
+		klog.Warningf(`invalid objective bucket "%s": %s`, sli.Config.ObjectiveBucket, err)
+		return
+	}
+	var total, fast timeseries.TimeSeries
+	for _, b := range histogramBuckets(sli.Histogram) {
+		if b.Le <= objectiveBucket {
+			fast = b.TimeSeries
+		}
+		if math.IsInf(b.Le, 1) {
+			total = b.TimeSeries
+		}
+	}
+	if total == nil || fast == nil {
+		check.SetStatus(model.UNKNOWN, "no data")
+	}
 	fastPercentage := timeseries.Aggregate(
 		func(t timeseries.Time, total, fast float64) float64 {
 			return fast / total * 100
 		},
-		sli.TotalRequests, sli.FastRequests,
+		total, fast,
 	)
 	chart := report.
 		GetOrCreateChart("Latency").
@@ -77,7 +95,7 @@ func latency(ctx timeseries.Context, app *model.Application, report *model.Audit
 		Name:  "target",
 		Color: "red",
 		Fill:  true,
-		Data:  timeseries.Replace(sli.TotalRequests, sli.Config.ObjectivePercentage),
+		Data:  timeseries.Replace(total, sli.Config.ObjectivePercentage),
 	}
 	last3points := func(t timeseries.Time, v float64) float64 {
 		if t >= ctx.To.Add(-3*ctx.Step) {
@@ -85,9 +103,8 @@ func latency(ctx timeseries.Context, app *model.Application, report *model.Audit
 		}
 		return 0
 	}
-	totalRequests := timeseries.Reduce(timeseries.NanSum, timeseries.Map(last3points, sli.TotalRequests)) * 60
-	totalFastRequests := timeseries.Reduce(timeseries.NanSum, timeseries.Map(last3points, sli.FastRequests)) * 60
-
+	totalRequests := timeseries.Reduce(timeseries.NanSum, timeseries.Map(last3points, total)) * 60
+	totalFastRequests := timeseries.Reduce(timeseries.NanSum, timeseries.Map(last3points, fast)) * 60
 	if totalFastRequests/totalRequests*100 < sli.Config.ObjectivePercentage {
 		check.Fire()
 	}
