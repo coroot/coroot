@@ -56,9 +56,7 @@ func (f *ProjectStatusForm) Valid() bool {
 }
 
 type CheckConfigForm struct {
-	GlobalThreshold      float64  `json:"global_threshold"`
-	ProjectThreshold     *float64 `json:"project_threshold"`
-	ApplicationThreshold *float64 `json:"application_threshold"`
+	Configs []*model.CheckConfigSimple `json:"configs"`
 }
 
 func (f *CheckConfigForm) Valid() bool {

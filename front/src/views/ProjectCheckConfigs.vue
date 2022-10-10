@@ -8,19 +8,18 @@
         </tr>
         </thead>
         <tbody>
-        <template v-for="r in reports">
-            <tr v-for="c in r.checks">
+            <tr v-for="c in checks">
                 <td>
-                    {{ r.name }} / {{ c.name }}
+                    {{ c.title }}
                     <div class="grey--text text-no-wrap">
-                        Condition: {{ formatCondition(c.condition, c.global_threshold, c.unit) }}
+                        Condition: {{ formatCondition(c) }}
                     </div>
                 </td>
                 <td>
-                    <template v-if="r.name === 'SLO'">
+                    <template v-if="c.id === 'SLOAvailability' || c.id === 'SLOLatency'">
                         &mdash;
                     </template>
-                    <a v-else>
+                    <a v-else @click="edit('::', c)">
                         <template v-if="c.project_threshold === null">
                             <v-icon small>mdi-file-replace-outline</v-icon>
                         </template>
@@ -32,34 +31,41 @@
                 <td>
                     <div v-for="a in c.application_overrides" class="text-no-wrap">
                         {{$api.appId(a.id).name}}:
-                        <router-link :to="{name: 'application', params: {id: a.id, report: r.name}}">
+                        <a @click="edit(a.id, c)">
                             {{ format(a.threshold, c.unit, a.details) }}
-                        </router-link>
+                        </a>
                     </div>
                 </td>
             </tr>
-        </template>
         </tbody>
+        <CheckForm v-model="editing.active" :appId="editing.appId" :check="editing.check" />
     </v-simple-table>
 </template>
 
 <script>
+import CheckForm from "@/views/CheckForm";
+
 export default {
+    components: {CheckForm},
     props: {
         projectId: String,
     },
 
     data() {
         return {
-            reports: [],
+            checks: [],
             loading: false,
             error: '',
             message: '',
+            editing: {
+                active: false,
+            },
         };
     },
 
     mounted() {
         this.get();
+        this.$events.watch(this, this.get, 'refresh');
     },
 
     watch: {
@@ -69,8 +75,11 @@ export default {
     },
 
     methods: {
-        formatCondition(condition, global_threshold, unit) {
-            return condition.replace('<bucket>', '100ms').replace('<threshold>', this.format(global_threshold, unit));
+        edit(appId, check) {
+            this.editing = {active: true, appId, check};
+        },
+        formatCondition(check) {
+            return check.condition_format_template.replace('<bucket>', '100ms').replace('<threshold>', this.format(check.global_threshold, check.unit));
         },
         format(threshold, unit, details) {
             if (threshold === null) {
@@ -99,7 +108,7 @@ export default {
                     this.error = error;
                     return;
                 }
-                this.reports = data.reports;
+                this.checks = data.checks;
             });
         },
     },

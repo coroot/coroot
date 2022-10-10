@@ -331,8 +331,8 @@ func (cc CheckConfigs) GetSimple(checkId CheckId, appId ApplicationId) CheckConf
 	if raw == nil {
 		return cfg
 	}
-	var v CheckConfigSimple
-	if err := json.Unmarshal(raw, &v); err != nil {
+	v, err := unmarshal[CheckConfigSimple](raw)
+	if err != nil {
 		klog.Warningln("failed to unmarshal check config:", err)
 		return cfg
 	}
@@ -345,15 +345,18 @@ func (cc CheckConfigs) GetSimpleAll(checkId CheckId, appId ApplicationId) []*Che
 		klog.Warningln("unknown check:", checkId)
 		return nil
 	}
-	res := []*CheckConfigSimple{&CheckConfigSimple{Threshold: Checks.index[checkId].DefaultThreshold}}
-	for _, id := range []ApplicationId{{}, appId} {
+	res := []*CheckConfigSimple{{Threshold: Checks.index[checkId].DefaultThreshold}}
+	ids := []ApplicationId{ApplicationIdZero}
+	if !appId.IsZero() {
+		ids = append(ids, appId)
+	}
+	for _, id := range ids {
 		if appConfigs, ok := cc[id]; ok {
 			if raw, ok := appConfigs[checkId]; ok {
-				cfg := &CheckConfigSimple{}
-				if err := json.Unmarshal(raw, cfg); err != nil {
+				if cfg, err := unmarshal[CheckConfigSimple](raw); err != nil {
 					klog.Warningln("failed to unmarshal check config:", err)
 				} else {
-					res = append(res, cfg)
+					res = append(res, &cfg)
 					continue
 				}
 			}
@@ -390,14 +393,6 @@ func (cc CheckConfigs) GetByCheck(id CheckId) map[ApplicationId][]any {
 	return res
 }
 
-func unmarshal[T any](raw json.RawMessage) (T, error) {
-	var cfg T
-	if err := json.Unmarshal(raw, &cfg); err != nil {
-		return cfg, err
-	}
-	return cfg, nil
-}
-
 func (cc CheckConfigs) GetAvailability(appId ApplicationId) []CheckConfigSLOAvailability {
 	appConfigs := cc[appId]
 	if appConfigs == nil {
@@ -407,8 +402,7 @@ func (cc CheckConfigs) GetAvailability(appId ApplicationId) []CheckConfigSLOAvai
 	if !ok {
 		return nil
 	}
-	var res []CheckConfigSLOAvailability
-	err := json.Unmarshal(raw, &res)
+	res, err := unmarshal[[]CheckConfigSLOAvailability](raw)
 	if err != nil {
 		klog.Warningln("failed to unmarshal check config:", err)
 		return nil
@@ -425,11 +419,18 @@ func (cc CheckConfigs) GetLatency(appId ApplicationId) []CheckConfigSLOLatency {
 	if !ok {
 		return nil
 	}
-	var res []CheckConfigSLOLatency
-	err := json.Unmarshal(raw, &res)
+	res, err := unmarshal[[]CheckConfigSLOLatency](raw)
 	if err != nil {
 		klog.Warningln("failed to unmarshal check config:", err)
 		return nil
 	}
 	return res
+}
+
+func unmarshal[T any](raw json.RawMessage) (T, error) {
+	var cfg T
+	if err := json.Unmarshal(raw, &cfg); err != nil {
+		return cfg, err
+	}
+	return cfg, nil
 }

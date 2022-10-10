@@ -8,21 +8,14 @@ import (
 type View struct {
 	configs model.CheckConfigs
 
-	Reports []Report `json:"reports"`
-}
-
-type Report struct {
-	Name   string  `json:"name"`
 	Checks []Check `json:"checks"`
 }
 
 type Check struct {
-	Name                 string          `json:"name"`
-	Unit                 model.CheckUnit `json:"unit"`
-	Condition            string          `json:"condition"`
-	GlobalThreshold      float64         `json:"global_threshold"`
-	ProjectThreshold     *float64        `json:"project_threshold"`
-	ApplicationOverrides []Application   `json:"application_overrides"`
+	model.Check
+	GlobalThreshold      float64       `json:"global_threshold"`
+	ProjectThreshold     *float64      `json:"project_threshold"`
+	ApplicationOverrides []Application `json:"application_overrides"`
 }
 
 type Application struct {
@@ -48,21 +41,22 @@ func Render(configs model.CheckConfigs) *View {
 	return v
 }
 
-func (v *View) addReport(name string, checks ...model.CheckConfig) {
-	r := Report{Name: name}
+func (v *View) addReport(kind string, checks ...model.CheckConfig) {
 	for _, c := range checks {
 		ch := Check{
-			Name:            c.Title,
-			Unit:            c.Unit,
-			Condition:       c.ConditionFormatTemplate,
+			Check: model.Check{
+				Id:                      c.Id,
+				Title:                   kind + " / " + c.Title,
+				Unit:                    c.Unit,
+				ConditionFormatTemplate: c.ConditionFormatTemplate,
+			},
 			GlobalThreshold: c.DefaultThreshold,
 		}
-		emptyAppId := model.ApplicationId{}
 		for appId, configs := range v.configs.GetByCheck(c.Id) {
 			for _, unk := range configs {
 				switch cfg := unk.(type) {
 				case model.CheckConfigSimple:
-					if appId == emptyAppId {
+					if appId.IsZero() {
 						t := cfg.Threshold
 						ch.ProjectThreshold = &t
 					} else {
@@ -91,7 +85,6 @@ func (v *View) addReport(name string, checks ...model.CheckConfig) {
 				}
 			}
 		}
-		r.Checks = append(r.Checks, ch)
+		v.Checks = append(v.Checks, ch)
 	}
-	v.Reports = append(v.Reports, r)
 }

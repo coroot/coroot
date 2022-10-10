@@ -8,7 +8,8 @@ import (
 )
 
 var (
-	hexPattern = regexp.MustCompile(`[\da-f]+`)
+	ApplicationIdZero = ApplicationId{}
+	hexPattern        = regexp.MustCompile(`[\da-f]+`)
 )
 
 type ApplicationId struct {
@@ -46,6 +47,10 @@ func NewApplicationIdFromString(src string) (ApplicationId, error) {
 		return ApplicationId{}, fmt.Errorf("should be ns:kind:name")
 	}
 	return ApplicationId{Namespace: parts[0], Kind: ApplicationKind(parts[1]), Name: parts[2]}, nil
+}
+
+func (a ApplicationId) IsZero() bool {
+	return a == ApplicationIdZero
 }
 
 func (a ApplicationId) String() string {

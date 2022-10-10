@@ -61,13 +61,13 @@ func (db *DB) SaveCheckConfig(projectId ProjectId, appId model.ApplicationId, ch
 			return err
 		}
 	}
-	if cfg == nil {
+	c, err := json.Marshal(cfg)
+	if err != nil {
+		return err
+	}
+	if string(c) == "null" {
 		delete(cs, checkId)
 	} else {
-		c, err := json.Marshal(cfg)
-		if err != nil {
-			return err
-		}
 		cs[checkId] = c
 	}
 	data, err := json.Marshal(cs)

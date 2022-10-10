@@ -316,17 +316,12 @@ func (api *Api) Check(w http.ResponseWriter, r *http.Request) {
 			utils.WriteJson(w, form)
 			return
 		default:
-			configs := checkConfigs.GetSimpleAll(checkId, appId)
-			if len(configs) != 3 {
+			form := CheckConfigForm{
+				Configs: checkConfigs.GetSimpleAll(checkId, appId),
+			}
+			if len(form.Configs) == 0 {
 				http.Error(w, "", http.StatusNotFound)
 				return
-			}
-			form := CheckConfigForm{GlobalThreshold: configs[0].Threshold}
-			if configs[1] != nil {
-				form.ProjectThreshold = &configs[1].Threshold
-			}
-			if configs[2] != nil {
-				form.ApplicationThreshold = &configs[2].Threshold
 			}
 			utils.WriteJson(w, form)
 			return
@@ -365,10 +360,15 @@ func (api *Api) Check(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "", http.StatusBadRequest)
 				return
 			}
-			for id, t := range map[model.ApplicationId]*float64{model.ApplicationId{}: form.ProjectThreshold, appId: form.ApplicationThreshold} {
-				var cfg any = nil
-				if t != nil {
-					cfg = model.CheckConfigSimple{Threshold: *t}
+			for level, cfg := range form.Configs {
+				var id model.ApplicationId
+				switch level {
+				case 0:
+					continue
+				case 1:
+					id = model.ApplicationIdZero
+				case 2:
+					id = appId
 				}
 				if err := api.db.SaveCheckConfig(projectId, id, checkId, cfg); err != nil {
 					klog.Errorln("failed to save check config:", err)
