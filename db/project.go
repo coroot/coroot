@@ -148,10 +148,18 @@ func (db *DB) SaveProject(p Project) (ProjectId, error) {
 }
 
 func (db *DB) DeleteProject(id ProjectId) error {
-	if _, err := db.db.Exec("DELETE FROM project WHERE id = $1", id); err != nil {
+	tx, err := db.db.Begin()
+	if err != nil {
 		return err
 	}
-	return nil
+	defer tx.Rollback()
+	if _, err := tx.Exec("DELETE FROM check_configs WHERE project_id = $1", id); err != nil {
+		return err
+	}
+	if _, err := tx.Exec("DELETE FROM project WHERE id = $1", id); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func (db *DB) ToggleConfigurationHint(id ProjectId, appType model.ApplicationType, mute bool) error {
