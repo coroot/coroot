@@ -14,7 +14,7 @@
                     <div class="flex-grow-1 capfirst py-3">
                         {{condition.head}}
                         <!-- eslint-disable-next-line vue/no-mutating-props -->
-                        <v-text-field outlined hide-details v-model="form.application_threshold" :rules="[$validators.isFloat]" class="input" />
+                        <v-text-field outlined hide-details v-model.number="form.application_threshold" :rules="[$validators.isFloat]" class="input" />
                         {{unit}} {{condition.tail}}
                     </div>
                     <!-- eslint-disable-next-line vue/no-mutating-props -->
@@ -32,7 +32,7 @@
                     <div class="flex-grow-1 capfirst py-3">
                         {{condition.head}}
                         <!-- eslint-disable-next-line vue/no-mutating-props -->
-                        <v-text-field outlined hide-details v-model="form.project_threshold" :rules="[$validators.isFloat]" class="input" />
+                        <v-text-field outlined hide-details v-model.number="form.project_threshold" :rules="[$validators.isFloat]" class="input" />
                         {{unit}} {{condition.tail}}
                     </div>
                     <!-- eslint-disable-next-line vue/no-mutating-props -->
