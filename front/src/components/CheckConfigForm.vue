@@ -21,12 +21,12 @@
                     <v-btn small icon @click="form.application_threshold = null"><v-icon small>mdi-trash-can-outline</v-icon></v-btn>
                 </div>
                 <div v-else class="grey--text">
-                    The project-level default &darr; is used. <a @click="override('application')">Override</a>
+                    The project-level override &darr; is used. <a @click="override('application')">Override</a>
                 </div>
             </td>
         </tr>
         <tr>
-            <td>Project-level default</td>
+            <td>Project-level override</td>
             <td>
                 <div v-if="form.project_threshold !== null" class="d-flex align-center">
                     <div class="flex-grow-1 capfirst py-3">

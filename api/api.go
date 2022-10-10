@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/coroot/coroot/api/views"
+	"github.com/coroot/coroot/api/views/configs"
 	"github.com/coroot/coroot/cache"
 	"github.com/coroot/coroot/constructor"
 	"github.com/coroot/coroot/db"
@@ -204,6 +205,18 @@ func (api *Api) Search(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	utils.WriteJson(w, views.Search(world))
+}
+
+func (api *Api) Configs(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	projectId := db.ProjectId(vars["project"])
+	checkConfigs, err := api.db.GetCheckConfigs(projectId)
+	if err != nil {
+		klog.Errorln("failed to get check configs:", err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	utils.WriteJson(w, configs.Render(checkConfigs))
 }
 
 func (api *Api) Prom(w http.ResponseWriter, r *http.Request) {

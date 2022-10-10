@@ -2,6 +2,7 @@ package views
 
 import (
 	"github.com/coroot/coroot/api/views/application"
+	"github.com/coroot/coroot/api/views/configs"
 	"github.com/coroot/coroot/api/views/node"
 	"github.com/coroot/coroot/api/views/overview"
 	"github.com/coroot/coroot/api/views/project"
@@ -29,4 +30,8 @@ func Node(w *model.World, n *model.Node) *model.AuditReport {
 
 func Search(w *model.World) *search.View {
 	return search.Render(w)
+}
+
+func Configs(checkConfigs model.CheckConfigs) *configs.View {
+	return configs.Render(checkConfigs)
 }

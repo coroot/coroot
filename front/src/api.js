@@ -97,6 +97,10 @@ export default class Api {
         this.get(this.projectPath(`overview`), cb);
     }
 
+    getCheckConfigs(cb) {
+        this.get(this.projectPath(`configs`), cb);
+    }
+
     getApplication(appId, cb) {
         this.get(this.projectPath(`app/${appId}`), cb);
     }

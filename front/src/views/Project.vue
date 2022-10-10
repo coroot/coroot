@@ -1,5 +1,5 @@
 <template>
-<div class="mx-auto" style="max-width: 800px">
+<div class="mx-auto">
     <template v-if="projectId">
         <h1 class="text-h5 my-5">
             Status
@@ -14,6 +14,13 @@
 
     <template v-if="projectId">
         <h1 class="text-h5 mt-16 mb-5">
+            Inspection configs
+        </h1>
+        <ProjectCheckConfigs :projectId="projectId" />
+    </template>
+
+    <template v-if="projectId">
+        <h1 class="text-h5 mt-16 mb-5">
             Danger zone
         </h1>
         <ProjectDelete :projectId="projectId" />
@@ -25,13 +32,14 @@
 import ProjectSettings from "@/views/ProjectSettings";
 import ProjectStatus from "@/views/ProjectStatus";
 import ProjectDelete from "@/views/ProjectDelete";
+import ProjectCheckConfigs from "@/views/ProjectCheckConfigs";
 
 export default {
     props: {
         projectId: String,
     },
 
-    components: {ProjectSettings, ProjectStatus, ProjectDelete},
+    components: {ProjectCheckConfigs, ProjectSettings, ProjectStatus, ProjectDelete},
 }
 </script>
 

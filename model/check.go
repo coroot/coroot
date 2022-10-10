@@ -363,6 +363,41 @@ func (cc CheckConfigs) GetSimpleAll(checkId CheckId, appId ApplicationId) []*Che
 	return res
 }
 
+func (cc CheckConfigs) GetByCheck(id CheckId) map[ApplicationId][]any {
+	res := map[ApplicationId][]any{}
+	for appId, appConfigs := range cc {
+		for checkId, raw := range appConfigs {
+			if checkId != id {
+				continue
+			}
+			var cfg any
+			var err error
+			switch id {
+			case Checks.SLOAvailability.Id:
+				cfg, err = unmarshal[[]CheckConfigSLOAvailability](raw)
+			case Checks.SLOLatency.Id:
+				cfg, err = unmarshal[[]CheckConfigSLOLatency](raw)
+			default:
+				cfg, err = unmarshal[CheckConfigSimple](raw)
+			}
+			if err != nil {
+				klog.Warningln("failed to unmarshal check config:", err)
+				continue
+			}
+			res[appId] = append(res[appId], cfg)
+		}
+	}
+	return res
+}
+
+func unmarshal[T any](raw json.RawMessage) (T, error) {
+	var cfg T
+	if err := json.Unmarshal(raw, &cfg); err != nil {
+		return cfg, err
+	}
+	return cfg, nil
+}
+
 func (cc CheckConfigs) GetAvailability(appId ApplicationId) []CheckConfigSLOAvailability {
 	appConfigs := cc[appId]
 	if appConfigs == nil {
