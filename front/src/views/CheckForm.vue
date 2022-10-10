@@ -3,7 +3,7 @@
         <v-card class="pa-4">
             <div class="d-flex align-center font-weight-medium mb-4">
                 <template v-if="check.id === 'SLOAvailability' || check.id === 'SLOLatency'">
-                    Configure the "{{ check.title }}" check
+                    Configure the "{{ check.title }}" inspection
                     <v-btn v-if="form && form.empty === false" small icon @click="confirmation = true"><v-icon small>mdi-trash-can-outline</v-icon></v-btn>
                     <v-overlay :value="confirmation" absolute opacity="0.8">
                         <div>Are you sure you want to delete the "{{ check.title }}" check?</div>
@@ -15,7 +15,7 @@
                     </v-overlay>
                 </template>
                 <template v-else>
-                    Adjust the threshold for the "{{ check.title }}" check
+                    Adjust the threshold for the "{{ check.title }}" inspection
                 </template>
                 <v-spacer />
                 <v-btn icon @click="$emit('input', false)"><v-icon>mdi-close</v-icon></v-btn>
