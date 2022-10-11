@@ -63,6 +63,12 @@ Check out the [Installation guide](https://coroot.com/docs/coroot-community-edit
 
 The Coroot documentation is available at [coroot.com/docs/coroot-community-edition](https://coroot.com/docs/coroot-community-edition).
 
+## Community & Support
+
+* [Community Slack](https://join.slack.com/t/coroot-community/shared_invite/zt-1gsnfo0wj-I~Zvtx5CAAb8vr~r~vecyw)
+* Twitter: [@coroot_com](https://twitter.com/coroot_com)
+
+
 ## License
 
 Coroot is licensed under the [Apache License, Version 2.0](https://github.com/coroot/coroot/blob/main/LICENSE).
