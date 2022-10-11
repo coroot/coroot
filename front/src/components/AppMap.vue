@@ -8,7 +8,7 @@
             >
                 <div>
                     <router-link :to="{name: 'application', params: {id: app.id}, query: $route.query}" class="name">
-                        <Led v-if="app.status" :status="app.status" />{{$api.appId(app.id).name}}
+                        <AppHealth :app="app"/>
                     </router-link>
                     <Labels :labels="app.labels" class="d-none d-sm-block ml-4" />
                 </div>
@@ -19,7 +19,7 @@
             <div v-if="map.application" class="app" :ref="map.application.id">
                 <div>
                     <span class="name">
-                        <Led v-if="map.application.status" :status="map.application.status" />{{$api.appId(map.application.id).name}}
+                        <AppHealth :app="map.application"/>
                     </span>
                     <Labels :labels="map.application.labels" class="d-none d-sm-block ml-4" />
                 </div>
@@ -46,7 +46,7 @@
             >
                 <div>
                     <router-link :to="{name: 'application', params: {id: app.id}, query: $route.query}" class="name">
-                        <Led v-if="app.status" :status="app.status" />{{$api.appId(app.id).name}}
+                        <AppHealth :app="app"/>
                     </router-link>
                     <Labels :labels="app.labels" class="d-none d-sm-block ml-4" />
                 </div>
@@ -70,14 +70,14 @@
 
 <script>
 import Labels from '@/components/Labels';
-import Led from "@/components/Led";
+import AppHealth from "@/components/AppHealth";
 
 export default {
     props: {
         map: Object,
     },
 
-    components: {Labels, Led},
+    components: {Labels, AppHealth},
 
     data() {
         return {
@@ -247,7 +247,7 @@ export default {
     border-radius: 3px;
     border: 1px solid #BDBDBD;
     white-space: nowrap;
-    padding: 6px 12px;
+    padding: 4px 8px;
 }
 .instances {
     padding: 8px 16px;

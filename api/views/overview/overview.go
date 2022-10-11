@@ -18,10 +18,11 @@ type View struct {
 }
 
 type Application struct {
-	Id       model.ApplicationId `json:"id"`
-	Category string              `json:"category"`
-	Labels   model.Labels        `json:"labels"`
-	Status   model.Status        `json:"status"`
+	Id         model.ApplicationId `json:"id"`
+	Category   string              `json:"category"`
+	Labels     model.Labels        `json:"labels"`
+	Status     model.Status        `json:"status"`
+	Indicators []model.Indicator   `json:"indicators"`
 
 	Upstreams   []Link `json:"upstreams"`
 	Downstreams []Link `json:"downstreams"`
@@ -43,9 +44,11 @@ func Render(w *model.World) *View {
 			Category:    category(a),
 			Labels:      a.Labels(),
 			Status:      a.Status,
+			Indicators:  model.CalcIndicators(a),
 			Upstreams:   []Link{},
 			Downstreams: []Link{},
 		}
+
 		upstreams := map[model.ApplicationId]model.Status{}
 		downstreams := map[model.ApplicationId]bool{}
 		for _, i := range a.Instances {

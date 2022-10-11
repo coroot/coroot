@@ -27,3 +27,25 @@ func (s Status) String() string {
 func (s Status) MarshalJSON() ([]byte, error) {
 	return json.Marshal(s.String())
 }
+
+type Indicator struct {
+	Status  Status `json:"status"`
+	Message string `json:"message"`
+}
+
+func CalcIndicators(app *Application) []Indicator {
+	if app == nil {
+		return nil
+	}
+	var res []Indicator
+	for _, r := range app.Reports {
+		if r.Status == UNKNOWN {
+			continue
+		}
+		res = append(res, Indicator{
+			Status:  r.Status,
+			Message: r.Name,
+		})
+	}
+	return res
+}

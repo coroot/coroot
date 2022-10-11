@@ -20,9 +20,10 @@ type AppMap struct {
 }
 
 type Application struct {
-	Id     model.ApplicationId `json:"id"`
-	Status model.Status        `json:"status"`
-	Labels model.Labels        `json:"labels"`
+	Id         model.ApplicationId `json:"id"`
+	Status     model.Status        `json:"status"`
+	Indicators []model.Indicator   `json:"indicators"`
+	Labels     model.Labels        `json:"labels"`
 }
 
 type Instance struct {
@@ -51,11 +52,13 @@ func Render(world *model.World, app *model.Application) *View {
 
 	appMap := &AppMap{
 		Application: &Application{
-			Id:     app.Id,
-			Status: app.Status,
-			Labels: app.Labels(),
+			Id:         app.Id,
+			Status:     app.Status,
+			Indicators: model.CalcIndicators(app),
+			Labels:     app.Labels(),
 		},
 	}
+
 	deps := map[model.ApplicationId]bool{}
 	for _, instance := range app.Instances {
 		if instance.Pod != nil && instance.Pod.IsObsolete() {
@@ -138,7 +141,12 @@ func (m *AppMap) addDependency(w *model.World, id model.ApplicationId) {
 	if app == nil {
 		return
 	}
-	m.Dependencies = append(m.Dependencies, &Application{Id: id, Status: app.Status, Labels: app.Labels()})
+	m.Dependencies = append(m.Dependencies, &Application{
+		Id:         id,
+		Status:     app.Status,
+		Indicators: model.CalcIndicators(app),
+		Labels:     app.Labels(),
+	})
 }
 
 func (m *AppMap) addClient(w *model.World, id model.ApplicationId) {
@@ -151,5 +159,10 @@ func (m *AppMap) addClient(w *model.World, id model.ApplicationId) {
 	if app == nil {
 		return
 	}
-	m.Clients = append(m.Clients, &Application{Id: id, Status: app.Status, Labels: app.Labels()})
+	m.Clients = append(m.Clients, &Application{
+		Id:         id,
+		Status:     app.Status,
+		Indicators: model.CalcIndicators(app),
+		Labels:     app.Labels(),
+	})
 }

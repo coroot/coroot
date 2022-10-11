@@ -9,7 +9,7 @@
                 <div v-for="a in apps" style="text-align: center">
                     <span :ref="a.id" class="app" :class="a.hi(hi) ? 'selected' : ''" @mouseenter="hi = a.id" @mouseleave="hi = null">
                         <router-link :to="{name: 'application', params: {id: a.id}, query: $route.query}" class="name">
-                            <Led v-if="a.status" :status="a.status" />{{$api.appId(a.id).name}}
+                            <AppHealth :app="a"/>
                         </router-link>
                         <Labels :labels="a.labels" class="d-none d-sm-block ml-4" />
                     </span>
@@ -33,7 +33,7 @@
 
 <script>
 import Labels from "@/components/Labels";
-import Led from "@/components/Led";
+import AppHealth from "@/components/AppHealth";
 
 function findBackLinks(index, a, discovered, finished, found) {
     discovered.add(a.id);
@@ -70,7 +70,7 @@ export default {
         noFilter: Boolean,
     },
 
-    components: {Labels, Led},
+    components: {AppHealth, Labels},
 
     data() {
         return {
@@ -258,7 +258,7 @@ export default {
     border: 1px solid #BDBDBD;
     border-radius: 3px;
     white-space: nowrap;
-    padding: 6px 12px;
+    padding: 4px 8px;
     background-color: white;
     display: inline-flex;
     flex-direction: column;
