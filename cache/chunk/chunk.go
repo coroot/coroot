@@ -196,7 +196,11 @@ func Read(path string, from timeseries.Time, pointsCount int, step timeseries.Du
 			offset := int(m.MetaOffset)
 			mv.Labels = model.Labels{}
 			err := jsonparser.ObjectEach(meta[offset:offset+int(m.MetaSize)], func(key []byte, value []byte, dataType jsonparser.ValueType, offset int) error {
-				mv.Labels[string(key)] = string(value)
+				v, err := jsonparser.ParseString(value)
+				if err != nil {
+					return err
+				}
+				mv.Labels[string(key)] = v
 				return nil
 			})
 			if err != nil {
