@@ -6,7 +6,7 @@ Coroot is a monitoring and troubleshooting tool for microservice architectures.
 [![Go Report Card](https://goreportcard.com/badge/github.com/coroot/coroot)](https://goreportcard.com/report/github.com/coroot/coroot)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-<p align="center"><img width="800" src="https://user-images.githubusercontent.com/194465/187667684-224cfa32-96cd-44f0-87f7-0528b3dd7bb9.gif"></p>
+<p align="center"><img width="800" src="https://user-images.githubusercontent.com/194465/195115881-babd5bd0-8c2b-4718-9cc6-e6dfb5a20c00.gif"></p>
 
 
 ## Features
