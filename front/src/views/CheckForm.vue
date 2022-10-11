@@ -1,5 +1,5 @@
 <template>
-    <v-dialog v-if="check" :value="value" @input="(v) => $emit('input', v)" max-width="800">
+    <v-dialog v-if="check" :value="value" @input="emitValue" max-width="800">
         <v-card class="pa-4">
             <div class="d-flex align-center font-weight-medium mb-4">
                 <template v-if="check.id === 'SLOAvailability' || check.id === 'SLOLatency'">
@@ -18,7 +18,7 @@
                     Adjust the threshold for the "{{ check.title }}" inspection
                 </template>
                 <v-spacer />
-                <v-btn icon @click="$emit('input', false)"><v-icon>mdi-close</v-icon></v-btn>
+                <v-btn icon @click="emitValue(false)"><v-icon>mdi-close</v-icon></v-btn>
             </div>
             <v-form v-if="form" v-model="valid">
                 <CheckFormSLOAvailability v-if="check.id === 'SLOAvailability'" :form="form" />
@@ -122,8 +122,11 @@ export default {
                     return;
                 }
                 this.$events.emit('refresh');
-                this.editing = false;
+                this.emitValue(false);
             });
+        },
+        emitValue(v) {
+            this.$emit('input', v);
         },
     },
 }
