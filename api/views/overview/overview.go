@@ -104,10 +104,12 @@ func Render(w *model.World) *View {
 			}
 		}
 
-		if total := n.MemoryTotalBytes.Last(); !math.IsNaN(total) {
-			node.AddTag("memory: " + humanize.Bytes(uint64(total)))
-			if avail := n.MemoryAvailableBytes.Last(); !math.IsNaN(avail) {
-				memoryPercent.SetProgress(int(100-avail/total*100), "deep-purple")
+		if n.MemoryTotalBytes != nil && n.MemoryAvailableBytes != nil {
+			if total := n.MemoryTotalBytes.Last(); !math.IsNaN(total) {
+				node.AddTag("memory: " + humanize.Bytes(uint64(total)))
+				if avail := n.MemoryAvailableBytes.Last(); !math.IsNaN(avail) {
+					memoryPercent.SetProgress(int(100-avail/total*100), "deep-purple")
+				}
 			}
 		}
 
