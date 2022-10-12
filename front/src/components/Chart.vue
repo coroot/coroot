@@ -51,8 +51,6 @@ import convert from 'color-convert';
 
 const font = '12px Roboto, sans-serif'
 const tsFormat = '{MMM} {DD}, {HH}:{mm}:{ss}';
-const fmtDate = uPlot.fmtDate(tsFormat);
-const fmtTs = (ts) => fmtDate(new Date(ts));
 
 const suffixes1 = ['', 'K', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y'];
 const suffixes2 = ['', 'm', 'µ', 'n', 'p', 'f', 'a', 'z', 'y'];
@@ -175,12 +173,12 @@ export default {
             const ts = c.ctx.data[this.idx];
             const o = (c.outages || []).find((o) => o.x1 <= ts && ts <= o.x2);
             return {
-                ts: fmtTs(ts),
+                ts: this.$format.date(ts, tsFormat),
                 items: ss.map((s) => ({label: s.name, value: f(s.data[this.idx]), color: s.color})),
                 outage: o && {
-                    from: fmtTs(o.x1),
-                    to: o.x2 < c.ctx.to && fmtTs(o.x2),
-                    dur: this.$moment.duration((o.x2-o.x1 + c.ctx.step), 'ms').format('h[h] m[m] s[s]', {trim: 'all'}),
+                    from: this.$format.date(o.x1, tsFormat),
+                    to: o.x2 < c.ctx.to && this.$format.date(o.x2, tsFormat),
+                    dur: this.$format.duration((o.x2-o.x1 + c.ctx.step), 's'),
                 },
             }
         },

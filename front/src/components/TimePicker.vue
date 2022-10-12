@@ -50,7 +50,7 @@ export default {
             }
             const iFrom = parseInt(from);
             const iTo = parseInt(to);
-            const format = (t) => this.$moment(new Date(t)).format('YYYY-MM-DD HH:mm')
+            const format = (t) => this.$format.date(t, '{YYYY}-{MM}-{DD} {HH}:{mm}');
             const f = isNaN(iFrom) ? from : format(iFrom);
             const t = isNaN(iTo) ? to : format(iTo);
             return {from: f, to: t, text: f+' to '+t, custom: true};

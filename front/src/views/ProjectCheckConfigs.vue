@@ -91,7 +91,7 @@ export default {
                     res = threshold + '%';
                     break;
                 case 'second':
-                    res = this.$moment.duration(threshold, 's').format('s[s] S[ms]', {trim: 'all'});
+                    res = this.$format.duration(threshold*1000, 'ms');
                     break
             }
             if (details) {

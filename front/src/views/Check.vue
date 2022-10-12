@@ -51,7 +51,7 @@ export default {
                 case 'percent':
                     return this.check.threshold + '%';
                 case 'second':
-                    return this.$moment.duration(this.check.threshold, 's').format('s[s] S[ms]', {trim: 'all'})
+                    return this.$format.duration(this.check.threshold * 1000, 'ms');
             }
             return this.check.threshold;
         },

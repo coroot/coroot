@@ -80,7 +80,7 @@
                         </template>
                         <template v-else>
                             <div class="flex-grow-1 mb-3 mb-sm-0">
-                                Prometheus cache is {{$moment.duration(status.prometheus.cache.lag_avg, 'ms').format('h [hour] m [minute]', {trim: 'all'})}} behind.
+                                Prometheus cache is {{$format.duration(status.prometheus.cache.lag_avg, 'm')}} behind.
                                 <template v-if="status.prometheus.status === 'warning'">
                                     Please wait until synchronization is complete.
                                 </template>

@@ -2,13 +2,11 @@ import Vue from "vue";
 import VueRouter from "vue-router";
 import vuetify from '@/plugins/vuetify';
 import '@/plugins/resize';
-import moment from 'moment';
-import momentDurationFormatSetup from 'moment-duration-format';
-momentDurationFormatSetup(moment);
 import pluralize from 'pluralize';
 import events from '@/utils/events';
 import * as validators from "@/utils/validators";
 import * as storage from "@/utils/storage";
+import * as format from '@/utils/format';
 import Api from "@/api";
 import App from "@/App";
 import Project from "@/views/Project";
@@ -45,7 +43,7 @@ router.afterEach((to, from) => {
 })
 
 Vue.prototype.$events = events;
-Vue.prototype.$moment = moment;
+Vue.prototype.$format = format;
 Vue.prototype.$pluralize = pluralize;
 Vue.prototype.$api = new Api(router, vuetify);
 Vue.prototype.$validators = validators;

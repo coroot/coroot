@@ -19,8 +19,6 @@
     "axios": "^0.27.2",
     "color-convert": "^2.0.1",
     "core-js": "^3.8.3",
-    "moment": "^2.29.4",
-    "moment-duration-format": "^2.3.2",
     "pluralize": "^8.0.0",
     "uplot": "^1.6.22",
     "uuid": "^9.0.0",
