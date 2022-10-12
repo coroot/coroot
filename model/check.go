@@ -261,7 +261,7 @@ func (ch *Check) Calc() {
 			return
 		}
 	case CheckTypeItemBased:
-		if ch.items.Len() <= int(ch.Threshold) {
+		if ch.items.Len() == 0 {
 			return
 		}
 	case CheckTypeManual:
