@@ -18,3 +18,7 @@ func NewRedis() *Redis {
 		CallsTime: map[string]timeseries.TimeSeries{},
 	}
 }
+
+func (r *Redis) IsUp() bool {
+	return timeseries.Last(r.Up) > 0
+}

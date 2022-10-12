@@ -11,18 +11,18 @@ type InMemoryTimeSeries struct {
 	data []float64
 }
 
-func (ts *InMemoryTimeSeries) Len() int {
+func (ts *InMemoryTimeSeries) len() int {
 	return len(ts.data)
 }
 
-func (ts *InMemoryTimeSeries) Last() float64 {
+func (ts *InMemoryTimeSeries) last() float64 {
 	if len(ts.data) == 0 {
 		return NaN
 	}
 	return ts.data[len(ts.data)-1]
 }
 
-func (ts *InMemoryTimeSeries) Iter() Iterator {
+func (ts *InMemoryTimeSeries) iter() Iterator {
 	return &timeseriesIterator{
 		from: ts.from,
 		step: ts.step,
@@ -31,14 +31,26 @@ func (ts *InMemoryTimeSeries) Iter() Iterator {
 	}
 }
 
+func (ts *InMemoryTimeSeries) isEmpty() bool {
+	return len(ts.data) == 0
+}
+
+func (ts *InMemoryTimeSeries) MarshalJSON() ([]byte, error) {
+	return MarshalJSON(ts)
+}
+
 func (ts *InMemoryTimeSeries) String() string {
 	values := make([]string, 0)
-	iter := ts.Iter()
+	iter := ts.iter()
 	for iter.Next() {
 		_, v := iter.Value()
 		values = append(values, Value(v).String())
 	}
-	return fmt.Sprintf("InMemoryTimeSeries(%d, %d, %d, [%s])", ts.from, ts.Len(), ts.step, strings.Join(values, " "))
+	return fmt.Sprintf("InMemoryTimeSeries(%d, %d, %d, [%s])", ts.from, ts.len(), ts.step, strings.Join(values, " "))
+}
+
+func (ts *InMemoryTimeSeries) Data() []float64 {
+	return ts.data
 }
 
 func (ts *InMemoryTimeSeries) Set(t Time, v float64) Time {
@@ -98,21 +110,3 @@ func (i *timeseriesIterator) Next() bool {
 func (i *timeseriesIterator) Value() (Time, float64) {
 	return i.t, i.v
 }
-
-func (ts *InMemoryTimeSeries) MarshalJSON() ([]byte, error) {
-	return MarshalJSON(ts)
-}
-
-func (ts *InMemoryTimeSeries) IsEmpty() bool {
-	return len(ts.data) == 0
-}
-
-func (ts *InMemoryTimeSeries) Data() []float64 {
-	return ts.data
-}
-
-//
-//func (ts *InMemoryTimeSeries) Read(reader io.Reader) error {
-//	err := binary.Read(reader, binary.LittleEndian, &ts.data)
-//	return err
-//}

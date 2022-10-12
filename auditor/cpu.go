@@ -20,11 +20,9 @@ func (a *appAuditor) cpu() {
 			report.GetOrCreateChartInGroup("CPU delay of container <selector>, seconds/second", c.Name).AddSeries(i.Name, c.CpuDelay)
 			report.GetOrCreateChartInGroup("Throttled time of container <selector>, seconds/second", c.Name).AddSeries(i.Name, c.ThrottledTime)
 
-			if c.CpuLimit != nil && c.CpuUsage != nil {
-				usage := c.CpuUsage.Last() / c.CpuLimit.Last()
-				if usage > containerCpuCheck.Threshold {
-					containerCpuCheck.AddItem("%s@%s", c.Name, i.Name)
-				}
+			usage := timeseries.Last(c.CpuUsage) / timeseries.Last(c.CpuLimit)
+			if usage > containerCpuCheck.Threshold {
+				containerCpuCheck.AddItem("%s@%s", c.Name, i.Name)
 			}
 		}
 		if node := i.Node; i.Node != nil {
@@ -36,7 +34,7 @@ func (a *appAuditor) cpu() {
 					AddSeries(nodeName, i.Node.CpuUsagePercent).
 					Feature()
 
-				if last := i.Node.CpuUsagePercent.Last(); last > nodeCpuCheck.Threshold {
+				if timeseries.Last(i.Node.CpuUsagePercent) > nodeCpuCheck.Threshold {
 					nodeCpuCheck.AddItem(i.Node.Name.Value())
 				}
 

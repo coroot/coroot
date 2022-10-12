@@ -85,15 +85,15 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues) {
 				if rtts == nil {
 					rtts = map[string]timeseries.TimeSeries{}
 				}
-				rtts[m.Labels["destination_ip"]] = update(rtts[m.Labels["destination_ip"]], m.Values)
+				rtts[m.Labels["destination_ip"]] = timeseries.Merge(rtts[m.Labels["destination_ip"]], m.Values, timeseries.Any)
 				rttByInstance[instance.InstanceId] = rtts
 			case "container_net_tcp_successful_connects":
 				if c := getOrCreateConnection(instance, mc.container, m, w); c != nil {
-					c.Connects = update(c.Connects, m.Values)
+					c.Connects = timeseries.Merge(c.Connects, m.Values, timeseries.Any)
 				}
 			case "container_net_tcp_active_connections":
 				if c := getOrCreateConnection(instance, mc.container, m, w); c != nil {
-					c.Active = update(c.Active, m.Values)
+					c.Active = timeseries.Merge(c.Active, m.Values, timeseries.Any)
 				}
 			case "container_net_tcp_listen_info":
 				ip, port, err := net.SplitHostPort(m.Labels["listen_addr"])
@@ -101,39 +101,39 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues) {
 					klog.Warningf("failed to split %s to ip:port pair: %s", m.Labels["listen_addr"], err)
 					continue
 				}
-				isActive := m.Values.Last() == 1
+				isActive := timeseries.Last(m.Values) == 1
 				l := model.Listen{IP: ip, Port: port, Proxied: m.Labels["proxy"] != ""}
 				if !instance.TcpListens[l] {
 					instance.TcpListens[l] = isActive
 				}
 			case "container_cpu_limit":
-				container.CpuLimit = update(container.CpuLimit, m.Values)
+				container.CpuLimit = timeseries.Merge(container.CpuLimit, m.Values, timeseries.Any)
 			case "container_cpu_usage":
-				container.CpuUsage = update(container.CpuUsage, m.Values)
+				container.CpuUsage = timeseries.Merge(container.CpuUsage, m.Values, timeseries.Any)
 			case "container_cpu_delay":
-				container.CpuDelay = update(container.CpuDelay, m.Values)
+				container.CpuDelay = timeseries.Merge(container.CpuDelay, m.Values, timeseries.Any)
 			case "container_throttled_time":
-				container.ThrottledTime = update(container.ThrottledTime, m.Values)
+				container.ThrottledTime = timeseries.Merge(container.ThrottledTime, m.Values, timeseries.Any)
 			case "container_memory_rss":
-				container.MemoryRss = update(container.MemoryRss, m.Values)
+				container.MemoryRss = timeseries.Merge(container.MemoryRss, m.Values, timeseries.Any)
 			case "container_memory_cache":
-				container.MemoryCache = update(container.MemoryCache, m.Values)
+				container.MemoryCache = timeseries.Merge(container.MemoryCache, m.Values, timeseries.Any)
 			case "container_memory_limit":
-				container.MemoryLimit = update(container.MemoryLimit, m.Values)
+				container.MemoryLimit = timeseries.Merge(container.MemoryLimit, m.Values, timeseries.Any)
 			case "container_oom_kills_total":
-				container.OOMKills = update(container.OOMKills, timeseries.Increase(m.Values, promJobStatus))
+				container.OOMKills = timeseries.Merge(container.OOMKills, timeseries.Increase(m.Values, promJobStatus), timeseries.Any)
 			case "container_restarts":
-				container.Restarts = update(container.Restarts, timeseries.Increase(m.Values, promJobStatus))
+				container.Restarts = timeseries.Merge(container.Restarts, timeseries.Increase(m.Values, promJobStatus), timeseries.Any)
 			case "container_application_type":
 				container.ApplicationTypes[model.ApplicationType(m.Labels["application_type"])] = true
 			case "container_log_messages":
 				logMessage(instance, m.Labels, timeseries.Increase(m.Values, promJobStatus))
 			case "container_volume_size":
 				v := getOrCreateInstanceVolume(instance, m)
-				v.CapacityBytes = update(v.CapacityBytes, m.Values)
+				v.CapacityBytes = timeseries.Merge(v.CapacityBytes, m.Values, timeseries.Any)
 			case "container_volume_used":
 				v := getOrCreateInstanceVolume(instance, m)
-				v.UsedBytes = update(v.UsedBytes, m.Values)
+				v.UsedBytes = timeseries.Merge(v.UsedBytes, m.Values, timeseries.Any)
 			}
 		}
 	}
@@ -166,7 +166,7 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues) {
 					u.RemoteInstance = instancesByListen[l]
 				}
 				if upstreams, ok := rttByInstance[instance.InstanceId]; ok {
-					u.Rtt = update(u.Rtt, upstreams[u.ActualRemoteIP])
+					u.Rtt = timeseries.Merge(u.Rtt, upstreams[u.ActualRemoteIP], timeseries.Any)
 				}
 			}
 		}
@@ -237,12 +237,7 @@ func getOrCreateInstanceVolume(instance *model.Instance, m model.MetricValues) *
 
 func logMessage(instance *model.Instance, ls model.Labels, values timeseries.TimeSeries) {
 	level := model.LogLevel(ls["level"])
-	byLevel, ok := instance.LogMessagesByLevel[level]
-	if !ok {
-		byLevel = timeseries.Aggregate(timeseries.NanSum)
-		instance.LogMessagesByLevel[level] = byLevel
-	}
-	byLevel.(*timeseries.AggregatedTimeseries).AddInput(values)
+	instance.LogMessagesByLevel[level] = timeseries.Merge(instance.LogMessagesByLevel[level], values, timeseries.NanSum)
 
 	if hash := ls["pattern_hash"]; hash != "" {
 		p := instance.LogPatterns[hash]
@@ -255,14 +250,13 @@ func logMessage(instance *model.Instance, ls model.Labels, values timeseries.Tim
 				Sample:    sample,
 				Multiline: strings.Contains(sample, "\n"),
 				Pattern:   pattern,
-				Sum:       timeseries.Aggregate(timeseries.NanSum),
 			}
 			if p.Multiline {
 				p.Sample = markMultilineMessage(p.Sample)
 			}
 			instance.LogPatterns[hash] = p
 		}
-		p.Sum.(*timeseries.AggregatedTimeseries).AddInput(values)
+		p.Sum = timeseries.Merge(p.Sum, values, timeseries.NanSum)
 	}
 }
 

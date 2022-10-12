@@ -13,5 +13,4 @@ func (i *NilIterator) Next() bool {
 
 func (i *NilIterator) Value() (Time, float64) {
 	panic("this code should never be called")
-	return Time(0), NaN
 }

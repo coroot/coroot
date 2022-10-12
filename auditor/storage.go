@@ -26,7 +26,7 @@ func (a *appAuditor) storage() {
 					report.GetOrCreateChartInGroup("I/O utilization <selector>, %", v.MountPoint).
 						AddSeries(i.Name, d.IOUtilizationPercent)
 
-					if l := d.IOUtilizationPercent.Last(); l > ioCheck.Threshold {
+					if timeseries.Last(d.IOUtilizationPercent) > ioCheck.Threshold {
 						ioCheck.AddItem("%s:%s", i.Name, v.MountPoint)
 					}
 
@@ -44,29 +44,25 @@ func (a *appAuditor) storage() {
 
 					latencyMs := model.NewTableCell().SetUnit("ms")
 					if d.Await != nil {
-						latencyMs.SetValue(utils.FormatFloat(d.Await.Last() * 1000))
+						latencyMs.SetValue(utils.FormatFloat(timeseries.Last(d.Await) * 1000))
 					}
 					ioPercent := model.NewTableCell()
-					if d.IOUtilizationPercent != nil {
-						if last := d.IOUtilizationPercent.Last(); !math.IsNaN(last) {
-							ioPercent.SetValue(fmt.Sprintf("%.0f%%", last))
-						}
+					if last := timeseries.Last(d.IOUtilizationPercent); !math.IsNaN(last) {
+						ioPercent.SetValue(fmt.Sprintf("%.0f%%", last))
 					}
 					space := model.NewTableCell()
-					if v.UsedBytes != nil && v.CapacityBytes != nil {
-						capacity := v.CapacityBytes.Last()
-						usage := v.UsedBytes.Last()
-						if usage > 0 && capacity > 0 {
-							percentage := usage / capacity * 100
-							space.SetValue(fmt.Sprintf(
-								"%.0f%% (%s / %s)",
-								percentage,
-								humanize.Bytes(uint64(usage)),
-								humanize.Bytes(uint64(capacity))),
-							)
-							if percentage > spaceCheck.Threshold {
-								spaceCheck.AddItem("%s:%s", i.Name, v.MountPoint)
-							}
+					capacity := timeseries.Last(v.CapacityBytes)
+					usage := timeseries.Last(v.UsedBytes)
+					if usage > 0 && capacity > 0 {
+						percentage := usage / capacity * 100
+						space.SetValue(fmt.Sprintf(
+							"%.0f%% (%s / %s)",
+							percentage,
+							humanize.Bytes(uint64(usage)),
+							humanize.Bytes(uint64(capacity))),
+						)
+						if percentage > spaceCheck.Threshold {
+							spaceCheck.AddItem("%s:%s", i.Name, v.MountPoint)
 						}
 					}
 					report.GetOrCreateTable("Volume", "Latency", "I/O", "Space", "Device").AddRow(

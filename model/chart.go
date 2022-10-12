@@ -66,7 +66,7 @@ func (chart *Chart) AddMany(series []timeseries.Named) *Chart {
 }
 
 func (chart *Chart) AddSeries(name string, data timeseries.TimeSeries, color ...string) *Chart {
-	if data == nil || data.IsEmpty() {
+	if timeseries.IsEmpty(data) {
 		return chart
 	}
 	s := &Series{Name: name, Data: data}
@@ -82,9 +82,9 @@ func (chart *Chart) SetThreshold(name string, data timeseries.TimeSeries, aggFun
 		return chart
 	}
 	if chart.Threshold == nil {
-		chart.Threshold = &Series{Name: name, Data: timeseries.Aggregate(aggFunc), Color: "black"}
+		chart.Threshold = &Series{Name: name, Color: "black"}
 	}
-	chart.Threshold.Data.(*timeseries.AggregatedTimeseries).AddInput(data)
+	chart.Threshold.Data = timeseries.Merge(chart.Threshold.Data, data, aggFunc)
 	return chart
 }
 

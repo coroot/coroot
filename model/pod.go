@@ -29,5 +29,5 @@ func (pod *Pod) IsObsolete() bool {
 }
 
 func (pod *Pod) IsReady() bool {
-	return pod.Ready != nil && pod.Ready.Last() > 0
+	return timeseries.Last(pod.Ready) > 0
 }

@@ -14,12 +14,7 @@ func memoryConsumers(node *model.Node) map[string]timeseries.TimeSeries {
 	usageByApp := map[string]timeseries.TimeSeries{}
 	for _, instance := range node.Instances {
 		for _, c := range instance.Containers {
-			byApp := usageByApp[instance.OwnerId.Name]
-			if byApp == nil {
-				byApp = timeseries.Aggregate(timeseries.NanSum)
-				usageByApp[instance.OwnerId.Name] = byApp
-			}
-			byApp.(*timeseries.AggregatedTimeseries).AddInput(c.MemoryRss)
+			usageByApp[instance.OwnerId.Name] = timeseries.Merge(usageByApp[instance.OwnerId.Name], c.MemoryRss, timeseries.NanSum)
 		}
 	}
 	return usageByApp
@@ -57,13 +52,8 @@ func cpuByModeSeries(modes map[string]timeseries.TimeSeries) []*model.Series {
 func cpuConsumers(node *model.Node) map[string]timeseries.TimeSeries {
 	usageByApp := map[string]timeseries.TimeSeries{}
 	for _, instance := range node.Instances {
-		appUsage := usageByApp[instance.OwnerId.Name]
-		if appUsage == nil {
-			appUsage = timeseries.Aggregate(timeseries.NanSum)
-			usageByApp[instance.OwnerId.Name] = appUsage
-		}
 		for _, c := range instance.Containers {
-			appUsage.(*timeseries.AggregatedTimeseries).AddInput(c.CpuUsage)
+			usageByApp[instance.OwnerId.Name] = timeseries.Merge(usageByApp[instance.OwnerId.Name], c.CpuUsage, timeseries.NanSum)
 		}
 	}
 	return usageByApp

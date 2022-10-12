@@ -45,7 +45,7 @@ func latencySLI(cfg model.CheckConfigSLOLatency, histogram []model.MetricValues)
 	}
 	for _, m := range histogram {
 		le := m.Labels["le"]
-		sli.Histogram[le] = update(sli.Histogram[le], m.Values)
+		sli.Histogram[le] = timeseries.Merge(sli.Histogram[le], m.Values, timeseries.Any)
 	}
 	return sli
 }

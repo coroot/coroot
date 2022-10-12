@@ -2,20 +2,57 @@ package timeseries
 
 import (
 	"encoding/json"
+	"fmt"
 	"math"
 )
 
 var NaN = math.NaN()
 
 type TimeSeries interface {
-	Last() float64
-	String() string
-	Len() int
-	Iter() Iterator
+	len() int
+	iter() Iterator
+	isEmpty() bool
+	last() float64
 
-	MarshalJSON() ([]byte, error)
+	fmt.Stringer
+	json.Marshaler
+}
 
-	IsEmpty() bool
+func Iter(ts TimeSeries) Iterator {
+	if ts == nil {
+		return &NilIterator{}
+	}
+	return ts.iter()
+}
+
+func IsEmpty(ts TimeSeries) bool {
+	if ts == nil {
+		return true
+	}
+	return ts.isEmpty()
+}
+
+func Last(ts TimeSeries) float64 {
+	if ts == nil {
+		return NaN
+	}
+	return ts.last()
+}
+
+func Merge(src, ts TimeSeries, f F) *AggregatedTimeseries {
+	var res *AggregatedTimeseries
+	if src == nil {
+		res = Aggregate(f)
+	} else {
+		ats, ok := src.(*AggregatedTimeseries)
+		if !ok || ats == nil {
+			res = Aggregate(f, src)
+		} else {
+			res = ats
+		}
+	}
+	res.AddInput(ts)
+	return res
 }
 
 func Reduce(f F, ts TimeSeries) float64 {
@@ -23,20 +60,7 @@ func Reduce(f F, ts TimeSeries) float64 {
 		return NaN
 	}
 	accumulator := NaN
-	iter := ts.Iter()
-	for iter.Next() {
-		t, v := iter.Value()
-		accumulator = f(t, accumulator, v)
-	}
-	return accumulator
-}
-
-func Mask(f F, ts TimeSeries) float64 {
-	if ts == nil {
-		return NaN
-	}
-	accumulator := NaN
-	iter := ts.Iter()
+	iter := ts.iter()
 	for iter.Next() {
 		t, v := iter.Value()
 		accumulator = f(t, accumulator, v)
@@ -52,24 +76,31 @@ func Aggregate(f F, tss ...TimeSeries) *AggregatedTimeseries {
 	return a
 }
 
-func Map(f func(t Time, v float64) float64, x TimeSeries) TimeSeries {
+func Increase(x, status TimeSeries) TimeSeries {
+	if IsEmpty(x) || IsEmpty(status) {
+		return nil
+	}
+	return &IncreaseTimeseries{input: x, status: status}
+}
+
+func Map(f func(t Time, v float64) float64, ts TimeSeries) TimeSeries {
 	return Aggregate(
 		func(t Time, agg, v float64) float64 { return f(t, v) },
-		x,
+		ts,
 	)
 }
 
-func Replace(x TimeSeries, newValue float64) TimeSeries {
+func Replace(ts TimeSeries, newValue float64) TimeSeries {
 	return Map(func(t Time, v float64) float64 {
 		return newValue
-	}, x)
+	}, ts)
 }
 
 func LastNotNull(ts TimeSeries) (Time, float64) {
 	if ts == nil {
 		return 0, NaN
 	}
-	iter := ts.Iter()
+	iter := ts.iter()
 	var vv float64
 	var tt Time
 	for iter.Next() {
@@ -83,8 +114,11 @@ func LastNotNull(ts TimeSeries) (Time, float64) {
 }
 
 func MarshalJSON(ts TimeSeries) ([]byte, error) {
-	vs := make([]Value, 0, ts.Len())
-	iter := ts.Iter()
+	if ts == nil {
+		return json.Marshal(nil)
+	}
+	vs := make([]Value, 0, ts.len())
+	iter := ts.iter()
 	for iter.Next() {
 		_, v := iter.Value()
 		vs = append(vs, Value(v))

@@ -48,7 +48,7 @@ func (a *appAuditor) postgres() {
 			GetOrCreateChartInGroup("Postgres query latency <selector>, seconds", "overview").
 			Feature().
 			AddSeries(i.Name, i.Postgres.Avg)
-		if i.Postgres.Avg != nil && i.Postgres.Avg.Last() > latencyCheck.Threshold {
+		if timeseries.Last(i.Postgres.Avg) > latencyCheck.Threshold {
 			latencyCheck.AddItem(i.Name)
 		}
 		report.
@@ -95,17 +95,13 @@ func (a *appAuditor) pgTable(report *model.AuditReport, i *model.Instance, prima
 	case model.ClusterRoleReplica:
 		roleCell.SetIcon("mdi-database-import-outline", "grey")
 	}
-	latencyMs := ""
-	if i.Postgres.Avg != nil && !i.Postgres.Avg.IsEmpty() {
-		latencyMs = utils.FormatFloat(i.Postgres.Avg.Last() * 1000)
-	}
 	status := model.NewTableCell().SetStatus(model.OK, "up")
 	if !i.Postgres.IsUp() {
 		availabilityCheck.AddItem(i.Name)
 		status.SetStatus(model.WARNING, "down (no metrics)")
 	}
-	errorsCell := model.NewTableCell()
 
+	errorsCell := model.NewTableCell()
 	if total := timeseries.Reduce(timeseries.NanSum, errors); !math.IsNaN(total) {
 		errorsCheck.Inc(int64(total))
 		errorsCell.SetValue(fmt.Sprintf("%.0f", total))
@@ -116,8 +112,8 @@ func (a *appAuditor) pgTable(report *model.AuditReport, i *model.Instance, prima
 			model.NewTableCell(i.Name).AddTag("version: %s", i.Postgres.Version.Value()),
 			roleCell,
 			status,
-			model.NewTableCell(utils.FormatFloat(qps.Last())).SetUnit("/s"),
-			model.NewTableCell(latencyMs).SetUnit("ms"),
+			model.NewTableCell(utils.FormatFloat(timeseries.Last(qps))).SetUnit("/s"),
+			model.NewTableCell(utils.FormatFloat(timeseries.Last(i.Postgres.Avg)*1000)).SetUnit("ms"),
 			errorsCell,
 			pgReplicationLagCell(primaryLsn, lag, role),
 		)
@@ -140,21 +136,20 @@ func errorsByPattern(instance *model.Instance) map[string]timeseries.TimeSeries 
 
 func pgReplicationLagCell(primaryLsn, lag timeseries.TimeSeries, role model.ClusterRole) *model.TableCell {
 	res := &model.TableCell{}
-	if primaryLsn.IsEmpty() {
+	if timeseries.IsEmpty(primaryLsn) {
 		return res
 	}
 	if role != model.ClusterRoleReplica {
 		return res
 	}
-	last := lag.Last()
+	last := timeseries.Last(lag)
 	if math.IsNaN(last) {
 		return res
 	}
 
 	tCurr, vCurr := timeseries.LastNotNull(primaryLsn)
 	t, tPast, vPast := timeseries.Time(0), timeseries.Time(0), math.NaN()
-	iter := primaryLsn.Iter()
-
+	iter := timeseries.Iter(primaryLsn)
 	for iter.Next() {
 		t, vPast = iter.Value()
 		if vPast > vCurr { // wraparound (e.g., complete cluster redeploy)

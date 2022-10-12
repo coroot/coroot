@@ -72,11 +72,11 @@ func NewPostgres() *Postgres {
 }
 
 func (p *Postgres) IsUp() bool {
-	return p.Up != nil && p.Up.Last() > 0
+	return timeseries.Last(p.Up) > 0
 }
 
 func (p *Postgres) Unavailability() timeseries.TimeSeries {
-	if p.Up == nil {
+	if timeseries.IsEmpty(p.Up) {
 		return nil
 	}
 	return timeseries.Map(func(t timeseries.Time, v float64) float64 {

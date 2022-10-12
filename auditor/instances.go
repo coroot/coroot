@@ -25,7 +25,7 @@ func (a *appAuditor) instances() {
 		status := model.NewTableCell().SetStatus(model.UNKNOWN, "unknown")
 		if i.Rds != nil {
 			switch {
-			case math.IsNaN(i.Rds.LifeSpan.Last()):
+			case math.IsNaN(timeseries.Last(i.Rds.LifeSpan)):
 				status.SetStatus(model.WARNING, "down (no metrics)")
 			case i.Rds.Status.Value() != "available":
 				status.SetStatus(model.WARNING, i.Rds.Status.Value())

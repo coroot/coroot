@@ -3,6 +3,7 @@ package overview
 import (
 	"github.com/coroot/coroot/auditor"
 	"github.com/coroot/coroot/model"
+	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 	"github.com/dustin/go-humanize"
 	"math"
@@ -99,23 +100,17 @@ func Render(w *model.World) *View {
 		if t := n.InstanceType.Value(); t != "" {
 			node.AddTag("Type: " + t)
 		}
-		if n.CpuCapacity != nil {
-			if vcpu := n.CpuCapacity.Last(); !math.IsNaN(vcpu) {
-				node.AddTag("vCPU: " + strconv.Itoa(int(vcpu)))
-			}
+		if l := timeseries.Last(n.CpuCapacity); !math.IsNaN(l) {
+			node.AddTag("vCPU: " + strconv.Itoa(int(l)))
 		}
-		if n.CpuUsagePercent != nil {
-			if l := n.CpuUsagePercent.Last(); !math.IsNaN(l) {
-				cpuPercent.SetProgress(int(l), "blue")
-			}
+		if l := timeseries.Last(n.CpuUsagePercent); !math.IsNaN(l) {
+			cpuPercent.SetProgress(int(l), "blue")
 		}
 
-		if n.MemoryTotalBytes != nil && n.MemoryAvailableBytes != nil {
-			if total := n.MemoryTotalBytes.Last(); !math.IsNaN(total) {
-				node.AddTag("memory: " + humanize.Bytes(uint64(total)))
-				if avail := n.MemoryAvailableBytes.Last(); !math.IsNaN(avail) {
-					memoryPercent.SetProgress(int(100-avail/total*100), "deep-purple")
-				}
+		if total := timeseries.Last(n.MemoryTotalBytes); !math.IsNaN(total) {
+			node.AddTag("memory: " + humanize.Bytes(uint64(total)))
+			if avail := timeseries.Last(n.MemoryAvailableBytes); !math.IsNaN(avail) {
+				memoryPercent.SetProgress(int(100-avail/total*100), "deep-purple")
 			}
 		}
 
@@ -126,10 +121,10 @@ func Render(w *model.World) *View {
 
 		network := model.NewTableCell()
 		for _, iface := range n.NetInterfaces {
-			if iface.Up != nil && iface.Up.Last() != 1 {
+			if timeseries.Last(iface.Up) != 1 {
 				continue
 			}
-			if iface.RxBytes == nil || iface.TxBytes == nil {
+			if timeseries.IsEmpty(iface.RxBytes) || timeseries.IsEmpty(iface.TxBytes) {
 				continue
 			}
 			for _, ip := range iface.Addresses {
@@ -146,8 +141,8 @@ func Render(w *model.World) *View {
 			}
 			network.NetInterfaces = append(network.NetInterfaces, model.NetInterface{
 				Name: iface.Name,
-				Rx:   utils.HumanBits(iface.RxBytes.Last() * 8),
-				Tx:   utils.HumanBits(iface.TxBytes.Last() * 8),
+				Rx:   utils.HumanBits(timeseries.Last(iface.RxBytes) * 8),
+				Tx:   utils.HumanBits(timeseries.Last(iface.TxBytes) * 8),
 			})
 		}
 		sort.Slice(network.NetInterfaces, func(i, j int) bool {

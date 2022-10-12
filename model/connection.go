@@ -29,7 +29,7 @@ func (c *Connection) IsActual() bool {
 	if !c.RemoteInstance.IsListenActive(c.ActualRemoteIP, c.ActualRemotePort) {
 		return false
 	}
-	return (c.Connects != nil && c.Connects.Last() > 0) || (c.Active != nil && c.Active.Last() > 0)
+	return (timeseries.Last(c.Connects) > 0) || (timeseries.Last(c.Active) > 0)
 }
 
 func (c *Connection) Obsolete() bool {
@@ -41,12 +41,11 @@ func (c *Connection) Obsolete() bool {
 
 func (c *Connection) Status() Status {
 	status := UNKNOWN
-	isActual := c.IsActual()
-	if isActual && c.Rtt != nil && !c.Rtt.IsEmpty() {
+	if c.IsActual() && !timeseries.IsEmpty(c.Rtt) {
 		status = OK
-	}
-	if isActual && c.Rtt != nil && !c.Rtt.IsEmpty() && math.IsNaN(c.Rtt.Last()) {
-		return WARNING
+		if math.IsNaN(timeseries.Last(c.Rtt)) {
+			status = WARNING
+		}
 	}
 	return status
 }

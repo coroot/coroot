@@ -19,7 +19,7 @@ func (a *appAuditor) redis() {
 		}
 
 		status := model.NewTableCell().SetStatus(model.OK, "up")
-		if !(i.Redis.Up != nil && i.Redis.Up.Last() > 0) {
+		if !i.Redis.IsUp() {
 			availability.AddItem(i.Name)
 			status.SetStatus(model.WARNING, "down (no metrics)")
 		}
@@ -55,7 +55,7 @@ func (a *appAuditor) redis() {
 			Sorted().
 			AddMany(timeseries.Top(i.Redis.Calls, timeseries.NanSum, 5))
 
-		if l := avg.Last(); l > latency.Threshold {
+		if timeseries.Last(avg) > latency.Threshold {
 			latency.AddItem(i.Name)
 		}
 	}

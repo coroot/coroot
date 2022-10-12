@@ -13,10 +13,6 @@ func Any(t Time, v1, v2 float64) float64 {
 	return v2
 }
 
-func Last(t Time, prev, v float64) float64 {
-	return v
-}
-
 func NanSum(t Time, sum, v float64) float64 {
 	if math.IsNaN(sum) {
 		sum = 0

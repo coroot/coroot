@@ -23,13 +23,13 @@ func availability(ctx timeseries.Context, app *model.Application, report *model.
 		return
 	}
 	sli := app.AvailabilitySLIs[0]
-	if sli.TotalRequests == nil {
+	if timeseries.IsEmpty(sli.TotalRequests) {
 		check.SetStatus(model.WARNING, "no data")
 		return
 	}
 
 	failed := sli.FailedRequests
-	if failed == nil {
+	if timeseries.IsEmpty(failed) {
 		failed = timeseries.Replace(sli.TotalRequests, 0)
 	}
 	successfulPercentage := timeseries.Aggregate(
@@ -92,7 +92,7 @@ func latency(ctx timeseries.Context, app *model.Application, report *model.Audit
 			total = b.TimeSeries
 		}
 	}
-	if total == nil || fast == nil {
+	if timeseries.IsEmpty(total) || timeseries.IsEmpty(fast) {
 		check.SetStatus(model.WARNING, "no data")
 		return
 	}

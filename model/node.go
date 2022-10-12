@@ -57,8 +57,5 @@ func NewNode(machineId string) *Node {
 }
 
 func (node *Node) IsUp() bool {
-	if node.CpuUsagePercent == nil {
-		return false
-	}
-	return node.CpuUsagePercent.Last() > 0
+	return timeseries.Last(node.CpuUsagePercent) > 0
 }

@@ -91,14 +91,6 @@ func prometheusJobStatus(metrics map[string][]model.MetricValues, job, instance 
 	return nil
 }
 
-func update(dest, v timeseries.TimeSeries) timeseries.TimeSeries {
-	if dest == nil {
-		dest = timeseries.Aggregate(timeseries.Any)
-	}
-	dest.(*timeseries.AggregatedTimeseries).AddInput(v)
-	return dest
-}
-
 func joinDBClusterComponents(w *model.World) {
 	clusters := map[model.ApplicationId]*model.Application{}
 	toDelete := map[model.ApplicationId]bool{}

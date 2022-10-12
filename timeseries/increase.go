@@ -5,13 +5,6 @@ import (
 	"strings"
 )
 
-func Increase(x, status TimeSeries) TimeSeries {
-	if x == nil || x.IsEmpty() || status == nil || status.IsEmpty() {
-		return nil
-	}
-	return &IncreaseTimeseries{input: x, status: status}
-}
-
 type increaseIterator struct {
 	input  Iterator
 	status Iterator
@@ -48,21 +41,23 @@ type IncreaseTimeseries struct {
 	status TimeSeries
 }
 
-func (ts *IncreaseTimeseries) Len() int {
-	return ts.input.Len()
+func (ts *IncreaseTimeseries) len() int {
+	return ts.input.len()
 }
 
-func (ts *IncreaseTimeseries) Last() float64 {
-	return Reduce(Last, ts)
+func (ts *IncreaseTimeseries) last() float64 {
+	return Reduce(func(t Time, accumulator, v float64) float64 {
+		return v
+	}, ts)
 }
 
-func (ts *IncreaseTimeseries) IsEmpty() bool {
-	return ts.input == nil || ts.input.IsEmpty()
+func (ts *IncreaseTimeseries) isEmpty() bool {
+	return ts.input == nil || ts.input.isEmpty()
 }
 
 func (ts *IncreaseTimeseries) String() string {
 	values := make([]string, 0)
-	iter := ts.Iter()
+	iter := ts.iter()
 	for iter.Next() {
 		_, v := iter.Value()
 		values = append(values, Value(v).String())
@@ -70,8 +65,8 @@ func (ts *IncreaseTimeseries) String() string {
 	return "IncreaseTimeseries(" + strings.Join(values, " ") + ")"
 }
 
-func (ts *IncreaseTimeseries) Iter() Iterator {
-	return &increaseIterator{input: ts.input.Iter(), status: ts.status.Iter(), prev: NaN}
+func (ts *IncreaseTimeseries) iter() Iterator {
+	return &increaseIterator{input: ts.input.iter(), status: ts.status.iter(), prev: NaN}
 }
 
 func (ts *IncreaseTimeseries) MarshalJSON() ([]byte, error) {

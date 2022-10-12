@@ -70,7 +70,7 @@ func netLatency(report *model.AuditReport, w *model.World, n *model.Node) {
 				continue
 			}
 			for _, u := range i.Upstreams {
-				if u.Rtt == nil || u.RemoteInstance == nil || u.RemoteInstance.Node == nil {
+				if timeseries.IsEmpty(u.Rtt) || u.RemoteInstance == nil || u.RemoteInstance.Node == nil {
 					continue
 				}
 				var src, dst *model.Node

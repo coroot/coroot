@@ -142,31 +142,28 @@ func (instance *Instance) NodeName() string {
 }
 
 func (instance *Instance) UpdateClusterRole(role string, v timeseries.TimeSeries) {
-	if instance.clusterRole == nil {
-		instance.clusterRole = timeseries.Aggregate(timeseries.Any)
-	}
 	switch role {
 	case "primary":
-		instance.clusterRole.(*timeseries.AggregatedTimeseries).AddInput(
+		instance.clusterRole = timeseries.Merge(instance.clusterRole,
 			timeseries.Map(func(t timeseries.Time, v float64) float64 {
 				if v == 1 {
 					return float64(ClusterRolePrimary)
 				}
 				return timeseries.NaN
-			}, v))
+			}, v), timeseries.Any)
 	case "replica":
-		instance.clusterRole.(*timeseries.AggregatedTimeseries).AddInput(
+		instance.clusterRole = timeseries.Merge(instance.clusterRole,
 			timeseries.Map(func(t timeseries.Time, v float64) float64 {
 				if v == 1 {
 					return float64(ClusterRoleReplica)
 				}
 				return timeseries.NaN
-			}, v))
+			}, v), timeseries.Any)
 	}
 }
 
 func (instance *Instance) ClusterRole() timeseries.TimeSeries {
-	if instance.Pod == nil || instance.Pod.Ready == nil || instance.clusterRole.IsEmpty() {
+	if instance.Pod == nil || timeseries.IsEmpty(instance.Pod.Ready) || timeseries.IsEmpty(instance.clusterRole) {
 		return instance.clusterRole
 	}
 	return timeseries.Aggregate(timeseries.Mul, instance.clusterRole, instance.Pod.Ready)
@@ -174,10 +171,10 @@ func (instance *Instance) ClusterRole() timeseries.TimeSeries {
 
 func (instance *Instance) ClusterRoleLast() ClusterRole {
 	role := instance.ClusterRole()
-	if role == nil || role.IsEmpty() {
+	if timeseries.IsEmpty(role) {
 		return ClusterRoleNone
 	}
-	return ClusterRole(role.Last())
+	return ClusterRole(timeseries.Last(role))
 }
 
 func (instance *Instance) LifeSpan() timeseries.TimeSeries {
@@ -192,7 +189,7 @@ func (instance *Instance) LifeSpan() timeseries.TimeSeries {
 
 func (instance *Instance) IsUp() bool {
 	for _, c := range instance.Containers {
-		if c.MemoryRss != nil && !math.IsNaN(c.MemoryRss.Last()) {
+		if !math.IsNaN(timeseries.Last(c.MemoryRss)) {
 			return true
 		}
 	}
@@ -204,7 +201,7 @@ func (instance *Instance) UpAndRunning() timeseries.TimeSeries {
 	for _, c := range instance.Containers {
 		mem.AddInput(c.MemoryRss)
 	}
-	if mem.IsEmpty() {
+	if timeseries.IsEmpty(mem) {
 		return nil
 	}
 	up := timeseries.Map(func(t timeseries.Time, v float64) float64 {

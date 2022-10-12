@@ -84,7 +84,7 @@ func (a *appAuditor) network() {
 	}
 	for appId, summary := range upstreams {
 		avg := timeseries.Aggregate(timeseries.Div, summary.rttSum, summary.rttCount)
-		if v := avg.Last(); v > rttCheck.Threshold {
+		if timeseries.Last(avg) > rttCheck.Threshold {
 			rttCheck.AddItem(appId.Name)
 		}
 		report.GetOrCreateChartInGroup("Network round-trip time to <selector>, seconds", appId.Name).

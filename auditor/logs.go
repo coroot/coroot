@@ -36,12 +36,7 @@ func (a *appAuditor) logs() {
 			seenContainers = true
 		}
 		for level, samples := range instance.LogMessagesByLevel {
-			data, ok := byLevel[level]
-			if !ok {
-				data = timeseries.Aggregate(timeseries.NanSum)
-				byLevel[level] = data
-			}
-			data.(*timeseries.AggregatedTimeseries).AddInput(samples)
+			byLevel[level] = timeseries.Merge(byLevel[level], samples, timeseries.NanSum)
 		}
 		for hash, p := range instance.LogPatterns {
 			switch p.Level {
@@ -67,7 +62,6 @@ func (a *appAuditor) logs() {
 						Sample:    p.Sample,
 						Multiline: p.Multiline,
 						Pattern:   p.Pattern,
-						Sum:       timeseries.Aggregate(timeseries.NanSum),
 						Color:     logLevelColors[p.Level],
 						Instances: model.NewChart(a.w.Ctx, "Events by instance").Column(),
 					}
@@ -78,7 +72,7 @@ func (a *appAuditor) logs() {
 			totalEvents += events
 			pattern.Events += events
 			pattern.Instances.AddSeries(instance.Name, p.Sum)
-			pattern.Sum.(*timeseries.AggregatedTimeseries).AddInput(p.Sum)
+			pattern.Sum = timeseries.Merge(pattern.Sum, p.Sum, timeseries.NanSum)
 		}
 	}
 

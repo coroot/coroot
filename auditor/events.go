@@ -64,12 +64,7 @@ func calcRollouts(app *model.Application) []*Event {
 		if instance.Pod == nil || instance.Pod.ReplicaSet == "" {
 			continue
 		}
-		rs := byReplicaSet[instance.Pod.ReplicaSet]
-		if rs == nil {
-			rs = timeseries.Aggregate(timeseries.NanSum)
-			byReplicaSet[instance.Pod.ReplicaSet] = rs
-		}
-		rs.AddInput(instance.Pod.LifeSpan)
+		byReplicaSet[instance.Pod.ReplicaSet] = timeseries.Merge(byReplicaSet[instance.Pod.ReplicaSet], instance.Pod.LifeSpan, timeseries.NanSum)
 	}
 	if len(byReplicaSet) > 1 {
 		activeRss := timeseries.Aggregate(timeseries.NanSum)
@@ -81,7 +76,7 @@ func calcRollouts(app *model.Application) []*Event {
 				return 0
 			}, rs))
 		}
-		iter := activeRss.Iter()
+		iter := timeseries.Iter(activeRss)
 
 		for iter.Next() {
 			t, v := iter.Value()
@@ -117,9 +112,9 @@ func calcUpDownEvents(app *model.Application) []*Event {
 		default:
 			continue
 		}
-		iter := up.Iter()
-		status := ""
 
+		iter := timeseries.Iter(up)
+		status := ""
 		for iter.Next() {
 			t, v := iter.Value()
 			switch {
@@ -164,13 +159,13 @@ func calcClusterSwitchovers(app *model.Application) []*Event {
 			}, role))
 		}
 	}
-	if primaryNum.IsEmpty() {
+	if timeseries.IsEmpty(primaryNum) {
 		return nil
 	}
 	var events []*Event
 
 	var event *Event
-	iter := primaryNum.Iter()
+	iter := timeseries.Iter(primaryNum)
 	prev := float64(-1)
 	for iter.Next() {
 		t, curr := iter.Value()

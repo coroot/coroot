@@ -49,26 +49,28 @@ func (ts *AggregatedTimeseries) AddInput(tss ...TimeSeries) *AggregatedTimeserie
 	return ts
 }
 
-func (ts *AggregatedTimeseries) Len() int {
+func (ts *AggregatedTimeseries) len() int {
 	for _, i := range ts.input {
 		if i != nil {
-			return i.Len()
+			return i.len()
 		}
 	}
 	return 0
 }
 
-func (ts *AggregatedTimeseries) Last() float64 {
-	return Reduce(Last, ts)
+func (ts *AggregatedTimeseries) last() float64 {
+	return Reduce(func(t Time, accumulator, v float64) float64 {
+		return v
+	}, ts)
 }
 
-func (ts *AggregatedTimeseries) IsEmpty() bool {
+func (ts *AggregatedTimeseries) isEmpty() bool {
 	return len(ts.input) == 0
 }
 
 func (ts *AggregatedTimeseries) String() string {
 	values := make([]string, 0)
-	iter := ts.Iter()
+	iter := ts.iter()
 	for iter.Next() {
 		_, v := iter.Value()
 		values = append(values, Value(v).String())
@@ -76,11 +78,11 @@ func (ts *AggregatedTimeseries) String() string {
 	return "AggregatedTimeseries(" + strings.Join(values, " ") + ")"
 }
 
-func (ts *AggregatedTimeseries) Iter() Iterator {
+func (ts *AggregatedTimeseries) iter() Iterator {
 	iter := &aggregatingIterator{aggFunc: ts.aggFunc}
 	for _, i := range ts.input {
 		if i != nil {
-			iIter := i.Iter()
+			iIter := i.iter()
 			if _, ok := iIter.(*NilIterator); !ok {
 				iter.input = append(iter.input, iIter)
 			}
