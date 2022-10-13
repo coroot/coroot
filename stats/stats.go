@@ -7,6 +7,7 @@ import (
 	"github.com/coroot/coroot/cache"
 	"github.com/coroot/coroot/constructor"
 	"github.com/coroot/coroot/db"
+	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/prom"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
@@ -34,10 +35,11 @@ type Stats struct {
 		DatabaseType string `json:"database_type"`
 	} `json:"instance"`
 	Integration struct {
-		Prometheus                bool  `json:"prometheus"`
-		PrometheusRefreshInterval int   `json:"prometheus_refresh_interval"`
-		NodeAgent                 bool  `json:"node_agent"`
-		KubeStateMetrics          *bool `json:"kube_state_metrics"`
+		Prometheus                bool                                 `json:"prometheus"`
+		PrometheusRefreshInterval int                                  `json:"prometheus_refresh_interval"`
+		NodeAgent                 bool                                 `json:"node_agent"`
+		KubeStateMetrics          *bool                                `json:"kube_state_metrics"`
+		InspectionOverrides       map[model.CheckId]InspectionOverride `json:"inspection_overrides"`
 	} `json:"integration"`
 	Stack struct {
 		Clouds               []string `json:"clouds"`
@@ -57,6 +59,11 @@ type Stats struct {
 	Performance struct {
 		Constructor constructor.Profile `json:"constructor"`
 	} `json:"performance"`
+}
+
+type InspectionOverride struct {
+	ProjectLevel     int `json:"project_level"`
+	ApplicationLevel int `json:"application_level"`
 }
 
 type Collector struct {
@@ -168,6 +175,7 @@ func (c *Collector) collect() Stats {
 	clouds := utils.NewStringSet()
 	services := utils.NewStringSet()
 	servicesInstrumented := utils.NewStringSet()
+	stats.Integration.InspectionOverrides = map[model.CheckId]InspectionOverride{}
 	stats.Performance.Constructor.Stages = map[string]float32{}
 	stats.Performance.Constructor.Queries = map[string]prom.QueryStats{}
 	var loadTime []time.Duration
@@ -191,6 +199,17 @@ func (c *Collector) collect() Stats {
 		if err != nil {
 			klog.Errorln(err)
 			continue
+		}
+		for appId, configs := range checkConfigs {
+			for checkId := range configs {
+				s := stats.Integration.InspectionOverrides[checkId]
+				if appId.IsZero() {
+					s.ProjectLevel++
+				} else {
+					s.ApplicationLevel++
+				}
+				stats.Integration.InspectionOverrides[checkId] = s
+			}
 		}
 
 		t := time.Now()
