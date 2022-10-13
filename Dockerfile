@@ -1,30 +1,28 @@
 FROM golang:1.18-stretch AS backend-builder
-WORKDIR /go/src
+WORKDIR /tmp/src
 COPY go.mod .
 COPY go.sum .
 RUN go mod download
 COPY . .
 ARG VERSION=unknown
-RUN go install -mod=readonly -ldflags "-X main.version=$VERSION" .
 RUN go test ./...
+RUN go install -mod=readonly -ldflags "-X main.version=$VERSION" .
 
 
 FROM node:18-buster AS frontend-builder
-WORKDIR /tmp/front
+WORKDIR /tmp/src
 COPY ./front/package*.json ./
 RUN npm install
 COPY ./front .
-RUN ./node_modules/.bin/vue-cli-service build --dest=dist src/main.js
+RUN npx vue-cli-service build --dest=static src/main.js
 
 
 FROM debian:stretch
-
 RUN apt update && apt install -y ca-certificates && apt clean
 
 WORKDIR /opt/coroot
-
 COPY --from=backend-builder /go/bin/coroot /opt/coroot/coroot
-COPY --from=frontend-builder /tmp/front/dist /opt/coroot/static
+COPY --from=frontend-builder /tmp/src/static /opt/coroot/static
 
 VOLUME /data
 EXPOSE 8080
