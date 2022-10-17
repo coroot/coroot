@@ -87,7 +87,12 @@ export default {
                 return;
             }
             if (!this.report) {
-                this.r = this.app.reports[0];
+                if (this.app.reports.length > 1 && this.app.reports[0].name === 'SLO' &&  this.app.reports[0].status === 'unknown' ) {
+                    this.r = this.app.reports[1];
+                } else {
+                    this.r = this.app.reports[0];
+                }
+                this.$router.replace({params: {report: this.r.name}}).catch(err => err);
                 return;
             }
             const r = this.app.reports.find((r) => r.name === this.report);
