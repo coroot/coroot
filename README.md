@@ -2,9 +2,13 @@
 
 Coroot is a monitoring and troubleshooting tool for microservice architectures. 
 
+
 ![](https://github.com/coroot/coroot/actions/workflows/build.yml/badge.svg)
 [![Go Report Card](https://goreportcard.com/badge/github.com/coroot/coroot)](https://goreportcard.com/report/github.com/coroot/coroot)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![](https://img.shields.io/badge/slack-coroot-brightgreen.svg?logo=slack)](https://join.slack.com/t/coroot-community/shared_invite/zt-1gsnfo0wj-I~Zvtx5CAAb8vr~r~vecyw)
+
+### [Features](#features) | [Installation](https://coroot.com/docs/coroot-community-edition/getting-started/installation) | [Documentation](https://coroot.com/docs/coroot-community-edition/) | [Community & Support](#community--support)
 
 <p align="center"><img width="800" src="https://user-images.githubusercontent.com/194465/195115881-babd5bd0-8c2b-4718-9cc6-e6dfb5a20c00.gif"></p>
 
@@ -66,6 +70,8 @@ The Coroot documentation is available at [coroot.com/docs/coroot-community-editi
 ## Community & Support
 
 * [Community Slack](https://join.slack.com/t/coroot-community/shared_invite/zt-1gsnfo0wj-I~Zvtx5CAAb8vr~r~vecyw)
+* [GitHub Discussions](https://github.com/coroot/coroot/discussions)
+* [GitHub Issues](https://github.com/coroot/coroot/issues)
 * Twitter: [@coroot_com](https://twitter.com/coroot_com)
 
 
