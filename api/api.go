@@ -20,13 +20,14 @@ import (
 )
 
 type Api struct {
-	cache *cache.Cache
-	db    *db.DB
-	stats *stats.Collector
+	cache    *cache.Cache
+	db       *db.DB
+	stats    *stats.Collector
+	readOnly bool
 }
 
-func NewApi(cache *cache.Cache, db *db.DB, stats *stats.Collector) *Api {
-	return &Api{cache: cache, db: db, stats: stats}
+func NewApi(cache *cache.Cache, db *db.DB, stats *stats.Collector, readOnly bool) *Api {
+	return &Api{cache: cache, db: db, stats: stats, readOnly: readOnly}
 }
 
 func (api *Api) Projects(w http.ResponseWriter, r *http.Request) {
@@ -70,10 +71,16 @@ func (api *Api) Project(w http.ResponseWriter, r *http.Request) {
 			}
 			res.Name = project.Name
 			res.Prometheus = project.Prometheus
+			if api.readOnly {
+				res.Prometheus.Url = "http://<hidden>"
+			}
 		}
 		utils.WriteJson(w, res)
 
 	case http.MethodPost:
+		if api.readOnly {
+			return
+		}
 		var form ProjectForm
 		if err := ReadAndValidate(r, &form); err != nil {
 			klog.Warningln("bad request:", err)
@@ -116,6 +123,9 @@ func (api *Api) Project(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, string(id), http.StatusOK)
 
 	case http.MethodDelete:
+		if api.readOnly {
+			return
+		}
 		if err := api.db.DeleteProject(id); err != nil {
 			klog.Errorln("failed to delete project:", err)
 			http.Error(w, "", http.StatusInternalServerError)
@@ -131,6 +141,9 @@ func (api *Api) Project(w http.ResponseWriter, r *http.Request) {
 func (api *Api) Status(w http.ResponseWriter, r *http.Request) {
 	projectId := db.ProjectId(mux.Vars(r)["project"])
 	if r.Method == http.MethodPost {
+		if api.readOnly {
+			return
+		}
 		var form ProjectStatusForm
 		if err := ReadAndValidate(r, &form); err != nil {
 			klog.Warningln("bad request:", err)
@@ -328,6 +341,9 @@ func (api *Api) Check(w http.ResponseWriter, r *http.Request) {
 		}
 
 	case http.MethodPost:
+		if api.readOnly {
+			return
+		}
 		switch checkId {
 		case model.Checks.SLOAvailability.Id:
 			var form CheckConfigSLOAvailabilityForm

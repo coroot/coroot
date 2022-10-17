@@ -23,6 +23,8 @@ func main() {
 	cacheGcInterval := kingpin.Flag("cache-gc-interval", "cache GC interval").Envar("CACHE_GC_INTERVAL").Default("10m").Duration()
 	pgConnString := kingpin.Flag("pg-connection-string", "Postgres connection string (sqlite is used if not set)").Envar("PG_CONNECTION_STRING").String()
 	disableStats := kingpin.Flag("disable-usage-statistics", "disable usage statistic").Bool()
+	readOnly := kingpin.Flag("read-only", "enable the read-only mode when configuration changes don't take effect").Bool()
+
 	kingpin.Version(version)
 	kingpin.Parse()
 
@@ -54,7 +56,7 @@ func main() {
 		statsCollector = stats.NewCollector(*dataDir, version, db, promCache)
 	}
 
-	api := api.NewApi(promCache, db, statsCollector)
+	api := api.NewApi(promCache, db, statsCollector, *readOnly)
 
 	r := mux.NewRouter()
 	r.PathPrefix("/debug/pprof/").Handler(http.DefaultServeMux)
