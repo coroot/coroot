@@ -49,7 +49,12 @@
                     </template>
                     <v-list dense color="#080d1b">
                         <v-list-item href="https://coroot.com/docs/coroot-community-edition" target="_blank">Documentation</v-list-item>
-                        <v-list-item href="https://github.com/coroot/coroot" target="_blank">GitHub</v-list-item>
+                        <v-list-item href="https://github.com/coroot/coroot" target="_blank">
+                            <v-icon small class="mr-1">mdi-github</v-icon>GitHub
+                        </v-list-item>
+                        <v-list-item href="https://join.slack.com/t/coroot-community/shared_invite/zt-1gsnfo0wj-I~Zvtx5CAAb8vr~r~vecyw" target="_blank">
+                            <v-icon small class="mr-1">mdi-slack</v-icon>Slack chat
+                        </v-list-item>
                     </v-list>
                 </v-menu>
             </div>
