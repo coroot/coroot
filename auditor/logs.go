@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
+	"math"
 	"sort"
 	"strings"
 )
@@ -44,8 +45,8 @@ func (a *appAuditor) logs() {
 			default:
 				continue
 			}
-			events := uint64(timeseries.Reduce(timeseries.NanSum, p.Sum))
-			if events == 0 {
+			events := timeseries.Reduce(timeseries.NanSum, p.Sum)
+			if math.IsNaN(events) || events == 0 {
 				continue
 			}
 			pattern := byHash[hash]
@@ -69,8 +70,8 @@ func (a *appAuditor) logs() {
 					patterns.Patterns = append(patterns.Patterns, pattern)
 				}
 			}
-			totalEvents += events
-			pattern.Events += events
+			totalEvents += uint64(events)
+			pattern.Events += uint64(events)
 			pattern.Instances.AddSeries(instance.Name, p.Sum)
 			pattern.Sum = timeseries.Merge(pattern.Sum, p.Sum, timeseries.NanSum)
 		}
