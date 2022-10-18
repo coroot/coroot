@@ -170,6 +170,11 @@ func getActualServiceInstance(instance *model.Instance, applicationType model.Ap
 			return ri
 		}
 	}
+	for _, u := range instance.Upstreams {
+		if ri := u.RemoteInstance; ri != nil && ri.OwnerId.Kind == model.ApplicationKindExternalService {
+			return ri
+		}
+	}
 	klog.Warningf(
 		`couldn't find actual instance for "%s", initial instance is "%s" (%+v)`,
 		applicationType, instance.Name, instance.ApplicationTypes(),
