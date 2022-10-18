@@ -5,6 +5,7 @@ import (
 	"github.com/coroot/coroot/cache"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/stats"
+	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 	"github.com/gorilla/mux"
 	"gopkg.in/alecthomas/kingpin.v2"
@@ -24,19 +25,41 @@ func main() {
 	pgConnString := kingpin.Flag("pg-connection-string", "Postgres connection string (sqlite is used if not set)").Envar("PG_CONNECTION_STRING").String()
 	disableStats := kingpin.Flag("disable-usage-statistics", "disable usage statistic").Bool()
 	readOnly := kingpin.Flag("read-only", "enable the read-only mode when configuration changes don't take effect").Bool()
+	bootstrapPrometheusUrl := kingpin.Flag("bootstrap-prometheus-url", "if set, Coroot will create a project for this Prometheus URL").Envar("BOOTSTRAP_PROMETHEUS_URL").String()
+	bootstrapRefreshInterval := kingpin.Flag("bootstrap-refresh-interval", "refresh interval for the project created upon bootstrap").Envar("BOOTSTRAP_REFRESH_INTERVAL").Duration()
 
 	kingpin.Version(version)
 	kingpin.Parse()
 
-	klog.Infoln("version:", version)
+	klog.Infof("version: %s, read-only: %t", version, *readOnly)
 
 	if err := utils.CreateDirectoryIfNotExists(*dataDir); err != nil {
 		klog.Exitln(err)
 	}
 
-	db, err := db.Open(*dataDir, *pgConnString)
+	database, err := db.Open(*dataDir, *pgConnString)
 	if err != nil {
 		klog.Exitln(err)
+	}
+
+	if *bootstrapPrometheusUrl != "" && *bootstrapRefreshInterval > 0 {
+		ps, err := database.GetProjects()
+		if err != nil {
+			klog.Exitln(err)
+		}
+		if len(ps) == 0 {
+			p := db.Project{
+				Name: "default",
+				Prometheus: db.Prometheus{
+					Url:             *bootstrapPrometheusUrl,
+					RefreshInterval: timeseries.Duration(int64((*bootstrapRefreshInterval).Seconds())),
+				},
+			}
+			klog.Infof("creating project: %s(%s, %s)", p.Name, *bootstrapPrometheusUrl, *bootstrapRefreshInterval)
+			if _, err := database.SaveProject(p); err != nil {
+				klog.Exitln(err)
+			}
+		}
 	}
 
 	cacheConfig := cache.Config{
@@ -46,17 +69,17 @@ func main() {
 			Interval: *cacheGcInterval,
 		},
 	}
-	promCache, err := cache.NewCache(cacheConfig, db)
+	promCache, err := cache.NewCache(cacheConfig, database)
 	if err != nil {
 		klog.Exitln(err)
 	}
 
 	var statsCollector *stats.Collector
 	if !*disableStats {
-		statsCollector = stats.NewCollector(*dataDir, version, db, promCache)
+		statsCollector = stats.NewCollector(*dataDir, version, database, promCache)
 	}
 
-	api := api.NewApi(promCache, db, statsCollector, *readOnly)
+	api := api.NewApi(promCache, database, statsCollector, *readOnly)
 
 	r := mux.NewRouter()
 	r.PathPrefix("/debug/pprof/").Handler(http.DefaultServeMux)
