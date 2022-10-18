@@ -92,12 +92,12 @@ export default {
                 } else {
                     this.r = this.app.reports[0];
                 }
-                this.$router.replace({params: {report: this.r.name}}).catch(err => err);
+                this.$router.replace({params: {report: this.r.name}, query: this.$route.query}).catch(err => err);
                 return;
             }
             const r = this.app.reports.find((r) => r.name === this.report);
             if (!r) {
-                this.$router.replace({params: {report: null}}).catch(err => err);
+                this.$router.replace({params: {report: null}, query: this.$route.query}).catch(err => err);
                 return;
             }
             this.r = r;
