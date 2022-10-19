@@ -33,6 +33,7 @@ func (a *appAuditor) postgres() {
 	latencyCheck := report.CreateCheck(model.Checks.PostgresLatency)
 	errorsCheck := report.CreateCheck(model.Checks.PostgresErrors)
 	replicationCheck := report.CreateCheck(model.Checks.PostgresReplicationLag)
+	connectionsCheck := report.CreateCheck(model.Checks.PostgresConnections)
 
 	primaryLsn := timeseries.Aggregate(timeseries.Max)
 	for _, i := range a.app.Instances {
@@ -78,7 +79,7 @@ func (a *appAuditor) postgres() {
 			GetOrCreateChartInGroup("Errors <selector>", i.Name).
 			Column().
 			AddMany(timeseries.Top(errorsByPattern(i), timeseries.NanSum, 5))
-		pgConnections(report, i)
+		pgConnections(report, i, connectionsCheck)
 		pgLocks(report, i)
 		lag := pgReplicationLag(primaryLsn, i.Postgres.WalReplyLsn)
 		report.GetOrCreateChart("Replication lag, bytes").AddSeries(i.Name, lag)
@@ -184,9 +185,13 @@ func pgReplicationLag(primaryLsn, relayLsn timeseries.TimeSeries) timeseries.Tim
 	}, primaryLsn, relayLsn)
 }
 
-func pgConnections(report *model.AuditReport, instance *model.Instance) {
+func pgConnections(report *model.AuditReport, instance *model.Instance, connectionsCheck *model.Check) {
 	connectionByState := map[string]*timeseries.AggregatedTimeseries{}
+	var total float64
 	for k, v := range instance.Postgres.Connections {
+		if last := timeseries.Last(v); !math.IsNaN(last) {
+			total += last
+		}
 		state := k.State
 		if k.State == "active" && k.WaitEventType == "Lock" {
 			state = pgActiveLockedState
@@ -199,10 +204,20 @@ func pgConnections(report *model.AuditReport, instance *model.Instance) {
 		byState.AddInput(v)
 	}
 	connectionByState["reserved"] = timeseries.Aggregate(timeseries.NanSum)
-	connectionByState["reserved"].AddInput(
-		instance.Postgres.Settings["superuser_reserved_connections"].Samples,
-		instance.Postgres.Settings["rds.rds_superuser_reserved_connections"].Samples,
-	)
+
+	for _, setting := range []string{"superuser_reserved_connections", "rds.rds_superuser_reserved_connections"} {
+		v := instance.Postgres.Settings[setting].Samples
+		connectionByState["reserved"].AddInput(v)
+		if last := timeseries.Last(v); !math.IsNaN(last) {
+			total += last
+		}
+	}
+	if max := timeseries.Last(instance.Postgres.Settings["max_connections"].Samples); max > 0 && total > 0 {
+		if total/max*100 > connectionsCheck.Threshold {
+			connectionsCheck.AddItem(instance.Name)
+		}
+	}
+
 	chart := report.
 		GetOrCreateChartInGroup("Postgres connections <selector>", instance.Name).
 		Stacked().

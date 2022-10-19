@@ -58,6 +58,7 @@ var Checks = struct {
 	PostgresLatency        CheckConfig
 	PostgresErrors         CheckConfig
 	PostgresReplicationLag CheckConfig
+	PostgresConnections    CheckConfig
 	LogErrors              CheckConfig
 }{
 	index: map[CheckId]*CheckConfig{},
@@ -184,6 +185,14 @@ var Checks = struct {
 		ConditionFormatTemplate: "replication lag > <threshold>",
 		Unit:                    CheckUnitSecond,
 	},
+	PostgresConnections: CheckConfig{
+		Type:                    CheckTypeItemBased,
+		Title:                   "Postgres connections",
+		DefaultThreshold:        90,
+		MessageTemplate:         `{{.ItemsWithHave "postgres instance"}} too many connections`,
+		ConditionFormatTemplate: "the number of connections > <threshold> of `max_connections`",
+		Unit:                    CheckUnitPercent,
+	},
 	LogErrors: CheckConfig{
 		Type:                    CheckTypeEventBased,
 		Title:                   "Errors",
@@ -218,6 +227,14 @@ func (c CheckContext) ItemsWithToBe(singular string) string {
 	verb := "is"
 	if c.items.Len() > 1 {
 		verb = "are"
+	}
+	return c.Items(singular) + " " + verb
+}
+
+func (c CheckContext) ItemsWithHave(singular string) string {
+	verb := "has"
+	if c.items.Len() > 1 {
+		verb = "have"
 	}
 	return c.Items(singular) + " " + verb
 }
