@@ -42,22 +42,23 @@ type CheckConfig struct {
 var Checks = struct {
 	index map[CheckId]*CheckConfig
 
-	SLOAvailability      CheckConfig
-	SLOLatency           CheckConfig
-	CPUNode              CheckConfig
-	CPUContainer         CheckConfig
-	MemoryOOM            CheckConfig
-	StorageSpace         CheckConfig
-	StorageIO            CheckConfig
-	NetworkRTT           CheckConfig
-	InstanceAvailability CheckConfig
-	InstanceRestarts     CheckConfig
-	RedisAvailability    CheckConfig
-	RedisLatency         CheckConfig
-	PostgresAvailability CheckConfig
-	PostgresLatency      CheckConfig
-	PostgresErrors       CheckConfig
-	LogErrors            CheckConfig
+	SLOAvailability        CheckConfig
+	SLOLatency             CheckConfig
+	CPUNode                CheckConfig
+	CPUContainer           CheckConfig
+	MemoryOOM              CheckConfig
+	StorageSpace           CheckConfig
+	StorageIO              CheckConfig
+	NetworkRTT             CheckConfig
+	InstanceAvailability   CheckConfig
+	InstanceRestarts       CheckConfig
+	RedisAvailability      CheckConfig
+	RedisLatency           CheckConfig
+	PostgresAvailability   CheckConfig
+	PostgresLatency        CheckConfig
+	PostgresErrors         CheckConfig
+	PostgresReplicationLag CheckConfig
+	LogErrors              CheckConfig
 }{
 	index: map[CheckId]*CheckConfig{},
 
@@ -174,6 +175,14 @@ var Checks = struct {
 		DefaultThreshold:        0,
 		MessageTemplate:         `{{.Count "error"}} occurred`,
 		ConditionFormatTemplate: "the number of postgres errors > <threshold>",
+	},
+	PostgresReplicationLag: CheckConfig{
+		Type:                    CheckTypeItemBased,
+		Title:                   "Postgres replication lag",
+		DefaultThreshold:        30,
+		MessageTemplate:         `{{.ItemsWithToBe "postgres replica"}} far behind the primary`,
+		ConditionFormatTemplate: "replication lag > <threshold>",
+		Unit:                    CheckUnitSecond,
 	},
 	LogErrors: CheckConfig{
 		Type:                    CheckTypeEventBased,

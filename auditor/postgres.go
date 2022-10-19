@@ -32,6 +32,7 @@ func (a *appAuditor) postgres() {
 	availabilityCheck := report.CreateCheck(model.Checks.PostgresAvailability)
 	latencyCheck := report.CreateCheck(model.Checks.PostgresLatency)
 	errorsCheck := report.CreateCheck(model.Checks.PostgresErrors)
+	replicationCheck := report.CreateCheck(model.Checks.PostgresReplicationLag)
 
 	primaryLsn := timeseries.Aggregate(timeseries.Max)
 	for _, i := range a.app.Instances {
@@ -82,41 +83,37 @@ func (a *appAuditor) postgres() {
 		lag := pgReplicationLag(primaryLsn, i.Postgres.WalReplyLsn)
 		report.GetOrCreateChart("Replication lag, bytes").AddSeries(i.Name, lag)
 
-		a.pgTable(report, i, primaryLsn, lag, qps, errors, availabilityCheck, errorsCheck)
+		role := i.ClusterRoleLast()
+		roleCell := model.NewTableCell(role.String())
+		switch role {
+		case model.ClusterRolePrimary:
+			roleCell.SetIcon("mdi-database-edit-outline", "rgba(0,0,0,0.87)")
+		case model.ClusterRoleReplica:
+			roleCell.SetIcon("mdi-database-import-outline", "grey")
+		}
+		status := model.NewTableCell().SetStatus(model.OK, "up")
+		if !i.Postgres.IsUp() {
+			availabilityCheck.AddItem(i.Name)
+			status.SetStatus(model.WARNING, "down (no metrics)")
+		}
+		errorsCell := model.NewTableCell()
+		if total := timeseries.Reduce(timeseries.NanSum, errors); !math.IsNaN(total) {
+			errorsCheck.Inc(int64(total))
+			errorsCell.SetValue(fmt.Sprintf("%.0f", total))
+		}
+		lagCell := checkReplicationLag(i.Name, primaryLsn, lag, role, replicationCheck)
+		report.
+			GetOrCreateTable("Instance", "Role", "Status", "Queries", "Latency", "Errors", "Replication lag").
+			AddRow(
+				model.NewTableCell(i.Name).AddTag("version: %s", i.Postgres.Version.Value()),
+				roleCell,
+				status,
+				model.NewTableCell(utils.FormatFloat(timeseries.Last(qps))).SetUnit("/s"),
+				model.NewTableCell(utils.FormatFloat(timeseries.Last(i.Postgres.Avg)*1000)).SetUnit("ms"),
+				errorsCell,
+				lagCell,
+			)
 	}
-}
-
-func (a *appAuditor) pgTable(report *model.AuditReport, i *model.Instance, primaryLsn, lag, qps, errors timeseries.TimeSeries, availabilityCheck, errorsCheck *model.Check) {
-	role := i.ClusterRoleLast()
-	roleCell := model.NewTableCell(role.String())
-	switch role {
-	case model.ClusterRolePrimary:
-		roleCell.SetIcon("mdi-database-edit-outline", "rgba(0,0,0,0.87)")
-	case model.ClusterRoleReplica:
-		roleCell.SetIcon("mdi-database-import-outline", "grey")
-	}
-	status := model.NewTableCell().SetStatus(model.OK, "up")
-	if !i.Postgres.IsUp() {
-		availabilityCheck.AddItem(i.Name)
-		status.SetStatus(model.WARNING, "down (no metrics)")
-	}
-
-	errorsCell := model.NewTableCell()
-	if total := timeseries.Reduce(timeseries.NanSum, errors); !math.IsNaN(total) {
-		errorsCheck.Inc(int64(total))
-		errorsCell.SetValue(fmt.Sprintf("%.0f", total))
-	}
-	report.
-		GetOrCreateTable("Instance", "Role", "Status", "Queries", "Latency", "Errors", "Replication lag").
-		AddRow(
-			model.NewTableCell(i.Name).AddTag("version: %s", i.Postgres.Version.Value()),
-			roleCell,
-			status,
-			model.NewTableCell(utils.FormatFloat(timeseries.Last(qps))).SetUnit("/s"),
-			model.NewTableCell(utils.FormatFloat(timeseries.Last(i.Postgres.Avg)*1000)).SetUnit("ms"),
-			errorsCell,
-			pgReplicationLagCell(primaryLsn, lag, role),
-		)
 }
 
 func errorsByPattern(instance *model.Instance) map[string]timeseries.TimeSeries {
@@ -134,7 +131,7 @@ func errorsByPattern(instance *model.Instance) map[string]timeseries.TimeSeries 
 	return res
 }
 
-func pgReplicationLagCell(primaryLsn, lag timeseries.TimeSeries, role model.ClusterRole) *model.TableCell {
+func checkReplicationLag(instanceName string, primaryLsn, lag timeseries.TimeSeries, role model.ClusterRole, check *model.Check) *model.TableCell {
 	res := &model.TableCell{}
 	if timeseries.IsEmpty(primaryLsn) {
 		return res
@@ -165,6 +162,9 @@ func pgReplicationLagCell(primaryLsn, lag timeseries.TimeSeries, role model.Clus
 	greaterThanWorldWindow := ""
 	if tPast.IsZero() {
 		greaterThanWorldWindow = ">"
+	}
+	if lagTime > timeseries.Duration(check.Threshold) {
+		check.AddItem(instanceName)
 	}
 	res.Value, res.Unit = utils.FormatBytes(last)
 	if lagTime > 0 {
