@@ -14,7 +14,7 @@ func (a *appAuditor) cpu() {
 	for _, i := range a.app.Instances {
 		for _, c := range i.Containers {
 			seenContainers = true
-			report.GetOrCreateChartInGroup("CPU usage of container <selector>, cores", c.Name).
+			usageChart := report.GetOrCreateChartInGroup("CPU usage of container <selector>, cores", c.Name).
 				AddSeries(i.Name, c.CpuUsage).
 				SetThreshold("limit", c.CpuLimit, timeseries.Max)
 			report.GetOrCreateChartInGroup("CPU delay of container <selector>, seconds/second", c.Name).AddSeries(i.Name, c.CpuDelay)
@@ -22,6 +22,7 @@ func (a *appAuditor) cpu() {
 
 			usage := timeseries.Last(c.CpuUsage) / timeseries.Last(c.CpuLimit)
 			if usage > containerCpuCheck.Threshold {
+				usageChart.Feature()
 				containerCpuCheck.AddItem("%s@%s", c.Name, i.Name)
 			}
 		}
@@ -34,20 +35,21 @@ func (a *appAuditor) cpu() {
 					AddSeries(nodeName, i.Node.CpuUsagePercent).
 					Feature()
 
-				if timeseries.Last(i.Node.CpuUsagePercent) > nodeCpuCheck.Threshold {
-					nodeCpuCheck.AddItem(i.Node.Name.Value())
-				}
-
 				byMode := report.GetOrCreateChartInGroup("Node CPU usage <selector>, %", nodeName).Sorted().Stacked()
 				for _, s := range cpuByModeSeries(node.CpuUsageByMode) {
 					byMode.Series = append(byMode.Series, s)
 				}
 
-				report.GetOrCreateChartInGroup("CPU consumers on <selector>, cores", nodeName).
+				consumersChart := report.GetOrCreateChartInGroup("CPU consumers on <selector>, cores", nodeName).
 					Stacked().
 					Sorted().
 					SetThreshold("total", node.CpuCapacity, timeseries.Any).
 					AddMany(timeseries.Top(cpuConsumers(node), timeseries.NanSum, 5))
+
+				if timeseries.Last(i.Node.CpuUsagePercent) > nodeCpuCheck.Threshold {
+					consumersChart.Feature()
+					nodeCpuCheck.AddItem(i.Node.Name.Value())
+				}
 			}
 		}
 	}
