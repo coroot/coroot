@@ -2,6 +2,7 @@ package views
 
 import (
 	"github.com/coroot/coroot/api/views/application"
+	"github.com/coroot/coroot/api/views/categories"
 	"github.com/coroot/coroot/api/views/configs"
 	"github.com/coroot/coroot/api/views/node"
 	"github.com/coroot/coroot/api/views/overview"
@@ -16,8 +17,8 @@ func Status(p *db.Project, cacheStatus *cache.Status, w *model.World) *project.S
 	return project.RenderStatus(p, cacheStatus, w)
 }
 
-func Overview(w *model.World) *overview.View {
-	return overview.Render(w)
+func Overview(w *model.World, p *db.Project) *overview.View {
+	return overview.Render(w, p)
 }
 
 func Application(w *model.World, app *model.Application) *application.View {
@@ -34,4 +35,8 @@ func Search(w *model.World) *search.View {
 
 func Configs(checkConfigs model.CheckConfigs) *configs.View {
 	return configs.Render(checkConfigs)
+}
+
+func Categories(p *db.Project) *categories.View {
+	return categories.Render(p)
 }

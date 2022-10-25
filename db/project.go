@@ -9,6 +9,7 @@ import (
 	"github.com/coroot/coroot/utils"
 	"github.com/lib/pq"
 	"github.com/mattn/go-sqlite3"
+	"strings"
 )
 
 const (
@@ -33,7 +34,8 @@ type Prometheus struct {
 }
 
 type Settings struct {
-	ConfigurationHintsMuted map[model.ApplicationType]bool `json:"configuration_hints_muted"`
+	ConfigurationHintsMuted map[model.ApplicationType]bool         `json:"configuration_hints_muted"`
+	ApplicationCategories   map[model.ApplicationCategory][]string `json:"application_categories"`
 }
 
 type BasicAuth struct {
@@ -175,10 +177,48 @@ func (db *DB) ToggleConfigurationHint(id ProjectId, appType model.ApplicationTyp
 	} else {
 		delete(p.Settings.ConfigurationHintsMuted, appType)
 	}
+	return db.saveProjectSettings(p)
+}
+
+func (db *DB) SaveApplicationCategory(id ProjectId, name, newName model.ApplicationCategory, customPatterns []string) error {
+	p, err := db.GetProject(id)
+	if err != nil {
+		return err
+	}
+
+	var ps []string
+	for _, p := range customPatterns {
+		p = strings.TrimSpace(p)
+		if len(p) == 0 {
+			continue
+		}
+		ps = append(ps, p)
+	}
+
+	if len(ps) == 0 { // delete
+		if p.Settings.ApplicationCategories == nil {
+			return nil
+		}
+		delete(p.Settings.ApplicationCategories, name)
+		return db.saveProjectSettings(p)
+	}
+
+	if p.Settings.ApplicationCategories == nil {
+		p.Settings.ApplicationCategories = map[model.ApplicationCategory][]string{}
+	}
+	if name != newName && name != model.ApplicationCategoryControlPlane && name != model.ApplicationCategoryMonitoring { // rename
+		delete(p.Settings.ApplicationCategories, name)
+		name = newName
+	}
+	p.Settings.ApplicationCategories[name] = ps
+	return db.saveProjectSettings(p)
+}
+
+func (db *DB) saveProjectSettings(p *Project) error {
 	settings, err := json.Marshal(p.Settings)
 	if err != nil {
 		return err
 	}
-	_, err = db.db.Exec("UPDATE project SET settings = $1 WHERE id = $2", settings, id)
+	_, err = db.db.Exec("UPDATE project SET settings = $1 WHERE id = $2", settings, p.Id)
 	return err
 }

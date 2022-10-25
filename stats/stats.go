@@ -40,6 +40,7 @@ type Stats struct {
 		NodeAgent                 bool                                 `json:"node_agent"`
 		KubeStateMetrics          *bool                                `json:"kube_state_metrics"`
 		InspectionOverrides       map[model.CheckId]InspectionOverride `json:"inspection_overrides"`
+		ApplicationCategories     int                                  `json:"application_categories"`
 	} `json:"integration"`
 	Stack struct {
 		Clouds               []string `json:"clouds"`
@@ -175,12 +176,19 @@ func (c *Collector) collect() Stats {
 	clouds := utils.NewStringSet()
 	services := utils.NewStringSet()
 	servicesInstrumented := utils.NewStringSet()
+	applicationCategories := utils.NewStringSet()
 	stats.Integration.InspectionOverrides = map[model.CheckId]InspectionOverride{}
 	stats.Performance.Constructor.Stages = map[string]float32{}
 	stats.Performance.Constructor.Queries = map[string]prom.QueryStats{}
 	var loadTime []time.Duration
 	now := timeseries.Now()
 	for _, p := range projects {
+		p, err := c.db.GetProject(p.Id)
+		if err != nil {
+			klog.Errorln("failed to get project:", err)
+			continue
+		}
+
 		cc := c.cache.GetCacheClient(p)
 		cacheTo, err := cc.GetTo()
 		if err != nil {
@@ -212,6 +220,10 @@ func (c *Collector) collect() Stats {
 			}
 		}
 
+		for category := range p.Settings.ApplicationCategories {
+			applicationCategories.Add(string(category))
+		}
+
 		t := time.Now()
 		w, err := constructor.New(cc, checkConfigs).LoadWorld(context.Background(), cacheTo.Add(-worldWindow), cacheTo, p.Prometheus.RefreshInterval, &stats.Performance.Constructor)
 		if err != nil {
@@ -234,7 +246,8 @@ func (c *Collector) collect() Stats {
 		}
 
 		for _, a := range w.Applications {
-			if a.IsStandalone() || a.IsMonitoring() || a.IsControlPlane() {
+			category := model.CalcApplicationCategory(a, p.Settings.ApplicationCategories)
+			if a.IsStandalone() || category == model.ApplicationCategoryControlPlane || category == model.ApplicationCategoryMonitoring {
 				continue
 			}
 			stats.Infra.Applications++
@@ -247,6 +260,7 @@ func (c *Collector) collect() Stats {
 			}
 		}
 	}
+	stats.Integration.ApplicationCategories = applicationCategories.Len()
 	stats.Stack.Clouds = clouds.Items()
 	stats.Stack.Services = services.Items()
 	stats.Stack.InstrumentedServices = servicesInstrumented.Items()

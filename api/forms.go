@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strings"
 )
 
 var (
@@ -85,6 +86,29 @@ type CheckConfigSLOLatencyForm struct {
 func (f *CheckConfigSLOLatencyForm) Valid() bool {
 	for _, c := range f.Configs {
 		if c.HistogramQuery == "" || c.ObjectiveBucket == "" {
+			return false
+		}
+	}
+	return true
+}
+
+type ApplicationCategoryForm struct {
+	Name           model.ApplicationCategory `json:"name"`
+	NewName        model.ApplicationCategory `json:"new_name"`
+	CustomPatterns string                    `json:"custom_patterns"`
+	customPatterns []string
+}
+
+func (f *ApplicationCategoryForm) Valid() bool {
+	if !slugRe.MatchString(string(f.NewName)) {
+		return false
+	}
+	f.customPatterns = strings.Fields(f.CustomPatterns)
+	if !utils.GlobValidate(f.customPatterns) {
+		return false
+	}
+	for _, p := range f.customPatterns {
+		if strings.Count(p, "/") != 1 || strings.Index(p, "/") < 1 {
 			return false
 		}
 	}

@@ -2,6 +2,7 @@ package overview
 
 import (
 	"github.com/coroot/coroot/auditor"
+	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
@@ -19,11 +20,11 @@ type View struct {
 }
 
 type Application struct {
-	Id         model.ApplicationId `json:"id"`
-	Category   string              `json:"category"`
-	Labels     model.Labels        `json:"labels"`
-	Status     model.Status        `json:"status"`
-	Indicators []model.Indicator   `json:"indicators"`
+	Id         model.ApplicationId       `json:"id"`
+	Category   model.ApplicationCategory `json:"category"`
+	Labels     model.Labels              `json:"labels"`
+	Status     model.Status              `json:"status"`
+	Indicators []model.Indicator         `json:"indicators"`
 
 	Upstreams   []Link `json:"upstreams"`
 	Downstreams []Link `json:"downstreams"`
@@ -35,14 +36,14 @@ type Link struct {
 	Direction string              `json:"direction"`
 }
 
-func Render(w *model.World) *View {
+func Render(w *model.World, p *db.Project) *View {
 	var apps []*Application
 	used := map[model.ApplicationId]bool{}
 	auditor.Audit(w)
 	for _, a := range w.Applications {
 		app := Application{
 			Id:          a.Id,
-			Category:    category(a),
+			Category:    model.CalcApplicationCategory(a, p.Settings.ApplicationCategories),
 			Labels:      a.Labels(),
 			Status:      a.Status,
 			Indicators:  model.CalcIndicators(a),
@@ -160,14 +161,4 @@ func Render(w *model.World) *View {
 		)
 	}
 	return &View{Applications: appsUsed, Nodes: table}
-}
-
-func category(app *model.Application) string {
-	if app.IsControlPlane() {
-		return "control-plane"
-	}
-	if app.IsMonitoring() {
-		return "monitoring"
-	}
-	return "application"
 }

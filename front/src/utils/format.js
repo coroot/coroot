@@ -21,13 +21,17 @@ export function duration(ms, precision) {
     };
 
     let res = '';
+    let stop = false;
     for (const n in names) {
+        if (n === precision) {
+            stop = true;
+        }
         const v = names[n];
         if (v) {
             res += v + n + ' ';
-        }
-        if (n === precision) {
-            break;
+            if (stop) {
+                break;
+            }
         }
     }
     return res.trimEnd();

@@ -101,6 +101,14 @@ export default class Api {
         this.get(this.projectPath(`configs`), cb);
     }
 
+    getApplicationCategories(cb) {
+        this.get(this.projectPath(`categories`), cb);
+    }
+
+    saveApplicationCategory(form, cb) {
+        this.post(this.projectPath(`categories`), form, cb);
+    }
+
     getApplication(appId, cb) {
         this.get(this.projectPath(`app/${appId}`), cb);
     }

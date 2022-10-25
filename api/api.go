@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"github.com/coroot/coroot/api/views"
-	"github.com/coroot/coroot/api/views/configs"
 	"github.com/coroot/coroot/cache"
 	"github.com/coroot/coroot/constructor"
 	"github.com/coroot/coroot/db"
@@ -195,7 +194,7 @@ func (api *Api) Status(w http.ResponseWriter, r *http.Request) {
 }
 
 func (api *Api) Overview(w http.ResponseWriter, r *http.Request) {
-	world, err := api.loadWorldByRequest(r)
+	world, project, err := api.loadWorldByRequest(r)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
@@ -204,11 +203,11 @@ func (api *Api) Overview(w http.ResponseWriter, r *http.Request) {
 	if world == nil {
 		return
 	}
-	utils.WriteJson(w, views.Overview(world))
+	utils.WriteJson(w, views.Overview(world, project))
 }
 
 func (api *Api) Search(w http.ResponseWriter, r *http.Request) {
-	world, err := api.loadWorldByRequest(r)
+	world, _, err := api.loadWorldByRequest(r)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
@@ -229,7 +228,38 @@ func (api *Api) Configs(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
-	utils.WriteJson(w, configs.Render(checkConfigs))
+	utils.WriteJson(w, views.Configs(checkConfigs))
+}
+
+func (api *Api) Categories(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	projectId := db.ProjectId(vars["project"])
+
+	if r.Method == http.MethodPost {
+		if api.readOnly {
+			return
+		}
+		var form ApplicationCategoryForm
+		if err := ReadAndValidate(r, &form); err != nil {
+			klog.Warningln("bad request:", err)
+			http.Error(w, "Invalid name or patterns", http.StatusBadRequest)
+			return
+		}
+		if err := api.db.SaveApplicationCategory(projectId, form.Name, form.NewName, form.customPatterns); err != nil {
+			klog.Errorln("failed to save:", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		return
+	}
+
+	p, err := api.db.GetProject(projectId)
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	utils.WriteJson(w, views.Categories(p))
 }
 
 func (api *Api) Prom(w http.ResponseWriter, r *http.Request) {
@@ -261,7 +291,7 @@ func (api *Api) App(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid application_id: "+mux.Vars(r)["app"], http.StatusBadRequest)
 		return
 	}
-	world, err := api.loadWorldByRequest(r)
+	world, _, err := api.loadWorldByRequest(r)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
@@ -399,7 +429,7 @@ func (api *Api) Check(w http.ResponseWriter, r *http.Request) {
 
 func (api *Api) Node(w http.ResponseWriter, r *http.Request) {
 	nodeName := mux.Vars(r)["node"]
-	world, err := api.loadWorldByRequest(r)
+	world, _, err := api.loadWorldByRequest(r)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
@@ -448,7 +478,7 @@ func (api *Api) loadWorld(ctx context.Context, project *db.Project, from, to tim
 	return world, err
 }
 
-func (api *Api) loadWorldByRequest(r *http.Request) (*model.World, error) {
+func (api *Api) loadWorldByRequest(r *http.Request) (*model.World, *db.Project, error) {
 	projectId := db.ProjectId(mux.Vars(r)["project"])
 	now := timeseries.Now()
 	q := r.URL.Query()
@@ -458,11 +488,12 @@ func (api *Api) loadWorldByRequest(r *http.Request) (*model.World, error) {
 	if err != nil {
 		if errors.Is(err, db.ErrNotFound) {
 			klog.Warningln("project not found:", projectId)
-			return nil, nil
+			return nil, nil, nil
 		}
-		return nil, err
+		return nil, nil, err
 	}
-	return api.loadWorld(r.Context(), project, from, to)
+	world, err := api.loadWorld(r.Context(), project, from, to)
+	return world, project, err
 }
 
 func increaseStepForBigDurations(duration, step timeseries.Duration) timeseries.Duration {
