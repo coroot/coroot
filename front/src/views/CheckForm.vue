@@ -28,7 +28,7 @@
                 <div v-if="check.id.startsWith('SLO')" class="my-3">
                     Alerting:
                     <div>
-                        <div v-if="integrations">
+                        <div v-if="integrations && Object.keys(integrations).length">
                             <template v-for="(details, type) in integrations">
                                 <div v-if="type === 'slack'"><v-icon small>mdi-slack</v-icon> channel <b>#{{details}}</b></div>
                             </template>

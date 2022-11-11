@@ -42,14 +42,10 @@ const router = new VueRouter({
 });
 
 router.afterEach((to, from) => {
-    if (
-        to.params.projectId !== from.params.projectId ||
-        to.query.from !== from.query.from ||
-        to.query.to !== from.query.to
-    ) {
+    if (to.params.projectId !== from.params.projectId || JSON.stringify(to.query) !== JSON.stringify(from.query)) {
         events.emit('refresh');
     }
-})
+});
 
 Vue.prototype.$events = events;
 Vue.prototype.$format = format;
