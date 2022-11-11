@@ -5,11 +5,11 @@
 
         Objective:
         <div>
-            <v-text-field outlined dense v-model="config.objective_percentage" :rules="[$validators.notEmpty]" hide-details class="input text">
+            <v-text-field outlined dense v-model.number="config.objective_percentage" :rules="[$validators.notEmpty]" hide-details class="input text">
                 <template #append><span class="grey--text">%</span></template>
             </v-text-field>
             of requests should be served faster than
-            <v-select v-model="config.objective_bucket" :items="buckets" :rules="[$validators.notEmpty]" outlined dense hide-details :menu-props="{offsetY: true}" class="input select" />
+            <v-select v-model.number="config.objective_bucket" :items="buckets" :rules="[$validators.notEmpty]" outlined dense hide-details :menu-props="{offsetY: true}" class="input select" />
         </div>
     </div>
 </template>
@@ -18,17 +18,17 @@
 import MetricSelector from "@/components/MetricSelector";
 
 const buckets = [
-    {value: '0.005', text: '5ms'},
-    {value: '0.01', text: '10ms'},
-    {value: '0.025', text: '25ms'},
-    {value: '0.05', text: '50ms'},
-    {value: '0.1', text: '100ms'},
-    {value: '0.25', text: '250ms'},
-    {value: '0.5', text: '500ms'},
-    {value: '1', text: '1s'},
-    {value: '2.5', text: '2.5s'},
-    {value: '5', text: '5s'},
-    {value: '10', text: '10s'},
+    {value: 0.005, text: '5ms'},
+    {value: 0.01, text: '10ms'},
+    {value: 0.025, text: '25ms'},
+    {value: 0.05, text: '50ms'},
+    {value: 0.1, text: '100ms'},
+    {value: 0.25, text: '250ms'},
+    {value: 0.5, text: '500ms'},
+    {value: 1, text: '1s'},
+    {value: 2.5, text: '2.5s'},
+    {value: 5, text: '5s'},
+    {value: 10, text: '10s'},
 ];
 export default {
     components: {MetricSelector},

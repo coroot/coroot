@@ -13,11 +13,12 @@ import (
 
 type Constructor struct {
 	prom         prom.Client
+	rawStep      timeseries.Duration
 	checkConfigs model.CheckConfigs
 }
 
-func New(prom prom.Client, checkConfigs model.CheckConfigs) *Constructor {
-	return &Constructor{prom: prom, checkConfigs: checkConfigs}
+func New(prom prom.Client, rawStep timeseries.Duration, checkConfigs model.CheckConfigs) *Constructor {
+	return &Constructor{prom: prom, rawStep: rawStep, checkConfigs: checkConfigs}
 }
 
 type Profile struct {
@@ -55,7 +56,7 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 	if err != nil {
 		return nil, err
 	}
-	klog.Infof("got metrics in %s", time.Since(t))
+	klog.Infof("got metrics in %s", time.Since(t).Truncate(time.Millisecond))
 
 	stage("load_nodes", func() { loadNodes(w, metrics) })
 	stage("load_k8s_metadata", func() { loadKubernetesMetadata(w, metrics) })
@@ -63,7 +64,7 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 	stage("load_containers", func() { loadContainers(w, metrics) })
 	stage("enrich_instances", func() { enrichInstances(w, metrics) })
 	stage("join_db_cluster", func() { joinDBClusterComponents(w) })
-	stage("load_sli", func() { loadSLIs(ctx, w, c.prom, from, to, step) })
+	stage("load_sli", func() { loadSLIs(ctx, w, c.prom, c.rawStep, from, to, step) })
 
 	klog.Infof("got %d nodes, %d services, %d applications", len(w.Nodes), len(w.Services), len(w.Applications))
 	return w, nil

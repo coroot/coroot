@@ -16,12 +16,12 @@ func (c *Cache) gc() {
 		klog.Infoln("starting cache GC")
 		now := time.Now()
 
-		if ids, err := c.db.GetProjectIds(); err != nil {
+		if projects, err := c.db.GetProjectNames(); err != nil {
 			klog.Errorln("failed to get projects:", err)
 		} else {
 			c.lock.Lock()
 			for projectId := range c.byProject {
-				if ids[projectId] {
+				if _, ok := projects[projectId]; ok {
 					continue
 				}
 				klog.Infoln("deleting obsolete project:", projectId)

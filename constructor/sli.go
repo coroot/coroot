@@ -6,59 +6,69 @@ import (
 	"github.com/coroot/coroot/prom"
 	"github.com/coroot/coroot/timeseries"
 	"k8s.io/klog"
+	"sort"
+	"strconv"
 )
 
-func loadSLIs(ctx context.Context, w *model.World, prom prom.Client, from, to timeseries.Time, step timeseries.Duration) {
+func loadSLIs(ctx context.Context, w *model.World, prom prom.Client, rawStep timeseries.Duration, from, to timeseries.Time, step timeseries.Duration) {
 	for appId := range w.CheckConfigs {
 		app := w.GetApplication(appId)
 		if app == nil {
 			continue
 		}
-		for _, cfg := range w.CheckConfigs.GetLatency(appId) {
-			hist, err := prom.QueryRange(ctx, cfg.Histogram(), from, to, step)
-			if err != nil {
-				klog.Warningln(err)
-				continue
-			}
-			app.LatencySLIs = append(app.LatencySLIs, latencySLI(cfg, hist))
-		}
+		rawFrom := to.Add(-model.MaxAlertRuleWindow)
 		for _, cfg := range w.CheckConfigs.GetAvailability(appId) {
-			total, err := prom.QueryRange(ctx, cfg.Total(), from, to, step)
-			if err != nil {
-				klog.Warningln(err)
-				continue
+			qTotal, qFailed := cfg.Total(), cfg.Failed()
+			sli := &model.AvailabilitySLI{
+				Config:            cfg,
+				TotalRequests:     queryAvailability(ctx, prom, qTotal, from, to, step),
+				TotalRequestsRaw:  queryAvailability(ctx, prom, qTotal, rawFrom, to, rawStep),
+				FailedRequests:    queryAvailability(ctx, prom, qFailed, from, to, step),
+				FailedRequestsRaw: queryAvailability(ctx, prom, qFailed, rawFrom, to, rawStep),
 			}
-			failed, err := prom.QueryRange(ctx, cfg.Failed(), from, to, step)
-			if err != nil {
-				klog.Warningln(err)
-				continue
+			app.AvailabilitySLIs = append(app.AvailabilitySLIs, sli)
+		}
+		for _, cfg := range w.CheckConfigs.GetLatency(appId) {
+			q := cfg.Histogram()
+			sli := &model.LatencySLI{
+				Config:       cfg,
+				Histogram:    queryLatency(ctx, prom, q, from, to, step),
+				HistogramRaw: queryLatency(ctx, prom, q, rawFrom, to, rawStep),
 			}
-			app.AvailabilitySLIs = append(app.AvailabilitySLIs, availabilitySLI(cfg, total, failed))
+			app.LatencySLIs = append(app.LatencySLIs, sli)
 		}
 	}
 }
 
-func latencySLI(cfg model.CheckConfigSLOLatency, histogram []model.MetricValues) *model.LatencySLI {
-	sli := &model.LatencySLI{
-		Config:    cfg,
-		Histogram: map[string]timeseries.TimeSeries{},
+func queryAvailability(ctx context.Context, prom prom.Client, query string, from, to timeseries.Time, step timeseries.Duration) timeseries.TimeSeries {
+	values, err := prom.QueryRange(ctx, query, from, to, step)
+	if err != nil {
+		klog.Warningln(err)
+		return nil
 	}
-	for _, m := range histogram {
-		le := m.Labels["le"]
-		sli.Histogram[le] = timeseries.Merge(sli.Histogram[le], m.Values, timeseries.Any)
+	if len(values) == 0 {
+		return nil
 	}
-	return sli
+	return values[0].Values
 }
 
-func availabilitySLI(cfg model.CheckConfigSLOAvailability, total, failed []model.MetricValues) *model.AvailabilitySLI {
-	sli := &model.AvailabilitySLI{
-		Config: cfg,
+func queryLatency(ctx context.Context, prom prom.Client, query string, from, to timeseries.Time, step timeseries.Duration) []model.HistogramBucket {
+	values, err := prom.QueryRange(ctx, query, from, to, step)
+	if err != nil {
+		klog.Warningln(err)
+		return nil
 	}
-	if len(total) == 1 {
-		sli.TotalRequests = total[0].Values
+	buckets := make([]model.HistogramBucket, 0, len(values))
+	for _, m := range values {
+		le, err := strconv.ParseFloat(m.Labels["le"], 64)
+		if err != nil {
+			klog.Warningln(err)
+			continue
+		}
+		buckets = append(buckets, model.HistogramBucket{Le: le, TimeSeries: m.Values})
 	}
-	if len(failed) == 1 {
-		sli.FailedRequests = failed[0].Values
-	}
-	return sli
+	sort.Slice(buckets, func(i, j int) bool {
+		return buckets[i].Le < buckets[j].Le
+	})
+	return buckets
 }

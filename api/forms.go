@@ -85,7 +85,7 @@ type CheckConfigSLOLatencyForm struct {
 
 func (f *CheckConfigSLOLatencyForm) Valid() bool {
 	for _, c := range f.Configs {
-		if c.HistogramQuery == "" || c.ObjectiveBucket == "" {
+		if c.HistogramQuery == "" || c.ObjectiveBucket <= 0 {
 			return false
 		}
 	}
@@ -112,5 +112,31 @@ func (f *ApplicationCategoryForm) Valid() bool {
 			return false
 		}
 	}
+	return true
+}
+
+type IntegrationsForm struct {
+	BaseUrl string `json:"base_url"`
+}
+
+func (f *IntegrationsForm) Valid() bool {
+	if _, err := url.Parse(f.BaseUrl); err != nil || f.BaseUrl == "" {
+		return false
+	}
+	f.BaseUrl = strings.TrimRight(f.BaseUrl, "/")
+	return true
+}
+
+type IntegrationsSlackForm struct {
+	Token   string `json:"token"`
+	Channel string `json:"channel"`
+	Enabled bool   `json:"enabled"`
+}
+
+func (f *IntegrationsSlackForm) Valid() bool {
+	if f.Token == "" || f.Channel == "" {
+		return false
+	}
+
 	return true
 }

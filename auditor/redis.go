@@ -9,7 +9,7 @@ func (a *appAuditor) redis() {
 	if !a.app.IsRedis() {
 		return
 	}
-	report := a.addReport("Redis")
+	report := a.addReport(model.AuditReportRedis)
 
 	availability := report.CreateCheck(model.Checks.RedisAvailability)
 	latency := report.CreateCheck(model.Checks.RedisLatency)

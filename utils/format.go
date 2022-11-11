@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"fmt"
 	"github.com/dustin/go-humanize"
 	"github.com/hako/durafmt"
 	"math"
@@ -42,4 +43,11 @@ func HumanBits(v float64) string {
 		return ""
 	}
 	return strings.Replace(humanize.Bytes(uint64(v)), "B", "b", -1) + "ps"
+}
+
+func FormatLatency(v float64) string {
+	if v < 1 {
+		return fmt.Sprintf(`%.fms`, v*1000)
+	}
+	return fmt.Sprintf(`%.fs`, v)
 }

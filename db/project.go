@@ -36,6 +36,7 @@ type Prometheus struct {
 type Settings struct {
 	ConfigurationHintsMuted map[model.ApplicationType]bool         `json:"configuration_hints_muted"`
 	ApplicationCategories   map[model.ApplicationCategory][]string `json:"application_categories"`
+	Integrations            Integrations                           `json:"integrations"`
 }
 
 type BasicAuth struct {
@@ -60,16 +61,17 @@ func (p *Project) Migrate(m *Migrator) error {
 }
 
 func (db *DB) GetProjects() ([]*Project, error) {
-	rows, err := db.db.Query("SELECT id, name, prometheus FROM project")
+	rows, err := db.db.Query("SELECT id, name, prometheus, settings FROM project")
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	var res []*Project
 	var prometheus string
+	var settings sql.NullString
 	for rows.Next() {
 		var p Project
-		if err := rows.Scan(&p.Id, &p.Name, &prometheus); err != nil {
+		if err := rows.Scan(&p.Id, &p.Name, &prometheus, &settings); err != nil {
 			return nil, err
 		}
 		if err := json.Unmarshal([]byte(prometheus), &p.Prometheus); err != nil {
@@ -78,24 +80,30 @@ func (db *DB) GetProjects() ([]*Project, error) {
 		if p.Prometheus.RefreshInterval == 0 {
 			p.Prometheus.RefreshInterval = DefaultRefreshInterval
 		}
+		if settings.Valid {
+			if err := json.Unmarshal([]byte(settings.String), &p.Settings); err != nil {
+				return nil, err
+			}
+		}
 		res = append(res, &p)
 	}
 	return res, nil
 }
 
-func (db *DB) GetProjectIds() (map[ProjectId]bool, error) {
-	rows, err := db.db.Query("SELECT id FROM project")
+func (db *DB) GetProjectNames() (map[ProjectId]string, error) {
+	rows, err := db.db.Query("SELECT id, name FROM project")
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	res := map[ProjectId]bool{}
+	res := map[ProjectId]string{}
 	var id ProjectId
+	var name string
 	for rows.Next() {
-		if err := rows.Scan(&id); err != nil {
+		if err := rows.Scan(&id, &name); err != nil {
 			return nil, err
 		}
-		res[id] = true
+		res[id] = name
 	}
 	return res, nil
 }
@@ -156,6 +164,9 @@ func (db *DB) DeleteProject(id ProjectId) error {
 	}
 	defer tx.Rollback()
 	if _, err := tx.Exec("DELETE FROM check_configs WHERE project_id = $1", id); err != nil {
+		return err
+	}
+	if _, err := tx.Exec("DELETE FROM incident WHERE project_id = $1", id); err != nil {
 		return err
 	}
 	if _, err := tx.Exec("DELETE FROM project WHERE id = $1", id); err != nil {

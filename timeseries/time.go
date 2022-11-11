@@ -6,9 +6,10 @@ import (
 )
 
 const (
-	Hour   = Duration(3600)
-	Minute = Duration(60)
 	Second = Duration(1)
+	Minute = Second * 60
+	Hour   = Minute * 60
+	Day    = Hour * 24
 )
 
 type Context struct {
@@ -71,6 +72,10 @@ func (t Time) Add(d Duration) Time {
 
 func (t Time) Before(other Time) bool {
 	return t < other
+}
+
+func (t Time) After(other Time) bool {
+	return t > other
 }
 
 func (t Time) ToStandard() time.Time {

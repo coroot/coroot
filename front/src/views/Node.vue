@@ -1,7 +1,7 @@
 <template>
 <div>
     <h1 class="text-h5 my-5">
-        Nodes / {{name}}
+        <router-link :to="{name: 'index'}">Nodes</router-link> / {{name}}
         <v-progress-linear v-if="loading" indeterminate color="green" />
     </h1>
 

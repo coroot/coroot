@@ -6,7 +6,7 @@ import (
 )
 
 func (a *appAuditor) cpu() {
-	report := a.addReport("CPU")
+	report := a.addReport(model.AuditReportCPU)
 	relevantNodes := map[string]*model.Node{}
 	nodeCpuCheck := report.CreateCheck(model.Checks.CPUNode)
 	containerCpuCheck := report.CreateCheck(model.Checks.CPUContainer)

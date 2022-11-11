@@ -41,6 +41,7 @@ type Stats struct {
 		KubeStateMetrics          *bool                                `json:"kube_state_metrics"`
 		InspectionOverrides       map[model.CheckId]InspectionOverride `json:"inspection_overrides"`
 		ApplicationCategories     int                                  `json:"application_categories"`
+		AlertingIntegrations      []string                             `json:"alerting_integrations"`
 	} `json:"integration"`
 	Stack struct {
 		Clouds               []string `json:"clouds"`
@@ -180,27 +181,21 @@ func (c *Collector) collect() Stats {
 	stats.Integration.InspectionOverrides = map[model.CheckId]InspectionOverride{}
 	stats.Performance.Constructor.Stages = map[string]float32{}
 	stats.Performance.Constructor.Queries = map[string]prom.QueryStats{}
+	alertingIntegrations := utils.NewStringSet()
 	var loadTime []time.Duration
 	now := timeseries.Now()
 	for _, p := range projects {
-		p, err := c.db.GetProject(p.Id)
-		if err != nil {
-			klog.Errorln("failed to get project:", err)
-			continue
-		}
-
-		cc := c.cache.GetCacheClient(p)
-		cacheTo, err := cc.GetTo()
-		if err != nil {
-			klog.Errorln(err)
-			continue
-		}
-		if cacheTo.IsZero() || cacheTo.Before(now.Add(-worldWindow)) {
-			continue
-		}
 		stats.Integration.Prometheus = true
 		if stats.Integration.PrometheusRefreshInterval == 0 || int(p.Prometheus.RefreshInterval) < stats.Integration.PrometheusRefreshInterval {
 			stats.Integration.PrometheusRefreshInterval = int(p.Prometheus.RefreshInterval)
+		}
+
+		for category := range p.Settings.ApplicationCategories {
+			applicationCategories.Add(string(category))
+		}
+
+		if p.Settings.Integrations.Slack != nil {
+			alertingIntegrations.Add("slack")
 		}
 
 		checkConfigs, err := c.db.GetCheckConfigs(p.Id)
@@ -220,12 +215,18 @@ func (c *Collector) collect() Stats {
 			}
 		}
 
-		for category := range p.Settings.ApplicationCategories {
-			applicationCategories.Add(string(category))
+		cc := c.cache.GetCacheClient(p)
+		cacheTo, err := cc.GetTo()
+		if err != nil {
+			klog.Errorln(err)
+			continue
 		}
-
+		if cacheTo.IsZero() || cacheTo.Before(now.Add(-worldWindow)) {
+			continue
+		}
 		t := time.Now()
-		w, err := constructor.New(cc, checkConfigs).LoadWorld(context.Background(), cacheTo.Add(-worldWindow), cacheTo, p.Prometheus.RefreshInterval, &stats.Performance.Constructor)
+		step := p.Prometheus.RefreshInterval
+		w, err := constructor.New(cc, step, checkConfigs).LoadWorld(context.Background(), cacheTo.Add(-worldWindow), cacheTo, step, &stats.Performance.Constructor)
 		if err != nil {
 			klog.Errorln("failed to load world:", err)
 			continue
@@ -261,6 +262,7 @@ func (c *Collector) collect() Stats {
 		}
 	}
 	stats.Integration.ApplicationCategories = applicationCategories.Len()
+	stats.Integration.AlertingIntegrations = alertingIntegrations.Items()
 	stats.Stack.Clouds = clouds.Items()
 	stats.Stack.Services = services.Items()
 	stats.Stack.InstrumentedServices = servicesInstrumented.Items()

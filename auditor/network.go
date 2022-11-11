@@ -38,7 +38,7 @@ func (s *netSummary) addRtt(rtt timeseries.TimeSeries) {
 }
 
 func (a *appAuditor) network() {
-	report := a.addReport("Network")
+	report := a.addReport(model.AuditReportNetwork)
 	upstreams := map[model.ApplicationId]*netSummary{}
 
 	rttCheck := report.CreateCheck(model.Checks.NetworkRTT)

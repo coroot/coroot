@@ -10,16 +10,14 @@ import (
 type appAuditor struct {
 	w       *model.World
 	app     *model.Application
-	events  []*Event
 	reports []*model.AuditReport
 }
 
 func Audit(w *model.World) {
 	for _, app := range w.Applications {
 		a := &appAuditor{
-			w:      w,
-			app:    app,
-			events: calcAppEvents(app),
+			w:   w,
+			app: app,
 		}
 		a.slo()
 		a.instances()
@@ -30,8 +28,10 @@ func Audit(w *model.World) {
 		a.postgres()
 		a.redis()
 		a.logs()
+
+		events := calcAppEvents(app)
 		for _, r := range a.reports {
-			widgets := enrichWidgets(r.Widgets, a.events)
+			widgets := enrichWidgets(r.Widgets, events)
 			sort.SliceStable(widgets, func(i, j int) bool {
 				return widgets[i].Table != nil
 			})
@@ -44,7 +44,7 @@ func Audit(w *model.World) {
 				}
 			}
 			switch r.Name {
-			case "Postgres", "Redis", "Instances", "SLO":
+			case model.AuditReportPostgres, model.AuditReportRedis, model.AuditReportInstances, model.AuditReportSLO:
 				if app.Status < r.Status {
 					app.Status = r.Status
 				}
@@ -54,7 +54,7 @@ func Audit(w *model.World) {
 	}
 }
 
-func (a *appAuditor) addReport(name string) *model.AuditReport {
+func (a *appAuditor) addReport(name model.AuditReportName) *model.AuditReport {
 	r := model.NewAuditReport(a.app.Id, a.w.Ctx, a.w.CheckConfigs, name)
 	a.reports = append(a.reports, r)
 	return r

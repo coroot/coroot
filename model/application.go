@@ -27,6 +27,15 @@ func NewApplication(id ApplicationId) *Application {
 	return app
 }
 
+func (app *Application) SLOStatus() Status {
+	for _, r := range app.Reports {
+		if r.Name == AuditReportSLO {
+			return r.Status
+		}
+	}
+	return UNKNOWN
+}
+
 func (app *Application) GetInstance(name string) *Instance {
 	for _, i := range app.Instances {
 		if i.Name == name {

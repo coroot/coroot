@@ -24,7 +24,7 @@ var (
 func (a *appAuditor) logs() {
 	byHash := map[string]*model.LogPatternInfo{}
 	byLevel := map[model.LogLevel]timeseries.TimeSeries{}
-	report := a.addReport("Logs")
+	report := a.addReport(model.AuditReportLogs)
 	check := report.CreateCheck(model.Checks.LogErrors)
 	seenContainers := false
 	patterns := &model.LogPatterns{

@@ -7,6 +7,7 @@ const (
 	OK
 	INFO
 	WARNING
+	CRITICAL
 )
 
 type Status int
@@ -19,6 +20,8 @@ func (s Status) String() string {
 		return "info"
 	case WARNING:
 		return "warning"
+	case CRITICAL:
+		return "critical"
 	default:
 		return "unknown"
 	}
@@ -44,7 +47,7 @@ func CalcIndicators(app *Application) []Indicator {
 		}
 		res = append(res, Indicator{
 			Status:  r.Status,
-			Message: r.Name,
+			Message: string(r.Name),
 		})
 	}
 	return res

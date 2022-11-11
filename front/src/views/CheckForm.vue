@@ -1,6 +1,6 @@
 <template>
     <v-dialog v-if="check" :value="value" @input="emitValue" max-width="800">
-        <v-card class="pa-4">
+        <v-card class="pa-5">
             <div class="d-flex align-center font-weight-medium mb-4">
                 <template v-if="check.id === 'SLOAvailability' || check.id === 'SLOLatency'">
                     Configure the "{{ check.title }}" inspection
@@ -24,6 +24,19 @@
                 <CheckFormSLOAvailability v-if="check.id === 'SLOAvailability'" :form="form" />
                 <CheckFormSLOLatency v-else-if="check.id === 'SLOLatency'" :form="form" />
                 <CheckFormSimple v-else :form="form" :check="check" :appId="appId" />
+
+                <div v-if="check.id.startsWith('SLO')" class="my-3">
+                    Alerting:
+                    <div>
+                        <div v-if="integrations">
+                            <template v-for="(details, type) in integrations">
+                                <div v-if="type === 'slack'"><v-icon small>mdi-slack</v-icon> channel <b>#{{details}}</b></div>
+                            </template>
+                        </div>
+                        <div v-else class="grey--text">No notification integrations configured.</div>
+                        <v-btn color="primary" small :to="{name: 'project_settings', hash: '#integrations'}" class="mt-1">Configure integrations</v-btn>
+                    </div>
+                </div>
 
                 <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text class="my-3">
                     {{error}}
@@ -57,6 +70,7 @@ export default {
             error: '',
             message: '',
             form: null,
+            integrations: null,
             saved: '',
             saving: false,
             valid: false,
@@ -90,7 +104,8 @@ export default {
                     this.form = null;
                     return;
                 }
-                this.form = data;
+                this.form = data.form;
+                this.integrations = data.integrations;
                 this.saved = JSON.stringify(this.form);
             })
         },

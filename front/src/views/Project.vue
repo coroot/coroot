@@ -41,6 +41,16 @@
     </template>
 
     <template v-if="projectId">
+        <h1 id="integrations" class="text-h5 mt-16 mb-5">
+            Integrations
+            <a href="https://coroot.com/docs/coroot-community-edition/getting-started/alerting" target="_blank">
+                <v-icon>mdi-information-outline</v-icon>
+            </a>
+        </h1>
+        <Integrations />
+    </template>
+
+    <template v-if="projectId">
         <h1 class="text-h5 mt-16 mb-5">
             Danger zone
         </h1>
@@ -55,13 +65,14 @@ import ProjectStatus from "@/views/ProjectStatus";
 import ProjectDelete from "@/views/ProjectDelete";
 import ProjectCheckConfigs from "@/views/ProjectCheckConfigs";
 import ApplicationCategories from "@/views/ApplicationCategories";
+import Integrations from "@/views/Integrations";
 
 export default {
     props: {
         projectId: String,
     },
 
-    components: {ProjectCheckConfigs, ProjectSettings, ProjectStatus, ProjectDelete, ApplicationCategories},
+    components: {ProjectCheckConfigs, ProjectSettings, ProjectStatus, ProjectDelete, ApplicationCategories, Integrations},
 }
 </script>
 

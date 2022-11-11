@@ -108,7 +108,12 @@ func (c *Cache) getStatus(projectId db.ProjectId) (*Status, error) {
 	if err := c.state.QueryRow("SELECT max($1 - last_ts), avg($1 - last_ts) FROM prometheus_query_state WHERE project_id = $2", now, projectId).Scan(&max, &avg); err != nil {
 		return nil, err
 	}
-	s.LagMax = timeseries.Duration(max.Float64)
-	s.LagAvg = timeseries.Duration(avg.Float64)
+	if max.Valid && avg.Valid {
+		s.LagMax = timeseries.Duration(max.Float64)
+		s.LagAvg = timeseries.Duration(avg.Float64)
+	} else {
+		s.LagMax = BackFillInterval
+		s.LagAvg = BackFillInterval
+	}
 	return &s, nil
 }

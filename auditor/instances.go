@@ -12,7 +12,7 @@ import (
 )
 
 func (a *appAuditor) instances() {
-	report := a.addReport("Instances")
+	report := a.addReport(model.AuditReportInstances)
 
 	up := timeseries.Aggregate(timeseries.NanSum)
 

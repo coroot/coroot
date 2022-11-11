@@ -1,5 +1,5 @@
 <template>
-    <div class="px-2">
+    <div>
         Total requests query:
         <MetricSelector v-model="config.total_requests_query" :rules="[$validators.notEmpty]" wrap="sum( rate( <input> [..]) )" class="mb-3"/>
 

@@ -51,9 +51,7 @@ export default class Api {
     }
 
     get(url, cb) {
-        const q = this.router.currentRoute.query;
-        const params = {from: q.from, to: q.to};
-        this.request({method: 'get', url, params}, cb);
+        this.request({method: 'get', url, params: this.router.currentRoute.query}, cb);
     }
 
     post(url, data, cb) {
@@ -107,6 +105,18 @@ export default class Api {
 
     saveApplicationCategory(form, cb) {
         this.post(this.projectPath(`categories`), form, cb);
+    }
+
+    getIntegrations(type, cb) {
+        this.get(this.projectPath(`integrations${type ? '/'+type : ''}`), cb);
+    }
+
+    saveIntegrations(type, form, cb) {
+        if (!form) {
+            this.del(this.projectPath(`integrations${type ? '/'+type : ''}`), cb);
+            return;
+        }
+        this.post(this.projectPath(`integrations${type ? '/'+type : ''}`), form, cb);
     }
 
     getApplication(appId, cb) {

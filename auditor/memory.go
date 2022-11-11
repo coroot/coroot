@@ -6,7 +6,7 @@ import (
 )
 
 func (a *appAuditor) memory() {
-	report := a.addReport("Memory")
+	report := a.addReport(model.AuditReportMemory)
 	relevantNodes := map[string]*model.Node{}
 
 	oomCheck := report.CreateCheck(model.Checks.MemoryOOM)

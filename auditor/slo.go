@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
-	"k8s.io/klog"
+	"github.com/coroot/coroot/utils"
+	"github.com/dustin/go-humanize/english"
 	"math"
-	"strconv"
 )
 
 func (a *appAuditor) slo() {
-	report := a.addReport("SLO")
+	report := a.addReport(model.AuditReportSLO)
 	requestsChart(a.app, report)
 	availability(a.w.Ctx, a.app, report)
 	latency(a.w.Ctx, a.app, report)
@@ -47,27 +47,20 @@ func availability(ctx timeseries.Context, app *model.Application, report *model.
 		Fill:  true,
 		Data:  timeseries.Replace(sli.TotalRequests, sli.Config.ObjectivePercentage),
 	}
-	last3points := func(t timeseries.Time, v float64) float64 {
-		if t >= ctx.To.Add(-3*ctx.Step) {
-			return v
-		}
-		return 0
-	}
-	last3pointsDefined := func(t timeseries.Time, v float64) float64 {
-		if t >= ctx.To.Add(-3*ctx.Step) && !math.IsNaN(v) {
-			return 1
-		}
-		return 0
-	}
-	if timeseries.Reduce(timeseries.NanSum, timeseries.Map(last3pointsDefined, sli.TotalRequests)) < 1 {
+
+	if dataIsMissing(sli.TotalRequestsRaw) {
 		check.SetStatus(model.WARNING, "no data")
 		return
 	}
-	totalRequests := timeseries.Reduce(timeseries.NanSum, timeseries.Map(last3points, sli.TotalRequests)) * 60
-	totalFailedRequests := timeseries.Reduce(timeseries.NanSum, timeseries.Map(last3points, sli.FailedRequests)) * 60
 
-	if (totalRequests-totalFailedRequests)/totalRequests*100 < sli.Config.ObjectivePercentage {
-		check.Fire()
+	failedRaw := sli.FailedRequestsRaw
+	if timeseries.IsEmpty(failed) {
+		failedRaw = timeseries.Replace(sli.TotalRequestsRaw, 0)
+	} else {
+		failedRaw = timeseries.Map(timeseries.NanToZero, failedRaw)
+	}
+	if br := model.CheckBurnRates(ctx.To, failedRaw, sli.TotalRequestsRaw, sli.Config.ObjectivePercentage); br.Severity > model.UNKNOWN {
+		check.SetStatus(br.Severity, formatSLOStatus(br))
 	}
 }
 
@@ -78,20 +71,7 @@ func latency(ctx timeseries.Context, app *model.Application, report *model.Audit
 		return
 	}
 	sli := app.LatencySLIs[0]
-	objectiveBucket, err := strconv.ParseFloat(sli.Config.ObjectiveBucket, 64)
-	if err != nil {
-		klog.Warningf(`invalid objective bucket "%s": %s`, sli.Config.ObjectiveBucket, err)
-		return
-	}
-	var total, fast timeseries.TimeSeries
-	for _, b := range histogramBuckets(sli.Histogram) {
-		if b.Le <= objectiveBucket {
-			fast = b.TimeSeries
-		}
-		if math.IsInf(b.Le, 1) {
-			total = b.TimeSeries
-		}
-	}
+	total, fast := sli.GetTotalAndFast(false)
 	if timeseries.IsEmpty(total) || timeseries.IsEmpty(fast) {
 		check.SetStatus(model.WARNING, "no data")
 		return
@@ -104,35 +84,28 @@ func latency(ctx timeseries.Context, app *model.Application, report *model.Audit
 	)
 	chart := report.
 		GetOrCreateChart("Latency").
-		AddSeries("requests served faster than "+model.FormatLatencyBucket(sli.Config.ObjectiveBucket), fastPercentage)
+		AddSeries("requests served faster than "+utils.FormatLatency(sli.Config.ObjectiveBucket), fastPercentage)
 	chart.Threshold = &model.Series{
 		Name:  "target",
 		Color: "red",
 		Fill:  true,
 		Data:  timeseries.Replace(total, sli.Config.ObjectivePercentage),
 	}
-	last3points := func(t timeseries.Time, v float64) float64 {
-		if t >= ctx.To.Add(-3*ctx.Step) {
-			return v
-		}
-		return 0
-	}
-	last3pointsDefined := func(t timeseries.Time, v float64) float64 {
-		if t >= ctx.To.Add(-3*ctx.Step) && !math.IsNaN(v) {
-			return 1
-		}
-		return 0
-	}
 
-	if timeseries.Reduce(timeseries.NanSum, timeseries.Map(last3pointsDefined, total)) < 1 {
+	totalRaw, fastRaw := sli.GetTotalAndFast(true)
+	if dataIsMissing(totalRaw) {
 		check.SetStatus(model.WARNING, "no data")
 		return
 	}
 
-	totalRequests := timeseries.Reduce(timeseries.NanSum, timeseries.Map(last3points, total)) * 60
-	totalFastRequests := timeseries.Reduce(timeseries.NanSum, timeseries.Map(last3points, fast)) * 60
-	if totalFastRequests/totalRequests*100 < sli.Config.ObjectivePercentage {
-		check.Fire()
+	if timeseries.IsEmpty(fastRaw) {
+		fastRaw = timeseries.Replace(totalRaw, 0)
+	} else {
+		fastRaw = timeseries.Map(timeseries.NanToZero, fastRaw)
+	}
+	slowRaw := timeseries.Aggregate(timeseries.Sub, totalRaw, fastRaw)
+	if br := model.CheckBurnRates(ctx.To, slowRaw, totalRaw, sli.Config.ObjectivePercentage); br.Severity > model.UNKNOWN {
+		check.SetStatus(br.Severity, formatSLOStatus(br))
 	}
 }
 
@@ -152,4 +125,18 @@ func requestsChart(app *model.Application, report *model.AuditReport) {
 		}
 		ch.AddSeries("errors", app.AvailabilitySLIs[0].FailedRequests, "black")
 	}
+}
+
+func dataIsMissing(ts timeseries.TimeSeries) bool {
+	for _, v := range timeseries.LastN(ts, 3) {
+		if !math.IsNaN(v) {
+			return false
+		}
+	}
+	return true
+}
+
+func formatSLOStatus(br model.BurnRate) string {
+	hours := int(br.Window / timeseries.Hour)
+	return fmt.Sprintf("error budget burn rate is %.1fx within %s", br.Value, english.Plural(hours, "hour", ""))
 }

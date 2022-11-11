@@ -10,7 +10,7 @@ import (
 )
 
 func (a *appAuditor) storage() {
-	report := a.addReport("Storage")
+	report := a.addReport(model.AuditReportStorage)
 	ioCheck := report.CreateCheck(model.Checks.StorageIO)
 	spaceCheck := report.CreateCheck(model.Checks.StorageSpace)
 	seenVolumes := false

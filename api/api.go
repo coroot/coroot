@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"errors"
+	"github.com/coroot/coroot/alerts"
 	"github.com/coroot/coroot/api/views"
 	"github.com/coroot/coroot/cache"
 	"github.com/coroot/coroot/constructor"
@@ -15,6 +16,7 @@ import (
 	"github.com/gorilla/mux"
 	"k8s.io/klog"
 	"net/http"
+	"sort"
 	"time"
 )
 
@@ -31,20 +33,23 @@ func NewApi(cache *cache.Cache, db *db.DB, stats *stats.Collector, readOnly bool
 
 func (api *Api) Projects(w http.ResponseWriter, r *http.Request) {
 	api.stats.RegisterRequest(r)
-	projects, err := api.db.GetProjects()
+	projects, err := api.db.GetProjectNames()
 	if err != nil {
 		klog.Errorln("failed to get projects:", err)
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 	type Project struct {
-		Id   string `json:"id"`
-		Name string `json:"name"`
+		Id   db.ProjectId `json:"id"`
+		Name string       `json:"name"`
 	}
 	res := make([]Project, 0, len(projects))
-	for _, p := range projects {
-		res = append(res, Project{Id: string(p.Id), Name: p.Name})
+	for id, name := range projects {
+		res = append(res, Project{Id: id, Name: name})
 	}
+	sort.Slice(res, func(i, j int) bool {
+		return res[i].Name < res[j].Name
+	})
 	utils.WriteJson(w, res)
 }
 
@@ -262,6 +267,105 @@ func (api *Api) Categories(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJson(w, views.Categories(p))
 }
 
+func (api *Api) Integrations(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	projectId := db.ProjectId(vars["project"])
+
+	if r.Method == http.MethodPost {
+		if api.readOnly {
+			return
+		}
+		var form IntegrationsForm
+		if err := ReadAndValidate(r, &form); err != nil {
+			klog.Warningln("bad request:", err)
+			http.Error(w, "Invalid base url", http.StatusBadRequest)
+			return
+		}
+		if err := api.db.SaveIntegrationsBaseUrl(projectId, form.BaseUrl); err != nil {
+			klog.Errorln("failed to save:", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		return
+	}
+
+	p, err := api.db.GetProject(projectId)
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+
+	utils.WriteJson(w, views.Integrations(r.Context(), p))
+}
+
+func (api *Api) IntegrationsSlack(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	projectId := db.ProjectId(vars["project"])
+
+	var form IntegrationsSlackForm
+
+	if r.Method == http.MethodPost {
+		if api.readOnly {
+			return
+		}
+		if err := ReadAndValidate(r, &form); err != nil {
+			klog.Warningln("bad request:", err)
+			http.Error(w, "", http.StatusBadRequest)
+			return
+		}
+		ok, err := alerts.NewSlack(form.Token).IsChannelAvailable(r.Context(), form.Channel)
+		if err != nil {
+			http.Error(w, "Invalid token", http.StatusBadRequest)
+			return
+		}
+		if !ok {
+			http.Error(w, "Channel is not available", http.StatusBadRequest)
+			return
+		}
+		if err := api.db.SaveIntegrationsSlack(projectId, &db.IntegrationSlack{
+			Token:          form.Token,
+			DefaultChannel: form.Channel,
+			Enabled:        form.Enabled,
+		}); err != nil {
+			klog.Errorln("failed to save:", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		return
+	}
+
+	if r.Method == http.MethodDelete {
+		if api.readOnly {
+			return
+		}
+		if err := api.db.SaveIntegrationsSlack(projectId, nil); err != nil {
+			klog.Errorln("failed to delete:", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		return
+	}
+
+	p, err := api.db.GetProject(projectId)
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	if cfg := p.Settings.Integrations.Slack; cfg != nil {
+		form.Token = cfg.Token
+		if api.readOnly {
+			form.Token = "<token>"
+		}
+		form.Channel = cfg.DefaultChannel
+		form.Enabled = cfg.Enabled
+	} else {
+		form.Enabled = true
+	}
+	utils.WriteJson(w, form)
+}
+
 func (api *Api) Prom(w http.ResponseWriter, r *http.Request) {
 	projectId := db.ProjectId(mux.Vars(r)["project"])
 	project, err := api.db.GetProject(projectId)
@@ -291,7 +395,7 @@ func (api *Api) App(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid application_id: "+mux.Vars(r)["app"], http.StatusBadRequest)
 		return
 	}
-	world, _, err := api.loadWorldByRequest(r)
+	world, project, err := api.loadWorldByRequest(r)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
@@ -306,7 +410,13 @@ func (api *Api) App(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Application not found", http.StatusNotFound)
 		return
 	}
-	utils.WriteJson(w, views.Application(world, app))
+	incidents, err := api.db.GetIncidentsByApp(project.Id, app.Id, world.Ctx.From, world.Ctx.To)
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	utils.WriteJson(w, views.Application(world, app, incidents))
 }
 
 func (api *Api) Check(w http.ResponseWriter, r *http.Request) {
@@ -323,11 +433,26 @@ func (api *Api) Check(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 
 	case http.MethodGet:
+		project, err := api.db.GetProject(projectId)
+		if err != nil {
+			klog.Errorln("failed to get project:", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
 		checkConfigs, err := api.db.GetCheckConfigs(projectId)
 		if err != nil {
 			klog.Errorln("failed to get check configs:", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
+		}
+		res := struct {
+			Form         any               `json:"form"`
+			Integrations map[string]string `json:"integrations"`
+		}{
+			Integrations: map[string]string{},
+		}
+		if cfg := project.Settings.Integrations.Slack; cfg != nil && cfg.Enabled {
+			res.Integrations["slack"] = cfg.DefaultChannel
 		}
 		switch checkId {
 		case model.Checks.SLOAvailability.Id:
@@ -342,8 +467,7 @@ func (api *Api) Check(w http.ResponseWriter, r *http.Request) {
 				})
 				form.Empty = true
 			}
-			utils.WriteJson(w, form)
-			return
+			res.Form = form
 		case model.Checks.SLOLatency.Id:
 			form := CheckConfigSLOLatencyForm{
 				Configs: checkConfigs.GetLatency(appId),
@@ -351,13 +475,12 @@ func (api *Api) Check(w http.ResponseWriter, r *http.Request) {
 			if len(form.Configs) == 0 {
 				form.Configs = append(form.Configs, model.CheckConfigSLOLatency{
 					HistogramQuery:      "",
-					ObjectiveBucket:     "0.1",
+					ObjectiveBucket:     0.1,
 					ObjectivePercentage: model.Checks.SLOLatency.DefaultThreshold,
 				})
 				form.Empty = true
 			}
-			utils.WriteJson(w, form)
-			return
+			res.Form = form
 		default:
 			form := CheckConfigForm{
 				Configs: checkConfigs.GetSimpleAll(checkId, appId),
@@ -366,9 +489,10 @@ func (api *Api) Check(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "", http.StatusNotFound)
 				return
 			}
-			utils.WriteJson(w, form)
-			return
+			res.Form = form
 		}
+		utils.WriteJson(w, res)
+		return
 
 	case http.MethodPost:
 		if api.readOnly {
@@ -474,16 +598,12 @@ func (api *Api) loadWorld(ctx context.Context, project *db.Project, from, to tim
 		return nil, err
 	}
 
-	world, err := constructor.New(cc, checkConfigs).LoadWorld(ctx, from, to, step, nil)
+	world, err := constructor.New(cc, project.Prometheus.RefreshInterval, checkConfigs).LoadWorld(ctx, from, to, step, nil)
 	return world, err
 }
 
 func (api *Api) loadWorldByRequest(r *http.Request) (*model.World, *db.Project, error) {
 	projectId := db.ProjectId(mux.Vars(r)["project"])
-	now := timeseries.Now()
-	q := r.URL.Query()
-	from := utils.ParseTimeFromUrl(now, q, "from", now.Add(-timeseries.Hour))
-	to := utils.ParseTimeFromUrl(now, q, "to", now)
 	project, err := api.db.GetProject(projectId)
 	if err != nil {
 		if errors.Is(err, db.ErrNotFound) {
@@ -492,6 +612,24 @@ func (api *Api) loadWorldByRequest(r *http.Request) (*model.World, *db.Project, 
 		}
 		return nil, nil, err
 	}
+
+	now := timeseries.Now()
+	q := r.URL.Query()
+	from := utils.ParseTimeFromUrl(now, q, "from", now.Add(-timeseries.Hour))
+	to := utils.ParseTimeFromUrl(now, q, "to", now)
+
+	incidentKey := q.Get("incident")
+	if incidentKey != "" {
+		if incident, err := api.db.GetIncidentByKey(projectId, incidentKey); err != nil {
+			klog.Warningln("failed to get incident:", err)
+		} else {
+			from = incident.OpenedAt.Add(-timeseries.Hour)
+			if !incident.ResolvedAt.IsZero() && incident.ResolvedAt.Add(timeseries.Hour).Before(to) {
+				to = incident.ResolvedAt.Add(timeseries.Hour)
+			}
+		}
+	}
+
 	world, err := api.loadWorld(r.Context(), project, from, to)
 	return world, project, err
 }

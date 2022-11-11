@@ -28,7 +28,7 @@ func (a *appAuditor) postgres() {
 		return
 	}
 
-	report := a.addReport("Postgres")
+	report := a.addReport(model.AuditReportPostgres)
 	availabilityCheck := report.CreateCheck(model.Checks.PostgresAvailability)
 	latencyCheck := report.CreateCheck(model.Checks.PostgresLatency)
 	errorsCheck := report.CreateCheck(model.Checks.PostgresErrors)

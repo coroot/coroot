@@ -330,7 +330,7 @@ func (cfg *CheckConfigSLOAvailability) Failed() string {
 
 type CheckConfigSLOLatency struct {
 	HistogramQuery      string  `json:"histogram_query"`
-	ObjectiveBucket     string  `json:"objective_bucket"`
+	ObjectiveBucket     float64 `json:"objective_bucket"`
 	ObjectivePercentage float64 `json:"objective_percentage"`
 }
 

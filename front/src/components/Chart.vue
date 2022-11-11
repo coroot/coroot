@@ -27,7 +27,7 @@
                     <span class="value">{{i.value}}</span>
                 </div>
                 <div v-if="tooltip.outage" class="outage">
-                    <span class="label">outage</span>:
+                    <span class="label">incident</span>:
                     {{tooltip.outage.from}} - {{tooltip.outage.to || 'in progress'}} ({{tooltip.outage.dur}})
                 </div>
             </div>
@@ -50,7 +50,6 @@ import {palette} from "@/utils/colors";
 import convert from 'color-convert';
 
 const font = '12px Roboto, sans-serif'
-const tsFormat = '{MMM} {DD}, {HH}:{mm}:{ss}';
 
 const suffixes1 = ['', 'K', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y'];
 const suffixes2 = ['', 'm', 'µ', 'n', 'p', 'f', 'a', 'z', 'y'];
@@ -138,8 +137,8 @@ export default {
             delete c.stacked;
 
             if (c.annotations) {
-                c.outages = c.annotations.filter((a) => a.name === 'outage').map((a) => ({x1: a.x1, x2: a.x2}));
-                c.flags = c.annotations.filter((a) => a.name !== 'outage').map((a) => ({msg: a.name, x: a.x1, icon: a.icon}));
+                c.outages = c.annotations.filter((a) => a.name === 'incident').map((a) => ({x1: a.x1, x2: a.x2}));
+                c.flags = c.annotations.filter((a) => a.name !== 'incident').map((a) => ({msg: a.name, x: a.x1, icon: a.icon}));
             }
             delete c.annotations;
             return c;
@@ -172,15 +171,25 @@ export default {
             const f = fmtVal(max, c.unit, 2);
             const ts = c.ctx.data[this.idx];
             const o = (c.outages || []).find((o) => o.x1 <= ts && ts <= o.x2);
-            return {
+            let tsFormat = '{MMM} {DD}, {HH}:{mm}:{ss}';
+            const res = {
                 ts: this.$format.date(ts, tsFormat),
                 items: ss.map((s) => ({label: s.name, value: f(s.data[this.idx]), color: s.color})),
-                outage: o && {
+                outage: null,
+            };
+            if (o) {
+                let precision = 's';
+                if (o.x2 - o.x1 > 3600000) {
+                    precision = 'm';
+                    tsFormat = '{MMM} {DD}, {HH}:{mm}';
+                }
+                res.outage = {
                     from: this.$format.date(o.x1, tsFormat),
                     to: o.x2 < c.ctx.to && this.$format.date(o.x2, tsFormat),
-                    dur: this.$format.duration((o.x2-o.x1 + c.ctx.step), 's'),
-                },
+                    dur: this.$format.duration((o.x2-o.x1 + c.ctx.step), precision),
+                }
             }
+            return res;
         },
         legend() {
             const c = this.config;

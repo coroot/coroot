@@ -33,12 +33,12 @@ func (c *Client) QueryRange(ctx context.Context, query string, from, to timeseri
 
 	byProject, ok := c.cache.byProject[c.projectId]
 	if !ok {
-		return nil, nil
+		return nil, fmt.Errorf("unknown project: %s", c.projectId)
 	}
 	queryHash := hash(query)
 	qData, ok := byProject[queryHash]
 	if !ok {
-		return nil, nil
+		return nil, fmt.Errorf("unknown query: %s", query)
 	}
 	start := from
 	end := to

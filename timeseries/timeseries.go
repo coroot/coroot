@@ -39,6 +39,25 @@ func Last(ts TimeSeries) float64 {
 	return ts.last()
 }
 
+func LastN(ts TimeSeries, n int) []float64 {
+	if n == 0 {
+		return nil
+	}
+	if n == 1 {
+		return []float64{Last(ts)}
+	}
+	res := make([]float64, n, n)
+	iter := ts.iter()
+	for iter.Next() {
+		_, v := iter.Value()
+		for i := 0; i < n-1; i++ {
+			res[i] = res[i+1]
+		}
+		res[n-1] = v
+	}
+	return res
+}
+
 func Merge(src, ts TimeSeries, f F) *AggregatedTimeseries {
 	var res *AggregatedTimeseries
 	if src == nil {

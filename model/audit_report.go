@@ -6,18 +6,33 @@ import (
 	"strings"
 )
 
+type AuditReportName string
+
+const (
+	AuditReportSLO       AuditReportName = "SLO"
+	AuditReportInstances AuditReportName = "Instances"
+	AuditReportCPU       AuditReportName = "CPU"
+	AuditReportMemory    AuditReportName = "Memory"
+	AuditReportStorage   AuditReportName = "Storage"
+	AuditReportNetwork   AuditReportName = "Network"
+	AuditReportLogs      AuditReportName = "Logs"
+	AuditReportPostgres  AuditReportName = "Postgres"
+	AuditReportRedis     AuditReportName = "Redis"
+	AuditReportNode      AuditReportName = "Node"
+)
+
 type AuditReport struct {
 	appId        ApplicationId
 	ctx          timeseries.Context
 	checkConfigs CheckConfigs
 
-	Name    string    `json:"name"`
-	Status  Status    `json:"status"`
-	Widgets []*Widget `json:"widgets"`
-	Checks  []*Check  `json:"checks"`
+	Name    AuditReportName `json:"name"`
+	Status  Status          `json:"status"`
+	Widgets []*Widget       `json:"widgets"`
+	Checks  []*Check        `json:"checks"`
 }
 
-func NewAuditReport(appId ApplicationId, ctx timeseries.Context, checkConfigs CheckConfigs, name string) *AuditReport {
+func NewAuditReport(appId ApplicationId, ctx timeseries.Context, checkConfigs CheckConfigs, name AuditReportName) *AuditReport {
 	return &AuditReport{appId: appId, Name: name, ctx: ctx, checkConfigs: checkConfigs}
 }
 
@@ -110,7 +125,7 @@ func (c *AuditReport) CreateCheck(cfg CheckConfig) *Check {
 			ch.ConditionFormatTemplate = strings.Replace(
 				ch.ConditionFormatTemplate,
 				"<bucket>",
-				FormatLatencyBucket(configs[0].ObjectiveBucket),
+				utils.FormatLatency(configs[0].ObjectiveBucket),
 				1,
 			)
 		} else {

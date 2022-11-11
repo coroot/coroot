@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/coroot/coroot/alerts"
 	"github.com/coroot/coroot/api"
 	"github.com/coroot/coroot/cache"
 	"github.com/coroot/coroot/db"
@@ -23,10 +24,11 @@ func main() {
 	cacheTTL := kingpin.Flag("cache-ttl", "cache TTL").Envar("CACHE_TTL").Default("720h").Duration()
 	cacheGcInterval := kingpin.Flag("cache-gc-interval", "cache GC interval").Envar("CACHE_GC_INTERVAL").Default("10m").Duration()
 	pgConnString := kingpin.Flag("pg-connection-string", "Postgres connection string (sqlite is used if not set)").Envar("PG_CONNECTION_STRING").String()
-	disableStats := kingpin.Flag("disable-usage-statistics", "disable usage statistic").Bool()
-	readOnly := kingpin.Flag("read-only", "enable the read-only mode when configuration changes don't take effect").Bool()
+	disableStats := kingpin.Flag("disable-usage-statistics", "disable usage statistics").Envar("DISABLE_USAGE_STATISTICS").Bool()
+	readOnly := kingpin.Flag("read-only", "enable the read-only mode when configuration changes don't take effect").Envar("READ_ONLY").Bool()
 	bootstrapPrometheusUrl := kingpin.Flag("bootstrap-prometheus-url", "if set, Coroot will create a project for this Prometheus URL").Envar("BOOTSTRAP_PROMETHEUS_URL").String()
 	bootstrapRefreshInterval := kingpin.Flag("bootstrap-refresh-interval", "refresh interval for the project created upon bootstrap").Envar("BOOTSTRAP_REFRESH_INTERVAL").Duration()
+	sloCheckInterval := kingpin.Flag("slo-check-interval", "how often to check SLO compliance").Envar("SLO_CHECK_INTERVAL").Default("1m").Duration()
 
 	kingpin.Version(version)
 	kingpin.Parse()
@@ -43,11 +45,11 @@ func main() {
 	}
 
 	if *bootstrapPrometheusUrl != "" && *bootstrapRefreshInterval > 0 {
-		ps, err := database.GetProjects()
+		projects, err := database.GetProjectNames()
 		if err != nil {
 			klog.Exitln(err)
 		}
-		if len(ps) == 0 {
+		if len(projects) == 0 {
 			p := db.Project{
 				Name: "default",
 				Prometheus: db.Prometheus{
@@ -79,6 +81,10 @@ func main() {
 		statsCollector = stats.NewCollector(*dataDir, version, database, promCache)
 	}
 
+	if *sloCheckInterval > 0 {
+		alerts.NewAlertManager(database, promCache).Start(*sloCheckInterval)
+	}
+
 	api := api.NewApi(promCache, database, statsCollector, *readOnly)
 
 	r := mux.NewRouter()
@@ -93,6 +99,8 @@ func main() {
 	r.HandleFunc("/api/project/{project}/search", api.Search).Methods(http.MethodGet)
 	r.HandleFunc("/api/project/{project}/configs", api.Configs).Methods(http.MethodGet)
 	r.HandleFunc("/api/project/{project}/categories", api.Categories).Methods(http.MethodGet, http.MethodPost)
+	r.HandleFunc("/api/project/{project}/integrations", api.Integrations).Methods(http.MethodGet, http.MethodPost)
+	r.HandleFunc("/api/project/{project}/integrations/slack", api.IntegrationsSlack).Methods(http.MethodGet, http.MethodPost, http.MethodDelete)
 	r.HandleFunc("/api/project/{project}/app/{app}", api.App).Methods(http.MethodGet)
 	r.HandleFunc("/api/project/{project}/app/{app}/check/{check}/config", api.Check).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/project/{project}/node/{node}", api.Node).Methods(http.MethodGet)

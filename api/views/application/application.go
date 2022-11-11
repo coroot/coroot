@@ -2,7 +2,9 @@ package application
 
 import (
 	"github.com/coroot/coroot/auditor"
+	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
+	"github.com/coroot/coroot/timeseries"
 	"sort"
 )
 
@@ -47,7 +49,7 @@ type InstanceLink struct {
 	Direction string       `json:"direction"`
 }
 
-func Render(world *model.World, app *model.Application) *View {
+func Render(world *model.World, app *model.Application, incidents []db.Incident) *View {
 	auditor.Audit(world)
 
 	appMap := &AppMap{
@@ -124,6 +126,33 @@ func Render(world *model.World, app *model.Application) *View {
 	sort.Slice(appMap.Dependencies, func(i, j int) bool {
 		return appMap.Dependencies[i].Id.Name < appMap.Dependencies[j].Id.Name
 	})
+
+	if len(incidents) > 0 {
+		now := timeseries.Now()
+		for i := range incidents {
+			if incidents[i].ResolvedAt.IsZero() {
+				incidents[i].ResolvedAt = now
+			}
+		}
+		for _, r := range app.Reports {
+			for _, w := range r.Widgets {
+				var charts []*model.Chart
+				switch {
+				case w.ChartGroup != nil:
+					charts = w.ChartGroup.Charts
+				case w.Chart != nil:
+					charts = []*model.Chart{w.Chart}
+				default:
+					continue
+				}
+				for _, ch := range charts {
+					for _, i := range incidents {
+						ch.AddAnnotation("incident", i.OpenedAt, i.ResolvedAt, "")
+					}
+				}
+			}
+		}
+	}
 
 	return &View{
 		AppMap:  appMap,

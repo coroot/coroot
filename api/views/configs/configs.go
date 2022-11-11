@@ -2,6 +2,7 @@ package configs
 
 import (
 	"github.com/coroot/coroot/model"
+	"github.com/coroot/coroot/utils"
 	"k8s.io/klog"
 )
 
@@ -28,25 +29,25 @@ func Render(configs model.CheckConfigs) *View {
 	v := &View{configs: configs}
 	cs := model.Checks
 
-	v.addReport("SLO", cs.SLOAvailability, cs.SLOLatency)
-	v.addReport("Instances", cs.InstanceAvailability, cs.InstanceRestarts)
-	v.addReport("CPU", cs.CPUNode, cs.CPUContainer)
-	v.addReport("Memory", cs.MemoryOOM)
-	v.addReport("Storage", cs.StorageIO, cs.StorageSpace)
-	v.addReport("Network", cs.NetworkRTT)
-	v.addReport("Logs", cs.LogErrors)
-	v.addReport("Postgres", cs.PostgresAvailability, cs.PostgresLatency, cs.PostgresErrors)
-	v.addReport("Redis", cs.RedisAvailability, cs.RedisLatency)
+	v.addReport(model.AuditReportSLO, cs.SLOAvailability, cs.SLOLatency)
+	v.addReport(model.AuditReportInstances, cs.InstanceAvailability, cs.InstanceRestarts)
+	v.addReport(model.AuditReportCPU, cs.CPUNode, cs.CPUContainer)
+	v.addReport(model.AuditReportMemory, cs.MemoryOOM)
+	v.addReport(model.AuditReportStorage, cs.StorageIO, cs.StorageSpace)
+	v.addReport(model.AuditReportNetwork, cs.NetworkRTT)
+	v.addReport(model.AuditReportLogs, cs.LogErrors)
+	v.addReport(model.AuditReportPostgres, cs.PostgresAvailability, cs.PostgresLatency, cs.PostgresErrors)
+	v.addReport(model.AuditReportRedis, cs.RedisAvailability, cs.RedisLatency)
 
 	return v
 }
 
-func (v *View) addReport(kind string, checks ...model.CheckConfig) {
+func (v *View) addReport(name model.AuditReportName, checks ...model.CheckConfig) {
 	for _, c := range checks {
 		ch := Check{
 			Check: model.Check{
 				Id:                      c.Id,
-				Title:                   kind + " / " + c.Title,
+				Title:                   string(name) + " / " + c.Title,
 				Unit:                    c.Unit,
 				ConditionFormatTemplate: c.ConditionFormatTemplate,
 			},
@@ -77,7 +78,7 @@ func (v *View) addReport(kind string, checks ...model.CheckConfig) {
 						ch.ApplicationOverrides = append(ch.ApplicationOverrides, Application{
 							Id:        appId,
 							Threshold: c.ObjectivePercentage,
-							Details:   "< " + model.FormatLatencyBucket(c.ObjectiveBucket),
+							Details:   "< " + utils.FormatLatency(c.ObjectiveBucket),
 						})
 					}
 				default:

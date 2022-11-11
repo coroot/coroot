@@ -1,9 +1,11 @@
 package views
 
 import (
+	"context"
 	"github.com/coroot/coroot/api/views/application"
 	"github.com/coroot/coroot/api/views/categories"
 	"github.com/coroot/coroot/api/views/configs"
+	"github.com/coroot/coroot/api/views/integrations"
 	"github.com/coroot/coroot/api/views/node"
 	"github.com/coroot/coroot/api/views/overview"
 	"github.com/coroot/coroot/api/views/project"
@@ -21,8 +23,8 @@ func Overview(w *model.World, p *db.Project) *overview.View {
 	return overview.Render(w, p)
 }
 
-func Application(w *model.World, app *model.Application) *application.View {
-	return application.Render(w, app)
+func Application(w *model.World, app *model.Application, incidents []db.Incident) *application.View {
+	return application.Render(w, app, incidents)
 }
 
 func Node(w *model.World, n *model.Node) *model.AuditReport {
@@ -39,4 +41,8 @@ func Configs(checkConfigs model.CheckConfigs) *configs.View {
 
 func Categories(p *db.Project) *categories.View {
 	return categories.Render(p)
+}
+
+func Integrations(ctx context.Context, p *db.Project) *integrations.View {
+	return integrations.Render(ctx, p)
 }
