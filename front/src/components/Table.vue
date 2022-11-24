@@ -28,6 +28,8 @@
                     </span>
                 </div>
 
+                <v-sparkline v-else-if="c.chart" :value="c.chart" fill smooth padding="4" color="blue lighten-2" width="300" height="50" style="min-width: 100px" />
+
                 <div v-else-if="c.values" v-for="v in c.values">
                     {{v}}
                 </div>
@@ -35,10 +37,13 @@
                 <template v-else>
                     <v-icon v-if="c.icon" :color="c.icon.color" small class="mr-1">{{c.icon.name}}</v-icon>
                     <Led v-if="c.status && c.value" :status="c.status" />
-                    <router-link v-if="c.link === 'node' && c.value" :to="{name: 'node', params: {name: c.value}, query: $route.query}">{{c.value}}</router-link>
+                    <template v-if="c.value && c.link">
+                        <router-link v-if="c.link.type === 'application'" :to="{name: 'application', params: {id: c.link.key}, query: $route.query}">{{c.value}}</router-link>
+                        <router-link v-else-if="c.link.type === 'node'" :to="{name: 'node', params: {name: c.link.key}, query: $route.query}">{{c.value}}</router-link>
+                    </template>
                     <span v-else>{{c.value || '&mdash;'}}</span>
                     <span v-if="c.unit && c.value" class="caption grey--text ml-1">{{c.unit}}</span>
-                    <div v-if="c.tags && !$vuetify.breakpoint.mobile">
+                    <div v-if="c.tags && $vuetify.breakpoint.smAndUp">
                         <span v-for="t in c.tags" class="tag">{{t}}</span>
                     </div>
                 </template>

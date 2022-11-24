@@ -5,7 +5,7 @@
             <v-checkbox v-for="f in filters" :key="f.name" v-model="f.value" :label="f.name" class="filter" color="green" hide-details @click="calc" />
         </div>
         <div class="applications" v-on-resize="calc" @scroll="calc">
-            <div v-for="apps in levels" class="level" style="z-index: 2" :style="{rowGap: 200 / apps.length + 'px'}">
+            <div v-for="apps in levels" class="level" style="z-index: 1" :style="{rowGap: 200 / apps.length + 'px'}">
                 <div v-for="a in apps" style="text-align: center">
                     <span :ref="a.id" class="app" :class="a.hi(hi) ? 'selected' : ''" @mouseenter="hi = a.id" @mouseleave="hi = null">
                         <router-link :to="{name: 'application', params: {id: a.id}, query: $route.query}" class="name">
@@ -15,18 +15,23 @@
                     </span>
                 </div>
             </div>
-            <svg style="z-index: 1">
+            <svg :style="{zIndex: hi ? 2 : 0}">
                 <defs>
-                    <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" :markerWidth="10" :markerHeight="10" orient="auto-start-reverse">
+                    <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" :markerWidth="10" :markerHeight="10" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
                         <path d="M 0 3 L 10 5 L 0 7 z" />
                     </marker>
                 </defs>
-                <line v-for="a in arrows"
-                      :x1="a.x1" :y1="a.y1" :x2="a.x2" :y2="a.y2"
-                      stroke-width="1" :stroke-opacity="a.hi(hi) ? 1 : 0.3" :class="a.status"
-                      marker-end="url(#arrow)"
-                />
+
+                <template v-for="a in arrows">
+                    <path v-if="a.hi(hi) && a.w(arrows, hi)" :d="a.dd(arrows, hi)" class="arrow" :class="a.status" />
+                    <path :d="a.d" class="arrow" :class="a.status" :stroke-opacity="a.hi(hi) ? 1 : 0.3" marker-end="url(#arrow)"/>
+                </template>
             </svg>
+            <template v-for="a in arrows">
+                <div v-if="a.stats && a.hi(hi)" class="stats" :style="{top: a.stats.y+'px', left: a.stats.x+'px', zIndex: 3}">
+                    <div v-for="i in a.stats.items">{{i}}</div>
+                </div>
+            </template>
         </div>
     </div>
 </template>
@@ -204,25 +209,37 @@ export default {
             const arrows = [];
             applications.forEach((app) => {
                 app.upstreams.forEach((u) => {
-                    const a = {src: app.id, dst: u.id, status: u.status};
+                    const a = {
+                        src: app.id,
+                        dst: u.id,
+                        status: u.status,
+                        hi: (hi) => a.src === hi || a.dst === hi,
+                        _w: u.weight || 0,
+                    };
                     const s = getRect(a.src)
                     const d = getRect(a.dst)
                     if (!s || !d) {
                         return;
                     }
-                    a.x1 = s.left + s.width;
-                    a.y1 = s.top  + s.height / 2;
-                    a.x2 = d.left;
-                    a.y2 = d.top + d.height / 2;
-
-                    if (a.x1 > a.x2) {
-                        a.x1 = s.left;
-                        a.x2 = d.left + d.width;
-                    }
-
-                    a.hi = (hi) => a.src === hi || a.dst === hi;
-
                     arrows.push(a);
+
+                    let x1 = s.left + s.width;
+                    let y1 = s.top  + s.height / 2;
+                    let x2 = d.left;
+                    let y2 = d.top + d.height / 2;
+                    if (x1 > x2) {
+                        x1 = s.left;
+                        x2 = d.left + d.width;
+                    }
+                    a.d = `M${x1},${y1} L${x2},${y2}`;
+
+                    a.w = (as, hi) => 3 * a._w / Math.max(...as.filter((a) => a.hi(hi)).map((a) => a._w));
+                    a.r = (as, hi) => a.w(as, hi)/2 + ((y2 - y1)**2 + (x2 - x1)**2)/(8*a.w(as, hi));
+                    a.dd = (as, hi) => `M${x1},${y1} A${a.r(as, hi)},${a.r(as, hi)} 0,0,0 ${x2},${y2} A${a.r(as, hi)},${a.r(as, hi)} 0,0,0 ${x1},${y1}`;
+
+                    if (u.stats && u.stats.length) {
+                        a.stats = {x: (x2+x1)/2-20, y: (y2+y1)/2-(u.stats.length*12)/2, items: u.stats};
+                    }
                 });
             });
             this.arrows = arrows;
@@ -285,15 +302,27 @@ svg {
     pointer-events: none; /* to allow interactions with html below */
     overflow: visible;
 }
-line.ok {
+.arrow.ok {
     stroke: green;
+    fill: green;
 }
-line.warning {
+.arrow.warning {
     stroke: red;
     stroke-dasharray: 4;
+    fill: red;
 }
-line.unknown {
+.arrow.unknown {
     stroke: gray;
     stroke-dasharray: 4;
+    fill: gray;
+}
+.stats {
+    position: absolute;
+    font-size: 12px;
+    line-height: 12px;
+    background-color: #EEEEEE;
+    padding: 2px;
+    border-radius: 2px;
+    text-align: right;
 }
 </style>

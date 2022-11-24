@@ -40,7 +40,7 @@ func Last(ts TimeSeries) float64 {
 }
 
 func LastN(ts TimeSeries, n int) []float64 {
-	if n == 0 {
+	if ts == nil || n == 0 {
 		return nil
 	}
 	if n == 1 {

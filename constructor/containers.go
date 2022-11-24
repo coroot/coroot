@@ -7,6 +7,7 @@ import (
 	"github.com/coroot/logpattern"
 	"k8s.io/klog"
 	"net"
+	"strconv"
 	"strings"
 )
 
@@ -105,6 +106,36 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues) {
 				l := model.Listen{IP: ip, Port: port, Proxied: m.Labels["proxy"] != ""}
 				if !instance.TcpListens[l] {
 					instance.TcpListens[l] = isActive
+				}
+			case "container_http_requests_count", "container_postgres_queries_count", "container_redis_queries_count",
+				"container_memcached_queries_count", "container_mysql_queries_count", "container_mongo_queries_count":
+				if c := getOrCreateConnection(instance, mc.container, m, w); c != nil {
+					protocol := model.Protocol(strings.SplitN(queryName, "_", 3)[1])
+					status := m.Labels["status"]
+					if c.RequestsCount[protocol] == nil {
+						c.RequestsCount[protocol] = map[string]timeseries.TimeSeries{}
+					}
+					c.RequestsCount[protocol][status] = timeseries.Merge(c.RequestsCount[protocol][status], m.Values, timeseries.NanSum)
+				}
+			case "container_http_requests_latency", "container_postgres_queries_latency", "container_redis_queries_latency",
+				"container_memcached_queries_latency", "container_mysql_queries_latency", "container_mongo_queries_latency":
+				if c := getOrCreateConnection(instance, mc.container, m, w); c != nil {
+					protocol := model.Protocol(strings.SplitN(queryName, "_", 3)[1])
+					c.RequestsLatency[protocol] = timeseries.Merge(c.RequestsLatency[protocol], m.Values, timeseries.Any)
+				}
+			case "container_http_requests_histogram", "container_postgres_requests_histogram", "container_redis_requests_histogram",
+				"container_memcached_requests_histogram", "container_mysql_requests_histogram", "container_mongo_requests_histogram":
+				if c := getOrCreateConnection(instance, mc.container, m, w); c != nil {
+					protocol := model.Protocol(strings.SplitN(queryName, "_", 3)[1])
+					le, err := strconv.ParseFloat(m.Labels["le"], 64)
+					if err != nil {
+						klog.Warningln(err)
+						continue
+					}
+					if c.RequestsHistogram[protocol] == nil {
+						c.RequestsHistogram[protocol] = map[float64]timeseries.TimeSeries{}
+					}
+					c.RequestsHistogram[protocol][le] = timeseries.Merge(c.RequestsHistogram[protocol][le], m.Values, timeseries.NanSum)
 				}
 			case "container_cpu_limit":
 				container.CpuLimit = timeseries.Merge(container.CpuLimit, m.Values, timeseries.Any)
@@ -207,7 +238,7 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues) {
 }
 
 func getOrCreateConnection(instance *model.Instance, container string, m model.MetricValues, w *model.World) *model.Connection {
-	if timeseries.Reduce(timeseries.NanSum, m.Values) < 1 {
+	if timeseries.Reduce(timeseries.NanSum, m.Values) == 0 {
 		return nil
 	}
 	if instance.OwnerId.Name == "docker" { // ignore docker-proxy's connections

@@ -1,6 +1,5 @@
 <template>
     <div v-on-resize="calcArrows" class="map">
-        <div></div> <!-- empty div to use justify-content:space-between to fix overflow-x:auto -->
         <div class="column">
             <div v-for="app in map.clients" class="client" :ref="app.id"
                  :class="{hi: highlighted.clients.has(app.id)}"
@@ -52,19 +51,27 @@
                 </div>
             </div>
         </div>
-        <div></div> <!-- empty div to use justify-content:space-between to fix overflow-x:auto -->
 
         <svg>
             <defs>
                 <marker :id="m" v-for="m in ['marker', 'markerhi', 'markerlo']"
-                        viewBox="0 0 10 10" refX="10" refY="5" markerWidth="10" markerHeight="10" orient="auto-start-reverse"
+                        viewBox="0 0 10 10" refX="10" refY="5" markerWidth="10" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto-start-reverse"
                 >
                     <path d="M 0 3 L 10 5 L 0 7 z" />
                 </marker>
             </defs>
-            <path v-for="a in arrows" :d="a.d" class="arrow" :class="[a.status, a.hi(focused)]"
-                  :marker-start="a.markerStart ? `url(#marker${a.hi(focused)})` : ''" :marker-end="a.markerEnd ? `url(#marker${a.hi(focused)})`: ''" />
+            <template v-for="a in arrows">
+                <path v-if="a.dd && a.hi(focused)==='hi' && a.w(arrows, focused)" :d="a.dd(arrows, focused)" class="arrow" :class="a.status" stroke="none" />
+                <path :d="a.d" class="arrow" :class="[a.status, a.hi(focused)]" fill-opacity="0"
+                      :marker-start="a.markerStart ? `url(#marker${a.hi(focused)})` : ''" :marker-end="a.markerEnd ? `url(#marker${a.hi(focused)})`: ''"
+                />
+            </template>
         </svg>
+        <template v-for="a in arrows">
+            <div v-if="a.stats && a.hi(focused)==='hi'" class="stats" :style="{top: a.stats.y+'px', left: a.stats.x+'px'}">
+                <div v-for="i in a.stats.items">{{i}}</div>
+            </div>
+        </template>
     </div>
 </template>
 
@@ -153,13 +160,13 @@ export default {
                     const from = a.id;
                     const to = 'instance:'+i.id;
                     const hi = (focused) => (me(focused) || focused.client && focused.client === from) ? 'hi' : lo(focused);
-                    links.push({from, to, status: a.status, direction: a.direction, hi});
+                    links.push({from, to, status: a.status, stats: a.stats, weight: a.weight, direction: a.direction, hi});
                 });
                 (i.dependencies || []).forEach((a) => {
                     const from = 'instance:'+i.id;
                     const to = a.id;
                     const hi = (focused) => (me(focused) || focused.dependency && focused.dependency === to) ? 'hi' : lo(focused);
-                    links.push({from, to, status: a.status, direction: a.direction, hi});
+                    links.push({from, to, status: a.status, stats: a.stats, weight: a.weight, direction: a.direction, hi});
                 });
                 (i.internal_links || []).forEach((l) => {
                     const from = 'instance:'+i.id;
@@ -191,14 +198,21 @@ export default {
             return {top: el.offsetTop, left: el.offsetLeft, width: el.offsetWidth, height: el.offsetHeight};
         },
         calcArrows() {
-            this.arrows = [];
+            const arrows = [];
             this.links.forEach((l) => {
                 const src = this.getRect(l.from);
                 const dst = this.getRect(l.to);
                 if (!src || !dst) {
                     return;
                 }
-                let d = '';
+                const a = {
+                    hi: l.hi,
+                    status: l.status,
+                    _w: l.weight || 0,
+                    markerStart: l.direction === 'from' || l.direction === 'both',
+                    markerEnd: l.direction === 'to' || l.direction === 'both',
+                };
+                arrows.push(a);
                 if (l.internal) {
                     const x1 = src.left + src.width;
                     const y1 = src.top + src.height / 2;
@@ -208,18 +222,22 @@ export default {
                     const rx = r;
                     const ry = r;
                     const sweep = y2 > y1 ? 1 : 0;
-                    d = `M${x1},${y1} A${rx} ${ry} 0 0 ${sweep} ${x2},${y2}`;
+                    a.d = `M${x1},${y1} A${rx},${ry} 0,0,${sweep} ${x2},${y2}`;
                 } else {
                     const x1 = src.left + src.width;
                     const y1 = src.top + src.height / 2;
                     const x2 = dst.left;
                     const y2 = dst.top + dst.height / 2;
-                    d = `M${x1} ${y1} L${x2} ${y2}`;
+                    a.d = `M${x1},${y1} L${x2},${y2}`;
+                    a.w = (as, hi) => 3 * a._w / Math.max(...as.filter((a) => a.hi(hi) === 'hi').map((a) => a._w));
+                    a.r = (as, hi) => a.w(as, hi)/2 + ((y2 - y1)**2 + (x2 - x1)**2)/(8*a.w(as, hi));
+                    a.dd = (as, hi) => `M${x1},${y1} A${a.r(as, hi)},${a.r(as, hi)} 0,0,0 ${x2},${y2} A${a.r(as, hi)},${a.r(as, hi)} 0,0,0 ${x1},${y1}`;
+                    if (l.stats && l.stats.length) {
+                        a.stats = {x: (x2+x1)/2-20, y: (y2+y1)/2-(l.stats.length*12)/2, items: l.stats}
+                    }
                 }
-                const markerStart = l.direction === 'from' || l.direction === 'both';
-                const markerEnd = l.direction === 'to' || l.direction === 'both';
-                this.arrows.push({d, status: l.status, markerStart, markerEnd, hi: l.hi});
             });
+            this.arrows = arrows;
         },
     },
 };
@@ -228,11 +246,11 @@ export default {
 <style scoped>
 .map {
     display: flex;
-    justify-content: space-between; /* need empty divs around to center .columns */
+    justify-content: space-between;
     line-height: 1.1;
     position: relative;
     gap: 16px;
-    overflow-x: auto; /* need justify-content:space-between to fix scroll on narrow views */
+    overflow-x: auto;
     padding: 10px 0;
 }
 .column {
@@ -283,7 +301,6 @@ svg {
     overflow: visible;
 }
 .arrow {
-    fill: none;
     stroke-width: 1;
     stroke-opacity: 0.7;
 }
@@ -295,14 +312,17 @@ svg {
 }
 .arrow.ok {
     stroke: green;
+    fill: green;
 }
 .arrow.warning {
     stroke: red;
     stroke-dasharray: 4;
+    fill: red;
 }
 .arrow.unknown {
     stroke: lightgray;
     stroke-dasharray: 4;
+    fill: lightgray;
 }
 #marker path {
     fill-opacity: 0.3;
@@ -312,5 +332,13 @@ svg {
 }
 #markerhi path {
     fill-opacity: 1.0;
+}
+.stats {
+    position: absolute;
+    font-size: 12px;
+    line-height: 12px;
+    background-color: #EEEEEE;
+    padding: 2px;
+    border-radius: 2px;
 }
 </style>

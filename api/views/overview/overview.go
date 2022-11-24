@@ -31,9 +31,10 @@ type Application struct {
 }
 
 type Link struct {
-	Id        model.ApplicationId `json:"id"`
-	Status    model.Status        `json:"status"`
-	Direction string              `json:"direction"`
+	Id     model.ApplicationId `json:"id"`
+	Status model.Status        `json:"status"`
+	Stats  []string            `json:"stats"`
+	Weight float32             `json:"weight"`
 }
 
 func Render(w *model.World, p *db.Project) *View {
@@ -51,7 +52,10 @@ func Render(w *model.World, p *db.Project) *View {
 			Downstreams: []Link{},
 		}
 
-		upstreams := map[model.ApplicationId]model.Status{}
+		upstreams := map[model.ApplicationId]struct {
+			status      model.Status
+			connections []*model.Connection
+		}{}
 		downstreams := map[model.ApplicationId]bool{}
 		for _, i := range a.Instances {
 			for _, u := range i.Upstreams {
@@ -59,9 +63,12 @@ func Render(w *model.World, p *db.Project) *View {
 					continue
 				}
 				status := u.Status()
-				if status >= upstreams[u.RemoteInstance.OwnerId] {
-					upstreams[u.RemoteInstance.OwnerId] = status
+				s := upstreams[u.RemoteInstance.OwnerId]
+				if status >= s.status {
+					s.status = status
 				}
+				s.connections = append(s.connections, u)
+				upstreams[u.RemoteInstance.OwnerId] = s
 			}
 			for _, d := range i.Downstreams {
 				if d.Obsolete() || d.Instance == nil || d.Instance.OwnerId == app.Id {
@@ -70,11 +77,23 @@ func Render(w *model.World, p *db.Project) *View {
 				downstreams[d.Instance.OwnerId] = true
 			}
 		}
-		for id, status := range upstreams {
-			app.Upstreams = append(app.Upstreams, Link{Id: id, Status: status})
+
+		for id, s := range upstreams {
+			l := Link{Id: id, Status: s.status}
+			requests := timeseries.Last(model.GetConnectionsRequestsSum(s.connections))
+			latency := timeseries.Last(model.GetConnectionsRequestsLatency(s.connections))
+			if !math.IsNaN(requests) {
+				l.Weight = float32(requests)
+				l.Stats = append(l.Stats, utils.FormatFloat(requests)+" rps")
+			}
+			if !math.IsNaN(latency) {
+				l.Stats = append(l.Stats, utils.FormatLatency(latency))
+			}
+			app.Upstreams = append(app.Upstreams, l)
 			used[a.Id] = true
 			used[id] = true
 		}
+
 		for id := range downstreams {
 			app.Downstreams = append(app.Downstreams, Link{Id: id})
 			used[a.Id] = true
@@ -93,7 +112,7 @@ func Render(w *model.World, p *db.Project) *View {
 
 	table := &model.Table{Header: []string{"Node", "Status", "Availability zone", "IP", "CPU", "Memory", "Network"}}
 	for _, n := range w.Nodes {
-		node := model.NewTableCell(n.Name.Value()).SetLink("node")
+		node := model.NewTableCell(n.Name.Value()).SetLink("node", n.Name.Value())
 		ips := utils.NewStringSet()
 
 		cpuPercent, memoryPercent := model.NewTableCell(), model.NewTableCell("")

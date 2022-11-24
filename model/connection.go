@@ -3,7 +3,10 @@ package model
 import (
 	"github.com/coroot/coroot/timeseries"
 	"math"
+	"strings"
 )
+
+type Protocol string
 
 type Connection struct {
 	ActualRemotePort string
@@ -17,6 +20,10 @@ type Connection struct {
 
 	Connects timeseries.TimeSeries
 	Active   timeseries.TimeSeries
+
+	RequestsCount     map[Protocol]map[string]timeseries.TimeSeries // by status
+	RequestsLatency   map[Protocol]timeseries.TimeSeries
+	RequestsHistogram map[Protocol]map[float64]timeseries.TimeSeries // by le
 
 	ServiceRemoteIP   string
 	ServiceRemotePort string
@@ -48,4 +55,49 @@ func (c *Connection) Status() Status {
 		}
 	}
 	return status
+}
+
+func GetConnectionsRequestsSum(connections []*Connection) timeseries.TimeSeries {
+	var sum timeseries.TimeSeries
+	for _, c := range connections {
+		for _, byStatus := range c.RequestsCount {
+			for _, ts := range byStatus {
+				sum = timeseries.Merge(sum, ts, timeseries.NanSum)
+			}
+		}
+	}
+	return sum
+}
+
+func GetConnectionsErrorsSum(connections []*Connection) timeseries.TimeSeries {
+	var sum timeseries.TimeSeries
+	for _, c := range connections {
+		for _, byStatus := range c.RequestsCount {
+			for status, ts := range byStatus {
+				if !strings.HasPrefix(status, "5") {
+					continue
+				}
+				sum = timeseries.Merge(sum, ts, timeseries.NanSum)
+			}
+		}
+	}
+	return sum
+}
+
+func GetConnectionsRequestsLatency(connections []*Connection) timeseries.TimeSeries {
+	var time, count timeseries.TimeSeries
+	for _, c := range connections {
+		for protocol, latency := range c.RequestsLatency {
+			if len(c.RequestsCount[protocol]) == 0 {
+				continue
+			}
+			var requests timeseries.TimeSeries
+			for _, ts := range c.RequestsCount[protocol] {
+				requests = timeseries.Merge(requests, ts, timeseries.NanSum)
+			}
+			time = timeseries.Merge(time, timeseries.Aggregate(timeseries.Mul, latency, requests), timeseries.NanSum)
+			count = timeseries.Merge(count, requests, timeseries.NanSum)
+		}
+	}
+	return timeseries.Aggregate(timeseries.Div, time, count)
 }

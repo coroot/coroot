@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"github.com/coroot/coroot/timeseries"
 	"sort"
 )
 
@@ -38,16 +39,22 @@ type NetInterface struct {
 	Tx   string
 }
 
+type TableCellLink struct {
+	Type string `json:"type"`
+	Key  string `json:"key"`
+}
+
 type TableCell struct {
-	Icon          *Icon          `json:"icon"`
-	Value         string         `json:"value"`
-	Values        []string       `json:"values"`
-	Tags          []string       `json:"tags"`
-	Unit          string         `json:"unit"`
-	Status        *Status        `json:"status"`
-	Link          string         `json:"link"`
-	Progress      *Progress      `json:"progress"`
-	NetInterfaces []NetInterface `json:"net_interfaces"`
+	Icon          *Icon                 `json:"icon"`
+	Value         string                `json:"value"`
+	Values        []string              `json:"values"`
+	Tags          []string              `json:"tags"`
+	Unit          string                `json:"unit"`
+	Status        *Status               `json:"status"`
+	Link          *TableCellLink        `json:"link"`
+	Progress      *Progress             `json:"progress"`
+	NetInterfaces []NetInterface        `json:"net_interfaces"`
+	Chart         timeseries.TimeSeries `json:"chart"`
 }
 
 func NewTableCell(values ...string) *TableCell {
@@ -88,13 +95,18 @@ func (c *TableCell) AddTag(format string, a ...any) *TableCell {
 	return c
 }
 
-func (c *TableCell) SetLink(link string) *TableCell {
-	c.Link = link
+func (c *TableCell) SetLink(typ, key string) *TableCell {
+	c.Link = &TableCellLink{Type: typ, Key: key}
 	return c
 }
 
 func (c *TableCell) SetProgress(percent int, color string) *TableCell {
 	c.Progress = &Progress{Percent: percent, Color: color}
+	return c
+}
+
+func (c *TableCell) SetChart(ts timeseries.TimeSeries) *TableCell {
+	c.Chart = ts
 	return c
 }
 

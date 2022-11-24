@@ -14,6 +14,7 @@ func (a *appAuditor) slo() {
 	requestsChart(a.app, report)
 	availability(a.w.Ctx, a.app, report)
 	latency(a.w.Ctx, a.app, report)
+	clientRequests(a.app, report)
 }
 
 func availability(ctx timeseries.Context, app *model.Application, report *model.AuditReport) {
@@ -124,6 +125,70 @@ func requestsChart(app *model.Application, report *model.AuditReport) {
 			ch.AddSeries("total", app.AvailabilitySLIs[0].TotalRequests, "grey-lighten1")
 		}
 		ch.AddSeries("errors", app.AvailabilitySLIs[0].FailedRequests, "black")
+	}
+}
+
+type clientRequestsSummary struct {
+	protocols   *utils.StringSet
+	connections []*model.Connection
+	rps         timeseries.TimeSeries
+}
+
+func clientRequests(app *model.Application, report *model.AuditReport) {
+	clients := map[model.ApplicationId]*clientRequestsSummary{}
+	for _, i := range app.Instances {
+		for _, c := range i.Downstreams {
+			if c.Instance.OwnerId == app.Id {
+				continue
+			}
+			s := clients[c.Instance.OwnerId]
+			if s == nil {
+				s = &clientRequestsSummary{protocols: utils.NewStringSet()}
+				clients[c.Instance.OwnerId] = s
+			}
+			s.connections = append(s.connections, c)
+			for protocol := range c.RequestsCount {
+				s.protocols.Add(string(protocol))
+			}
+		}
+	}
+	if len(clients) == 0 {
+		return
+	}
+	t := report.GetOrCreateTable("Client", "", "Requests", "Latency", "Errors")
+	var rpsTotal float64
+	for _, s := range clients {
+		s.rps = model.GetConnectionsRequestsSum(s.connections)
+		if last := timeseries.Last(s.rps); !math.IsNaN(last) {
+			rpsTotal += last
+		}
+	}
+	for id, s := range clients {
+		client := model.NewTableCell(id.Name).SetLink("application", id.String())
+		for _, p := range s.protocols.Items() {
+			client.AddTag(p)
+		}
+
+		chart := model.NewTableCell().SetChart(s.rps)
+
+		requests := model.NewTableCell().SetUnit("/s")
+		if last := timeseries.Last(s.rps); !math.IsNaN(last) {
+			requests.SetValue(utils.FormatFloat(last))
+			requests.AddTag("%.0f%%", last*100/rpsTotal)
+		}
+
+		latency := model.NewTableCell().SetUnit("ms")
+		if last := timeseries.Last(model.GetConnectionsRequestsLatency(s.connections)); !math.IsNaN(last) {
+			latency.SetValue(utils.FormatFloat(last * 1000))
+		}
+
+		errors := model.NewTableCell().SetUnit("/s")
+		if last := timeseries.Last(model.GetConnectionsErrorsSum(s.connections)); !math.IsNaN(last) {
+			errors.SetValue(utils.FormatFloat(last))
+			errors.AddTag("%.0f%%", last*100/timeseries.Last(s.rps))
+		}
+
+		t.AddRow(client, chart, requests, latency, errors)
 	}
 }
 

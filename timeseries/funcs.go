@@ -58,7 +58,7 @@ func Div(t Time, div, v float64) float64 {
 }
 
 func Mul(t Time, mul, v float64) float64 {
-	return mul / v
+	return mul * v
 }
 
 func Sub(t Time, sub, v float64) float64 {

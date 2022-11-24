@@ -15,14 +15,14 @@ func FormatFloat(v float64) string {
 		return ""
 	case v == 0:
 		return "0"
-	case v > 10:
-		return humanize.FtoaWithDigits(v, 0)
 	case v >= 1:
-		return humanize.FtoaWithDigits(v, 1)
+		return fmt.Sprintf("%.0f", v)
 	case v >= 0.1:
-		return humanize.FtoaWithDigits(v, 2)
+		return fmt.Sprintf("%.1f", v)
+	case v >= 0.01:
+		return fmt.Sprintf("%.2f", v)
 	}
-	return humanize.FtoaWithDigits(v, 3)
+	return fmt.Sprintf("%.3f", v)
 }
 
 func FormatDuration(d time.Duration, limitFirstN int) string {
@@ -47,7 +47,7 @@ func HumanBits(v float64) string {
 
 func FormatLatency(v float64) string {
 	if v < 1 {
-		return fmt.Sprintf(`%.fms`, v*1000)
+		return fmt.Sprintf(`%.f ms`, v*1000)
 	}
-	return fmt.Sprintf(`%.fs`, v)
+	return fmt.Sprintf(`%.f s`, v)
 }

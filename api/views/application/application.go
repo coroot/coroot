@@ -5,6 +5,8 @@ import (
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
+	"github.com/coroot/coroot/utils"
+	"math"
 	"sort"
 )
 
@@ -41,6 +43,10 @@ type ApplicationLink struct {
 	Id        model.ApplicationId `json:"id"`
 	Status    model.Status        `json:"status"`
 	Direction string              `json:"direction"`
+	Stats     []string            `json:"stats"`
+	Weight    float32             `json:"weight"`
+
+	connections []*model.Connection
 }
 
 type InstanceLink struct {
@@ -83,14 +89,14 @@ func Render(world *model.World, app *model.Application, incidents []db.Incident)
 			}
 			if connection.RemoteInstance.OwnerId != app.Id {
 				deps[connection.RemoteInstance.OwnerId] = true
-				i.addDependency(connection.RemoteInstance.OwnerId, connection.Status(), "to")
+				i.addDependency(connection.RemoteInstance.OwnerId, connection.Status(), "to", connection)
 			} else if connection.RemoteInstance.Name != instance.Name {
 				i.addInternalLink(connection.RemoteInstance.Name, connection.Status())
 			}
 		}
 		for _, connection := range instance.Downstreams {
 			if connection.Instance.OwnerId != app.Id {
-				i.addClient(connection.Instance.OwnerId, connection.Status(), "to")
+				i.addClient(connection.Instance.OwnerId, connection.Status(), "to", connection)
 			}
 		}
 		appMap.Instances = append(appMap.Instances, i)
@@ -99,7 +105,7 @@ func Render(world *model.World, app *model.Application, incidents []db.Incident)
 		clients := make([]*ApplicationLink, 0, len(i.Clients))
 		for _, c := range i.Clients {
 			if deps[c.Id] {
-				i.addDependency(c.Id, c.Status, "from")
+				i.addDependency(c.Id, c.Status, "from", c.connections...)
 			} else {
 				clients = append(clients, c)
 			}
@@ -110,11 +116,11 @@ func Render(world *model.World, app *model.Application, incidents []db.Incident)
 	for _, i := range appMap.Instances {
 		for _, a := range i.Dependencies {
 			appMap.addDependency(world, a.Id)
+			a.calcStats()
 		}
-	}
-	for _, i := range appMap.Instances {
 		for _, a := range i.Clients {
 			appMap.addClient(world, a.Id)
+			a.calcStats()
 		}
 	}
 	sort.Slice(appMap.Instances, func(i1, i2 int) bool {
@@ -194,4 +200,57 @@ func (m *AppMap) addClient(w *model.World, id model.ApplicationId) {
 		Indicators: model.CalcIndicators(app),
 		Labels:     app.Labels(),
 	})
+}
+
+func (i *Instance) addClient(id model.ApplicationId, status model.Status, direction string, connections ...*model.Connection) {
+	for _, a := range i.Clients {
+		if a.Id == id {
+			if a.Status < status {
+				a.Status = status
+			}
+			a.connections = append(a.connections, connections...)
+			return
+		}
+	}
+	for _, a := range i.Dependencies {
+		if a.Id == id {
+			a.Direction = "both"
+			return
+		}
+	}
+	i.Clients = append(i.Clients, &ApplicationLink{Id: id, Status: status, Direction: direction, connections: connections})
+}
+
+func (i *Instance) addDependency(id model.ApplicationId, status model.Status, direction string, connections ...*model.Connection) {
+	for _, a := range i.Dependencies {
+		if a.Id == id {
+			if a.Status < status {
+				a.Status = status
+			}
+			a.connections = append(a.connections, connections...)
+			return
+		}
+	}
+	i.Dependencies = append(i.Dependencies, &ApplicationLink{Id: id, Status: status, Direction: direction, connections: connections})
+}
+
+func (i *Instance) addInternalLink(id string, status model.Status) {
+	for _, l := range i.InternalLinks {
+		if l.Id == id {
+			return
+		}
+	}
+	i.InternalLinks = append(i.InternalLinks, &InstanceLink{Id: id, Status: status, Direction: "to"})
+}
+
+func (l *ApplicationLink) calcStats() {
+	requests := timeseries.Last(model.GetConnectionsRequestsSum(l.connections))
+	latency := timeseries.Last(model.GetConnectionsRequestsLatency(l.connections))
+	if !math.IsNaN(requests) {
+		l.Weight = float32(requests)
+		l.Stats = append(l.Stats, utils.FormatFloat(requests)+" rps")
+	}
+	if !math.IsNaN(latency) {
+		l.Stats = append(l.Stats, utils.FormatLatency(latency))
+	}
 }

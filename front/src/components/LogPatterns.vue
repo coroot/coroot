@@ -12,7 +12,7 @@
                 <div v-if="!featuredOnly || p.featured" class="pattern" @click.stop="openDetails(p)">
                     <div class="sample preview" v-html="p.sample" />
                     <div class="line">
-                        <v-sparkline :value="p.sum.map((v) => v === null ? 0 : v)" :smooth="true" height="30" :fill="true" :color="color(p.color)" padding="4" />
+                        <v-sparkline :value="p.sum.map((v) => v === null ? 0 : v)" smooth height="30" fill :color="color(p.color)" padding="4" />
                     </div>
                     <div class="percent" v-html="(p.percentage < 1 ? '<span>&lt;</span>1' : p.percentage) + '%'" />
                 </div>

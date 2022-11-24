@@ -129,6 +129,10 @@ func (instance *Instance) GetOrCreateUpstreamConnection(ls Labels, container str
 		ServiceRemoteIP:   serviceIP,
 		ServiceRemotePort: servicePort,
 		Container:         container,
+
+		RequestsCount:     map[Protocol]map[string]timeseries.TimeSeries{},
+		RequestsLatency:   map[Protocol]timeseries.TimeSeries{},
+		RequestsHistogram: map[Protocol]map[float64]timeseries.TimeSeries{},
 	}
 	instance.Upstreams = append(instance.Upstreams, c)
 	return c
