@@ -177,53 +177,71 @@ func Read(path string, from timeseries.Time, pointsCount int, step timeseries.Du
 			}
 			return err
 		}
+
 		offset, _ := valuesReader.Seek(0, io.SeekCurrent)
 		readFloats(values[offset:], data)
 		valuesReader.Seek(8*int64(h.PointsCount), io.SeekCurrent)
+
 		mv, ok := dest[m.Hash]
-		if !ok {
-			mv.LabelsHash = m.Hash
-			if meta == nil {
-				compressed, err := io.ReadAll(reader)
-				if err != nil {
-					return nil
+		if ok {
+			var t, tNext timeseries.Time
+			for i, v := range data {
+				t = h.From.Add(timeseries.Duration(i) * h.Step)
+				if t < from || t > to {
+					continue
 				}
-				if meta, err = decompress(compressed); err != nil {
-					return err
+				if t < tNext {
+					continue
 				}
-				defer pool.Put(meta)
+				tNext = mv.Values.Set(t, v).Add(step)
 			}
-			offset := int(m.MetaOffset)
-			mv.Labels = model.Labels{}
-			err := jsonparser.ObjectEach(meta[offset:offset+int(m.MetaSize)], func(key []byte, value []byte, dataType jsonparser.ValueType, offset int) error {
-				v, err := jsonparser.ParseString(value)
-				if err != nil {
-					return err
-				}
-				mv.Labels[string(key)] = v
-				return nil
-			})
-			if err != nil {
-				return err
-			}
-			mv.Values = timeseries.New(from, pointsCount, step)
-			dest[mv.LabelsHash] = mv
+			continue
 		}
-		res := mv.Values
+
 		var t, tNext timeseries.Time
 		for i, v := range data {
 			t = h.From.Add(timeseries.Duration(i) * h.Step)
-			if t < from {
-				continue
-			}
-			if t > to {
+			if t < from || t > to {
 				continue
 			}
 			if t < tNext {
 				continue
 			}
-			tNext = res.Set(t, v).Add(step)
+			if math.IsNaN(v) {
+				continue
+			}
+			if mv.Values == nil {
+				mv.Values = timeseries.New(from, pointsCount, step)
+			}
+			tNext = mv.Values.Set(t, v).Add(step)
 		}
+		if mv.Values == nil {
+			continue
+		}
+		mv.LabelsHash = m.Hash
+		if meta == nil {
+			compressed, err := io.ReadAll(reader)
+			if err != nil {
+				return nil
+			}
+			if meta, err = decompress(compressed); err != nil {
+				return err
+			}
+			defer pool.Put(meta)
+		}
+		mv.Labels = model.Labels{}
+		err := jsonparser.ObjectEach(meta[int(m.MetaOffset):int(m.MetaOffset)+int(m.MetaSize)], func(key []byte, value []byte, dataType jsonparser.ValueType, offset int) error {
+			v, err := jsonparser.ParseString(value)
+			if err != nil {
+				return err
+			}
+			mv.Labels[string(key)] = v
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+		dest[mv.LabelsHash] = mv
 	}
 	return nil
 }
