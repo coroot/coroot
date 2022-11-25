@@ -28,7 +28,7 @@
                     </span>
                 </div>
 
-                <v-sparkline v-else-if="c.chart" :value="c.chart" fill smooth padding="4" color="blue lighten-2" width="300" height="50" style="min-width: 100px" />
+                <v-sparkline v-else-if="c.chart" :value="c.chart" fill smooth padding="4" color="blue lighten-2" height="40" style="min-width: 100px" />
 
                 <div v-else-if="c.values" v-for="v in c.values">
                     {{v}}

@@ -123,8 +123,8 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues) {
 					protocol := model.Protocol(strings.SplitN(queryName, "_", 3)[1])
 					c.RequestsLatency[protocol] = timeseries.Merge(c.RequestsLatency[protocol], m.Values, timeseries.Any)
 				}
-			case "container_http_requests_histogram", "container_postgres_requests_histogram", "container_redis_requests_histogram",
-				"container_memcached_requests_histogram", "container_mysql_requests_histogram", "container_mongo_requests_histogram":
+			case "container_http_requests_histogram", "container_postgres_queries_histogram", "container_redis_queries_histogram",
+				"container_memcached_queries_histogram", "container_mysql_queries_histogram", "container_mongo_queries_histogram":
 				if c := getOrCreateConnection(instance, mc.container, m, w); c != nil {
 					protocol := model.Protocol(strings.SplitN(queryName, "_", 3)[1])
 					le, err := strconv.ParseFloat(m.Labels["le"], 64)
