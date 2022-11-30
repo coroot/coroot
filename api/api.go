@@ -456,31 +456,11 @@ func (api *Api) Check(w http.ResponseWriter, r *http.Request) {
 		}
 		switch checkId {
 		case model.Checks.SLOAvailability.Id:
-			form := CheckConfigSLOAvailabilityForm{
-				Configs: checkConfigs.GetAvailability(appId),
-			}
-			if len(form.Configs) == 0 {
-				form.Configs = append(form.Configs, model.CheckConfigSLOAvailability{
-					TotalRequestsQuery:  "",
-					FailedRequestsQuery: "",
-					ObjectivePercentage: model.Checks.SLOAvailability.DefaultThreshold,
-				})
-				form.Empty = true
-			}
-			res.Form = form
+			configs, def := checkConfigs.GetAvailability(appId)
+			res.Form = CheckConfigSLOAvailabilityForm{Configs: configs, Default: def}
 		case model.Checks.SLOLatency.Id:
-			form := CheckConfigSLOLatencyForm{
-				Configs: checkConfigs.GetLatency(appId),
-			}
-			if len(form.Configs) == 0 {
-				form.Configs = append(form.Configs, model.CheckConfigSLOLatency{
-					HistogramQuery:      "",
-					ObjectiveBucket:     0.1,
-					ObjectivePercentage: model.Checks.SLOLatency.DefaultThreshold,
-				})
-				form.Empty = true
-			}
-			res.Form = form
+			configs, def := checkConfigs.GetLatency(appId)
+			res.Form = CheckConfigSLOLatencyForm{Configs: configs, Default: def}
 		default:
 			form := CheckConfigForm{
 				Configs: checkConfigs.GetSimpleAll(checkId, appId),

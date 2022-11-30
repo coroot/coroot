@@ -149,3 +149,16 @@ func (app *Application) InstrumentationStatus() map[ApplicationType]bool {
 	}
 	return res
 }
+
+func (app *Application) GetClientsConnections() []*Connection {
+	var res []*Connection
+	for _, i := range app.Instances {
+		for _, c := range i.Downstreams {
+			if c.Instance.OwnerId == app.Id {
+				continue
+			}
+			res = append(res, c)
+		}
+	}
+	return res
+}

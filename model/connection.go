@@ -3,6 +3,7 @@ package model
 import (
 	"github.com/coroot/coroot/timeseries"
 	"math"
+	"sort"
 	"strings"
 )
 
@@ -57,6 +58,10 @@ func (c *Connection) Status() Status {
 	return status
 }
 
+func IsRequestStatusFailed(status string) bool {
+	return status == "failed" || strings.HasPrefix(status, "5")
+}
+
 func GetConnectionsRequestsSum(connections []*Connection) timeseries.TimeSeries {
 	var sum timeseries.TimeSeries
 	for _, c := range connections {
@@ -74,7 +79,7 @@ func GetConnectionsErrorsSum(connections []*Connection) timeseries.TimeSeries {
 	for _, c := range connections {
 		for _, byStatus := range c.RequestsCount {
 			for status, ts := range byStatus {
-				if !strings.HasPrefix(status, "5") {
+				if !IsRequestStatusFailed(status) {
 					continue
 				}
 				sum = timeseries.Merge(sum, ts, timeseries.NanSum)
@@ -100,4 +105,23 @@ func GetConnectionsRequestsLatency(connections []*Connection) timeseries.TimeSer
 		}
 	}
 	return timeseries.Aggregate(timeseries.Div, time, count)
+}
+
+func GetConnectionsRequestsHistogram(connections []*Connection) []HistogramBucket {
+	sum := map[float64]timeseries.TimeSeries{}
+	for _, c := range connections {
+		for _, histogram := range c.RequestsHistogram {
+			for le, ts := range histogram {
+				sum[le] = timeseries.Merge(sum[le], ts, timeseries.NanSum)
+			}
+		}
+	}
+	buckets := make([]HistogramBucket, 0, len(sum))
+	for le, ts := range sum {
+		buckets = append(buckets, HistogramBucket{Le: le, TimeSeries: ts})
+	}
+	sort.Slice(buckets, func(i, j int) bool {
+		return buckets[i].Le < buckets[j].Le
+	})
+	return buckets
 }

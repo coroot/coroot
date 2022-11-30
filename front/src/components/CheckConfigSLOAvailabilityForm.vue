@@ -1,10 +1,15 @@
 <template>
     <div>
-        Total requests query:
-        <MetricSelector v-model="config.total_requests_query" :rules="[$validators.notEmpty]" wrap="sum( rate( <input> [..]) )" class="mb-3"/>
+        Metrics:
+        <v-select v-model="config.custom" :items="[{value: false, text: 'inbound requests (built-in)'}, {value: true, text: 'custom'}]" outlined dense :menu-props="{offsetY: true}"/>
 
-        Failed requests query:
-        <MetricSelector v-model="config.failed_requests_query" :rules="[$validators.notEmpty]" wrap="sum( rate( <input> [..]) )" class="mb-3"/>
+        <template v-if="config.custom">
+            Total requests query:
+            <MetricSelector v-model="config.total_requests_query" :rules="config.custom ? [$validators.notEmpty] : []" wrap="sum( rate( <input> [..]) )" class="mb-3"/>
+
+            Failed requests query:
+            <MetricSelector v-model="config.failed_requests_query" :rules="config.custom ? [$validators.notEmpty] : []" wrap="sum( rate( <input> [..]) )" class="mb-3"/>
+        </template>
 
         Objective:
         <div>

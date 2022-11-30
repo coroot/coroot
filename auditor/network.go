@@ -3,7 +3,6 @@ package auditor
 import (
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
-	"math"
 )
 
 type netSummary struct {
@@ -16,17 +15,10 @@ type netSummary struct {
 
 func newNetSummary() *netSummary {
 	return &netSummary{
-		rttMin: timeseries.Aggregate(timeseries.Min),
-		rttMax: timeseries.Aggregate(timeseries.Max),
-		rttSum: timeseries.Aggregate(timeseries.NanSum),
-		rttCount: timeseries.Aggregate(
-			func(t timeseries.Time, sum, v float64) float64 {
-				if math.IsNaN(sum) {
-					sum = 0
-				}
-				return sum + timeseries.Defined(0, v)
-			},
-		),
+		rttMin:   timeseries.Aggregate(timeseries.Min),
+		rttMax:   timeseries.Aggregate(timeseries.Max),
+		rttSum:   timeseries.Aggregate(timeseries.NanSum),
+		rttCount: timeseries.Aggregate(timeseries.NanSum),
 	}
 }
 
@@ -34,7 +26,7 @@ func (s *netSummary) addRtt(rtt timeseries.TimeSeries) {
 	s.rttMax.AddInput(rtt)
 	s.rttMin.AddInput(rtt)
 	s.rttSum.AddInput(rtt)
-	s.rttCount.AddInput(rtt)
+	s.rttCount.AddInput(timeseries.Map(timeseries.Defined, rtt))
 }
 
 func (a *appAuditor) network() {

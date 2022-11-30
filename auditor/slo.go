@@ -24,38 +24,40 @@ func availability(ctx timeseries.Context, app *model.Application, report *model.
 		return
 	}
 	sli := app.AvailabilitySLIs[0]
-	if timeseries.IsEmpty(sli.TotalRequests) {
-		check.SetStatus(model.WARNING, "no data")
+
+	if !timeseries.IsEmpty(sli.TotalRequests) {
+		failed := sli.FailedRequests
+		if timeseries.IsEmpty(failed) {
+			failed = timeseries.Replace(sli.TotalRequests, 0)
+		}
+		successfulPercentage := timeseries.Aggregate(
+			func(t timeseries.Time, total, failed float64) float64 {
+				return (total - failed) / total * 100
+			},
+			sli.TotalRequests, timeseries.Map(timeseries.NanToZero, failed),
+		)
+		chart := report.
+			GetOrCreateChart("Availability").
+			AddSeries("successful requests", successfulPercentage)
+		chart.Threshold = &model.Series{
+			Name:  "target",
+			Color: "red",
+			Fill:  true,
+			Data:  timeseries.Replace(sli.TotalRequests, sli.Config.ObjectivePercentage),
+		}
+	}
+
+	if timeseries.IsEmpty(sli.TotalRequestsRaw) {
+		check.SetStatus(model.UNKNOWN, "no data")
 		return
 	}
-
-	failed := sli.FailedRequests
-	if timeseries.IsEmpty(failed) {
-		failed = timeseries.Replace(sli.TotalRequests, 0)
-	}
-	successfulPercentage := timeseries.Aggregate(
-		func(t timeseries.Time, total, failed float64) float64 {
-			return (total - failed) / total * 100
-		},
-		sli.TotalRequests, timeseries.Map(timeseries.NanToZero, failed),
-	)
-	chart := report.
-		GetOrCreateChart("Availability").
-		AddSeries("successful requests", successfulPercentage)
-	chart.Threshold = &model.Series{
-		Name:  "target",
-		Color: "red",
-		Fill:  true,
-		Data:  timeseries.Replace(sli.TotalRequests, sli.Config.ObjectivePercentage),
-	}
-
 	if dataIsMissing(sli.TotalRequestsRaw) {
 		check.SetStatus(model.WARNING, "no data")
 		return
 	}
 
 	failedRaw := sli.FailedRequestsRaw
-	if timeseries.IsEmpty(failed) {
+	if timeseries.IsEmpty(failedRaw) {
 		failedRaw = timeseries.Replace(sli.TotalRequestsRaw, 0)
 	} else {
 		failedRaw = timeseries.Map(timeseries.NanToZero, failedRaw)
@@ -72,28 +74,31 @@ func latency(ctx timeseries.Context, app *model.Application, report *model.Audit
 		return
 	}
 	sli := app.LatencySLIs[0]
+
 	total, fast := sli.GetTotalAndFast(false)
-	if timeseries.IsEmpty(total) || timeseries.IsEmpty(fast) {
-		check.SetStatus(model.WARNING, "no data")
-		return
-	}
-	fastPercentage := timeseries.Aggregate(
-		func(t timeseries.Time, total, fast float64) float64 {
-			return fast / total * 100
-		},
-		total, fast,
-	)
-	chart := report.
-		GetOrCreateChart("Latency").
-		AddSeries("requests served faster than "+utils.FormatLatency(sli.Config.ObjectiveBucket), fastPercentage)
-	chart.Threshold = &model.Series{
-		Name:  "target",
-		Color: "red",
-		Fill:  true,
-		Data:  timeseries.Replace(total, sli.Config.ObjectivePercentage),
+	if !timeseries.IsEmpty(total) {
+		fastPercentage := timeseries.Aggregate(
+			func(t timeseries.Time, total, fast float64) float64 {
+				return fast / total * 100
+			},
+			total, fast,
+		)
+		chart := report.
+			GetOrCreateChart("Latency").
+			AddSeries("requests served faster than "+utils.FormatLatency(sli.Config.ObjectiveBucket), fastPercentage)
+		chart.Threshold = &model.Series{
+			Name:  "target",
+			Color: "red",
+			Fill:  true,
+			Data:  timeseries.Replace(total, sli.Config.ObjectivePercentage),
+		}
 	}
 
 	totalRaw, fastRaw := sli.GetTotalAndFast(true)
+	if timeseries.IsEmpty(totalRaw) {
+		check.SetStatus(model.UNKNOWN, "no data")
+		return
+	}
 	if dataIsMissing(totalRaw) {
 		check.SetStatus(model.WARNING, "no data")
 		return
@@ -136,20 +141,15 @@ type clientRequestsSummary struct {
 
 func clientRequests(app *model.Application, report *model.AuditReport) {
 	clients := map[model.ApplicationId]*clientRequestsSummary{}
-	for _, i := range app.Instances {
-		for _, c := range i.Downstreams {
-			if c.Instance.OwnerId == app.Id {
-				continue
-			}
-			s := clients[c.Instance.OwnerId]
-			if s == nil {
-				s = &clientRequestsSummary{protocols: utils.NewStringSet()}
-				clients[c.Instance.OwnerId] = s
-			}
-			s.connections = append(s.connections, c)
-			for protocol := range c.RequestsCount {
-				s.protocols.Add(string(protocol))
-			}
+	for _, c := range app.GetClientsConnections() {
+		s := clients[c.Instance.OwnerId]
+		if s == nil {
+			s = &clientRequestsSummary{protocols: utils.NewStringSet()}
+			clients[c.Instance.OwnerId] = s
+		}
+		s.connections = append(s.connections, c)
+		for protocol := range c.RequestsCount {
+			s.protocols.Add(string(protocol))
 		}
 	}
 	if len(clients) == 0 {
@@ -172,18 +172,18 @@ func clientRequests(app *model.Application, report *model.AuditReport) {
 		chart := model.NewTableCell().SetChart(s.rps)
 
 		requests := model.NewTableCell().SetUnit("/s")
-		if last := timeseries.Last(s.rps); !math.IsNaN(last) {
+		if last := timeseries.Last(s.rps); last > 0 {
 			requests.SetValue(utils.FormatFloat(last))
 			requests.AddTag("%.0f%%", last*100/rpsTotal)
 		}
 
 		latency := model.NewTableCell().SetUnit("ms")
-		if last := timeseries.Last(model.GetConnectionsRequestsLatency(s.connections)); !math.IsNaN(last) {
+		if last := timeseries.Last(model.GetConnectionsRequestsLatency(s.connections)); last > 0 {
 			latency.SetValue(utils.FormatFloat(last * 1000))
 		}
 
 		errors := model.NewTableCell().SetUnit("/s")
-		if last := timeseries.Last(model.GetConnectionsErrorsSum(s.connections)); !math.IsNaN(last) {
+		if last := timeseries.Last(model.GetConnectionsErrorsSum(s.connections)); last > 0 {
 			errors.SetValue(utils.FormatFloat(last))
 			errors.AddTag("%.0f%%", last*100/timeseries.Last(s.rps))
 		}

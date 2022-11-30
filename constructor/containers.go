@@ -108,7 +108,8 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues) {
 					instance.TcpListens[l] = isActive
 				}
 			case "container_http_requests_count", "container_postgres_queries_count", "container_redis_queries_count",
-				"container_memcached_queries_count", "container_mysql_queries_count", "container_mongo_queries_count":
+				"container_memcached_queries_count", "container_mysql_queries_count", "container_mongo_queries_count",
+				"container_kafka_requests_count", "container_cassandra_queries_count":
 				if c := getOrCreateConnection(instance, mc.container, m, w); c != nil {
 					protocol := model.Protocol(strings.SplitN(queryName, "_", 3)[1])
 					status := m.Labels["status"]
@@ -118,13 +119,15 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues) {
 					c.RequestsCount[protocol][status] = timeseries.Merge(c.RequestsCount[protocol][status], m.Values, timeseries.NanSum)
 				}
 			case "container_http_requests_latency", "container_postgres_queries_latency", "container_redis_queries_latency",
-				"container_memcached_queries_latency", "container_mysql_queries_latency", "container_mongo_queries_latency":
+				"container_memcached_queries_latency", "container_mysql_queries_latency", "container_mongo_queries_latency",
+				"container_kafka_requests_latency", "container_cassandra_queries_latency":
 				if c := getOrCreateConnection(instance, mc.container, m, w); c != nil {
 					protocol := model.Protocol(strings.SplitN(queryName, "_", 3)[1])
 					c.RequestsLatency[protocol] = timeseries.Merge(c.RequestsLatency[protocol], m.Values, timeseries.Any)
 				}
 			case "container_http_requests_histogram", "container_postgres_queries_histogram", "container_redis_queries_histogram",
-				"container_memcached_queries_histogram", "container_mysql_queries_histogram", "container_mongo_queries_histogram":
+				"container_memcached_queries_histogram", "container_mysql_queries_histogram", "container_mongo_queries_histogram",
+				"container_kafka_requests_histogram", "container_cassandra_queries_histogram":
 				if c := getOrCreateConnection(instance, mc.container, m, w); c != nil {
 					protocol := model.Protocol(strings.SplitN(queryName, "_", 3)[1])
 					le, err := strconv.ParseFloat(m.Labels["le"], 64)

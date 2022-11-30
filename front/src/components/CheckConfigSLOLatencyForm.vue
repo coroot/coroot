@@ -1,7 +1,12 @@
 <template>
     <div>
-        Histogram query:
-        <MetricSelector v-model="config.histogram_query" :rules="[$validators.notEmpty]" wrap="sum by(le)( rate( <input> [..]) )" class="mb-3"/>
+        Metrics:
+        <v-select v-model="config.custom" :items="[{value: false, text: 'inbound requests (built-in)'}, {value: true, text: 'custom'}]" outlined dense :menu-props="{offsetY: true}"/>
+
+        <template v-if="config.custom">
+            Histogram query:
+            <MetricSelector v-model="config.histogram_query" :rules="[$validators.notEmpty]" wrap="sum by(le)( rate( <input> [..]) )" class="mb-3"/>
+        </template>
 
         Objective:
         <div>

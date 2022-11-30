@@ -5,7 +5,7 @@
         </v-alert>
         <div v-if="status">
             <div class="text-truncate">
-                <Led :status="status.prometheus.status" />
+                <Led :status="status.prometheus.status === 'warning' ? 'warning' : 'ok'" />
                 <span class="font-weight-medium">prometheus</span>:
                 <span v-if="status.prometheus.error">
                     {{status.prometheus.error}}

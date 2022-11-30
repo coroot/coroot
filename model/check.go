@@ -315,6 +315,7 @@ type CheckConfigSimple struct {
 }
 
 type CheckConfigSLOAvailability struct {
+	Custom              bool    `json:"custom"`
 	TotalRequestsQuery  string  `json:"total_requests_query"`
 	FailedRequestsQuery string  `json:"failed_requests_query"`
 	ObjectivePercentage float64 `json:"objective_percentage"`
@@ -329,6 +330,7 @@ func (cfg *CheckConfigSLOAvailability) Failed() string {
 }
 
 type CheckConfigSLOLatency struct {
+	Custom              bool    `json:"custom"`
 	HistogramQuery      string  `json:"histogram_query"`
 	ObjectiveBucket     float64 `json:"objective_bucket"`
 	ObjectivePercentage float64 `json:"objective_percentage"`
@@ -419,38 +421,53 @@ func (cc CheckConfigs) GetByCheck(id CheckId) map[ApplicationId][]any {
 	return res
 }
 
-func (cc CheckConfigs) GetAvailability(appId ApplicationId) []CheckConfigSLOAvailability {
+func (cc CheckConfigs) GetAvailability(appId ApplicationId) ([]CheckConfigSLOAvailability, bool) {
+	defaultCfg := []CheckConfigSLOAvailability{{
+		Custom:              false,
+		ObjectivePercentage: Checks.SLOAvailability.DefaultThreshold,
+	}}
 	appConfigs := cc[appId]
 	if appConfigs == nil {
-		return nil
+		return defaultCfg, true
 	}
 	raw, ok := appConfigs[Checks.SLOAvailability.Id]
 	if !ok {
-		return nil
+		return defaultCfg, true
 	}
 	res, err := unmarshal[[]CheckConfigSLOAvailability](raw)
 	if err != nil {
 		klog.Warningln("failed to unmarshal check config:", err)
-		return nil
+		return defaultCfg, true
 	}
-	return res
+	if len(res) == 0 {
+		return defaultCfg, true
+	}
+	return res, false
 }
 
-func (cc CheckConfigs) GetLatency(appId ApplicationId) []CheckConfigSLOLatency {
+func (cc CheckConfigs) GetLatency(appId ApplicationId) ([]CheckConfigSLOLatency, bool) {
+	defaultCfg := []CheckConfigSLOLatency{{
+		Custom:              false,
+		ObjectivePercentage: Checks.SLOLatency.DefaultThreshold,
+		ObjectiveBucket:     0.5,
+	}}
 	appConfigs := cc[appId]
 	if appConfigs == nil {
-		return nil
+		return defaultCfg, true
 	}
 	raw, ok := appConfigs[Checks.SLOLatency.Id]
 	if !ok {
-		return nil
+		return defaultCfg, true
 	}
 	res, err := unmarshal[[]CheckConfigSLOLatency](raw)
 	if err != nil {
 		klog.Warningln("failed to unmarshal check config:", err)
-		return nil
+		return defaultCfg, true
 	}
-	return res
+	if len(res) == 0 {
+		return defaultCfg, true
+	}
+	return res, false
 }
 
 func unmarshal[T any](raw json.RawMessage) (T, error) {

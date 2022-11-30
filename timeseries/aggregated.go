@@ -19,15 +19,17 @@ func (i *aggregatingIterator) Next() bool {
 }
 
 func (i *aggregatingIterator) Value() (Time, float64) {
-	acc := NaN
-	if len(i.input) == 2 {
-		t, v1 := i.input[0].Value()
-		_, v2 := i.input[1].Value()
-		return t, i.aggFunc(t, v1, v2)
+	switch len(i.input) {
+	case 0:
+		return 0, NaN
+	case 1:
+		t, v := i.input[0].Value()
+		return t, i.aggFunc(t, NaN, v)
 	}
+	_, acc := i.input[0].Value()
 	var v float64
 	var t Time
-	for _, iter := range i.input {
+	for _, iter := range i.input[1:] {
 		t, v = iter.Value()
 		acc = i.aggFunc(t, acc, v)
 	}

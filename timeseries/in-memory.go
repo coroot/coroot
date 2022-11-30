@@ -77,6 +77,27 @@ func New(from Time, pointsCount int, step Duration) *InMemoryTimeSeries {
 	return NewWithData(from, step, data)
 }
 
+func NewCopy(ts TimeSeries) *InMemoryTimeSeries {
+	if ts == nil {
+		return nil
+	}
+	iter := ts.iter()
+	var data []float64
+	var from Time
+	var step Duration
+	for iter.Next() {
+		t, v := iter.Value()
+		if from.IsZero() {
+			from = t
+		} else if step == 0 {
+			step = t.Sub(from)
+		}
+
+		data = append(data, v)
+	}
+	return NewWithData(from, step, data)
+}
+
 func NewWithData(from Time, step Duration, data []float64) *InMemoryTimeSeries {
 	return &InMemoryTimeSeries{
 		from: from,

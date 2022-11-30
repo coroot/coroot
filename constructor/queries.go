@@ -1,5 +1,12 @@
 package constructor
 
+import (
+	"fmt"
+	"github.com/coroot/coroot/model"
+	"github.com/coroot/coroot/timeseries"
+	promModel "github.com/prometheus/common/model"
+)
+
 var QUERIES = map[string]string{
 	"up": `up`,
 
@@ -68,6 +75,12 @@ var QUERIES = map[string]string{
 	"container_mongo_queries_count":         `rate(container_mongo_queries_total[$RANGE])`,
 	"container_mongo_queries_latency":       `rate(container_mongo_queries_duration_seconds_total_sum [$RANGE]) / rate(container_mongo_queries_duration_seconds_total_count [$RANGE])`,
 	"container_mongo_queries_histogram":     `rate(container_mongo_queries_duration_seconds_total_bucket[$RANGE])`,
+	"container_kafka_requests_count":        `rate(container_kafka_requests_total[$RANGE])`,
+	"container_kafka_requests_latency":      `rate(container_kafka_requests_duration_seconds_total_sum [$RANGE]) / rate(container_kafka_requests_duration_seconds_total_count [$RANGE])`,
+	"container_kafka_requests_histogram":    `rate(container_kafka_requests_duration_seconds_total_bucket[$RANGE])`,
+	"container_cassandra_queries_count":     `rate(container_cassandra_queries_total[$RANGE])`,
+	"container_cassandra_queries_latency":   `rate(container_cassandra_queries_duration_seconds_total_sum [$RANGE]) / rate(container_cassandra_queries_duration_seconds_total_count [$RANGE])`,
+	"container_cassandra_queries_histogram": `rate(container_cassandra_queries_duration_seconds_total_bucket[$RANGE])`,
 
 	"kube_pod_init_container_info":                     `kube_pod_init_container_info`,
 	"kube_pod_container_status_ready":                  `kube_pod_container_status_ready > 0`,
@@ -116,4 +129,57 @@ var QUERIES = map[string]string{
 	"redis_instance_info":                   `redis_instance_info`,
 	"redis_commands_duration_seconds_total": `rate(redis_commands_duration_seconds_total[$RANGE])`,
 	"redis_commands_total":                  `rate(redis_commands_total[$RANGE])`,
+}
+
+var RecordingRules = map[string]func(w *model.World) []model.MetricValues{
+	"rr_application_inbound_requests_total": func(w *model.World) []model.MetricValues {
+		var res []model.MetricValues
+		for _, app := range w.Applications {
+			connections := app.GetClientsConnections()
+			if len(connections) == 0 {
+				continue
+			}
+			sum := map[string]timeseries.TimeSeries{}
+			for _, c := range connections {
+				for _, byStatus := range c.RequestsCount {
+					for status, ts := range byStatus {
+						sum[status] = timeseries.Merge(sum[status], ts, timeseries.NanSum)
+					}
+				}
+			}
+			appId := app.Id.String()
+			for status, ts := range sum {
+				if !timeseries.IsEmpty(ts) {
+					ls := model.Labels{"application": appId, "status": status}
+					res = append(res, model.MetricValues{Labels: ls, LabelsHash: promModel.LabelsToSignature(ls), Values: timeseries.NewCopy(ts)})
+				}
+			}
+		}
+		return res
+	},
+	"rr_application_inbound_requests_histogram": func(w *model.World) []model.MetricValues {
+		var res []model.MetricValues
+		for _, app := range w.Applications {
+			connections := app.GetClientsConnections()
+			if len(connections) == 0 {
+				continue
+			}
+			sum := map[float64]timeseries.TimeSeries{}
+			for _, c := range connections {
+				for _, byLe := range c.RequestsHistogram {
+					for le, ts := range byLe {
+						sum[le] = timeseries.Merge(sum[le], ts, timeseries.NanSum)
+					}
+				}
+			}
+			appId := app.Id.String()
+			for le, ts := range sum {
+				if !timeseries.IsEmpty(ts) {
+					ls := model.Labels{"application": appId, "le": fmt.Sprintf("%f", le)}
+					res = append(res, model.MetricValues{Labels: ls, LabelsHash: promModel.LabelsToSignature(ls), Values: timeseries.NewCopy(ts)})
+				}
+			}
+		}
+		return res
+	},
 }
