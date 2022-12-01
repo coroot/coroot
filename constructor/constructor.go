@@ -94,29 +94,33 @@ func prometheusJobStatus(metrics map[string][]model.MetricValues, job, instance 
 
 func joinDBClusterComponents(w *model.World) {
 	clusters := map[model.ApplicationId]*model.Application{}
-	toDelete := map[model.ApplicationId]bool{}
+	toDelete := map[model.ApplicationId]*model.Application{}
 	for _, app := range w.Applications {
 		for _, instance := range app.Instances {
 			if instance.ClusterName.Value() == "" {
 				continue
 			}
 			id := model.NewApplicationId(app.Id.Namespace, model.ApplicationKindDatabaseCluster, instance.ClusterName.Value())
-			a := clusters[id]
-			if a == nil {
-				a = model.NewApplication(id)
-				clusters[id] = a
-				w.Applications = append(w.Applications, a)
+			cluster := clusters[id]
+			if cluster == nil {
+				cluster = model.NewApplication(id)
+				clusters[id] = cluster
+				w.Applications = append(w.Applications, cluster)
 			}
-			a.Instances = append(a.Instances, instance)
-			instance.OwnerId = id
-			toDelete[app.Id] = true
+			toDelete[app.Id] = cluster
 		}
 	}
 	if len(toDelete) > 0 {
 		var apps []*model.Application
 		for _, app := range w.Applications {
-			if !toDelete[app.Id] {
+			if cluster := toDelete[app.Id]; cluster == nil {
 				apps = append(apps, app)
+			} else {
+				for _, instance := range app.Instances {
+					instance.OwnerId = cluster.Id
+				}
+				cluster.Instances = append(cluster.Instances, app.Instances...)
+				cluster.Downstreams = append(cluster.Downstreams, app.Downstreams...)
 			}
 		}
 		w.Applications = apps

@@ -94,8 +94,8 @@ func Render(world *model.World, app *model.Application, incidents []db.Incident)
 				i.addInternalLink(connection.RemoteInstance.Name, connection.Status())
 			}
 		}
-		for _, connection := range instance.Downstreams {
-			if connection.Instance.OwnerId != app.Id {
+		for _, connection := range app.Downstreams {
+			if connection.Instance.OwnerId != app.Id && connection.RemoteInstance != nil && connection.RemoteInstance.Name == instance.Name {
 				i.addClient(connection.Instance.OwnerId, connection.Status(), "to", connection)
 			}
 		}

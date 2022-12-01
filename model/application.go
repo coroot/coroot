@@ -11,7 +11,8 @@ import (
 type Application struct {
 	Id ApplicationId
 
-	Instances []*Instance
+	Instances   []*Instance
+	Downstreams []*Connection
 
 	DesiredInstances timeseries.TimeSeries
 
@@ -112,14 +113,14 @@ func (app *Application) IsPostgres() bool {
 }
 
 func (app *Application) IsStandalone() bool {
+	for _, d := range app.Downstreams {
+		if d.Instance.OwnerId != app.Id && !d.Obsolete() {
+			return false
+		}
+	}
 	for _, i := range app.Instances {
 		for _, u := range i.Upstreams {
 			if u.RemoteInstance != nil && u.RemoteInstance.OwnerId != app.Id && !u.Obsolete() {
-				return false
-			}
-		}
-		for _, d := range i.Downstreams {
-			if d.Instance != nil && d.Instance.OwnerId != app.Id && !d.Obsolete() {
 				return false
 			}
 		}
@@ -152,13 +153,11 @@ func (app *Application) InstrumentationStatus() map[ApplicationType]bool {
 
 func (app *Application) GetClientsConnections() []*Connection {
 	var res []*Connection
-	for _, i := range app.Instances {
-		for _, c := range i.Downstreams {
-			if c.Instance.OwnerId == app.Id {
-				continue
-			}
-			res = append(res, c)
+	for _, d := range app.Downstreams {
+		if d.Instance.OwnerId == app.Id {
+			continue
 		}
+		res = append(res, d)
 	}
 	return res
 }

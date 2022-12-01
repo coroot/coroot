@@ -56,12 +56,11 @@ func CalcApplicationCategory(app *Application, customPatterns map[ApplicationCat
 		if i.ApplicationTypes()["k3s"] {
 			return ApplicationCategoryControlPlane
 		}
-		if !i.ApplicationTypes()["etcd"] {
-			continue
-		}
-		for _, d := range i.Downstreams {
-			if d.Instance != nil || d.Instance.ApplicationTypes()["kube-apiserver"] {
-				return ApplicationCategoryControlPlane
+		if i.ApplicationTypes()["etcd"] {
+			for _, d := range app.Downstreams {
+				if d.Instance.ApplicationTypes()["kube-apiserver"] {
+					return ApplicationCategoryControlPlane
+				}
 			}
 		}
 	}

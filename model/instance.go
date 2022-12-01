@@ -41,8 +41,7 @@ type Instance struct {
 
 	Volumes []*Volume
 
-	Upstreams   []*Connection
-	Downstreams []*Connection
+	Upstreams []*Connection
 
 	TcpListens map[Listen]bool
 

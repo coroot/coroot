@@ -73,12 +73,12 @@ func Render(w *model.World, p *db.Project) *View {
 				s.connections = append(s.connections, u)
 				upstreams[u.RemoteInstance.OwnerId] = s
 			}
-			for _, d := range i.Downstreams {
-				if d.Obsolete() || d.Instance == nil || d.Instance.OwnerId == app.Id {
-					continue
-				}
-				downstreams[d.Instance.OwnerId] = true
+		}
+		for _, d := range a.Downstreams {
+			if d.Obsolete() || d.Instance.OwnerId == app.Id {
+				continue
 			}
+			downstreams[d.Instance.OwnerId] = true
 		}
 
 		for id, s := range upstreams {

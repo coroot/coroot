@@ -208,23 +208,26 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues) {
 	for _, app := range w.Applications { // creating ApplicationKindExternalService for unknown remote instances
 		for _, instance := range app.Instances {
 			for _, u := range instance.Upstreams {
-				if u.RemoteInstance == nil {
-					appId := model.NewApplicationId("", model.ApplicationKindExternalService, "")
-					svc := w.GetServiceForConnection(u)
-					if svc != nil {
-						id, ok := svc.GetDestinationApplicationId()
-						if ok {
-							appId = id
-						} else {
-							appId.Name = svc.Name
-						}
-					} else {
-						appId.Name = u.ActualRemoteIP + ":" + u.ActualRemotePort
-					}
-					ri := w.GetOrCreateApplication(appId).GetOrCreateInstance(appId.Name)
-					ri.TcpListens[model.Listen{IP: u.ActualRemoteIP, Port: u.ActualRemotePort}] = true
-					u.RemoteInstance = ri
+				if u.RemoteInstance != nil {
+					continue
 				}
+				appId := model.NewApplicationId("", model.ApplicationKindExternalService, "")
+				svc := w.GetServiceForConnection(u)
+				if svc != nil {
+					if id, ok := svc.GetDestinationApplicationId(); ok {
+						if a := w.GetApplication(id); a != nil {
+							a.Downstreams = append(a.Downstreams, u)
+						}
+						continue
+					} else {
+						appId.Name = svc.Name
+					}
+				} else {
+					appId.Name = u.ActualRemoteIP + ":" + u.ActualRemotePort
+				}
+				ri := w.GetOrCreateApplication(appId).GetOrCreateInstance(appId.Name)
+				ri.TcpListens[model.Listen{IP: u.ActualRemoteIP, Port: u.ActualRemotePort}] = true
+				u.RemoteInstance = ri
 			}
 		}
 	}
@@ -234,7 +237,9 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues) {
 				if u.RemoteInstance == nil {
 					continue
 				}
-				u.RemoteInstance.Downstreams = append(u.RemoteInstance.Downstreams, u)
+				if a := w.GetApplication(u.RemoteInstance.OwnerId); a != nil {
+					a.Downstreams = append(a.Downstreams, u)
+				}
 			}
 		}
 	}

@@ -44,7 +44,7 @@ func (c *Connection) Obsolete() bool {
 	if c.Container != "" && c.Instance.Pod != nil && c.Instance.Pod.InitContainers[c.Container] != nil {
 		return false
 	}
-	return c.RemoteInstance.Pod != nil && c.RemoteInstance.Pod.IsObsolete()
+	return c.RemoteInstance != nil && c.RemoteInstance.Pod != nil && c.RemoteInstance.Pod.IsObsolete()
 }
 
 func (c *Connection) Status() Status {
