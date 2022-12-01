@@ -58,6 +58,9 @@ func Render(w *model.World, p *db.Project) *View {
 		}{}
 		downstreams := map[model.ApplicationId]bool{}
 		for _, i := range a.Instances {
+			if i.Pod != nil && i.Pod.IsObsolete() {
+				continue
+			}
 			for _, u := range i.Upstreams {
 				if u.Obsolete() || u.RemoteInstance == nil || u.RemoteInstance.OwnerId == app.Id {
 					continue
