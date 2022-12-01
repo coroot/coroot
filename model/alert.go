@@ -1,6 +1,9 @@
 package model
 
-import "github.com/coroot/coroot/timeseries"
+import (
+	"github.com/coroot/coroot/timeseries"
+	"math"
+)
 
 type AlertRule struct {
 	LongWindow        timeseries.Duration
@@ -57,6 +60,9 @@ func CheckBurnRates(now timeseries.Time, bad, total timeseries.TimeSeries, objec
 	for _, r := range AlertRules {
 		from := now.Add(-r.LongWindow)
 		br := sumFrom(bad, from) / sumFrom(total, from) / objective
+		if math.IsNaN(br) {
+			br = 0
+		}
 		if first.Window == 0 {
 			first.Window = r.LongWindow
 			first.Value = br
@@ -66,6 +72,9 @@ func CheckBurnRates(now timeseries.Time, bad, total timeseries.TimeSeries, objec
 		}
 		from = now.Add(-r.ShortWindow)
 		br = sumFrom(bad, from) / sumFrom(total, from) / objective
+		if math.IsNaN(br) {
+			br = 0
+		}
 		if br < r.BurnRateThreshold {
 			continue
 		}
