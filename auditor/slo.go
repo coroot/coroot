@@ -179,7 +179,7 @@ func clientRequests(app *model.Application, report *model.AuditReport) {
 
 		latency := model.NewTableCell().SetUnit("ms")
 		if last := timeseries.Last(model.GetConnectionsRequestsLatency(s.connections)); last > 0 {
-			latency.SetValue(utils.FormatFloat(last * 1000))
+			latency.SetValue(utils.FormatLatency(last))
 		}
 
 		errors := model.NewTableCell().SetUnit("/s")

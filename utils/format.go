@@ -47,7 +47,7 @@ func HumanBits(v float64) string {
 
 func FormatLatency(v float64) string {
 	if v < 1 {
-		return fmt.Sprintf(`%.f ms`, v*1000)
+		return FormatFloat(v*1000) + " ms"
 	}
-	return fmt.Sprintf(`%.f s`, v)
+	return FormatFloat(v) + " s"
 }
