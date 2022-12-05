@@ -27,6 +27,7 @@ func Audit(w *model.World) {
 		a.network()
 		a.postgres()
 		a.redis()
+		a.jvm()
 		a.logs()
 
 		events := calcAppEvents(app)

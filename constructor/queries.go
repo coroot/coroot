@@ -129,6 +129,13 @@ var QUERIES = map[string]string{
 	"redis_instance_info":                   `redis_instance_info`,
 	"redis_commands_duration_seconds_total": `rate(redis_commands_duration_seconds_total[$RANGE])`,
 	"redis_commands_total":                  `rate(redis_commands_total[$RANGE])`,
+
+	"container_jvm_info":                        `container_jvm_info`,
+	"container_jvm_heap_size_bytes":             `container_jvm_heap_size_bytes`,
+	"container_jvm_heap_used_bytes":             `container_jvm_heap_used_bytes`,
+	"container_jvm_gc_time_seconds":             `rate(container_jvm_gc_time_seconds[$RANGE])`,
+	"container_jvm_safepoint_sync_time_seconds": `rate(container_jvm_safepoint_sync_time_seconds[$RANGE])`,
+	"container_jvm_safepoint_time_seconds":      `rate(container_jvm_safepoint_time_seconds[$RANGE])`,
 }
 
 var RecordingRules = map[string]func(w *model.World) []model.MetricValues{

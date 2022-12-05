@@ -39,6 +39,8 @@ type Instance struct {
 
 	Rds *Rds
 
+	Jvm *Jvm
+
 	Volumes []*Volume
 
 	Upstreams []*Connection

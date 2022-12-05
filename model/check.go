@@ -60,6 +60,8 @@ var Checks = struct {
 	PostgresReplicationLag CheckConfig
 	PostgresConnections    CheckConfig
 	LogErrors              CheckConfig
+	JvmAvailability        CheckConfig
+	JvmSafepointTime       CheckConfig
 }{
 	index: map[CheckId]*CheckConfig{},
 
@@ -199,6 +201,21 @@ var Checks = struct {
 		DefaultThreshold:        0,
 		MessageTemplate:         `{{.Count "error"}} occurred`,
 		ConditionFormatTemplate: "the number of messages with the ERROR and CRITICAL severity levels > <threshold>",
+	},
+	JvmAvailability: CheckConfig{
+		Type:                    CheckTypeItemBased,
+		Title:                   "JVM availability",
+		DefaultThreshold:        0,
+		MessageTemplate:         `{{.ItemsWithToBe "redis instance"}} unavailable`,
+		ConditionFormatTemplate: "the number of unavailable JVM instances > <threshold>",
+	},
+	JvmSafepointTime: CheckConfig{
+		Type:                    CheckTypeItemBased,
+		Title:                   "JVM safepoints",
+		DefaultThreshold:        0.05,
+		MessageTemplate:         `high safepoint time on {{.Items "JVM instance"}}`,
+		ConditionFormatTemplate: "the time application have been stopped for safepoint operations > <threshold>",
+		Unit:                    CheckUnitSecond,
 	},
 }
 

@@ -18,6 +18,7 @@ const (
 	AuditReportLogs      AuditReportName = "Logs"
 	AuditReportPostgres  AuditReportName = "Postgres"
 	AuditReportRedis     AuditReportName = "Redis"
+	AuditReportJvm       AuditReportName = "JVM"
 	AuditReportNode      AuditReportName = "Node"
 )
 

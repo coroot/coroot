@@ -168,6 +168,9 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues) {
 			case "container_volume_used":
 				v := getOrCreateInstanceVolume(instance, m)
 				v.UsedBytes = timeseries.Merge(v.UsedBytes, m.Values, timeseries.Any)
+			case "container_jvm_info", "container_jvm_heap_size_bytes", "container_jvm_heap_used_bytes",
+				"container_jvm_gc_time_seconds", "container_jvm_safepoint_sync_time_seconds", "container_jvm_safepoint_time_seconds":
+				jvm(instance, queryName, m)
 			}
 		}
 	}
