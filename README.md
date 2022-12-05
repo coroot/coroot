@@ -2,7 +2,6 @@
 
 Coroot is a monitoring and troubleshooting tool for microservice architectures. 
 
-
 ![](https://github.com/coroot/coroot/actions/workflows/build.yml/badge.svg)
 [![Go Report Card](https://goreportcard.com/badge/github.com/coroot/coroot)](https://goreportcard.com/report/github.com/coroot/coroot)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
@@ -10,15 +9,35 @@ Coroot is a monitoring and troubleshooting tool for microservice architectures.
 
 ### [Features](#features) | [Installation](https://coroot.com/docs/coroot-community-edition/getting-started/installation) | [Documentation](https://coroot.com/docs/coroot-community-edition/) | [Community & Support](#community--support) | [Live demo](https://community-demo.coroot.com/)
 
-<p align="center"><img width="800" src="https://user-images.githubusercontent.com/194465/195115881-babd5bd0-8c2b-4718-9cc6-e6dfb5a20c00.gif"></p>
-
+<p align="center"><img width="800" src="https://user-images.githubusercontent.com/194465/205605750-cb8da6f1-7388-4539-867c-2216f714cf66.gif"></p>
 
 ## Features
 
 ### eBPF-based service mapping
 Thanks to eBPF, Coroot shows you a comprehensive [map of your services](https://coroot.com/blog/building-a-service-map-using-ebpf) without any code changes.
 
-<p align="center"><img width="800" src="./front/public/readme/service-map.png"></p>
+<p align="center"><img width="800" src="https://user-images.githubusercontent.com/194465/205624727-fbfc972d-9471-41b0-87cb-184a0e1644c8.png"></p>
+
+The most popular L7 protocols are already supported:
+
+* HTTP
+* Postgres
+* Mysql
+* Mongodb
+* Redis
+* Memcached
+* Cassandra
+* Kafka
+
+### Hassle-free SLO tracking
+
+Coroot has predefined SLOs with universal thresholds for availability and latency, but you can easily adjust these thresholds for any app.
+
+<p align="center"><img width="500" src="https://user-images.githubusercontent.com/194465/204841194-9a98af4d-4388-44a0-bdf3-b5f7208c4a84.png"></p>
+
+That's it! Configure the Slack integration, and you will be notified of any significant SLOs violation.
+
+<img width="557" alt="slo-alert-slack" src="https://user-images.githubusercontent.com/194465/205626385-076f2fcd-fd26-44e3-99ba-6c16ab738bb2.png">
 
 ### Log analysis without storage costs
 
@@ -44,7 +63,6 @@ Coroot [makes](https://coroot.com/blog/pg-agent) troubleshooting Postgres-relate
 
 <p align="center"><img width="800" src="./front/public/readme/postgres.png"></p> 
 
-
 ### Integration into your existing monitoring stack
 
 Coroot uses Prometheus as a Time-Series Database (TSDB):
@@ -66,6 +84,10 @@ Check out the [Installation guide](https://coroot.com/docs/coroot-community-edit
 ## Documentation
 
 The Coroot documentation is available at [coroot.com/docs/coroot-community-edition](https://coroot.com/docs/coroot-community-edition).
+
+## Live demo
+
+A live demo of Coroot is available at [community-demo.coroot.com](https://community-demo.coroot.com/)
 
 ## Community & Support
 
