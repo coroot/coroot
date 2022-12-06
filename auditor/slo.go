@@ -51,7 +51,7 @@ func availability(ctx timeseries.Context, app *model.Application, report *model.
 		check.SetStatus(model.UNKNOWN, "no data")
 		return
 	}
-	if dataIsMissing(sli.TotalRequestsRaw) {
+	if model.DataIsMissing(sli.TotalRequestsRaw) {
 		check.SetStatus(model.WARNING, "no data")
 		return
 	}
@@ -99,7 +99,7 @@ func latency(ctx timeseries.Context, app *model.Application, report *model.Audit
 		check.SetStatus(model.UNKNOWN, "no data")
 		return
 	}
-	if dataIsMissing(totalRaw) {
+	if model.DataIsMissing(totalRaw) {
 		check.SetStatus(model.WARNING, "no data")
 		return
 	}
@@ -179,7 +179,7 @@ func clientRequests(app *model.Application, report *model.AuditReport) {
 
 		latency := model.NewTableCell().SetUnit("ms")
 		if last := timeseries.Last(model.GetConnectionsRequestsLatency(s.connections)); last > 0 {
-			latency.SetValue(utils.FormatLatency(last))
+			latency.SetValue(utils.FormatFloat(last * 1000))
 		}
 
 		errors := model.NewTableCell().SetUnit("/s")
@@ -190,15 +190,6 @@ func clientRequests(app *model.Application, report *model.AuditReport) {
 
 		t.AddRow(client, chart, requests, latency, errors)
 	}
-}
-
-func dataIsMissing(ts timeseries.TimeSeries) bool {
-	for _, v := range timeseries.LastN(ts, 3) {
-		if !math.IsNaN(v) {
-			return false
-		}
-	}
-	return true
 }
 
 func formatSLOStatus(br model.BurnRate) string {

@@ -2,7 +2,6 @@ package model
 
 import (
 	"github.com/coroot/coroot/timeseries"
-	"math"
 	"sort"
 	"strings"
 )
@@ -51,7 +50,7 @@ func (c *Connection) Status() Status {
 	status := UNKNOWN
 	if c.IsActual() && !timeseries.IsEmpty(c.Rtt) {
 		status = OK
-		if math.IsNaN(timeseries.Last(c.Rtt)) {
+		if DataIsMissing(c.Rtt) {
 			status = WARNING
 		}
 	}

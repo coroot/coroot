@@ -3,7 +3,6 @@ package model
 import (
 	"github.com/coroot/coroot/timeseries"
 	"k8s.io/klog"
-	"math"
 	"net"
 )
 
@@ -194,7 +193,7 @@ func (instance *Instance) LifeSpan() timeseries.TimeSeries {
 
 func (instance *Instance) IsUp() bool {
 	for _, c := range instance.Containers {
-		if !math.IsNaN(timeseries.Last(c.MemoryRss)) {
+		if !DataIsMissing(c.MemoryRss) {
 			return true
 		}
 	}
