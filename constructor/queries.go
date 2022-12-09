@@ -81,6 +81,7 @@ var QUERIES = map[string]string{
 	"container_cassandra_queries_count":     `rate(container_cassandra_queries_total[$RANGE])`,
 	"container_cassandra_queries_latency":   `rate(container_cassandra_queries_duration_seconds_total_sum [$RANGE]) / rate(container_cassandra_queries_duration_seconds_total_count [$RANGE])`,
 	"container_cassandra_queries_histogram": `rate(container_cassandra_queries_duration_seconds_total_bucket[$RANGE])`,
+	"container_rabbitmq_messages":           `rate(container_rabbitmq_messages_total[$RANGE])`,
 
 	"kube_pod_init_container_info":                     `kube_pod_init_container_info`,
 	"kube_pod_container_status_ready":                  `kube_pod_container_status_ready > 0`,

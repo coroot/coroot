@@ -108,10 +108,13 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues) {
 				}
 			case "container_http_requests_count", "container_postgres_queries_count", "container_redis_queries_count",
 				"container_memcached_queries_count", "container_mysql_queries_count", "container_mongo_queries_count",
-				"container_kafka_requests_count", "container_cassandra_queries_count":
+				"container_kafka_requests_count", "container_cassandra_queries_count", "container_rabbitmq_messages":
 				if c := getOrCreateConnection(instance, mc.container, m, w); c != nil {
 					protocol := model.Protocol(strings.SplitN(queryName, "_", 3)[1])
 					status := m.Labels["status"]
+					if protocol == "rabbitmq" {
+						protocol += model.Protocol("-" + m.Labels["method"])
+					}
 					if c.RequestsCount[protocol] == nil {
 						c.RequestsCount[protocol] = map[string]timeseries.TimeSeries{}
 					}
