@@ -99,7 +99,7 @@ func podInfo(w *model.World, metrics []model.MetricValues) map[podId]*model.Inst
 		instance := w.GetOrCreateApplication(appId).GetOrCreateInstance(pod)
 		instance.Pod = &model.Pod{}
 		if model.ApplicationKind(ownerKind) == model.ApplicationKindReplicaSet {
-			instance.Pod.ReplicaSet = ownerKind
+			instance.Pod.ReplicaSet = ownerName
 		}
 		pods[podId{
 			pod: instance.Name,

@@ -81,6 +81,9 @@ func (ts *AggregatedTimeseries) String() string {
 }
 
 func (ts *AggregatedTimeseries) iter() Iterator {
+	if ts == nil {
+		return &NilIterator{}
+	}
 	iter := &aggregatingIterator{aggFunc: ts.aggFunc}
 	for _, i := range ts.input {
 		if i != nil {

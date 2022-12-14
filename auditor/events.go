@@ -4,6 +4,7 @@ import (
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"math"
+	"math/bits"
 	"sort"
 	"strconv"
 )
@@ -56,9 +57,7 @@ func calcRollouts(app *model.Application) []*Event {
 	if app.Id.Kind != model.ApplicationKindDeployment || len(app.Instances) == 0 {
 		return nil
 	}
-	var events []*Event
-	var currentRollout *Event
-	var lastTs timeseries.Time
+
 	byReplicaSet := map[string]*timeseries.AggregatedTimeseries{}
 	for _, instance := range app.Instances {
 		if instance.Pod == nil || instance.Pod.ReplicaSet == "" {
@@ -66,36 +65,66 @@ func calcRollouts(app *model.Application) []*Event {
 		}
 		byReplicaSet[instance.Pod.ReplicaSet] = timeseries.Merge(byReplicaSet[instance.Pod.ReplicaSet], instance.Pod.LifeSpan, timeseries.NanSum)
 	}
-	if len(byReplicaSet) > 1 {
-		activeRss := timeseries.Aggregate(timeseries.NanSum)
-		for _, rs := range byReplicaSet {
-			activeRss.AddInput(timeseries.Map(func(t timeseries.Time, v float64) float64 {
-				if v > 0 {
-					return 1
-				}
-				return 0
-			}, rs))
-		}
-		iter := timeseries.Iter(activeRss)
+	if len(byReplicaSet) == 0 {
+		return nil
+	}
 
-		for iter.Next() {
-			t, v := iter.Value()
-			lastTs = t
-			if v > 1 {
-				if currentRollout == nil {
-					currentRollout = &Event{Start: t, Type: EventTypeRollout}
-					events = append(events, currentRollout)
-				}
-			} else {
-				if currentRollout != nil {
-					currentRollout.End = t
-					currentRollout = nil
-				}
+	var rss []timeseries.TimeSeries
+	rsNum := 1
+	for _, rs := range byReplicaSet {
+		n := float64(rsNum)
+		rss = append(rss, timeseries.Map(func(t timeseries.Time, v float64) float64 {
+			if v > 0 {
+				return n
+			}
+			return 0
+		}, rs))
+		rsNum++
+	}
+
+	activeRss := timeseries.Aggregate(func(t timeseries.Time, accumulator, v float64) float64 {
+		if v == 0 {
+			return accumulator
+		}
+		return float64(int64(accumulator) | 1<<int64(v-1))
+	}, append([]timeseries.TimeSeries{timeseries.Replace(rss[0], 0)}, rss...)...)
+
+	var events []*Event
+	var event *Event
+	iter := timeseries.Iter(activeRss)
+	prev := 0
+	i := 0
+	for iter.Next() {
+		i++
+		t, v := iter.Value()
+		rssBits := uint64(v)
+		rssCount := bits.OnesCount64(rssBits)
+		switch rssCount {
+		case 0:
+		case 1:
+			curr := bits.TrailingZeros64(rssBits) + 1
+			if i == 1 {
+				prev = curr
+				continue
+			}
+			if prev == curr {
+				continue
+			}
+			prev = curr
+			if event == nil {
+				event = &Event{Type: EventTypeRollout, Start: t}
+			}
+			event.End = t
+			events = append(events, event)
+			event = nil
+		default:
+			if event == nil {
+				event = &Event{Type: EventTypeRollout, Start: t}
 			}
 		}
 	}
-	if currentRollout != nil {
-		currentRollout.End = lastTs
+	if event != nil {
+		events = append(events, event)
 	}
 	return events
 }
@@ -162,8 +191,8 @@ func calcClusterSwitchovers(app *model.Application) []*Event {
 	if timeseries.IsEmpty(primaryNum) {
 		return nil
 	}
-	var events []*Event
 
+	var events []*Event
 	var event *Event
 	iter := timeseries.Iter(primaryNum)
 	prev := float64(-1)
