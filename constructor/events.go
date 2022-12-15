@@ -1,4 +1,4 @@
-package auditor
+package constructor
 
 import (
 	"github.com/coroot/coroot/model"
@@ -6,54 +6,25 @@ import (
 	"math"
 	"math/bits"
 	"sort"
-	"strconv"
 )
 
-type EventType int
-
-const (
-	EventTypeSwitchover EventType = iota
-	EventTypeRollout
-	EventTypeInstanceDown
-	EventTypeInstanceUp
-)
-
-type Event struct {
-	Start   timeseries.Time
-	End     timeseries.Time
-	Type    EventType
-	Details string
+func calcAppEvents(w *model.World) {
+	for _, app := range w.Applications {
+		var events []*model.ApplicationEvent
+		events = append(events, calcRollouts(app)...)
+		events = append(events, calcClusterSwitchovers(app)...)
+		events = append(events, calcUpDownEvents(app)...)
+		sort.Slice(events, func(i, j int) bool {
+			if events[i].Start == events[j].Start {
+				return events[i].Details < events[j].Details
+			}
+			return events[i].Start < events[j].Start
+		})
+		app.Events = events
+	}
 }
 
-func (e *Event) String() string {
-	if e == nil {
-		return "-"
-	}
-	start, end := "", ""
-	if !e.Start.IsZero() {
-		start = strconv.FormatInt(int64(e.Start), 10)
-	}
-	if !e.End.IsZero() {
-		end = strconv.FormatInt(int64(e.End), 10)
-	}
-	return start + "-" + end
-}
-
-func calcAppEvents(app *model.Application) []*Event {
-	var events []*Event
-	events = append(events, calcRollouts(app)...)
-	events = append(events, calcClusterSwitchovers(app)...)
-	events = append(events, calcUpDownEvents(app)...)
-	sort.Slice(events, func(i, j int) bool {
-		if events[i].Start == events[j].Start {
-			return events[i].Details < events[j].Details
-		}
-		return events[i].Start < events[j].Start
-	})
-	return events
-}
-
-func calcRollouts(app *model.Application) []*Event {
+func calcRollouts(app *model.Application) []*model.ApplicationEvent {
 	if app.Id.Kind != model.ApplicationKindDeployment || len(app.Instances) == 0 {
 		return nil
 	}
@@ -89,8 +60,8 @@ func calcRollouts(app *model.Application) []*Event {
 		return float64(int64(accumulator) | 1<<int64(v-1))
 	}, append([]timeseries.TimeSeries{timeseries.Replace(rss[0], 0)}, rss...)...)
 
-	var events []*Event
-	var event *Event
+	var events []*model.ApplicationEvent
+	var event *model.ApplicationEvent
 	iter := timeseries.Iter(activeRss)
 	prev := 0
 	i := 0
@@ -112,14 +83,14 @@ func calcRollouts(app *model.Application) []*Event {
 			}
 			prev = curr
 			if event == nil {
-				event = &Event{Type: EventTypeRollout, Start: t}
+				event = &model.ApplicationEvent{Type: model.ApplicationEventTypeRollout, Start: t}
 			}
 			event.End = t
 			events = append(events, event)
 			event = nil
 		default:
 			if event == nil {
-				event = &Event{Type: EventTypeRollout, Start: t}
+				event = &model.ApplicationEvent{Type: model.ApplicationEventTypeRollout, Start: t}
 			}
 		}
 	}
@@ -129,8 +100,8 @@ func calcRollouts(app *model.Application) []*Event {
 	return events
 }
 
-func calcUpDownEvents(app *model.Application) []*Event {
-	var events []*Event
+func calcUpDownEvents(app *model.Application) []*model.ApplicationEvent {
+	var events []*model.ApplicationEvent
 	for _, instance := range app.Instances {
 		var up timeseries.TimeSeries
 		switch {
@@ -148,9 +119,9 @@ func calcUpDownEvents(app *model.Application) []*Event {
 			t, v := iter.Value()
 			switch {
 			case status == "up" && v != 1:
-				events = append(events, &Event{Start: t, Type: EventTypeInstanceDown, Details: instance.Name})
+				events = append(events, &model.ApplicationEvent{Start: t, Type: model.ApplicationEventTypeInstanceDown, Details: instance.Name})
 			case status == "down" && v == 1:
-				events = append(events, &Event{Start: t, Type: EventTypeInstanceUp, Details: instance.Name})
+				events = append(events, &model.ApplicationEvent{Start: t, Type: model.ApplicationEventTypeInstanceUp, Details: instance.Name})
 			}
 			if v == 1 {
 				status = "up"
@@ -162,7 +133,7 @@ func calcUpDownEvents(app *model.Application) []*Event {
 	return events
 }
 
-func calcClusterSwitchovers(app *model.Application) []*Event {
+func calcClusterSwitchovers(app *model.Application) []*model.ApplicationEvent {
 	names := map[int]string{}
 	primaryNum := timeseries.Aggregate(func(t timeseries.Time, accumulator, v float64) float64 {
 		if accumulator < 0 {
@@ -192,8 +163,8 @@ func calcClusterSwitchovers(app *model.Application) []*Event {
 		return nil
 	}
 
-	var events []*Event
-	var event *Event
+	var events []*model.ApplicationEvent
+	var event *model.ApplicationEvent
 	iter := timeseries.Iter(primaryNum)
 	prev := float64(-1)
 	for iter.Next() {
@@ -205,7 +176,7 @@ func calcClusterSwitchovers(app *model.Application) []*Event {
 			continue
 		}
 		if curr != prev && event == nil {
-			event = &Event{Start: t, Details: names[int(prev)] + " &rarr; ", Type: EventTypeSwitchover}
+			event = &model.ApplicationEvent{Start: t, Details: names[int(prev)] + " &rarr; ", Type: model.ApplicationEventTypeSwitchover}
 		}
 		if curr != prev && event != nil && !math.IsNaN(curr) && curr >= 0 {
 			event.End = t

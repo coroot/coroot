@@ -30,9 +30,8 @@ func Audit(w *model.World) {
 		a.jvm()
 		a.logs()
 
-		events := calcAppEvents(app)
 		for _, r := range a.reports {
-			widgets := enrichWidgets(r.Widgets, events)
+			widgets := enrichWidgets(r.Widgets, app.Events)
 			sort.SliceStable(widgets, func(i, j int) bool {
 				return widgets[i].Table != nil
 			})
@@ -61,7 +60,7 @@ func (a *appAuditor) addReport(name model.AuditReportName) *model.AuditReport {
 	return r
 }
 
-func enrichWidgets(widgets []*model.Widget, events []*Event) []*model.Widget {
+func enrichWidgets(widgets []*model.Widget, events []*model.ApplicationEvent) []*model.Widget {
 	var res []*model.Widget
 	for _, w := range widgets {
 		if w.Chart != nil {
@@ -98,10 +97,10 @@ func enrichWidgets(widgets []*model.Widget, events []*Event) []*model.Widget {
 type annotation struct {
 	start  timeseries.Time
 	end    timeseries.Time
-	events []*Event
+	events []*model.ApplicationEvent
 }
 
-func addAnnotations(events []*Event, chart *model.Chart) {
+func addAnnotations(events []*model.ApplicationEvent, chart *model.Chart) {
 	if len(events) == 0 {
 		return
 	}
@@ -115,7 +114,7 @@ func addAnnotations(events []*Event, chart *model.Chart) {
 	for _, e := range events {
 		last := getLast()
 		if last == nil || e.Start.Sub(last.start) > 3*chart.Ctx.Step {
-			a := &annotation{start: e.Start, end: e.End, events: []*Event{e}}
+			a := &annotation{start: e.Start, end: e.End, events: []*model.ApplicationEvent{e}}
 			annotations = append(annotations, a)
 			continue
 		}
@@ -131,16 +130,16 @@ func addAnnotations(events []*Event, chart *model.Chart) {
 		for _, e := range a.events {
 			i := ""
 			switch e.Type {
-			case EventTypeRollout:
+			case model.ApplicationEventTypeRollout:
 				msgs = append(msgs, "application rollout")
 				i = "mdi-swap-horizontal-circle-outline"
-			case EventTypeSwitchover:
+			case model.ApplicationEventTypeSwitchover:
 				msgs = append(msgs, "switchover "+e.Details)
 				i = "mdi-database-sync-outline"
-			case EventTypeInstanceUp:
+			case model.ApplicationEventTypeInstanceUp:
 				msgs = append(msgs, e.Details+" is up")
 				i = "mdi-alert-octagon-outline"
-			case EventTypeInstanceDown:
+			case model.ApplicationEventTypeInstanceDown:
 				msgs = append(msgs, e.Details+" is down")
 				i = "mdi-alert-octagon-outline"
 			}

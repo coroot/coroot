@@ -1,4 +1,4 @@
-package auditor
+package constructor
 
 import (
 	"github.com/coroot/coroot/model"
@@ -21,7 +21,7 @@ func TestCalcRollouts(t *testing.T) {
 	checkEvents := func(expected string) {
 		var actual []string
 		for _, e := range calcRollouts(app) {
-			assert.Equal(t, EventTypeRollout, e.Type)
+			assert.Equal(t, model.ApplicationEventTypeRollout, e.Type)
 			actual = append(actual, e.String())
 		}
 		assert.Equal(t, expected, strings.Join(actual, ";"))

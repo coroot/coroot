@@ -65,6 +65,7 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 	stage("enrich_instances", func() { enrichInstances(w, metrics) })
 	stage("join_db_cluster", func() { joinDBClusterComponents(w) })
 	stage("load_sli", func() { loadSLIs(ctx, w, c.prom, c.rawStep, from, to, step) })
+	stage("calc_app_events", func() { calcAppEvents(w) })
 
 	klog.Infof("got %d nodes, %d services, %d applications", len(w.Nodes), len(w.Services), len(w.Applications))
 	return w, nil

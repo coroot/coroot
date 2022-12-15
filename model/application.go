@@ -16,11 +16,13 @@ type Application struct {
 
 	DesiredInstances timeseries.TimeSeries
 
-	Status  Status
-	Reports []*AuditReport
-
 	LatencySLIs      []*LatencySLI
 	AvailabilitySLIs []*AvailabilitySLI
+
+	Events []*ApplicationEvent
+
+	Status  Status
+	Reports []*AuditReport
 }
 
 func NewApplication(id ApplicationId) *Application {
