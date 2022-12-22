@@ -65,11 +65,12 @@ func (w *World) GetServiceForConnection(c *Connection) *Service {
 }
 
 func (w *World) FindInstanceByListen(ip, port string) *Instance {
-	l := Listen{IP: ip, Port: port}
-	for _, app := range w.Applications {
-		for _, i := range app.Instances {
-			if _, ok := i.TcpListens[l]; ok {
-				return i
+	for _, l := range []Listen{{IP: ip, Port: port, Proxied: true}, {IP: ip, Port: port, Proxied: false}} {
+		for _, app := range w.Applications {
+			for _, i := range app.Instances {
+				if _, ok := i.TcpListens[l]; ok {
+					return i
+				}
 			}
 		}
 	}
