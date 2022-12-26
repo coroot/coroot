@@ -10,7 +10,9 @@ func (a *appAuditor) memory() {
 	relevantNodes := map[string]*model.Node{}
 
 	oomCheck := report.CreateCheck(model.Checks.MemoryOOM)
+	leakCheck := report.CreateCheck(model.Checks.MemoryLeak)
 	seenContainers := false
+	rss := timeseries.Aggregate(timeseries.NanSum)
 	for _, i := range a.app.Instances {
 		oom := timeseries.Aggregate(timeseries.NanSum)
 		for _, c := range i.Containers {
@@ -19,6 +21,7 @@ func (a *appAuditor) memory() {
 				AddSeries(i.Name, c.MemoryRss).
 				SetThreshold("limit", c.MemoryLimit, timeseries.Max)
 			oom.AddInput(c.OOMKills)
+			rss.AddInput(c.MemoryRss)
 		}
 		report.GetOrCreateChart("Out of memory events").AddSeries(i.Name, oom)
 
@@ -44,8 +47,15 @@ func (a *appAuditor) memory() {
 			}
 		}
 	}
+
 	if !seenContainers {
 		oomCheck.SetStatus(model.UNKNOWN, "no data")
+		leakCheck.SetStatus(model.UNKNOWN, "no data")
+		return
 	}
 
+	if lr := timeseries.NewLinearRegression(rss); lr != nil {
+		now := timeseries.Now()
+		leakCheck.SetValue((lr.Calc(now) - lr.Calc(now.Add(-timeseries.Hour))) / 1024 / 1024)
+	}
 }

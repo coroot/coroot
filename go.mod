@@ -19,6 +19,7 @@ require (
 	github.com/slack-go/slack v0.11.3
 	github.com/stretchr/testify v1.6.1
 	github.com/xhit/go-str2duration/v2 v2.0.0
+	gonum.org/v1/gonum v0.12.0
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
 	k8s.io/klog v1.0.0
 )

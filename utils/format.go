@@ -2,11 +2,11 @@ package utils
 
 import (
 	"fmt"
+	"github.com/coroot/coroot/timeseries"
 	"github.com/dustin/go-humanize"
 	"github.com/hako/durafmt"
 	"math"
 	"strings"
-	"time"
 )
 
 func FormatFloat(v float64) string {
@@ -25,8 +25,8 @@ func FormatFloat(v float64) string {
 	return fmt.Sprintf("%.3f", v)
 }
 
-func FormatDuration(d time.Duration, limitFirstN int) string {
-	return durafmt.Parse(d).LimitFirstN(limitFirstN).String()
+func FormatDuration(d timeseries.Duration, limitFirstN int) string {
+	return durafmt.Parse(d.ToStandard()).LimitFirstN(limitFirstN).String()
 }
 
 func FormatBytes(b float64) (string, string) {
@@ -50,4 +50,8 @@ func FormatLatency(v float64) string {
 		return FormatFloat(v*1000) + " ms"
 	}
 	return FormatFloat(v) + " s"
+}
+
+func FormatPercentage(v float64) string {
+	return strings.TrimRight(strings.TrimRight(fmt.Sprintf("%.2f", v), "0"), ".") + "%"
 }

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 	"github.com/dustin/go-humanize/english"
 	"k8s.io/klog"
@@ -18,6 +19,7 @@ type CheckType int
 const (
 	CheckTypeEventBased CheckType = iota
 	CheckTypeItemBased
+	CheckTypeValueBased
 	CheckTypeManual
 )
 
@@ -26,7 +28,21 @@ type CheckUnit string
 const (
 	CheckUnitPercent = "percent"
 	CheckUnitSecond  = "second"
+	CheckUnitByte    = "byte"
 )
+
+func (u CheckUnit) FormatValue(v float64) string {
+	switch u {
+	case CheckUnitSecond:
+		return utils.FormatDuration(timeseries.Duration(v), 1)
+	case CheckUnitByte:
+		value, unit := utils.FormatBytes(v)
+		return value + unit
+	case CheckUnitPercent:
+		return utils.FormatPercentage(v)
+	}
+	return utils.FormatFloat(v)
+}
 
 type CheckConfig struct {
 	Id    CheckId
@@ -47,6 +63,7 @@ var Checks = struct {
 	CPUNode                CheckConfig
 	CPUContainer           CheckConfig
 	MemoryOOM              CheckConfig
+	MemoryLeak             CheckConfig
 	StorageSpace           CheckConfig
 	StorageIO              CheckConfig
 	NetworkRTT             CheckConfig
@@ -103,6 +120,13 @@ var Checks = struct {
 		DefaultThreshold:        0,
 		MessageTemplate:         `app containers have been restarted {{.Count "time"}} by the OOM killer`,
 		ConditionFormatTemplate: "the number of container terminations due to Out of Memory > <threshold>",
+	},
+	MemoryLeak: CheckConfig{
+		Type:                    CheckTypeValueBased,
+		Title:                   "Memory leak",
+		DefaultThreshold:        10,
+		MessageTemplate:         `memory usage is growing by {{.Value}} MB per hour`,
+		ConditionFormatTemplate: "memory usage is growing by > <threshold> MB per hour",
 	},
 	StorageIO: CheckConfig{
 		Type:                    CheckTypeItemBased,
@@ -234,6 +258,8 @@ func init() {
 type CheckContext struct {
 	items *utils.StringSet
 	count int64
+	value float64
+	unit  CheckUnit
 }
 
 func (c CheckContext) Items(singular string) string {
@@ -260,6 +286,10 @@ func (c CheckContext) Count(singular string) string {
 	return english.Plural(int(c.count), singular, "")
 }
 
+func (c CheckContext) Value() string {
+	return c.unit.FormatValue(c.value)
+}
+
 type Check struct {
 	Id                      CheckId   `json:"id"`
 	Title                   string    `json:"title"`
@@ -273,7 +303,12 @@ type Check struct {
 	messageTemplate string
 	items           *utils.StringSet
 	count           int64
+	value           float64
 	fired           bool
+}
+
+func (ch *Check) SetValue(v float64) {
+	ch.value = v
 }
 
 func (ch *Check) Fire() {
@@ -307,6 +342,10 @@ func (ch *Check) Calc() {
 		if ch.items.Len() == 0 {
 			return
 		}
+	case CheckTypeValueBased:
+		if ch.value <= ch.Threshold {
+			return
+		}
 	case CheckTypeManual:
 		if !ch.fired {
 			return
@@ -320,7 +359,7 @@ func (ch *Check) Calc() {
 		return
 	}
 	buf := &bytes.Buffer{}
-	if err := t.Execute(buf, CheckContext{items: ch.items, count: ch.count}); err != nil {
+	if err := t.Execute(buf, CheckContext{items: ch.items, count: ch.count, value: ch.value, unit: ch.Unit}); err != nil {
 		ch.SetStatus(UNKNOWN, "failed to render message: %s", err)
 		return
 	}
