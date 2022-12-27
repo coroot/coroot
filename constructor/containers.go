@@ -80,6 +80,10 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues) {
 			container := instance.GetOrCreateContainer(mc.container)
 			promJobStatus := prometheusJobStatus(metrics, m.Labels["job"], m.Labels["instance"])
 			switch queryName {
+			case "container_info":
+				if image := m.Labels["image"]; image != "" {
+					container.Image = image
+				}
 			case "container_net_latency":
 				rtts := rttByInstance[instance.InstanceId]
 				if rtts == nil {

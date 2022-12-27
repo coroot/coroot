@@ -39,6 +39,7 @@ var QUERIES = map[string]string{
 	"kube_pod_status_ready":     `kube_pod_status_ready{condition="true"}`,
 	"kube_pod_status_scheduled": `kube_pod_status_scheduled{condition="true"} > 0`,
 
+	"container_info":                        `container_info`,
 	"container_net_latency":                 `container_net_latency_seconds`,
 	"container_net_tcp_successful_connects": `rate(container_net_tcp_successful_connects_total[$RANGE])`,
 	"container_net_tcp_active_connections":  `container_net_tcp_active_connections`,

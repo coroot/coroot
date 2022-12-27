@@ -5,6 +5,7 @@ import (
 	"github.com/coroot/coroot/api"
 	"github.com/coroot/coroot/cache"
 	"github.com/coroot/coroot/db"
+	"github.com/coroot/coroot/deployments"
 	"github.com/coroot/coroot/stats"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
@@ -29,6 +30,7 @@ func main() {
 	bootstrapPrometheusUrl := kingpin.Flag("bootstrap-prometheus-url", "if set, Coroot will create a project for this Prometheus URL").Envar("BOOTSTRAP_PROMETHEUS_URL").String()
 	bootstrapRefreshInterval := kingpin.Flag("bootstrap-refresh-interval", "refresh interval for the project created upon bootstrap").Envar("BOOTSTRAP_REFRESH_INTERVAL").Duration()
 	sloCheckInterval := kingpin.Flag("slo-check-interval", "how often to check SLO compliance").Envar("SLO_CHECK_INTERVAL").Default("1m").Duration()
+	deploymentsWatchInterval := kingpin.Flag("deployments-watch-interval", "how often to check new deployments").Envar("DEPLOYMENTS_WATCH_INTERVAL").Default("1m").Duration()
 
 	kingpin.Version(version)
 	kingpin.Parse()
@@ -85,26 +87,30 @@ func main() {
 		alerts.NewAlertManager(database, promCache).Start(*sloCheckInterval)
 	}
 
-	api := api.NewApi(promCache, database, statsCollector, *readOnly)
+	if *deploymentsWatchInterval > 0 {
+		deployments.NewWatcher(database, promCache).Start(*deploymentsWatchInterval)
+	}
+
+	a := api.NewApi(promCache, database, statsCollector, *readOnly)
 
 	r := mux.NewRouter()
 	r.PathPrefix("/debug/pprof/").Handler(http.DefaultServeMux)
 	r.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {}).Methods(http.MethodGet)
 
-	r.HandleFunc("/api/projects", api.Projects).Methods(http.MethodGet)
-	r.HandleFunc("/api/project/", api.Project).Methods(http.MethodGet, http.MethodPost)
-	r.HandleFunc("/api/project/{project}", api.Project).Methods(http.MethodGet, http.MethodPost, http.MethodDelete)
-	r.HandleFunc("/api/project/{project}/status", api.Status).Methods(http.MethodGet, http.MethodPost)
-	r.HandleFunc("/api/project/{project}/overview", api.Overview).Methods(http.MethodGet)
-	r.HandleFunc("/api/project/{project}/search", api.Search).Methods(http.MethodGet)
-	r.HandleFunc("/api/project/{project}/configs", api.Configs).Methods(http.MethodGet)
-	r.HandleFunc("/api/project/{project}/categories", api.Categories).Methods(http.MethodGet, http.MethodPost)
-	r.HandleFunc("/api/project/{project}/integrations", api.Integrations).Methods(http.MethodGet, http.MethodPost)
-	r.HandleFunc("/api/project/{project}/integrations/slack", api.IntegrationsSlack).Methods(http.MethodGet, http.MethodPost, http.MethodDelete)
-	r.HandleFunc("/api/project/{project}/app/{app}", api.App).Methods(http.MethodGet)
-	r.HandleFunc("/api/project/{project}/app/{app}/check/{check}/config", api.Check).Methods(http.MethodGet, http.MethodPost)
-	r.HandleFunc("/api/project/{project}/node/{node}", api.Node).Methods(http.MethodGet)
-	r.PathPrefix("/api/project/{project}/prom").HandlerFunc(api.Prom)
+	r.HandleFunc("/api/projects", a.Projects).Methods(http.MethodGet)
+	r.HandleFunc("/api/project/", a.Project).Methods(http.MethodGet, http.MethodPost)
+	r.HandleFunc("/api/project/{project}", a.Project).Methods(http.MethodGet, http.MethodPost, http.MethodDelete)
+	r.HandleFunc("/api/project/{project}/status", a.Status).Methods(http.MethodGet, http.MethodPost)
+	r.HandleFunc("/api/project/{project}/overview", a.Overview).Methods(http.MethodGet)
+	r.HandleFunc("/api/project/{project}/search", a.Search).Methods(http.MethodGet)
+	r.HandleFunc("/api/project/{project}/configs", a.Configs).Methods(http.MethodGet)
+	r.HandleFunc("/api/project/{project}/categories", a.Categories).Methods(http.MethodGet, http.MethodPost)
+	r.HandleFunc("/api/project/{project}/integrations", a.Integrations).Methods(http.MethodGet, http.MethodPost)
+	r.HandleFunc("/api/project/{project}/integrations/slack", a.IntegrationsSlack).Methods(http.MethodGet, http.MethodPost, http.MethodDelete)
+	r.HandleFunc("/api/project/{project}/app/{app}", a.App).Methods(http.MethodGet)
+	r.HandleFunc("/api/project/{project}/app/{app}/check/{check}/config", a.Check).Methods(http.MethodGet, http.MethodPost)
+	r.HandleFunc("/api/project/{project}/node/{node}", a.Node).Methods(http.MethodGet)
+	r.PathPrefix("/api/project/{project}/prom").HandlerFunc(a.Prom)
 
 	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("./static"))))
 	r.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

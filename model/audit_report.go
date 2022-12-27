@@ -9,17 +9,18 @@ import (
 type AuditReportName string
 
 const (
-	AuditReportSLO       AuditReportName = "SLO"
-	AuditReportInstances AuditReportName = "Instances"
-	AuditReportCPU       AuditReportName = "CPU"
-	AuditReportMemory    AuditReportName = "Memory"
-	AuditReportStorage   AuditReportName = "Storage"
-	AuditReportNetwork   AuditReportName = "Network"
-	AuditReportLogs      AuditReportName = "Logs"
-	AuditReportPostgres  AuditReportName = "Postgres"
-	AuditReportRedis     AuditReportName = "Redis"
-	AuditReportJvm       AuditReportName = "JVM"
-	AuditReportNode      AuditReportName = "Node"
+	AuditReportSLO         AuditReportName = "SLO"
+	AuditReportInstances   AuditReportName = "Instances"
+	AuditReportCPU         AuditReportName = "CPU"
+	AuditReportMemory      AuditReportName = "Memory"
+	AuditReportStorage     AuditReportName = "Storage"
+	AuditReportNetwork     AuditReportName = "Network"
+	AuditReportLogs        AuditReportName = "Logs"
+	AuditReportPostgres    AuditReportName = "Postgres"
+	AuditReportRedis       AuditReportName = "Redis"
+	AuditReportJvm         AuditReportName = "JVM"
+	AuditReportNode        AuditReportName = "Node"
+	AuditReportDeployments AuditReportName = "Deployments"
 )
 
 type AuditReport struct {

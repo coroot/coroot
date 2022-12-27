@@ -2,6 +2,7 @@ package constructor
 
 import (
 	"context"
+	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/prom"
 	"github.com/coroot/coroot/timeseries"
@@ -12,13 +13,13 @@ import (
 )
 
 type Constructor struct {
-	prom         prom.Client
-	rawStep      timeseries.Duration
-	checkConfigs model.CheckConfigs
+	db      *db.DB
+	project *db.Project
+	prom    prom.Client
 }
 
-func New(prom prom.Client, rawStep timeseries.Duration, checkConfigs model.CheckConfigs) *Constructor {
-	return &Constructor{prom: prom, rawStep: rawStep, checkConfigs: checkConfigs}
+func New(db *db.DB, project *db.Project, prom prom.Client) *Constructor {
+	return &Constructor{db: db, project: project, prom: prom}
 }
 
 type Profile struct {
@@ -28,8 +29,6 @@ type Profile struct {
 
 func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, step timeseries.Duration, prof *Profile) (*model.World, error) {
 	w := model.NewWorld(from, to, step)
-
-	w.CheckConfigs = c.checkConfigs
 
 	if prof == nil {
 		prof = &Profile{}
@@ -48,15 +47,21 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 		}
 	}
 
-	var metrics map[string][]model.MetricValues
 	var err error
+	stage("get_check_configs", func() {
+		w.CheckConfigs, err = c.db.GetCheckConfigs(c.project.Id)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var metrics map[string][]model.MetricValues
 	stage("query", func() {
 		metrics, err = prom.ParallelQueryRange(ctx, c.prom, from, to, step, QUERIES, prof.Queries)
 	})
 	if err != nil {
 		return nil, err
 	}
-	klog.Infof("got metrics in %s", time.Since(t).Truncate(time.Millisecond))
 
 	stage("load_nodes", func() { loadNodes(w, metrics) })
 	stage("load_k8s_metadata", func() { loadKubernetesMetadata(w, metrics) })
@@ -64,11 +69,27 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 	stage("load_containers", func() { loadContainers(w, metrics) })
 	stage("enrich_instances", func() { enrichInstances(w, metrics) })
 	stage("join_db_cluster", func() { joinDBClusterComponents(w) })
-	stage("load_sli", func() { loadSLIs(ctx, w, c.prom, c.rawStep, from, to, step) })
+	stage("load_sli", func() { loadSLIs(ctx, w, c.prom, c.project.Prometheus.RefreshInterval, from, to, step) })
+	stage("load_app_deployments", func() { c.loadApplicationDeployments(w) })
 	stage("calc_app_events", func() { calcAppEvents(w) })
 
 	klog.Infof("got %d nodes, %d services, %d applications", len(w.Nodes), len(w.Services), len(w.Applications))
 	return w, nil
+}
+
+func (c *Constructor) loadApplicationDeployments(w *model.World) {
+	byApp, err := c.db.GetApplicationDeployments(c.project.Id)
+	if err != nil {
+		klog.Errorln(err)
+		return
+	}
+	for id, deployments := range byApp {
+		app := w.GetApplication(id)
+		if app == nil {
+			klog.Warningln("unknown application:", id)
+		}
+		app.Deployments = deployments
+	}
 }
 
 func enrichInstances(w *model.World, metrics map[string][]model.MetricValues) {

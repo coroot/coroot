@@ -90,14 +90,10 @@ func (mgr *AlertManager) loadWorld(project *db.Project) (*model.World, error) {
 	if cacheTo.IsZero() {
 		return nil, fmt.Errorf("cache is empty")
 	}
-	checkConfigs, err := mgr.db.GetCheckConfigs(project.Id)
-	if err != nil {
-		return nil, err
-	}
 	step := project.Prometheus.RefreshInterval
 	to := cacheTo.Truncate(step)
 	from := to.Add(-timeseries.Hour)
-	return constructor.New(cc, step, checkConfigs).LoadWorld(context.Background(), from, to, step, nil)
+	return constructor.New(mgr.db, project, cc).LoadWorld(context.Background(), from, to, step, nil)
 }
 
 func (mgr *AlertManager) sendAlert(project *db.Project, app *model.Application, incident *db.Incident) bool {

@@ -68,6 +68,7 @@ var Checks = struct {
 	StorageIO              CheckConfig
 	NetworkRTT             CheckConfig
 	InstanceAvailability   CheckConfig
+	DeploymentStatus       CheckConfig
 	InstanceRestarts       CheckConfig
 	RedisAvailability      CheckConfig
 	RedisLatency           CheckConfig
@@ -165,6 +166,14 @@ var Checks = struct {
 		DefaultThreshold:        0,
 		MessageTemplate:         `app containers have been restarted {{.Count "time"}}`,
 		ConditionFormatTemplate: "the number of container restarts > <threshold>",
+	},
+	DeploymentStatus: CheckConfig{
+		Type:                    CheckTypeValueBased,
+		Title:                   "Deployment status",
+		DefaultThreshold:        30,
+		Unit:                    CheckUnitSecond,
+		MessageTemplate:         `the rollout has already been in progress for {{.Value}}`,
+		ConditionFormatTemplate: "a rollout is in progress > <threshold>",
 	},
 	RedisAvailability: CheckConfig{
 		Type:                    CheckTypeItemBased,

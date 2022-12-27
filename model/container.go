@@ -17,6 +17,8 @@ type Container struct {
 
 	ApplicationTypes map[ApplicationType]bool
 
+	Image string
+
 	Status   ContainerStatus
 	Reason   string
 	Ready    bool

@@ -1,6 +1,7 @@
-package constructor
+package deployments
 
 import (
+	"fmt"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/stretchr/testify/assert"
@@ -8,7 +9,7 @@ import (
 	"testing"
 )
 
-func TestCalcRollouts(t *testing.T) {
+func TestCalcDeployments(t *testing.T) {
 	var app *model.Application
 	createApp := func() {
 		app = model.NewApplication(model.NewApplicationId("default", model.ApplicationKindDeployment, "catalog"))
@@ -18,11 +19,10 @@ func TestCalcRollouts(t *testing.T) {
 		i.Pod = &model.Pod{ReplicaSet: rs}
 		i.Pod.LifeSpan = timeseries.NewWithData(1, 1, lifeSpan)
 	}
-	checkEvents := func(expected string) {
+	checkDeployments := func(expected string) {
 		var actual []string
-		for _, e := range calcRollouts(app) {
-			assert.Equal(t, model.ApplicationEventTypeRollout, e.Type)
-			actual = append(actual, e.String())
+		for _, d := range calcDeployments(app) {
+			actual = append(actual, fmt.Sprintf("%d-%d:%s", d.StartedAt, d.FinishedAt, d.Name))
 		}
 		assert.Equal(t, expected, strings.Join(actual, ";"))
 	}
@@ -30,50 +30,55 @@ func TestCalcRollouts(t *testing.T) {
 	createApp()
 	addInstance("i1", "rs1", 1, 1, 1, 1, 1, 1)
 	addInstance("i2", "rs1", 0, 0, 1, 1, 1, 1)
-	checkEvents("")
+	checkDeployments("")
 
 	createApp()
 	addInstance("i1", "rs1", 1, 1, 1, 0, 0, 0)
 	addInstance("i2", "rs2", 0, 0, 0, 1, 1, 1)
-	checkEvents("4-4")
+	checkDeployments("4-4:rs2")
 
 	createApp()
 	addInstance("i1", "rs1", 2, 2, 1, 1, 0, 0)
 	addInstance("i2", "rs2", 0, 0, 1, 1, 2, 2)
-	checkEvents("3-5")
+	checkDeployments("3-5:rs2")
 
 	createApp()
 	addInstance("i1", "rs1", 1, 1, 0, 0, 0, 0)
 	addInstance("i2", "rs2", 0, 0, 0, 0, 1, 1)
-	checkEvents("5-5")
+	checkDeployments("5-5:rs2")
 
 	createApp()
 	addInstance("i1", "rs1", 1, 1, 0, 0, 0, 0)
 	addInstance("i2", "rs2", 0, 1, 0, 0, 1, 1)
-	checkEvents("2-5")
+	checkDeployments("2-5:rs2")
 
 	createApp()
 	addInstance("i1", "rs1", 1, 1, 0, 0, 1, 1)
 	addInstance("i2", "rs2", 0, 0, 1, 1, 0, 0)
-	checkEvents("3-3;5-5")
+	checkDeployments("3-3:rs2;5-5:rs1")
 
 	createApp()
 	addInstance("i1", "rs1", 1, 1, 0, 0, 0, 0)
 	addInstance("i2", "rs2", 1, 1, 0, 0, 1, 1)
-	checkEvents("1-5")
+	checkDeployments("5-5:rs2")
 
 	createApp()
 	addInstance("i1", "rs1", 1, 1, 1, 1, 1, 0)
 	addInstance("i2", "rs2", 1, 1, 1, 1, 1, 1)
-	checkEvents("1-6")
+	checkDeployments("6-6:rs2")
 
 	createApp()
 	addInstance("i1", "rs1", 1, 1, 1, 1, 1, 1)
 	addInstance("i2", "rs2", 1, 1, 1, 1, 1, 1)
-	checkEvents("1-")
+	checkDeployments("")
 
 	createApp()
 	addInstance("i1", "rs1", 1, 1, 1, 1, 1, 1)
 	addInstance("i2", "rs2", 0, 0, 0, 1, 1, 1)
-	checkEvents("4-")
+	checkDeployments("4-0:rs2")
+
+	createApp()
+	addInstance("i1", "rs1", 1, 1, 1, 1, 1, 1)
+	addInstance("i2", "rs2", 0, 0, 1, 1, 0, 0)
+	checkDeployments("3-0:rs2;5-5:rs1")
 }

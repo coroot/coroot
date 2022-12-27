@@ -4,7 +4,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/lib/pq"
 	_ "github.com/lib/pq"
+	"github.com/mattn/go-sqlite3"
 	_ "github.com/mattn/go-sqlite3"
 	"k8s.io/klog"
 	"path"
@@ -44,7 +46,7 @@ func Open(dataDir string, pgConnString string) (*DB, error) {
 		return nil, err
 	}
 	db.SetMaxOpenConns(1)
-	if err := NewMigrator(typ, db).Migrate(&Project{}, &CheckConfigs{}, &Incident{}); err != nil {
+	if err := NewMigrator(typ, db).Migrate(&Project{}, &CheckConfigs{}, &Incident{}, &ApplicationDeployment{}); err != nil {
 		return nil, err
 	}
 	return &DB{typ: typ, db: db}, nil
@@ -52,6 +54,18 @@ func Open(dataDir string, pgConnString string) (*DB, error) {
 
 func (db *DB) Type() Type {
 	return db.typ
+}
+
+func (db *DB) IsUniqueViolationError(err error) bool {
+	switch db.typ {
+	case TypePostgres:
+		e, ok := err.(*pq.Error)
+		return ok && e.Code.Name() == "unique_violation"
+	case TypeSqlite:
+		e, ok := err.(sqlite3.Error)
+		return ok && e.Code == sqlite3.ErrConstraint
+	}
+	return false
 }
 
 func sqlite(path string) (*sql.DB, error) {
@@ -104,7 +118,9 @@ func (m *Migrator) AddColumnIfNotExists(table, column, dataType string) error {
 		if err != nil {
 			return nil
 		}
-		defer rows.Close()
+		defer func() {
+			_ = rows.Close()
+		}()
 		var name string
 		for rows.Next() {
 			if err := rows.Scan(&name); err != nil {

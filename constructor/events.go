@@ -4,16 +4,22 @@ import (
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"math"
-	"math/bits"
 	"sort"
 )
 
 func calcAppEvents(w *model.World) {
 	for _, app := range w.Applications {
 		var events []*model.ApplicationEvent
-		events = append(events, calcRollouts(app)...)
 		events = append(events, calcClusterSwitchovers(app)...)
 		events = append(events, calcUpDownEvents(app)...)
+		for _, d := range app.Deployments {
+			events = append(events, &model.ApplicationEvent{
+				Start:   d.StartedAt,
+				End:     d.FinishedAt,
+				Type:    model.ApplicationEventTypeRollout,
+				Details: "", // TODO
+			})
+		}
 		sort.Slice(events, func(i, j int) bool {
 			if events[i].Start == events[j].Start {
 				return events[i].Details < events[j].Details
@@ -22,82 +28,6 @@ func calcAppEvents(w *model.World) {
 		})
 		app.Events = events
 	}
-}
-
-func calcRollouts(app *model.Application) []*model.ApplicationEvent {
-	if app.Id.Kind != model.ApplicationKindDeployment || len(app.Instances) == 0 {
-		return nil
-	}
-
-	byReplicaSet := map[string]*timeseries.AggregatedTimeseries{}
-	for _, instance := range app.Instances {
-		if instance.Pod == nil || instance.Pod.ReplicaSet == "" {
-			continue
-		}
-		byReplicaSet[instance.Pod.ReplicaSet] = timeseries.Merge(byReplicaSet[instance.Pod.ReplicaSet], instance.Pod.LifeSpan, timeseries.NanSum)
-	}
-	if len(byReplicaSet) == 0 {
-		return nil
-	}
-
-	var rss []timeseries.TimeSeries
-	rsNum := 1
-	for _, rs := range byReplicaSet {
-		n := float64(rsNum)
-		rss = append(rss, timeseries.Map(func(t timeseries.Time, v float64) float64 {
-			if v > 0 {
-				return n
-			}
-			return 0
-		}, rs))
-		rsNum++
-	}
-
-	activeRss := timeseries.Aggregate(func(t timeseries.Time, accumulator, v float64) float64 {
-		if v == 0 {
-			return accumulator
-		}
-		return float64(int64(accumulator) | 1<<int64(v-1))
-	}, append([]timeseries.TimeSeries{timeseries.Replace(rss[0], 0)}, rss...)...)
-
-	var events []*model.ApplicationEvent
-	var event *model.ApplicationEvent
-	iter := timeseries.Iter(activeRss)
-	prev := 0
-	i := 0
-	for iter.Next() {
-		i++
-		t, v := iter.Value()
-		rssBits := uint64(v)
-		rssCount := bits.OnesCount64(rssBits)
-		switch rssCount {
-		case 0:
-		case 1:
-			curr := bits.TrailingZeros64(rssBits) + 1
-			if i == 1 {
-				prev = curr
-				continue
-			}
-			if prev == curr {
-				continue
-			}
-			prev = curr
-			if event == nil {
-				event = &model.ApplicationEvent{Type: model.ApplicationEventTypeRollout, Start: t}
-			}
-			event.End = t
-			events = append(events, event)
-			event = nil
-		default:
-			if event == nil {
-				event = &model.ApplicationEvent{Type: model.ApplicationEventTypeRollout, Start: t}
-			}
-		}
-	}
-	if event != nil {
-		events = append(events, event)
-	}
-	return events
 }
 
 func calcUpDownEvents(app *model.Application) []*model.ApplicationEvent {

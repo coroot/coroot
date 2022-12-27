@@ -226,7 +226,7 @@ func (c *Collector) collect() Stats {
 		}
 		t := time.Now()
 		step := p.Prometheus.RefreshInterval
-		w, err := constructor.New(cc, step, checkConfigs).LoadWorld(context.Background(), cacheTo.Add(-worldWindow), cacheTo, step, &stats.Performance.Constructor)
+		w, err := constructor.New(c.db, p, cc).LoadWorld(context.Background(), cacheTo.Add(-worldWindow), cacheTo, step, &stats.Performance.Constructor)
 		if err != nil {
 			klog.Errorln("failed to load world:", err)
 			continue

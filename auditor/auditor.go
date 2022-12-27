@@ -29,6 +29,7 @@ func Audit(w *model.World) {
 		a.redis()
 		a.jvm()
 		a.logs()
+		a.deployments()
 
 		for _, r := range a.reports {
 			widgets := enrichWidgets(r.Widgets, app.Events)
@@ -85,8 +86,10 @@ func enrichWidgets(widgets []*model.Widget, events []*model.ApplicationEvent) []
 			w.ChartGroup.AutoFeatureChart()
 		}
 		if w.LogPatterns != nil {
-			if len(w.LogPatterns.Patterns) == 0 {
-				continue
+			for _, p := range w.LogPatterns.Patterns {
+				if p.Instances != nil {
+					addAnnotations(events, p.Instances)
+				}
 			}
 		}
 		res = append(res, w)
@@ -131,7 +134,7 @@ func addAnnotations(events []*model.ApplicationEvent, chart *model.Chart) {
 			i := ""
 			switch e.Type {
 			case model.ApplicationEventTypeRollout:
-				msgs = append(msgs, "application rollout")
+				msgs = append(msgs, "deployment")
 				i = "mdi-swap-horizontal-circle-outline"
 			case model.ApplicationEventTypeSwitchover:
 				msgs = append(msgs, "switchover "+e.Details)

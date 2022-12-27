@@ -9,6 +9,8 @@ import (
 type Table struct {
 	Header []string    `json:"header"`
 	Rows   []*TableRow `json:"rows"`
+
+	sorted bool
 }
 
 func (t *Table) AddRow(cells ...*TableCell) *TableRow {
@@ -19,9 +21,17 @@ func (t *Table) AddRow(cells ...*TableCell) *TableRow {
 }
 
 func (t *Table) SortRows() {
+	if t.sorted {
+		return
+	}
 	sort.SliceStable(t.Rows, func(i, j int) bool {
 		return t.Rows[i].Cells[0].Value < t.Rows[j].Cells[0].Value
 	})
+}
+
+func (t *Table) SetSorted(s bool) *Table {
+	t.sorted = s
+	return t
 }
 
 type TableRow struct {
@@ -44,6 +54,13 @@ type TableCellLink struct {
 	Key  string `json:"key"`
 }
 
+type TableCellDeploymentSummary struct {
+	Report  AuditReportName `json:"report"`
+	Ok      bool            `json:"ok"`
+	Message string          `json:"message"`
+	Time    timeseries.Time `json:"time"`
+}
+
 type TableCell struct {
 	Icon          *Icon                 `json:"icon"`
 	Value         string                `json:"value"`
@@ -55,6 +72,9 @@ type TableCell struct {
 	Progress      *Progress             `json:"progress"`
 	NetInterfaces []NetInterface        `json:"net_interfaces"`
 	Chart         timeseries.TimeSeries `json:"chart"`
+	IsStub        bool                  `json:"is_stub"`
+
+	DeploymentSummaries []TableCellDeploymentSummary `json:"deployment_summaries"`
 }
 
 func NewTableCell(values ...string) *TableCell {
@@ -70,6 +90,11 @@ func NewTableCell(values ...string) *TableCell {
 func (c *TableCell) SetStatus(status Status, msg string) *TableCell {
 	c.Status = &status
 	c.Value = msg
+	return c
+}
+
+func (c *TableCell) UpdateStatus(status Status) *TableCell {
+	c.Status = &status
 	return c
 }
 
@@ -107,6 +132,17 @@ func (c *TableCell) SetProgress(percent int, color string) *TableCell {
 
 func (c *TableCell) SetChart(ts timeseries.TimeSeries) *TableCell {
 	c.Chart = ts
+	return c
+}
+
+func (c *TableCell) SetStub(format string, a ...any) *TableCell {
+	c.Value = fmt.Sprintf(format, a...)
+	c.IsStub = true
+	return c
+}
+
+func (c *TableCell) AddDeploymentSummary(report AuditReportName, ok bool, time timeseries.Time, format string, a ...any) *TableCell {
+	c.DeploymentSummaries = append(c.DeploymentSummaries, TableCellDeploymentSummary{Report: report, Ok: ok, Message: fmt.Sprintf(format, a...), Time: time})
 	return c
 }
 

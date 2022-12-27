@@ -7,8 +7,6 @@ import (
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
-	"github.com/lib/pq"
-	"github.com/mattn/go-sqlite3"
 	"strings"
 )
 
@@ -65,7 +63,9 @@ func (db *DB) GetProjects() ([]*Project, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		_ = rows.Close()
+	}()
 	var res []*Project
 	var prometheus string
 	var settings sql.NullString
@@ -95,7 +95,9 @@ func (db *DB) GetProjectNames() (map[ProjectId]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		_ = rows.Close()
+	}()
 	res := map[ProjectId]string{}
 	var id ProjectId
 	var name string
@@ -143,10 +145,7 @@ func (db *DB) SaveProject(p Project) (ProjectId, error) {
 	if p.Id == "" {
 		p.Id = ProjectId(utils.NanoId(8))
 		_, err := db.db.Exec("INSERT INTO project (id, name, prometheus) VALUES ($1, $2, $3)", p.Id, p.Name, string(prometheus))
-		if e, ok := err.(sqlite3.Error); ok && e.Code == sqlite3.ErrConstraint {
-			return "", ErrConflict
-		}
-		if e, ok := err.(*pq.Error); ok && e.Code.Name() == "unique_violation" {
+		if db.IsUniqueViolationError(err) {
 			return "", ErrConflict
 		}
 		return p.Id, err
@@ -162,7 +161,9 @@ func (db *DB) DeleteProject(id ProjectId) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() {
+		_ = tx.Rollback()
+	}()
 	if _, err := tx.Exec("DELETE FROM check_configs WHERE project_id = $1", id); err != nil {
 		return err
 	}

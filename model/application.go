@@ -19,7 +19,8 @@ type Application struct {
 	LatencySLIs      []*LatencySLI
 	AvailabilitySLIs []*AvailabilitySLI
 
-	Events []*ApplicationEvent
+	Events      []*ApplicationEvent
+	Deployments []*ApplicationDeployment
 
 	Status  Status
 	Reports []*AuditReport

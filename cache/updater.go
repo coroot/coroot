@@ -235,13 +235,15 @@ func (c *Cache) processRecordingRules(now timeseries.Time, project *db.Project, 
 		return
 	}
 	cacheClient := c.GetCacheClient(project)
-	promClient := &recordingRulesProcessor{cacheClient: cacheClient, cacheTo: cacheTo}
+	promClient := &recordingRulesProcessor{db: c.db, project: project, cacheClient: cacheClient, cacheTo: cacheTo}
 	for rr := range constructor.RecordingRules {
 		c.download(now, promClient, project, states[rr])
 	}
 }
 
 type recordingRulesProcessor struct {
+	db          *db.DB
+	project     *db.Project
 	cacheClient *Client
 	cacheTo     timeseries.Time
 }
@@ -254,14 +256,14 @@ func (p *recordingRulesProcessor) QueryRange(ctx context.Context, query string, 
 	if p.cacheTo.Before(to) {
 		return nil, fmt.Errorf("cache is outdated")
 	}
-	world, err := constructor.New(p.cacheClient, step, nil).LoadWorld(ctx, from, to, step, nil)
+	world, err := constructor.New(p.db, p.project, p.cacheClient).LoadWorld(ctx, from, to, step, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load world: %w", err)
 	}
 	return recordingRule(world), nil
 }
 
-func (p *recordingRulesProcessor) Ping(ctx context.Context) error {
+func (p *recordingRulesProcessor) Ping(_ context.Context) error {
 	return nil
 }
 
