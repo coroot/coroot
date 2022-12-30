@@ -18,6 +18,19 @@ func (a *appAuditor) jvm() {
 		if i.Jvm == nil {
 			continue
 		}
+		for gc, ts := range i.Jvm.GcTime {
+			report.GetOrCreateChartInGroup("GC time <selector>, seconds/second", gc).AddSeries(i.Name, ts)
+		}
+		report.GetOrCreateChart("Safepoint time, seconds/second").AddSeries(i.Name, i.Jvm.SafepointTime)
+		report.
+			GetOrCreateChartInGroup("Heap size <selector>, bytes", i.Name).
+			Stacked().
+			AddSeries("used", i.Jvm.HeapUsed, "blue").
+			SetThreshold("total", i.Jvm.HeapSize, timeseries.Max)
+
+		if i.IsObsolete() {
+			continue
+		}
 		status := model.NewTableCell().SetStatus(model.OK, "up")
 		if !i.Jvm.IsUp() {
 			availability.AddItem(i.Name)
@@ -27,17 +40,6 @@ func (a *appAuditor) jvm() {
 			model.NewTableCell(i.Name).AddTag("java: %s", i.Jvm.JavaVersion.Value()),
 			status,
 		)
-		report.
-			GetOrCreateChartInGroup("Heap size <selector>, bytes", i.Name).
-			Stacked().
-			AddSeries("used", i.Jvm.HeapUsed, "blue").
-			SetThreshold("total", i.Jvm.HeapSize, timeseries.Max)
-
-		for gc, ts := range i.Jvm.GcTime {
-			report.GetOrCreateChartInGroup("GC time <selector>, seconds/second", gc).AddSeries(i.Name, ts)
-		}
-		report.GetOrCreateChart("Safepoint time, seconds/second").AddSeries(i.Name, i.Jvm.SafepointTime)
-
 		if timeseries.Last(i.Jvm.SafepointTime) > safepointTime.Threshold {
 			safepointTime.AddItem(i.Name)
 		}

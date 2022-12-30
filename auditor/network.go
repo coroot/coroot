@@ -57,17 +57,16 @@ func (a *appAuditor) network() {
 			if u.Rtt != nil {
 				summary.addRtt(u.Rtt)
 			}
-			instanceObsolete := instance.Pod != nil && instance.Pod.IsObsolete()
-			if instanceObsolete || u.Obsolete() {
+			if instance.IsObsolete() || u.IsObsolete() {
 				linkStatus = model.UNKNOWN
 			}
 			if instance.Node != nil && u.RemoteInstance.Node != nil {
 				sn := instance.Node
 				dn := u.RemoteInstance.Node
 				report.GetOrCreateDependencyMap().UpdateLink(
-					model.DependencyMapInstance{Name: instance.Name, Obsolete: instanceObsolete},
+					model.DependencyMapInstance{Name: instance.Name, Obsolete: instance.IsObsolete()},
 					model.DependencyMapNode{Name: sn.Name.Value(), Provider: sn.CloudProvider.Value(), Region: sn.Region.Value(), AZ: sn.AvailabilityZone.Value()},
-					model.DependencyMapInstance{Name: u.RemoteInstance.Name, Obsolete: u.Obsolete()},
+					model.DependencyMapInstance{Name: u.RemoteInstance.Name, Obsolete: u.IsObsolete()},
 					model.DependencyMapNode{Name: dn.Name.Value(), Provider: dn.CloudProvider.Value(), Region: dn.Region.Value(), AZ: dn.AvailabilityZone.Value()},
 					linkStatus,
 				)

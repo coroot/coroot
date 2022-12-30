@@ -39,11 +39,11 @@ func (c *Connection) IsActual() bool {
 	return (timeseries.Last(c.Connects) > 0) || (timeseries.Last(c.Active) > 0)
 }
 
-func (c *Connection) Obsolete() bool {
+func (c *Connection) IsObsolete() bool {
 	if c.Container != "" && c.Instance.Pod != nil && c.Instance.Pod.InitContainers[c.Container] != nil {
 		return false
 	}
-	return c.RemoteInstance != nil && c.RemoteInstance.Pod != nil && c.RemoteInstance.Pod.IsObsolete()
+	return c.RemoteInstance != nil && c.RemoteInstance.IsObsolete()
 }
 
 func (c *Connection) Status() Status {

@@ -84,6 +84,10 @@ func (a *appAuditor) postgres() {
 		lag := pgReplicationLag(primaryLsn, i.Postgres.WalReplyLsn)
 		report.GetOrCreateChart("Replication lag, bytes").AddSeries(i.Name, lag)
 
+		if i.IsObsolete() {
+			continue
+		}
+
 		role := i.ClusterRoleLast()
 		roleCell := model.NewTableCell(role.String())
 		switch role {

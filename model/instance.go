@@ -200,6 +200,10 @@ func (instance *Instance) IsUp() bool {
 	return false
 }
 
+func (instance *Instance) IsObsolete() bool {
+	return instance.Pod != nil && instance.Pod.IsObsolete()
+}
+
 func (instance *Instance) UpAndRunning() timeseries.TimeSeries {
 	mem := timeseries.Aggregate(timeseries.Any)
 	for _, c := range instance.Containers {

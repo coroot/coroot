@@ -69,7 +69,7 @@ func Render(world *model.World, app *model.Application, incidents []db.Incident)
 
 	deps := map[model.ApplicationId]bool{}
 	for _, instance := range app.Instances {
-		if instance.Pod != nil && instance.Pod.IsObsolete() {
+		if instance.IsObsolete() {
 			continue
 		}
 		i := &Instance{Id: instance.Name, Labels: model.Labels{}}

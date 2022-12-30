@@ -123,13 +123,13 @@ func (app *Application) IsJvm() bool {
 
 func (app *Application) IsStandalone() bool {
 	for _, d := range app.Downstreams {
-		if d.Instance.OwnerId != app.Id && !d.Obsolete() {
+		if d.Instance.OwnerId != app.Id && !d.IsObsolete() {
 			return false
 		}
 	}
 	for _, i := range app.Instances {
 		for _, u := range i.Upstreams {
-			if u.RemoteInstance != nil && u.RemoteInstance.OwnerId != app.Id && !u.Obsolete() {
+			if u.RemoteInstance != nil && u.RemoteInstance.OwnerId != app.Id && !u.IsObsolete() {
 				return false
 			}
 		}
@@ -140,7 +140,7 @@ func (app *Application) IsStandalone() bool {
 func (app *Application) InstrumentationStatus() map[ApplicationType]bool {
 	res := map[ApplicationType]bool{}
 	for _, i := range app.Instances {
-		if i.Pod != nil && i.Pod.IsObsolete() {
+		if i.IsObsolete() {
 			continue
 		}
 		for t := range i.ApplicationTypes() {
