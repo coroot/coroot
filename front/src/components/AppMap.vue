@@ -1,6 +1,6 @@
 <template>
     <div v-on-resize="calcArrows" class="map">
-        <div class="column">
+        <div class="column" :style="{rowGap: columnRowGap(map.clients)}">
             <div v-for="app in map.clients" class="client" :ref="app.id"
                  :class="{hi: highlighted.clients.has(app.id)}"
                  @mouseenter="focus('client', app.id)" @mouseleave="unfocus"
@@ -9,7 +9,7 @@
                     <router-link :to="{name: 'application', params: {id: app.id}, query: $route.query}" class="name">
                         <AppHealth :app="app"/>
                     </router-link>
-                    <Labels :labels="app.labels" class="d-none d-sm-block ml-4" />
+                    <Labels v-if="!hideLabels(map.clients)" :labels="app.labels" class="d-none d-sm-block ml-4" />
                 </div>
             </div>
         </div>
@@ -38,7 +38,7 @@
             </div>
         </div>
 
-        <div class="column">
+        <div class="column" :style="{rowGap: columnRowGap(map.dependencies)}">
             <div v-for="app in map.dependencies" class="dependency" :ref="app.id"
                  :class="{hi: highlighted.dependencies.has(app.id)}"
                  @mouseenter="focus('dependency', app.id)" @mouseleave="unfocus"
@@ -47,7 +47,7 @@
                     <router-link :to="{name: 'application', params: {id: app.id}, query: $route.query}" class="name">
                         <AppHealth :app="app"/>
                     </router-link>
-                    <Labels :labels="app.labels" class="d-none d-sm-block ml-4" />
+                    <Labels v-if="!hideLabels(map.dependencies)" :labels="app.labels" class="d-none d-sm-block ml-4" />
                 </div>
             </div>
         </div>
@@ -180,6 +180,12 @@ export default {
     },
 
     methods: {
+        hideLabels(items) {
+            return items && items.length > 15;
+        },
+        columnRowGap(items) {
+            return (items && items.length > 15 ? 4 : 16) + 'px';
+        },
         focus(type, id) {
             this.focused = {};
             if (!this.map.instances) {

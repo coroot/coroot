@@ -5,13 +5,13 @@
             <v-checkbox v-for="f in filters" :key="f.name" v-model="f.value" :label="f.name" class="filter" color="green" hide-details @click="calc" />
         </div>
         <div class="applications" v-on-resize="calc" @scroll="calc">
-            <div v-for="apps in levels" class="level" style="z-index: 1" :style="{rowGap: 200 / apps.length + 'px'}">
+            <div v-for="apps in levels" class="level" style="z-index: 1" :style="{rowGap: 200 / apps.length + 'px', maxWidth: 100 / levels.length + '%' }">
                 <div v-for="a in apps" style="text-align: center">
                     <span :ref="a.id" class="app" :class="a.hi(hi) ? 'selected' : ''" @mouseenter="hi = a.id" @mouseleave="hi = null">
                         <router-link :to="{name: 'application', params: {id: a.id}, query: $route.query}" class="name">
                             <AppHealth :app="a"/>
                         </router-link>
-                        <Labels :labels="a.labels" class="d-none d-sm-block ml-4" />
+                        <Labels v-if="!hideLabels" :labels="a.labels" class="d-none d-sm-block ml-4" />
                     </span>
                 </div>
             </div>
@@ -97,7 +97,11 @@ export default {
             this.calc();
         },
     },
-
+    computed : {
+        hideLabels() {
+            return this.levels.some((l) => l.length >= 15);
+        },
+    },
     methods: {
         calcFilters() {
             const applications = this.applications;
@@ -176,7 +180,7 @@ export default {
 
             const roots = applications.filter((a) => a.downstreams.length === 0);
             roots.forEach((a) => {
-                calcLevel(index, a, 1, backLinks);
+                calcLevel(index, a, 0, backLinks);
             });
 
             const depth = Math.max(...applications.map((a) => a.level));
@@ -264,6 +268,7 @@ export default {
     gap: 16px;
 }
 .level {
+    min-width: 120px;
     flex-grow: 1;
     display: flex;
     flex-direction: column;
@@ -271,7 +276,7 @@ export default {
     /*row-gap: 32px;*/
 }
 .app {
-    max-width: 200px;
+    max-width: 100%;
     border: 1px solid #BDBDBD;
     border-radius: 3px;
     white-space: nowrap;

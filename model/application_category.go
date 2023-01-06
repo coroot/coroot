@@ -18,6 +18,7 @@ var BuiltinCategoryPatterns = map[ApplicationCategory][]string{
 	ApplicationCategoryControlPlane: {
 		"kube-system/*",
 		"*/kubelet",
+		"*/kube-apiserver",
 	},
 	ApplicationCategoryMonitoring: {
 		"monitoring/*",
