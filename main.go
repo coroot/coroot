@@ -1,14 +1,14 @@
 package main
 
 import (
-	"github.com/coroot/coroot/alerts"
 	"github.com/coroot/coroot/api"
 	"github.com/coroot/coroot/cache"
 	"github.com/coroot/coroot/db"
-	"github.com/coroot/coroot/deployments"
 	"github.com/coroot/coroot/stats"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
+	"github.com/coroot/coroot/watchers/deployments"
+	"github.com/coroot/coroot/watchers/incidents"
 	"github.com/gorilla/mux"
 	"gopkg.in/alecthomas/kingpin.v2"
 	"k8s.io/klog"
@@ -84,7 +84,7 @@ func main() {
 	}
 
 	if *sloCheckInterval > 0 {
-		alerts.NewAlertManager(database, promCache).Start(*sloCheckInterval)
+		incidents.NewWatcher(database, promCache).Start(*sloCheckInterval)
 	}
 
 	if *deploymentsWatchInterval > 0 {

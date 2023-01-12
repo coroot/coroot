@@ -5,21 +5,30 @@
         <tr>
             <th>Category</th>
             <th>Patterns</th>
+            <th>Notify of deployments</th>
             <th>Actions</th>
         </tr>
         </thead>
         <tbody>
         <tr v-for="c in categories">
-            <td class="text-no-wrap">{{ c.name }}</td>
+            <td class="text-no-wrap">
+                <div class="text-no-wrap">{{ c.name }}</div>
+            </td>
             <td style="line-height: 2em">
-                <template v-for="p in (c.builtin_patterns + ' ' +  c.custom_patterns).split(' ').filter(p => !!p)">
+                <div v-if="c.default" class="grey--text">
+                    The default category containing applications that don't fit into other categories
+                </div>
+                <template v-else v-for="p in (c.builtin_patterns + ' ' + c.custom_patterns).split(' ').filter(p => !!p)">
                     <span class="pattern">{{ p }}</span>&nbsp;
                 </template>
             </td>
             <td>
+                {{c.notify_of_deployments ? 'on' : 'off'}}
+            </td>
+            <td>
                 <div class="d-flex">
                     <v-btn icon small @click="openForm(c)"><v-icon small>mdi-pencil</v-icon></v-btn>
-                    <v-btn v-if="!c.builtin_patterns" icon small @click="openForm(c, true)"><v-icon small>mdi-trash-can-outline</v-icon></v-btn>
+                    <v-btn v-if="!c.builtin" icon small @click="openForm(c, true)"><v-icon small>mdi-trash-can-outline</v-icon></v-btn>
                 </div>
             </td>
         </tr>
@@ -28,39 +37,53 @@
 
     <v-btn color="primary" class="mt-2" @click="openForm()">Add a category</v-btn>
 
-    <v-dialog v-model="edit.active" max-width="800">
+    <v-dialog v-model="form.active" max-width="800">
         <v-card class="pa-4">
             <div class="d-flex align-center font-weight-medium mb-4">
-                <div v-if="edit.new">
+                <div v-if="form.new">
                     Add a new application category
                 </div>
-                <div v-else-if="edit.del">
-                    Delete the "{{edit.name}}" application category
+                <div v-else-if="form.del">
+                    Delete the "{{form.name}}" application category
                 </div>
                 <div v-else>
-                    Edit the "{{edit.name}}" application category
+                    Edit the "{{form.name}}" application category
                 </div>
                 <v-spacer />
-                <v-btn icon @click="edit.active = false"><v-icon>mdi-close</v-icon></v-btn>
+                <v-btn icon @click="form.active = false"><v-icon>mdi-close</v-icon></v-btn>
             </div>
 
-            <v-form v-model="edit.valid" ref="form">
-                <div class="subtitle-1">Category name</div>
-                <v-text-field v-model="edit.name" outlined dense :disabled="!!edit.builtin_patterns || edit.del" :rules="[$validators.isSlug]" />
+            <v-form v-model="form.valid" ref="form">
+                <div class="subtitle-1">Name</div>
+                <v-text-field v-model="form.name" outlined dense :disabled="form.builtin || form.del" :rules="[$validators.isSlug]" />
 
-                <template v-if="edit.builtin_patterns">
-                    <div class="subtitle-1">Built-in patterns</div>
-                    <v-textarea v-model="edit.builtin_patterns" outlined dense rows="1" auto-grow disabled />
+                <template v-if="!form.default">
+                    <template v-if="form.builtin">
+                        <div class="subtitle-1">Built-in patterns</div>
+                        <v-textarea v-model="form.builtin_patterns" outlined dense rows="1" auto-grow disabled />
+                    </template>
+
+                    <div class="subtitle-1">Custom patterns</div>
+                    <div class="caption">
+                        space-delimited list of
+                        <a href="https://en.wikipedia.org/wiki/Glob_(programming)" target="_blank">glob patterns</a>
+                        in the <var>&lt;namespace&gt;/&lt;application_name&gt;</var> format
+                        , e.g.: <var>staging/* test-*/*</var>
+                    </div>
+                    <v-textarea v-model="form.custom_patterns" outlined dense rows="1" auto-grow :disabled="form.del"/>
                 </template>
 
-                <div class="subtitle-1">Custom patterns</div>
-                <div class="caption">
-                    space-delimited list of
-                    <a href="https://en.wikipedia.org/wiki/Glob_(programming)" target="_blank">glob patterns</a>
-                    in the <var>&lt;namespace&gt;/&lt;application_name&gt;</var> format
-                    , e.g.: <var>staging/* test-*/*</var>
+                <v-checkbox v-model="form.notify_of_deployments" :disabled="form.del" label="Get notified of deployments" class="mt-1" hide-details />
+                <div v-if="form.notify_of_deployments" class="ml-8">
+                    <div v-if="integrations && Object.keys(integrations).length">
+                        <template v-for="(details, type) in integrations">
+                            <div v-if="type === 'slack'"><v-icon small>mdi-slack</v-icon> channel <b>#{{details}}</b></div>
+                        </template>
+                    </div>
+                    <div v-else class="grey--text">No notification integrations configured.</div>
+                    <v-btn color="primary" small :to="{name: 'project_settings', hash: '#integrations'}" @click="form.active=false" class="mt-1">Configure integrations</v-btn>
                 </div>
-                <v-textarea v-model="edit.custom_patterns" outlined dense rows="1" auto-grow :disabled="edit.del"/>
+
                 <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
                     {{error}}
                 </v-alert>
@@ -69,8 +92,8 @@
                 </v-alert>
                 <div class="d-flex align-center">
                     <v-spacer />
-                    <v-btn v-if="edit.del" color="error" :loading="saving" @click="save">Delete</v-btn>
-                    <v-btn v-else color="primary" :disabled="!edit.valid" :loading="saving" @click="save">Save</v-btn>
+                    <v-btn v-if="form.del" color="error" :loading="saving" @click="save">Delete</v-btn>
+                    <v-btn v-else color="primary" :disabled="!form.valid" :loading="saving" @click="save">Save</v-btn>
                 </div>
             </v-form>
         </v-card>
@@ -87,10 +110,13 @@ export default {
     data() {
         return {
             categories: [],
+            integrations: [],
             loading: false,
             error: '',
             message: '',
-            edit: {
+            form: {
+                builtin: false,
+                default: false,
                 active: false,
                 new: false,
                 del: false,
@@ -98,6 +124,7 @@ export default {
                 name: '',
                 builtin_patterns: '',
                 custom_patterns: '',
+                notify_of_deployments: false,
                 valid: true,
             },
             saving: false,
@@ -125,25 +152,29 @@ export default {
                     return;
                 }
                 this.categories = data.categories;
+                this.integrations = data.integrations;
             });
         },
         openForm(category, del) {
             this.error = '';
-            this.edit.active = true;
-            this.edit.new = !category;
-            this.edit.del = del;
-            this.edit.oldName = category ? category.name : ''
-            this.edit.name = category ? category.name : '';
-            this.edit.builtin_patterns = category ? category.builtin_patterns  : '';
-            this.edit.custom_patterns = category ? category.custom_patterns : '';
+            this.form.builtin = category && category.builtin;
+            this.form.default = category && category.default;
+            this.form.active = true;
+            this.form.new = !category;
+            this.form.del = del;
+            this.form.oldName = category ? category.name : ''
+            this.form.name = category ? category.name : '';
+            this.form.builtin_patterns = category ? category.builtin_patterns  : '';
+            this.form.custom_patterns = category ? category.custom_patterns : '';
+            this.form.notify_of_deployments = category && category.notify_of_deployments;
             this.$refs.form && this.$refs.form.resetValidation();
         },
         save() {
             this.saving = true;
             this.error = '';
             this.message = '';
-            const patterns = this.edit.del ? '' : this.edit.custom_patterns;
-            const form = {name: this.edit.oldName, new_name: this.edit.name, custom_patterns: patterns};
+            const patterns = this.form.del ? '' : this.form.custom_patterns;
+            const form = {name: this.form.oldName, new_name: this.form.name, custom_patterns: patterns, notify_of_deployments: this.form.notify_of_deployments};
             this.$api.saveApplicationCategory(form, (data, error) => {
                 this.saving = false;
                 if (error) {
@@ -153,7 +184,7 @@ export default {
                 this.message = 'Settings were successfully updated.';
                 setTimeout(() => {
                     this.message = '';
-                    this.edit.active = false;
+                    this.form.active = false;
                 }, 1000);
                 this.get();
             });

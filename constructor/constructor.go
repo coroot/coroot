@@ -86,7 +86,7 @@ func (c *Constructor) loadApplicationDeployments(w *model.World) {
 	for id, deployments := range byApp {
 		app := w.GetApplication(id)
 		if app == nil {
-			klog.Warningln("unknown application:", id)
+			continue
 		}
 		app.Deployments = deployments
 	}

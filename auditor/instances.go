@@ -134,7 +134,7 @@ func (a *appAuditor) instances() {
 			status,
 			restartsCell,
 			model.NewTableCell(instanceIPs(i.TcpListens)...),
-			model.NewTableCell().SetLink("node", i.NodeName()).SetStatus(nodeStatus, i.NodeName()),
+			model.NewTableCell().SetLink("node", i.NodeName(), 0, 0).SetStatus(nodeStatus, i.NodeName()),
 		)
 	}
 

@@ -164,7 +164,7 @@ func clientRequests(app *model.Application, report *model.AuditReport) {
 		}
 	}
 	for id, s := range clients {
-		client := model.NewTableCell(id.Name).SetLink("application", id.String())
+		client := model.NewTableCell(id.Name).SetLink("application", id.String(), 0, 0)
 		for _, p := range s.protocols.Items() {
 			client.AddTag(p)
 		}

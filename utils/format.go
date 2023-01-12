@@ -9,6 +9,10 @@ import (
 	"strings"
 )
 
+var (
+	shortDurations, _ = durafmt.DefaultUnitsCoder.Decode("y:y,w:w,d:d,h:h,m:m,s:s,ms:ms,µs:µs")
+)
+
 func FormatFloat(v float64) string {
 	switch {
 	case math.IsNaN(v):
@@ -27,6 +31,9 @@ func FormatFloat(v float64) string {
 
 func FormatDuration(d timeseries.Duration, limitFirstN int) string {
 	return durafmt.Parse(d.ToStandard()).LimitFirstN(limitFirstN).String()
+}
+func FormatDurationShort(d timeseries.Duration, limitFirstN int) string {
+	return strings.Replace(durafmt.Parse(d.ToStandard()).LimitFirstN(limitFirstN).Format(shortDurations), " ", "", -1)
 }
 
 func FormatBytes(b float64) (string, string) {
@@ -54,4 +61,12 @@ func FormatLatency(v float64) string {
 
 func FormatPercentage(v float64) string {
 	return strings.TrimRight(strings.TrimRight(fmt.Sprintf("%.2f", v), "0"), ".") + "%"
+}
+
+func LastPart(s string, sep string) string {
+	parts := strings.Split(s, sep)
+	if len(parts) == 0 {
+		return ""
+	}
+	return parts[len(parts)-1]
 }

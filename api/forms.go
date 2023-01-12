@@ -97,6 +97,8 @@ type ApplicationCategoryForm struct {
 	NewName        model.ApplicationCategory `json:"new_name"`
 	CustomPatterns string                    `json:"custom_patterns"`
 	customPatterns []string
+
+	NotifyOfDeployments bool `json:"notify_of_deployments"`
 }
 
 func (f *ApplicationCategoryForm) Valid() bool {

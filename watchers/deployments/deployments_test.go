@@ -38,8 +38,8 @@ func TestCalcDeployments(t *testing.T) {
 	checkDeployments("4-4:rs2")
 
 	createApp()
-	addInstance("i1", "rs1", 2, 2, 1, 1, 0, 0)
-	addInstance("i2", "rs2", 0, 0, 1, 1, 2, 2)
+	addInstance("i1", "rs1", 1, 1, 1, 1, 0, 0)
+	addInstance("i2", "rs2", 0, 0, 1, 1, 1, 1)
 	checkDeployments("3-5:rs2")
 
 	createApp()
@@ -58,19 +58,29 @@ func TestCalcDeployments(t *testing.T) {
 	checkDeployments("3-3:rs2;5-5:rs1")
 
 	createApp()
+	addInstance("i1", "rs1", 1, 0, 0, 0, 0, 0)
+	addInstance("i2", "rs2", 1, 1, 1, 1, 1, 1)
+	checkDeployments("")
+
+	createApp()
 	addInstance("i1", "rs1", 1, 1, 0, 0, 0, 0)
 	addInstance("i2", "rs2", 1, 1, 0, 0, 1, 1)
-	checkDeployments("5-5:rs2")
+	checkDeployments("")
 
 	createApp()
 	addInstance("i1", "rs1", 1, 1, 1, 1, 1, 0)
 	addInstance("i2", "rs2", 1, 1, 1, 1, 1, 1)
-	checkDeployments("6-6:rs2")
+	checkDeployments("")
 
 	createApp()
 	addInstance("i1", "rs1", 1, 1, 1, 1, 1, 1)
 	addInstance("i2", "rs2", 1, 1, 1, 1, 1, 1)
 	checkDeployments("")
+
+	createApp()
+	addInstance("i1", "rs1", 1, 1, 0, 0, 1, 1)
+	addInstance("i2", "rs2", 1, 1, 1, 1, 0, 0)
+	checkDeployments("5-5:rs1")
 
 	createApp()
 	addInstance("i1", "rs1", 1, 1, 1, 1, 1, 1)

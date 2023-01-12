@@ -2,8 +2,8 @@ package integrations
 
 import (
 	"context"
-	"github.com/coroot/coroot/alerts"
 	"github.com/coroot/coroot/db"
+	"github.com/coroot/coroot/notifications"
 	"k8s.io/klog"
 )
 
@@ -28,7 +28,7 @@ func Render(ctx context.Context, p *db.Project) *View {
 			Channel: cfg.DefaultChannel,
 			Enabled: cfg.Enabled,
 		}
-		ok, err := alerts.NewSlack(cfg.Token).IsChannelAvailable(ctx, cfg.DefaultChannel)
+		ok, err := notifications.IsSlackChannelAvailable(ctx, cfg.Token, cfg.DefaultChannel)
 		if err != nil {
 			klog.Warningln(err)
 		}

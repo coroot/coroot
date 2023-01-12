@@ -34,7 +34,8 @@ func (db *DB) GetCheckConfigs(projectId ProjectId) (model.CheckConfigs, error) {
 		}
 		id, err := model.NewApplicationIdFromString(appId.String)
 		if err != nil {
-			klog.Warningln("invalid application id:", appId)
+			klog.Warningln(err)
+			continue
 		}
 		if !configs.Valid {
 			continue
@@ -74,10 +75,10 @@ func (db *DB) SaveCheckConfig(projectId ProjectId, appId model.ApplicationId, ch
 	if err != nil {
 		return err
 	}
-	res, err := db.db.Exec("UPDATE check_configs SET configs = $1 WHERE project_id = $2 AND application_id = $3", data, projectId, appIdStr)
+	res, err := db.db.Exec("UPDATE check_configs SET configs = $1 WHERE project_id = $2 AND application_id = $3", string(data), projectId, appIdStr)
 	rowsAffected, _ := res.RowsAffected()
 	if rowsAffected == 0 {
-		if _, err := db.db.Exec("INSERT INTO check_configs (project_id, application_id, configs) VALUES ($1, $2, $3)", projectId, appIdStr, data); err != nil {
+		if _, err := db.db.Exec("INSERT INTO check_configs (project_id, application_id, configs) VALUES ($1, $2, $3)", projectId, appIdStr, string(data)); err != nil {
 			return err
 		}
 	}

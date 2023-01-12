@@ -1,6 +1,7 @@
 package model
 
 import (
+	"database/sql/driver"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -44,7 +45,7 @@ func NewApplicationId(ns string, kind ApplicationKind, name string) ApplicationI
 func NewApplicationIdFromString(src string) (ApplicationId, error) {
 	parts := strings.SplitN(src, ":", 3)
 	if len(parts) < 3 {
-		return ApplicationId{}, fmt.Errorf("should be ns:kind:name")
+		return ApplicationId{}, fmt.Errorf("invalid application id: %s", src)
 	}
 	return ApplicationId{Namespace: parts[0], Kind: ApplicationKind(parts[1]), Name: parts[2]}, nil
 }
@@ -64,5 +65,19 @@ func (a ApplicationId) MarshalText() ([]byte, error) {
 func (a *ApplicationId) UnmarshalText(text []byte) error {
 	var err error
 	*a, err = NewApplicationIdFromString(string(text))
+	return err
+}
+
+func (a ApplicationId) Value() (driver.Value, error) {
+	return a.String(), nil
+}
+
+func (a *ApplicationId) Scan(src any) error {
+	if src == nil {
+		*a = ApplicationId{}
+		return nil
+	}
+	var err error
+	*a, err = NewApplicationIdFromString(src.(string))
 	return err
 }

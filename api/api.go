@@ -3,12 +3,12 @@ package api
 import (
 	"context"
 	"errors"
-	"github.com/coroot/coroot/alerts"
 	"github.com/coroot/coroot/api/views"
 	"github.com/coroot/coroot/cache"
 	"github.com/coroot/coroot/constructor"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
+	"github.com/coroot/coroot/notifications"
 	"github.com/coroot/coroot/prom"
 	"github.com/coroot/coroot/stats"
 	"github.com/coroot/coroot/timeseries"
@@ -250,7 +250,7 @@ func (api *Api) Categories(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Invalid name or patterns", http.StatusBadRequest)
 			return
 		}
-		if err := api.db.SaveApplicationCategory(projectId, form.Name, form.NewName, form.customPatterns); err != nil {
+		if err := api.db.SaveApplicationCategory(projectId, form.Name, form.NewName, form.customPatterns, form.NotifyOfDeployments); err != nil {
 			klog.Errorln("failed to save:", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
@@ -314,7 +314,7 @@ func (api *Api) IntegrationsSlack(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "", http.StatusBadRequest)
 			return
 		}
-		ok, err := alerts.NewSlack(form.Token).IsChannelAvailable(r.Context(), form.Channel)
+		ok, err := notifications.IsSlackChannelAvailable(r.Context(), form.Token, form.Channel)
 		if err != nil {
 			http.Error(w, "Invalid token", http.StatusBadRequest)
 			return
@@ -391,7 +391,7 @@ func (api *Api) Prom(w http.ResponseWriter, r *http.Request) {
 func (api *Api) App(w http.ResponseWriter, r *http.Request) {
 	id, err := model.NewApplicationIdFromString(mux.Vars(r)["app"])
 	if err != nil {
-		klog.Warningf("invalid application_id %s: %s ", mux.Vars(r)["app"], err)
+		klog.Warningln(err)
 		http.Error(w, "invalid application_id: "+mux.Vars(r)["app"], http.StatusBadRequest)
 		return
 	}
@@ -424,7 +424,7 @@ func (api *Api) Check(w http.ResponseWriter, r *http.Request) {
 	projectId := db.ProjectId(vars["project"])
 	appId, err := model.NewApplicationIdFromString(vars["app"])
 	if err != nil {
-		klog.Warningf("invalid application_id %s: %s ", vars["app"], err)
+		klog.Warningln(err)
 		http.Error(w, "invalid application_id: "+vars["app"], http.StatusBadRequest)
 		return
 	}

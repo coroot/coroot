@@ -134,7 +134,7 @@ func addAnnotations(events []*model.ApplicationEvent, chart *model.Chart) {
 			i := ""
 			switch e.Type {
 			case model.ApplicationEventTypeRollout:
-				msgs = append(msgs, "deployment")
+				msgs = append(msgs, "deployment "+e.Details)
 				i = "mdi-swap-horizontal-circle-outline"
 			case model.ApplicationEventTypeSwitchover:
 				msgs = append(msgs, "switchover "+e.Details)

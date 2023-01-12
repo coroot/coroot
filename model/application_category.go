@@ -9,12 +9,22 @@ import (
 type ApplicationCategory string
 
 const (
+	ApplicationCategoryApplication  ApplicationCategory = "application"
 	ApplicationCategoryControlPlane ApplicationCategory = "control-plane"
 	ApplicationCategoryMonitoring   ApplicationCategory = "monitoring"
-	ApplicationCategoryApplication  ApplicationCategory = "application"
 )
 
+func (c ApplicationCategory) Default() bool {
+	return c == ApplicationCategoryApplication
+}
+
+func (c ApplicationCategory) Builtin() bool {
+	_, ok := BuiltinCategoryPatterns[c]
+	return ok
+}
+
 var BuiltinCategoryPatterns = map[ApplicationCategory][]string{
+	ApplicationCategoryApplication: {},
 	ApplicationCategoryControlPlane: {
 		"kube-system/*",
 		"*/kubelet",

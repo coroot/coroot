@@ -35,7 +35,13 @@ func (t *Table) SetSorted(s bool) *Table {
 }
 
 type TableRow struct {
+	Id    string       `json:"id"`
 	Cells []*TableCell `json:"cells"`
+}
+
+func (r *TableRow) SetId(id string) *TableRow {
+	r.Id = id
+	return r
 }
 
 type Progress struct {
@@ -52,18 +58,15 @@ type NetInterface struct {
 type TableCellLink struct {
 	Type string `json:"type"`
 	Key  string `json:"key"`
-}
 
-type TableCellDeploymentSummary struct {
-	Report  AuditReportName `json:"report"`
-	Ok      bool            `json:"ok"`
-	Message string          `json:"message"`
-	Time    timeseries.Time `json:"time"`
+	From timeseries.Time `json:"from"`
+	To   timeseries.Time `json:"to"`
 }
 
 type TableCell struct {
 	Icon          *Icon                 `json:"icon"`
 	Value         string                `json:"value"`
+	ShortValue    string                `json:"short_value"`
 	Values        []string              `json:"values"`
 	Tags          []string              `json:"tags"`
 	Unit          string                `json:"unit"`
@@ -74,7 +77,7 @@ type TableCell struct {
 	Chart         timeseries.TimeSeries `json:"chart"`
 	IsStub        bool                  `json:"is_stub"`
 
-	DeploymentSummaries []TableCellDeploymentSummary `json:"deployment_summaries"`
+	DeploymentSummaries []ApplicationDeploymentSummary `json:"deployment_summaries"`
 }
 
 func NewTableCell(values ...string) *TableCell {
@@ -103,6 +106,11 @@ func (c *TableCell) SetValue(value string) *TableCell {
 	return c
 }
 
+func (c *TableCell) SetShortValue(value string) *TableCell {
+	c.ShortValue = value
+	return c
+}
+
 func (c *TableCell) SetIcon(name, color string) *TableCell {
 	c.Icon = &Icon{Name: name, Color: color}
 	return c
@@ -120,8 +128,8 @@ func (c *TableCell) AddTag(format string, a ...any) *TableCell {
 	return c
 }
 
-func (c *TableCell) SetLink(typ, key string) *TableCell {
-	c.Link = &TableCellLink{Type: typ, Key: key}
+func (c *TableCell) SetLink(typ, key string, from, to timeseries.Time) *TableCell {
+	c.Link = &TableCellLink{Type: typ, Key: key, From: from, To: to}
 	return c
 }
 
@@ -138,11 +146,6 @@ func (c *TableCell) SetChart(ts timeseries.TimeSeries) *TableCell {
 func (c *TableCell) SetStub(format string, a ...any) *TableCell {
 	c.Value = fmt.Sprintf(format, a...)
 	c.IsStub = true
-	return c
-}
-
-func (c *TableCell) AddDeploymentSummary(report AuditReportName, ok bool, time timeseries.Time, format string, a ...any) *TableCell {
-	c.DeploymentSummaries = append(c.DeploymentSummaries, TableCellDeploymentSummary{Report: report, Ok: ok, Message: fmt.Sprintf(format, a...), Time: time})
 	return c
 }
 

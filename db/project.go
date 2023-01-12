@@ -32,9 +32,14 @@ type Prometheus struct {
 }
 
 type Settings struct {
-	ConfigurationHintsMuted map[model.ApplicationType]bool         `json:"configuration_hints_muted"`
-	ApplicationCategories   map[model.ApplicationCategory][]string `json:"application_categories"`
-	Integrations            Integrations                           `json:"integrations"`
+	ConfigurationHintsMuted     map[model.ApplicationType]bool                            `json:"configuration_hints_muted"`
+	ApplicationCategories       map[model.ApplicationCategory][]string                    `json:"application_categories"`
+	ApplicationCategorySettings map[model.ApplicationCategory]ApplicationCategorySettings `json:"application_category_settings"`
+	Integrations                Integrations                                              `json:"integrations"`
+}
+
+type ApplicationCategorySettings struct {
+	NotifyOfDeployments bool `json:"notify_of_deployments"`
 }
 
 type BasicAuth struct {
@@ -58,6 +63,18 @@ func (p *Project) Migrate(m *Migrator) error {
 	return nil
 }
 
+func (p *Project) applyDefaults() {
+	if p.Prometheus.RefreshInterval == 0 {
+		p.Prometheus.RefreshInterval = DefaultRefreshInterval
+	}
+	if _, ok := p.Settings.ApplicationCategorySettings[model.ApplicationCategoryApplication]; !ok {
+		if p.Settings.ApplicationCategorySettings == nil {
+			p.Settings.ApplicationCategorySettings = map[model.ApplicationCategory]ApplicationCategorySettings{}
+		}
+		p.Settings.ApplicationCategorySettings[model.ApplicationCategoryApplication] = ApplicationCategorySettings{NotifyOfDeployments: true}
+	}
+}
+
 func (db *DB) GetProjects() ([]*Project, error) {
 	rows, err := db.db.Query("SELECT id, name, prometheus, settings FROM project")
 	if err != nil {
@@ -77,14 +94,12 @@ func (db *DB) GetProjects() ([]*Project, error) {
 		if err := json.Unmarshal([]byte(prometheus), &p.Prometheus); err != nil {
 			return nil, err
 		}
-		if p.Prometheus.RefreshInterval == 0 {
-			p.Prometheus.RefreshInterval = DefaultRefreshInterval
-		}
 		if settings.Valid {
 			if err := json.Unmarshal([]byte(settings.String), &p.Settings); err != nil {
 				return nil, err
 			}
 		}
+		p.applyDefaults()
 		res = append(res, &p)
 	}
 	return res, nil
@@ -123,14 +138,12 @@ func (db *DB) GetProject(id ProjectId) (*Project, error) {
 	if err := json.Unmarshal([]byte(prometheus), &p.Prometheus); err != nil {
 		return nil, err
 	}
-	if p.Prometheus.RefreshInterval == 0 {
-		p.Prometheus.RefreshInterval = DefaultRefreshInterval
-	}
 	if settings.Valid {
 		if err := json.Unmarshal([]byte(settings.String), &p.Settings); err != nil {
 			return nil, err
 		}
 	}
+	p.applyDefaults()
 	return &p, nil
 }
 
@@ -170,6 +183,9 @@ func (db *DB) DeleteProject(id ProjectId) error {
 	if _, err := tx.Exec("DELETE FROM incident WHERE project_id = $1", id); err != nil {
 		return err
 	}
+	if _, err := tx.Exec("DELETE FROM application_deployment WHERE project_id = $1", id); err != nil {
+		return err
+	}
 	if _, err := tx.Exec("DELETE FROM project WHERE id = $1", id); err != nil {
 		return err
 	}
@@ -192,37 +208,46 @@ func (db *DB) ToggleConfigurationHint(id ProjectId, appType model.ApplicationTyp
 	return db.saveProjectSettings(p)
 }
 
-func (db *DB) SaveApplicationCategory(id ProjectId, name, newName model.ApplicationCategory, customPatterns []string) error {
+func (db *DB) SaveApplicationCategory(id ProjectId, category, newName model.ApplicationCategory, customPatterns []string, notifyAboutDeployments bool) error {
 	p, err := db.GetProject(id)
 	if err != nil {
 		return err
 	}
 
-	var ps []string
-	for _, p := range customPatterns {
-		p = strings.TrimSpace(p)
-		if len(p) == 0 {
-			continue
+	if p.Settings.ApplicationCategorySettings[category].NotifyOfDeployments != notifyAboutDeployments {
+		if p.Settings.ApplicationCategorySettings == nil {
+			p.Settings.ApplicationCategorySettings = map[model.ApplicationCategory]ApplicationCategorySettings{}
 		}
-		ps = append(ps, p)
+		p.Settings.ApplicationCategorySettings[category] = ApplicationCategorySettings{NotifyOfDeployments: notifyAboutDeployments}
 	}
 
-	if len(ps) == 0 { // delete
-		if p.Settings.ApplicationCategories == nil {
-			return nil
+	if !category.Default() {
+		var patterns []string
+		for _, p := range customPatterns {
+			p = strings.TrimSpace(p)
+			if len(p) == 0 {
+				continue
+			}
+			patterns = append(patterns, p)
 		}
-		delete(p.Settings.ApplicationCategories, name)
-		return db.saveProjectSettings(p)
+
+		if len(patterns) == 0 { // delete
+			delete(p.Settings.ApplicationCategories, category)
+			delete(p.Settings.ApplicationCategorySettings, category)
+		} else {
+			if p.Settings.ApplicationCategories == nil {
+				p.Settings.ApplicationCategories = map[model.ApplicationCategory][]string{}
+			}
+			if category != newName && !category.Builtin() { // rename
+				delete(p.Settings.ApplicationCategories, category)
+				p.Settings.ApplicationCategorySettings[newName] = p.Settings.ApplicationCategorySettings[category]
+				delete(p.Settings.ApplicationCategorySettings, category)
+				category = newName
+			}
+			p.Settings.ApplicationCategories[category] = patterns
+		}
 	}
 
-	if p.Settings.ApplicationCategories == nil {
-		p.Settings.ApplicationCategories = map[model.ApplicationCategory][]string{}
-	}
-	if name != newName && name != model.ApplicationCategoryControlPlane && name != model.ApplicationCategoryMonitoring { // rename
-		delete(p.Settings.ApplicationCategories, name)
-		name = newName
-	}
-	p.Settings.ApplicationCategories[name] = ps
 	return db.saveProjectSettings(p)
 }
 
@@ -231,6 +256,6 @@ func (db *DB) saveProjectSettings(p *Project) error {
 	if err != nil {
 		return err
 	}
-	_, err = db.db.Exec("UPDATE project SET settings = $1 WHERE id = $2", settings, p.Id)
+	_, err = db.db.Exec("UPDATE project SET settings = $1 WHERE id = $2", string(settings), p.Id)
 	return err
 }

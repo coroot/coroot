@@ -13,11 +13,14 @@ func calcAppEvents(w *model.World) {
 		events = append(events, calcClusterSwitchovers(app)...)
 		events = append(events, calcUpDownEvents(app)...)
 		for _, d := range app.Deployments {
+			if d.StartedAt.Before(w.Ctx.From) || d.StartedAt.After(w.Ctx.To) {
+				continue
+			}
 			events = append(events, &model.ApplicationEvent{
 				Start:   d.StartedAt,
-				End:     d.FinishedAt,
+				End:     d.StartedAt,
 				Type:    model.ApplicationEventTypeRollout,
-				Details: "", // TODO
+				Details: d.Version(),
 			})
 		}
 		sort.Slice(events, func(i, j int) bool {

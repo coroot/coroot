@@ -6,7 +6,7 @@
         </tr>
         </thead>
         <tbody>
-        <tr v-for="r in rows">
+        <tr v-for="r in rows" :id="r.id" :class="{hi: r.id && $route.hash && $route.hash === '#'+r.id}">
             <td v-for="c in r.cells" class="py-2">
                 <v-progress-linear v-if="c.progress"
                                    :background-color='c.progress.color + " lighten-4"'
@@ -35,27 +35,26 @@
                 </div>
 
                 <div v-else-if="c.deployment_summaries" v-for="s in c.deployment_summaries" class="d-flex">
-                    <v-icon v-if="s.ok" small color="hsl(141, 71%, 48%)">mdi-check-circle-outline</v-icon>
-                    <v-icon v-else small color="hsl(4, 90%, 58%)">mdi-close-circle-outline</v-icon>
-                    <span class="mx-1">{{s.message}}</span>
+                    <span class="text-no-wrap">{{s.ok ? '&#127881;' : '&#128148;'}} {{s.message}}</span>
                     <router-link :to="{name: 'application', params: {report: s.report}, query: {from: s.time-1800000, to: s.time+1800000}}" class="d-flex">
                         <v-icon small>mdi-chart-box-outline</v-icon>
                     </router-link>
                 </div>
 
-                <template v-else>
-                    <v-icon v-if="c.icon" :color="c.icon.color" small class="mr-1">{{c.icon.name}}</v-icon>
-                    <Led v-if="c.status && c.value" :status="c.status" />
-                    <template v-if="c.value && c.link">
-                        <router-link v-if="c.link.type === 'application'" :to="{name: 'application', params: {id: c.link.key}, query: $route.query}">{{c.value}}</router-link>
-                        <router-link v-else-if="c.link.type === 'node'" :to="{name: 'node', params: {name: c.link.key}, query: $route.query}">{{c.value}}</router-link>
-                    </template>
-                    <span v-else :class="{'grey--text': c.is_stub}">{{c.value || '&mdash;'}}</span>
-                    <span v-if="c.unit && c.value" class="caption grey--text ml-1">{{c.unit}}</span>
-                    <div v-if="c.tags && $vuetify.breakpoint.smAndUp" :class="{'pl-4': c.status}">
-                        <span v-for="t in c.tags" class="tag">{{t}}</span>
+                <div v-else class="d-flex">
+                    <div>
+                        <v-icon v-if="c.icon" :color="c.icon.color" small class="mr-1">{{c.icon.name}}</v-icon>
+                        <Led v-if="c.status && c.value" :status="c.status" />
                     </div>
-                </template>
+                    <div>
+                        <router-link v-if="c.value && c.link" :to="link(c.link)">{{c.value}}</router-link>
+                        <span v-else :class="{'grey--text': c.is_stub}">{{(smallScreen && c.short_value ? c.short_value : c.value) || '&mdash;'}}</span>
+                        <span v-if="c.unit && c.value" class="caption grey--text ml-1">{{c.unit}}</span>
+                        <div v-if="c.tags && !smallScreen">
+                            <span v-for="t in c.tags" class="tag">{{t}}</span>
+                        </div>
+                    </div>
+                </div>
             </td>
         </tr>
         </tbody>
@@ -72,10 +71,40 @@ export default {
     },
 
     components: {Led},
+
+    computed: {
+        smallScreen() {
+            return this.$vuetify.breakpoint.xsOnly;
+        },
+    },
+
+    methods: {
+        link(l) {
+            const q = {...this.$route.query};
+            if (l.from) {
+                q.from = l.from;
+            }
+            if (l.to) {
+                q.to = l.to;
+            }
+            switch (l.type) {
+            case 'application':
+                return {name: 'application', params: {id: l.key}, query: q};
+            case 'node':
+                return {name: 'node', params: {name: l.key}, query: q};
+            case 'report':
+                return {name: 'application', params: {report: l.key}, query: q};
+            }
+            return {};
+        },
+    },
 }
 </script>
 
 <style scoped>
+.hi {
+    background-color: #cbe9fc;
+}
 .tag {
     font-size: 0.75rem;
     color: #9E9E9E;

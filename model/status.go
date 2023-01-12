@@ -31,6 +31,18 @@ func (s Status) MarshalJSON() ([]byte, error) {
 	return json.Marshal(s.String())
 }
 
+func (s Status) Color() string {
+	switch s {
+	case OK:
+		return "#23d160"
+	case WARNING:
+		return "#ffdd57"
+	case CRITICAL:
+		return "#f44034"
+	}
+	return "#d3d3d3"
+}
+
 type Indicator struct {
 	Status  Status `json:"status"`
 	Message string `json:"message"`

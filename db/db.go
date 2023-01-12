@@ -2,6 +2,7 @@ package db
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/lib/pq"
@@ -141,4 +142,22 @@ func (m *Migrator) AddColumnIfNotExists(table, column, dataType string) error {
 		}
 	}
 	return nil
+}
+
+func marshal[T any](v *T) (*string, error) {
+	if v == nil {
+		return nil, nil
+	}
+	d, err := json.Marshal(v)
+	s := string(d)
+	return &s, err
+}
+
+func unmarshal[T any](s string, v **T) error {
+	if s == "" {
+		return nil
+	}
+	var vv T
+	*v = &vv
+	return json.Unmarshal([]byte(s), &vv)
 }

@@ -170,7 +170,7 @@ var Checks = struct {
 	DeploymentStatus: CheckConfig{
 		Type:                    CheckTypeValueBased,
 		Title:                   "Deployment status",
-		DefaultThreshold:        30,
+		DefaultThreshold:        180,
 		Unit:                    CheckUnitSecond,
 		MessageTemplate:         `the rollout has already been in progress for {{.Value}}`,
 		ConditionFormatTemplate: "a rollout is in progress > <threshold>",
