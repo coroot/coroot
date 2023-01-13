@@ -215,7 +215,7 @@ func CalcApplicationDeploymentSummary(appId ApplicationId, checkConfigs CheckCon
 		perRequestPrev := float64(prev.CPUUsage) / float64(prev.Requests)
 		diff := (perRequestCurr - perRequestPrev) * 100 / perRequestPrev
 		if math.Abs(diff) > significantPercentageDifference {
-			add(AuditReportCPU, diff < 0, "CPU usage: %+.0f%% (compared to the previous deployment)", diff)
+			add(AuditReportCPU, diff < 0, "CPU usage: %+.f%% (compared to the previous deployment)", diff)
 		}
 	}
 
@@ -226,7 +226,7 @@ func CalcApplicationDeploymentSummary(appId ApplicationId, checkConfigs CheckCon
 	} else {
 		if curr.MemoryLeak > memoryLeakThreshold {
 			value, unit := utils.FormatBytes(float64(curr.MemoryLeak))
-			add(AuditReportMemory, false, "Memory: the memory leak detected (%s%s per hour)", value, unit)
+			add(AuditReportMemory, false, "Memory: a memory leak detected (%s%s per hour)", value, unit)
 		} else if prev != nil && prev.MemoryLeak > memoryLeakThreshold {
 			add(AuditReportMemory, true, "Memory: looks like the memory leak has been fixed")
 		}
@@ -242,17 +242,21 @@ func CalcApplicationDeploymentSummary(appId ApplicationId, checkConfigs CheckCon
 		if prev == nil || prev.LogErrors == 0 {
 			add(AuditReportLogs, false, "Logs: there are errors in the logs")
 		} else if prev != nil && prev.LogErrors > 0 && curr.Requests > 0 && prev.Requests > 0 {
-			perRequestCurr := float64(curr.LogErrors) / float64(curr.Requests)
-			perRequestPrev := float64(prev.LogErrors) / float64(prev.Requests)
-			diff := (perRequestCurr - perRequestPrev) * 100 / perRequestPrev
-			if math.Abs(diff) > significantPercentageDifference {
-				ok := false
-				verb := "increased"
-				if diff < 0 {
-					ok = true
-					verb = "decreased"
+			if curr.LogErrors == 0 {
+				add(AuditReportLogs, true, "Logs: there are no more errors in the logs")
+			} else {
+				perRequestCurr := float64(curr.LogErrors) / float64(curr.Requests)
+				perRequestPrev := float64(prev.LogErrors) / float64(prev.Requests)
+				diff := (perRequestCurr - perRequestPrev) * 100 / perRequestPrev
+				if math.Abs(diff) > significantPercentageDifference {
+					ok := false
+					verb := "increased"
+					if diff < 0 {
+						ok = true
+						verb = "decreased"
+					}
+					add(AuditReportLogs, ok, "Logs: the number of errors in the logs has %s by %d%%", verb, int(math.Abs(diff)))
 				}
-				add(AuditReportLogs, ok, "Logs: the number of errors in the logs has %s %+.f%%", verb, diff)
 			}
 		}
 	}
