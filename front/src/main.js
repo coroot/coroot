@@ -41,16 +41,25 @@ const router = new VueRouter({
     }
 });
 
+const api = new Api(router, vuetify);
+
 router.afterEach((to, from) => {
     if (to.params.projectId !== from.params.projectId || JSON.stringify(to.query) !== JSON.stringify(from.query)) {
         events.emit('refresh');
+    }
+    const m = to.matched[0];
+    if (m) {
+        let p = m.path;
+        p = p.replace(':report?', to.params.report || '')
+        p = p.replaceAll(':', '$');
+        api.stats("route-open", {path: p});
     }
 });
 
 Vue.prototype.$events = events;
 Vue.prototype.$format = format;
 Vue.prototype.$pluralize = pluralize;
-Vue.prototype.$api = new Api(router, vuetify);
+Vue.prototype.$api = api;
 Vue.prototype.$validators = validators;
 Vue.prototype.$storage = storage;
 

@@ -49,14 +49,18 @@ type Stats struct {
 		InstrumentedServices []string `json:"instrumented_services"`
 	} `json:"stack"`
 	Infra struct {
-		Projects     int `json:"projects"`
-		Nodes        int `json:"nodes"`
-		Applications int `json:"applications"`
-		Instances    int `json:"instances"`
+		Projects            int            `json:"projects"`
+		Nodes               int            `json:"nodes"`
+		Applications        int            `json:"applications"`
+		Instances           int            `json:"instances"`
+		Deployments         int            `json:"deployments"`
+		DeploymentSummaries map[string]int `json:"deployment_summaries"`
 	} `json:"infra"`
 	UX struct {
-		UsersByScreenSize map[string]int `json:"users_by_screen_size"`
-		WorldLoadTimeAvg  float32        `json:"world_load_time_avg"`
+		WorldLoadTimeAvg  float32          `json:"world_load_time_avg"`
+		UsersByScreenSize map[string]int   `json:"users_by_screen_size"`
+		Users             *utils.StringSet `json:"users"`
+		PageViews         map[string]int   `json:"page_views"`
 	} `json:"ux"`
 	Performance struct {
 		Constructor constructor.Profile `json:"constructor"`
@@ -77,6 +81,7 @@ type Collector struct {
 	instanceVersion string
 
 	usersByScreenSize map[string]*utils.StringSet
+	pageViews         map[string]int
 	lock              sync.Mutex
 }
 
@@ -106,6 +111,7 @@ func NewCollector(dataDir, version string, db *db.DB, cache *cache.Cache) *Colle
 		instanceVersion: version,
 
 		usersByScreenSize: map[string]*utils.StringSet{},
+		pageViews:         map[string]int{},
 	}
 
 	go func() {
@@ -119,22 +125,35 @@ func NewCollector(dataDir, version string, db *db.DB, cache *cache.Cache) *Colle
 	return c
 }
 
+type Event struct {
+	Type       string `json:"type"`
+	DeviceId   string `json:"device_id"`
+	DeviceSize string `json:"device_size"`
+	Path       string `json:"path"`
+}
+
 func (c *Collector) RegisterRequest(r *http.Request) {
 	if c == nil {
 		return
 	}
-	userUuid := r.Header.Get("x-device-id")
-	screenSize := r.Header.Get("x-device-size")
-	if userUuid == "" || screenSize == "" {
+	var e Event
+	if err := utils.ReadJson(r, &e); err != nil {
+		klog.Warningln(err)
+		return
+	}
+	if e.DeviceId == "" || e.DeviceSize == "" {
 		return
 	}
 
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	if c.usersByScreenSize[screenSize] == nil {
-		c.usersByScreenSize[screenSize] = utils.NewStringSet()
+	if e.Type == "route-open" {
+		c.pageViews[e.Path]++
 	}
-	c.usersByScreenSize[screenSize].Add(userUuid)
+	if c.usersByScreenSize[e.DeviceSize] == nil {
+		c.usersByScreenSize[e.DeviceSize] = utils.NewStringSet()
+	}
+	c.usersByScreenSize[e.DeviceSize].Add(e.DeviceId)
 }
 
 func (c *Collector) send() {
@@ -159,10 +178,14 @@ func (c *Collector) collect() Stats {
 	stats.Instance.Version = c.instanceVersion
 	stats.Instance.DatabaseType = string(c.db.Type())
 
-	c.lock.Lock()
 	stats.UX.UsersByScreenSize = map[string]int{}
-	for size, users := range c.usersByScreenSize {
-		stats.UX.UsersByScreenSize[size] = users.Len()
+	stats.UX.Users = utils.NewStringSet()
+	c.lock.Lock()
+	stats.UX.PageViews = c.pageViews
+	c.pageViews = map[string]int{}
+	for size, us := range c.usersByScreenSize {
+		stats.UX.UsersByScreenSize[size] = us.Len()
+		stats.UX.Users.Add(us.Items()...)
 	}
 	c.usersByScreenSize = map[string]*utils.StringSet{}
 	c.lock.Unlock()
@@ -181,6 +204,7 @@ func (c *Collector) collect() Stats {
 	stats.Integration.InspectionOverrides = map[model.CheckId]InspectionOverride{}
 	stats.Performance.Constructor.Stages = map[string]float32{}
 	stats.Performance.Constructor.Queries = map[string]prom.QueryStats{}
+	stats.Infra.DeploymentSummaries = map[string]int{}
 	alertingIntegrations := utils.NewStringSet()
 	var loadTime []time.Duration
 	now := timeseries.Now()
@@ -258,6 +282,19 @@ func (c *Collector) collect() Stats {
 					services.Add(string(t))
 				}
 				servicesInstrumented.Add(string(i.InstrumentedType()))
+			}
+			for _, ds := range model.CalcApplicationDeploymentStatuses(a, w.CheckConfigs, now) {
+				if now.Sub(ds.Deployment.StartedAt) > timeseries.Hour {
+					continue
+				}
+				stats.Infra.Deployments++
+				for _, s := range ds.Summary {
+					sign := "-"
+					if s.Ok {
+						sign = "+"
+					}
+					stats.Infra.DeploymentSummaries[sign+string(s.Report)]++
+				}
 			}
 		}
 	}

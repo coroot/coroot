@@ -9,21 +9,19 @@ export default class Api {
     axios = null;
     router = null;
     vuetify = null;
+    deviceId = '';
 
     constructor(router, vuetify) {
         this.router = router;
         this.vuetify = vuetify.framework;
-        let deviceId = storage.local('device-id');
-        if (!deviceId) {
-            deviceId = v4();
-            storage.local('device-id', deviceId);
+        this.deviceId = storage.local('device-id');
+        if (!this.deviceId) {
+            this.deviceId = v4();
+            storage.local('device-id', this.deviceId);
         }
         this.axios = axios.create({
             baseURL: baseUrl,
             timeout: 30000,
-            headers: {
-                'x-device-id': deviceId,
-            },
         })
     }
 
@@ -36,8 +34,17 @@ export default class Api {
         }
     }
 
+    stats(type, data) {
+        const event = {
+            ...data,
+            type,
+            device_id: this.deviceId,
+            device_size: this.vuetify.breakpoint.name,
+        }
+        navigator.sendBeacon('/stats', JSON.stringify(event));
+    }
+
     request(req, cb) {
-        req.headers = {...req.headers, 'x-device-size': this.vuetify.breakpoint.name};
         this.axios(req).then((response) => {
             try {
                 cb(response.data, '');

@@ -10,7 +10,6 @@ import (
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/notifications"
 	"github.com/coroot/coroot/prom"
-	"github.com/coroot/coroot/stats"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 	"github.com/gorilla/mux"
@@ -23,16 +22,14 @@ import (
 type Api struct {
 	cache    *cache.Cache
 	db       *db.DB
-	stats    *stats.Collector
 	readOnly bool
 }
 
-func NewApi(cache *cache.Cache, db *db.DB, stats *stats.Collector, readOnly bool) *Api {
-	return &Api{cache: cache, db: db, stats: stats, readOnly: readOnly}
+func NewApi(cache *cache.Cache, db *db.DB, readOnly bool) *Api {
+	return &Api{cache: cache, db: db, readOnly: readOnly}
 }
 
 func (api *Api) Projects(w http.ResponseWriter, r *http.Request) {
-	api.stats.RegisterRequest(r)
 	projects, err := api.db.GetProjectNames()
 	if err != nil {
 		klog.Errorln("failed to get projects:", err)

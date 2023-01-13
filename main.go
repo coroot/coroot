@@ -91,7 +91,7 @@ func main() {
 		deployments.NewWatcher(database, promCache).Start(*deploymentsWatchInterval)
 	}
 
-	a := api.NewApi(promCache, database, statsCollector, *readOnly)
+	a := api.NewApi(promCache, database, *readOnly)
 
 	r := mux.NewRouter()
 	r.PathPrefix("/debug/pprof/").Handler(http.DefaultServeMux)
@@ -111,6 +111,10 @@ func main() {
 	r.HandleFunc("/api/project/{project}/app/{app}/check/{check}/config", a.Check).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/project/{project}/node/{node}", a.Node).Methods(http.MethodGet)
 	r.PathPrefix("/api/project/{project}/prom").HandlerFunc(a.Prom)
+
+	r.HandleFunc("/stats", func(w http.ResponseWriter, r *http.Request) {
+		statsCollector.RegisterRequest(r)
+	}).Methods(http.MethodPost)
 
 	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("./static"))))
 	r.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

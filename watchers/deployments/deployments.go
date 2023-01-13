@@ -34,18 +34,18 @@ func (w *Watcher) Start(interval time.Duration) {
 				continue
 			}
 			for _, project := range projects {
-				world, cacheTo := w.saveDeployments(project)
+				world, cacheTo := w.discoverAndSaveDeployments(project)
 				if world == nil {
 					continue
 				}
-				w.takeMetricsSnapshots(project, world.Applications)
+				w.snapshotDeploymentMetrics(project, world.Applications)
 				w.sendNotifications(project, world, cacheTo)
 			}
 		}
 	}()
 }
 
-func (w *Watcher) saveDeployments(project *db.Project) (*model.World, timeseries.Time) {
+func (w *Watcher) discoverAndSaveDeployments(project *db.Project) (*model.World, timeseries.Time) {
 	t := time.Now()
 	var apps int
 	defer func() {
@@ -103,7 +103,7 @@ func (w *Watcher) saveDeployments(project *db.Project) (*model.World, timeseries
 	return world, cacheTo
 }
 
-func (w *Watcher) takeMetricsSnapshots(project *db.Project, applications []*model.Application) {
+func (w *Watcher) snapshotDeploymentMetrics(project *db.Project, applications []*model.Application) {
 	if len(applications) == 0 {
 		return
 	}
@@ -160,9 +160,10 @@ func (w *Watcher) sendNotifications(project *db.Project, world *model.World, now
 			if d.Notifications.State >= ds.State {
 				continue
 			}
-			if notificationsEnabled {
+			if notificationsEnabled && now.Sub(d.StartedAt) < timeseries.Day {
 				if err := slack.SendDeployment(ds); err != nil {
 					klog.Errorln("slack error:", err)
+					continue
 				}
 			}
 			d.Notifications.State = ds.State
