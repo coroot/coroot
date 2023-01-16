@@ -62,6 +62,7 @@ Vue.prototype.$pluralize = pluralize;
 Vue.prototype.$api = api;
 Vue.prototype.$validators = validators;
 Vue.prototype.$storage = storage;
+Vue.prototype.$coroot = window.coroot;
 
 new Vue({
   router,

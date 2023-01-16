@@ -1,5 +1,7 @@
 <template>
 <v-app>
+    <CheckForUpdates v-if="$coroot.check_for_updates" :currentVersion="$coroot.version" :instanceUuid="$coroot.uuid" />
+
     <v-app-bar app flat dark color="#080d1b" class="menu">
         <v-container class="py-0 fill-height flex-nowrap">
             <router-link :to="project ? {name: 'overview', query: $route.query} : {name: 'index'}">
@@ -54,6 +56,10 @@
                         </v-list-item>
                         <v-list-item href="https://join.slack.com/t/coroot-community/shared_invite/zt-1gsnfo0wj-I~Zvtx5CAAb8vr~r~vecyw" target="_blank">
                             <v-icon small class="mr-1">mdi-slack</v-icon>Slack chat
+                        </v-list-item>
+                        <v-divider />
+                        <v-list-item href="https://github.com/coroot/coroot/releases" target="_blank">
+                            Version: {{$coroot.version}}
                         </v-list-item>
                     </v-list>
                 </v-menu>
@@ -115,9 +121,10 @@
 import TimePicker from "@/components/TimePicker";
 import Search from "@/views/Search";
 import Led from "@/components/Led";
+import CheckForUpdates from "@/components/CheckForUpdates.vue";
 
 export default {
-    components: {Search, TimePicker, Led},
+    components: {Search, TimePicker, Led, CheckForUpdates},
 
     data() {
         return {

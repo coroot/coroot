@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"github.com/coroot/coroot/api"
 	"github.com/coroot/coroot/cache"
 	"github.com/coroot/coroot/db"
@@ -9,12 +10,16 @@ import (
 	"github.com/coroot/coroot/utils"
 	"github.com/coroot/coroot/watchers/deployments"
 	"github.com/coroot/coroot/watchers/incidents"
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"gopkg.in/alecthomas/kingpin.v2"
 	"k8s.io/klog"
 	"net/http"
 	_ "net/http/pprof"
+	"os"
 	"path"
+	"strings"
+	"text/template"
 )
 
 var version = "unknown"
@@ -31,6 +36,7 @@ func main() {
 	bootstrapRefreshInterval := kingpin.Flag("bootstrap-refresh-interval", "refresh interval for the project created upon bootstrap").Envar("BOOTSTRAP_REFRESH_INTERVAL").Duration()
 	sloCheckInterval := kingpin.Flag("slo-check-interval", "how often to check SLO compliance").Envar("SLO_CHECK_INTERVAL").Default("1m").Duration()
 	deploymentsWatchInterval := kingpin.Flag("deployments-watch-interval", "how often to check new deployments").Envar("DEPLOYMENTS_WATCH_INTERVAL").Default("1m").Duration()
+	doNotCheckForUpdates := kingpin.Flag("do-not-check-for-updates", "don't check for new versions").Envar("DO_NOT_CHECK_FOR_UPDATES").Bool()
 
 	kingpin.Version(version)
 	kingpin.Parse()
@@ -78,9 +84,11 @@ func main() {
 		klog.Exitln(err)
 	}
 
+	instanceUuid := getInstanceUuid(*dataDir)
+
 	var statsCollector *stats.Collector
 	if !*disableStats {
-		statsCollector = stats.NewCollector(*dataDir, version, database, promCache)
+		statsCollector = stats.NewCollector(instanceUuid, version, database, promCache)
 	}
 
 	if *sloCheckInterval > 0 {
@@ -117,10 +125,48 @@ func main() {
 	}).Methods(http.MethodPost)
 
 	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("./static"))))
+
+	tpl, err := template.ParseFiles("./static/index.html")
+	if err != nil {
+		klog.Exitln(err)
+	}
+	buf := bytes.Buffer{}
+	err = tpl.Execute(&buf, Options{
+		Version:         version,
+		Uuid:            instanceUuid,
+		CheckForUpdates: !*doNotCheckForUpdates,
+	})
+	if err != nil {
+		klog.Exitln(err)
+	}
 	r.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "./static/index.html")
+		_, _ = w.Write(buf.Bytes())
 	})
 
 	klog.Infoln("listening on", *listen)
 	klog.Fatalln(http.ListenAndServe(*listen, r))
+}
+
+type Options struct {
+	Uuid            string
+	Version         string
+	CheckForUpdates bool
+}
+
+func getInstanceUuid(dataDir string) string {
+	instanceUuid := ""
+	filePath := path.Join(dataDir, "instance.uuid")
+	data, err := os.ReadFile(filePath)
+	if err != nil && !os.IsNotExist(err) {
+		klog.Errorln("failed to read instance id:", err)
+	}
+	instanceUuid = strings.TrimSpace(string(data))
+	if _, err := uuid.Parse(instanceUuid); err != nil {
+		instanceUuid = uuid.NewString()
+		if err := os.WriteFile(filePath, []byte(instanceUuid), 0644); err != nil {
+			klog.Errorln("failed to write instance id:", err)
+			return ""
+		}
+	}
+	return instanceUuid
 }

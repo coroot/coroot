@@ -11,11 +11,8 @@ import (
 	"github.com/coroot/coroot/prom"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
-	"github.com/google/uuid"
 	"k8s.io/klog"
 	"net/http"
-	"os"
-	"path"
 	"strings"
 	"sync"
 	"time"
@@ -85,22 +82,7 @@ type Collector struct {
 	lock              sync.Mutex
 }
 
-func NewCollector(dataDir, version string, db *db.DB, cache *cache.Cache) *Collector {
-	instanceUuid := ""
-	filePath := path.Join(dataDir, "instance.uuid")
-	data, err := os.ReadFile(filePath)
-	if err != nil && !os.IsNotExist(err) {
-		klog.Errorln("failed to read instance id:", err)
-	}
-	instanceUuid = strings.TrimSpace(string(data))
-	if _, err := uuid.Parse(instanceUuid); err != nil {
-		instanceUuid = uuid.NewString()
-		if err := os.WriteFile(filePath, []byte(instanceUuid), 0644); err != nil {
-			klog.Errorln("failed to write instance id:", err)
-			return nil
-		}
-	}
-
+func NewCollector(instanceUuid, version string, db *db.DB, cache *cache.Cache) *Collector {
 	c := &Collector{
 		db:    db,
 		cache: cache,
