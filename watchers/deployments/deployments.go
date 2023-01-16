@@ -150,8 +150,7 @@ func (w *Watcher) sendNotifications(project *db.Project, world *model.World, now
 	slack := notifications.NewSlack(project)
 	settings := project.Settings
 	for _, app := range world.Applications {
-		category := model.CalcApplicationCategory(app, settings.ApplicationCategories)
-		notificationsEnabled := settings.ApplicationCategorySettings[category].NotifyOfDeployments
+		notificationsEnabled := settings.ApplicationCategorySettings[app.Category].NotifyOfDeployments
 		for _, ds := range model.CalcApplicationDeploymentStatuses(app, world.CheckConfigs, now) {
 			d := ds.Deployment
 			if d.Notifications == nil {

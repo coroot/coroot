@@ -11,6 +11,8 @@ import (
 type Application struct {
 	Id ApplicationId
 
+	Category ApplicationCategory
+
 	Instances   []*Instance
 	Downstreams []*Connection
 

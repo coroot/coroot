@@ -63,18 +63,26 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 		return nil, err
 	}
 
+	// order is important
 	stage("load_nodes", func() { loadNodes(w, metrics) })
 	stage("load_k8s_metadata", func() { loadKubernetesMetadata(w, metrics) })
 	stage("load_rds", func() { loadRds(w, metrics) })
 	stage("load_containers", func() { loadContainers(w, metrics) })
 	stage("enrich_instances", func() { enrichInstances(w, metrics) })
 	stage("join_db_cluster", func() { joinDBClusterComponents(w) })
+	stage("calc_app_categories", func() { c.calcApplicationCategories(w) })
 	stage("load_sli", func() { loadSLIs(ctx, w, c.prom, c.project.Prometheus.RefreshInterval, from, to, step) })
 	stage("load_app_deployments", func() { c.loadApplicationDeployments(w) })
 	stage("calc_app_events", func() { calcAppEvents(w) })
 
 	klog.Infof("got %d nodes, %d services, %d applications", len(w.Nodes), len(w.Services), len(w.Applications))
 	return w, nil
+}
+
+func (c *Constructor) calcApplicationCategories(w *model.World) {
+	for _, app := range w.Applications {
+		app.Category = model.CalcApplicationCategory(app.Id, c.project.Settings.ApplicationCategories)
+	}
 }
 
 func (c *Constructor) loadApplicationDeployments(w *model.World) {

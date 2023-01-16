@@ -128,7 +128,7 @@ func CalcApplicationDeploymentStatuses(app *Application, checkConfigs CheckConfi
 					break
 				}
 			}
-			s.Summary, s.Status = CalcApplicationDeploymentSummary(d.ApplicationId, checkConfigs, d.StartedAt, d.MetricsSnapshot, prev)
+			s.Summary, s.Status = CalcApplicationDeploymentSummary(app, checkConfigs, d.StartedAt, d.MetricsSnapshot, prev)
 		case !d.FinishedAt.IsZero():
 			s.Status = OK
 			s.State = ApplicationDeploymentStateDeployed
@@ -151,18 +151,18 @@ func CalcApplicationDeploymentStatuses(app *Application, checkConfigs CheckConfi
 	return res
 }
 
-func CalcApplicationDeploymentSummary(appId ApplicationId, checkConfigs CheckConfigs, t timeseries.Time, curr, prev *MetricsSnapshot) ([]ApplicationDeploymentSummary, Status) {
+func CalcApplicationDeploymentSummary(app *Application, checkConfigs CheckConfigs, t timeseries.Time, curr, prev *MetricsSnapshot) ([]ApplicationDeploymentSummary, Status) {
 	availabilityObjectivePercentage := 99.0
-	if configs, _ := checkConfigs.GetAvailability(appId); len(configs) > 0 {
+	if configs, _ := checkConfigs.GetAvailability(app.Id); len(configs) > 0 {
 		availabilityObjectivePercentage = configs[0].ObjectivePercentage
 	}
 	latencyObjectiveBucket := 0.5
 	latencyObjectivePercentage := 99.0
-	if configs, _ := checkConfigs.GetLatency(appId); len(configs) > 0 {
+	if configs, _ := checkConfigs.GetLatency(app.Id, app.Category); len(configs) > 0 {
 		latencyObjectiveBucket = configs[0].ObjectiveBucket
 		latencyObjectivePercentage = configs[0].ObjectivePercentage
 	}
-	memoryLeakThreshold := int64(checkConfigs.GetSimple(Checks.MemoryLeak.Id, appId).Threshold * 1024 * 1024)
+	memoryLeakThreshold := int64(checkConfigs.GetSimple(Checks.MemoryLeak.Id, app.Id).Threshold * 1024 * 1024)
 	significantPercentageDifference := 5.0
 
 	status := OK

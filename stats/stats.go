@@ -271,8 +271,7 @@ func (c *Collector) collect() Stats {
 		}
 
 		for _, a := range w.Applications {
-			category := model.CalcApplicationCategory(a, p.Settings.ApplicationCategories)
-			if a.IsStandalone() || category == model.ApplicationCategoryControlPlane || category == model.ApplicationCategoryMonitoring {
+			if a.IsStandalone() || a.Category.Auxiliary() {
 				continue
 			}
 			stats.Infra.Applications++

@@ -7,7 +7,7 @@ import (
 
 func AuditNode(w *model.World, node *model.Node) *model.AuditReport {
 	id := model.NewApplicationId("", model.ApplicationKindNode, node.Name.Value())
-	report := model.NewAuditReport(id, w.Ctx, nil, model.AuditReportNode)
+	report := model.NewAuditReport(model.NewApplication(id), w.Ctx, nil, model.AuditReportNode)
 
 	cpu := report.GetOrCreateChart("CPU usage, %").Sorted().Stacked()
 	for _, s := range cpuByModeSeries(node.CpuUsageByMode) {

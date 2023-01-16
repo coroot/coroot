@@ -510,11 +510,15 @@ func (cc CheckConfigs) GetAvailability(appId ApplicationId) ([]CheckConfigSLOAva
 	return res, false
 }
 
-func (cc CheckConfigs) GetLatency(appId ApplicationId) ([]CheckConfigSLOLatency, bool) {
+func (cc CheckConfigs) GetLatency(appId ApplicationId, category ApplicationCategory) ([]CheckConfigSLOLatency, bool) {
+	objectiveBucket := 0.5
+	if category.Auxiliary() {
+		objectiveBucket = 5
+	}
 	defaultCfg := []CheckConfigSLOLatency{{
 		Custom:              false,
 		ObjectivePercentage: Checks.SLOLatency.DefaultThreshold,
-		ObjectiveBucket:     0.5,
+		ObjectiveBucket:     objectiveBucket,
 	}}
 	appConfigs := cc[appId]
 	if appConfigs == nil {

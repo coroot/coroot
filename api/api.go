@@ -196,7 +196,7 @@ func (api *Api) Status(w http.ResponseWriter, r *http.Request) {
 }
 
 func (api *Api) Overview(w http.ResponseWriter, r *http.Request) {
-	world, project, err := api.loadWorldByRequest(r)
+	world, _, err := api.loadWorldByRequest(r)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
@@ -205,7 +205,7 @@ func (api *Api) Overview(w http.ResponseWriter, r *http.Request) {
 	if world == nil {
 		return
 	}
-	utils.WriteJson(w, views.Overview(world, project))
+	utils.WriteJson(w, views.Overview(world))
 }
 
 func (api *Api) Search(w http.ResponseWriter, r *http.Request) {
@@ -422,7 +422,7 @@ func (api *Api) Check(w http.ResponseWriter, r *http.Request) {
 	appId, err := model.NewApplicationIdFromString(vars["app"])
 	if err != nil {
 		klog.Warningln(err)
-		http.Error(w, "invalid application_id: "+vars["app"], http.StatusBadRequest)
+		http.Error(w, "invalid application id: "+vars["app"], http.StatusBadRequest)
 		return
 	}
 	checkId := model.CheckId(vars["check"])
@@ -456,7 +456,7 @@ func (api *Api) Check(w http.ResponseWriter, r *http.Request) {
 			configs, def := checkConfigs.GetAvailability(appId)
 			res.Form = CheckConfigSLOAvailabilityForm{Configs: configs, Default: def}
 		case model.Checks.SLOLatency.Id:
-			configs, def := checkConfigs.GetLatency(appId)
+			configs, def := checkConfigs.GetLatency(appId, model.CalcApplicationCategory(appId, project.Settings.ApplicationCategories))
 			res.Form = CheckConfigSLOLatencyForm{Configs: configs, Default: def}
 		default:
 			form := CheckConfigForm{

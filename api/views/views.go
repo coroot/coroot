@@ -19,8 +19,8 @@ func Status(p *db.Project, cacheStatus *cache.Status, w *model.World) *project.S
 	return project.RenderStatus(p, cacheStatus, w)
 }
 
-func Overview(w *model.World, p *db.Project) *overview.View {
-	return overview.Render(w, p)
+func Overview(w *model.World) *overview.View {
+	return overview.Render(w)
 }
 
 func Application(w *model.World, app *model.Application, incidents []db.Incident) *application.View {

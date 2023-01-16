@@ -56,7 +56,7 @@ func Audit(w *model.World) {
 }
 
 func (a *appAuditor) addReport(name model.AuditReportName) *model.AuditReport {
-	r := model.NewAuditReport(a.app.Id, a.w.Ctx, a.w.CheckConfigs, name)
+	r := model.NewAuditReport(a.app, a.w.Ctx, a.w.CheckConfigs, name)
 	a.reports = append(a.reports, r)
 	return r
 }

@@ -56,7 +56,7 @@ func FormatLatency(v float64) string {
 	if v < 1 {
 		return FormatFloat(v*1000) + " ms"
 	}
-	return FormatFloat(v) + " s"
+	return FormatFloat(v) + "s"
 }
 
 func FormatPercentage(v float64) string {

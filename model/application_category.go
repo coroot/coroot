@@ -23,12 +23,17 @@ func (c ApplicationCategory) Builtin() bool {
 	return ok
 }
 
+func (c ApplicationCategory) Auxiliary() bool {
+	return c == ApplicationCategoryControlPlane || c == ApplicationCategoryMonitoring
+}
+
 var BuiltinCategoryPatterns = map[ApplicationCategory][]string{
 	ApplicationCategoryApplication: {},
 	ApplicationCategoryControlPlane: {
 		"kube-system/*",
 		"*/kubelet",
 		"*/kube-apiserver",
+		"*/k3s",
 	},
 	ApplicationCategoryMonitoring: {
 		"monitoring/*",
@@ -41,7 +46,7 @@ var BuiltinCategoryPatterns = map[ApplicationCategory][]string{
 	},
 }
 
-func CalcApplicationCategory(app *Application, customPatterns map[ApplicationCategory][]string) ApplicationCategory {
+func CalcApplicationCategory(appId ApplicationId, customPatterns map[ApplicationCategory][]string) ApplicationCategory {
 	categories := make([]ApplicationCategory, 0, len(BuiltinCategoryPatterns)+len(customPatterns))
 	for c := range BuiltinCategoryPatterns {
 		categories = append(categories, c)
@@ -56,23 +61,10 @@ func CalcApplicationCategory(app *Application, customPatterns map[ApplicationCat
 		return categories[i] < categories[j]
 	})
 
-	id := fmt.Sprintf("%s/%s", app.Id.Namespace, app.Id.Name)
+	id := fmt.Sprintf("%s/%s", appId.Namespace, appId.Name)
 	for _, c := range categories {
 		if utils.GlobMatch(id, BuiltinCategoryPatterns[c]) || utils.GlobMatch(id, customPatterns[c]) {
 			return c
-		}
-	}
-
-	for _, i := range app.Instances {
-		if i.ApplicationTypes()["k3s"] {
-			return ApplicationCategoryControlPlane
-		}
-		if i.ApplicationTypes()["etcd"] {
-			for _, d := range app.Downstreams {
-				if d.Instance.ApplicationTypes()["kube-apiserver"] {
-					return ApplicationCategoryControlPlane
-				}
-			}
 		}
 	}
 

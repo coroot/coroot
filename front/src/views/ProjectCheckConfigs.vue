@@ -79,7 +79,7 @@ export default {
             this.editing = {active: true, appId, check};
         },
         formatCondition(check) {
-            return check.condition_format_template.replace('<bucket>', '100ms').replace('<threshold>', this.format(check.global_threshold, check.unit));
+            return check.condition_format_template.replace('<bucket>', '500ms').replace('<threshold>', this.format(check.global_threshold, check.unit));
         },
         format(threshold, unit, details) {
             if (threshold === null) {

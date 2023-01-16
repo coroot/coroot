@@ -35,7 +35,7 @@ func loadSLIs(ctx context.Context, w *model.World, prom prom.Client, rawStep tim
 				sli.FailedRequestsRaw = availabilityFromInboundConnectionsRaw[app.Id].failed
 			}
 		}
-		latency, _ := w.CheckConfigs.GetLatency(app.Id)
+		latency, _ := w.CheckConfigs.GetLatency(app.Id, app.Category)
 		for _, cfg := range latency {
 			sli := &model.LatencySLI{Config: cfg}
 			app.LatencySLIs = append(app.LatencySLIs, sli)

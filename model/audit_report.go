@@ -24,7 +24,7 @@ const (
 )
 
 type AuditReport struct {
-	appId        ApplicationId
+	app          *Application
 	ctx          timeseries.Context
 	checkConfigs CheckConfigs
 
@@ -34,8 +34,8 @@ type AuditReport struct {
 	Checks  []*Check        `json:"checks"`
 }
 
-func NewAuditReport(appId ApplicationId, ctx timeseries.Context, checkConfigs CheckConfigs, name AuditReportName) *AuditReport {
-	return &AuditReport{appId: appId, Name: name, ctx: ctx, checkConfigs: checkConfigs}
+func NewAuditReport(app *Application, ctx timeseries.Context, checkConfigs CheckConfigs, name AuditReportName) *AuditReport {
+	return &AuditReport{app: app, Name: name, ctx: ctx, checkConfigs: checkConfigs}
 }
 
 type Widget struct {
@@ -114,12 +114,12 @@ func (c *AuditReport) CreateCheck(cfg CheckConfig) *Check {
 	}
 	switch cfg.Id {
 	case Checks.SLOAvailability.Id:
-		configs, _ := c.checkConfigs.GetAvailability(c.appId)
+		configs, _ := c.checkConfigs.GetAvailability(c.app.Id)
 		if len(configs) > 0 {
 			ch.Threshold = configs[0].ObjectivePercentage
 		}
 	case Checks.SLOLatency.Id:
-		configs, _ := c.checkConfigs.GetLatency(c.appId)
+		configs, _ := c.checkConfigs.GetLatency(c.app.Id, c.app.Category)
 		if len(configs) > 0 {
 			ch.Threshold = configs[0].ObjectivePercentage
 			ch.ConditionFormatTemplate = strings.Replace(
@@ -130,7 +130,7 @@ func (c *AuditReport) CreateCheck(cfg CheckConfig) *Check {
 			)
 		}
 	default:
-		ch.Threshold = c.checkConfigs.GetSimple(cfg.Id, c.appId).Threshold
+		ch.Threshold = c.checkConfigs.GetSimple(cfg.Id, c.app.Id).Threshold
 	}
 	c.Checks = append(c.Checks, ch)
 	return ch

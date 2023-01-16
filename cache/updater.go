@@ -81,7 +81,7 @@ func (c *Cache) updaterWorker(projects *sync.Map, projectId db.ProjectId) {
 					queries = append(queries, cfg.Total(), cfg.Failed())
 				}
 			}
-			latency, _ := checkConfigs.GetLatency(appId)
+			latency, _ := checkConfigs.GetLatency(appId, model.CalcApplicationCategory(appId, project.Settings.ApplicationCategories))
 			for _, cfg := range latency {
 				if cfg.Custom {
 					queries = append(queries, cfg.Histogram())

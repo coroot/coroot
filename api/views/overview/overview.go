@@ -2,7 +2,6 @@ package overview
 
 import (
 	"github.com/coroot/coroot/auditor"
-	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
@@ -37,14 +36,14 @@ type Link struct {
 	Weight float32             `json:"weight"`
 }
 
-func Render(w *model.World, p *db.Project) *View {
+func Render(w *model.World) *View {
 	var apps []*Application
 	used := map[model.ApplicationId]bool{}
 	auditor.Audit(w)
 	for _, a := range w.Applications {
 		app := Application{
 			Id:          a.Id,
-			Category:    model.CalcApplicationCategory(a, p.Settings.ApplicationCategories),
+			Category:    a.Category,
 			Labels:      a.Labels(),
 			Status:      a.Status,
 			Indicators:  model.CalcIndicators(a),
