@@ -17,15 +17,18 @@ import Welcome from "@/views/Welcome";
 
 Vue.config.productionTip = false;
 
+const config = window.coroot;
+
 Vue.use(VueRouter);
 const router = new VueRouter({
-    mode: "history",
+    mode: 'history',
+    base: config.base_path,
     routes: [
-        {path: "/p/new", name: "project_new", component: Project},
-        {path: "/p/:projectId/settings", name: "project_settings", component: Project, props: true},
-        {path: "/p/:projectId", name: "overview", component: Overview, props: true},
-        {path: "/p/:projectId/app/:id/:report?", name: "application", component: Application, props: true},
-        {path: "/p/:projectId/node/:name", name: "node", component: Node, props: true},
+        {path: '/p/new', name: 'project_new', component: Project},
+        {path: '/p/:projectId/settings', name: 'project_settings', component: Project, props: true},
+        {path: '/p/:projectId', name: 'overview', component: Overview, props: true},
+        {path: '/p/:projectId/app/:id/:report?', name: 'application', component: Application, props: true},
+        {path: '/p/:projectId/node/:name', name: 'node', component: Node, props: true},
         {path: '/welcome', name: 'welcome', component: Welcome},
         {path: '/', name: 'index', component: App},
         {path: '*', redirect: {name: 'index'}},
@@ -41,7 +44,7 @@ const router = new VueRouter({
     }
 });
 
-const api = new Api(router, vuetify);
+const api = new Api(router, vuetify, config.base_path);
 
 router.afterEach((to, from) => {
     if (to.params.projectId !== from.params.projectId || JSON.stringify(to.query) !== JSON.stringify(from.query)) {
@@ -62,7 +65,7 @@ Vue.prototype.$pluralize = pluralize;
 Vue.prototype.$api = api;
 Vue.prototype.$validators = validators;
 Vue.prototype.$storage = storage;
-Vue.prototype.$coroot = window.coroot;
+Vue.prototype.$coroot = config;
 
 new Vue({
   router,

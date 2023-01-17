@@ -26,6 +26,7 @@ var version = "unknown"
 
 func main() {
 	listen := kingpin.Flag("listen", "listen address - ip:port or :port").Envar("LISTEN").Default("0.0.0.0:8080").String()
+	urlBasePath := kingpin.Flag("url-base-path", "the base URL to run Coroot at a sub-path, e.g. /coroot/").Envar("URL_BASE_PATH").Default("/").String()
 	dataDir := kingpin.Flag("data-dir", `path to data directory`).Envar("DATA_DIR").Default("/data").String()
 	cacheTTL := kingpin.Flag("cache-ttl", "cache TTL").Envar("CACHE_TTL").Default("720h").Duration()
 	cacheGcInterval := kingpin.Flag("cache-gc-interval", "cache GC interval").Envar("CACHE_GC_INTERVAL").Default("10m").Duration()
@@ -41,7 +42,7 @@ func main() {
 	kingpin.Version(version)
 	kingpin.Parse()
 
-	klog.Infof("version: %s, read-only: %t", version, *readOnly)
+	klog.Infof("version: %s, url-base-path: %s, read-only: %t", version, *urlBasePath, *readOnly)
 
 	if err := utils.CreateDirectoryIfNotExists(*dataDir); err != nil {
 		klog.Exitln(err)
@@ -101,10 +102,15 @@ func main() {
 
 	a := api.NewApi(promCache, database, *readOnly)
 
-	r := mux.NewRouter()
-	r.PathPrefix("/debug/pprof/").Handler(http.DefaultServeMux)
-	r.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {}).Methods(http.MethodGet)
+	router := mux.NewRouter()
+	router.PathPrefix("/debug/pprof/").Handler(http.DefaultServeMux)
+	router.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {}).Methods(http.MethodGet)
 
+	r := router
+	cleanUrlBasePath(urlBasePath)
+	if *urlBasePath != "/" {
+		r = router.PathPrefix(strings.TrimRight(*urlBasePath, "/")).Subrouter()
+	}
 	r.HandleFunc("/api/projects", a.Projects).Methods(http.MethodGet)
 	r.HandleFunc("/api/project/", a.Project).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/project/{project}", a.Project).Methods(http.MethodGet, http.MethodPost, http.MethodDelete)
@@ -124,33 +130,52 @@ func main() {
 		statsCollector.RegisterRequest(r)
 	}).Methods(http.MethodPost)
 
-	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("./static"))))
+	r.PathPrefix("/static/").Handler(http.StripPrefix(*urlBasePath+"static/", http.FileServer(http.Dir("./static"))))
 
+	indexHtml := readIndexHtml(*urlBasePath, version, instanceUuid, !*doNotCheckForUpdates)
+	r.PathPrefix("").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write(indexHtml)
+	})
+
+	router.PathPrefix("").Handler(http.RedirectHandler(*urlBasePath, http.StatusMovedPermanently))
+
+	klog.Infoln("listening on", *listen)
+	klog.Fatalln(http.ListenAndServe(*listen, router))
+}
+
+type Options struct {
+	BasePath        string
+	Version         string
+	Uuid            string
+	CheckForUpdates bool
+}
+
+func readIndexHtml(basePath, version, instanceUuid string, checkForUpdates bool) []byte {
 	tpl, err := template.ParseFiles("./static/index.html")
 	if err != nil {
 		klog.Exitln(err)
 	}
 	buf := bytes.Buffer{}
 	err = tpl.Execute(&buf, Options{
+		BasePath:        basePath,
 		Version:         version,
 		Uuid:            instanceUuid,
-		CheckForUpdates: !*doNotCheckForUpdates,
+		CheckForUpdates: checkForUpdates,
 	})
 	if err != nil {
 		klog.Exitln(err)
 	}
-	r.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write(buf.Bytes())
-	})
-
-	klog.Infoln("listening on", *listen)
-	klog.Fatalln(http.ListenAndServe(*listen, r))
+	return buf.Bytes()
 }
 
-type Options struct {
-	Uuid            string
-	Version         string
-	CheckForUpdates bool
+func cleanUrlBasePath(urlBasePath *string) {
+	bp := strings.Trim(*urlBasePath, "/")
+	if bp == "" {
+		bp = "/"
+	} else {
+		bp = "/" + bp + "/"
+	}
+	*urlBasePath = bp
 }
 
 func getInstanceUuid(dataDir string) string {

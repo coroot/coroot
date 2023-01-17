@@ -2,7 +2,6 @@ import axios from "axios";
 import * as storage from "@/utils/storage";
 import {v4} from 'uuid';
 
-const baseUrl = '/api/';
 const defaultErrorMessage = 'Something went wrong, please try again later.';
 
 export default class Api {
@@ -10,8 +9,9 @@ export default class Api {
     router = null;
     vuetify = null;
     deviceId = '';
+    basePath = ''
 
-    constructor(router, vuetify) {
+    constructor(router, vuetify, basePath) {
         this.router = router;
         this.vuetify = vuetify.framework;
         this.deviceId = storage.local('device-id');
@@ -19,8 +19,9 @@ export default class Api {
             this.deviceId = v4();
             storage.local('device-id', this.deviceId);
         }
+        this.basePath = basePath;
         this.axios = axios.create({
-            baseURL: baseUrl,
+            baseURL: this.basePath + 'api/',
             timeout: 30000,
         })
     }
@@ -41,7 +42,7 @@ export default class Api {
             device_id: this.deviceId,
             device_size: this.vuetify.breakpoint.name,
         }
-        navigator.sendBeacon('/stats', JSON.stringify(event));
+        navigator.sendBeacon(this.basePath + 'stats', JSON.stringify(event));
     }
 
     request(req, cb) {
@@ -147,6 +148,6 @@ export default class Api {
     }
 
     getPromPath() {
-        return baseUrl + this.projectPath('prom');
+        return this.basePath + 'api/' + this.projectPath('prom');
     }
 }

@@ -5,7 +5,7 @@
     <v-app-bar app flat dark color="#080d1b" class="menu">
         <v-container class="py-0 fill-height flex-nowrap">
             <router-link :to="project ? {name: 'overview', query: $route.query} : {name: 'index'}">
-                <img src="/static/logo.svg" height="38" style="vertical-align: middle;">
+                <img :src="`${$coroot.base_path}static/logo.svg`" height="38" style="vertical-align: middle;">
             </router-link>
 
             <div v-if="$route.name !== 'welcome'">

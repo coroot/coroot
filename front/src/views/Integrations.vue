@@ -100,7 +100,7 @@ export default {
                 }
                 this.form.base_url = data.base_url;
                 if (!this.form.base_url) {
-                    this.form.base_url = location.origin;
+                    this.form.base_url = location.origin + this.$coroot.base_path;
                     this.$api.saveIntegrations('', this.form, () => {});
                 }
                 this.slack.info = data.slack;

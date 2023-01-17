@@ -14,7 +14,6 @@
     "@codemirror/view": "^6.3.0",
     "@juggle/resize-observer": "^3.4.0",
     "@lezer/common": "^1.0.1",
-    "@mdi/font": "^7.0.96",
     "@prometheus-io/codemirror-promql": "^0.39.0-rc.0",
     "axios": "^0.27.2",
     "color-convert": "^2.0.1",
