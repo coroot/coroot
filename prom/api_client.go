@@ -82,9 +82,7 @@ func (c *ApiClient) QueryRange(ctx context.Context, query string, from, to times
 		for k, v := range m.Metric {
 			mv.Labels[string(k)] = string(v)
 		}
-		for _, p := range m.Values {
-			values.Set(timeseries.Time(p.Timestamp.Time().Unix()), float64(p.Value))
-		}
+		values.FillFromSamplePairs(m.Values)
 		res = append(res, mv)
 	}
 	return res, nil

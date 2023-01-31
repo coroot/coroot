@@ -190,14 +190,19 @@ func calcDeployments(app *model.Application) []*model.ApplicationDeployment {
 		return nil
 	}
 
-	lifeSpans := map[string]*timeseries.AggregatedTimeseries{}
+	lifeSpans := map[string]*timeseries.Aggregate{}
 	images := map[string]*utils.StringSet{}
 	for _, instance := range app.Instances {
 		if instance.Pod == nil || instance.Pod.ReplicaSet == "" {
 			continue
 		}
 		rs := instance.Pod.ReplicaSet
-		lifeSpans[rs] = timeseries.Merge(lifeSpans[rs], instance.Pod.LifeSpan, timeseries.NanSum)
+		ts := lifeSpans[rs]
+		if ts == nil {
+			ts = timeseries.NewAggregate(timeseries.NanSum)
+			lifeSpans[rs] = ts
+		}
+		ts.Add(instance.Pod.LifeSpan)
 		if images[rs] == nil {
 			images[rs] = utils.NewStringSet()
 		}
@@ -209,9 +214,10 @@ func calcDeployments(app *model.Application) []*model.ApplicationDeployment {
 		return nil
 	}
 
-	iters := map[string]timeseries.Iterator{}
-	for name, ts := range lifeSpans {
-		iters[name] = timeseries.Iter(ts)
+	iters := map[string]*timeseries.Iterator{}
+	for name, agg := range lifeSpans {
+		iter := agg.Get().Iter()
+		iters[name] = iter
 	}
 	var rssOverTime []rss
 	done := false
@@ -338,53 +344,53 @@ func calcMetricsSnapshot(app *model.Application, from, to timeseries.Time, step 
 		}
 		break
 	}
-	cpuUsage := timeseries.Aggregate(timeseries.NanSum)
-	memUsage := timeseries.Aggregate(timeseries.NanSum)
-	oomKills := timeseries.Aggregate(timeseries.NanSum)
-	restarts := timeseries.Aggregate(timeseries.NanSum)
-	logErrors := timeseries.Aggregate(timeseries.NanSum)
-	logWarnings := timeseries.Aggregate(timeseries.NanSum)
+	cpuUsage := timeseries.NewAggregate(timeseries.NanSum)
+	memUsage := timeseries.NewAggregate(timeseries.NanSum)
+	oomKills := timeseries.NewAggregate(timeseries.NanSum)
+	restarts := timeseries.NewAggregate(timeseries.NanSum)
+	logErrors := timeseries.NewAggregate(timeseries.NanSum)
+	logWarnings := timeseries.NewAggregate(timeseries.NanSum)
 	for _, i := range app.Instances {
 		for _, c := range i.Containers {
-			cpuUsage.AddInput(c.CpuUsage)
-			memUsage.AddInput(c.MemoryRss)
-			restarts.AddInput(c.Restarts)
-			oomKills.AddInput(c.OOMKills)
+			cpuUsage.Add(c.CpuUsage)
+			memUsage.Add(c.MemoryRss)
+			restarts.Add(c.Restarts)
+			oomKills.Add(c.OOMKills)
 			for level, ts := range i.LogMessagesByLevel {
 				switch level {
 				case model.LogLevelCritical, model.LogLevelError:
-					logErrors.AddInput(ts)
+					logErrors.Add(ts)
 				case model.LogLevelWarning:
-					logWarnings.AddInput(ts)
+					logWarnings.Add(ts)
 				}
 			}
 		}
 	}
-	ms.CPUUsage = float32(sumRF(cpuUsage, step))
-	if lr := timeseries.NewLinearRegression(memUsage); lr != nil {
+	ms.CPUUsage = float32(sumRF(cpuUsage.Get(), step))
+	if lr := timeseries.NewLinearRegression(memUsage.Get()); lr != nil {
 		ms.MemoryLeak = int64(lr.Calc(from.Add(timeseries.Hour)) - lr.Calc(from))
 	}
-	ms.OOMKills = sum(oomKills)
-	ms.Restarts = sum(restarts)
-	ms.LogErrors = sum(logErrors)
-	ms.LogWarnings = sum(logWarnings)
+	ms.OOMKills = sum(oomKills.Get())
+	ms.Restarts = sum(restarts.Get())
+	ms.LogErrors = sum(logErrors.Get())
+	ms.LogWarnings = sum(logWarnings.Get())
 	return &ms
 }
 
-func sumR(ts timeseries.TimeSeries, step timeseries.Duration) int64 {
+func sumR(ts *timeseries.TimeSeries, step timeseries.Duration) int64 {
 	return int64(sumRF(ts, step))
 }
 
-func sumRF(ts timeseries.TimeSeries, step timeseries.Duration) float64 {
+func sumRF(ts *timeseries.TimeSeries, step timeseries.Duration) float64 {
 	return sumF(ts) * float64(step/timeseries.Second)
 }
 
-func sum(ts timeseries.TimeSeries) int64 {
+func sum(ts *timeseries.TimeSeries) int64 {
 	return int64(sumF(ts))
 }
 
-func sumF(ts timeseries.TimeSeries) float64 {
-	v := timeseries.Reduce(timeseries.NanSum, ts)
+func sumF(ts *timeseries.TimeSeries) float64 {
+	v := ts.Reduce(timeseries.NanSum)
 	if math.IsNaN(v) {
 		return 0
 	}

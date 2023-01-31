@@ -10,30 +10,35 @@ type weighted struct {
 	weight float64
 }
 
-func Top(input map[string]TimeSeries, by F, n int) []Named {
+func Top[T *TimeSeries | *Aggregate](input map[string]T, by F, n int) []Named {
 	sortable := make([]weighted, 0, len(input))
 	for name, series := range input {
-		if w := Reduce(by, series); !math.IsNaN(w) {
-			sortable = append(sortable, weighted{Named: WithName(name, series), weight: w})
+		var ts *TimeSeries
+		switch s := any(series).(type) {
+		case *TimeSeries:
+			ts = s
+		case *Aggregate:
+			ts = s.Get()
+		}
+		w := ts.Reduce(by)
+		if !math.IsNaN(w) {
+			sortable = append(sortable, weighted{Named: WithName(name, ts), weight: w})
 		}
 	}
 	sort.Slice(sortable, func(i, j int) bool {
 		return sortable[i].weight > sortable[j].weight
 	})
 	res := make([]Named, 0, n+1)
-	var other *AggregatedTimeseries
+	other := NewAggregate(NanSum)
 	for i, s := range sortable {
 		if (i + 1) < n {
 			res = append(res, WithName(s.Name, s.Series))
 		} else {
-			if other == nil {
-				other = Aggregate(NanSum)
-			}
-			other.AddInput(s.Series)
+			other.Add(s.Series)
 		}
 	}
-	if other != nil {
-		res = append(res, WithName("other", other))
+	if otherTs := other.Get(); !otherTs.IsEmpty() {
+		res = append(res, WithName("other", otherTs))
 	}
 	return res
 }

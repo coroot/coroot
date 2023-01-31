@@ -113,7 +113,7 @@ func enrichInstances(w *model.World, metrics map[string][]model.MetricValues) {
 	}
 }
 
-func prometheusJobStatus(metrics map[string][]model.MetricValues, job, instance string) timeseries.TimeSeries {
+func prometheusJobStatus(metrics map[string][]model.MetricValues, job, instance string) *timeseries.TimeSeries {
 	for _, m := range metrics["up"] {
 		if m.Labels["job"] == job && m.Labels["instance"] == instance {
 			return m.Values

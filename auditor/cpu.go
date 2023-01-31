@@ -11,16 +11,22 @@ func (a *appAuditor) cpu() {
 	nodeCpuCheck := report.CreateCheck(model.Checks.CPUNode)
 	containerCpuCheck := report.CreateCheck(model.Checks.CPUContainer)
 	seenContainers, seenRelatedNodes := false, false
+	limitByContainer := map[string]*timeseries.Aggregate{}
+	cpuChartTitle := "CPU usage of container <selector>, cores"
+
 	for _, i := range a.app.Instances {
 		for _, c := range i.Containers {
 			seenContainers = true
-			usageChart := report.GetOrCreateChartInGroup("CPU usage of container <selector>, cores", c.Name).
-				AddSeries(i.Name, c.CpuUsage).
-				SetThreshold("limit", c.CpuLimit, timeseries.Max)
+			l := limitByContainer[c.Name]
+			if l == nil {
+				l = timeseries.NewAggregate(timeseries.Max)
+			}
+			l.Add(c.CpuLimit)
+			usageChart := report.GetOrCreateChartInGroup(cpuChartTitle, c.Name).AddSeries(i.Name, c.CpuUsage)
 			report.GetOrCreateChartInGroup("CPU delay of container <selector>, seconds/second", c.Name).AddSeries(i.Name, c.CpuDelay)
 			report.GetOrCreateChartInGroup("Throttled time of container <selector>, seconds/second", c.Name).AddSeries(i.Name, c.ThrottledTime)
 
-			usage := timeseries.Last(c.CpuUsage) / timeseries.Last(c.CpuLimit)
+			usage := c.CpuUsage.Last() / c.CpuLimit.Last()
 			if usage > containerCpuCheck.Threshold {
 				usageChart.Feature()
 				containerCpuCheck.AddItem("%s@%s", c.Name, i.Name)
@@ -39,19 +45,21 @@ func (a *appAuditor) cpu() {
 				for _, s := range cpuByModeSeries(node.CpuUsageByMode) {
 					byMode.Series = append(byMode.Series, s)
 				}
-
 				consumersChart := report.GetOrCreateChartInGroup("CPU consumers on <selector>, cores", nodeName).
 					Stacked().
 					Sorted().
-					SetThreshold("total", node.CpuCapacity, timeseries.Any).
+					SetThreshold("total", node.CpuCapacity).
 					AddMany(timeseries.Top(cpuConsumers(node), timeseries.NanSum, 5))
 
-				if timeseries.Last(i.Node.CpuUsagePercent) > nodeCpuCheck.Threshold {
+				if i.Node.CpuUsagePercent.Last() > nodeCpuCheck.Threshold {
 					consumersChart.Feature()
 					nodeCpuCheck.AddItem(i.Node.Name.Value())
 				}
 			}
 		}
+	}
+	for container, limit := range limitByContainer {
+		report.GetOrCreateChartInGroup(cpuChartTitle, container).SetThreshold("limit", limit.Get())
 	}
 	if !seenContainers {
 		containerCpuCheck.SetStatus(model.UNKNOWN, "no data")

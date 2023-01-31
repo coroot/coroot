@@ -18,5 +18,5 @@ type LogPattern struct {
 	Level     LogLevel
 	Sample    string
 	Multiline bool
-	Sum       timeseries.TimeSeries
+	Sum       *timeseries.TimeSeries
 }

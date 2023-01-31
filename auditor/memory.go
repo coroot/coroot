@@ -12,20 +12,27 @@ func (a *appAuditor) memory() {
 	oomCheck := report.CreateCheck(model.Checks.MemoryOOM)
 	leakCheck := report.CreateCheck(model.Checks.MemoryLeak)
 	seenContainers := false
-	rss := timeseries.Aggregate(timeseries.NanSum)
+	rss := timeseries.NewAggregate(timeseries.NanSum)
+	limitByContainer := map[string]*timeseries.Aggregate{}
+	memoryUsageChartTitle := "Memory usage (RSS) <selector>, bytes"
 	for _, i := range a.app.Instances {
-		oom := timeseries.Aggregate(timeseries.NanSum)
+		oom := timeseries.NewAggregate(timeseries.NanSum)
 		for _, c := range i.Containers {
 			seenContainers = true
-			report.GetOrCreateChartInGroup("Memory usage (RSS) <selector>, bytes", c.Name).
-				AddSeries(i.Name, c.MemoryRss).
-				SetThreshold("limit", c.MemoryLimit, timeseries.Max)
-			oom.AddInput(c.OOMKills)
-			rss.AddInput(c.MemoryRss)
+			l := limitByContainer[c.Name]
+			if l == nil {
+				l = timeseries.NewAggregate(timeseries.Max)
+				limitByContainer[c.Name] = l
+			}
+			l.Add(c.MemoryLimit)
+			report.GetOrCreateChartInGroup(memoryUsageChartTitle, c.Name).AddSeries(i.Name, c.MemoryRss)
+			oom.Add(c.OOMKills)
+			rss.Add(c.MemoryRss)
 		}
-		report.GetOrCreateChart("Out of memory events").AddSeries(i.Name, oom)
+		oomTs := oom.Get()
+		report.GetOrCreateChart("Out of memory events").Column().AddSeries(i.Name, oomTs)
 
-		if ooms := timeseries.Reduce(timeseries.NanSum, oom); ooms > 0 {
+		if ooms := oomTs.Reduce(timeseries.NanSum); ooms > 0 {
 			oomCheck.Inc(int64(ooms))
 		}
 		if node := i.Node; node != nil {
@@ -35,26 +42,29 @@ func (a *appAuditor) memory() {
 				report.GetOrCreateChart("Node memory usage (unreclaimable), bytes").
 					AddSeries(
 						nodeName,
-						timeseries.Aggregate(
-							func(t timeseries.Time, avail, total float64) float64 { return (total - avail) / total * 100 },
+						timeseries.Aggregate2(
 							node.MemoryAvailableBytes, node.MemoryTotalBytes,
+							func(avail, total float64) float64 { return (total - avail) / total * 100 },
 						),
 					)
 				report.GetOrCreateChartInGroup("Memory consumers <selector>, bytes", nodeName).
 					Stacked().
-					SetThreshold("total", node.MemoryTotalBytes, timeseries.Any).
+					SetThreshold("total", node.MemoryTotalBytes).
 					AddMany(timeseries.Top(memoryConsumers(node), timeseries.Max, 5))
 			}
 		}
 	}
 
+	for container, limit := range limitByContainer {
+		report.GetOrCreateChartInGroup(memoryUsageChartTitle, container).SetThreshold("limit", limit.Get())
+	}
 	if !seenContainers {
 		oomCheck.SetStatus(model.UNKNOWN, "no data")
 		leakCheck.SetStatus(model.UNKNOWN, "no data")
 		return
 	}
 
-	if lr := timeseries.NewLinearRegression(rss); lr != nil {
+	if lr := timeseries.NewLinearRegression(rss.Get()); lr != nil {
 		now := timeseries.Now()
 		leakCheck.SetValue((lr.Calc(now) - lr.Calc(now.Add(-timeseries.Hour))) / 1024 / 1024)
 	}

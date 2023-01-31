@@ -2,7 +2,6 @@ package auditor
 
 import (
 	"github.com/coroot/coroot/model"
-	"github.com/coroot/coroot/timeseries"
 )
 
 func (a *appAuditor) jvm() {
@@ -26,7 +25,7 @@ func (a *appAuditor) jvm() {
 			GetOrCreateChartInGroup("Heap size <selector>, bytes", i.Name).
 			Stacked().
 			AddSeries("used", i.Jvm.HeapUsed, "blue").
-			SetThreshold("total", i.Jvm.HeapSize, timeseries.Max)
+			SetThreshold("total", i.Jvm.HeapSize)
 
 		if i.IsObsolete() {
 			continue
@@ -40,7 +39,7 @@ func (a *appAuditor) jvm() {
 			model.NewTableCell(i.Name).AddTag("java: %s", i.Jvm.JavaVersion.Value()),
 			status,
 		)
-		if timeseries.Last(i.Jvm.SafepointTime) > safepointTime.Threshold {
+		if i.Jvm.SafepointTime.Last() > safepointTime.Threshold {
 			safepointTime.AddItem(i.Name)
 		}
 	}

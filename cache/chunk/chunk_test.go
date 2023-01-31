@@ -17,8 +17,8 @@ func TestChunk(t *testing.T) {
 
 	chunkPath := path.Join(tmp, "chunk.db")
 
-	ts := timeseries.New(0, 10, 30)
-	ts.Set(180, 0.)
+	nan := timeseries.NaN
+	ts := timeseries.NewWithData(0, 30, []float64{nan, 1, nan, nan, nan, nan, nan, nan, 2, nan})
 
 	err = Write(chunkPath, 0, 10, 30, false, []model.MetricValues{
 		{Labels: model.Labels{"a": "b"}, LabelsHash: 123, Values: ts},
@@ -31,12 +31,12 @@ func TestChunk(t *testing.T) {
 	assert.Equal(t, Meta{Path: chunkPath, From: 0, PointsCount: 10, Step: 30, Finalized: false}, *meta)
 
 	res := map[uint64]model.MetricValues{}
-	require.NoError(t, Read(chunkPath, 0, 8, 30, res))
+	require.NoError(t, Read(chunkPath, 60, 10, 30, res))
 
 	assert.Equal(t, model.Labels{"a": "b"}, res[123].Labels)
 	assert.Equal(t, model.Labels{"a": "c"}, res[321].Labels)
 	assert.Equal(t,
-		"InMemoryTimeSeries(0, 8, 30, [. . . . . . 0 .])",
+		"TimeSeries(60, 10, 30, [. . . . . . 2 . . .])",
 		res[123].Values.String(),
 	)
 }

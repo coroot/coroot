@@ -53,19 +53,19 @@ func loadNodes(w *model.World, metrics map[string][]model.MetricValues) {
 			}
 			switch queryName {
 			case "node_cpu_cores":
-				node.CpuCapacity = timeseries.Merge(node.CpuCapacity, m.Values, timeseries.Any)
+				node.CpuCapacity = merge(node.CpuCapacity, m.Values, timeseries.Any)
 			case "node_cpu_usage_percent":
-				node.CpuUsagePercent = timeseries.Merge(node.CpuUsagePercent, m.Values, timeseries.Any)
+				node.CpuUsagePercent = merge(node.CpuUsagePercent, m.Values, timeseries.Any)
 			case "node_cpu_usage_by_mode":
-				node.CpuUsageByMode[m.Labels["mode"]] = timeseries.Merge(node.CpuUsageByMode[m.Labels["mode"]], m.Values, timeseries.Any)
+				node.CpuUsageByMode[m.Labels["mode"]] = merge(node.CpuUsageByMode[m.Labels["mode"]], m.Values, timeseries.Any)
 			case "node_memory_total_bytes":
-				node.MemoryTotalBytes = timeseries.Merge(node.MemoryTotalBytes, m.Values, timeseries.Any)
+				node.MemoryTotalBytes = merge(node.MemoryTotalBytes, m.Values, timeseries.Any)
 			case "node_memory_available_bytes":
-				node.MemoryAvailableBytes = timeseries.Merge(node.MemoryAvailableBytes, m.Values, timeseries.Any)
+				node.MemoryAvailableBytes = merge(node.MemoryAvailableBytes, m.Values, timeseries.Any)
 			case "node_memory_cached_bytes":
-				node.MemoryCachedBytes = timeseries.Merge(node.MemoryCachedBytes, m.Values, timeseries.Any)
+				node.MemoryCachedBytes = merge(node.MemoryCachedBytes, m.Values, timeseries.Any)
 			case "node_memory_free_bytes":
-				node.MemoryFreeBytes = timeseries.Merge(node.MemoryFreeBytes, m.Values, timeseries.Any)
+				node.MemoryFreeBytes = merge(node.MemoryFreeBytes, m.Values, timeseries.Any)
 			case "node_cloud_info":
 				node.CloudProvider.Update(m.Values, m.Labels["provider"])
 				node.Region.Update(m.Values, m.Labels["region"])
@@ -82,20 +82,14 @@ func loadNodes(w *model.World, metrics map[string][]model.MetricValues) {
 	}
 	for _, n := range w.Nodes {
 		for _, d := range n.Disks {
-			if d.Wait == nil && !timeseries.IsEmpty(d.ReadTime) && !timeseries.IsEmpty(d.WriteTime) {
-				d.Wait = timeseries.Aggregate(timeseries.NanSum, d.ReadTime, d.WriteTime)
+			if d.Wait == nil && !d.ReadTime.IsEmpty() && !d.WriteTime.IsEmpty() {
+				d.Wait = timeseries.NewAggregate(timeseries.NanSum).Add(d.ReadTime, d.WriteTime).Get()
 			}
 			switch {
-			case d.Await == nil && !timeseries.IsEmpty(d.Wait): // node
-				d.Await = timeseries.Aggregate(timeseries.Div,
-					d.Wait,
-					timeseries.Aggregate(timeseries.NanSum, d.ReadOps, d.WriteOps),
-				)
-			case d.Wait == nil && !timeseries.IsEmpty(d.Await): // rds
-				d.Wait = timeseries.Aggregate(timeseries.Mul,
-					d.Await,
-					timeseries.Aggregate(timeseries.NanSum, d.ReadOps, d.WriteOps),
-				)
+			case d.Await == nil && !d.Wait.IsEmpty(): // node
+				d.Await = timeseries.Div(d.Wait, timeseries.NewAggregate(timeseries.NanSum).Add(d.ReadOps, d.WriteOps).Get())
+			case d.Wait == nil && !d.Await.IsEmpty(): // rds
+				d.Wait = timeseries.Mul(d.Await, timeseries.NewAggregate(timeseries.NanSum).Add(d.ReadOps, d.WriteOps).Get())
 			}
 
 		}
@@ -112,21 +106,21 @@ func nodeDisk(node *model.Node, queryName string, m model.MetricValues) {
 	}
 	switch queryName {
 	case "node_disk_read_time":
-		stat.ReadTime = timeseries.Merge(stat.ReadTime, m.Values, timeseries.Any)
+		stat.ReadTime = merge(stat.ReadTime, m.Values, timeseries.Any)
 	case "node_disk_write_time":
-		stat.WriteTime = timeseries.Merge(stat.WriteTime, m.Values, timeseries.Any)
+		stat.WriteTime = merge(stat.WriteTime, m.Values, timeseries.Any)
 	case "node_disk_reads":
-		stat.ReadOps = timeseries.Merge(stat.ReadOps, m.Values, timeseries.Any)
+		stat.ReadOps = merge(stat.ReadOps, m.Values, timeseries.Any)
 	case "node_disk_writes":
-		stat.WriteOps = timeseries.Merge(stat.WriteOps, m.Values, timeseries.Any)
+		stat.WriteOps = merge(stat.WriteOps, m.Values, timeseries.Any)
 	case "node_disk_read_bytes":
-		stat.ReadBytes = timeseries.Merge(stat.ReadBytes, m.Values, timeseries.Any)
+		stat.ReadBytes = merge(stat.ReadBytes, m.Values, timeseries.Any)
 	case "node_disk_written_bytes":
-		stat.WrittenBytes = timeseries.Merge(stat.WrittenBytes, m.Values, timeseries.Any)
+		stat.WrittenBytes = merge(stat.WrittenBytes, m.Values, timeseries.Any)
 	case "node_disk_io_time":
-		stat.IOUtilizationPercent = timeseries.Merge(stat.IOUtilizationPercent, timeseries.Map(func(t timeseries.Time, v float64) float64 {
+		stat.IOUtilizationPercent = merge(stat.IOUtilizationPercent, m.Values.Map(func(t timeseries.Time, v float64) float64 {
 			return v * 100
-		}, m.Values), timeseries.Any)
+		}), timeseries.Any)
 	}
 }
 
@@ -144,12 +138,12 @@ func nodeInterface(node *model.Node, queryName string, m model.MetricValues) {
 	}
 	switch queryName {
 	case "node_net_up":
-		stat.Up = timeseries.Merge(stat.Up, m.Values, timeseries.Any)
+		stat.Up = merge(stat.Up, m.Values, timeseries.Any)
 	case "node_net_ip":
 		stat.Addresses = append(stat.Addresses, m.Labels["ip"])
 	case "node_net_rx_bytes":
-		stat.RxBytes = timeseries.Merge(stat.RxBytes, m.Values, timeseries.Any)
+		stat.RxBytes = merge(stat.RxBytes, m.Values, timeseries.Any)
 	case "node_net_tx_bytes":
-		stat.TxBytes = timeseries.Merge(stat.TxBytes, m.Values, timeseries.Any)
+		stat.TxBytes = merge(stat.TxBytes, m.Values, timeseries.Any)
 	}
 }

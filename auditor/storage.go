@@ -3,7 +3,6 @@ package auditor
 import (
 	"fmt"
 	"github.com/coroot/coroot/model"
-	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 	"github.com/dustin/go-humanize"
 	"math"
@@ -26,7 +25,7 @@ func (a *appAuditor) storage() {
 					report.GetOrCreateChartInGroup("I/O utilization <selector>, %", v.MountPoint).
 						AddSeries(i.Name, d.IOUtilizationPercent)
 
-					if timeseries.Last(d.IOUtilizationPercent) > ioCheck.Threshold {
+					if d.IOUtilizationPercent.Last() > ioCheck.Threshold {
 						ioCheck.AddItem("%s:%s", i.Name, v.MountPoint)
 					}
 
@@ -44,15 +43,15 @@ func (a *appAuditor) storage() {
 
 					latencyMs := model.NewTableCell().SetUnit("ms")
 					if d.Await != nil {
-						latencyMs.SetValue(utils.FormatFloat(timeseries.Last(d.Await) * 1000))
+						latencyMs.SetValue(utils.FormatFloat(d.Await.Last() * 1000))
 					}
 					ioPercent := model.NewTableCell()
-					if last := timeseries.Last(d.IOUtilizationPercent); !math.IsNaN(last) {
+					if last := d.IOUtilizationPercent.Last(); !math.IsNaN(last) {
 						ioPercent.SetValue(fmt.Sprintf("%.0f%%", last))
 					}
 					space := model.NewTableCell()
-					capacity := timeseries.Last(v.CapacityBytes)
-					usage := timeseries.Last(v.UsedBytes)
+					capacity := v.CapacityBytes.Last()
+					usage := v.UsedBytes.Last()
 					if usage > 0 && capacity > 0 {
 						percentage := usage / capacity * 100
 						space.SetValue(fmt.Sprintf(
@@ -76,7 +75,7 @@ func (a *appAuditor) storage() {
 				report.GetOrCreateChartInGroup("Disk space <selector>, bytes", fullName).
 					Stacked().
 					AddSeries("used", v.UsedBytes).
-					SetThreshold("total", v.CapacityBytes, timeseries.Max)
+					SetThreshold("total", v.CapacityBytes)
 			}
 		}
 	}

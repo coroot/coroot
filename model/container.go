@@ -22,21 +22,21 @@ type Container struct {
 	Status   ContainerStatus
 	Reason   string
 	Ready    bool
-	Restarts timeseries.TimeSeries
+	Restarts *timeseries.TimeSeries
 
 	LastTerminatedReason string
 
-	CpuLimit      timeseries.TimeSeries
-	CpuUsage      timeseries.TimeSeries
-	CpuDelay      timeseries.TimeSeries
-	ThrottledTime timeseries.TimeSeries
+	CpuLimit      *timeseries.TimeSeries
+	CpuUsage      *timeseries.TimeSeries
+	CpuDelay      *timeseries.TimeSeries
+	ThrottledTime *timeseries.TimeSeries
 
-	MemoryRss     timeseries.TimeSeries
-	MemoryCache   timeseries.TimeSeries
-	MemoryRequest timeseries.TimeSeries
-	MemoryLimit   timeseries.TimeSeries
+	MemoryRss     *timeseries.TimeSeries
+	MemoryCache   *timeseries.TimeSeries
+	MemoryRequest *timeseries.TimeSeries
+	MemoryLimit   *timeseries.TimeSeries
 
-	OOMKills timeseries.TimeSeries
+	OOMKills *timeseries.TimeSeries
 }
 
 func NewContainer(name string) *Container {

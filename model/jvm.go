@@ -6,15 +6,15 @@ type Jvm struct {
 	Name        string
 	JavaVersion LabelLastValue
 
-	HeapSize timeseries.TimeSeries
-	HeapUsed timeseries.TimeSeries
+	HeapSize *timeseries.TimeSeries
+	HeapUsed *timeseries.TimeSeries
 
-	SafepointTime     timeseries.TimeSeries
-	SafepointSyncTime timeseries.TimeSeries
+	SafepointTime     *timeseries.TimeSeries
+	SafepointSyncTime *timeseries.TimeSeries
 
-	GcTime map[string]timeseries.TimeSeries
+	GcTime map[string]*timeseries.TimeSeries
 }
 
 func (j *Jvm) IsUp() bool {
-	return timeseries.Last(j.HeapSize) > 0
+	return j.HeapSize.Last() > 0
 }

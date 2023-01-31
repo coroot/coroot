@@ -9,15 +9,19 @@ type LinearRegression struct {
 	alpha, beta float64
 }
 
-func NewLinearRegression(ts TimeSeries) *LinearRegression {
-	if ts == nil {
+func NewLinearRegression(ts *TimeSeries) *LinearRegression {
+	if ts.IsEmpty() {
 		return nil
 	}
 	lr := &LinearRegression{}
-	var x, y []float64
-	iter := Iter(ts)
+	var (
+		x, y []float64
+		t    Time
+		v    float64
+	)
+	iter := ts.Iter()
 	for iter.Next() {
-		t, v := iter.Value()
+		t, v = iter.Value()
 		if math.IsNaN(v) {
 			continue
 		}

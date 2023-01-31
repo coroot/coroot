@@ -27,26 +27,26 @@ type Job struct{}
 type CronJob struct {
 	Schedule          LabelLastValue
 	ConcurrencyPolicy LabelLastValue
-	StatusActive      timeseries.TimeSeries
-	LastScheduleTime  timeseries.TimeSeries
-	NextScheduleTime  timeseries.TimeSeries
+	StatusActive      *timeseries.TimeSeries
+	LastScheduleTime  *timeseries.TimeSeries
+	NextScheduleTime  *timeseries.TimeSeries
 }
 
 type DaemonSet struct {
-	ReplicasDesired timeseries.TimeSeries
+	ReplicasDesired *timeseries.TimeSeries
 }
 
 type ReplicaSet struct {
 }
 
 type Deployment struct {
-	ReplicasDesired timeseries.TimeSeries
+	ReplicasDesired *timeseries.TimeSeries
 	ReplicaSets     map[string]*ReplicaSet
 }
 
 type StatefulSet struct {
-	ReplicasDesired timeseries.TimeSeries
-	ReplicasUpdated timeseries.TimeSeries
+	ReplicasDesired *timeseries.TimeSeries
+	ReplicasUpdated *timeseries.TimeSeries
 }
 
 type Service struct {

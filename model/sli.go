@@ -8,16 +8,16 @@ import (
 type AvailabilitySLI struct {
 	Config CheckConfigSLOAvailability
 
-	TotalRequests  timeseries.TimeSeries
-	FailedRequests timeseries.TimeSeries
+	TotalRequests  *timeseries.TimeSeries
+	FailedRequests *timeseries.TimeSeries
 
-	TotalRequestsRaw  timeseries.TimeSeries
-	FailedRequestsRaw timeseries.TimeSeries
+	TotalRequestsRaw  *timeseries.TimeSeries
+	FailedRequestsRaw *timeseries.TimeSeries
 }
 
 type HistogramBucket struct {
 	Le         float64
-	TimeSeries timeseries.TimeSeries
+	TimeSeries *timeseries.TimeSeries
 }
 
 type LatencySLI struct {
@@ -27,8 +27,8 @@ type LatencySLI struct {
 	HistogramRaw []HistogramBucket
 }
 
-func (sli *LatencySLI) GetTotalAndFast(raw bool) (timeseries.TimeSeries, timeseries.TimeSeries) {
-	var total, fast timeseries.TimeSeries
+func (sli *LatencySLI) GetTotalAndFast(raw bool) (*timeseries.TimeSeries, *timeseries.TimeSeries) {
+	var total, fast *timeseries.TimeSeries
 	histogram := sli.Histogram
 	if raw {
 		histogram = sli.HistogramRaw

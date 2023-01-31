@@ -7,26 +7,26 @@ import (
 
 type netSummary struct {
 	status   model.Status
-	rttMin   *timeseries.AggregatedTimeseries
-	rttMax   *timeseries.AggregatedTimeseries
-	rttSum   *timeseries.AggregatedTimeseries
-	rttCount *timeseries.AggregatedTimeseries
+	rttMin   *timeseries.Aggregate
+	rttMax   *timeseries.Aggregate
+	rttSum   *timeseries.Aggregate
+	rttCount *timeseries.Aggregate
 }
 
 func newNetSummary() *netSummary {
 	return &netSummary{
-		rttMin:   timeseries.Aggregate(timeseries.Min),
-		rttMax:   timeseries.Aggregate(timeseries.Max),
-		rttSum:   timeseries.Aggregate(timeseries.NanSum),
-		rttCount: timeseries.Aggregate(timeseries.NanSum),
+		rttMin:   timeseries.NewAggregate(timeseries.Min),
+		rttMax:   timeseries.NewAggregate(timeseries.Max),
+		rttSum:   timeseries.NewAggregate(timeseries.NanSum),
+		rttCount: timeseries.NewAggregate(timeseries.NanSum),
 	}
 }
 
-func (s *netSummary) addRtt(rtt timeseries.TimeSeries) {
-	s.rttMax.AddInput(rtt)
-	s.rttMin.AddInput(rtt)
-	s.rttSum.AddInput(rtt)
-	s.rttCount.AddInput(timeseries.Map(timeseries.Defined, rtt))
+func (s *netSummary) addRtt(rtt *timeseries.TimeSeries) {
+	s.rttMax.Add(rtt)
+	s.rttMin.Add(rtt)
+	s.rttSum.Add(rtt)
+	s.rttCount.Add(rtt.Map(timeseries.Defined))
 }
 
 func (a *appAuditor) network() {
@@ -74,14 +74,14 @@ func (a *appAuditor) network() {
 		}
 	}
 	for appId, summary := range upstreams {
-		avg := timeseries.Aggregate(timeseries.Div, summary.rttSum, summary.rttCount)
-		if timeseries.Last(avg) > rttCheck.Threshold {
+		avg := timeseries.Div(summary.rttSum.Get(), summary.rttCount.Get())
+		if avg.Last() > rttCheck.Threshold {
 			rttCheck.AddItem(appId.Name)
 		}
 		report.GetOrCreateChartInGroup("Network round-trip time to <selector>, seconds", appId.Name).
-			AddSeries("min", summary.rttMin).
+			AddSeries("min", summary.rttMin.Get()).
 			AddSeries("avg", avg).
-			AddSeries("max", summary.rttMax)
+			AddSeries("max", summary.rttMax.Get())
 	}
 	if !seenConnections {
 		rttCheck.SetStatus(model.UNKNOWN, "no data")

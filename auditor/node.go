@@ -17,13 +17,12 @@ func AuditNode(w *model.World, node *model.Node) *model.AuditReport {
 	report.GetOrCreateChart("CPU consumers, cores").
 		Stacked().
 		Sorted().
-		SetThreshold("total", node.CpuCapacity, timeseries.Any).
+		SetThreshold("total", node.CpuCapacity).
 		AddMany(timeseries.Top(cpuConsumers(node), timeseries.NanSum, 5))
 
-	used := timeseries.Aggregate(
-		timeseries.Sub,
+	used := timeseries.Sub(
 		node.MemoryTotalBytes,
-		timeseries.Aggregate(timeseries.Sum, node.MemoryCachedBytes, node.MemoryFreeBytes),
+		timeseries.Sum(node.MemoryCachedBytes, node.MemoryFreeBytes),
 	)
 	report.
 		GetOrCreateChart("Memory usage, bytes").
@@ -35,15 +34,15 @@ func AuditNode(w *model.World, node *model.Node) *model.AuditReport {
 
 	report.GetOrCreateChart("Memory consumers, bytes").
 		Stacked().
-		SetThreshold("total", node.MemoryTotalBytes, timeseries.Any).
+		SetThreshold("total", node.MemoryTotalBytes).
 		AddMany(timeseries.Top(memoryConsumers(node), timeseries.Max, 5))
 	netLatency(report, w, node)
 
 	for _, i := range node.NetInterfaces {
 		report.
 			GetOrCreateChartInGroup("Network bandwidth <selector>, bits/second", i.Name).
-			AddSeries("in", timeseries.Map(func(t timeseries.Time, v float64) float64 { return v * 8 }, i.RxBytes), "green").
-			AddSeries("out", timeseries.Map(func(t timeseries.Time, v float64) float64 { return v * 8 }, i.TxBytes), "blue")
+			AddSeries("in", i.RxBytes.Map(func(t timeseries.Time, v float64) float64 { return v * 8 }), "green").
+			AddSeries("out", i.TxBytes.Map(func(t timeseries.Time, v float64) float64 { return v * 8 }), "blue")
 	}
 
 	return report
@@ -55,7 +54,7 @@ func netLatency(report *model.AuditReport, w *model.World, n *model.Node) {
 
 	srcAZ := nodeAZ(n)
 
-	update := func(m map[string]*avgTimeSeries, k string, rtt timeseries.TimeSeries) {
+	update := func(m map[string]*avgTimeSeries, k string, rtt *timeseries.TimeSeries) {
 		avg := m[k]
 		if avg == nil {
 			avg = newAvgTimeSeries()
@@ -70,7 +69,7 @@ func netLatency(report *model.AuditReport, w *model.World, n *model.Node) {
 				continue
 			}
 			for _, u := range i.Upstreams {
-				if timeseries.IsEmpty(u.Rtt) || u.RemoteInstance == nil || u.RemoteInstance.Node == nil {
+				if u.Rtt.IsEmpty() || u.RemoteInstance == nil || u.RemoteInstance.Node == nil {
 					continue
 				}
 				var src, dst *model.Node
@@ -107,24 +106,24 @@ func netLatency(report *model.AuditReport, w *model.World, n *model.Node) {
 }
 
 type avgTimeSeries struct {
-	sum   *timeseries.AggregatedTimeseries
-	count *timeseries.AggregatedTimeseries
+	sum   *timeseries.Aggregate
+	count *timeseries.Aggregate
 }
 
 func newAvgTimeSeries() *avgTimeSeries {
 	return &avgTimeSeries{
-		sum:   timeseries.Aggregate(timeseries.NanSum),
-		count: timeseries.Aggregate(timeseries.NanSum),
+		sum:   timeseries.NewAggregate(timeseries.NanSum),
+		count: timeseries.NewAggregate(timeseries.NanSum),
 	}
 }
 
-func (a *avgTimeSeries) add(x timeseries.TimeSeries) {
-	a.sum.AddInput(x)
-	a.count.AddInput(timeseries.Map(timeseries.Defined, x))
+func (a *avgTimeSeries) add(x *timeseries.TimeSeries) {
+	a.sum.Add(x)
+	a.count.Add(x.Map(timeseries.Defined))
 }
 
-func (a *avgTimeSeries) get() timeseries.TimeSeries {
-	return timeseries.Aggregate(timeseries.Div, a.sum, a.count)
+func (a *avgTimeSeries) get() *timeseries.TimeSeries {
+	return timeseries.Div(a.sum.Get(), a.count.Get())
 }
 
 func nodeAZ(n *model.Node) string {

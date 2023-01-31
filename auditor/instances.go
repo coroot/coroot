@@ -14,18 +14,18 @@ import (
 func (a *appAuditor) instances() {
 	report := a.addReport(model.AuditReportInstances)
 
-	up := timeseries.Aggregate(timeseries.NanSum)
+	up := timeseries.NewAggregate(timeseries.NanSum)
 
 	availability := report.CreateCheck(model.Checks.InstanceAvailability)
 	restarts := report.CreateCheck(model.Checks.InstanceRestarts)
 
 	for _, i := range a.app.Instances {
-		up.AddInput(i.UpAndRunning())
+		up.Add(i.UpAndRunning())
 
 		status := model.NewTableCell().SetStatus(model.UNKNOWN, "unknown")
 		if i.Rds != nil {
 			switch {
-			case math.IsNaN(timeseries.Last(i.Rds.LifeSpan)):
+			case math.IsNaN(i.Rds.LifeSpan.Last()):
 				status.SetStatus(model.WARNING, "down (no metrics)")
 			case i.Rds.Status.Value() != "available":
 				status.SetStatus(model.WARNING, i.Rds.Status.Value())
@@ -110,7 +110,7 @@ func (a *appAuditor) instances() {
 		}
 		restartsCount := int64(0)
 		for _, c := range i.Containers {
-			if r := timeseries.Reduce(timeseries.NanSum, c.Restarts); !math.IsNaN(r) {
+			if r := c.Restarts.Reduce(timeseries.NanSum); !math.IsNaN(r) {
 				restarts.Inc(int64(r))
 				restartsCount += int64(r)
 			}
@@ -142,9 +142,9 @@ func (a *appAuditor) instances() {
 		availability.SetStatus(model.UNKNOWN, "no data")
 		restarts.SetStatus(model.UNKNOWN, "no data")
 	}
-	chart := report.GetOrCreateChart("Instances").Stacked().AddSeries("up", up)
+	chart := report.GetOrCreateChart("Instances").Stacked().AddSeries("up", up.Get())
 	if a.app.DesiredInstances != nil {
-		chart.SetThreshold("desired", a.app.DesiredInstances, timeseries.Any)
+		chart.SetThreshold("desired", a.app.DesiredInstances)
 		chart.Threshold.Color = "red"
 		chart.Threshold.Fill = true
 	}

@@ -16,7 +16,7 @@ type Application struct {
 	Instances   []*Instance
 	Downstreams []*Connection
 
-	DesiredInstances timeseries.TimeSeries
+	DesiredInstances *timeseries.TimeSeries
 
 	LatencySLIs      []*LatencySLI
 	AvailabilitySLIs []*AvailabilitySLI

@@ -7,9 +7,9 @@ type Pod struct {
 	Reason    string
 	Scheduled bool
 
-	Running  timeseries.TimeSeries
-	Ready    timeseries.TimeSeries
-	LifeSpan timeseries.TimeSeries
+	Running  *timeseries.TimeSeries
+	Ready    *timeseries.TimeSeries
+	LifeSpan *timeseries.TimeSeries
 
 	ReplicaSet string
 
@@ -29,5 +29,5 @@ func (pod *Pod) IsObsolete() bool {
 }
 
 func (pod *Pod) IsReady() bool {
-	return timeseries.Last(pod.Ready) > 0
+	return pod.Ready.Last() > 0
 }

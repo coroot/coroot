@@ -23,7 +23,8 @@ var (
 
 func (a *appAuditor) logs() {
 	byHash := map[string]*model.LogPatternInfo{}
-	byLevel := map[model.LogLevel]timeseries.TimeSeries{}
+	sumByHash := map[string]*timeseries.Aggregate{}
+	byLevel := map[model.LogLevel]*timeseries.Aggregate{}
 	report := a.addReport(model.AuditReportLogs)
 	check := report.CreateCheck(model.Checks.LogErrors)
 	seenContainers := false
@@ -37,7 +38,12 @@ func (a *appAuditor) logs() {
 			seenContainers = true
 		}
 		for level, samples := range instance.LogMessagesByLevel {
-			byLevel[level] = timeseries.Merge(byLevel[level], samples, timeseries.NanSum)
+			ts := byLevel[level]
+			if ts == nil {
+				ts = timeseries.NewAggregate(timeseries.NanSum)
+				byLevel[level] = ts
+			}
+			ts.Add(samples)
 		}
 		for hash, p := range instance.LogPatterns {
 			switch p.Level {
@@ -45,7 +51,7 @@ func (a *appAuditor) logs() {
 			default:
 				continue
 			}
-			events := timeseries.Reduce(timeseries.NanSum, p.Sum)
+			events := p.Sum.Reduce(timeseries.NanSum)
 			if math.IsNaN(events) || events == 0 {
 				continue
 			}
@@ -73,18 +79,26 @@ func (a *appAuditor) logs() {
 			totalEvents += uint64(events)
 			pattern.Events += uint64(events)
 			pattern.Instances.AddSeries(instance.Name, p.Sum)
-			pattern.Sum = timeseries.Merge(pattern.Sum, p.Sum, timeseries.NanSum)
+			s := sumByHash[hash]
+			if s == nil {
+				s = timeseries.NewAggregate(timeseries.NanSum)
+				sumByHash[hash] = s
+			}
+			s.Add(p.Sum)
 		}
 	}
-
+	for h, p := range byHash {
+		p.Sum = sumByHash[h].Get()
+	}
 	eventsBySeverity := model.NewChart(a.w.Ctx, "Events by severity").Column()
 	for _, l := range logLevels {
+		ts := byLevel[l].Get()
 		if l == model.LogLevelError || l == model.LogLevelCritical {
-			if v := timeseries.Reduce(timeseries.NanSum, byLevel[l]); v > 0 {
+			if v := ts.Reduce(timeseries.NanSum); v > 0 {
 				check.Inc(int64(v))
 			}
 		}
-		eventsBySeverity.AddSeries(strings.ToUpper(string(l)), byLevel[l], logLevelColors[l])
+		eventsBySeverity.AddSeries(strings.ToUpper(string(l)), ts, logLevelColors[l])
 	}
 	sort.Slice(patterns.Patterns, func(i, j int) bool {
 		return patterns.Patterns[i].Events > patterns.Patterns[j].Events

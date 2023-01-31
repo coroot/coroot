@@ -18,7 +18,7 @@ func (k PgConnectionKey) String() string {
 }
 
 type PgSetting struct {
-	Samples timeseries.TimeSeries
+	Samples *timeseries.TimeSeries
 	Unit    string
 }
 
@@ -33,56 +33,56 @@ func (k QueryKey) String() string {
 }
 
 type QueryStat struct {
-	Calls     timeseries.TimeSeries
-	TotalTime timeseries.TimeSeries
-	IoTime    timeseries.TimeSeries
+	Calls     *timeseries.TimeSeries
+	TotalTime *timeseries.TimeSeries
+	IoTime    *timeseries.TimeSeries
 }
 
 type Postgres struct {
-	Up timeseries.TimeSeries
+	Up *timeseries.TimeSeries
 
 	Version LabelLastValue
 
-	Connections                   map[PgConnectionKey]timeseries.TimeSeries
-	AwaitingQueriesByLockingQuery map[QueryKey]timeseries.TimeSeries
+	Connections                   map[PgConnectionKey]*timeseries.TimeSeries
+	AwaitingQueriesByLockingQuery map[QueryKey]*timeseries.TimeSeries
 
 	Settings map[string]PgSetting
 
 	PerQuery    map[QueryKey]*QueryStat
-	QueriesByDB map[string]timeseries.TimeSeries
+	QueriesByDB map[string]*timeseries.TimeSeries
 
-	Avg timeseries.TimeSeries
-	P50 timeseries.TimeSeries
-	P95 timeseries.TimeSeries
-	P99 timeseries.TimeSeries
+	Avg *timeseries.TimeSeries
+	P50 *timeseries.TimeSeries
+	P95 *timeseries.TimeSeries
+	P99 *timeseries.TimeSeries
 
-	WalCurrentLsn timeseries.TimeSeries
-	WalReceiveLsn timeseries.TimeSeries
-	WalReplyLsn   timeseries.TimeSeries
+	WalCurrentLsn *timeseries.TimeSeries
+	WalReceiveLsn *timeseries.TimeSeries
+	WalReplayLsn  *timeseries.TimeSeries
 }
 
 func NewPostgres() *Postgres {
 	return &Postgres{
-		Connections:                   map[PgConnectionKey]timeseries.TimeSeries{},
-		AwaitingQueriesByLockingQuery: map[QueryKey]timeseries.TimeSeries{},
+		Connections:                   map[PgConnectionKey]*timeseries.TimeSeries{},
+		AwaitingQueriesByLockingQuery: map[QueryKey]*timeseries.TimeSeries{},
 		Settings:                      map[string]PgSetting{},
 		PerQuery:                      map[QueryKey]*QueryStat{},
-		QueriesByDB:                   map[string]timeseries.TimeSeries{},
+		QueriesByDB:                   map[string]*timeseries.TimeSeries{},
 	}
 }
 
 func (p *Postgres) IsUp() bool {
-	return timeseries.Last(p.Up) > 0
+	return p.Up.Last() > 0
 }
 
-func (p *Postgres) Unavailability() timeseries.TimeSeries {
-	if timeseries.IsEmpty(p.Up) {
+func (p *Postgres) Unavailability() *timeseries.TimeSeries {
+	if p.Up.IsEmpty() {
 		return nil
 	}
-	return timeseries.Map(func(t timeseries.Time, v float64) float64 {
+	return p.Up.Map(func(t timeseries.Time, v float64) float64 {
 		if v != 1 {
 			return 1
 		}
 		return 0
-	}, p.Up)
+	})
 }

@@ -3,7 +3,6 @@ package overview
 import (
 	"github.com/coroot/coroot/auditor"
 	"github.com/coroot/coroot/model"
-	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 	"github.com/dustin/go-humanize"
 	"math"
@@ -82,8 +81,8 @@ func Render(w *model.World) *View {
 
 		for id, s := range upstreams {
 			l := Link{Id: id, Status: s.status}
-			requests := timeseries.Last(model.GetConnectionsRequestsSum(s.connections))
-			latency := timeseries.Last(model.GetConnectionsRequestsLatency(s.connections))
+			requests := model.GetConnectionsRequestsSum(s.connections).Last()
+			latency := model.GetConnectionsRequestsLatency(s.connections).Last()
 			if !math.IsNaN(requests) {
 				l.Weight = float32(requests)
 				l.Stats = append(l.Stats, utils.FormatFloat(requests)+" rps")
@@ -122,16 +121,16 @@ func Render(w *model.World) *View {
 		if t := n.InstanceType.Value(); t != "" {
 			node.AddTag("Type: " + t)
 		}
-		if l := timeseries.Last(n.CpuCapacity); !math.IsNaN(l) {
+		if l := n.CpuCapacity.Last(); !math.IsNaN(l) {
 			node.AddTag("vCPU: " + strconv.Itoa(int(l)))
 		}
-		if l := timeseries.Last(n.CpuUsagePercent); !math.IsNaN(l) {
+		if l := n.CpuUsagePercent.Last(); !math.IsNaN(l) {
 			cpuPercent.SetProgress(int(l), "blue")
 		}
 
-		if total := timeseries.Last(n.MemoryTotalBytes); !math.IsNaN(total) {
+		if total := n.MemoryTotalBytes.Last(); !math.IsNaN(total) {
 			node.AddTag("memory: " + humanize.Bytes(uint64(total)))
-			if avail := timeseries.Last(n.MemoryAvailableBytes); !math.IsNaN(avail) {
+			if avail := n.MemoryAvailableBytes.Last(); !math.IsNaN(avail) {
 				memoryPercent.SetProgress(int(100-avail/total*100), "deep-purple")
 			}
 		}
@@ -143,10 +142,10 @@ func Render(w *model.World) *View {
 
 		network := model.NewTableCell()
 		for _, iface := range n.NetInterfaces {
-			if timeseries.Last(iface.Up) != 1 {
+			if iface.Up.Last() != 1 {
 				continue
 			}
-			if timeseries.IsEmpty(iface.RxBytes) || timeseries.IsEmpty(iface.TxBytes) {
+			if iface.RxBytes.IsEmpty() || iface.TxBytes.IsEmpty() {
 				continue
 			}
 			for _, ip := range iface.Addresses {
@@ -163,8 +162,8 @@ func Render(w *model.World) *View {
 			}
 			network.NetInterfaces = append(network.NetInterfaces, model.NetInterface{
 				Name: iface.Name,
-				Rx:   utils.HumanBits(timeseries.Last(iface.RxBytes) * 8),
-				Tx:   utils.HumanBits(timeseries.Last(iface.TxBytes) * 8),
+				Rx:   utils.HumanBits(iface.RxBytes.Last() * 8),
+				Tx:   utils.HumanBits(iface.TxBytes.Last() * 8),
 			})
 		}
 		sort.Slice(network.NetInterfaces, func(i, j int) bool {

@@ -35,10 +35,10 @@ func (a *appAuditor) postgres() {
 	replicationCheck := report.CreateCheck(model.Checks.PostgresReplicationLag)
 	connectionsCheck := report.CreateCheck(model.Checks.PostgresConnections)
 
-	primaryLsn := timeseries.Aggregate(timeseries.Max)
+	primaryLsn := timeseries.NewAggregate(timeseries.Max)
 	for _, i := range a.app.Instances {
 		if i.Postgres != nil && i.Postgres.WalCurrentLsn != nil {
-			primaryLsn.AddInput(i.Postgres.WalCurrentLsn)
+			primaryLsn.Add(i.Postgres.WalCurrentLsn)
 		}
 	}
 
@@ -50,7 +50,7 @@ func (a *appAuditor) postgres() {
 			GetOrCreateChartInGroup("Postgres query latency <selector>, seconds", "overview").
 			Feature().
 			AddSeries(i.Name, i.Postgres.Avg)
-		if timeseries.Last(i.Postgres.Avg) > latencyCheck.Threshold {
+		if i.Postgres.Avg.Last() > latencyCheck.Threshold {
 			latencyCheck.AddItem(i.Name)
 		}
 		report.
@@ -63,11 +63,8 @@ func (a *appAuditor) postgres() {
 		qps := sumQueries(i.Postgres.QueriesByDB)
 		report.GetOrCreateChart("Queries per second").AddSeries(i.Name, qps)
 
-		errors := timeseries.Aggregate(
-			timeseries.NanSum,
-			i.LogMessagesByLevel[model.LogLevelError],
-			i.LogMessagesByLevel[model.LogLevelCritical],
-		)
+		errors := timeseries.NewAggregate(timeseries.NanSum).Add(i.LogMessagesByLevel[model.LogLevelError], i.LogMessagesByLevel[model.LogLevelCritical]).Get()
+
 		pgQueries(report, i)
 
 		report.
@@ -81,7 +78,8 @@ func (a *appAuditor) postgres() {
 			AddMany(timeseries.Top(errorsByPattern(i), timeseries.NanSum, 5))
 		pgConnections(report, i, connectionsCheck)
 		pgLocks(report, i)
-		lag := pgReplicationLag(primaryLsn, i.Postgres.WalReplyLsn)
+		primaryLsnTs := primaryLsn.Get()
+		lag := pgReplicationLag(primaryLsnTs, i.Postgres.WalReplayLsn)
 		report.GetOrCreateChart("Replication lag, bytes").AddSeries(i.Name, lag)
 
 		if i.IsObsolete() {
@@ -102,27 +100,27 @@ func (a *appAuditor) postgres() {
 			status.SetStatus(model.WARNING, "down (no metrics)")
 		}
 		errorsCell := model.NewTableCell()
-		if total := timeseries.Reduce(timeseries.NanSum, errors); !math.IsNaN(total) {
+		if total := errors.Reduce(timeseries.NanSum); !math.IsNaN(total) {
 			errorsCheck.Inc(int64(total))
 			errorsCell.SetValue(fmt.Sprintf("%.0f", total))
 		}
-		lagCell := checkReplicationLag(i.Name, primaryLsn, lag, role, replicationCheck)
+		lagCell := checkReplicationLag(i.Name, primaryLsnTs, lag, role, replicationCheck)
 		report.
 			GetOrCreateTable("Instance", "Role", "Status", "Queries", "Latency", "Errors", "Replication lag").
 			AddRow(
 				model.NewTableCell(i.Name).AddTag("version: %s", i.Postgres.Version.Value()),
 				roleCell,
 				status,
-				model.NewTableCell(utils.FormatFloat(timeseries.Last(qps))).SetUnit("/s"),
-				model.NewTableCell(utils.FormatFloat(timeseries.Last(i.Postgres.Avg)*1000)).SetUnit("ms"),
+				model.NewTableCell(utils.FormatFloat(qps.Last())).SetUnit("/s"),
+				model.NewTableCell(utils.FormatFloat(i.Postgres.Avg.Last()*1000)).SetUnit("ms"),
 				errorsCell,
 				lagCell,
 			)
 	}
 }
 
-func errorsByPattern(instance *model.Instance) map[string]timeseries.TimeSeries {
-	res := map[string]timeseries.TimeSeries{}
+func errorsByPattern(instance *model.Instance) map[string]*timeseries.TimeSeries {
+	res := map[string]*timeseries.TimeSeries{}
 	for _, p := range instance.LogPatterns {
 		if p.Level != model.LogLevelError && p.Level != model.LogLevelCritical {
 			continue
@@ -136,22 +134,22 @@ func errorsByPattern(instance *model.Instance) map[string]timeseries.TimeSeries 
 	return res
 }
 
-func checkReplicationLag(instanceName string, primaryLsn, lag timeseries.TimeSeries, role model.ClusterRole, check *model.Check) *model.TableCell {
+func checkReplicationLag(instanceName string, primaryLsn, lag *timeseries.TimeSeries, role model.ClusterRole, check *model.Check) *model.TableCell {
 	res := &model.TableCell{}
-	if timeseries.IsEmpty(primaryLsn) {
+	if primaryLsn.IsEmpty() {
 		return res
 	}
 	if role != model.ClusterRoleReplica {
 		return res
 	}
-	last := timeseries.Last(lag)
+	last := lag.Last()
 	if math.IsNaN(last) {
 		return res
 	}
 
-	tCurr, vCurr := timeseries.LastNotNull(primaryLsn)
+	tCurr, vCurr := primaryLsn.LastNotNull()
 	t, tPast, vPast := timeseries.Time(0), timeseries.Time(0), math.NaN()
-	iter := timeseries.Iter(primaryLsn)
+	iter := primaryLsn.Iter()
 	for iter.Next() {
 		t, vPast = iter.Value()
 		if vPast > vCurr { // wraparound (e.g., complete cluster redeploy)
@@ -179,21 +177,23 @@ func checkReplicationLag(instanceName string, primaryLsn, lag timeseries.TimeSer
 	return res
 }
 
-func pgReplicationLag(primaryLsn, relayLsn timeseries.TimeSeries) timeseries.TimeSeries {
-	return timeseries.Aggregate(func(t timeseries.Time, accumulator, v float64) float64 {
-		res := accumulator - v
-		if res < 0 {
-			return 0
-		}
-		return res
-	}, primaryLsn, relayLsn)
+func pgReplicationLag(primaryLsn, replayLsn *timeseries.TimeSeries) *timeseries.TimeSeries {
+	return timeseries.Aggregate2(
+		primaryLsn, replayLsn,
+		func(primary, replay float64) float64 {
+			res := primary - replay
+			if res < 0 {
+				return 0
+			}
+			return res
+		})
 }
 
 func pgConnections(report *model.AuditReport, instance *model.Instance, connectionsCheck *model.Check) {
-	connectionByState := map[string]*timeseries.AggregatedTimeseries{}
+	connectionByState := map[string]*timeseries.Aggregate{}
 	var total float64
 	for k, v := range instance.Postgres.Connections {
-		if last := timeseries.Last(v); !math.IsNaN(last) {
+		if last := v.Last(); !math.IsNaN(last) {
 			total += last
 		}
 		state := k.State
@@ -202,21 +202,21 @@ func pgConnections(report *model.AuditReport, instance *model.Instance, connecti
 		}
 		byState, ok := connectionByState[state]
 		if !ok {
-			byState = timeseries.Aggregate(timeseries.NanSum)
+			byState = timeseries.NewAggregate(timeseries.NanSum)
 			connectionByState[state] = byState
 		}
-		byState.AddInput(v)
+		byState.Add(v)
 	}
-	connectionByState["reserved"] = timeseries.Aggregate(timeseries.NanSum)
+	connectionByState["reserved"] = timeseries.NewAggregate(timeseries.NanSum)
 
 	for _, setting := range []string{"superuser_reserved_connections", "rds.rds_superuser_reserved_connections"} {
 		v := instance.Postgres.Settings[setting].Samples
-		connectionByState["reserved"].AddInput(v)
-		if last := timeseries.Last(v); !math.IsNaN(last) {
+		connectionByState["reserved"].Add(v)
+		if last := v.Last(); !math.IsNaN(last) {
 			total += last
 		}
 	}
-	if max := timeseries.Last(instance.Postgres.Settings["max_connections"].Samples); max > 0 && total > 0 {
+	if max := instance.Postgres.Settings["max_connections"].Samples.Last(); max > 0 && total > 0 {
 		if total/max*100 > connectionsCheck.Threshold {
 			connectionsCheck.AddItem(instance.Name)
 		}
@@ -225,14 +225,14 @@ func pgConnections(report *model.AuditReport, instance *model.Instance, connecti
 	chart := report.
 		GetOrCreateChartInGroup("Postgres connections <selector>", instance.Name).
 		Stacked().
-		SetThreshold("max_connections", instance.Postgres.Settings["max_connections"].Samples, timeseries.Max)
+		SetThreshold("max_connections", instance.Postgres.Settings["max_connections"].Samples)
 
 	for state, v := range connectionByState {
-		chart.AddSeries(state, v, pgConnectionStateColors[state])
+		chart.AddSeries(state, v.Get(), pgConnectionStateColors[state])
 	}
 
-	idleInTransaction := map[string]timeseries.TimeSeries{}
-	locked := map[string]timeseries.TimeSeries{}
+	idleInTransaction := map[string]*timeseries.TimeSeries{}
+	locked := map[string]*timeseries.TimeSeries{}
 
 	for k, v := range instance.Postgres.Connections {
 		switch {
@@ -253,7 +253,7 @@ func pgConnections(report *model.AuditReport, instance *model.Instance, connecti
 }
 
 func pgLocks(report *model.AuditReport, instance *model.Instance) {
-	blockingQueries := make(map[string]timeseries.TimeSeries, len(instance.Postgres.AwaitingQueriesByLockingQuery))
+	blockingQueries := map[string]*timeseries.TimeSeries{}
 	for k, v := range instance.Postgres.AwaitingQueriesByLockingQuery {
 		blockingQueries[k.Query] = v
 	}
@@ -265,8 +265,8 @@ func pgLocks(report *model.AuditReport, instance *model.Instance) {
 }
 
 func pgQueries(report *model.AuditReport, instance *model.Instance) {
-	totalTime := map[string]timeseries.TimeSeries{}
-	ioTime := map[string]timeseries.TimeSeries{}
+	totalTime := map[string]*timeseries.TimeSeries{}
+	ioTime := map[string]*timeseries.TimeSeries{}
 	for k, stat := range instance.Postgres.PerQuery {
 		q := k.String()
 		totalTime[q] = stat.TotalTime
@@ -284,10 +284,10 @@ func pgQueries(report *model.AuditReport, instance *model.Instance) {
 		AddMany(timeseries.Top(ioTime, timeseries.NanSum, 5))
 }
 
-func sumQueries(byDB map[string]timeseries.TimeSeries) *timeseries.AggregatedTimeseries {
-	total := timeseries.Aggregate(timeseries.NanSum)
+func sumQueries(byDB map[string]*timeseries.TimeSeries) *timeseries.TimeSeries {
+	total := timeseries.NewAggregate(timeseries.NanSum)
 	for _, qps := range byDB {
-		total.AddInput(qps)
+		total.Add(qps)
 	}
-	return total
+	return total.Get()
 }

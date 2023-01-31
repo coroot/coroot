@@ -570,7 +570,9 @@ func (api *Api) loadWorld(ctx context.Context, project *db.Project, from, to tim
 	}
 	step = increaseStepForBigDurations(duration, step)
 
+	t := time.Now()
 	world, err := constructor.New(api.db, project, cc).LoadWorld(ctx, from, to, step, nil)
+	klog.Infof("world loaded in %s", time.Since(t))
 	return world, err
 }
 

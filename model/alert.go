@@ -40,20 +40,20 @@ type BurnRate struct {
 	Severity Status
 }
 
-func CheckBurnRates(now timeseries.Time, bad, total timeseries.TimeSeries, objectivePercentage float64) BurnRate {
-	if timeseries.IsEmpty(bad) || timeseries.IsEmpty(total) {
+func CheckBurnRates(now timeseries.Time, bad, total *timeseries.TimeSeries, objectivePercentage float64) BurnRate {
+	if bad.IsEmpty() || total.IsEmpty() {
 		return BurnRate{Severity: UNKNOWN}
 	}
 
 	objective := 1 - objectivePercentage/100
 
-	sumFrom := func(ts timeseries.TimeSeries, from timeseries.Time) float64 {
-		return timeseries.Reduce(func(t timeseries.Time, accumulator, v float64) float64 {
+	sumFrom := func(ts *timeseries.TimeSeries, from timeseries.Time) float64 {
+		return ts.Reduce(func(t timeseries.Time, accumulator, v float64) float64 {
 			if t.Before(from) {
 				return 0
 			}
 			return timeseries.NanSum(t, accumulator, v)
-		}, ts)
+		})
 	}
 
 	first := BurnRate{}

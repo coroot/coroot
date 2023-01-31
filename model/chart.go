@@ -65,8 +65,8 @@ func (chart *Chart) AddMany(series []timeseries.Named) *Chart {
 	return chart
 }
 
-func (chart *Chart) AddSeries(name string, data timeseries.TimeSeries, color ...string) *Chart {
-	if timeseries.IsEmpty(data) {
+func (chart *Chart) AddSeries(name string, data *timeseries.TimeSeries, color ...string) *Chart {
+	if data.IsEmpty() {
 		return chart
 	}
 	s := &Series{Name: name, Data: data}
@@ -77,14 +77,11 @@ func (chart *Chart) AddSeries(name string, data timeseries.TimeSeries, color ...
 	return chart
 }
 
-func (chart *Chart) SetThreshold(name string, data timeseries.TimeSeries, aggFunc timeseries.F) *Chart {
+func (chart *Chart) SetThreshold(name string, data *timeseries.TimeSeries) *Chart {
 	if data == nil {
 		return chart
 	}
-	if chart.Threshold == nil {
-		chart.Threshold = &Series{Name: name, Color: "black"}
-	}
-	chart.Threshold.Data = timeseries.Merge(chart.Threshold.Data, data, aggFunc)
+	chart.Threshold = &Series{Name: name, Color: "black", Data: data}
 	return chart
 }
 
@@ -98,7 +95,7 @@ type Series struct {
 	Color string `json:"color"`
 	Fill  bool   `json:"fill"`
 
-	Data timeseries.TimeSeries `json:"data"`
+	Data *timeseries.TimeSeries `json:"data"`
 }
 
 type ChartGroup struct {
@@ -134,7 +131,7 @@ func (cg *ChartGroup) AutoFeatureChart() {
 	for _, ch := range cg.Charts {
 		var w float64
 		for _, s := range ch.Series {
-			w += timeseries.Reduce(timeseries.NanSum, s.Data)
+			w += s.Data.Reduce(timeseries.NanSum)
 		}
 		charts = append(charts, weightedChart{ch: ch, w: w})
 	}

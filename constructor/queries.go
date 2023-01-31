@@ -148,19 +148,25 @@ var RecordingRules = map[string]func(w *model.World) []model.MetricValues{
 			if len(connections) == 0 {
 				continue
 			}
-			sum := map[string]timeseries.TimeSeries{}
+			sum := map[string]*timeseries.Aggregate{}
 			for _, c := range connections {
 				for _, byStatus := range c.RequestsCount {
 					for status, ts := range byStatus {
-						sum[status] = timeseries.Merge(sum[status], ts, timeseries.NanSum)
+						dest := sum[status]
+						if dest == nil {
+							dest = timeseries.NewAggregate(timeseries.NanSum)
+							sum[status] = dest
+						}
+						dest.Add(ts)
 					}
 				}
 			}
 			appId := app.Id.String()
-			for status, ts := range sum {
-				if !timeseries.IsEmpty(ts) {
+			for status, agg := range sum {
+				ts := agg.Get()
+				if !ts.IsEmpty() {
 					ls := model.Labels{"application": appId, "status": status}
-					res = append(res, model.MetricValues{Labels: ls, LabelsHash: promModel.LabelsToSignature(ls), Values: timeseries.NewCopy(ts)})
+					res = append(res, model.MetricValues{Labels: ls, LabelsHash: promModel.LabelsToSignature(ls), Values: ts})
 				}
 			}
 		}
@@ -173,19 +179,25 @@ var RecordingRules = map[string]func(w *model.World) []model.MetricValues{
 			if len(connections) == 0 {
 				continue
 			}
-			sum := map[float64]timeseries.TimeSeries{}
+			sum := map[float64]*timeseries.Aggregate{}
 			for _, c := range connections {
 				for _, byLe := range c.RequestsHistogram {
 					for le, ts := range byLe {
-						sum[le] = timeseries.Merge(sum[le], ts, timeseries.NanSum)
+						dest := sum[le]
+						if dest == nil {
+							dest = timeseries.NewAggregate(timeseries.NanSum)
+							sum[le] = dest
+						}
+						dest.Add(ts)
 					}
 				}
 			}
 			appId := app.Id.String()
-			for le, ts := range sum {
-				if !timeseries.IsEmpty(ts) {
+			for le, agg := range sum {
+				ts := agg.Get()
+				if !ts.IsEmpty() {
 					ls := model.Labels{"application": appId, "le": fmt.Sprintf("%f", le)}
-					res = append(res, model.MetricValues{Labels: ls, LabelsHash: promModel.LabelsToSignature(ls), Values: timeseries.NewCopy(ts)})
+					res = append(res, model.MetricValues{Labels: ls, LabelsHash: promModel.LabelsToSignature(ls), Values: ts})
 				}
 			}
 		}

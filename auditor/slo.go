@@ -25,16 +25,16 @@ func availability(ctx timeseries.Context, app *model.Application, report *model.
 	}
 	sli := app.AvailabilitySLIs[0]
 
-	if !timeseries.IsEmpty(sli.TotalRequests) {
+	if !sli.TotalRequests.IsEmpty() {
 		failed := sli.FailedRequests
-		if timeseries.IsEmpty(failed) {
-			failed = timeseries.Replace(sli.TotalRequests, 0)
+		if failed.IsEmpty() {
+			failed = sli.TotalRequests.WithNewValue(0)
 		}
-		successfulPercentage := timeseries.Aggregate(
-			func(t timeseries.Time, total, failed float64) float64 {
+		successfulPercentage := timeseries.Aggregate2(
+			sli.TotalRequests, failed.Map(timeseries.NanToZero),
+			func(total, failed float64) float64 {
 				return (total - failed) / total * 100
 			},
-			sli.TotalRequests, timeseries.Map(timeseries.NanToZero, failed),
 		)
 		chart := report.
 			GetOrCreateChart("Availability").
@@ -43,11 +43,11 @@ func availability(ctx timeseries.Context, app *model.Application, report *model.
 			Name:  "target",
 			Color: "red",
 			Fill:  true,
-			Data:  timeseries.Replace(sli.TotalRequests, sli.Config.ObjectivePercentage),
+			Data:  sli.TotalRequests.WithNewValue(sli.Config.ObjectivePercentage),
 		}
 	}
 
-	if timeseries.IsEmpty(sli.TotalRequestsRaw) {
+	if sli.TotalRequestsRaw.IsEmpty() {
 		check.SetStatus(model.UNKNOWN, "no data")
 		return
 	}
@@ -57,10 +57,10 @@ func availability(ctx timeseries.Context, app *model.Application, report *model.
 	}
 
 	failedRaw := sli.FailedRequestsRaw
-	if timeseries.IsEmpty(failedRaw) {
-		failedRaw = timeseries.Replace(sli.TotalRequestsRaw, 0)
+	if failedRaw.IsEmpty() {
+		failedRaw = sli.TotalRequestsRaw.WithNewValue(0)
 	} else {
-		failedRaw = timeseries.Map(timeseries.NanToZero, failedRaw)
+		failedRaw = failedRaw.Map(timeseries.NanToZero)
 	}
 	if br := model.CheckBurnRates(ctx.To, failedRaw, sli.TotalRequestsRaw, sli.Config.ObjectivePercentage); br.Severity > model.UNKNOWN {
 		check.SetStatus(br.Severity, formatSLOStatus(br))
@@ -76,12 +76,12 @@ func latency(ctx timeseries.Context, app *model.Application, report *model.Audit
 	sli := app.LatencySLIs[0]
 
 	total, fast := sli.GetTotalAndFast(false)
-	if !timeseries.IsEmpty(total) {
-		fastPercentage := timeseries.Aggregate(
-			func(t timeseries.Time, total, fast float64) float64 {
+	if !total.IsEmpty() {
+		fastPercentage := timeseries.Aggregate2(
+			total, fast,
+			func(total, fast float64) float64 {
 				return fast / total * 100
 			},
-			total, fast,
 		)
 		chart := report.
 			GetOrCreateChart("Latency").
@@ -90,12 +90,12 @@ func latency(ctx timeseries.Context, app *model.Application, report *model.Audit
 			Name:  "target",
 			Color: "red",
 			Fill:  true,
-			Data:  timeseries.Replace(total, sli.Config.ObjectivePercentage),
+			Data:  total.WithNewValue(sli.Config.ObjectivePercentage),
 		}
 	}
 
 	totalRaw, fastRaw := sli.GetTotalAndFast(true)
-	if timeseries.IsEmpty(totalRaw) {
+	if totalRaw.IsEmpty() {
 		check.SetStatus(model.UNKNOWN, "no data")
 		return
 	}
@@ -104,12 +104,12 @@ func latency(ctx timeseries.Context, app *model.Application, report *model.Audit
 		return
 	}
 
-	if timeseries.IsEmpty(fastRaw) {
-		fastRaw = timeseries.Replace(totalRaw, 0)
+	if fastRaw.IsEmpty() {
+		fastRaw = totalRaw.WithNewValue(0)
 	} else {
-		fastRaw = timeseries.Map(timeseries.NanToZero, fastRaw)
+		fastRaw = fastRaw.Map(timeseries.NanToZero)
 	}
-	slowRaw := timeseries.Aggregate(timeseries.Sub, totalRaw, fastRaw)
+	slowRaw := timeseries.Sub(totalRaw, fastRaw)
 	if br := model.CheckBurnRates(ctx.To, slowRaw, totalRaw, sli.Config.ObjectivePercentage); br.Severity > model.UNKNOWN {
 		check.SetStatus(br.Severity, formatSLOStatus(br))
 	}
@@ -136,7 +136,7 @@ func requestsChart(app *model.Application, report *model.AuditReport) {
 type clientRequestsSummary struct {
 	protocols   *utils.StringSet
 	connections []*model.Connection
-	rps         timeseries.TimeSeries
+	rps         *timeseries.TimeSeries
 }
 
 func clientRequests(app *model.Application, report *model.AuditReport) {
@@ -159,7 +159,7 @@ func clientRequests(app *model.Application, report *model.AuditReport) {
 	var rpsTotal float64
 	for _, s := range clients {
 		s.rps = model.GetConnectionsRequestsSum(s.connections)
-		if last := timeseries.Last(s.rps); !math.IsNaN(last) {
+		if last := s.rps.Last(); !math.IsNaN(last) {
 			rpsTotal += last
 		}
 	}
@@ -172,20 +172,20 @@ func clientRequests(app *model.Application, report *model.AuditReport) {
 		chart := model.NewTableCell().SetChart(s.rps)
 
 		requests := model.NewTableCell().SetUnit("/s")
-		if last := timeseries.Last(s.rps); last > 0 {
+		if last := s.rps.Last(); last > 0 {
 			requests.SetValue(utils.FormatFloat(last))
 			requests.AddTag("%.0f%%", last*100/rpsTotal)
 		}
 
 		latency := model.NewTableCell().SetUnit("ms")
-		if last := timeseries.Last(model.GetConnectionsRequestsLatency(s.connections)); last > 0 {
+		if last := model.GetConnectionsRequestsLatency(s.connections).Last(); last > 0 {
 			latency.SetValue(utils.FormatFloat(last * 1000))
 		}
 
 		errors := model.NewTableCell().SetUnit("/s")
-		if last := timeseries.Last(model.GetConnectionsErrorsSum(s.connections)); last > 0 {
+		if last := model.GetConnectionsErrorsSum(s.connections).Last(); last > 0 {
 			errors.SetValue(utils.FormatFloat(last))
-			errors.AddTag("%.0f%%", last*100/timeseries.Last(s.rps))
+			errors.AddTag("%.0f%%", last*100/s.rps.Last())
 		}
 
 		t.AddRow(client, chart, requests, latency, errors)

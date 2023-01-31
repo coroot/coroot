@@ -17,15 +17,15 @@ func (a *appAuditor) redis() {
 		if i.Redis == nil {
 			continue
 		}
-		total := timeseries.Aggregate(timeseries.NanSum)
-		calls := timeseries.Aggregate(timeseries.NanSum)
+		total := timeseries.NewAggregate(timeseries.NanSum)
+		calls := timeseries.NewAggregate(timeseries.NanSum)
 		for cmd, t := range i.Redis.CallsTime {
 			if c, ok := i.Redis.Calls[cmd]; ok {
-				total.AddInput(t)
-				calls.AddInput(c)
+				total.Add(t)
+				calls.Add(c)
 			}
 		}
-		avg := timeseries.Aggregate(timeseries.Div, total, calls)
+		avg := timeseries.Div(total.Get(), calls.Get())
 		report.
 			GetOrCreateChart("Redis latency, seconds").
 			AddSeries(i.Name, avg)
@@ -53,7 +53,7 @@ func (a *appAuditor) redis() {
 			Sorted().
 			AddMany(timeseries.Top(i.Redis.Calls, timeseries.NanSum, 5))
 
-		if timeseries.Last(avg) > latency.Threshold {
+		if avg.Last() > latency.Threshold {
 			latency.AddItem(i.Name)
 		}
 		report.GetOrCreateTable("Instance", "Role", "Status").AddRow(

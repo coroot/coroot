@@ -5,9 +5,9 @@ import (
 )
 
 type EBS struct {
-	AllocatedGibs   timeseries.TimeSeries
+	AllocatedGibs   *timeseries.TimeSeries
 	StorageType     LabelLastValue
-	ProvisionedIOPS timeseries.TimeSeries
+	ProvisionedIOPS *timeseries.TimeSeries
 	VolumeId        string
 }
 
@@ -17,6 +17,6 @@ type Volume struct {
 	MountPoint string
 
 	EBS           *EBS
-	CapacityBytes timeseries.TimeSeries
-	UsedBytes     timeseries.TimeSeries
+	CapacityBytes *timeseries.TimeSeries
+	UsedBytes     *timeseries.TimeSeries
 }

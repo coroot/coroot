@@ -36,7 +36,7 @@ func calcAppEvents(w *model.World) {
 func calcUpDownEvents(app *model.Application) []*model.ApplicationEvent {
 	var events []*model.ApplicationEvent
 	for _, instance := range app.Instances {
-		var up timeseries.TimeSeries
+		var up *timeseries.TimeSeries
 		switch {
 		case instance.Postgres != nil && instance.Postgres.Up != nil:
 			up = instance.Postgres.Up
@@ -46,7 +46,7 @@ func calcUpDownEvents(app *model.Application) []*model.ApplicationEvent {
 			continue
 		}
 
-		iter := timeseries.Iter(up)
+		iter := up.Iter()
 		status := ""
 		for iter.Next() {
 			t, v := iter.Value()
@@ -68,7 +68,7 @@ func calcUpDownEvents(app *model.Application) []*model.ApplicationEvent {
 
 func calcClusterSwitchovers(app *model.Application) []*model.ApplicationEvent {
 	names := map[int]string{}
-	primaryNum := timeseries.Aggregate(func(t timeseries.Time, accumulator, v float64) float64 {
+	f := func(t timeseries.Time, accumulator, v float64) float64 {
 		if accumulator < 0 {
 			return -1
 		}
@@ -79,26 +79,28 @@ func calcClusterSwitchovers(app *model.Application) []*model.ApplicationEvent {
 			return v
 		}
 		return accumulator
-	})
+	}
+	primaryNum := timeseries.NewAggregate(f)
 	for i, instance := range app.Instances {
 		names[i] = instance.Name
 		if role := instance.ClusterRole(); role != nil {
 			num := float64(i)
-			primaryNum.AddInput(timeseries.Map(func(t timeseries.Time, v float64) float64 {
+			primaryNum.Add(role.Map(func(t timeseries.Time, v float64) float64 {
 				if v == float64(model.ClusterRolePrimary) {
 					return num
 				}
 				return timeseries.NaN
-			}, role))
+			}))
 		}
 	}
-	if timeseries.IsEmpty(primaryNum) {
+	primaryNumTs := primaryNum.Get()
+	if primaryNumTs.IsEmpty() {
 		return nil
 	}
 
 	var events []*model.ApplicationEvent
 	var event *model.ApplicationEvent
-	iter := timeseries.Iter(primaryNum)
+	iter := primaryNumTs.Iter()
 	prev := float64(-1)
 	for iter.Next() {
 		t, curr := iter.Value()

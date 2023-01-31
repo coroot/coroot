@@ -15,13 +15,13 @@ func redis(w *model.World, queryName string, m model.MetricValues) {
 	}
 	switch queryName {
 	case "redis_up":
-		instance.Redis.Up = timeseries.Merge(instance.Redis.Up, m.Values, timeseries.Any)
+		instance.Redis.Up = merge(instance.Redis.Up, m.Values, timeseries.Any)
 	case "redis_instance_info":
 		instance.Redis.Version.Update(m.Values, m.Labels["redis_version"])
 		instance.Redis.Role.Update(m.Values, m.Labels["role"])
 	case "redis_commands_duration_seconds_total":
-		instance.Redis.CallsTime[m.Labels["cmd"]] = timeseries.Merge(instance.Redis.CallsTime[m.Labels["cmd"]], m.Values, timeseries.Any)
+		instance.Redis.CallsTime[m.Labels["cmd"]] = merge(instance.Redis.CallsTime[m.Labels["cmd"]], m.Values, timeseries.Any)
 	case "redis_commands_total":
-		instance.Redis.Calls[m.Labels["cmd"]] = timeseries.Merge(instance.Redis.Calls[m.Labels["cmd"]], m.Values, timeseries.Any)
+		instance.Redis.Calls[m.Labels["cmd"]] = merge(instance.Redis.Calls[m.Labels["cmd"]], m.Values, timeseries.Any)
 	}
 }

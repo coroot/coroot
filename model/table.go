@@ -64,18 +64,18 @@ type TableCellLink struct {
 }
 
 type TableCell struct {
-	Icon          *Icon                 `json:"icon"`
-	Value         string                `json:"value"`
-	ShortValue    string                `json:"short_value"`
-	Values        []string              `json:"values"`
-	Tags          []string              `json:"tags"`
-	Unit          string                `json:"unit"`
-	Status        *Status               `json:"status"`
-	Link          *TableCellLink        `json:"link"`
-	Progress      *Progress             `json:"progress"`
-	NetInterfaces []NetInterface        `json:"net_interfaces"`
-	Chart         timeseries.TimeSeries `json:"chart"`
-	IsStub        bool                  `json:"is_stub"`
+	Icon          *Icon                  `json:"icon"`
+	Value         string                 `json:"value"`
+	ShortValue    string                 `json:"short_value"`
+	Values        []string               `json:"values"`
+	Tags          []string               `json:"tags"`
+	Unit          string                 `json:"unit"`
+	Status        *Status                `json:"status"`
+	Link          *TableCellLink         `json:"link"`
+	Progress      *Progress              `json:"progress"`
+	NetInterfaces []NetInterface         `json:"net_interfaces"`
+	Chart         *timeseries.TimeSeries `json:"chart"`
+	IsStub        bool                   `json:"is_stub"`
 
 	DeploymentSummaries []ApplicationDeploymentSummary `json:"deployment_summaries"`
 }
@@ -138,7 +138,7 @@ func (c *TableCell) SetProgress(percent int, color string) *TableCell {
 	return c
 }
 
-func (c *TableCell) SetChart(ts timeseries.TimeSeries) *TableCell {
+func (c *TableCell) SetChart(ts *timeseries.TimeSeries) *TableCell {
 	c.Chart = ts
 	return c
 }

@@ -51,7 +51,7 @@ func loadSLIs(ctx context.Context, w *model.World, prom prom.Client, rawStep tim
 	}
 }
 
-func loadAvailabilityFromConfiguredSli(ctx context.Context, prom prom.Client, query string, from, to timeseries.Time, step timeseries.Duration) timeseries.TimeSeries {
+func loadAvailabilityFromConfiguredSli(ctx context.Context, prom prom.Client, query string, from, to timeseries.Time, step timeseries.Duration) *timeseries.TimeSeries {
 	values, err := prom.QueryRange(ctx, query, from, to, step)
 	if err != nil {
 		klog.Warningln(err)
@@ -64,8 +64,8 @@ func loadAvailabilityFromConfiguredSli(ctx context.Context, prom prom.Client, qu
 }
 
 type availabilitySlis struct {
-	total  timeseries.TimeSeries
-	failed timeseries.TimeSeries
+	total  *timeseries.TimeSeries
+	failed *timeseries.TimeSeries
 }
 
 func loadAvailabilityFromInboundConnections(ctx context.Context, prom prom.Client, from, to timeseries.Time, step timeseries.Duration) map[model.ApplicationId]availabilitySlis {
@@ -77,7 +77,7 @@ func loadAvailabilityFromInboundConnections(ctx context.Context, prom prom.Clien
 	if len(values) == 0 {
 		return nil
 	}
-	byApp := map[model.ApplicationId]map[string]timeseries.TimeSeries{}
+	byApp := map[model.ApplicationId]map[string]*timeseries.TimeSeries{}
 	for _, mv := range values {
 		appId, err := model.NewApplicationIdFromString(mv.Labels["application"])
 		if err != nil {
@@ -86,20 +86,21 @@ func loadAvailabilityFromInboundConnections(ctx context.Context, prom prom.Clien
 		}
 		status := mv.Labels["status"]
 		if byApp[appId] == nil {
-			byApp[appId] = map[string]timeseries.TimeSeries{}
+			byApp[appId] = map[string]*timeseries.TimeSeries{}
 		}
 		byApp[appId][status] = mv.Values
 	}
 	res := map[model.ApplicationId]availabilitySlis{}
 	for appId, byStatus := range byApp {
-		var total, failed timeseries.TimeSeries
+		total := timeseries.NewAggregate(timeseries.NanSum)
+		failed := timeseries.NewAggregate(timeseries.NanSum)
 		for status, ts := range byStatus {
-			total = timeseries.Merge(total, ts, timeseries.NanSum)
+			total.Add(ts)
 			if model.IsRequestStatusFailed(status) {
-				failed = timeseries.Merge(failed, ts, timeseries.NanSum)
+				failed.Add(ts)
 			}
 		}
-		res[appId] = availabilitySlis{total: total, failed: failed}
+		res[appId] = availabilitySlis{total: total.Get(), failed: failed.Get()}
 	}
 	return res
 }
@@ -134,7 +135,7 @@ func loadLatencyFromInboundConnections(ctx context.Context, prom prom.Client, fr
 	if len(values) == 0 {
 		return nil
 	}
-	byApp := map[model.ApplicationId]map[float64]timeseries.TimeSeries{}
+	byApp := map[model.ApplicationId]map[float64]*timeseries.TimeSeries{}
 	for _, mv := range values {
 		appId, err := model.NewApplicationIdFromString(mv.Labels["application"])
 		if err != nil {
@@ -147,7 +148,7 @@ func loadLatencyFromInboundConnections(ctx context.Context, prom prom.Client, fr
 			continue
 		}
 		if byApp[appId] == nil {
-			byApp[appId] = map[float64]timeseries.TimeSeries{}
+			byApp[appId] = map[float64]*timeseries.TimeSeries{}
 		}
 		byApp[appId][le] = mv.Values
 	}
