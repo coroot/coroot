@@ -76,8 +76,6 @@ func (ts *TimeSeries) FillFromSamplePairs(pairs []promModel.SamplePair) {
 		t Time
 		v float64
 	)
-	tNext := Time(0)
-	iNext := -1
 	for _, p := range pairs {
 		t = Time(p.Timestamp.Time().Unix()).Truncate(ts.step)
 		v = float64(p.Value)
@@ -87,16 +85,9 @@ func (ts *TimeSeries) FillFromSamplePairs(pairs []promModel.SamplePair) {
 		if t < ts.from {
 			continue
 		}
-		if t < tNext {
-			continue
-		}
-		if iNext == -1 {
-			iNext = int((t - ts.from) / Time(ts.step))
-		}
-		if iNext < len(ts.data) {
-			ts.data[iNext] = v
-			tNext = tNext.Add(ts.step)
-			iNext++
+		idx := int((t - ts.from) / Time(ts.step))
+		if idx < len(ts.data) {
+			ts.data[idx] = v
 		}
 	}
 }
