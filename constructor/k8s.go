@@ -130,6 +130,8 @@ func podLabels(metrics []model.MetricValues, pods map[podId]*model.Instance) {
 		case m.Labels["label_k8s_enterprisedb_io_cluster"] != "":
 			cluster = m.Labels["label_k8s_enterprisedb_io_cluster"]
 			role = m.Labels["label_role"]
+		default:
+			continue
 		}
 		if cluster != "" {
 			instance.ClusterName.Update(m.Values, cluster)
