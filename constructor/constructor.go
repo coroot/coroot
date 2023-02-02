@@ -12,14 +12,23 @@ import (
 	"time"
 )
 
+type Option int
+
+const OptionLoadPerConnectionHistograms Option = iota
+
 type Constructor struct {
 	db      *db.DB
 	project *db.Project
 	prom    prom.Client
+	options map[Option]bool
 }
 
-func New(db *db.DB, project *db.Project, prom prom.Client) *Constructor {
-	return &Constructor{db: db, project: project, prom: prom}
+func New(db *db.DB, project *db.Project, prom prom.Client, options ...Option) *Constructor {
+	c := &Constructor{db: db, project: project, prom: prom, options: map[Option]bool{}}
+	for _, o := range options {
+		c.options[o] = true
+	}
+	return c
 }
 
 type Profile struct {
@@ -57,7 +66,14 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 
 	var metrics map[string][]model.MetricValues
 	stage("query", func() {
-		metrics, err = prom.ParallelQueryRange(ctx, c.prom, from, to, step, QUERIES, prof.Queries)
+		queries := map[string]string{}
+		for n, q := range QUERIES {
+			if !c.options[OptionLoadPerConnectionHistograms] && strings.HasPrefix(n, "container_") && strings.HasSuffix(n, "_histogram") {
+				continue
+			}
+			queries[n] = q
+		}
+		metrics, err = prom.ParallelQueryRange(ctx, c.prom, from, to, step, queries, prof.Queries)
 	})
 	if err != nil {
 		return nil, err
