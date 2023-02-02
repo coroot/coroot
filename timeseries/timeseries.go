@@ -3,7 +3,6 @@ package timeseries
 import (
 	"encoding/json"
 	"fmt"
-	promModel "github.com/prometheus/common/model"
 	"math"
 	"strings"
 )
@@ -70,25 +69,14 @@ func (ts *TimeSeries) String() string {
 	return fmt.Sprintf("TimeSeries(%d, %d, %d, [%s])", ts.from, ts.len(), ts.step, strings.Join(values, " "))
 }
 
-func (ts *TimeSeries) FillFromSamplePairs(pairs []promModel.SamplePair) {
-	to := ts.from.Add(Duration(ts.len()-1) * ts.step)
-	var (
-		t Time
-		v float64
-	)
-	for _, p := range pairs {
-		t = Time(p.Timestamp.Time().Unix()).Truncate(ts.step)
-		v = float64(p.Value)
-		if t > to {
-			break
-		}
-		if t < ts.from {
-			continue
-		}
-		idx := int((t - ts.from) / Time(ts.step))
-		if idx < len(ts.data) {
-			ts.data[idx] = v
-		}
+func (ts *TimeSeries) Set(t Time, v float64) {
+	t = t.Truncate(ts.step)
+	if t < ts.from {
+		return
+	}
+	idx := int((t - ts.from) / Time(ts.step))
+	if idx < len(ts.data) {
+		ts.data[idx] = v
 	}
 }
 

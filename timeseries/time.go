@@ -2,6 +2,7 @@ package timeseries
 
 import (
 	"encoding/json"
+	"strconv"
 	"time"
 )
 
@@ -80,6 +81,10 @@ func (t Time) After(other Time) bool {
 
 func (t Time) ToStandard() time.Time {
 	return time.Unix(int64(t), 0).UTC()
+}
+
+func (t Time) String() string {
+	return strconv.FormatInt(int64(t), 10)
 }
 
 func (t Time) MarshalJSON() ([]byte, error) {
