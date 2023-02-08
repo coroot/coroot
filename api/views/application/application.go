@@ -136,7 +136,7 @@ func Render(world *model.World, app *model.Application, incidents []db.Incident)
 	if len(incidents) > 0 {
 		now := timeseries.Now()
 		for i := range incidents {
-			if incidents[i].ResolvedAt.IsZero() {
+			if !incidents[i].Resolved() {
 				incidents[i].ResolvedAt = now
 			}
 		}

@@ -5,7 +5,6 @@ import (
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
-	"github.com/dustin/go-humanize/english"
 	"math"
 )
 
@@ -63,7 +62,7 @@ func availability(ctx timeseries.Context, app *model.Application, report *model.
 		failedRaw = failedRaw.Map(timeseries.NanToZero)
 	}
 	if br := model.CheckBurnRates(ctx.To, failedRaw, sli.TotalRequestsRaw, sli.Config.ObjectivePercentage); br.Severity > model.UNKNOWN {
-		check.SetStatus(br.Severity, formatSLOStatus(br))
+		check.SetStatus(br.Severity, br.FormatSLOStatus())
 	}
 }
 
@@ -111,7 +110,7 @@ func latency(ctx timeseries.Context, app *model.Application, report *model.Audit
 	}
 	slowRaw := timeseries.Sub(totalRaw, fastRaw)
 	if br := model.CheckBurnRates(ctx.To, slowRaw, totalRaw, sli.Config.ObjectivePercentage); br.Severity > model.UNKNOWN {
-		check.SetStatus(br.Severity, formatSLOStatus(br))
+		check.SetStatus(br.Severity, br.FormatSLOStatus())
 	}
 }
 
@@ -190,9 +189,4 @@ func clientRequests(app *model.Application, report *model.AuditReport) {
 
 		t.AddRow(client, chart, requests, latency, errors)
 	}
-}
-
-func formatSLOStatus(br model.BurnRate) string {
-	hours := int(br.Window / timeseries.Hour)
-	return fmt.Sprintf("error budget burn rate is %.1fx within %s", br.Value, english.Plural(hours, "hour", ""))
 }

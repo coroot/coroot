@@ -1,7 +1,9 @@
 package model
 
 import (
+	"fmt"
 	"github.com/coroot/coroot/timeseries"
+	"github.com/dustin/go-humanize/english"
 	"math"
 )
 
@@ -38,6 +40,11 @@ type BurnRate struct {
 	Value    float64
 	Window   timeseries.Duration
 	Severity Status
+}
+
+func (br BurnRate) FormatSLOStatus() string {
+	hours := int(br.Window / timeseries.Hour)
+	return fmt.Sprintf("error budget burn rate is %.1fx within %s", br.Value, english.Plural(hours, "hour", ""))
 }
 
 func CheckBurnRates(now timeseries.Time, bad, total *timeseries.TimeSeries, objectivePercentage float64) BurnRate {

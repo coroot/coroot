@@ -85,9 +85,13 @@ type MetricsSnapshot struct {
 type ApplicationDeploymentNotifications struct {
 	State ApplicationDeploymentState `json:"state"`
 	Slack struct {
-		Channel  string `json:"channel,omitempty"`
-		ThreadTs string `json:"thread_ts,omitempty"`
+		State    ApplicationDeploymentState `json:"state"`
+		Channel  string                     `json:"channel,omitempty"`
+		ThreadTs string                     `json:"thread_ts,omitempty"`
 	} `json:"slack"`
+	Teams struct {
+		State ApplicationDeploymentState `json:"state"`
+	} `json:"teams"`
 }
 
 type ApplicationDeploymentSummary struct {
@@ -95,6 +99,13 @@ type ApplicationDeploymentSummary struct {
 	Ok      bool            `json:"ok"`
 	Message string          `json:"message"`
 	Time    timeseries.Time `json:"time"`
+}
+
+func (s ApplicationDeploymentSummary) Emoji() string {
+	if s.Ok {
+		return "🎉"
+	}
+	return "💔"
 }
 
 type ApplicationDeploymentStatus struct {

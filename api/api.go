@@ -8,7 +8,6 @@ import (
 	"github.com/coroot/coroot/constructor"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
-	"github.com/coroot/coroot/notifications"
 	"github.com/coroot/coroot/prom"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
@@ -29,7 +28,7 @@ func NewApi(cache *cache.Cache, db *db.DB, readOnly bool) *Api {
 	return &Api{cache: cache, db: db, readOnly: readOnly}
 }
 
-func (api *Api) Projects(w http.ResponseWriter, r *http.Request) {
+func (api *Api) Projects(w http.ResponseWriter, _ *http.Request) {
 	projects, err := api.db.GetProjectNames()
 	if err != nil {
 		klog.Errorln("failed to get projects:", err)
@@ -268,7 +267,7 @@ func (api *Api) Integrations(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	projectId := db.ProjectId(vars["project"])
 
-	if r.Method == http.MethodPost {
+	if r.Method == http.MethodPut {
 		if api.readOnly {
 			return
 		}
@@ -293,74 +292,78 @@ func (api *Api) Integrations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	utils.WriteJson(w, views.Integrations(r.Context(), p))
+	utils.WriteJson(w, views.Integrations(p))
 }
 
-func (api *Api) IntegrationsSlack(w http.ResponseWriter, r *http.Request) {
+func (api *Api) Integration(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	projectId := db.ProjectId(vars["project"])
-
-	var form IntegrationsSlackForm
-
-	if r.Method == http.MethodPost {
-		if api.readOnly {
-			return
-		}
-		if err := ReadAndValidate(r, &form); err != nil {
-			klog.Warningln("bad request:", err)
-			http.Error(w, "", http.StatusBadRequest)
-			return
-		}
-		ok, err := notifications.IsSlackChannelAvailable(r.Context(), form.Token, form.Channel)
-		if err != nil {
-			http.Error(w, "Invalid token", http.StatusBadRequest)
-			return
-		}
-		if !ok {
-			http.Error(w, "Channel is not available", http.StatusBadRequest)
-			return
-		}
-		if err := api.db.SaveIntegrationsSlack(projectId, &db.IntegrationSlack{
-			Token:          form.Token,
-			DefaultChannel: form.Channel,
-			Enabled:        form.Enabled,
-		}); err != nil {
-			klog.Errorln("failed to save:", err)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-		return
-	}
-
-	if r.Method == http.MethodDelete {
-		if api.readOnly {
-			return
-		}
-		if err := api.db.SaveIntegrationsSlack(projectId, nil); err != nil {
-			klog.Errorln("failed to delete:", err)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-		return
-	}
-
-	p, err := api.db.GetProject(projectId)
+	project, err := api.db.GetProject(projectId)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
-	if cfg := p.Settings.Integrations.Slack; cfg != nil {
-		form.Token = cfg.Token
-		if api.readOnly {
-			form.Token = "<token>"
-		}
-		form.Channel = cfg.DefaultChannel
-		form.Enabled = cfg.Enabled
-	} else {
-		form.Enabled = true
+
+	t := db.IntegrationType(vars["type"])
+	form := NewIntegrationForm(t)
+	if form == nil {
+		klog.Warningln("unknown integration type:", t)
+		http.Error(w, "", http.StatusBadRequest)
+		return
 	}
-	utils.WriteJson(w, form)
+
+	if r.Method == http.MethodGet {
+		form.Get(project, api.readOnly)
+		utils.WriteJson(w, form)
+		return
+	}
+
+	if api.readOnly {
+		return
+	}
+
+	switch r.Method {
+	case http.MethodPost, http.MethodPut:
+		if err := ReadAndValidate(r, form); err != nil {
+			klog.Warningln("bad request:", err)
+			http.Error(w, "", http.StatusBadRequest)
+			return
+		}
+	}
+
+	switch r.Method {
+	case http.MethodPost:
+		n := db.IncidentNotification{
+			ProjectId:     project.Id,
+			ApplicationId: model.NewApplicationId("default", model.ApplicationKindDeployment, "test-alert-fake-app"),
+			IncidentKey:   "fake",
+			Status:        model.INFO,
+			Details: &db.IncidentNotificationDetails{
+				Reports: []db.IncidentNotificationDetailsReport{
+					{Name: model.AuditReportSLO, Check: model.Checks.SLOLatency.Title, Message: "error budget burn rate is 20x within 1 hour"},
+					{Name: model.AuditReportNetwork, Check: model.Checks.NetworkRTT.Title, Message: "high network latency to 2 upstream services"},
+				},
+			},
+		}
+		if err := form.GetNotificationClient().SendIncident(r.Context(), project.Settings.Integrations.BaseUrl, &n); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		}
+		return
+	case http.MethodPut:
+		form.Update(project, false)
+	case http.MethodDelete:
+		form.Update(project, true)
+	default:
+		http.Error(w, "", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if err := api.db.SaveProjectSettings(project); err != nil {
+		klog.Errorln("failed to save:", err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
 }
 
 func (api *Api) Prom(w http.ResponseWriter, r *http.Request) {
@@ -448,8 +451,10 @@ func (api *Api) Check(w http.ResponseWriter, r *http.Request) {
 		}{
 			Integrations: map[string]string{},
 		}
-		if cfg := project.Settings.Integrations.Slack; cfg != nil && cfg.Enabled {
-			res.Integrations["slack"] = cfg.DefaultChannel
+		for _, i := range project.Settings.Integrations.GetInfo() {
+			if i.Configured && i.Incidents {
+				res.Integrations[i.Title] = i.Details
+			}
 		}
 		switch checkId {
 		case model.Checks.SLOAvailability.Id:
@@ -598,7 +603,7 @@ func (api *Api) loadWorldByRequest(r *http.Request) (*model.World, *db.Project, 
 			klog.Warningln("failed to get incident:", err)
 		} else {
 			from = incident.OpenedAt.Add(-timeseries.Hour)
-			if !incident.ResolvedAt.IsZero() && incident.ResolvedAt.Add(timeseries.Hour).Before(to) {
+			if incident.Resolved() && incident.ResolvedAt.Add(timeseries.Hour).Before(to) {
 				to = incident.ResolvedAt.Add(timeseries.Hour)
 			}
 		}

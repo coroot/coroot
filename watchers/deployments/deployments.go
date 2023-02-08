@@ -16,6 +16,10 @@ import (
 	"time"
 )
 
+const (
+	sendTimeout = 30 * time.Second
+)
+
 type Watcher struct {
 	db    *db.DB
 	cache *cache.Cache
@@ -147,25 +151,51 @@ func (w *Watcher) snapshotDeploymentMetrics(project *db.Project, applications []
 }
 
 func (w *Watcher) sendNotifications(project *db.Project, world *model.World, now timeseries.Time) {
-	slack := notifications.NewSlack(project)
-	settings := project.Settings
+	integrations := project.Settings.Integrations
+	categorySettings := project.Settings.ApplicationCategorySettings
 	for _, app := range world.Applications {
-		notificationsEnabled := settings.ApplicationCategorySettings[app.Category].NotifyOfDeployments
+		if !categorySettings[app.Category].NotifyOfDeployments {
+			continue
+		}
 		for _, ds := range model.CalcApplicationDeploymentStatuses(app, world.CheckConfigs, now) {
 			d := ds.Deployment
+			if now.Sub(d.StartedAt) > timeseries.Day {
+				continue
+			}
 			if d.Notifications == nil {
 				d.Notifications = &model.ApplicationDeploymentNotifications{}
 			}
 			if d.Notifications.State >= ds.State {
 				continue
 			}
-			if notificationsEnabled && now.Sub(d.StartedAt) < timeseries.Day {
-				if err := slack.SendDeployment(ds); err != nil {
-					klog.Errorln("slack error:", err)
-					continue
+			needSave := false
+			if cfg := integrations.Slack; cfg != nil && cfg.Deployments && d.Notifications.Slack.State < ds.State {
+				client := notifications.NewSlack(cfg.Token, cfg.DefaultChannel)
+				ctx, cancel := context.WithTimeout(context.Background(), sendTimeout)
+				err := client.SendDeployment(ctx, project, ds)
+				cancel()
+				if err != nil {
+					klog.Errorln(err)
+				} else {
+					d.Notifications.Slack.State = ds.State
+					needSave = true
 				}
 			}
-			d.Notifications.State = ds.State
+			if cfg := integrations.Teams; cfg != nil && cfg.Deployments && d.Notifications.Teams.State < ds.State {
+				client := notifications.NewTeams(cfg.WebhookUrl)
+				ctx, cancel := context.WithTimeout(context.Background(), sendTimeout)
+				err := client.SendDeployment(ctx, project, ds)
+				cancel()
+				if err != nil {
+					klog.Errorln(err)
+				} else {
+					d.Notifications.Teams.State = ds.State
+					needSave = true
+				}
+			}
+			if !needSave {
+				continue
+			}
 			if err := w.db.SaveApplicationDeploymentNotifications(project.Id, d); err != nil {
 				klog.Errorln(err)
 			}

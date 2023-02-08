@@ -54,10 +54,11 @@ type Stats struct {
 		DeploymentSummaries map[string]int `json:"deployment_summaries"`
 	} `json:"infra"`
 	UX struct {
-		WorldLoadTimeAvg  float32          `json:"world_load_time_avg"`
-		UsersByScreenSize map[string]int   `json:"users_by_screen_size"`
-		Users             *utils.StringSet `json:"users"`
-		PageViews         map[string]int   `json:"page_views"`
+		WorldLoadTimeAvg  float32                    `json:"world_load_time_avg"`
+		UsersByScreenSize map[string]int             `json:"users_by_screen_size"`
+		Users             *utils.StringSet           `json:"users"`
+		PageViews         map[string]int             `json:"page_views"`
+		SentNotifications map[db.IntegrationType]int `json:"sent_notifications"`
 	} `json:"ux"`
 	Performance struct {
 		Constructor constructor.Profile `json:"constructor"`
@@ -200,8 +201,10 @@ func (c *Collector) collect() Stats {
 			applicationCategories.Add(string(category))
 		}
 
-		if p.Settings.Integrations.Slack != nil {
-			alertingIntegrations.Add("slack")
+		for _, i := range p.Settings.Integrations.GetInfo() {
+			if i.Configured {
+				alertingIntegrations.Add(string(i.Type))
+			}
 		}
 
 		checkConfigs, err := c.db.GetCheckConfigs(p.Id)
@@ -292,6 +295,7 @@ func (c *Collector) collect() Stats {
 		}
 		stats.UX.WorldLoadTimeAvg = float32(total.Seconds() / float64(len(loadTime)))
 	}
+	stats.UX.SentNotifications = c.db.GetSentIncidentNotificationsStat(now.Add(-timeseries.Duration(collectInterval.Seconds())))
 
 	return stats
 }

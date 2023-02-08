@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
+	"github.com/coroot/coroot/notifications"
 	"github.com/coroot/coroot/utils"
 	"net/http"
 	"net/url"
@@ -129,16 +130,165 @@ func (f *IntegrationsForm) Valid() bool {
 	return true
 }
 
-type IntegrationsSlackForm struct {
-	Token   string `json:"token"`
-	Channel string `json:"channel"`
-	Enabled bool   `json:"enabled"`
+type IntegrationForm interface {
+	Form
+	Get(project *db.Project, masked bool)
+	Update(project *db.Project, clear bool)
+	GetNotificationClient() notifications.NotificationClient
 }
 
-func (f *IntegrationsSlackForm) Valid() bool {
-	if f.Token == "" || f.Channel == "" {
+func NewIntegrationForm(t db.IntegrationType) IntegrationForm {
+	switch t {
+	case db.IntegrationTypeSlack:
+		return &IntegrationFormSlack{}
+	case db.IntegrationTypeTeams:
+		return &IntegrationFormTeams{}
+	case db.IntegrationTypePagerduty:
+		return &IntegrationFormPagerduty{}
+	case db.IntegrationTypeOpsgenie:
+		return &IntegrationFormOpsgenie{}
+	}
+	return nil
+}
+
+type IntegrationFormSlack struct {
+	db.IntegrationSlack
+}
+
+func (f *IntegrationFormSlack) Valid() bool {
+	if f.Token == "" || f.DefaultChannel == "" {
 		return false
 	}
-
 	return true
+}
+
+func (f *IntegrationFormSlack) Get(project *db.Project, masked bool) {
+	cfg := project.Settings.Integrations.Slack
+	if cfg == nil {
+		f.Incidents = true
+		f.Deployments = true
+		return
+	}
+	f.IntegrationSlack = *cfg
+	if masked {
+		f.Token = "<token>"
+	}
+}
+
+func (f *IntegrationFormSlack) Update(project *db.Project, clear bool) {
+	cfg := &f.IntegrationSlack
+	if clear {
+		cfg = nil
+	}
+	project.Settings.Integrations.Slack = cfg
+}
+
+func (f *IntegrationFormSlack) GetNotificationClient() notifications.NotificationClient {
+	return notifications.NewSlack(f.Token, f.DefaultChannel)
+}
+
+type IntegrationFormTeams struct {
+	db.IntegrationTeams
+}
+
+func (f *IntegrationFormTeams) Valid() bool {
+	if f.WebhookUrl == "" {
+		return false
+	}
+	return true
+}
+
+func (f *IntegrationFormTeams) Get(project *db.Project, masked bool) {
+	cfg := project.Settings.Integrations.Teams
+	if cfg == nil {
+		f.Incidents = true
+		f.Deployments = true
+		return
+	}
+	f.IntegrationTeams = *cfg
+	if masked {
+		f.WebhookUrl = "<webhook_url>"
+	}
+}
+
+func (f *IntegrationFormTeams) Update(project *db.Project, clear bool) {
+	cfg := &f.IntegrationTeams
+	if clear {
+		cfg = nil
+	}
+	project.Settings.Integrations.Teams = cfg
+}
+
+func (f *IntegrationFormTeams) GetNotificationClient() notifications.NotificationClient {
+	return notifications.NewTeams(f.WebhookUrl)
+}
+
+type IntegrationFormPagerduty struct {
+	db.IntegrationPagerduty
+}
+
+func (f *IntegrationFormPagerduty) Valid() bool {
+	if f.IntegrationKey == "" {
+		return false
+	}
+	return true
+}
+
+func (f *IntegrationFormPagerduty) Get(project *db.Project, masked bool) {
+	cfg := project.Settings.Integrations.Pagerduty
+	if cfg == nil {
+		f.Incidents = true
+		return
+	}
+	f.IntegrationPagerduty = *cfg
+	if masked {
+		f.IntegrationKey = "<integration_key>"
+	}
+}
+
+func (f *IntegrationFormPagerduty) Update(project *db.Project, clear bool) {
+	cfg := &f.IntegrationPagerduty
+	if clear {
+		cfg = nil
+	}
+	project.Settings.Integrations.Pagerduty = cfg
+}
+
+func (f *IntegrationFormPagerduty) GetNotificationClient() notifications.NotificationClient {
+	return notifications.NewPagerduty(f.IntegrationKey)
+}
+
+type IntegrationFormOpsgenie struct {
+	db.IntegrationOpsgenie
+}
+
+func (f *IntegrationFormOpsgenie) Valid() bool {
+	if f.ApiKey == "" {
+		return false
+	}
+	return true
+}
+
+func (f *IntegrationFormOpsgenie) Get(project *db.Project, masked bool) {
+	cfg := project.Settings.Integrations.Opsgenie
+	if cfg == nil {
+		f.Incidents = true
+		return
+	}
+	f.IntegrationOpsgenie = *cfg
+	if masked {
+		f.ApiKey = "<api_key>"
+	}
+}
+
+func (f *IntegrationFormOpsgenie) Update(project *db.Project, clear bool) {
+	cfg := &f.IntegrationOpsgenie
+	if clear {
+		cfg = nil
+	}
+	project.Settings.Integrations.Opsgenie = cfg
+}
+
+func (f *IntegrationFormOpsgenie) GetNotificationClient() notifications.NotificationClient {
+	return notifications.NewOpsgenie(f.ApiKey, f.EUInstance)
 }

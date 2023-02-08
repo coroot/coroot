@@ -28,11 +28,12 @@
                 <div v-if="check.id.startsWith('SLO')" class="my-3">
                     Alerting:
                     <div>
-                        <div v-if="integrations && Object.keys(integrations).length">
-                            <template v-for="(details, type) in integrations">
-                                <div v-if="type === 'slack'"><v-icon small>mdi-slack</v-icon> channel <b>#{{details}}</b></div>
-                            </template>
-                        </div>
+                        <ul v-if="integrations && Object.keys(integrations).length">
+                            <li v-for="(details, type) in integrations">
+                                <span>{{type}}</span>
+                                <span v-if="details" class="grey--text"> ({{details}})</span>
+                            </li>
+                        </ul>
                         <div v-else class="grey--text">No notification integrations configured.</div>
                         <v-btn color="primary" small :to="{name: 'project_settings', hash: '#integrations'}" class="mt-1">Configure integrations</v-btn>
                     </div>

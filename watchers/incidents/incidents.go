@@ -15,12 +15,13 @@ import (
 )
 
 type Watcher struct {
-	db    *db.DB
-	cache *cache.Cache
+	db       *db.DB
+	cache    *cache.Cache
+	notifier *notifications.IncidentNotifier
 }
 
-func NewWatcher(db *db.DB, cache *cache.Cache) *Watcher {
-	return &Watcher{db: db, cache: cache}
+func NewWatcher(db *db.DB, cache *cache.Cache, notifier *notifications.IncidentNotifier) *Watcher {
+	return &Watcher{db: db, cache: cache, notifier: notifier}
 }
 
 func (w *Watcher) Start(checkInterval time.Duration) {
@@ -53,14 +54,14 @@ func (w *Watcher) checkProject(project *db.Project) {
 
 	auditor.Audit(world)
 
-	slack := notifications.NewSlack(project)
 	for _, app := range world.Applications {
 		status := app.SLOStatus()
 		if status == model.UNKNOWN {
 			continue
 		}
 		apps++
-		incident, err := w.db.CreateOrUpdateIncident(project.Id, app.Id, timeseries.Now(), status)
+		now := timeseries.Now()
+		incident, err := w.db.CreateOrUpdateIncident(project.Id, app.Id, now, status)
 		if err != nil {
 			klog.Errorln(err)
 			continue
@@ -68,12 +69,7 @@ func (w *Watcher) checkProject(project *db.Project) {
 		if incident == nil {
 			continue
 		}
-		if sent := slack.SendIncident(app, incident); sent {
-			klog.Infoln("incident successfully sent to the slack channel")
-			if err := w.db.MarkIncidentAsSent(project.Id, app.Id, incident, timeseries.Now()); err != nil {
-				klog.Errorln(err)
-			}
-		}
+		w.notifier.Enqueue(project, app, incident, now)
 	}
 }
 

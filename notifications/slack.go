@@ -6,106 +6,70 @@ import (
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/slack-go/slack"
-	"k8s.io/klog"
-	"net/http"
+	"strings"
 	"time"
 )
 
 type Slack struct {
-	project *db.Project
 	channel string
-	baseUrl string
 	client  *slack.Client
 }
 
-func NewSlack(project *db.Project) *Slack {
-	integrations := project.Settings.Integrations
-	cfg := integrations.Slack
-	if cfg == nil || !cfg.Enabled || cfg.Token == "" {
-		return nil
-	}
+func NewSlack(token, channel string) *Slack {
 	return &Slack{
-		project: project,
-		channel: cfg.DefaultChannel,
-		baseUrl: integrations.BaseUrl,
-		client:  slack.New(cfg.Token, slack.OptionHTTPClient(&http.Client{Timeout: time.Minute})),
+		channel: channel,
+		client:  slack.New(token),
 	}
 }
 
-func (s *Slack) SendIncident(app *model.Application, incident *db.Incident) bool {
-	if s == nil {
-		return false
+func (s *Slack) SendIncident(ctx context.Context, baseUrl string, n *db.IncidentNotification) error {
+	var ch, ts string
+	parts := strings.Split(n.ExternalKey, ":")
+	if len(parts) == 2 {
+		ch, ts = parts[0], parts[1]
 	}
-	appLink := fmt.Sprintf("<%s/p/%s/app/%s?incident=%s|*%s*>", s.baseUrl, s.project.Id, app.Id.String(), incident.Key, app.Id.Name)
-	header, snippet, color, details := "", "", "", ""
-	if incident.ResolvedAt.IsZero() {
-		header = fmt.Sprintf("%s is not meeting its SLOs", appLink)
-		snippet = fmt.Sprintf("%s is not meeting its SLOs", app.Id.Name)
-		color = incident.Severity.Color()
-		for _, r := range app.Reports {
-			checks := ""
-			for _, ch := range r.Checks {
-				if ch.Status < model.WARNING {
-					continue
-				}
-				checks += fmt.Sprintf("• %s: %s\n", ch.Title, ch.Message)
-			}
-			if checks != "" {
-				details += fmt.Sprintf("*%s*:\n%s", r.Name, checks)
-			}
-		}
+	if ch == "" {
+		ch = s.channel
+	}
+	var header, snippet string
+	if n.Status == model.OK {
+		header = fmt.Sprintf("<%s|*%s* incident resolved>", incidentUrl(baseUrl, n), n.ApplicationId.Name)
+		snippet = fmt.Sprintf("%s incident resolved", n.ApplicationId.Name)
 	} else {
-		header = fmt.Sprintf("%s incident resolved", appLink)
-		snippet = fmt.Sprintf("%s incident resolved", app.Id.Name)
-		color = model.OK.Color()
-		for _, r := range app.Reports {
-			if r.Name != model.AuditReportSLO {
-				continue
-			}
-			checks := ""
-			for _, ch := range r.Checks {
-				checks += fmt.Sprintf("• %s: %s\n", ch.Title, ch.Message)
-			}
-			if checks != "" {
-				details += fmt.Sprintf("*%s*:\n%s", r.Name, checks)
-			}
+		header = fmt.Sprintf("[%s] <%s|*%s* is not meeting its SLOs>", strings.ToUpper(n.Status.String()), incidentUrl(baseUrl, n), n.ApplicationId.Name)
+		snippet = fmt.Sprintf("%s is not meeting its SLOs", n.ApplicationId.Name)
+	}
+	var details []string
+	if n.Details != nil {
+		for _, r := range n.Details.Reports {
+			details = append(details, fmt.Sprintf("• *%s* / %s: %s", r.Name, r.Check, r.Message))
 		}
 	}
-	text := slack.MsgOptionText(snippet, false)
-	blocks := slack.MsgOptionBlocks(
-		slack.NewSectionBlock(slack.NewTextBlockObject(slack.MarkdownType, header, false, false), nil, nil),
-	)
-	attachments := slack.MsgOptionAttachments(slack.Attachment{Color: color, Blocks: slack.Blocks{BlockSet: []slack.Block{
-		slack.NewSectionBlock(slack.NewTextBlockObject(slack.MarkdownType, details, false, false), nil, nil),
-	}}})
-	_, _, err := s.client.PostMessage(s.channel, text, blocks, attachments, slack.MsgOptionDisableLinkUnfurl())
-	if err != nil {
-		klog.Warningln(err)
-		return false
+	body := s.body(n.Status.Color(), snippet, s.section(s.text(header)), s.section(s.text(strings.Join(details, "\n"))))
+	opts := []slack.MsgOption{body, slack.MsgOptionDisableLinkUnfurl()}
+	if ts != "" {
+		opts = append(opts, slack.MsgOptionTS(ts), slack.MsgOptionBroadcast())
 	}
-	return true
+	var err error
+	ch, ts, err = s.client.PostMessageContext(ctx, ch, opts...)
+	if err != nil {
+		return fmt.Errorf("slack error: %w", err)
+	}
+	n.ExternalKey = fmt.Sprintf("%s:%s", ch, ts)
+	return nil
 }
 
-func (s *Slack) SendDeployment(ds model.ApplicationDeploymentStatus) error {
-	if s == nil {
-		return nil
-	}
-
+func (s *Slack) SendDeployment(ctx context.Context, project *db.Project, ds model.ApplicationDeploymentStatus) error {
 	d := ds.Deployment
-	ns := d.Notifications
 
-	link := func(title string) string {
-		return fmt.Sprintf("<%s/p/%s/app/%s/Deployments#%s|*%s*>", s.baseUrl, s.project.Id, d.ApplicationId.String(), d.Id(), title)
-	}
-
-	stateStr := "Deployed"
+	status := "Deployed"
 	switch ds.State {
 	case model.ApplicationDeploymentStateInProgress:
-		stateStr = "In-progress"
+		status = "In-progress"
 	case model.ApplicationDeploymentStateStuck:
-		stateStr = "Stuck"
+		status = "Stuck"
 	case model.ApplicationDeploymentStateCancelled:
-		stateStr = "Cancelled"
+		status = "Cancelled"
 	}
 
 	var summary *slack.SectionBlock
@@ -114,94 +78,69 @@ func (s *Slack) SendDeployment(ds model.ApplicationDeploymentStatus) error {
 		if len(ds.Summary) > 0 {
 			items = ""
 			for _, s := range ds.Summary {
-				emoji := ":tada:"
-				if !s.Ok {
-					emoji = ":broken_heart:"
-				}
-				items += fmt.Sprintf("%s %s\n", emoji, s.Message)
+				items += fmt.Sprintf("%s %s\n", s.Emoji(), s.Message)
 			}
 		}
-		summary = section(text("*Summary*\n%s", items))
+		summary = s.section(s.text("*Summary*\n%s", items))
 	}
+	url := deploymentUrl(project.Settings.Integrations.BaseUrl, project.Id, d)
 	blocks := []slack.Block{
-		section(text("Deployment of %s to *%s*", link(d.ApplicationId.Name), s.project.Name)),
-		section(nil,
-			text("*Status*\n%s", stateStr),
-			text("*Version*\n%s", link(ds.Deployment.Version())),
+		s.section(s.text("Deployment of <%s|*%s*> to *%s*", url, d.ApplicationId.Name, project.Name)),
+		s.section(nil,
+			s.text("*Status*\n%s", status),
+			s.text("*Version*\n<%s|*%s*>", url, d.Version()),
 		),
 	}
 	if summary != nil {
 		blocks = append(blocks, summary)
 	}
-	blocks = append(blocks, slack.NewContextBlock("", text("<!date^%d^{date_short_pretty} at {time}|%s>", d.StartedAt, d.StartedAt.ToStandard().Format(time.RFC1123))))
+	blocks = append(blocks, slack.NewContextBlock("", s.text("<!date^%d^{date_short_pretty} at {time}|%s>", d.StartedAt, d.StartedAt.ToStandard().Format(time.RFC1123))))
 
-	fallback := fmt.Sprintf("Deployment of %s to %s", d.ApplicationId.Name, s.project.Name)
+	snippet := fmt.Sprintf("Deployment of %s to %s", d.ApplicationId.Name, project.Name)
 	channel := s.channel
-	options := []slack.MsgOption{body(ds.Status, fallback, blocks...)}
-	if ns.Slack.Channel != "" && ns.Slack.ThreadTs != "" {
-		channel = ns.Slack.Channel
-		options = append(options, slack.MsgOptionUpdate(ns.Slack.ThreadTs))
+	options := []slack.MsgOption{s.body(ds.Status.Color(), snippet, blocks...)}
+	if d.Notifications.Slack.Channel != "" && d.Notifications.Slack.ThreadTs != "" {
+		channel = d.Notifications.Slack.Channel
+		options = append(options, slack.MsgOptionUpdate(d.Notifications.Slack.ThreadTs))
 	}
-	ch, ts, _, err := s.client.SendMessage(channel, options...)
+	ch, ts, _, err := s.client.SendMessageContext(ctx, channel, options...)
+	if err != nil {
+		return fmt.Errorf("slack error: %w", err)
+	}
 	if err != nil {
 		return err
 	}
-	ns.Slack.Channel = ch
-	ns.Slack.ThreadTs = ts
+	d.Notifications.Slack.Channel = ch
+	d.Notifications.Slack.ThreadTs = ts
 
 	if ds.State == model.ApplicationDeploymentStateSummary {
-		stateStr = "Summary"
+		status = "Summary"
 	}
-	fallback += ": " + stateStr
-	reply := body(ds.Status, fallback, section(text(ds.Message)))
+	snippet += ": " + status
+	reply := s.body(ds.Status.Color(), snippet, s.section(s.text(ds.Message)))
 	if summary != nil {
 		reply = slack.MsgOptionBlocks(summary)
 	}
-	_, _, _, err = s.client.SendMessage(ch, slack.MsgOptionPost(), slack.MsgOptionTS(ts), reply)
+	_, _, _, err = s.client.SendMessageContext(ctx, ch, slack.MsgOptionPost(), slack.MsgOptionTS(ts), reply)
 	if err != nil {
-		return err
+		return fmt.Errorf("slack error: %w", err)
 	}
 
 	return nil
 }
 
-func IsSlackChannelAvailable(ctx context.Context, token string, channel string) (bool, error) {
-	client := slack.New(token, slack.OptionHTTPClient(&http.Client{Timeout: time.Minute}))
-	params := &slack.GetConversationsParameters{
-		ExcludeArchived: true,
-		Limit:           200,
-		Types:           []string{"public_channel"},
-	}
-	for {
-		channels, nextCursor, err := client.GetConversationsContext(ctx, params)
-		if err != nil {
-			return false, err
-		}
-		for _, ch := range channels {
-			if ch.Name == channel {
-				return true, nil
-			}
-		}
-		if nextCursor == "" {
-			break
-		}
-		params.Cursor = nextCursor
-	}
-	return false, nil
-}
-
-func body(status model.Status, fallback string, blocks ...slack.Block) slack.MsgOption {
+func (s *Slack) body(color string, fallback string, blocks ...slack.Block) slack.MsgOption {
 	return slack.MsgOptionAttachments(slack.Attachment{
-		Color:    status.Color(),
+		Color:    color,
 		Blocks:   slack.Blocks{BlockSet: blocks},
 		Fallback: fallback,
 	})
 }
 
-func section(text *slack.TextBlockObject, fields ...*slack.TextBlockObject) *slack.SectionBlock {
+func (s *Slack) section(text *slack.TextBlockObject, fields ...*slack.TextBlockObject) *slack.SectionBlock {
 	return slack.NewSectionBlock(text, fields, nil)
 }
 
-func text(format string, a ...any) *slack.TextBlockObject {
+func (s *Slack) text(format string, a ...any) *slack.TextBlockObject {
 	return slack.NewTextBlockObject(slack.MarkdownType, fmt.Sprintf(format, a...), false, false)
 }

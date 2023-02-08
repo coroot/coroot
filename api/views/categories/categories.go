@@ -56,9 +56,10 @@ func Render(p *db.Project) *View {
 
 	v := &View{Categories: categories, Integrations: map[string]string{}}
 
-	if cfg := p.Settings.Integrations.Slack; cfg != nil && cfg.Enabled {
-		v.Integrations["slack"] = cfg.DefaultChannel
+	for _, i := range p.Settings.Integrations.GetInfo() {
+		if i.Configured && i.Deployments {
+			v.Integrations[i.Title] = i.Details
+		}
 	}
-
 	return v
 }

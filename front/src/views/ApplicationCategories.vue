@@ -74,12 +74,13 @@
                 </template>
 
                 <v-checkbox v-model="form.notify_of_deployments" :disabled="form.del" label="Get notified of deployments" class="mt-1" hide-details />
-                <div v-if="form.notify_of_deployments" class="ml-8">
-                    <div v-if="integrations && Object.keys(integrations).length">
-                        <template v-for="(details, type) in integrations">
-                            <div v-if="type === 'slack'"><v-icon small>mdi-slack</v-icon> channel <b>#{{details}}</b></div>
-                        </template>
-                    </div>
+                <div v-if="form.notify_of_deployments">
+                    <ul v-if="integrations && Object.keys(integrations).length">
+                        <li v-for="(details, type) in integrations">
+                            <span>{{type}}</span>
+                            <span v-if="details" class="grey--text"> ({{details}})</span>
+                        </li>
+                    </ul>
                     <div v-else class="grey--text">No notification integrations configured.</div>
                     <v-btn color="primary" small :to="{name: 'project_settings', hash: '#integrations'}" @click="form.active=false" class="mt-1">Configure integrations</v-btn>
                 </div>
@@ -138,7 +139,7 @@ export default {
     watch: {
         projectId() {
             this.get();
-        }
+        },
     },
 
     methods: {

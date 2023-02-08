@@ -22,44 +22,51 @@
         <thead>
         <tr>
             <th>Type</th>
-            <th>Details</th>
+            <th>Notify of incidents</th>
+            <th>Notify of deployments</th>
             <th>Actions</th>
         </tr>
         </thead>
         <tbody>
-        <tr>
-            <td>Slack</td>
+        <tr v-for="i in integrations">
             <td>
-                <span v-if="slack.info">
-                    channel: #{{slack.info.channel}},
-                    enabled: {{slack.info.enabled}},
-                    available: {{slack.info.available}}
-                </span>
-                <span v-else class="grey--text">not configured</span>
+                {{i.title}}
+                <div class="caption">{{i.details}}</div>
             </td>
             <td>
-                <v-btn v-if="!slack.info" small @click="slack.action = 'add'" color="primary">Configure</v-btn>
+                <v-icon v-if="i.configured" small :color="i.incidents ? 'green' : ''">
+                    {{i.incidents ? 'mdi-check' : 'mdi-minus'}}
+                </v-icon>
+            </td>
+            <td>
+                <v-icon v-if="i.configured" small :color="i.deployments ? 'green' : ''">
+                    {{i.deployments ? 'mdi-check' : 'mdi-minus'}}
+                </v-icon>
+            </td>
+            <td>
+                <v-btn v-if="!i.configured" small @click="open(i, 'add')" color="primary">Configure</v-btn>
                 <div v-else class="d-flex">
-                    <v-btn icon small @click="slack.action='edit'"><v-icon small>mdi-pencil</v-icon></v-btn>
-                    <v-btn icon small @click="slack.action='del'"><v-icon small>mdi-trash-can-outline</v-icon></v-btn>
+                    <v-btn icon small @click="open(i, 'add')"><v-icon small>mdi-pencil</v-icon></v-btn>
+                    <v-btn icon small @click="open(i, 'del')"><v-icon small>mdi-trash-can-outline</v-icon></v-btn>
                 </div>
             </td>
         </tr>
         </tbody>
     </v-simple-table>
-    <IntegrationsSlack v-model="slack.action" />
+
+    <IntegrationForm v-if="action" v-model="action" :type="integration.type" :title="integration.title" />
 </div>
 </template>
 
 <script>
-import IntegrationsSlack from "@/views/IntegrationsSlack";
+import IntegrationForm from "@/views/IntegrationForm";
 
 export default {
     props: {
         projectId: String,
     },
 
-    components: {IntegrationsSlack},
+    components: {IntegrationForm},
 
     data() {
         return {
@@ -70,10 +77,9 @@ export default {
             form: {
                 base_url: '',
             },
-            slack: {
-                action: '',
-                info: null
-            },
+            integrations: [],
+            integration: {},
+            action: '',
         };
     },
 
@@ -89,6 +95,10 @@ export default {
     },
 
     methods: {
+        open(i, action) {
+            this.integration = i;
+            this.action = action;
+        },
         get() {
             this.loading = true;
             this.error = '';
@@ -103,14 +113,14 @@ export default {
                     this.form.base_url = location.origin + this.$coroot.base_path;
                     this.$api.saveIntegrations('', this.form, () => {});
                 }
-                this.slack.info = data.slack;
+                this.integrations = data.integrations;
             });
         },
         save() {
             this.saving = true;
             this.error = '';
             this.message = '';
-            this.$api.saveIntegrations('', this.form, (data, error) => {
+            this.$api.saveIntegrations('', 'save', this.form, (data, error) => {
                 this.saving = false;
                 if (error) {
                     this.error = error;

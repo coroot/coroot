@@ -47,7 +47,14 @@ func Open(dataDir string, pgConnString string) (*DB, error) {
 		return nil, err
 	}
 	db.SetMaxOpenConns(1)
-	if err := NewMigrator(typ, db).Migrate(&Project{}, &CheckConfigs{}, &Incident{}, &ApplicationDeployment{}); err != nil {
+	err = NewMigrator(typ, db).Migrate(
+		&Project{},
+		&CheckConfigs{},
+		&Incident{},
+		&IncidentNotification{},
+		&ApplicationDeployment{},
+	)
+	if err != nil {
 		return nil, err
 	}
 	return &DB{typ: typ, db: db}, nil

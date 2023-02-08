@@ -1,38 +1,39 @@
 package integrations
 
 import (
-	"context"
 	"github.com/coroot/coroot/db"
-	"github.com/coroot/coroot/notifications"
-	"k8s.io/klog"
 )
 
 type View struct {
-	BaseUrl string `json:"base_url"`
-	Slack   *Slack `json:"slack,omitempty"`
+	BaseUrl      string        `json:"base_url"`
+	Integrations []Integration `json:"integrations"`
 }
 
-type Slack struct {
-	Channel   string `json:"channel"`
-	Available bool   `json:"available"`
-	Enabled   bool   `json:"enabled"`
+type Integration struct {
+	Type        db.IntegrationType `json:"type"`
+	Title       string             `json:"title"`
+	Configured  bool               `json:"configured"`
+	Incidents   bool               `json:"incidents"`
+	Deployments bool               `json:"deployments"`
+	Details     string             `json:"details"`
 }
 
-func Render(ctx context.Context, p *db.Project) *View {
+func Render(p *db.Project) *View {
 	integrations := p.Settings.Integrations
 	v := &View{
 		BaseUrl: integrations.BaseUrl,
 	}
-	if cfg := integrations.Slack; cfg != nil {
-		v.Slack = &Slack{
-			Channel: cfg.DefaultChannel,
-			Enabled: cfg.Enabled,
-		}
-		ok, err := notifications.IsSlackChannelAvailable(ctx, cfg.Token, cfg.DefaultChannel)
-		if err != nil {
-			klog.Warningln(err)
-		}
-		v.Slack.Available = ok
+
+	for _, i := range integrations.GetInfo() {
+		v.Integrations = append(v.Integrations, Integration{
+			Type:        i.Type,
+			Title:       i.Title,
+			Configured:  i.Configured,
+			Incidents:   i.Incidents,
+			Deployments: i.Deployments,
+			Details:     i.Details,
+		})
 	}
+
 	return v
 }

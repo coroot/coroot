@@ -1,7 +1,6 @@
 package views
 
 import (
-	"context"
 	"github.com/coroot/coroot/api/views/application"
 	"github.com/coroot/coroot/api/views/categories"
 	"github.com/coroot/coroot/api/views/configs"
@@ -43,6 +42,6 @@ func Categories(p *db.Project) *categories.View {
 	return categories.Render(p)
 }
 
-func Integrations(ctx context.Context, p *db.Project) *integrations.View {
-	return integrations.Render(ctx, p)
+func Integrations(p *db.Project) *integrations.View {
+	return integrations.Render(p)
 }

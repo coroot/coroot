@@ -73,6 +73,14 @@ func (p *Project) applyDefaults() {
 		}
 		p.Settings.ApplicationCategorySettings[model.ApplicationCategoryApplication] = ApplicationCategorySettings{NotifyOfDeployments: true}
 	}
+	if cfg := p.Settings.Integrations.Slack; cfg != nil {
+		if !cfg.Incidents {
+			cfg.Incidents = cfg.Enabled
+		}
+		if !cfg.Deployments {
+			cfg.Deployments = cfg.Enabled
+		}
+	}
 }
 
 func (db *DB) GetProjects() ([]*Project, error) {
@@ -180,6 +188,9 @@ func (db *DB) DeleteProject(id ProjectId) error {
 	if _, err := tx.Exec("DELETE FROM check_configs WHERE project_id = $1", id); err != nil {
 		return err
 	}
+	if _, err := tx.Exec("DELETE FROM incident_notification WHERE project_id = $1", id); err != nil {
+		return err
+	}
 	if _, err := tx.Exec("DELETE FROM incident WHERE project_id = $1", id); err != nil {
 		return err
 	}
@@ -205,7 +216,7 @@ func (db *DB) ToggleConfigurationHint(id ProjectId, appType model.ApplicationTyp
 	} else {
 		delete(p.Settings.ConfigurationHintsMuted, appType)
 	}
-	return db.saveProjectSettings(p)
+	return db.SaveProjectSettings(p)
 }
 
 func (db *DB) SaveApplicationCategory(id ProjectId, category, newName model.ApplicationCategory, customPatterns []string, notifyAboutDeployments bool) error {
@@ -248,10 +259,10 @@ func (db *DB) SaveApplicationCategory(id ProjectId, category, newName model.Appl
 		}
 	}
 
-	return db.saveProjectSettings(p)
+	return db.SaveProjectSettings(p)
 }
 
-func (db *DB) saveProjectSettings(p *Project) error {
+func (db *DB) SaveProjectSettings(p *Project) error {
 	settings, err := json.Marshal(p.Settings)
 	if err != nil {
 		return err
