@@ -44,9 +44,9 @@
                 </v-icon>
             </td>
             <td>
-                <v-btn v-if="!i.configured" small @click="open(i, 'add')" color="primary">Configure</v-btn>
+                <v-btn v-if="!i.configured" small @click="open(i, 'new')" color="primary">Configure</v-btn>
                 <div v-else class="d-flex">
-                    <v-btn icon small @click="open(i, 'add')"><v-icon small>mdi-pencil</v-icon></v-btn>
+                    <v-btn icon small @click="open(i, 'edit')"><v-icon small>mdi-pencil</v-icon></v-btn>
                     <v-btn icon small @click="open(i, 'del')"><v-icon small>mdi-trash-can-outline</v-icon></v-btn>
                 </div>
             </td>

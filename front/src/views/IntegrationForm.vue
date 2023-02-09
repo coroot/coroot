@@ -12,7 +12,7 @@
                 <v-spacer />
                 <v-btn icon @click="dialog = false"><v-icon>mdi-close</v-icon></v-btn>
             </div>
-            <v-form ref="form" v-model="valid" :disabled="deleting">
+            <v-form ref="form" v-model="valid" :disabled="value === 'del'">
                 <IntegrationFormSlack v-if="type === 'slack'" :form="form" />
                 <IntegrationFormTeams v-if="type === 'teams'" :form="form" />
                 <IntegrationFormPagerduty v-if="type === 'pagerduty'" :form="form" />
@@ -26,7 +26,7 @@
                 </v-alert>
                 <div class="d-flex align-center">
                     <v-spacer />
-                    <v-btn v-if="deleting" @click="del" color="red" :loading="saving">Delete</v-btn>
+                    <v-btn v-if="value === 'del'" @click="del" color="red" :loading="saving">Delete</v-btn>
                     <template v-else>
                         <v-btn @click="test" color="accent" :disabled="!valid" :loading="testing" class="mr-4">Send test alert</v-btn>
                         <v-btn @click="save" color="primary" :disabled="!valid" :loading="saving">Save</v-btn>
@@ -71,12 +71,6 @@ export default {
         },
     },
 
-    computed: {
-        deleting() {
-            return this.value === 'del';
-        },
-    },
-
     mounted() {
         this.get();
     },
@@ -85,12 +79,14 @@ export default {
         get() {
             this.loading = true;
             this.error = '';
-            this.$refs.form && this.$refs.form.resetValidation();
             this.$api.getIntegrations(this.type, (data, error) => {
                 this.loading = false;
                 if (error) {
                     this.error = error;
                     return;
+                }
+                if (this.value === 'new') {
+                    this.$refs.form && this.$refs.form.resetValidation();
                 }
                 this.form = data;
             });
