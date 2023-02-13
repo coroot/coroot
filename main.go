@@ -6,6 +6,7 @@ import (
 	"github.com/coroot/coroot/cache"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/notifications"
+	"github.com/coroot/coroot/prom"
 	"github.com/coroot/coroot/stats"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
@@ -36,6 +37,7 @@ func main() {
 	readOnly := kingpin.Flag("read-only", "enable the read-only mode when configuration changes don't take effect").Envar("READ_ONLY").Bool()
 	bootstrapPrometheusUrl := kingpin.Flag("bootstrap-prometheus-url", "if set, Coroot will create a project for this Prometheus URL").Envar("BOOTSTRAP_PROMETHEUS_URL").String()
 	bootstrapRefreshInterval := kingpin.Flag("bootstrap-refresh-interval", "refresh interval for the project created upon bootstrap").Envar("BOOTSTRAP_REFRESH_INTERVAL").Duration()
+	bootstrapPrometheusExtraSelector := kingpin.Flag("bootstrap-prometheus-extra-selector", "Prometheus extra selector for the project created upon bootstrap").Envar("BOOTSTRAP_PROMETHEUS_EXTRA_SELECTOR").String()
 	sloCheckInterval := kingpin.Flag("slo-check-interval", "how often to check SLO compliance").Envar("SLO_CHECK_INTERVAL").Default("1m").Duration()
 	deploymentsWatchInterval := kingpin.Flag("deployments-watch-interval", "how often to check new deployments").Envar("DEPLOYMENTS_WATCH_INTERVAL").Default("1m").Duration()
 	doNotCheckForUpdates := kingpin.Flag("do-not-check-for-updates", "don't check for new versions").Envar("DO_NOT_CHECK_FOR_UPDATES").Bool()
@@ -60,11 +62,15 @@ func main() {
 			klog.Exitln(err)
 		}
 		if len(projects) == 0 {
+			if !prom.IsSelectorValid(*bootstrapPrometheusExtraSelector) {
+				klog.Exitf("invalid Prometheus extra selector: %s", *bootstrapPrometheusExtraSelector)
+			}
 			p := db.Project{
 				Name: "default",
 				Prometheus: db.Prometheus{
 					Url:             *bootstrapPrometheusUrl,
 					RefreshInterval: timeseries.Duration(int64((*bootstrapRefreshInterval).Seconds())),
+					ExtraSelector:   *bootstrapPrometheusExtraSelector,
 				},
 			}
 			klog.Infof("creating project: %s(%s, %s)", p.Name, *bootstrapPrometheusUrl, *bootstrapRefreshInterval)

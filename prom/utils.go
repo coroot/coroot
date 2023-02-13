@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
+	"github.com/prometheus/prometheus/promql/parser"
 	"sync"
 	"time"
 )
@@ -44,4 +45,12 @@ func ParallelQueryRange(ctx context.Context, client Client, from, to timeseries.
 	}
 	wg.Wait()
 	return res, lastErr
+}
+
+func IsSelectorValid(selector string) bool {
+	if selector == "" {
+		return true
+	}
+	_, err := parser.ParseMetricSelector(selector)
+	return err == nil
 }
