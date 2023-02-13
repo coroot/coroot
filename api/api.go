@@ -97,7 +97,7 @@ func (api *Api) Project(w http.ResponseWriter, r *http.Request) {
 		if p.BasicAuth != nil {
 			user, password = p.BasicAuth.User, p.BasicAuth.Password
 		}
-		promClient, err := prom.NewApiClient(p.Url, user, password, p.TlsSkipVerify)
+		promClient, err := prom.NewApiClient(p.Url, user, password, p.TlsSkipVerify, p.ExtraSelector)
 		if err != nil {
 			klog.Errorln("failed to get api client:", err)
 			http.Error(w, "", http.StatusInternalServerError)
@@ -379,7 +379,7 @@ func (api *Api) Prom(w http.ResponseWriter, r *http.Request) {
 	if p.BasicAuth != nil {
 		user, password = p.BasicAuth.User, p.BasicAuth.Password
 	}
-	c, err := prom.NewApiClient(p.Url, user, password, p.TlsSkipVerify)
+	c, err := prom.NewApiClient(p.Url, user, password, p.TlsSkipVerify, p.ExtraSelector)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)

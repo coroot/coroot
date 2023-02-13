@@ -30,12 +30,13 @@ var pool = &sync.Pool{New: func() interface{} {
 }}
 
 type ApiClient struct {
-	api    v1.API
-	client api.Client
-	cfg    api.Config
+	api           v1.API
+	client        api.Client
+	cfg           api.Config
+	extraSelector string
 }
 
-func NewApiClient(address, user, password string, skipTlsVerify bool) (*ApiClient, error) {
+func NewApiClient(address, user, password string, skipTlsVerify bool, extraSelector string) (*ApiClient, error) {
 	if user != "" {
 		if u, err := url.Parse(address); err != nil {
 			klog.Errorln("failed to parse url:", err)
@@ -57,7 +58,7 @@ func NewApiClient(address, user, password string, skipTlsVerify bool) (*ApiClien
 	if err != nil {
 		return nil, err
 	}
-	return &ApiClient{api: v1.NewAPI(c), client: c, cfg: cfg}, nil
+	return &ApiClient{api: v1.NewAPI(c), client: c, cfg: cfg, extraSelector: extraSelector}, nil
 }
 
 func (c *ApiClient) Ping(ctx context.Context) error {
@@ -67,6 +68,11 @@ func (c *ApiClient) Ping(ctx context.Context) error {
 
 func (c *ApiClient) QueryRange(ctx context.Context, query string, from, to timeseries.Time, step timeseries.Duration) ([]model.MetricValues, error) {
 	query = strings.ReplaceAll(query, "$RANGE", fmt.Sprintf(`%.0fs`, (step*3).ToStandard().Seconds()))
+	var err error
+	query, err = addExtraSelector(query, c.extraSelector)
+	if err != nil {
+		return nil, err
+	}
 	from = from.Truncate(step)
 	to = to.Truncate(step)
 

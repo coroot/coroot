@@ -1,5 +1,6 @@
 const slugRe = /^[-_0-9a-z]{3,}$/;
 const urlRe = /^https?:\/\/.{3,}$/;
+const selectorRe = /^{.+=.+}$/;
 
 export function notEmpty(v) {
     return !!v || 'required';
@@ -15,4 +16,8 @@ export function isUrl(v) {
 
 export function isFloat(v) {
     return !isNaN(parseFloat(v)) || 'number is required';
+}
+
+export function isPrometheusSelector(v) {
+    return selectorRe.test(v) || 'a valid Prometheus selector is required, e.g. {label_name="label_value", another_label=~"some_regexp"}';
 }

@@ -6,6 +6,7 @@ import (
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/notifications"
 	"github.com/coroot/coroot/utils"
+	"github.com/prometheus/prometheus/promql/parser"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -44,6 +45,11 @@ func (f *ProjectForm) Valid() bool {
 	}
 	if _, err := url.Parse(f.Prometheus.Url); err != nil {
 		return false
+	}
+	if f.Prometheus.ExtraSelector != "" {
+		if _, err := parser.ParseMetricSelector(f.Prometheus.ExtraSelector); err != nil {
+			return false
+		}
 	}
 	return true
 }

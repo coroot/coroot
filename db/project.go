@@ -29,6 +29,7 @@ type Prometheus struct {
 	RefreshInterval timeseries.Duration `json:"refresh_interval"`
 	TlsSkipVerify   bool                `json:"tls_skip_verify"`
 	BasicAuth       *BasicAuth          `json:"basic_auth"`
+	ExtraSelector   string              `json:"extra_selector"`
 }
 
 type Settings struct {

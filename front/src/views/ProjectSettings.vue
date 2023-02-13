@@ -26,6 +26,13 @@
             The value must be greater than the <a href="https://prometheus.io/docs/prometheus/latest/configuration/configuration/" target="_blank" rel="noopener noreferrer"><var>scrape_interval</var></a> of the Prometheus server.
         </div>
         <v-select v-model="form.prometheus.refresh_interval" :items="refreshIntervals" outlined dense :menu-props="{offsetY: true}" />
+
+        <div class="subtitle-1">Extra selector</div>
+        <div class="caption">
+            An additional metric selector that will be added to every Prometheus query (e.g. <var>{cluster="us-west-1"}</var>)
+        </div>
+        <v-text-field outlined dense v-model="form.prometheus.extra_selector" :rules="form.prometheus.extra_selector ? [$validators.isPrometheusSelector] : []" />
+
         <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
             {{error}}
         </v-alert>

@@ -32,7 +32,7 @@ func TestQueryRange(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(h))
 	defer ts.Close()
 
-	client, err := NewApiClient(ts.URL, "", "", true)
+	client, err := NewApiClient(ts.URL, "", "", true, "")
 	require.NoError(t, err)
 
 	ctx := context.Background()
