@@ -13,6 +13,7 @@ import (
 	"github.com/prometheus/client_golang/api"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	promModel "github.com/prometheus/common/model"
+	"github.com/prometheus/prometheus/promql/parser"
 	"k8s.io/klog"
 	"net"
 	"net/http"
@@ -198,4 +199,26 @@ func (c *ApiClient) Proxy(r *http.Request, w http.ResponseWriter) {
 	}
 	w.WriteHeader(resp.StatusCode)
 	_, _ = w.Write(data)
+}
+
+func addExtraSelector(query string, extraSelector string) (string, error) {
+	if extraSelector == "" {
+		return query, nil
+	}
+	extra, err := parser.ParseMetricSelector(extraSelector)
+	if err != nil {
+		return "", err
+	}
+	expr, err := parser.ParseExpr(query)
+	if err != nil {
+		return "", err
+	}
+	parser.Inspect(expr, func(node parser.Node, _ []parser.Node) error {
+		vs, ok := node.(*parser.VectorSelector)
+		if ok {
+			vs.LabelMatchers = append(vs.LabelMatchers, extra...)
+		}
+		return nil
+	})
+	return expr.String(), nil
 }

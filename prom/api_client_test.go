@@ -37,7 +37,7 @@ func TestQueryRange(t *testing.T) {
 
 	ctx := context.Background()
 
-	res, err := client.QueryRange(ctx, "metric", from, to, step)
+	res, err := client.QueryRange(ctx, `metric`, from, to, step)
 	assert.NoError(t, err)
 
 	assert.Equal(t, model.Labels{"__name__": "metric", "instance": "10.244.0.67:80", "job": "job1"}, res[0].Labels)
@@ -47,4 +47,26 @@ func TestQueryRange(t *testing.T) {
 	assert.Equal(t, model.Labels{"__name__": "metric", "instance": "10.244.1.135:80", "job": "job1"}, res[1].Labels)
 	assert.Equal(t, uint64(8265455476956637705), res[1].LabelsHash)
 	assert.Equal(t, "TimeSeries(1675329015, 5, 15, [0.020000 0.200000 . . 2])", res[1].Values.String())
+}
+
+func Test_addExtraSelector(t *testing.T) {
+	check := func(src, extraSelector, expected string) {
+		actual, err := addExtraSelector(src, extraSelector)
+		assert.NoError(t, err)
+		assert.Equal(t, expected, actual)
+	}
+	check(
+		`metric`,
+		`{cluster="us-west-1", prom_instance=~"us.+"}`,
+		`metric{cluster="us-west-1",prom_instance=~"us.+"}`)
+
+	check(
+		`rate(metric{label="value"}[1m])`,
+		`{cluster="us-west-1", prom_instance=~"us.+"}`,
+		`rate(metric{cluster="us-west-1",label="value",prom_instance=~"us.+"}[1m])`)
+
+	check(
+		`rate(node_resources_cpu_usage_seconds_total{mode!="idle"}[30s]) / ignoring(mode) group_left sum(rate(node_resources_cpu_usage_seconds_total[30s])) without(mode)*100`,
+		`{cluster="cluster1"}`,
+		`rate(node_resources_cpu_usage_seconds_total{cluster="cluster1",mode!="idle"}[30s]) / ignoring (mode) group_left () sum without (mode) (rate(node_resources_cpu_usage_seconds_total{cluster="cluster1"}[30s])) * 100`)
 }
