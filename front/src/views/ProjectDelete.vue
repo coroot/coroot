@@ -1,5 +1,5 @@
 <template>
-    <div v-if="project">
+    <div style="max-width: 800px">
         <div class="d-block d-md-flex align-center">
             <div class="flex-grow-1">
                 <div><b>Delete this project</b></div>
@@ -13,7 +13,7 @@
             <v-card v-if="loading" class="pa-10">
                 <v-progress-linear indeterminate />
             </v-card>
-            <v-card v-else class="pa-4">
+            <v-card v-else-if="project" class="pa-4">
                 <div class="d-flex align-center font-weight-bold mb-4">
                     Are you absolutely sure?
                     <v-spacer />

@@ -160,10 +160,17 @@ func Render(world *model.World, app *model.Application, incidents []db.Incident)
 		}
 	}
 
-	return &View{
+	v := &View{
 		AppMap:  appMap,
 		Reports: app.Reports,
 	}
+	v.Reports = append(v.Reports, &model.AuditReport{
+		Name: model.AuditReportProfiling,
+		Widgets: []*model.Widget{
+			{Profile: &model.Profile{ApplicationId: app.Id}, Width: "100%"},
+		},
+	})
+	return v
 }
 
 func (m *AppMap) addDependency(w *model.World, id model.ApplicationId) {

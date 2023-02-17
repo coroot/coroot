@@ -32,6 +32,9 @@ func (c *Cache) updater() {
 		}
 		ids := map[db.ProjectId]bool{}
 		for _, project := range projects {
+			if project.Prometheus.Url == "" {
+				continue
+			}
 			ids[project.Id] = true
 			_, ok := workers.Load(project.Id)
 			workers.Store(project.Id, project)

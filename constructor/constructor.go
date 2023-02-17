@@ -14,7 +14,9 @@ import (
 
 type Option int
 
-const OptionLoadPerConnectionHistograms Option = iota
+const (
+	OptionLoadPerConnectionHistograms Option = iota
+)
 
 type Constructor struct {
 	db      *db.DB
@@ -36,6 +38,19 @@ type Profile struct {
 	Queries map[string]prom.QueryStats `json:"queries"`
 }
 
+func (p *Profile) stage(name string, f func()) {
+	if p.Stages == nil {
+		f()
+		return
+	}
+	t := time.Now()
+	f()
+	duration := float32(time.Since(t).Seconds())
+	if duration > p.Stages[name] {
+		p.Stages[name] = duration
+	}
+}
+
 func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, step timeseries.Duration, prof *Profile) (*model.World, error) {
 	w := model.NewWorld(from, to, step)
 
@@ -43,21 +58,8 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 		prof = &Profile{}
 	}
 
-	t := time.Now()
-	stage := func(stage string, f func()) {
-		f()
-		if prof.Stages != nil {
-			now := time.Now()
-			duration := float32(now.Sub(t).Seconds())
-			if duration > prof.Stages[stage] {
-				prof.Stages[stage] = duration
-			}
-			t = now
-		}
-	}
-
 	var err error
-	stage("get_check_configs", func() {
+	prof.stage("get_check_configs", func() {
 		w.CheckConfigs, err = c.db.GetCheckConfigs(c.project.Id)
 	})
 	if err != nil {
@@ -65,7 +67,7 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 	}
 
 	var metrics map[string][]model.MetricValues
-	stage("query", func() {
+	prof.stage("query", func() {
 		queries := map[string]string{}
 		for n, q := range QUERIES {
 			if !c.options[OptionLoadPerConnectionHistograms] && strings.HasPrefix(n, "container_") && strings.HasSuffix(n, "_histogram") {
@@ -80,16 +82,16 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 	}
 
 	// order is important
-	stage("load_nodes", func() { loadNodes(w, metrics) })
-	stage("load_k8s_metadata", func() { loadKubernetesMetadata(w, metrics) })
-	stage("load_rds", func() { loadRds(w, metrics) })
-	stage("load_containers", func() { loadContainers(w, metrics) })
-	stage("enrich_instances", func() { enrichInstances(w, metrics) })
-	stage("join_db_cluster", func() { joinDBClusterComponents(w) })
-	stage("calc_app_categories", func() { c.calcApplicationCategories(w) })
-	stage("load_sli", func() { loadSLIs(ctx, w, c.prom, c.project.Prometheus.RefreshInterval, from, to, step) })
-	stage("load_app_deployments", func() { c.loadApplicationDeployments(w) })
-	stage("calc_app_events", func() { calcAppEvents(w) })
+	prof.stage("load_nodes", func() { loadNodes(w, metrics) })
+	prof.stage("load_k8s_metadata", func() { loadKubernetesMetadata(w, metrics) })
+	prof.stage("load_rds", func() { loadRds(w, metrics) })
+	prof.stage("load_containers", func() { loadContainers(w, metrics) })
+	prof.stage("enrich_instances", func() { enrichInstances(w, metrics) })
+	prof.stage("join_db_cluster", func() { joinDBClusterComponents(w) })
+	prof.stage("calc_app_categories", func() { c.calcApplicationCategories(w) })
+	prof.stage("load_sli", func() { loadSLIs(ctx, w, c.prom, c.project.Prometheus.RefreshInterval, from, to, step) })
+	prof.stage("load_app_deployments", func() { c.loadApplicationDeployments(w) })
+	prof.stage("calc_app_events", func() { calcAppEvents(w) })
 
 	klog.Infof("got %d nodes, %d services, %d applications", len(w.Nodes), len(w.Services), len(w.Applications))
 	return w, nil

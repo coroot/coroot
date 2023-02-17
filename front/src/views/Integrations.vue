@@ -111,7 +111,7 @@ export default {
                 this.form.base_url = data.base_url;
                 if (!this.form.base_url) {
                     this.form.base_url = location.origin + this.$coroot.base_path;
-                    this.$api.saveIntegrations('', this.form, () => {});
+                    this.$api.saveIntegrations('', 'save', this.form, () => {});
                 }
                 this.integrations = data.integrations;
             });

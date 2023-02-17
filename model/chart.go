@@ -17,15 +17,16 @@ type Annotation struct {
 type Chart struct {
 	Ctx timeseries.Context `json:"ctx"`
 
-	Title       string       `json:"title"`
-	Series      []*Series    `json:"series"`
-	Threshold   *Series      `json:"threshold"`
-	Featured    bool         `json:"featured"`
-	IsStacked   bool         `json:"stacked"`
-	IsSorted    bool         `json:"sorted"`
-	IsColumn    bool         `json:"column"`
-	ColorShift  int          `json:"color_shift"`
-	Annotations []Annotation `json:"annotations"`
+	Title         string       `json:"title"`
+	Series        []*Series    `json:"series"`
+	Threshold     *Series      `json:"threshold"`
+	Featured      bool         `json:"featured"`
+	IsStacked     bool         `json:"stacked"`
+	IsSorted      bool         `json:"sorted"`
+	IsColumn      bool         `json:"column"`
+	ColorShift    int          `json:"color_shift"`
+	Annotations   []Annotation `json:"annotations"`
+	DrillDownLink *RouterLink  `json:"drill_down_link"`
 }
 
 func NewChart(ctx timeseries.Context, title string) *Chart {

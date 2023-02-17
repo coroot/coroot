@@ -1,17 +1,21 @@
 package views
 
 import (
+	"context"
 	"github.com/coroot/coroot/api/views/application"
 	"github.com/coroot/coroot/api/views/categories"
 	"github.com/coroot/coroot/api/views/configs"
 	"github.com/coroot/coroot/api/views/integrations"
 	"github.com/coroot/coroot/api/views/node"
 	"github.com/coroot/coroot/api/views/overview"
+	"github.com/coroot/coroot/api/views/profile"
 	"github.com/coroot/coroot/api/views/project"
 	"github.com/coroot/coroot/api/views/search"
 	"github.com/coroot/coroot/cache"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
+	"github.com/coroot/coroot/timeseries"
+	"net/url"
 )
 
 func Status(p *db.Project, cacheStatus *cache.Status, w *model.World) *project.Status {
@@ -24,6 +28,10 @@ func Overview(w *model.World) *overview.View {
 
 func Application(w *model.World, app *model.Application, incidents []db.Incident) *application.View {
 	return application.Render(w, app, incidents)
+}
+
+func Profile(ctx context.Context, project *db.Project, app *model.Application, appSettings *db.ApplicationSettings, q url.Values, wCtx timeseries.Context) *profile.View {
+	return profile.Render(ctx, project, app, appSettings, q, wCtx)
 }
 
 func Node(w *model.World, n *model.Node) *model.AuditReport {

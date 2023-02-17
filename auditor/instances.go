@@ -120,12 +120,14 @@ func (a *appAuditor) instances() {
 				nodeStatus = model.WARNING
 			}
 		}
+		node := model.NewTableCell().SetStatus(nodeStatus, i.NodeName())
+		node.Link = model.NewRouterLink(i.NodeName()).SetRoute("node").SetParam("name", i.NodeName())
 		report.GetOrCreateTable("Instance", "Status", "Restarts", "IP", "Node").AddRow(
 			model.NewTableCell(i.Name),
 			status,
 			restartsCell,
 			model.NewTableCell(instanceIPs(i.TcpListens)...),
-			model.NewTableCell().SetLink("node", i.NodeName(), 0, 0).SetStatus(nodeStatus, i.NodeName()),
+			node,
 		)
 	}
 	desired := a.app.DesiredInstances.Last()

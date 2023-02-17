@@ -11,7 +11,7 @@ export function isSlug(v) {
 }
 
 export function isUrl(v) {
-    return urlRe.test(v) || 'a valid URL is required, e.g. https://yourdomain.com';
+    return !v || urlRe.test(v) || 'a valid URL is required, e.g. https://yourdomain.com';
 }
 
 export function isFloat(v) {
@@ -19,5 +19,5 @@ export function isFloat(v) {
 }
 
 export function isPrometheusSelector(v) {
-    return selectorRe.test(v) || 'a valid Prometheus selector is required, e.g. {label_name="label_value", another_label=~"some_regexp"}';
+    return !v || selectorRe.test(v) || 'a valid Prometheus selector is required, e.g. {label_name="label_value", another_label=~"some_regexp"}';
 }

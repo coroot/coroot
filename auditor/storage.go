@@ -41,10 +41,7 @@ func (a *appAuditor) storage() {
 						AddSeries("read", d.ReadBytes, "blue").
 						AddSeries("written", d.WrittenBytes, "amber")
 
-					latencyMs := model.NewTableCell().SetUnit("ms")
-					if d.Await != nil {
-						latencyMs.SetValue(utils.FormatFloat(d.Await.Last() * 1000))
-					}
+					latencyMs := model.NewTableCell().SetUnit("ms").SetValue(utils.FormatFloat(d.Await.Last() * 1000))
 					ioPercent := model.NewTableCell()
 					if last := d.IOUtilizationPercent.Last(); !math.IsNaN(last) {
 						ioPercent.SetValue(fmt.Sprintf("%.0f%%", last))

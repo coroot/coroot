@@ -2,6 +2,7 @@ package auditor
 
 import (
 	"github.com/coroot/coroot/model"
+	"github.com/coroot/coroot/profiling"
 	"github.com/coroot/coroot/timeseries"
 )
 
@@ -49,7 +50,7 @@ func (a *appAuditor) cpu() {
 					Stacked().
 					Sorted().
 					SetThreshold("total", node.CpuCapacity).
-					AddMany(timeseries.Top(cpuConsumers(node), timeseries.NanSum, 5))
+					AddMany(timeseries.Top(cpuConsumers(node), timeseries.Max, 5))
 
 				if i.Node.CpuUsagePercent.Last() > nodeCpuCheck.Threshold {
 					consumersChart.Feature()
@@ -61,6 +62,11 @@ func (a *appAuditor) cpu() {
 	for container, limit := range limitByContainer {
 		report.GetOrCreateChartInGroup(cpuChartTitle, container).SetThreshold("limit", limit.Get())
 	}
+
+	for _, ch := range report.GetOrCreateChartGroup(cpuChartTitle).Charts {
+		ch.DrillDownLink = model.NewRouterLink("profile").SetParam("report", model.AuditReportProfiling).SetArg("profile", profiling.TypeCPU)
+	}
+
 	if !seenContainers {
 		containerCpuCheck.SetStatus(model.UNKNOWN, "no data")
 	}

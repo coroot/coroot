@@ -58,8 +58,9 @@ export default class Api {
         })
     }
 
-    get(url, cb) {
-        this.request({method: 'get', url, params: this.router.currentRoute.query}, cb);
+    get(url, args, cb) {
+        const params = {...args, ...this.router.currentRoute.query}
+        this.request({method: 'get', url, params}, cb);
     }
 
     put(url, data, cb) {
@@ -75,11 +76,11 @@ export default class Api {
     }
 
     getProjects(cb) {
-        this.get(`projects`, cb);
+        this.get(`projects`, {}, cb);
     }
 
     getProject(projectId, cb) {
-        this.get(`project/${projectId || ''}`, cb);
+        this.get(`project/${projectId || ''}`, {}, cb);
     }
 
     saveProject(projectId, form, cb) {
@@ -96,7 +97,7 @@ export default class Api {
     }
 
     getStatus(cb) {
-        this.get(this.projectPath(`status`), cb);
+        this.get(this.projectPath(`status`), {}, cb);
     }
 
     setStatus(form, cb) {
@@ -104,15 +105,15 @@ export default class Api {
     }
 
     getOverview(cb) {
-        this.get(this.projectPath(`overview`), cb);
+        this.get(this.projectPath(`overview`), {}, cb);
     }
 
     getCheckConfigs(cb) {
-        this.get(this.projectPath(`configs`), cb);
+        this.get(this.projectPath(`configs`), {}, cb);
     }
 
     getApplicationCategories(cb) {
-        this.get(this.projectPath(`categories`), cb);
+        this.get(this.projectPath(`categories`), {}, cb);
     }
 
     saveApplicationCategory(form, cb) {
@@ -120,7 +121,7 @@ export default class Api {
     }
 
     getIntegrations(type, cb) {
-        this.get(this.projectPath(`integrations${type ? '/'+type : ''}`), cb);
+        this.get(this.projectPath(`integrations${type ? '/'+type : ''}`), {}, cb);
     }
 
     saveIntegrations(type, action, form, cb) {
@@ -139,23 +140,31 @@ export default class Api {
     }
 
     getApplication(appId, cb) {
-        this.get(this.projectPath(`app/${appId}`), cb);
+        this.get(this.projectPath(`app/${appId}`), {}, cb);
     }
 
     getCheckConfig(appId, checkId, cb) {
-        this.get(this.projectPath(`app/${appId}/check/${checkId}/config`), cb);
+        this.get(this.projectPath(`app/${appId}/check/${checkId}/config`), {}, cb);
     }
 
     saveCheckConfig(appId, checkId, form, cb) {
         this.post(this.projectPath(`app/${appId}/check/${checkId}/config`), form, cb);
     }
 
+    getProfile(appId, profile, cb) {
+        this.get(this.projectPath(`app/${appId}/profile/${profile}`), {}, cb);
+    }
+
+    saveProfileSettings(appId, form, cb) {
+        this.post(this.projectPath(`app/${appId}/profile`), form, cb);
+    }
+
     getNode(nodeName, cb) {
-        this.get(this.projectPath(`node/${nodeName}`), cb);
+        this.get(this.projectPath(`node/${nodeName}`), {}, cb);
     }
 
     search(cb) {
-        this.get(this.projectPath(`search`), cb);
+        this.get(this.projectPath(`search`), {}, cb);
     }
 
     getPromPath() {

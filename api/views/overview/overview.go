@@ -114,7 +114,8 @@ func Render(w *model.World) *View {
 
 	table := &model.Table{Header: []string{"Node", "Status", "Availability zone", "IP", "CPU", "Memory", "Network", "Uptime"}}
 	for _, n := range w.Nodes {
-		node := model.NewTableCell(n.Name.Value()).SetLink("node", n.Name.Value(), 0, 0)
+		node := model.NewTableCell(n.Name.Value())
+		node.Link = model.NewRouterLink(n.Name.Value()).SetRoute("node").SetParam("name", n.Name.Value())
 		ips := utils.NewStringSet()
 
 		cpuPercent, memoryPercent := model.NewTableCell(), model.NewTableCell("")
