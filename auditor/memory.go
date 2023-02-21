@@ -3,6 +3,7 @@ package auditor
 import (
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
+	"math"
 )
 
 func (a *appAuditor) memory() {
@@ -11,8 +12,9 @@ func (a *appAuditor) memory() {
 
 	oomCheck := report.CreateCheck(model.Checks.MemoryOOM)
 	leakCheck := report.CreateCheck(model.Checks.MemoryLeak)
+	var leak float64
+	now := timeseries.Now()
 	seenContainers := false
-	rss := timeseries.NewAggregate(timeseries.NanSum)
 	limitByContainer := map[string]*timeseries.Aggregate{}
 	memoryUsageChartTitle := "Memory usage (RSS) <selector>, bytes"
 	for _, i := range a.app.Instances {
@@ -27,7 +29,11 @@ func (a *appAuditor) memory() {
 			l.Add(c.MemoryLimit)
 			report.GetOrCreateChartInGroup(memoryUsageChartTitle, c.Name).AddSeries(i.Name, c.MemoryRss)
 			oom.Add(c.OOMKills)
-			rss.Add(c.MemoryRss)
+			if lr := timeseries.NewLinearRegression(c.MemoryRss); lr != nil {
+				if v := (lr.Calc(now) - lr.Calc(now.Add(-timeseries.Hour))) / 1024 / 1024; !math.IsNaN(v) {
+					leak += v
+				}
+			}
 		}
 		oomTs := oom.Get()
 		report.GetOrCreateChart("Out of memory events").Column().AddSeries(i.Name, oomTs)
@@ -63,9 +69,5 @@ func (a *appAuditor) memory() {
 		leakCheck.SetStatus(model.UNKNOWN, "no data")
 		return
 	}
-
-	if lr := timeseries.NewLinearRegression(rss.Get()); lr != nil {
-		now := timeseries.Now()
-		leakCheck.SetValue((lr.Calc(now) - lr.Calc(now.Add(-timeseries.Hour))) / 1024 / 1024)
-	}
+	leakCheck.SetValue(leak)
 }
