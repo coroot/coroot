@@ -202,6 +202,10 @@ func (instance *Instance) IsObsolete() bool {
 	return instance.Pod != nil && instance.Pod.IsObsolete()
 }
 
+func (instance *Instance) IsFailed() bool {
+	return instance.Pod != nil && instance.Pod.IsFailed()
+}
+
 func (instance *Instance) UpAndRunning() *timeseries.TimeSeries {
 	mem := timeseries.NewAggregate(timeseries.Any)
 	for _, c := range instance.Containers {

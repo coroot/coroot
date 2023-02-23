@@ -28,6 +28,10 @@ func (pod *Pod) IsObsolete() bool {
 	return pod.Phase == ""
 }
 
+func (pod *Pod) IsFailed() bool {
+	return pod.Phase == "Failed"
+}
+
 func (pod *Pod) IsReady() bool {
 	return pod.Ready.Last() > 0
 }

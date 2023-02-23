@@ -19,6 +19,7 @@ func (a *appAuditor) instances() {
 	availability := report.CreateCheck(model.Checks.InstanceAvailability)
 	restarts := report.CreateCheck(model.Checks.InstanceRestarts)
 
+	availableInstances := 0
 	for _, i := range a.app.Instances {
 		up.Add(i.UpAndRunning())
 
@@ -66,6 +67,12 @@ func (a *appAuditor) instances() {
 				status.SetStatus(model.WARNING, msg)
 			case "Succeeded":
 				status.SetStatus(model.OK, "succeeded")
+			case "Failed":
+				msg := "failed"
+				if details := podContainerIssues(i); details != "" {
+					msg += fmt.Sprintf(" (%s)", details)
+				}
+				status.SetStatus(model.WARNING, msg)
 			case "Running":
 				switch {
 				case !i.IsUp():
@@ -73,24 +80,8 @@ func (a *appAuditor) instances() {
 					if i.Node != nil && !i.Node.IsUp() {
 						msg = "down (node down)"
 					} else {
-						reasons := utils.NewStringSet()
-						containerStatus := ""
-						for _, c := range i.Containers {
-							if c.Status == model.ContainerStatusRunning {
-								continue
-							}
-							containerStatus = string(c.Status)
-							reasons.Add(c.Reason)
-							if c.Status == model.ContainerStatusTerminated {
-								reasons.Add(c.LastTerminatedReason)
-							}
-						}
-						if reasons.Len() > 0 {
-							msg = fmt.Sprintf(
-								"down (%s - %s)",
-								containerStatus,
-								strings.Join(reasons.Items(), ","),
-							)
+						if details := podContainerIssues(i); details != "" {
+							msg = fmt.Sprintf("down (%s)", details)
 						} else {
 							msg = "down (no metrics)"
 						}
@@ -105,8 +96,8 @@ func (a *appAuditor) instances() {
 				status.SetStatus(model.WARNING, "down (error)")
 			}
 		}
-		if *status.Status > model.OK {
-			availability.AddItem(i.Name)
+		if *status.Status == model.OK {
+			availableInstances++
 		}
 		restartsCount := int64(0)
 		for _, c := range i.Containers {
@@ -137,17 +128,49 @@ func (a *appAuditor) instances() {
 			model.NewTableCell().SetLink("node", i.NodeName(), 0, 0).SetStatus(nodeStatus, i.NodeName()),
 		)
 	}
+	desired := a.app.DesiredInstances.Last()
+	if a.app.Id.Kind == model.ApplicationKindUnknown {
+		desired = float64(len(a.app.Instances))
+	}
+	if desired > 0 {
+		if p := float64(availableInstances) / desired * 100; p < availability.Threshold {
+			if p == 0 {
+				availability.SetStatus(model.WARNING, "no instances available")
+			} else {
+				availability.SetStatus(model.WARNING, "only %.0f%% of the desired instances are currently available", p)
+			}
+		}
+	}
 
 	if a.app.Id.Kind == model.ApplicationKindExternalService {
 		availability.SetStatus(model.UNKNOWN, "no data")
 		restarts.SetStatus(model.UNKNOWN, "no data")
 	}
 	chart := report.GetOrCreateChart("Instances").Stacked().AddSeries("up", up.Get())
-	if a.app.DesiredInstances != nil {
+	if !a.app.DesiredInstances.IsEmpty() {
 		chart.SetThreshold("desired", a.app.DesiredInstances)
 		chart.Threshold.Color = "red"
 		chart.Threshold.Fill = true
 	}
+}
+
+func podContainerIssues(i *model.Instance) string {
+	reasons := utils.NewStringSet()
+	containerStatus := ""
+	for _, c := range i.Containers {
+		if c.Status == model.ContainerStatusRunning {
+			continue
+		}
+		containerStatus = string(c.Status)
+		reasons.Add(c.Reason)
+		if c.Status == model.ContainerStatusTerminated {
+			reasons.Add(c.LastTerminatedReason)
+		}
+	}
+	if reasons.Len() > 0 {
+		return fmt.Sprintf("%s:%s", containerStatus, strings.Join(reasons.Items(), ","))
+	}
+	return ""
 }
 
 func instanceIPs(listens map[model.Listen]bool) []string {

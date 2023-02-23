@@ -89,6 +89,7 @@ var QUERIES = map[string]string{
 	"kube_pod_container_status_waiting":                `kube_pod_container_status_waiting > 0`,
 	"kube_pod_container_status_running":                `kube_pod_container_status_running > 0 `,
 	"kube_pod_container_status_terminated":             `kube_pod_container_status_terminated > 0`,
+	"kube_pod_container_status_terminated_reason":      `kube_pod_container_status_terminated_reason > 0`,
 	"kube_pod_container_status_waiting_reason":         `kube_pod_container_status_waiting_reason > 0`,
 	"kube_pod_container_status_last_terminated_reason": `kube_pod_container_status_last_terminated_reason`,
 	"kube_deployment_spec_replicas":                    `kube_deployment_spec_replicas`,

@@ -205,6 +205,11 @@ func podContainerStatus(queryName string, metrics []model.MetricValues, pods map
 				container.Status = model.ContainerStatusWaiting
 				container.Reason = m.Labels["reason"]
 			}
+		case "kube_pod_container_status_terminated_reason":
+			if m.Values.Last() > 0 {
+				container.Status = model.ContainerStatusTerminated
+				container.Reason = m.Labels["reason"]
+			}
 		case "kube_pod_container_status_last_terminated_reason":
 			if m.Values.Last() > 0 {
 				container.LastTerminatedReason = m.Labels["reason"]

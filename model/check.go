@@ -154,11 +154,12 @@ var Checks = struct {
 		ConditionFormatTemplate: "the RTT to an upstream service > <threshold>",
 	},
 	InstanceAvailability: CheckConfig{
-		Type:                    CheckTypeItemBased,
+		Type:                    CheckTypeManual,
 		Title:                   "Instance availability",
-		DefaultThreshold:        0,
+		DefaultThreshold:        75,
+		Unit:                    CheckUnitPercent,
 		MessageTemplate:         `{{.ItemsWithToBe "instance"}} unavailable`,
-		ConditionFormatTemplate: "the number of unavailable instances > <threshold>",
+		ConditionFormatTemplate: "the number of available instances < <threshold> of the desired",
 	},
 	InstanceRestarts: CheckConfig{
 		Type:                    CheckTypeEventBased,
