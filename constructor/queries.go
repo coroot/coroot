@@ -12,6 +12,7 @@ var QUERIES = map[string]string{
 
 	"node_info":                   `node_info`,
 	"node_cloud_info":             `node_cloud_info`,
+	"node_uptime_seconds":         `node_uptime_seconds`,
 	"node_cpu_cores":              `node_resources_cpu_logical_cores`,
 	"node_cpu_usage_percent":      `sum(rate(node_resources_cpu_usage_seconds_total{mode!="idle"}[$RANGE])) without(mode) /sum(rate(node_resources_cpu_usage_seconds_total[$RANGE])) without(mode)*100`,
 	"node_cpu_usage_by_mode":      `rate(node_resources_cpu_usage_seconds_total{mode!="idle"}[$RANGE]) / ignoring(mode) group_left sum(rate(node_resources_cpu_usage_seconds_total[$RANGE])) without(mode)*100`,

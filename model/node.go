@@ -27,6 +27,7 @@ type InterfaceStats struct {
 type Node struct {
 	Name      LabelLastValue
 	MachineID string
+	Uptime    *timeseries.TimeSeries
 
 	CpuCapacity     *timeseries.TimeSeries
 	CpuUsagePercent *timeseries.TimeSeries

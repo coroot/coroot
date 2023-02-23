@@ -3,6 +3,7 @@ package overview
 import (
 	"github.com/coroot/coroot/auditor"
 	"github.com/coroot/coroot/model"
+	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 	"github.com/dustin/go-humanize"
 	"math"
@@ -111,7 +112,7 @@ func Render(w *model.World) *View {
 		appsUsed = append(appsUsed, a)
 	}
 
-	table := &model.Table{Header: []string{"Node", "Status", "Availability zone", "IP", "CPU", "Memory", "Network"}}
+	table := &model.Table{Header: []string{"Node", "Status", "Availability zone", "IP", "CPU", "Memory", "Network", "Uptime"}}
 	for _, n := range w.Nodes {
 		node := model.NewTableCell(n.Name.Value()).SetLink("node", n.Name.Value(), 0, 0)
 		ips := utils.NewStringSet()
@@ -170,6 +171,11 @@ func Render(w *model.World) *View {
 			return network.NetInterfaces[i].Name < network.NetInterfaces[j].Name
 		})
 
+		uptime := model.NewTableCell()
+		if v := n.Uptime.Last(); !math.IsNaN(v) {
+			uptime.SetValue(utils.FormatDurationShort(timeseries.Duration(int64(v)), 1))
+		}
+
 		table.AddRow(
 			node,
 			status,
@@ -178,6 +184,7 @@ func Render(w *model.World) *View {
 			cpuPercent,
 			memoryPercent,
 			network,
+			uptime,
 		)
 	}
 	return &View{Applications: appsUsed, Nodes: table}

@@ -71,6 +71,8 @@ func loadNodes(w *model.World, metrics map[string][]model.MetricValues) {
 				node.Region.Update(m.Values, m.Labels["region"])
 				node.AvailabilityZone.Update(m.Values, m.Labels["availability_zone"])
 				node.InstanceType.Update(m.Values, m.Labels["instance_type"])
+			case "node_uptime_seconds":
+				node.Uptime = merge(node.Uptime, m.Values, timeseries.Any)
 			default:
 				if strings.HasPrefix(queryName, "node_disk_") {
 					nodeDisk(node, queryName, m)
