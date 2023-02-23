@@ -24,6 +24,12 @@ type InterfaceStats struct {
 	TxBytes   *timeseries.TimeSeries
 }
 
+type NodePriceBreakdown struct {
+	CPUPerCore    float32
+	MemoryPerByte float32
+	Costs
+}
+
 type Node struct {
 	AgentVersion LabelLastValue
 
@@ -45,10 +51,13 @@ type Node struct {
 
 	Instances []*Instance `json:"-"`
 
-	CloudProvider    LabelLastValue
-	Region           LabelLastValue
-	AvailabilityZone LabelLastValue
-	InstanceType     LabelLastValue
+	CloudProvider     LabelLastValue
+	Region            LabelLastValue
+	AvailabilityZone  LabelLastValue
+	InstanceType      LabelLastValue
+	InstanceLifeCycle LabelLastValue
+
+	PricePerHour float32
 }
 
 func NewNode(machineId string) *Node {
@@ -61,4 +70,25 @@ func NewNode(machineId string) *Node {
 
 func (node *Node) IsUp() bool {
 	return !DataIsMissing(node.CpuUsagePercent)
+}
+
+func (node *Node) GetPriceBreakdown() *NodePriceBreakdown {
+	if node.PricePerHour == 0 {
+		return nil
+	}
+	cores := node.CpuCapacity.Last()
+	ram := node.MemoryTotalBytes.Last()
+	if timeseries.IsNaN(cores) || timeseries.IsNaN(ram) {
+		return nil
+	}
+	ramGb := ram / (1000 * 1000 * 1000)
+	perUnit := node.PricePerHour / (cores + ramGb) // assume that 1Gb of memory costs the same as 1 vCPU
+	return &NodePriceBreakdown{
+		CPUPerCore:    perUnit,
+		MemoryPerByte: perUnit / (1000 * 1000 * 1000),
+		Costs: Costs{
+			CPUUsagePerHour:    perUnit * cores,
+			MemoryUsagePerHour: perUnit * ramGb,
+		},
+	}
 }

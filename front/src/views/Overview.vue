@@ -12,6 +12,10 @@
     <AppsMap v-if="overview && overview.applications" :applications="overview.applications" />
     <NoData v-else-if="!loading" />
 
+    <h1 class="text-h5 my-5">Costs</h1>
+
+    <Table v-if="overview && overview.costs.applications && overview.costs.applications.rows" :header="overview.costs.applications.header" :rows="overview.costs.applications.rows" />
+
     <h1 class="text-h5 my-5">
         Nodes
     </h1>

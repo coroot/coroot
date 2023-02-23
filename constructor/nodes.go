@@ -64,6 +64,7 @@ func loadNodes(w *model.World, metrics map[string][]model.MetricValues, nodesByM
 				node.Region.Update(m.Values, m.Labels["region"])
 				node.AvailabilityZone.Update(m.Values, m.Labels["availability_zone"])
 				node.InstanceType.Update(m.Values, m.Labels["instance_type"])
+				node.InstanceLifeCycle.Update(m.Values, m.Labels["instance_life_cycle"])
 			case "node_uptime_seconds":
 				node.Uptime = merge(node.Uptime, m.Values, timeseries.Any)
 			default:

@@ -22,6 +22,7 @@ const (
 	AuditReportNode        AuditReportName = "Node"
 	AuditReportDeployments AuditReportName = "Deployments"
 	AuditReportProfiling   AuditReportName = "Profiling"
+	AuditReportCosts       AuditReportName = "Costs"
 )
 
 type AuditReport struct {
@@ -86,7 +87,7 @@ func (c *AuditReport) GetOrCreateTable(header ...string) *Table {
 			return t
 		}
 	}
-	t := &Table{Header: header}
+	t := NewTable(header...)
 	c.Widgets = append(c.Widgets, &Widget{Table: t, Width: "100%"})
 	return t
 }

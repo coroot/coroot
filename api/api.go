@@ -6,6 +6,7 @@ import (
 	"github.com/coroot/coroot/api/views"
 	"github.com/coroot/coroot/auditor"
 	"github.com/coroot/coroot/cache"
+	cloud_pricing "github.com/coroot/coroot/cloud-pricing"
 	"github.com/coroot/coroot/constructor"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
@@ -20,13 +21,14 @@ import (
 )
 
 type Api struct {
-	cache    *cache.Cache
-	db       *db.DB
-	readOnly bool
+	cache        *cache.Cache
+	db           *db.DB
+	cloudPricing *cloud_pricing.Manager
+	readOnly     bool
 }
 
-func NewApi(cache *cache.Cache, db *db.DB, readOnly bool) *Api {
-	return &Api{cache: cache, db: db, readOnly: readOnly}
+func NewApi(cache *cache.Cache, db *db.DB, cloudPricing *cloud_pricing.Manager, readOnly bool) *Api {
+	return &Api{cache: cache, db: db, cloudPricing: cloudPricing, readOnly: readOnly}
 }
 
 func (api *Api) Projects(w http.ResponseWriter, _ *http.Request) {
@@ -180,6 +182,10 @@ func (api *Api) Overview(w http.ResponseWriter, r *http.Request) {
 	}
 	if world == nil {
 		return
+	}
+
+	for _, n := range world.Nodes {
+		n.PricePerHour = api.cloudPricing.GetNodePricePerHour(n)
 	}
 	auditor.Audit(world, project)
 	utils.WriteJson(w, views.Overview(world))
@@ -387,6 +393,9 @@ func (api *Api) App(w http.ResponseWriter, r *http.Request) {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
 		return
+	}
+	for _, n := range world.Nodes {
+		n.PricePerHour = api.cloudPricing.GetNodePricePerHour(n)
 	}
 	auditor.Audit(world, project)
 	utils.WriteJson(w, views.Application(world, app, incidents))

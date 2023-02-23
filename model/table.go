@@ -13,6 +13,10 @@ type Table struct {
 	sorted bool
 }
 
+func NewTable(header ...string) *Table {
+	return &Table{Header: header}
+}
+
 func (t *Table) AddRow(cells ...*TableCell) *TableRow {
 	r := &TableRow{Cells: cells}
 	t.Rows = append(t.Rows, r)
@@ -114,7 +118,12 @@ func (c *TableCell) SetUnit(unit string) *TableCell {
 }
 
 func (c *TableCell) AddTag(format string, a ...any) *TableCell {
-	if format != "" {
+	if format == "" {
+		return c
+	}
+	if len(a) == 0 {
+		c.Tags = append(c.Tags, format)
+	} else {
 		c.Tags = append(c.Tags, fmt.Sprintf(format, a...))
 	}
 	return c

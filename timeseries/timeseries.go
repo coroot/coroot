@@ -40,7 +40,7 @@ func NewWithData(from Time, step Duration, data []float32) *TimeSeries {
 	return ts
 }
 
-func (ts *TimeSeries) len() int {
+func (ts *TimeSeries) Len() int {
 	if ts.IsEmpty() {
 		return 0
 	}
@@ -51,7 +51,7 @@ func (ts *TimeSeries) MarshalJSON() ([]byte, error) {
 	if ts.IsEmpty() {
 		return json.Marshal(nil)
 	}
-	vs := make([]Value, 0, ts.len())
+	vs := make([]Value, 0, ts.Len())
 	iter := ts.Iter()
 	for iter.Next() {
 		_, v := iter.Value()
@@ -68,13 +68,13 @@ func (ts *TimeSeries) String() string {
 	if ts.IsEmpty() {
 		return "TimeSeries(nil)"
 	}
-	values := make([]string, 0, ts.len())
+	values := make([]string, 0, ts.Len())
 	iter := ts.Iter()
 	for iter.Next() {
 		_, v := iter.Value()
 		values = append(values, Value(v).String())
 	}
-	return fmt.Sprintf("TimeSeries(%d, %d, %d, [%s])", ts.from, ts.len(), ts.step, strings.Join(values, " "))
+	return fmt.Sprintf("TimeSeries(%d, %d, %d, [%s])", ts.from, ts.Len(), ts.step, strings.Join(values, " "))
 }
 
 func (ts *TimeSeries) Get() *TimeSeries {
@@ -94,7 +94,7 @@ func (ts *TimeSeries) Set(t Time, v float32) {
 
 func (ts *TimeSeries) Fill(from Time, step Duration, data []float32) bool {
 	changed := false
-	to := ts.from.Add(Duration(ts.len()-1) * ts.step)
+	to := ts.from.Add(Duration(ts.Len()-1) * ts.step)
 
 	tNext := Time(0)
 	iNext := -1
@@ -185,7 +185,8 @@ func (ts *TimeSeries) Map(f func(t Time, v float32) float32) *TimeSeries {
 	if ts.IsEmpty() {
 		return nil
 	}
-	data := make([]float32, ts.len())
+
+	data := make([]float32, ts.Len())
 	iter := ts.Iter()
 	i := 0
 	for iter.Next() {
@@ -200,7 +201,8 @@ func (ts *TimeSeries) WithNewValue(newValue float32) *TimeSeries {
 	if ts.IsEmpty() {
 		return nil
 	}
-	data := make([]float32, ts.len())
+
+	data := make([]float32, ts.Len())
 	for i := range data {
 		data[i] = newValue
 	}
@@ -228,7 +230,7 @@ func Increase(x, status *TimeSeries) *TimeSeries {
 	if x.IsEmpty() || status.IsEmpty() {
 		return nil
 	}
-	data := make([]float32, 0, x.len())
+	data := make([]float32, 0, x.Len())
 	prev, prevStatus := NaN, NaN
 	iter := x.Iter()
 	statusIter := status.Iter()
@@ -257,7 +259,7 @@ func Aggregate2(x, y *TimeSeries, f func(x, y float32) float32) *TimeSeries {
 	if x.IsEmpty() || y.IsEmpty() {
 		return nil
 	}
-	data := make([]float32, x.len())
+	data := make([]float32, x.Len())
 	xIter := x.Iter()
 	yIter := y.Iter()
 	i := 0

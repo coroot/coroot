@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"github.com/coroot/coroot/api"
 	"github.com/coroot/coroot/cache"
+	"github.com/coroot/coroot/cloud-pricing"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/notifications"
 	"github.com/coroot/coroot/prom"
@@ -61,6 +62,12 @@ func main() {
 	bootstrapPrometheus(database, *bootstrapPrometheusUrl, *bootstrapRefreshInterval, *bootstrapPrometheusExtraSelector)
 	bootstrapPyroscope(database, *bootstrapPyroscopeUrl)
 
+	pricing, err := cloud_pricing.NewManager(path.Join(*dataDir, "cloud-pricing"))
+	if err != nil {
+		klog.Exitln(err)
+	}
+	_ = pricing
+
 	cacheConfig := cache.Config{
 		Path: path.Join(*dataDir, "cache"),
 		GC: &cache.GcConfig{
@@ -90,7 +97,7 @@ func main() {
 		deployments.NewWatcher(database, promCache).Start(*deploymentsWatchInterval)
 	}
 
-	a := api.NewApi(promCache, database, *readOnly)
+	a := api.NewApi(promCache, database, pricing, *readOnly)
 
 	router := mux.NewRouter()
 	router.PathPrefix("/debug/pprof/").Handler(http.DefaultServeMux)

@@ -27,14 +27,15 @@ type Container struct {
 	LastTerminatedReason string
 
 	CpuLimit      *timeseries.TimeSeries
+	CpuRequest    *timeseries.TimeSeries
 	CpuUsage      *timeseries.TimeSeries
 	CpuDelay      *timeseries.TimeSeries
 	ThrottledTime *timeseries.TimeSeries
 
 	MemoryRss     *timeseries.TimeSeries
 	MemoryCache   *timeseries.TimeSeries
-	MemoryRequest *timeseries.TimeSeries
 	MemoryLimit   *timeseries.TimeSeries
+	MemoryRequest *timeseries.TimeSeries
 
 	OOMKills *timeseries.TimeSeries
 }

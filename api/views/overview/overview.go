@@ -1,6 +1,7 @@
 package overview
 
 import (
+	"fmt"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
@@ -11,8 +12,19 @@ import (
 	"strings"
 )
 
+const (
+	idleName  = "idle"
+	otherName = "other"
+)
+
+type Costs struct {
+	Applications *model.Table `json:"applications"`
+	Categories   *model.Table `json:"categories"`
+}
+
 type View struct {
 	Applications []*Application `json:"applications"`
+	Costs        *Costs         `json:"costs"`
 	Nodes        *model.Table   `json:"nodes"`
 }
 
@@ -109,29 +121,33 @@ func Render(w *model.World) *View {
 		appsUsed = append(appsUsed, a)
 	}
 
-	table := &model.Table{Header: []string{"Node", "Status", "Availability zone", "IP", "CPU", "Memory", "Network", "Uptime"}}
+	table := &model.Table{Header: []string{"Node", "Status", "Availability zone", "IP", "CPU", "Memory", "Network", "Price"}}
 	for _, n := range w.Nodes {
 		node := model.NewTableCell(n.Name.Value())
 		node.Link = model.NewRouterLink(n.Name.Value()).SetRoute("node").SetParam("name", n.Name.Value())
 		ips := utils.NewStringSet()
 
-		cpuPercent, memoryPercent := model.NewTableCell(), model.NewTableCell("")
+		cpuPercent, memoryPercent := model.NewTableCell(), model.NewTableCell()
+		price := model.NewTableCell()
 
 		if t := n.InstanceType.Value(); t != "" {
-			node.AddTag("Type: " + t)
+			node.AddTag(t)
 		}
 		if l := n.CpuCapacity.Last(); !timeseries.IsNaN(l) {
-			node.AddTag("vCPU: " + strconv.Itoa(int(l)))
+			node.AddTag(strconv.Itoa(int(l)) + " vCPU")
 		}
 		if l := n.CpuUsagePercent.Last(); !timeseries.IsNaN(l) {
 			cpuPercent.SetProgress(int(l), "blue")
 		}
 
 		if total := n.MemoryTotalBytes.Last(); !timeseries.IsNaN(total) {
-			node.AddTag("memory: " + humanize.Bytes(uint64(total)))
+			node.AddTag(humanize.Bytes(uint64(total)))
 			if avail := n.MemoryAvailableBytes.Last(); !timeseries.IsNaN(avail) {
 				memoryPercent.SetProgress(int(100-avail/total*100), "deep-purple")
 			}
+		}
+		if lc := n.InstanceLifeCycle.Value(); lc != "" && n.PricePerHour > 0 {
+			price.SetValue(fmt.Sprintf("$%.2f", n.PricePerHour*24*30)).SetUnit("/mo").AddTag(lc)
 		}
 
 		status := model.NewTableCell().SetStatus(model.OK, "up")
@@ -169,9 +185,8 @@ func Render(w *model.World) *View {
 			return network.NetInterfaces[i].Name < network.NetInterfaces[j].Name
 		})
 
-		uptime := model.NewTableCell()
 		if v := n.Uptime.Last(); !timeseries.IsNaN(v) {
-			uptime.SetValue(utils.FormatDurationShort(timeseries.Duration(int64(v)), 1))
+			status.SetUnit("(" + utils.FormatDurationShort(timeseries.Duration(int64(v)), 1) + ")")
 		}
 
 		table.AddRow(
@@ -182,8 +197,88 @@ func Render(w *model.World) *View {
 			cpuPercent,
 			memoryPercent,
 			network,
-			uptime,
+			price,
 		)
 	}
-	return &View{Applications: appsUsed, Nodes: table}
+	return &View{Applications: appsUsed, Nodes: table, Costs: calcCosts(w)}
+}
+
+type appCosts struct {
+	appId model.ApplicationId
+	model.Costs
+}
+
+func (ac *appCosts) TableCells(total model.Costs) []*model.TableCell {
+	if total.UsagePerMonth() == 0 {
+		return nil
+	}
+	name := model.NewTableCell(ac.appId.Name)
+	if ac.appId.Name != otherName && ac.appId.Name != idleName {
+		name.Link = model.NewRouterLink(ac.appId.Name).SetRoute("application").SetParam("id", ac.appId)
+	}
+	return []*model.TableCell{
+		name,
+		model.NewTableCell(fmt.Sprintf("$%.2f", ac.UsagePerMonth())).SetUnit("/mo"),
+		model.NewTableCell(fmt.Sprintf("$%.2f", ac.CPUUsagePerMonth())).SetUnit("/mo"),
+		model.NewTableCell(fmt.Sprintf("$%.2f", ac.MemoryUsagePerMonth())).SetUnit("/mo"),
+		model.NewTableCell().SetProgress(int((ac.UsagePerMonth())/(total.UsagePerMonth())*100), "green"),
+	}
+}
+
+func calcCosts(w *model.World) *Costs {
+	byId := map[model.ApplicationId]*appCosts{}
+	idle := &appCosts{appId: model.NewApplicationId("", "", idleName)}
+	apps := []*appCosts{idle}
+
+	total := model.Costs{}
+
+	for _, n := range w.Nodes {
+		price := n.GetPriceBreakdown()
+		if price == nil {
+			continue
+		}
+		nodeIdle := price.Costs
+		total.CPUUsagePerHour += price.CPUUsagePerHour
+		total.MemoryUsagePerHour += price.MemoryUsagePerHour
+
+		for _, i := range n.Instances {
+			app := byId[i.OwnerId]
+			if app == nil {
+				app = &appCosts{appId: i.OwnerId}
+				byId[i.OwnerId] = app
+				apps = append(apps, app)
+			}
+			c := i.Costs()
+			if c == nil {
+				continue
+			}
+			nodeIdle.CPUUsagePerHour -= c.CPUUsagePerHour
+			nodeIdle.MemoryUsagePerHour -= c.MemoryUsagePerHour
+			app.CPUUsagePerHour += c.CPUUsagePerHour
+			app.MemoryUsagePerHour += c.MemoryUsagePerHour
+		}
+		if nodeIdle.CPUUsagePerHour > 0 && nodeIdle.MemoryUsagePerHour > 0 {
+			idle.CPUUsagePerHour += nodeIdle.CPUUsagePerHour
+			idle.MemoryUsagePerHour += nodeIdle.MemoryUsagePerHour
+		}
+	}
+	sort.Slice(apps, func(i, j int) bool {
+		return apps[i].UsagePerMonth() > apps[j].UsagePerMonth()
+	})
+
+	res := &Costs{
+		Applications: model.NewTable("Application", "Total", "CPU", "Memory", "%").SetSorted(true),
+	}
+
+	other := &appCosts{appId: model.NewApplicationId("", "", otherName)}
+	for i, app := range apps {
+		if i < 10 {
+			res.Applications.AddRow(app.TableCells(total)...)
+		} else {
+			other.CPUUsagePerHour += app.CPUUsagePerHour
+			other.MemoryUsagePerHour += app.MemoryUsagePerHour
+		}
+	}
+	res.Applications.AddRow(other.TableCells(total)...)
+	return res
 }
