@@ -12,7 +12,11 @@
             <span v-else>Loading...</span>
             <v-progress-circular v-if="loading" indeterminate size="16" width="2" color="green" />
         </div>
-        <v-select v-if="view.profiles" :value="profile" :items="profiles" @change="setProfile" outlined dense hide-details :menu-props="{offsetY: true}" class="mt-4" />
+        <v-select v-if="view.profiles" :value="profile" :items="profiles" @change="setProfile" outlined hide-details dense :menu-props="{offsetY: true}" class="mt-4" />
+        <div class="grey--text mt-3">
+            <v-icon size="20" style="vertical-align: baseline">mdi-lightbulb-on-outline</v-icon>
+            Select a chart area to zoom in or compare with the previous period
+        </div>
     </v-card>
 
     <Chart v-if="view.chart" :chart="view.chart" class="my-5" :selection="selection" @select="setSelection" />
@@ -67,7 +71,6 @@ export default {
             loading: false,
 
             view: {},
-            ctx: this.$route.query,
 
             configure: false,
             form: {
@@ -112,7 +115,7 @@ export default {
     },
 
     beforeDestroy() {
-        this.$router.replace({query: this.ctx}).catch(err => err);
+        this.$router.replace({query: {...this.$route.query, profile: undefined}}).catch(err => err);
         this.flamegraph.unmount();
     },
 
@@ -139,7 +142,7 @@ export default {
             return {
                 type: parts[0] || '',
                 name: parts[1] || '',
-                mode: parts[2] || 'single',
+                mode: parts[2] || 'diff',
                 from: Number(parts[3]) || 0,
                 to: Number(parts[4]) || 0,
             };
