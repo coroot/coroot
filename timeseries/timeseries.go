@@ -86,8 +86,9 @@ func (ts *TimeSeries) Fill(from Time, step Duration, data []float64) bool {
 
 	tNext := Time(0)
 	iNext := -1
-	for i, v := range data {
-		t := from.Add(Duration(i) * step)
+	t := from.Add(-step)
+	for i := range data {
+		t = t.Add(step)
 		if t > to {
 			break
 		}
@@ -99,12 +100,13 @@ func (ts *TimeSeries) Fill(from Time, step Duration, data []float64) bool {
 		}
 		if iNext == -1 {
 			iNext = int((t - ts.from) / Time(ts.step))
+			tNext = t.Truncate(ts.step)
 		}
 		if iNext < len(ts.data) {
-			ts.data[iNext] = v
+			ts.data[iNext] = data[i]
 			tNext = tNext.Add(ts.step)
 			iNext++
-			if !changed && !math.IsNaN(v) {
+			if !changed && !math.IsNaN(data[i]) {
 				changed = true
 			}
 		}
