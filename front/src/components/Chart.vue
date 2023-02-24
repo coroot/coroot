@@ -470,7 +470,6 @@ export default {
     position: relative;
     display: inline-block;
     transform: translateY(calc(-100% - 16px));
-    pointer-events: all;
 }
 .selection-left {
     position: absolute;
