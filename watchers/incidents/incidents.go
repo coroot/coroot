@@ -52,7 +52,7 @@ func (w *Watcher) checkProject(project *db.Project) {
 		return
 	}
 
-	auditor.Audit(world)
+	auditor.Audit(world, project)
 
 	for _, app := range world.Applications {
 		status := app.SLOStatus()

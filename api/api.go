@@ -172,7 +172,7 @@ func (api *Api) Status(w http.ResponseWriter, r *http.Request) {
 }
 
 func (api *Api) Overview(w http.ResponseWriter, r *http.Request) {
-	world, _, err := api.loadWorldByRequest(r)
+	world, project, err := api.loadWorldByRequest(r)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
@@ -181,6 +181,7 @@ func (api *Api) Overview(w http.ResponseWriter, r *http.Request) {
 	if world == nil {
 		return
 	}
+	auditor.Audit(world, project)
 	utils.WriteJson(w, views.Overview(world))
 }
 
@@ -387,10 +388,7 @@ func (api *Api) App(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
-	auditor.Audit(world)
-	if project.Settings.Integrations.Pyroscope != nil {
-		app.AddReport(model.AuditReportProfiling, &model.Widget{Profile: &model.Profile{ApplicationId: app.Id}, Width: "100%"})
-	}
+	auditor.Audit(world, project)
 	utils.WriteJson(w, views.Application(world, app, incidents))
 }
 

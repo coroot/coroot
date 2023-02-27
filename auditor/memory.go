@@ -65,8 +65,11 @@ func (a *appAuditor) memory() {
 	for container, limit := range limitByContainer {
 		report.GetOrCreateChartInGroup(memoryUsageChartTitle, container).SetThreshold("limit", limit.Get())
 	}
-	for _, ch := range report.GetOrCreateChartGroup(memoryUsageChartTitle).Charts {
-		ch.DrillDownLink = model.NewRouterLink("profile").SetParam("report", model.AuditReportProfiling).SetArg("profile", profiling.TypeMemory)
+
+	if a.p.Settings.Integrations.Pyroscope != nil {
+		for _, ch := range report.GetOrCreateChartGroup(memoryUsageChartTitle).Charts {
+			ch.DrillDownLink = model.NewRouterLink("profile").SetParam("report", model.AuditReportProfiling).SetArg("profile", profiling.TypeMemory)
+		}
 	}
 
 	if !seenContainers {

@@ -63,8 +63,10 @@ func (a *appAuditor) cpu() {
 		report.GetOrCreateChartInGroup(cpuChartTitle, container).SetThreshold("limit", limit.Get())
 	}
 
-	for _, ch := range report.GetOrCreateChartGroup(cpuChartTitle).Charts {
-		ch.DrillDownLink = model.NewRouterLink("profile").SetParam("report", model.AuditReportProfiling).SetArg("profile", profiling.TypeCPU)
+	if a.p.Settings.Integrations.Pyroscope != nil {
+		for _, ch := range report.GetOrCreateChartGroup(cpuChartTitle).Charts {
+			ch.DrillDownLink = model.NewRouterLink("profile").SetParam("report", model.AuditReportProfiling).SetArg("profile", profiling.TypeCPU)
+		}
 	}
 
 	if !seenContainers {

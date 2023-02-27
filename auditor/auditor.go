@@ -1,20 +1,23 @@
 package auditor
 
 import (
+	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"sort"
 )
 
 type appAuditor struct {
 	w       *model.World
+	p       *db.Project
 	app     *model.Application
 	reports []*model.AuditReport
 }
 
-func Audit(w *model.World) {
+func Audit(w *model.World, p *db.Project) {
 	for _, app := range w.Applications {
 		a := &appAuditor{
 			w:   w,
+			p:   p,
 			app: app,
 		}
 		a.slo()
@@ -49,6 +52,10 @@ func Audit(w *model.World) {
 				}
 			}
 			app.Reports = append(app.Reports, r)
+		}
+
+		if p.Settings.Integrations.Pyroscope != nil {
+			app.AddReport(model.AuditReportProfiling, &model.Widget{Profile: &model.Profile{ApplicationId: app.Id}, Width: "100%"})
 		}
 	}
 }

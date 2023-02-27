@@ -1,7 +1,6 @@
 package overview
 
 import (
-	"github.com/coroot/coroot/auditor"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
@@ -39,7 +38,6 @@ type Link struct {
 func Render(w *model.World) *View {
 	var apps []*Application
 	used := map[model.ApplicationId]bool{}
-	auditor.Audit(w)
 	for _, a := range w.Applications {
 		app := Application{
 			Id:          a.Id,
