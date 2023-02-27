@@ -175,3 +175,7 @@ func (app *Application) GetClientsConnections() []*Connection {
 	}
 	return res
 }
+
+func (app *Application) AddReport(name AuditReportName, widgets ...*Widget) {
+	app.Reports = append(app.Reports, &AuditReport{Name: name, Widgets: widgets})
+}

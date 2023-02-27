@@ -138,14 +138,14 @@ export default {
 
     methods: {
         setSelection(e) {
-            this.setProfile({mode: e.selection.mode, from: e.selection.from, to: e.selection.to}, e.ctx);
+            this.setProfile({mode: e.selection.mode || 'diff', from: e.selection.from, to: e.selection.to}, e.ctx);
         },
         getProfile() {
             const parts = (this.$route.query.profile || '').split(':');
             return {
                 type: parts[0] || '',
                 name: parts[1] || '',
-                mode: parts[2] || 'diff',
+                mode: parts[2] || '',
                 from: Number(parts[3]) || 0,
                 to: Number(parts[4]) || 0,
             };

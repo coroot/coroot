@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/coroot/coroot/api/views"
+	"github.com/coroot/coroot/auditor"
 	"github.com/coroot/coroot/cache"
 	"github.com/coroot/coroot/constructor"
 	"github.com/coroot/coroot/db"
@@ -385,6 +386,10 @@ func (api *Api) App(w http.ResponseWriter, r *http.Request) {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
 		return
+	}
+	auditor.Audit(world)
+	if project.Settings.Integrations.Pyroscope != nil {
+		app.AddReport(model.AuditReportProfiling, &model.Widget{Profile: &model.Profile{ApplicationId: app.Id}, Width: "100%"})
 	}
 	utils.WriteJson(w, views.Application(world, app, incidents))
 }

@@ -107,5 +107,7 @@ export default {
 </script>
 
 <style scoped>
-
+.gap {
+    gap: 16px;
+}
 </style>
