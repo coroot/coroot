@@ -416,6 +416,8 @@ export default {
                 u.over.appendChild(t);
                 u.over.addEventListener("mouseenter", () => t.style.display = 'block');
                 u.over.addEventListener("mouseleave", () => t.style.display = 'none');
+                const sc = this.$refs["selection-control"];
+                sc && sc.addEventListener("mouseenter", () => t.style.display = 'none');
             }
             const setCursor = (u) => {
                 const { left, top, idx } = u.cursor;

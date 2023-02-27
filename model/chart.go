@@ -3,6 +3,7 @@ package model
 import (
 	"github.com/coroot/coroot/timeseries"
 	"sort"
+	"strings"
 )
 
 type ChartType string
@@ -56,6 +57,65 @@ func (chart *Chart) ShiftColors() *Chart {
 
 func (chart *Chart) AddAnnotation(name string, start, end timeseries.Time, icon string) *Chart {
 	chart.Annotations = append(chart.Annotations, Annotation{X1: start, X2: end, Name: name, Icon: icon})
+	return chart
+}
+
+func (chart *Chart) AddEventsAnnotations(events []*ApplicationEvent) *Chart {
+	if len(events) == 0 {
+		return chart
+	}
+
+	type annotation struct {
+		start  timeseries.Time
+		end    timeseries.Time
+		events []*ApplicationEvent
+	}
+	var annotations []*annotation
+	getLast := func() *annotation {
+		if len(annotations) == 0 {
+			return nil
+		}
+		return annotations[len(annotations)-1]
+	}
+	for _, e := range events {
+		last := getLast()
+		if last == nil || e.Start.Sub(last.start) > 3*chart.Ctx.Step {
+			a := &annotation{start: e.Start, end: e.End, events: []*ApplicationEvent{e}}
+			annotations = append(annotations, a)
+			continue
+		}
+		last.events = append(last.events, e)
+		last.end = e.End
+	}
+
+	for _, a := range annotations {
+		sort.Slice(a.events, func(i, j int) bool {
+			return a.events[i].Type < a.events[j].Type
+		})
+		icon := ""
+		var msgs []string
+		for _, e := range a.events {
+			i := ""
+			switch e.Type {
+			case ApplicationEventTypeRollout:
+				msgs = append(msgs, "deployment "+e.Details)
+				i = "mdi-swap-horizontal-circle-outline"
+			case ApplicationEventTypeSwitchover:
+				msgs = append(msgs, "switchover "+e.Details)
+				i = "mdi-database-sync-outline"
+			case ApplicationEventTypeInstanceUp:
+				msgs = append(msgs, e.Details+" is up")
+				i = "mdi-alert-octagon-outline"
+			case ApplicationEventTypeInstanceDown:
+				msgs = append(msgs, e.Details+" is down")
+				i = "mdi-alert-octagon-outline"
+			}
+			if icon == "" {
+				icon = i
+			}
+		}
+		chart.AddAnnotation(strings.Join(msgs, "<br>"), a.start, a.end, icon)
+	}
 	return chart
 }
 

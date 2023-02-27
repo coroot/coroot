@@ -181,8 +181,8 @@ func getPods(app *model.Application) []string {
 }
 
 func getCharts(app *model.Application, ctx timeseries.Context) (*model.Chart, *model.Chart) {
-	cpuChart := model.NewChart(ctx, "CPU usage by instance, cores").Stacked()
-	memoryChart := model.NewChart(ctx, "Memory (RSS) usage by instance, bytes").Stacked()
+	cpuChart := model.NewChart(ctx, "CPU usage by instance, cores").Stacked().AddEventsAnnotations(app.Events)
+	memoryChart := model.NewChart(ctx, "Memory (RSS) usage by instance, bytes").Stacked().AddEventsAnnotations(app.Events)
 	for _, i := range app.Instances {
 		cpu := timeseries.NewAggregate(timeseries.NanSum)
 		rss := timeseries.NewAggregate(timeseries.NanSum)
