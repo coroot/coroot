@@ -22,6 +22,7 @@ import (
 	"path"
 	"strings"
 	"text/template"
+	"time"
 )
 
 var version = "unknown"
@@ -41,6 +42,7 @@ func main() {
 	sloCheckInterval := kingpin.Flag("slo-check-interval", "how often to check SLO compliance").Envar("SLO_CHECK_INTERVAL").Default("1m").Duration()
 	deploymentsWatchInterval := kingpin.Flag("deployments-watch-interval", "how often to check new deployments").Envar("DEPLOYMENTS_WATCH_INTERVAL").Default("1m").Duration()
 	doNotCheckForUpdates := kingpin.Flag("do-not-check-for-updates", "don't check for new versions").Envar("DO_NOT_CHECK_FOR_UPDATES").Bool()
+	bootstrapPyroscopeUrl := kingpin.Flag("bootstrap-pyroscope-url", "if set, Coroot will add a Pyroscope integration for the default project").Envar("BOOTSTRAP_PYROSCOPE_URL").String()
 
 	kingpin.Version(version)
 	kingpin.Parse()
@@ -56,29 +58,8 @@ func main() {
 		klog.Exitln(err)
 	}
 
-	if *bootstrapPrometheusUrl != "" && *bootstrapRefreshInterval > 0 {
-		projects, err := database.GetProjectNames()
-		if err != nil {
-			klog.Exitln(err)
-		}
-		if len(projects) == 0 {
-			if !prom.IsSelectorValid(*bootstrapPrometheusExtraSelector) {
-				klog.Exitf("invalid Prometheus extra selector: %s", *bootstrapPrometheusExtraSelector)
-			}
-			p := db.Project{
-				Name: "default",
-				Prometheus: db.IntegrationsPrometheus{
-					Url:             *bootstrapPrometheusUrl,
-					RefreshInterval: timeseries.Duration(int64((*bootstrapRefreshInterval).Seconds())),
-					ExtraSelector:   *bootstrapPrometheusExtraSelector,
-				},
-			}
-			klog.Infof("creating project: %s(%s, %s)", p.Name, *bootstrapPrometheusUrl, *bootstrapRefreshInterval)
-			if _, err := database.SaveProject(p); err != nil {
-				klog.Exitln(err)
-			}
-		}
-	}
+	bootstrapPrometheus(database, *bootstrapPrometheusUrl, *bootstrapRefreshInterval, *bootstrapPrometheusExtraSelector)
+	bootstrapPyroscope(database, *bootstrapPyroscopeUrl)
 
 	cacheConfig := cache.Config{
 		Path: path.Join(*dataDir, "cache"),
@@ -205,4 +186,52 @@ func getInstanceUuid(dataDir string) string {
 		}
 	}
 	return instanceUuid
+}
+
+func bootstrapPrometheus(database *db.DB, url string, refreshInterval time.Duration, extraSelector string) {
+	if url == "" || refreshInterval == 0 {
+		return
+	}
+	projects, err := database.GetProjectNames()
+	if err != nil {
+		klog.Exitln(err)
+	}
+	if len(projects) == 0 {
+		if !prom.IsSelectorValid(extraSelector) {
+			klog.Exitf("invalid Prometheus extra selector: %s", extraSelector)
+		}
+		p := db.Project{
+			Name: "default",
+			Prometheus: db.IntegrationsPrometheus{
+				Url:             url,
+				RefreshInterval: timeseries.Duration(int64((refreshInterval).Seconds())),
+				ExtraSelector:   extraSelector,
+			},
+		}
+		klog.Infof("creating project: %s(%s, %s)", p.Name, url, refreshInterval)
+		if _, err := database.SaveProject(p); err != nil {
+			klog.Exitln(err)
+		}
+	}
+}
+
+func bootstrapPyroscope(database *db.DB, url string) {
+	if url == "" {
+		return
+	}
+	projects, err := database.GetProjects()
+	if err != nil {
+		klog.Exitln(err)
+	}
+	if len(projects) != 1 {
+		return
+	}
+	project := projects[0]
+	if project.Settings.Integrations.Pyroscope != nil {
+		return
+	}
+	project.Settings.Integrations.Pyroscope = &db.IntegrationPyroscope{Url: url}
+	if err := database.SaveProjectIntegration(project, db.IntegrationTypePyroscope); err != nil {
+		klog.Exitln(err)
+	}
 }
