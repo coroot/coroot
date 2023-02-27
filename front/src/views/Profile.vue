@@ -154,14 +154,12 @@ export default {
             p = {...this.getProfile(), ...p};
             const profile = `${p.type}:${p.name}:${p.mode}:${p.from}:${p.to}`;
             if (this.$route.query.profile !== profile) {
-                this.$router.push({query: {...this.$route.query, ...ctx, profile}}).catch(err => err);
+                this.$router.replace({query: {...this.$route.query, ...ctx, profile}}).catch(err => err);
             }
         },
         get() {
             this.loading = true;
             this.error = '';
-            // this.view.profile = null;
-            // this.view.chart = null;
             this.$api.getProfile(this.appId, this.$route.query.profile, (data, error) => {
                 this.loading = false;
                 if (error) {

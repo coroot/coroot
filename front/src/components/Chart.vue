@@ -27,15 +27,17 @@
                 </div>
             </div>
 
-            <div v-for="f in flags" class="flag" :style="{left: f.left+'px', height: f.height+'px'}">
-                <v-tooltip bottom>
-                    <template #activator="{on}">
-                        <v-icon v-on="on" small style="z-index: 2">{{f.icon}}</v-icon>
-                    </template>
-                    <div v-html="f.type" class="text-center"/>
-                </v-tooltip>
-                <div class="line" style="z-index: 2"></div>
-            </div>
+            <template v-if="!(selection && selection.to > selection.from )">
+                <div v-for="f in flags" class="flag" :style="{left: f.left+'px', height: f.height+'px'}">
+                    <v-tooltip bottom>
+                        <template #activator="{on}">
+                            <v-icon v-on="on" small style="z-index: 2">{{f.icon}}</v-icon>
+                        </template>
+                        <div v-html="f.type" class="text-center"/>
+                    </v-tooltip>
+                    <div class="line" style="z-index: 2"></div>
+                </div>
+            </template>
         </div>
 
         <div ref="tooltip" style="display: none; position: absolute; z-index: 1;">
