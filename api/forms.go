@@ -1,10 +1,12 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/notifications"
+	"github.com/coroot/coroot/profiling"
 	"github.com/coroot/coroot/prom"
 	"github.com/coroot/coroot/utils"
 	"net/http"
@@ -35,18 +37,10 @@ func ReadAndValidate(r *http.Request, f Form) error {
 
 type ProjectForm struct {
 	Name string `json:"name"`
-
-	Prometheus db.Prometheus `json:"prometheus"`
 }
 
 func (f *ProjectForm) Valid() bool {
 	if !slugRe.MatchString(f.Name) {
-		return false
-	}
-	if _, err := url.Parse(f.Prometheus.Url); err != nil {
-		return false
-	}
-	if !prom.IsSelectorValid(f.Prometheus.ExtraSelector) {
 		return false
 	}
 	return true
@@ -122,6 +116,14 @@ func (f *ApplicationCategoryForm) Valid() bool {
 	return true
 }
 
+type ApplicationSettingsPyroscopeForm struct {
+	db.ApplicationSettingsPyroscope
+}
+
+func (f *ApplicationSettingsPyroscopeForm) Valid() bool {
+	return true
+}
+
 type IntegrationsForm struct {
 	BaseUrl string `json:"base_url"`
 }
@@ -137,12 +139,16 @@ func (f *IntegrationsForm) Valid() bool {
 type IntegrationForm interface {
 	Form
 	Get(project *db.Project, masked bool)
-	Update(project *db.Project, clear bool)
-	GetNotificationClient() notifications.NotificationClient
+	Update(ctx context.Context, project *db.Project, clear bool) error
+	Test(ctx context.Context, project *db.Project) error
 }
 
 func NewIntegrationForm(t db.IntegrationType) IntegrationForm {
 	switch t {
+	case db.IntegrationTypePrometheus:
+		return &IntegrationFormPrometheus{}
+	case db.IntegrationTypePyroscope:
+		return &IntegrationFormPyroscope{}
 	case db.IntegrationTypeSlack:
 		return &IntegrationFormSlack{}
 	case db.IntegrationTypeTeams:
@@ -153,6 +159,96 @@ func NewIntegrationForm(t db.IntegrationType) IntegrationForm {
 		return &IntegrationFormOpsgenie{}
 	}
 	return nil
+}
+
+type IntegrationFormPrometheus struct {
+	db.IntegrationsPrometheus
+}
+
+func (f *IntegrationFormPrometheus) Valid() bool {
+	if _, err := url.Parse(f.IntegrationsPrometheus.Url); err != nil {
+		return false
+	}
+	if !prom.IsSelectorValid(f.IntegrationsPrometheus.ExtraSelector) {
+		return false
+	}
+	return true
+}
+
+func (f *IntegrationFormPrometheus) Get(project *db.Project, masked bool) {
+	cfg := project.Prometheus
+	if cfg.Url == "" {
+		f.RefreshInterval = db.DefaultRefreshInterval
+		return
+	}
+	f.IntegrationsPrometheus = cfg
+	if masked {
+		f.Url = "http://<hidden>"
+	}
+}
+
+func (f *IntegrationFormPrometheus) Update(ctx context.Context, project *db.Project, clear bool) error {
+	if err := f.Test(ctx, project); err != nil {
+		return err
+	}
+	project.Prometheus = f.IntegrationsPrometheus
+	return nil
+}
+
+func (f *IntegrationFormPrometheus) Test(ctx context.Context, project *db.Project) error {
+	user, password := "", ""
+	if f.BasicAuth != nil {
+		user, password = f.BasicAuth.User, f.BasicAuth.Password
+	}
+	client, err := prom.NewApiClient(f.Url, user, password, f.TlsSkipVerify, f.ExtraSelector)
+	if err != nil {
+		return err
+	}
+	if err := client.Ping(ctx); err != nil {
+		return err
+	}
+	return nil
+}
+
+type IntegrationFormPyroscope struct {
+	db.IntegrationPyroscope
+}
+
+func (f *IntegrationFormPyroscope) Valid() bool {
+	if _, err := url.Parse(f.Url); err != nil {
+		return false
+	}
+	return true
+}
+
+func (f *IntegrationFormPyroscope) Get(project *db.Project, masked bool) {
+	cfg := project.Settings.Integrations.Pyroscope
+	if cfg == nil {
+		return
+	}
+	f.IntegrationPyroscope = *cfg
+	if masked {
+		f.Url = "http://<hidden>"
+	}
+}
+
+func (f *IntegrationFormPyroscope) Update(ctx context.Context, project *db.Project, clear bool) error {
+	cfg := &f.IntegrationPyroscope
+	if clear {
+		cfg = nil
+	} else {
+		if err := f.Test(ctx, project); err != nil {
+			return err
+		}
+	}
+	project.Settings.Integrations.Pyroscope = cfg
+	return nil
+}
+
+func (f *IntegrationFormPyroscope) Test(ctx context.Context, project *db.Project) error {
+	client := profiling.NewPyroscope(f.Url)
+	_, err := client.Metadata(ctx)
+	return err
 }
 
 type IntegrationFormSlack struct {
@@ -179,16 +275,17 @@ func (f *IntegrationFormSlack) Get(project *db.Project, masked bool) {
 	}
 }
 
-func (f *IntegrationFormSlack) Update(project *db.Project, clear bool) {
+func (f *IntegrationFormSlack) Update(ctx context.Context, project *db.Project, clear bool) error {
 	cfg := &f.IntegrationSlack
 	if clear {
 		cfg = nil
 	}
 	project.Settings.Integrations.Slack = cfg
+	return nil
 }
 
-func (f *IntegrationFormSlack) GetNotificationClient() notifications.NotificationClient {
-	return notifications.NewSlack(f.Token, f.DefaultChannel)
+func (f *IntegrationFormSlack) Test(ctx context.Context, project *db.Project) error {
+	return notifications.NewSlack(f.Token, f.DefaultChannel).SendIncident(ctx, project.Settings.Integrations.BaseUrl, testNotification(project))
 }
 
 type IntegrationFormTeams struct {
@@ -215,16 +312,17 @@ func (f *IntegrationFormTeams) Get(project *db.Project, masked bool) {
 	}
 }
 
-func (f *IntegrationFormTeams) Update(project *db.Project, clear bool) {
+func (f *IntegrationFormTeams) Update(ctx context.Context, project *db.Project, clear bool) error {
 	cfg := &f.IntegrationTeams
 	if clear {
 		cfg = nil
 	}
 	project.Settings.Integrations.Teams = cfg
+	return nil
 }
 
-func (f *IntegrationFormTeams) GetNotificationClient() notifications.NotificationClient {
-	return notifications.NewTeams(f.WebhookUrl)
+func (f *IntegrationFormTeams) Test(ctx context.Context, project *db.Project) error {
+	return notifications.NewTeams(f.WebhookUrl).SendIncident(ctx, project.Settings.Integrations.BaseUrl, testNotification(project))
 }
 
 type IntegrationFormPagerduty struct {
@@ -250,16 +348,17 @@ func (f *IntegrationFormPagerduty) Get(project *db.Project, masked bool) {
 	}
 }
 
-func (f *IntegrationFormPagerduty) Update(project *db.Project, clear bool) {
+func (f *IntegrationFormPagerduty) Update(ctx context.Context, project *db.Project, clear bool) error {
 	cfg := &f.IntegrationPagerduty
 	if clear {
 		cfg = nil
 	}
 	project.Settings.Integrations.Pagerduty = cfg
+	return nil
 }
 
-func (f *IntegrationFormPagerduty) GetNotificationClient() notifications.NotificationClient {
-	return notifications.NewPagerduty(f.IntegrationKey)
+func (f *IntegrationFormPagerduty) Test(ctx context.Context, project *db.Project) error {
+	return notifications.NewPagerduty(f.IntegrationKey).SendIncident(ctx, project.Settings.Integrations.BaseUrl, testNotification(project))
 }
 
 type IntegrationFormOpsgenie struct {
@@ -285,14 +384,30 @@ func (f *IntegrationFormOpsgenie) Get(project *db.Project, masked bool) {
 	}
 }
 
-func (f *IntegrationFormOpsgenie) Update(project *db.Project, clear bool) {
+func (f *IntegrationFormOpsgenie) Update(ctx context.Context, project *db.Project, clear bool) error {
 	cfg := &f.IntegrationOpsgenie
 	if clear {
 		cfg = nil
 	}
 	project.Settings.Integrations.Opsgenie = cfg
+	return nil
 }
 
-func (f *IntegrationFormOpsgenie) GetNotificationClient() notifications.NotificationClient {
-	return notifications.NewOpsgenie(f.ApiKey, f.EUInstance)
+func (f *IntegrationFormOpsgenie) Test(ctx context.Context, project *db.Project) error {
+	return notifications.NewOpsgenie(f.ApiKey, f.EUInstance).SendIncident(ctx, project.Settings.Integrations.BaseUrl, testNotification(project))
+}
+
+func testNotification(project *db.Project) *db.IncidentNotification {
+	return &db.IncidentNotification{
+		ProjectId:     project.Id,
+		ApplicationId: model.NewApplicationId("default", model.ApplicationKindDeployment, "test-alert-fake-app"),
+		IncidentKey:   "fake",
+		Status:        model.INFO,
+		Details: &db.IncidentNotificationDetails{
+			Reports: []db.IncidentNotificationDetailsReport{
+				{Name: model.AuditReportSLO, Check: model.Checks.SLOLatency.Title, Message: "error budget burn rate is 20x within 1 hour"},
+				{Name: model.AuditReportNetwork, Check: model.Checks.NetworkRTT.Title, Message: "high network latency to 2 upstream services"},
+			},
+		},
+	}
 }

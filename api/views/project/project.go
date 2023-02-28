@@ -1,19 +1,18 @@
 package project
 
 import (
+	"fmt"
 	"github.com/coroot/coroot/cache"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
-	"github.com/coroot/coroot/timeseries"
+	"github.com/coroot/coroot/utils"
 )
 
 type Prometheus struct {
-	Status model.Status `json:"status"`
-	Error  string       `json:"error"`
-	Cache  struct {
-		LagMax timeseries.Duration `json:"lag_max"`
-		LagAvg timeseries.Duration `json:"lag_avg"`
-	} `json:"cache"`
+	Status  model.Status `json:"status"`
+	Message string       `json:"message"`
+	Error   string       `json:"error"`
+	Action  string       `json:"action"`
 }
 
 type NodeAgent struct {
@@ -54,22 +53,32 @@ func RenderStatus(p *db.Project, cacheStatus *cache.Status, w *model.World) *Sta
 		return res
 	}
 
-	if cacheStatus.Error != "" {
-		res.Prometheus.Error = cacheStatus.Error
+	res.Prometheus.Status = model.OK
+	res.Prometheus.Message = "ok"
+	switch {
+	case p.Prometheus.Url == "":
 		res.Prometheus.Status = model.WARNING
-		res.Status = model.WARNING
-	} else {
-		res.Prometheus.Cache.LagMax = cacheStatus.LagMax
-		res.Prometheus.Cache.LagAvg = cacheStatus.LagAvg
-		switch {
-		case w == nil:
+		res.Prometheus.Message = "Prometheus is not configured"
+		res.Prometheus.Action = "configure"
+	case cacheStatus.Error != "":
+		res.Prometheus.Status = model.WARNING
+		res.Prometheus.Message = "An error has been occurred while querying Prometheus"
+		res.Prometheus.Error = cacheStatus.Error
+		res.Prometheus.Action = "configure"
+	case cacheStatus.LagMax > 5*p.Prometheus.RefreshInterval:
+		msg := fmt.Sprintf("Prometheus cache is %s behind.", utils.FormatDuration(cacheStatus.LagAvg, 1))
+		if w == nil {
 			res.Prometheus.Status = model.WARNING
-			res.Status = model.WARNING
-		case cacheStatus.LagMax > 5*p.Prometheus.RefreshInterval:
+			msg += " Please wait until synchronization is complete."
+		} else {
 			res.Prometheus.Status = model.INFO
-		default:
-			res.Prometheus.Status = model.OK
 		}
+		res.Prometheus.Message = msg
+		res.Prometheus.Action = "wait"
+	}
+
+	if res.Prometheus.Status >= model.WARNING {
+		res.Status = model.WARNING
 	}
 
 	if w == nil {

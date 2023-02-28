@@ -1,19 +1,19 @@
 <template>
-    <div>
+    <div style="max-width: 800px">
         <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
             {{error}}
         </v-alert>
         <div v-if="status">
             <div class="text-truncate">
-                <Led :status="status.prometheus.status === 'warning' ? 'warning' : 'ok'" />
+                <Led :status="status.prometheus.status" />
                 <span class="font-weight-medium">prometheus</span>:
                 <span v-if="status.prometheus.error">
                     {{status.prometheus.error}}
                 </span>
-                <span v-else-if="status.prometheus.status !== 'ok'">
-                    cache is {{$format.duration(status.prometheus.cache.lag_avg, 'm')}} behind
+                <span v-else>
+                    {{status.prometheus.message}}
                 </span>
-                <span v-else>ok</span>
+                <router-link v-if="status.prometheus.action === 'configure'" :to="{params: {tab: 'prometheus'}}">configure</router-link>
             </div>
 
             <div class="d-flex align-center mt-2">
@@ -154,7 +154,6 @@ export default {
                 if (this.status.error) {
                     this.error = this.status.error;
                     this.status = null;
-                    return;
                 }
             })
         },

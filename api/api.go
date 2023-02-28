@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/coroot/coroot/api/views"
+	"github.com/coroot/coroot/auditor"
 	"github.com/coroot/coroot/cache"
 	"github.com/coroot/coroot/constructor"
 	"github.com/coroot/coroot/db"
@@ -57,7 +58,6 @@ func (api *Api) Project(w http.ResponseWriter, r *http.Request) {
 
 	case http.MethodGet:
 		res := ProjectForm{}
-		res.Prometheus.RefreshInterval = db.DefaultRefreshInterval
 		if id != "" {
 			project, err := api.db.GetProject(id)
 			if err != nil {
@@ -70,10 +70,6 @@ func (api *Api) Project(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			res.Name = project.Name
-			res.Prometheus = project.Prometheus
-			if api.readOnly {
-				res.Prometheus.Url = "http://<hidden>"
-			}
 		}
 		utils.WriteJson(w, res)
 
@@ -88,27 +84,8 @@ func (api *Api) Project(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		project := db.Project{
-			Id:         id,
-			Name:       form.Name,
-			Prometheus: form.Prometheus,
-		}
-		p := project.Prometheus
-		user, password := "", ""
-		if p.BasicAuth != nil {
-			user, password = p.BasicAuth.User, p.BasicAuth.Password
-		}
-		promClient, err := prom.NewApiClient(p.Url, user, password, p.TlsSkipVerify, p.ExtraSelector)
-		if err != nil {
-			klog.Errorln("failed to get api client:", err)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
-		defer cancel()
-		if err := promClient.Ping(ctx); err != nil {
-			klog.Warningln("failed to ping prometheus:", err)
-			http.Error(w, err.Error(), http.StatusBadGateway)
-			return
+			Id:   id,
+			Name: form.Name,
 		}
 		id, err := api.db.SaveProject(project)
 		if err != nil {
@@ -195,7 +172,7 @@ func (api *Api) Status(w http.ResponseWriter, r *http.Request) {
 }
 
 func (api *Api) Overview(w http.ResponseWriter, r *http.Request) {
-	world, _, err := api.loadWorldByRequest(r)
+	world, project, err := api.loadWorldByRequest(r)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
@@ -204,6 +181,7 @@ func (api *Api) Overview(w http.ResponseWriter, r *http.Request) {
 	if world == nil {
 		return
 	}
+	auditor.Audit(world, project)
 	utils.WriteJson(w, views.Overview(world))
 }
 
@@ -327,39 +305,33 @@ func (api *Api) Integration(w http.ResponseWriter, r *http.Request) {
 	case http.MethodPost, http.MethodPut:
 		if err := ReadAndValidate(r, form); err != nil {
 			klog.Warningln("bad request:", err)
-			http.Error(w, "", http.StatusBadRequest)
+			http.Error(w, "invalid data", http.StatusBadRequest)
 			return
 		}
 	}
 
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
 	switch r.Method {
 	case http.MethodPost:
-		n := db.IncidentNotification{
-			ProjectId:     project.Id,
-			ApplicationId: model.NewApplicationId("default", model.ApplicationKindDeployment, "test-alert-fake-app"),
-			IncidentKey:   "fake",
-			Status:        model.INFO,
-			Details: &db.IncidentNotificationDetails{
-				Reports: []db.IncidentNotificationDetailsReport{
-					{Name: model.AuditReportSLO, Check: model.Checks.SLOLatency.Title, Message: "error budget burn rate is 20x within 1 hour"},
-					{Name: model.AuditReportNetwork, Check: model.Checks.NetworkRTT.Title, Message: "high network latency to 2 upstream services"},
-				},
-			},
-		}
-		if err := form.GetNotificationClient().SendIncident(r.Context(), project.Settings.Integrations.BaseUrl, &n); err != nil {
+		if err := form.Test(ctx, project); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 		}
 		return
 	case http.MethodPut:
-		form.Update(project, false)
+		if err := form.Update(ctx, project, false); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		}
 	case http.MethodDelete:
-		form.Update(project, true)
+		if err := form.Update(ctx, project, true); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		}
 	default:
 		http.Error(w, "", http.StatusMethodNotAllowed)
 		return
 	}
 
-	if err := api.db.SaveProjectSettings(project); err != nil {
+	if err := api.db.SaveProjectIntegration(project, t); err != nil {
 		klog.Errorln("failed to save:", err)
 		http.Error(w, "", http.StatusInternalServerError)
 		return
@@ -392,7 +364,7 @@ func (api *Api) App(w http.ResponseWriter, r *http.Request) {
 	id, err := model.NewApplicationIdFromString(mux.Vars(r)["app"])
 	if err != nil {
 		klog.Warningln(err)
-		http.Error(w, "invalid application_id: "+mux.Vars(r)["app"], http.StatusBadRequest)
+		http.Error(w, "invalid application id: "+mux.Vars(r)["app"], http.StatusBadRequest)
 		return
 	}
 	world, project, err := api.loadWorldByRequest(r)
@@ -416,6 +388,7 @@ func (api *Api) App(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
+	auditor.Audit(world, project)
 	utils.WriteJson(w, views.Application(world, app, incidents))
 }
 
@@ -533,6 +506,60 @@ func (api *Api) Check(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (api *Api) Profile(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	projectId := db.ProjectId(vars["project"])
+	appId, err := model.NewApplicationIdFromString(vars["app"])
+	if err != nil {
+		klog.Warningln(err)
+		http.Error(w, "invalid application id: "+vars["app"], http.StatusBadRequest)
+		return
+	}
+
+	if r.Method == http.MethodPost {
+		if api.readOnly {
+			return
+		}
+		var form ApplicationSettingsPyroscopeForm
+		if err := ReadAndValidate(r, &form); err != nil {
+			klog.Warningln("bad request:", err)
+			http.Error(w, "invalid data", http.StatusBadRequest)
+			return
+		}
+		klog.Infoln(form)
+		if err := api.db.SaveApplicationSetting(projectId, appId, &form.ApplicationSettingsPyroscope); err != nil {
+			klog.Errorln(err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		return
+	}
+
+	world, project, err := api.loadWorldByRequest(r)
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	if world == nil {
+		return
+	}
+	app := world.GetApplication(appId)
+	if app == nil {
+		klog.Warningln("application not found:", appId)
+		http.Error(w, "Application not found", http.StatusNotFound)
+		return
+	}
+	settings, err := api.db.GetApplicationSettings(project.Id, app.Id)
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	q := r.URL.Query()
+	utils.WriteJson(w, views.Profile(r.Context(), project, app, settings, q, world.Ctx))
+}
+
 func (api *Api) Node(w http.ResponseWriter, r *http.Request) {
 	nodeName := mux.Vars(r)["node"]
 	world, _, err := api.loadWorldByRequest(r)
@@ -594,8 +621,8 @@ func (api *Api) loadWorldByRequest(r *http.Request) (*model.World, *db.Project, 
 
 	now := timeseries.Now()
 	q := r.URL.Query()
-	from := utils.ParseTimeFromUrl(now, q, "from", now.Add(-timeseries.Hour))
-	to := utils.ParseTimeFromUrl(now, q, "to", now)
+	from := utils.ParseTime(now, q.Get("from"), now.Add(-timeseries.Hour))
+	to := utils.ParseTime(now, q.Get("to"), now)
 
 	incidentKey := q.Get("incident")
 	if incidentKey != "" {

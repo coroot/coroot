@@ -55,14 +55,6 @@ type NetInterface struct {
 	Tx   string
 }
 
-type TableCellLink struct {
-	Type string `json:"type"`
-	Key  string `json:"key"`
-
-	From timeseries.Time `json:"from"`
-	To   timeseries.Time `json:"to"`
-}
-
 type TableCell struct {
 	Icon          *Icon                  `json:"icon"`
 	Value         string                 `json:"value"`
@@ -71,7 +63,7 @@ type TableCell struct {
 	Tags          []string               `json:"tags"`
 	Unit          string                 `json:"unit"`
 	Status        *Status                `json:"status"`
-	Link          *TableCellLink         `json:"link"`
+	Link          *RouterLink            `json:"link"`
 	Progress      *Progress              `json:"progress"`
 	NetInterfaces []NetInterface         `json:"net_interfaces"`
 	Chart         *timeseries.TimeSeries `json:"chart"`
@@ -125,11 +117,6 @@ func (c *TableCell) AddTag(format string, a ...any) *TableCell {
 	if format != "" {
 		c.Tags = append(c.Tags, fmt.Sprintf(format, a...))
 	}
-	return c
-}
-
-func (c *TableCell) SetLink(typ, key string, from, to timeseries.Time) *TableCell {
-	c.Link = &TableCellLink{Type: typ, Key: key, From: from, To: to}
 	return c
 }
 

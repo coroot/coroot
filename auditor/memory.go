@@ -2,6 +2,7 @@ package auditor
 
 import (
 	"github.com/coroot/coroot/model"
+	"github.com/coroot/coroot/profiling"
 	"github.com/coroot/coroot/timeseries"
 	"math"
 )
@@ -45,7 +46,7 @@ func (a *appAuditor) memory() {
 			nodeName := node.Name.Value()
 			if relevantNodes[nodeName] == nil {
 				relevantNodes[nodeName] = node
-				report.GetOrCreateChart("Node memory usage (unreclaimable), bytes").
+				report.GetOrCreateChart("Node memory usage (unreclaimable), %").
 					AddSeries(
 						nodeName,
 						timeseries.Aggregate2(
@@ -64,6 +65,13 @@ func (a *appAuditor) memory() {
 	for container, limit := range limitByContainer {
 		report.GetOrCreateChartInGroup(memoryUsageChartTitle, container).SetThreshold("limit", limit.Get())
 	}
+
+	if a.p.Settings.Integrations.Pyroscope != nil {
+		for _, ch := range report.GetOrCreateChartGroup(memoryUsageChartTitle).Charts {
+			ch.DrillDownLink = model.NewRouterLink("profile").SetParam("report", model.AuditReportProfiling).SetArg("profile", profiling.TypeMemory)
+		}
+	}
+
 	if !seenContainers {
 		oomCheck.SetStatus(model.UNKNOWN, "no data")
 		leakCheck.SetStatus(model.UNKNOWN, "no data")

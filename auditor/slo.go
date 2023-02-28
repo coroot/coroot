@@ -163,7 +163,8 @@ func clientRequests(app *model.Application, report *model.AuditReport) {
 		}
 	}
 	for id, s := range clients {
-		client := model.NewTableCell(id.Name).SetLink("application", id.String(), 0, 0)
+		client := model.NewTableCell(id.Name)
+		client.Link = model.NewRouterLink(id.Name).SetRoute("application").SetParam("id", id)
 		for _, p := range s.protocols.Items() {
 			client.AddTag(p)
 		}

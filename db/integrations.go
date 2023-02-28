@@ -1,14 +1,19 @@
 package db
 
-import "fmt"
+import (
+	"fmt"
+	"github.com/coroot/coroot/timeseries"
+)
 
 type IntegrationType string
 
 const (
-	IntegrationTypeSlack     IntegrationType = "slack"
-	IntegrationTypePagerduty IntegrationType = "pagerduty"
-	IntegrationTypeTeams     IntegrationType = "teams"
-	IntegrationTypeOpsgenie  IntegrationType = "opsgenie"
+	IntegrationTypePrometheus IntegrationType = "prometheus"
+	IntegrationTypePyroscope  IntegrationType = "pyroscope"
+	IntegrationTypeSlack      IntegrationType = "slack"
+	IntegrationTypePagerduty  IntegrationType = "pagerduty"
+	IntegrationTypeTeams      IntegrationType = "teams"
+	IntegrationTypeOpsgenie   IntegrationType = "opsgenie"
 )
 
 type Integrations struct {
@@ -18,6 +23,8 @@ type Integrations struct {
 	Pagerduty *IntegrationPagerduty `json:"pagerduty,omitempty"`
 	Teams     *IntegrationTeams     `json:"teams,omitempty"`
 	Opsgenie  *IntegrationOpsgenie  `json:"opsgenie,omitempty"`
+
+	Pyroscope *IntegrationPyroscope `json:"pyroscope,omitempty"`
 }
 
 type IntegrationInfo struct {
@@ -71,6 +78,20 @@ func (integrations Integrations) GetInfo() []IntegrationInfo {
 	return res
 }
 
+type IntegrationsPrometheus struct {
+	Url             string              `json:"url"`
+	RefreshInterval timeseries.Duration `json:"refresh_interval"`
+	TlsSkipVerify   bool                `json:"tls_skip_verify"`
+	BasicAuth       *BasicAuth          `json:"basic_auth"`
+	ExtraSelector   string              `json:"extra_selector"`
+}
+
+type IntegrationPyroscope struct {
+	Url           string     `json:"url"`
+	TlsSkipVerify bool       `json:"tls_skip_verify"`
+	BasicAuth     *BasicAuth `json:"basic_auth,omitempty"`
+}
+
 type IntegrationSlack struct {
 	Token          string `json:"token"`
 	DefaultChannel string `json:"default_channel"`
@@ -96,11 +117,16 @@ type IntegrationOpsgenie struct {
 	Incidents  bool   `json:"incidents"`
 }
 
+type BasicAuth struct {
+	User     string `json:"user"`
+	Password string `json:"password"`
+}
+
 func (db *DB) SaveIntegrationsBaseUrl(id ProjectId, baseUrl string) error {
 	p, err := db.GetProject(id)
 	if err != nil {
 		return err
 	}
 	p.Settings.Integrations.BaseUrl = baseUrl
-	return db.SaveProjectSettings(p)
+	return db.saveProjectSettings(p)
 }

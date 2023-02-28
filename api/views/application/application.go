@@ -1,7 +1,6 @@
 package application
 
 import (
-	"github.com/coroot/coroot/auditor"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
@@ -56,8 +55,6 @@ type InstanceLink struct {
 }
 
 func Render(world *model.World, app *model.Application, incidents []db.Incident) *View {
-	auditor.Audit(world)
-
 	appMap := &AppMap{
 		Application: &Application{
 			Id:         app.Id,
@@ -160,10 +157,11 @@ func Render(world *model.World, app *model.Application, incidents []db.Incident)
 		}
 	}
 
-	return &View{
+	v := &View{
 		AppMap:  appMap,
 		Reports: app.Reports,
 	}
+	return v
 }
 
 func (m *AppMap) addDependency(w *model.World, id model.ApplicationId) {

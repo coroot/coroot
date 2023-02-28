@@ -20,7 +20,8 @@ func (a *appAuditor) deployments() {
 		ds := statuses[i]
 		startedAt := utils.FormatDuration(now.Sub(ds.Deployment.StartedAt), 1)
 		from, to := ds.Deployment.StartedAt.Add(-30*timeseries.Minute), ds.Deployment.StartedAt.Add(30*timeseries.Minute)
-		version := model.NewTableCell().SetStatus(ds.Status, ds.Deployment.Version()).AddTag(startedAt+" ago").SetLink("report", string(model.AuditReportInstances), from, to)
+		version := model.NewTableCell().SetStatus(ds.Status, ds.Deployment.Version()).AddTag(startedAt + " ago")
+		version.Link = model.NewRouterLink(ds.Deployment.Version()).SetParam("report", model.AuditReportInstances).SetArg("from", from).SetArg("to", to)
 		active := model.NewTableCell(utils.FormatDuration(ds.Lifetime, 1)).SetShortValue(utils.FormatDurationShort(ds.Lifetime, 1))
 
 		summary := model.NewTableCell()

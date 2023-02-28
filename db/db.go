@@ -53,6 +53,7 @@ func Open(dataDir string, pgConnString string) (*DB, error) {
 		&Incident{},
 		&IncidentNotification{},
 		&ApplicationDeployment{},
+		&ApplicationSettings{},
 	)
 	if err != nil {
 		return nil, err

@@ -1,22 +1,23 @@
 package auditor
 
 import (
+	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
-	"github.com/coroot/coroot/timeseries"
 	"sort"
-	"strings"
 )
 
 type appAuditor struct {
 	w       *model.World
+	p       *db.Project
 	app     *model.Application
 	reports []*model.AuditReport
 }
 
-func Audit(w *model.World) {
+func Audit(w *model.World, p *db.Project) {
 	for _, app := range w.Applications {
 		a := &appAuditor{
 			w:   w,
+			p:   p,
 			app: app,
 		}
 		a.slo()
@@ -52,6 +53,10 @@ func Audit(w *model.World) {
 			}
 			app.Reports = append(app.Reports, r)
 		}
+
+		if p.Settings.Integrations.Pyroscope != nil {
+			app.AddReport(model.AuditReportProfiling, &model.Widget{Profile: &model.Profile{ApplicationId: app.Id}, Width: "100%"})
+		}
 	}
 }
 
@@ -68,7 +73,7 @@ func enrichWidgets(widgets []*model.Widget, events []*model.ApplicationEvent) []
 			if len(w.Chart.Series) == 0 {
 				continue
 			}
-			addAnnotations(events, w.Chart)
+			w.Chart.AddEventsAnnotations(events)
 		}
 		if w.ChartGroup != nil {
 			var charts []*model.Chart
@@ -77,7 +82,7 @@ func enrichWidgets(widgets []*model.Widget, events []*model.ApplicationEvent) []
 					continue
 				}
 				charts = append(charts, ch)
-				addAnnotations(events, ch)
+				ch.AddEventsAnnotations(events)
 			}
 			if len(charts) == 0 {
 				continue
@@ -88,68 +93,11 @@ func enrichWidgets(widgets []*model.Widget, events []*model.ApplicationEvent) []
 		if w.LogPatterns != nil {
 			for _, p := range w.LogPatterns.Patterns {
 				if p.Instances != nil {
-					addAnnotations(events, p.Instances)
+					p.Instances.AddEventsAnnotations(events)
 				}
 			}
 		}
 		res = append(res, w)
 	}
 	return res
-}
-
-type annotation struct {
-	start  timeseries.Time
-	end    timeseries.Time
-	events []*model.ApplicationEvent
-}
-
-func addAnnotations(events []*model.ApplicationEvent, chart *model.Chart) {
-	if len(events) == 0 {
-		return
-	}
-	var annotations []*annotation
-	getLast := func() *annotation {
-		if len(annotations) == 0 {
-			return nil
-		}
-		return annotations[len(annotations)-1]
-	}
-	for _, e := range events {
-		last := getLast()
-		if last == nil || e.Start.Sub(last.start) > 3*chart.Ctx.Step {
-			a := &annotation{start: e.Start, end: e.End, events: []*model.ApplicationEvent{e}}
-			annotations = append(annotations, a)
-			continue
-		}
-		last.events = append(last.events, e)
-		last.end = e.End
-	}
-	for _, a := range annotations {
-		sort.Slice(a.events, func(i, j int) bool {
-			return a.events[i].Type < a.events[j].Type
-		})
-		icon := ""
-		var msgs []string
-		for _, e := range a.events {
-			i := ""
-			switch e.Type {
-			case model.ApplicationEventTypeRollout:
-				msgs = append(msgs, "deployment "+e.Details)
-				i = "mdi-swap-horizontal-circle-outline"
-			case model.ApplicationEventTypeSwitchover:
-				msgs = append(msgs, "switchover "+e.Details)
-				i = "mdi-database-sync-outline"
-			case model.ApplicationEventTypeInstanceUp:
-				msgs = append(msgs, e.Details+" is up")
-				i = "mdi-alert-octagon-outline"
-			case model.ApplicationEventTypeInstanceDown:
-				msgs = append(msgs, e.Details+" is down")
-				i = "mdi-alert-octagon-outline"
-			}
-			if icon == "" {
-				icon = i
-			}
-		}
-		chart.AddAnnotation(strings.Join(msgs, "<br>"), a.start, a.end, icon)
-	}
 }

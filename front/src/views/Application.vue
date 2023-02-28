@@ -14,16 +14,16 @@
 
         <v-tabs v-if="app.reports && app.reports.length" height="40" show-arrows slider-size="2">
             <v-tab v-for="r in app.reports" :key="r.name" :to="{params: {report: r.name}, query: $route.query}">
-                <Led :status="r.status" />
+                <Led v-if="r && r.checks" :status="r.status" />
                 {{r.name}}
             </v-tab>
         </v-tabs>
 
-        <v-card v-if="r" outlined class="my-4 pa-4 pb-2">
+        <v-card v-if="r && r.checks" outlined class="my-4 pa-4 pb-2">
             <Check v-for="check in r.checks" :key="check.id" :appId="id" :check="check" class="mb-2" />
         </v-card>
 
-        <Dashboard v-if="r" :name="r.name" :widgets="r.widgets" class="mt-3" />
+        <Dashboard v-if="r" :name="r.name" :widgets="r.widgets" />
     </div>
     <NoData v-else-if="!loading" />
 </div>

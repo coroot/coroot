@@ -47,7 +47,7 @@
                         <Led v-if="c.status && c.value" :status="c.status" />
                     </div>
                     <div>
-                        <router-link v-if="c.value && c.link" :to="link(c.link)">{{c.value}}</router-link>
+                        <router-link v-if="c.value && c.link" :to="{...{query: $route.query}, ...c.link}">{{c.value}}</router-link>
                         <span v-else :class="{'grey--text': c.is_stub}">{{(smallScreen && c.short_value ? c.short_value : c.value) || '&mdash;'}}</span>
                         <span v-if="c.unit && c.value" class="caption grey--text ml-1">{{c.unit}}</span>
                         <div v-if="c.tags && !smallScreen">
@@ -75,27 +75,6 @@ export default {
     computed: {
         smallScreen() {
             return this.$vuetify.breakpoint.xsOnly;
-        },
-    },
-
-    methods: {
-        link(l) {
-            const q = {...this.$route.query};
-            if (l.from) {
-                q.from = l.from;
-            }
-            if (l.to) {
-                q.to = l.to;
-            }
-            switch (l.type) {
-            case 'application':
-                return {name: 'application', params: {id: l.key}, query: q};
-            case 'node':
-                return {name: 'node', params: {name: l.key}, query: q};
-            case 'report':
-                return {name: 'application', params: {report: l.key}, query: q};
-            }
-            return {};
         },
     },
 }

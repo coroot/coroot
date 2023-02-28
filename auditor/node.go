@@ -18,7 +18,7 @@ func AuditNode(w *model.World, node *model.Node) *model.AuditReport {
 		Stacked().
 		Sorted().
 		SetThreshold("total", node.CpuCapacity).
-		AddMany(timeseries.Top(cpuConsumers(node), timeseries.NanSum, 5))
+		AddMany(timeseries.Top(cpuConsumers(node), timeseries.Max, 5))
 
 	used := timeseries.Sub(
 		node.MemoryTotalBytes,

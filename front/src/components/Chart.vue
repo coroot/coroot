@@ -4,18 +4,40 @@
             <slot name="title">
                 <span v-html="title"></span>
             </slot>
+
+            <v-btn v-if="link" :to="link" x-small color="primary" class="ml-3">
+                {{link.title}}
+            </v-btn>
         </div>
 
         <div ref="uplot" v-on-resize="redraw" style="position: relative">
-            <div v-for="f in flags" class="flag" :style="{left: f.left+'px', height: f.height+'px'}">
-                <v-tooltip bottom>
-                    <template #activator="{on}">
-                        <v-icon v-on="on" small style="z-index: 2">{{f.icon}}</v-icon>
-                    </template>
-                    <div v-html="f.type" class="text-center"/>
-                </v-tooltip>
-                <div class="line" style="z-index: 2"></div>
+            <div v-if="selection" ref="selection" class="selection">
+                <div ref="selection-control" class="selection-control">
+                    <v-btn-toggle v-if="selection.to > selection.from" :value="selection.mode" @change="setSelectionMode">
+                        <v-btn small value="diff"><v-icon small class="mdi-flip-h">mdi-select-compare</v-icon></v-btn>
+                        <v-btn small value="single"><v-icon small>mdi-magnify</v-icon></v-btn>
+                        <v-btn small value=""><v-icon small>mdi-close</v-icon></v-btn>
+                    </v-btn-toggle>
+                </div>
+                <div ref="selection-left" class="selection-left">
+                    <span v-if="selection.mode === 'diff'" class="selection-title">baseline</span>
+                </div>
+                <div ref="selection-current" class="selection-current">
+                    <span v-if="selection.mode === 'diff'" class="selection-title">comparison</span>
+                </div>
             </div>
+
+            <template v-if="!(selection && selection.to > selection.from )">
+                <div v-for="f in flags" class="flag" :style="{left: f.left+'px', height: f.height+'px'}">
+                    <v-tooltip bottom>
+                        <template #activator="{on}">
+                            <v-icon v-on="on" small style="z-index: 2">{{f.icon}}</v-icon>
+                        </template>
+                        <div v-html="f.type" class="text-center"/>
+                    </v-tooltip>
+                    <div class="line" style="z-index: 2"></div>
+                </div>
+            </template>
         </div>
 
         <div ref="tooltip" style="display: none; position: absolute; z-index: 1;">
@@ -72,6 +94,7 @@ const fmtVal = (max, unit, digits) => {
 export default {
     props: {
         chart: Object,
+        selection: Object,
     },
 
     data() {
@@ -92,6 +115,12 @@ export default {
     watch: {
         config() {
             this.$nextTick(this.redraw);
+        },
+        selection: {
+            handler(s) {
+                this.drawSelection(this.ch, s);
+            },
+            deep: true,
         },
     },
 
@@ -160,6 +189,14 @@ export default {
         },
         title() {
             return this.config.title;
+        },
+        link() {
+            const link = this.config.drill_down_link;
+            if (!link) {
+                return undefined;
+            }
+            const query = {...this.$route.query, ...link.query};
+            return {...link, query};
         },
         tooltip() {
             if (this.idx === null) {
@@ -249,7 +286,11 @@ export default {
                     {space: 20, font, size: 60, values: (u, splits) => splits.map(v => fmtVal(Math.max(...splits), c.unit)(v))},
                 ],
                 series: [{}, ...series],
-                cursor: {points: {show: false}, y: false},
+                cursor: {
+                    points: {show: false},
+                    y: false,
+                    drag: {setScale: false},
+                },
                 legend: {show: false},
                 hooks: {
                     draw: [
@@ -257,6 +298,7 @@ export default {
                     ],
                 },
                 plugins: [
+                    this.selectionPlugin(),
                     this.tooltipPlugin(),
                 ],
             };
@@ -287,14 +329,98 @@ export default {
             });
             u.ctx.restore();
         },
+        drawSelection(u, s) {
+            if (!u || !s) {
+                return;
+            }
+            const opts = {left: 0, width: 0, height: 0};
+            if (s.to > s.from) {
+                opts.left = u.valToPos(s.from, 'x');
+                opts.width = u.valToPos(s.to, 'x') - opts.left;
+                opts.height = u.bbox.height / devicePixelRatio;
+            }
+            u.setSelect(opts, false);
+            this.setSelection(u, opts);
+        },
+        setSelection(u, s) {
+            const empty = s.width === 0;
+            this.$refs["selection"].style.display = empty ? 'none' : 'block';
+            if (empty) {
+                return;
+            }
+
+            const diffMode = this.selection.mode === 'diff';
+
+            const current = this.$refs["selection-current"];
+            current.style.width = s.width + 'px';
+            current.style.left = s.left + 'px';
+
+            const left = this.$refs["selection-left"];
+            left.style.display = diffMode ? 'block' : 'none';
+            const lw = Math.min(s.width, s.left);
+            left.style.width = lw + 'px';
+            left.style.left = s.left - lw + 'px';
+
+            const control = this.$refs["selection-control"];
+            const cw = control.getBoundingClientRect().width;
+            const cl = diffMode ? s.left - cw/2 : s.left + (s.width - cw)/2;
+            control.style.left = cl + 'px';
+        },
+        setSelectionMode(m) {
+            const s = {mode: m, from: this.selection.from, to: this.selection.to};
+            if (!m) {
+                s.mode = this.selection.mode;
+                s.from = 0;
+                s.to = 0;
+            }
+            this.emitSelection(s);
+        },
+        emitSelection(s) {
+            const selection = {...this.selection, ...s};
+            const ctx = {from: this.config.ctx.from, to: this.config.ctx.to};
+            this.$emit('select', {selection, ctx});
+        },
+        selectionPlugin() {
+            if (!this.selection) {
+                return {};
+            }
+            const init = (u) => {
+                u.over.appendChild(this.$refs.selection);
+            }
+            const ready = (u) => {
+                this.drawSelection(u, this.selection);
+            }
+            const setCursor = (u) => {
+                if (u.select.width === 0) {
+                    return
+                }
+                this.setSelection(u, u.select);
+            }
+            const setSelect = (u) => {
+                if (u.select.width === 0) {
+                    return
+                }
+                const sl = u.select.left;
+                const sw = u.select.width;
+                const from = Math.trunc(u.posToVal(sl, 'x'));
+                const to = Math.trunc(u.posToVal(sl + sw, 'x'));
+                if (this.selection.from === from || this.selection.to === to) {
+                    return;
+                }
+                this.emitSelection({from, to});
+            }
+            return {hooks: {init, ready, setCursor, setSelect}};
+        },
         tooltipPlugin() {
             const init = (u) => {
                 const t = this.$refs.tooltip;
                 u.over.appendChild(t);
                 u.over.addEventListener("mouseenter", () => t.style.display = 'block');
                 u.over.addEventListener("mouseleave", () => t.style.display = 'none');
+                const sc = this.$refs["selection-control"];
+                sc && sc.addEventListener("mouseenter", () => t.style.display = 'none');
             }
-            const move = (u) => {
+            const setCursor = (u) => {
                 const { left, top, idx } = u.cursor;
                 if (idx === null) {
                     return;
@@ -304,7 +430,7 @@ export default {
                 const l = left - (left > u.over.clientWidth/2 ? t.clientWidth + 5 : -5);
                 t.style.transform = "translate(" + l + "px, " + top + "px)";
             }
-            return {hooks: {init: init, setCursor: move}}
+            return {hooks: {init, setCursor}}
         },
         toggleSeries(name) {
             const i = this.hiddenSeries.indexOf(name);
@@ -337,6 +463,46 @@ export default {
     text-align: center;
     line-height: 1.5em;
 }
+
+.selection {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+}
+.selection-control {
+    position: relative;
+    display: inline-block;
+    transform: translateY(calc(-100% - 16px));
+}
+.selection-left {
+    position: absolute;
+    height: 100%;
+    top: 0;
+    border: 1px dashed rgba(0,0,0,0.4);
+    border-right: none;
+    border-bottom: none;
+    color: rgba(0,0,0,0.87);
+}
+.selection-current {
+    position: absolute;
+    height: 100%;
+    top: 0;
+    border: 1px solid rgba(0,0,0,0.4);
+    border-bottom: none;
+    color: rgba(0,0,0,0.87);
+}
+.selection-title {
+    position: absolute;
+    top: -16px;
+    font-style: italic;
+}
+.selection-left .selection-title {
+    right: 4px;
+}
+.selection-current .selection-title {
+    left: 4px;
+}
+
 .tooltip {
     background-color: white;
     padding: 8px;

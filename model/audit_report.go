@@ -21,6 +21,7 @@ const (
 	AuditReportJvm         AuditReportName = "JVM"
 	AuditReportNode        AuditReportName = "Node"
 	AuditReportDeployments AuditReportName = "Deployments"
+	AuditReportProfiling   AuditReportName = "Profiling"
 )
 
 type AuditReport struct {
@@ -36,16 +37,6 @@ type AuditReport struct {
 
 func NewAuditReport(app *Application, ctx timeseries.Context, checkConfigs CheckConfigs, name AuditReportName) *AuditReport {
 	return &AuditReport{app: app, Name: name, ctx: ctx, checkConfigs: checkConfigs}
-}
-
-type Widget struct {
-	Chart         *Chart         `json:"chart"`
-	ChartGroup    *ChartGroup    `json:"chart_group"`
-	Table         *Table         `json:"table"`
-	LogPatterns   *LogPatterns   `json:"log_patterns"`
-	DependencyMap *DependencyMap `json:"dependency_map"`
-
-	Width string `json:"width"`
 }
 
 func (c *AuditReport) GetOrCreateChartGroup(title string) *ChartGroup {

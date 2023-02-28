@@ -1,22 +1,54 @@
 <template>
 <div class="mx-auto">
-    <template v-if="projectId">
-        <h1 class="text-h5 my-5">
-            Status
-        </h1>
-        <ProjectStatus :projectId="projectId" class="mb-16"/>
+    <h1 class="text-h5 my-5">Configuration</h1>
+
+    <v-tabs height="40" show-arrows slider-size="2">
+        <v-tab v-for="t in tabs" :key="t.id" :to="{params: {tab: t.id}}" :disabled="t.id && !projectId" exact>
+            {{t.name}}
+        </v-tab>
+    </v-tabs>
+
+    <template v-if="!tab">
+        <h2 class="text-h5 my-5">
+            Project name
+        </h2>
+        <ProjectSettings :projectId="projectId" />
+
+        <template v-if="projectId">
+            <h2 class="text-h5 mt-10 mb-5">
+                Status
+            </h2>
+            <ProjectStatus :projectId="projectId"/>
+
+            <h2 class="text-h5 mt-10 mb-5">
+                Danger zone
+            </h2>
+            <ProjectDelete :projectId="projectId" />
+        </template>
     </template>
 
-    <h1 class="text-h5 my-5">
-        Project settings
-        <a href="https://coroot.com/docs/coroot-community-edition/getting-started/project-configuration" target="_blank">
-            <v-icon>mdi-information-outline</v-icon>
-        </a>
-    </h1>
-    <ProjectSettings :projectId="projectId" />
+    <template v-if="tab === 'prometheus'">
+        <h1 class="text-h5 my-5">
+            Prometheus integration
+            <a href="https://coroot.com/docs/coroot-community-edition/getting-started/project-configuration" target="_blank">
+                <v-icon>mdi-information-outline</v-icon>
+            </a>
+        </h1>
+        <IntegrationPrometheus :projectId="projectId" />
+    </template>
 
-    <template v-if="projectId">
-        <h1 class="text-h5 mt-16 mb-5">
+    <template v-if="tab === 'profiling'">
+        <h1 class="text-h5 my-5">
+            Pyroscope integration
+            <a href="https://coroot.com/docs/coroot-community-edition/" target="_blank">
+                <v-icon>mdi-information-outline</v-icon>
+            </a>
+        </h1>
+        <IntegrationPyroscope />
+    </template>
+
+    <template v-if="tab === 'inspections'">
+        <h1 class="text-h5 my-5">
             Inspection configs
             <a href="https://coroot.com/docs/coroot-community-edition/inspections/overview" target="_blank">
                 <v-icon>mdi-information-outline</v-icon>
@@ -25,8 +57,8 @@
         <ProjectCheckConfigs :projectId="projectId" />
     </template>
 
-    <template v-if="projectId">
-        <h1 class="text-h5 mt-16 mb-5">
+    <template v-if="tab === 'categories'">
+        <h1 class="text-h5 my-5">
             Application categories
             <a href="https://coroot.com/docs/coroot-community-edition/getting-started/project-configuration#application-categories" target="_blank">
                 <v-icon>mdi-information-outline</v-icon>
@@ -40,21 +72,14 @@
         <ApplicationCategories />
     </template>
 
-    <template v-if="projectId">
-        <h1 id="integrations" class="text-h5 mt-16 mb-5">
-            Integrations
+    <template v-if="tab === 'notifications'">
+        <h1 class="text-h5 my-5">
+            Notification integrations
             <a href="https://coroot.com/docs/coroot-community-edition/getting-started/alerting" target="_blank">
                 <v-icon>mdi-information-outline</v-icon>
             </a>
         </h1>
         <Integrations />
-    </template>
-
-    <template v-if="projectId">
-        <h1 class="text-h5 mt-16 mb-5">
-            Danger zone
-        </h1>
-        <ProjectDelete :projectId="projectId" />
     </template>
 </div>
 </template>
@@ -66,13 +91,34 @@ import ProjectDelete from "@/views/ProjectDelete";
 import ProjectCheckConfigs from "@/views/ProjectCheckConfigs";
 import ApplicationCategories from "@/views/ApplicationCategories";
 import Integrations from "@/views/Integrations";
+import IntegrationPyroscope from "@/views/IntegrationPyroscope";
+import IntegrationPrometheus from "@/views/IntegrationPrometheus";
+
+const tabs = [
+    {id: undefined, name: 'General'},
+    {id: 'prometheus', name: 'Prometheus'},
+    {id: 'profiling', name: 'Profiling'},
+    {id: 'inspections', name: 'Inspections'},
+    {id: 'categories', name: 'Categories'},
+    {id: 'notifications', name: 'Notifications'},
+];
+
 
 export default {
     props: {
         projectId: String,
+        tab: String,
     },
 
-    components: {ProjectCheckConfigs, ProjectSettings, ProjectStatus, ProjectDelete, ApplicationCategories, Integrations},
+    components: {
+        IntegrationPrometheus,
+        ProjectCheckConfigs, ProjectSettings, ProjectStatus, ProjectDelete, ApplicationCategories, Integrations, IntegrationPyroscope},
+
+    computed: {
+        tabs() {
+            return tabs;
+        },
+    },
 }
 </script>
 
