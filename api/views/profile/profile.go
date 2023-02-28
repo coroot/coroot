@@ -201,5 +201,6 @@ var featured = []struct {
 	name string
 }{
 	{typ: profiling.TypeCPU, name: ""},
+	{typ: profiling.TypeCPU, name: "itimer"},
 	{typ: profiling.TypeMemory, name: "inuse_space"},
 }
