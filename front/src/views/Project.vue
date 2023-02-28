@@ -40,7 +40,7 @@
     <template v-if="tab === 'profiling'">
         <h1 class="text-h5 my-5">
             Pyroscope integration
-            <a href="https://coroot.com/docs/coroot-community-edition/" target="_blank">
+            <a href="https://coroot.com/docs/coroot-community-edition/profiling/pyroscope" target="_blank">
                 <v-icon>mdi-information-outline</v-icon>
             </a>
         </h1>

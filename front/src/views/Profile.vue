@@ -38,7 +38,7 @@
             <v-select v-model="form.application" :items="applications" outlined dense hide-details :menu-props="{offsetY: true}" clearable />
 
             <div class="grey--text my-4">
-                To configure an application to send profiles to Pyroscope follow the <a href="">documentation</a>.
+                To configure an application to send profiles to Pyroscope follow the <a href="https://coroot.com/docs/coroot-community-edition/profiling/pyroscope" target="_blank">documentation</a>.
             </div>
 
             <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text class="my-3">
