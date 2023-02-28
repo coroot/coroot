@@ -3,19 +3,19 @@ package constructor
 import (
 	"context"
 	"github.com/coroot/coroot/model"
-	"github.com/coroot/coroot/prom"
 	"github.com/coroot/coroot/timeseries"
 	"k8s.io/klog"
 	"sort"
 	"strconv"
 )
 
-func loadSLIs(ctx context.Context, w *model.World, prom prom.Client, rawStep timeseries.Duration, from, to timeseries.Time, step timeseries.Duration) {
+func (c *Constructor) loadSLIs(ctx context.Context, w *model.World, from, to timeseries.Time, step timeseries.Duration) {
 	rawFrom := to.Add(-model.MaxAlertRuleWindow)
-	availabilityFromInboundConnections := loadAvailabilityFromInboundConnections(ctx, prom, from, to, step)
-	availabilityFromInboundConnectionsRaw := loadAvailabilityFromInboundConnections(ctx, prom, rawFrom, to, rawStep)
-	latencyFromInboundConnections := loadLatencyFromInboundConnections(ctx, prom, from, to, step)
-	latencyFromInboundConnectionsRaw := loadLatencyFromInboundConnections(ctx, prom, rawFrom, to, rawStep)
+	rawStep := c.project.Prometheus.RefreshInterval
+	availabilityFromInboundConnections := c.loadAvailabilityFromInboundConnections(ctx, from, to, step)
+	availabilityFromInboundConnectionsRaw := c.loadAvailabilityFromInboundConnections(ctx, rawFrom, to, rawStep)
+	latencyFromInboundConnections := c.loadLatencyFromInboundConnections(ctx, from, to, step)
+	latencyFromInboundConnectionsRaw := c.loadLatencyFromInboundConnections(ctx, rawFrom, to, rawStep)
 
 	for _, app := range w.Applications {
 		availability, _ := w.CheckConfigs.GetAvailability(app.Id)
@@ -24,10 +24,10 @@ func loadSLIs(ctx context.Context, w *model.World, prom prom.Client, rawStep tim
 			app.AvailabilitySLIs = append(app.AvailabilitySLIs, sli)
 			if cfg.Custom {
 				qTotal, qFailed := cfg.Total(), cfg.Failed()
-				sli.TotalRequests = loadAvailabilityFromConfiguredSli(ctx, prom, qTotal, from, to, step)
-				sli.TotalRequestsRaw = loadAvailabilityFromConfiguredSli(ctx, prom, qTotal, rawFrom, to, rawStep)
-				sli.FailedRequests = loadAvailabilityFromConfiguredSli(ctx, prom, qFailed, from, to, step)
-				sli.FailedRequestsRaw = loadAvailabilityFromConfiguredSli(ctx, prom, qFailed, rawFrom, to, rawStep)
+				sli.TotalRequests = c.loadAvailabilityFromConfiguredSli(ctx, qTotal, from, to, step)
+				sli.TotalRequestsRaw = c.loadAvailabilityFromConfiguredSli(ctx, qTotal, rawFrom, to, rawStep)
+				sli.FailedRequests = c.loadAvailabilityFromConfiguredSli(ctx, qFailed, from, to, step)
+				sli.FailedRequestsRaw = c.loadAvailabilityFromConfiguredSli(ctx, qFailed, rawFrom, to, rawStep)
 			} else {
 				sli.TotalRequests = availabilityFromInboundConnections[app.Id].total
 				sli.FailedRequests = availabilityFromInboundConnections[app.Id].failed
@@ -41,8 +41,8 @@ func loadSLIs(ctx context.Context, w *model.World, prom prom.Client, rawStep tim
 			app.LatencySLIs = append(app.LatencySLIs, sli)
 			if cfg.Custom {
 				q := cfg.Histogram()
-				sli.Histogram = loadLatencyFromConfiguredSli(ctx, prom, q, from, to, step)
-				sli.HistogramRaw = loadLatencyFromConfiguredSli(ctx, prom, q, rawFrom, to, rawStep)
+				sli.Histogram = c.loadLatencyFromConfiguredSli(ctx, q, from, to, step)
+				sli.HistogramRaw = c.loadLatencyFromConfiguredSli(ctx, q, rawFrom, to, rawStep)
 			} else {
 				sli.Histogram = latencyFromInboundConnections[app.Id]
 				sli.HistogramRaw = latencyFromInboundConnectionsRaw[app.Id]
@@ -51,8 +51,8 @@ func loadSLIs(ctx context.Context, w *model.World, prom prom.Client, rawStep tim
 	}
 }
 
-func loadAvailabilityFromConfiguredSli(ctx context.Context, prom prom.Client, query string, from, to timeseries.Time, step timeseries.Duration) *timeseries.TimeSeries {
-	values, err := prom.QueryRange(ctx, query, from, to, step)
+func (c *Constructor) loadAvailabilityFromConfiguredSli(ctx context.Context, query string, from, to timeseries.Time, step timeseries.Duration) *timeseries.TimeSeries {
+	values, err := c.prom.QueryRange(ctx, query, from, to, step)
 	if err != nil {
 		klog.Warningln(err)
 		return nil
@@ -68,8 +68,8 @@ type availabilitySlis struct {
 	failed *timeseries.TimeSeries
 }
 
-func loadAvailabilityFromInboundConnections(ctx context.Context, prom prom.Client, from, to timeseries.Time, step timeseries.Duration) map[model.ApplicationId]availabilitySlis {
-	values, err := prom.QueryRange(ctx, "rr_application_inbound_requests_total", from, to, step)
+func (c *Constructor) loadAvailabilityFromInboundConnections(ctx context.Context, from, to timeseries.Time, step timeseries.Duration) map[model.ApplicationId]availabilitySlis {
+	values, err := c.prom.QueryRange(ctx, "rr_application_inbound_requests_total", from, to, step)
 	if err != nil {
 		klog.Warningln(err)
 		return nil
@@ -105,8 +105,8 @@ func loadAvailabilityFromInboundConnections(ctx context.Context, prom prom.Clien
 	return res
 }
 
-func loadLatencyFromConfiguredSli(ctx context.Context, prom prom.Client, query string, from, to timeseries.Time, step timeseries.Duration) []model.HistogramBucket {
-	values, err := prom.QueryRange(ctx, query, from, to, step)
+func (c *Constructor) loadLatencyFromConfiguredSli(ctx context.Context, query string, from, to timeseries.Time, step timeseries.Duration) []model.HistogramBucket {
+	values, err := c.prom.QueryRange(ctx, query, from, to, step)
 	if err != nil {
 		klog.Warningln(err)
 		return nil
@@ -126,8 +126,8 @@ func loadLatencyFromConfiguredSli(ctx context.Context, prom prom.Client, query s
 	return buckets
 }
 
-func loadLatencyFromInboundConnections(ctx context.Context, prom prom.Client, from, to timeseries.Time, step timeseries.Duration) map[model.ApplicationId][]model.HistogramBucket {
-	values, err := prom.QueryRange(ctx, "rr_application_inbound_requests_histogram", from, to, step)
+func (c *Constructor) loadLatencyFromInboundConnections(ctx context.Context, from, to timeseries.Time, step timeseries.Duration) map[model.ApplicationId][]model.HistogramBucket {
+	values, err := c.prom.QueryRange(ctx, "rr_application_inbound_requests_histogram", from, to, step)
 	if err != nil {
 		klog.Warningln(err)
 		return nil

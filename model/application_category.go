@@ -27,6 +27,10 @@ func (c ApplicationCategory) Auxiliary() bool {
 	return c == ApplicationCategoryControlPlane || c == ApplicationCategoryMonitoring
 }
 
+func (c ApplicationCategory) Monitoring() bool {
+	return c == ApplicationCategoryMonitoring
+}
+
 var BuiltinCategoryPatterns = map[ApplicationCategory][]string{
 	ApplicationCategoryApplication: {},
 	ApplicationCategoryControlPlane: {

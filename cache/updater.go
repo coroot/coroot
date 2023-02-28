@@ -264,7 +264,7 @@ func (p *recordingRulesProcessor) QueryRange(ctx context.Context, query string, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to load world: %w", err)
 	}
-	return recordingRule(world), nil
+	return recordingRule(p.project, world), nil
 }
 
 func (p *recordingRulesProcessor) Ping(_ context.Context) error {

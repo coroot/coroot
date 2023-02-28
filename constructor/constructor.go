@@ -89,7 +89,7 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 	prof.stage("enrich_instances", func() { enrichInstances(w, metrics) })
 	prof.stage("join_db_cluster", func() { joinDBClusterComponents(w) })
 	prof.stage("calc_app_categories", func() { c.calcApplicationCategories(w) })
-	prof.stage("load_sli", func() { loadSLIs(ctx, w, c.prom, c.project.Prometheus.RefreshInterval, from, to, step) })
+	prof.stage("load_sli", func() { c.loadSLIs(ctx, w, from, to, step) })
 	prof.stage("load_app_deployments", func() { c.loadApplicationDeployments(w) })
 	prof.stage("calc_app_events", func() { calcAppEvents(w) })
 

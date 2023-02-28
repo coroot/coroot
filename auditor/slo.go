@@ -140,15 +140,12 @@ type clientRequestsSummary struct {
 
 func clientRequests(app *model.Application, report *model.AuditReport) {
 	clients := map[model.ApplicationId]*clientRequestsSummary{}
-	for _, c := range app.GetClientsConnections() {
-		s := clients[c.Instance.OwnerId]
-		if s == nil {
-			s = &clientRequestsSummary{protocols: utils.NewStringSet()}
-			clients[c.Instance.OwnerId] = s
-		}
-		s.connections = append(s.connections, c)
-		for protocol := range c.RequestsCount {
-			s.protocols.Add(string(protocol))
+	for id, connections := range app.GetClientsConnections() {
+		clients[id] = &clientRequestsSummary{connections: connections, protocols: utils.NewStringSet()}
+		for _, c := range connections {
+			for protocol := range c.RequestsCount {
+				clients[id].protocols.Add(string(protocol))
+			}
 		}
 	}
 	if len(clients) == 0 {

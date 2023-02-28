@@ -2,6 +2,7 @@ package constructor
 
 import (
 	"fmt"
+	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	promModel "github.com/prometheus/common/model"
@@ -142,24 +143,29 @@ var QUERIES = map[string]string{
 	"container_jvm_safepoint_time_seconds":      `rate(container_jvm_safepoint_time_seconds[$RANGE])`,
 }
 
-var RecordingRules = map[string]func(w *model.World) []model.MetricValues{
-	"rr_application_inbound_requests_total": func(w *model.World) []model.MetricValues {
+var RecordingRules = map[string]func(p *db.Project, w *model.World) []model.MetricValues{
+	"rr_application_inbound_requests_total": func(p *db.Project, w *model.World) []model.MetricValues {
 		var res []model.MetricValues
 		for _, app := range w.Applications {
-			connections := app.GetClientsConnections()
-			if len(connections) == 0 {
+			byClient := app.GetClientsConnections()
+			if len(byClient) == 0 {
 				continue
 			}
+			appCategory := model.CalcApplicationCategory(app.Id, p.Settings.ApplicationCategories)
 			sum := map[string]*timeseries.Aggregate{}
-			for _, c := range connections {
-				for _, byStatus := range c.RequestsCount {
-					for status, ts := range byStatus {
-						dest := sum[status]
-						if dest == nil {
-							dest = timeseries.NewAggregate(timeseries.NanSum)
-							sum[status] = dest
+			for client, connections := range byClient {
+				clientCategory := model.CalcApplicationCategory(client, p.Settings.ApplicationCategories)
+				if !appCategory.Monitoring() && clientCategory.Monitoring() {
+					continue
+				}
+				for _, c := range connections {
+					for _, byStatus := range c.RequestsCount {
+						for status, ts := range byStatus {
+							if sum[status] == nil {
+								sum[status] = timeseries.NewAggregate(timeseries.NanSum)
+							}
+							sum[status].Add(ts)
 						}
-						dest.Add(ts)
 					}
 				}
 			}
@@ -174,23 +180,30 @@ var RecordingRules = map[string]func(w *model.World) []model.MetricValues{
 		}
 		return res
 	},
-	"rr_application_inbound_requests_histogram": func(w *model.World) []model.MetricValues {
+	"rr_application_inbound_requests_histogram": func(p *db.Project, w *model.World) []model.MetricValues {
 		var res []model.MetricValues
 		for _, app := range w.Applications {
-			connections := app.GetClientsConnections()
-			if len(connections) == 0 {
+			byClient := app.GetClientsConnections()
+			if len(byClient) == 0 {
 				continue
 			}
+			appCategory := model.CalcApplicationCategory(app.Id, p.Settings.ApplicationCategories)
 			sum := map[float64]*timeseries.Aggregate{}
-			for _, c := range connections {
-				for _, byLe := range c.RequestsHistogram {
-					for le, ts := range byLe {
-						dest := sum[le]
-						if dest == nil {
-							dest = timeseries.NewAggregate(timeseries.NanSum)
-							sum[le] = dest
+			for client, connections := range byClient {
+				clientCategory := model.CalcApplicationCategory(client, p.Settings.ApplicationCategories)
+				if !appCategory.Monitoring() && clientCategory.Monitoring() {
+					continue
+				}
+				for _, c := range connections {
+					for _, byLe := range c.RequestsHistogram {
+						for le, ts := range byLe {
+							dest := sum[le]
+							if dest == nil {
+								dest = timeseries.NewAggregate(timeseries.NanSum)
+								sum[le] = dest
+							}
+							dest.Add(ts)
 						}
-						dest.Add(ts)
 					}
 				}
 			}
