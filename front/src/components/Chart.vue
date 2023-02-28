@@ -277,7 +277,6 @@ export default {
                 height: 150,
                 width: this.$refs.uplot.clientWidth,
                 ms: 1,
-                // padding: [null, 0, null, null],
                 axes: [
                     {space: 80, font, values: [
                             [60000, "{HH}:{mm}", null, null, "{MMM} {DD}", null, null, null, 0],

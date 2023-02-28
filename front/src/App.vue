@@ -95,23 +95,6 @@
                             </template>
                         </v-btn>
                         <v-btn v-if="status.prometheus.action === 'wait'" outlined @click="refresh">refresh</v-btn>
-<!--                        <template v-if="status.prometheus.status === 'unknown'">-->
-<!--                            <div class="flex-grow-1 mb-3 mb-sm-0">Prometheus is not configured</div>-->
-<!--                            <v-btn outlined :to="{name: 'project_settings', params: {tab: 'prometheus'}}">Configure</v-btn>-->
-<!--                        </template>-->
-<!--                        <template v-else-if="status.prometheus.error">-->
-<!--                            <div class="flex-grow-1 mb-3 mb-sm-0">An error has been occurred while querying Prometheus</div>-->
-<!--                            <v-btn outlined :to="{name: 'project_settings', params: {tab: 'prometheus'}}">Review the configuration</v-btn>-->
-<!--                        </template>-->
-<!--                        <template v-else-if="status.prometheus.cache.lag_avg">-->
-<!--                            <div class="flex-grow-1 mb-3 mb-sm-0">-->
-<!--                                Prometheus cache is {{$format.duration(status.prometheus.cache.lag_avg, 'm')}} behind.-->
-<!--                                <template v-if="status.prometheus.status === 'warning'">-->
-<!--                                    Please wait until synchronization is complete.-->
-<!--                                </template>-->
-<!--                            </div>-->
-<!--                            <v-btn outlined @click="refresh">refresh</v-btn>-->
-<!--                        </template>-->
                     </template>
                     <template v-else-if="status.node_agent.status !== 'ok'">
                         <div class="flex-grow-1 mb-3 mb-sm-0">No metrics found. Looks like you didn't install <b>node-agent</b>.</div>

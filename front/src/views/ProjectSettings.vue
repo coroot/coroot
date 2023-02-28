@@ -1,6 +1,5 @@
 <template>
     <v-form v-if="form" v-model="valid" ref="form" style="max-width: 800px">
-<!--        <div class="subtitle-1">Project name</div>-->
         <div class="caption">
             Project is a separate infrastructure or environment with a dedicated Prometheus, e.g. <var>production</var>, <var>staging</var> or <var>prod-us-west</var>.
         </div>
