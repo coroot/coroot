@@ -39,6 +39,7 @@ type Stats struct {
 		InspectionOverrides       map[model.CheckId]InspectionOverride `json:"inspection_overrides"`
 		ApplicationCategories     int                                  `json:"application_categories"`
 		AlertingIntegrations      []string                             `json:"alerting_integrations"`
+		Pyroscope                 bool                                 `json:"pyroscope"`
 	} `json:"integration"`
 	Stack struct {
 		Clouds               []string `json:"clouds"`
@@ -192,9 +193,14 @@ func (c *Collector) collect() Stats {
 	var loadTime []time.Duration
 	now := timeseries.Now()
 	for _, p := range projects {
-		stats.Integration.Prometheus = true
+		if p.Prometheus.Url != "" {
+			stats.Integration.Prometheus = true
+		}
 		if stats.Integration.PrometheusRefreshInterval == 0 || int(p.Prometheus.RefreshInterval) < stats.Integration.PrometheusRefreshInterval {
 			stats.Integration.PrometheusRefreshInterval = int(p.Prometheus.RefreshInterval)
+		}
+		if cfg := p.Settings.Integrations.Pyroscope; cfg != nil && cfg.Url != "" {
+			stats.Integration.Pyroscope = true
 		}
 
 		for category := range p.Settings.ApplicationCategories {
