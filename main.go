@@ -209,7 +209,10 @@ func bootstrapPrometheus(database *db.DB, url string, refreshInterval time.Durat
 			},
 		}
 		klog.Infof("creating project: %s(%s, %s)", p.Name, url, refreshInterval)
-		if _, err := database.SaveProject(p); err != nil {
+		if p.Id, err = database.SaveProject(p); err != nil {
+			klog.Exitln(err)
+		}
+		if err := database.SaveProjectIntegration(&p, db.IntegrationTypePrometheus); err != nil {
 			klog.Exitln(err)
 		}
 	}
