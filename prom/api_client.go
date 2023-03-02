@@ -25,14 +25,32 @@ import (
 	"time"
 )
 
-var pool = &sync.Pool{New: func() interface{} {
-	return bytes.NewBuffer(nil)
-}}
+var (
+	secureClient   *http.Client
+	insecureClient *http.Client
+
+	pool = &sync.Pool{New: func() interface{} {
+		return bytes.NewBuffer(nil)
+	}}
+)
+
+func init() {
+	d := net.Dialer{Timeout: 30 * time.Second}
+	secureClient = &http.Client{Transport: &http.Transport{
+		DialContext:         d.DialContext,
+		TLSHandshakeTimeout: 10 * time.Second,
+	}}
+	insecureClient = &http.Client{Transport: &http.Transport{
+		DialContext:         d.DialContext,
+		TLSHandshakeTimeout: 10 * time.Second,
+		TLSClientConfig:     &tls.Config{InsecureSkipVerify: true},
+	}}
+}
 
 type ApiClient struct {
 	api           v1.API
-	client        api.Client
-	cfg           api.Config
+	apiClient     api.Client
+	httpClient    *http.Client
 	extraSelector string
 }
 
@@ -45,20 +63,15 @@ func NewApiClient(address, user, password string, skipTlsVerify bool, extraSelec
 			address = u.String()
 		}
 	}
-	transport := &http.Transport{
-		DialContext: (&net.Dialer{
-			Timeout:   30 * time.Second,
-			KeepAlive: 30 * time.Second,
-		}).DialContext,
-		TLSHandshakeTimeout: 10 * time.Second,
-		TLSClientConfig:     &tls.Config{InsecureSkipVerify: skipTlsVerify},
+	cl := secureClient
+	if skipTlsVerify {
+		cl = insecureClient
 	}
-	cfg := api.Config{Address: address, RoundTripper: transport}
-	c, err := api.NewClient(cfg)
+	c, err := api.NewClient(api.Config{Address: address, Client: cl})
 	if err != nil {
 		return nil, err
 	}
-	return &ApiClient{api: v1.NewAPI(c), client: c, cfg: cfg, extraSelector: extraSelector}, nil
+	return &ApiClient{api: v1.NewAPI(c), apiClient: c, httpClient: cl, extraSelector: extraSelector}, nil
 }
 
 func (c *ApiClient) Ping(ctx context.Context) error {
@@ -76,7 +89,7 @@ func (c *ApiClient) QueryRange(ctx context.Context, query string, from, to times
 	from = from.Truncate(step)
 	to = to.Truncate(step)
 
-	u := c.client.URL("/api/v1/query_range", nil)
+	u := c.apiClient.URL("/api/v1/query_range", nil)
 	q := u.Query()
 
 	q.Set("query", query)
@@ -91,9 +104,7 @@ func (c *ApiClient) QueryRange(ctx context.Context, query string, from, to times
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req = req.WithContext(ctx)
 
-	httpClient := &http.Client{Transport: c.cfg.RoundTripper}
-
-	resp, err := httpClient.Do(req)
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -190,9 +201,9 @@ func (c *ApiClient) Proxy(r *http.Request, w http.ResponseWriter) {
 		return
 	}
 	path := re.ReplaceAllString(r.URL.Path, "")
-	r.URL = c.client.URL(path, nil)
+	r.URL = c.apiClient.URL(path, nil)
 	r.RequestURI = ""
-	resp, data, err := c.client.Do(r.Context(), r)
+	resp, data, err := c.apiClient.Do(r.Context(), r)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
