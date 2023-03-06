@@ -3,7 +3,9 @@ package stats
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
+	"github.com/coroot/coroot/auditor"
 	"github.com/coroot/coroot/cache"
 	"github.com/coroot/coroot/constructor"
 	"github.com/coroot/coroot/db"
@@ -11,8 +13,11 @@ import (
 	"github.com/coroot/coroot/prom"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
+	"github.com/pyroscope-io/godeltaprof"
+	"io/ioutil"
 	"k8s.io/klog"
 	"net/http"
+	"runtime/pprof"
 	"strings"
 	"sync"
 	"time"
@@ -56,6 +61,7 @@ type Stats struct {
 	} `json:"infra"`
 	UX struct {
 		WorldLoadTimeAvg  float32                    `json:"world_load_time_avg"`
+		AuditTimeAvg      float32                    `json:"audit_time_avg"`
 		UsersByScreenSize map[string]int             `json:"users_by_screen_size"`
 		Users             *utils.StringSet           `json:"users"`
 		PageViews         map[string]int             `json:"page_views"`
@@ -64,6 +70,12 @@ type Stats struct {
 	Performance struct {
 		Constructor constructor.Profile `json:"constructor"`
 	} `json:"performance"`
+	Profile struct {
+		From   int64  `json:"from"`
+		To     int64  `json:"to"`
+		CPU    string `json:"cpu"`
+		Memory string `json:"memory"`
+	} `json:"profile"`
 }
 
 type InspectionOverride struct {
@@ -82,6 +94,8 @@ type Collector struct {
 	usersByScreenSize map[string]*utils.StringSet
 	pageViews         map[string]int
 	lock              sync.Mutex
+
+	heapProfiler *godeltaprof.HeapProfiler
 }
 
 func NewCollector(instanceUuid, version string, db *db.DB, cache *cache.Cache) *Collector {
@@ -96,6 +110,12 @@ func NewCollector(instanceUuid, version string, db *db.DB, cache *cache.Cache) *
 
 		usersByScreenSize: map[string]*utils.StringSet{},
 		pageViews:         map[string]int{},
+
+		heapProfiler: godeltaprof.NewHeapProfiler(),
+	}
+
+	if err := c.heapProfiler.Profile(ioutil.Discard); err != nil {
+		klog.Warningln(err)
 	}
 
 	go func() {
@@ -141,8 +161,26 @@ func (c *Collector) RegisterRequest(r *http.Request) {
 }
 
 func (c *Collector) send() {
-	stats := c.collect()
 	buf := new(bytes.Buffer)
+	if err := pprof.StartCPUProfile(buf); err != nil {
+		klog.Warningln(err)
+	}
+	from := time.Now()
+
+	stats := c.collect()
+
+	stats.Profile.From = from.Unix()
+	stats.Profile.To = time.Now().Unix()
+	pprof.StopCPUProfile()
+	stats.Profile.CPU = base64.StdEncoding.EncodeToString(buf.Bytes())
+	buf.Reset()
+	if err := c.heapProfiler.Profile(buf); err != nil {
+		klog.Warningln(err)
+	}
+
+	stats.Profile.Memory = base64.StdEncoding.EncodeToString(buf.Bytes())
+
+	buf.Reset()
 	if err := json.NewEncoder(buf).Encode(stats); err != nil {
 		klog.Errorln("failed to encode stats:", err)
 		return
@@ -190,7 +228,7 @@ func (c *Collector) collect() Stats {
 	stats.Performance.Constructor.Queries = map[string]prom.QueryStats{}
 	stats.Infra.DeploymentSummaries = map[string]int{}
 	alertingIntegrations := utils.NewStringSet()
-	var loadTime []time.Duration
+	var loadTime, auditTime []time.Duration
 	now := timeseries.Now()
 	for _, p := range projects {
 		if p.Prometheus.Url != "" {
@@ -241,12 +279,18 @@ func (c *Collector) collect() Stats {
 		}
 		t := time.Now()
 		step := p.Prometheus.RefreshInterval
-		w, err := constructor.New(c.db, p, cc).LoadWorld(context.Background(), cacheTo.Add(-worldWindow), cacheTo, step, &stats.Performance.Constructor)
+		cr := constructor.New(c.db, p, cc, constructor.OptionLoadPerConnectionHistograms)
+		w, err := cr.LoadWorld(context.Background(), cacheTo.Add(-worldWindow), cacheTo, step, &stats.Performance.Constructor)
 		if err != nil {
 			klog.Errorln("failed to load world:", err)
 			continue
 		}
 		loadTime = append(loadTime, time.Since(t))
+
+		t = time.Now()
+		auditor.Audit(w, p)
+		auditTime = append(auditTime, time.Since(t))
+
 		stats.Integration.NodeAgent = stats.Integration.NodeAgent || w.IntegrationStatus.NodeAgent.Installed
 		if w.IntegrationStatus.KubeStateMetrics.Required {
 			installed := w.IntegrationStatus.KubeStateMetrics.Installed
@@ -294,14 +338,21 @@ func (c *Collector) collect() Stats {
 	stats.Stack.Services = services.Items()
 	stats.Stack.InstrumentedServices = servicesInstrumented.Items()
 
-	if len(loadTime) > 0 {
-		var total time.Duration
-		for _, t := range loadTime {
-			total += t
-		}
-		stats.UX.WorldLoadTimeAvg = float32(total.Seconds() / float64(len(loadTime)))
-	}
+	stats.UX.WorldLoadTimeAvg = avgDuration(loadTime)
+	stats.UX.AuditTimeAvg = avgDuration(auditTime)
+
 	stats.UX.SentNotifications = c.db.GetSentIncidentNotificationsStat(now.Add(-timeseries.Duration(collectInterval.Seconds())))
 
 	return stats
+}
+
+func avgDuration(durations []time.Duration) float32 {
+	if len(durations) == 0 {
+		return 0
+	}
+	var total time.Duration
+	for _, d := range durations {
+		total += d
+	}
+	return float32(total.Seconds() / float64(len(durations)))
 }
