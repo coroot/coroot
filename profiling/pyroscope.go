@@ -22,11 +22,13 @@ const (
 type Pyroscope struct {
 	url    string
 	client *http.Client
+	apiKey string
 }
 
-func NewPyroscope(url string) *Pyroscope {
+func NewPyroscope(url string, apiKey string) *Pyroscope {
 	c := &Pyroscope{
 		url:    url,
+		apiKey: apiKey,
 		client: http.DefaultClient,
 	}
 	return c
@@ -99,6 +101,9 @@ func (c *Pyroscope) get(ctx context.Context, uri string, args map[string]string)
 	r, err := http.NewRequestWithContext(ctx, "GET", u.String(), nil)
 	if err != nil {
 		return nil, err
+	}
+	if c.apiKey != "" {
+		r.Header.Add("Authorization", "Bearer "+c.apiKey)
 	}
 	resp, err := c.client.Do(r)
 	if err != nil {

@@ -6,10 +6,16 @@
         <v-text-field outlined dense v-model="form.url" :rules="[$validators.isUrl]" placeholder="http://pyroscope.example.com:4040" hide-details="auto" class="flex-grow-1" clearable />
         <v-checkbox v-model="form.tls_skip_verify" :disabled="!form.url || !form.url.startsWith('https')" label="Skip TLS verify" hide-details class="mt-1" />
         <div class="d-md-flex gap">
-            <v-checkbox v-model="basic_auth" label="HTTP basic auth" class="mt-1" />
+            <v-checkbox v-model="basic_auth" label="HTTP basic auth" class="mt-1" hide-details />
             <template v-if="basic_auth">
                 <v-text-field outlined dense v-model="form.basic_auth.user" label="username"  />
                 <v-text-field v-model="form.basic_auth.password" label="password" type="password" outlined dense />
+            </template>
+        </div>
+        <div class="d-md-flex gap">
+            <v-checkbox v-model="api_key_auth" label="API key auth" class="mt-1" />
+            <template v-if="api_key_auth">
+                <v-text-field outlined dense v-model="form.api_key" label="API key"  />
             </template>
         </div>
         <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
@@ -29,6 +35,7 @@ export default {
         return {
             form: null,
             basic_auth: false,
+            api_key_auth: false,
             valid: false,
             loading: false,
             error: '',
@@ -64,6 +71,7 @@ export default {
                 } else {
                     this.basic_auth = true;
                 }
+                this.api_key_auth = !!this.form.api_key;
                 this.saved = JSON.parse(JSON.stringify(this.form));
             });
         },
@@ -74,6 +82,9 @@ export default {
             const form = JSON.parse(JSON.stringify(this.form));
             if (!this.basic_auth) {
                 form.basic_auth = null;
+            }
+            if (!this.api_key_auth) {
+                form.api_key = '';
             }
             this.$api.saveIntegrations('pyroscope', 'save', form, (data, error) => {
                 this.loading = false;

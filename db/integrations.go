@@ -90,6 +90,7 @@ type IntegrationPyroscope struct {
 	Url           string     `json:"url"`
 	TlsSkipVerify bool       `json:"tls_skip_verify"`
 	BasicAuth     *BasicAuth `json:"basic_auth,omitempty"`
+	ApiKey        string     `json:"api_key"`
 }
 
 type IntegrationSlack struct {

@@ -229,6 +229,9 @@ func (f *IntegrationFormPyroscope) Get(project *db.Project, masked bool) {
 	f.IntegrationPyroscope = *cfg
 	if masked {
 		f.Url = "http://<hidden>"
+		if f.ApiKey != "" {
+			f.ApiKey = "<api_key>"
+		}
 	}
 }
 
@@ -246,7 +249,7 @@ func (f *IntegrationFormPyroscope) Update(ctx context.Context, project *db.Proje
 }
 
 func (f *IntegrationFormPyroscope) Test(ctx context.Context, project *db.Project) error {
-	client := profiling.NewPyroscope(f.Url)
+	client := profiling.NewPyroscope(f.Url, f.ApiKey)
 	_, err := client.Metadata(ctx)
 	return err
 }
