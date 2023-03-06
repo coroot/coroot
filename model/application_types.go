@@ -11,6 +11,7 @@ const (
 	ApplicationTypeElasticsearch ApplicationType = "elasticsearch"
 	ApplicationTypeMemcached     ApplicationType = "memcached"
 	ApplicationTypeRedis         ApplicationType = "redis"
+	ApplicationTypeKeyDB         ApplicationType = "keydb"
 	ApplicationTypeMongodb       ApplicationType = "mongodb"
 	ApplicationTypeRabbitmq      ApplicationType = "rabbitmq"
 	ApplicationTypeKafka         ApplicationType = "kafka"
@@ -21,7 +22,7 @@ func (at ApplicationType) IsDatabase() bool {
 	switch at {
 	case ApplicationTypeCassandra, ApplicationTypeMemcached,
 		ApplicationTypeZookeeper, ApplicationTypeElasticsearch, ApplicationTypePostgres,
-		ApplicationTypeMysql, ApplicationTypeRedis, ApplicationTypeMongodb:
+		ApplicationTypeMysql, ApplicationTypeRedis, ApplicationTypeKeyDB, ApplicationTypeMongodb:
 		return true
 	}
 	return false

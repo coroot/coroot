@@ -193,34 +193,40 @@ func guessNamespace(ls model.Labels) string {
 	return ""
 }
 
-func findInstance(w *model.World, ls model.Labels, applicationType model.ApplicationType) *model.Instance {
+func findInstance(w *model.World, ls model.Labels, applicationTypes ...model.ApplicationType) *model.Instance {
 	if rdsId := ls["rds_instance_id"]; rdsId != "" {
 		return getOrCreateRdsInstance(w, rdsId)
 	}
 	if host, port, err := net.SplitHostPort(ls["instance"]); err == nil {
 		if ip := net.ParseIP(host); ip != nil && !ip.IsLoopback() {
-			return getActualServiceInstance(w.FindInstanceByListen(host, port), applicationType)
+			return getActualServiceInstance(w.FindInstanceByListen(host, port), applicationTypes...)
 		}
 	}
 	if ns, pod := guessNamespace(ls), guessPod(ls); ns != "" && pod != "" {
-		return getActualServiceInstance(w.FindInstanceByPod(ns, pod), applicationType)
+		return getActualServiceInstance(w.FindInstanceByPod(ns, pod), applicationTypes...)
 	}
 	return nil
 }
 
-func getActualServiceInstance(instance *model.Instance, applicationType model.ApplicationType) *model.Instance {
-	if applicationType == "" {
+func getActualServiceInstance(instance *model.Instance, applicationTypes ...model.ApplicationType) *model.Instance {
+	if len(applicationTypes) == 0 {
 		return instance
 	}
 	if instance == nil {
 		return nil
 	}
-	if instance.ApplicationTypes()[applicationType] {
-		return instance
+	for _, t := range applicationTypes {
+		if instance.ApplicationTypes()[t] {
+			return instance
+		}
 	}
 	for _, u := range instance.Upstreams {
-		if ri := u.RemoteInstance; ri != nil && ri.ApplicationTypes()[applicationType] {
-			return ri
+		if ri := u.RemoteInstance; ri != nil {
+			for _, t := range applicationTypes {
+				if ri.ApplicationTypes()[t] {
+					return ri
+				}
+			}
 		}
 	}
 	for _, u := range instance.Upstreams {
@@ -229,8 +235,8 @@ func getActualServiceInstance(instance *model.Instance, applicationType model.Ap
 		}
 	}
 	klog.Warningf(
-		`couldn't find actual instance for "%s", initial instance is "%s" (%+v)`,
-		applicationType, instance.Name, instance.ApplicationTypes(),
+		`couldn't find actual instance for "%v", initial instance is "%s" (%+v)`,
+		applicationTypes, instance.Name, instance.ApplicationTypes(),
 	)
 	return nil
 }

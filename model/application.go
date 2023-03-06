@@ -153,7 +153,8 @@ func (app *Application) InstrumentationStatus() map[ApplicationType]bool {
 			switch t {
 			case ApplicationTypePostgres:
 				instanceInstrumented = i.Postgres != nil
-			case ApplicationTypeRedis:
+			case ApplicationTypeRedis, ApplicationTypeKeyDB:
+				t = ApplicationTypeRedis
 				instanceInstrumented = i.Redis != nil
 			default:
 				continue

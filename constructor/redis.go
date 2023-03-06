@@ -6,7 +6,7 @@ import (
 )
 
 func redis(w *model.World, queryName string, m model.MetricValues) {
-	instance := findInstance(w, m.Labels, model.ApplicationTypeRedis)
+	instance := findInstance(w, m.Labels, model.ApplicationTypeRedis, model.ApplicationTypeKeyDB)
 	if instance == nil {
 		return
 	}
