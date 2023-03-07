@@ -40,16 +40,17 @@ type Stats struct {
 		Prometheus                bool                                 `json:"prometheus"`
 		PrometheusRefreshInterval int                                  `json:"prometheus_refresh_interval"`
 		NodeAgent                 bool                                 `json:"node_agent"`
+		NodeAgentVersions         *utils.StringSet                     `json:"node_agent_versions"`
 		KubeStateMetrics          *bool                                `json:"kube_state_metrics"`
 		InspectionOverrides       map[model.CheckId]InspectionOverride `json:"inspection_overrides"`
 		ApplicationCategories     int                                  `json:"application_categories"`
-		AlertingIntegrations      []string                             `json:"alerting_integrations"`
+		AlertingIntegrations      *utils.StringSet                     `json:"alerting_integrations"`
 		Pyroscope                 bool                                 `json:"pyroscope"`
 	} `json:"integration"`
 	Stack struct {
-		Clouds               []string `json:"clouds"`
-		Services             []string `json:"services"`
-		InstrumentedServices []string `json:"instrumented_services"`
+		Clouds               *utils.StringSet `json:"clouds"`
+		Services             *utils.StringSet `json:"services"`
+		InstrumentedServices *utils.StringSet `json:"instrumented_services"`
 	} `json:"stack"`
 	Infra struct {
 		Projects            int            `json:"projects"`
@@ -219,15 +220,16 @@ func (c *Collector) collect() Stats {
 	}
 	stats.Infra.Projects = len(projects)
 
-	clouds := utils.NewStringSet()
-	services := utils.NewStringSet()
-	servicesInstrumented := utils.NewStringSet()
 	applicationCategories := utils.NewStringSet()
+	stats.Integration.NodeAgentVersions = utils.NewStringSet()
 	stats.Integration.InspectionOverrides = map[model.CheckId]InspectionOverride{}
+	stats.Integration.AlertingIntegrations = utils.NewStringSet()
+	stats.Stack.Clouds = utils.NewStringSet()
+	stats.Stack.Services = utils.NewStringSet()
+	stats.Stack.InstrumentedServices = utils.NewStringSet()
 	stats.Performance.Constructor.Stages = map[string]float32{}
 	stats.Performance.Constructor.Queries = map[string]prom.QueryStats{}
 	stats.Infra.DeploymentSummaries = map[string]int{}
-	alertingIntegrations := utils.NewStringSet()
 	var loadTime, auditTime []time.Duration
 	now := timeseries.Now()
 	for _, p := range projects {
@@ -247,7 +249,7 @@ func (c *Collector) collect() Stats {
 
 		for _, i := range p.Settings.Integrations.GetInfo() {
 			if i.Configured {
-				alertingIntegrations.Add(string(i.Type))
+				stats.Integration.AlertingIntegrations.Add(string(i.Type))
 			}
 		}
 
@@ -302,7 +304,8 @@ func (c *Collector) collect() Stats {
 
 		stats.Infra.Nodes += len(w.Nodes)
 		for _, n := range w.Nodes {
-			clouds.Add(strings.ToLower(n.CloudProvider.Value()))
+			stats.Integration.NodeAgentVersions.Add(n.AgentVersion.Value())
+			stats.Stack.Clouds.Add(strings.ToLower(n.CloudProvider.Value()))
 		}
 
 		for _, a := range w.Applications {
@@ -313,9 +316,9 @@ func (c *Collector) collect() Stats {
 			stats.Infra.Instances += len(a.Instances)
 			for _, i := range a.Instances {
 				for t := range i.ApplicationTypes() {
-					services.Add(string(t))
+					stats.Stack.Services.Add(string(t))
 				}
-				servicesInstrumented.Add(string(i.InstrumentedType()))
+				stats.Stack.InstrumentedServices.Add(string(i.InstrumentedType()))
 			}
 			for _, ds := range model.CalcApplicationDeploymentStatuses(a, w.CheckConfigs, now) {
 				if now.Sub(ds.Deployment.StartedAt) > timeseries.Hour {
@@ -333,10 +336,6 @@ func (c *Collector) collect() Stats {
 		}
 	}
 	stats.Integration.ApplicationCategories = applicationCategories.Len()
-	stats.Integration.AlertingIntegrations = alertingIntegrations.Items()
-	stats.Stack.Clouds = clouds.Items()
-	stats.Stack.Services = services.Items()
-	stats.Stack.InstrumentedServices = servicesInstrumented.Items()
 
 	stats.UX.WorldLoadTimeAvg = avgDuration(loadTime)
 	stats.UX.AuditTimeAvg = avgDuration(auditTime)

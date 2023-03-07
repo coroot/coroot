@@ -25,6 +25,8 @@ type InterfaceStats struct {
 }
 
 type Node struct {
+	AgentVersion LabelLastValue
+
 	Name      LabelLastValue
 	MachineID string
 	Uptime    *timeseries.TimeSeries

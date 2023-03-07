@@ -52,6 +52,8 @@ func loadNodes(w *model.World, metrics map[string][]model.MetricValues) {
 				continue
 			}
 			switch queryName {
+			case "node_agent_info":
+				node.AgentVersion.Update(m.Values, m.Labels["version"])
 			case "node_cpu_cores":
 				node.CpuCapacity = merge(node.CpuCapacity, m.Values, timeseries.Any)
 			case "node_cpu_usage_percent":

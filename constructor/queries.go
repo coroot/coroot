@@ -9,6 +9,8 @@ import (
 )
 
 var QUERIES = map[string]string{
+	"node_agent_info": `node_agent_info`,
+
 	"up": `up`,
 
 	"node_info":                   `node_info`,
