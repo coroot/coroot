@@ -77,5 +77,10 @@ func (a *appAuditor) memory() {
 		leakCheck.SetStatus(model.UNKNOWN, "no data")
 		return
 	}
-	leakCheck.SetValue(leak)
+	switch a.app.Id.Kind {
+	case model.ApplicationKindCronJob, model.ApplicationKindJob:
+		leakCheck.SetStatus(model.UNKNOWN, "not checked for Jobs and CronJobs")
+	default:
+		leakCheck.SetValue(leak)
+	}
 }
