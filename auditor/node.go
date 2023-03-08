@@ -119,7 +119,7 @@ func (a *avgTimeSeries) add(x *timeseries.TimeSeries) {
 	a.count.Add(x.Map(timeseries.Defined))
 }
 
-func (a *avgTimeSeries) get() *timeseries.TimeSeries {
+func (a *avgTimeSeries) get() model.SeriesData {
 	return timeseries.Div(a.sum.Get(), a.count.Get())
 }
 

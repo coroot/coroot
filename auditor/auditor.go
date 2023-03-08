@@ -88,7 +88,6 @@ func enrichWidgets(widgets []*model.Widget, events []*model.ApplicationEvent) []
 				continue
 			}
 			w.ChartGroup.Charts = charts
-			w.ChartGroup.AutoFeatureChart()
 		}
 		if w.LogPatterns != nil {
 			for _, p := range w.LogPatterns.Patterns {

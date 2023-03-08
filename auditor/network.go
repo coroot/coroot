@@ -79,9 +79,9 @@ func (a *appAuditor) network() {
 			rttCheck.AddItem(appId.Name)
 		}
 		report.GetOrCreateChartInGroup("Network round-trip time to <selector>, seconds", appId.Name).
-			AddSeries("min", summary.rttMin.Get()).
+			AddSeries("min", summary.rttMin).
 			AddSeries("avg", avg).
-			AddSeries("max", summary.rttMax.Get())
+			AddSeries("max", summary.rttMax)
 	}
 	if !seenConnections {
 		rttCheck.SetStatus(model.UNKNOWN, "no data")

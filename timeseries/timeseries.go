@@ -69,6 +69,10 @@ func (ts *TimeSeries) String() string {
 	return fmt.Sprintf("TimeSeries(%d, %d, %d, [%s])", ts.from, ts.len(), ts.step, strings.Join(values, " "))
 }
 
+func (ts *TimeSeries) Get() *TimeSeries {
+	return ts
+}
+
 func (ts *TimeSeries) Set(t Time, v float64) {
 	t = t.Truncate(ts.step)
 	if t < ts.from {

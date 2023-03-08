@@ -190,8 +190,8 @@ func getCharts(app *model.Application, ctx timeseries.Context) (*model.Chart, *m
 			cpu.Add(c.CpuUsage)
 			rss.Add(c.MemoryRss)
 		}
-		cpuChart.AddSeries(i.Name, cpu.Get())
-		memoryChart.AddSeries(i.Name, rss.Get())
+		cpuChart.AddSeries(i.Name, cpu)
+		memoryChart.AddSeries(i.Name, rss)
 	}
 	return cpuChart, memoryChart
 }

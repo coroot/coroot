@@ -40,3 +40,15 @@ func (a *Aggregate) Get() *TimeSeries {
 	}
 	return NewWithData(a.input[0].from, a.input[0].step, data)
 }
+
+func (a *Aggregate) IsEmpty() bool {
+	return len(a.input) == 0
+}
+
+func (a *Aggregate) Reduce(f F) float64 {
+	return a.Get().Reduce(f)
+}
+
+func (a *Aggregate) MarshalJSON() ([]byte, error) {
+	return a.Get().MarshalJSON()
+}

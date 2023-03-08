@@ -148,7 +148,7 @@ func (a *appAuditor) instances() {
 		availability.SetStatus(model.UNKNOWN, "no data")
 		restarts.SetStatus(model.UNKNOWN, "no data")
 	}
-	chart := report.GetOrCreateChart("Instances").Stacked().AddSeries("up", up.Get())
+	chart := report.GetOrCreateChart("Instances").Stacked().AddSeries("up", up)
 	if !a.app.DesiredInstances.IsEmpty() {
 		chart.SetThreshold("desired", a.app.DesiredInstances)
 		chart.Threshold.Color = "red"

@@ -17,12 +17,18 @@ type Annotation struct {
 	Icon string          `json:"icon"`
 }
 
+type SeriesData interface {
+	IsEmpty() bool
+	Get() *timeseries.TimeSeries
+	Reduce(timeseries.F) float64
+}
+
 type Series struct {
 	Name  string `json:"name"`
 	Color string `json:"color"`
 	Fill  bool   `json:"fill"`
 
-	Data *timeseries.TimeSeries `json:"data"`
+	Data SeriesData `json:"data"`
 }
 
 type SeriesList struct {
@@ -147,7 +153,7 @@ func (chart *Chart) AddEventsAnnotations(events []*ApplicationEvent) *Chart {
 	return chart
 }
 
-func (chart *Chart) AddSeries(name string, data *timeseries.TimeSeries, color ...string) *Chart {
+func (chart *Chart) AddSeries(name string, data SeriesData, color ...string) *Chart {
 	if data.IsEmpty() {
 		return chart
 	}
@@ -159,7 +165,7 @@ func (chart *Chart) AddSeries(name string, data *timeseries.TimeSeries, color ..
 	return chart
 }
 
-func (chart *Chart) AddMany(series map[string]*timeseries.TimeSeries, topN int, topF timeseries.F) *Chart {
+func (chart *Chart) AddMany(series map[string]SeriesData, topN int, topF timeseries.F) *Chart {
 	for name, data := range series {
 		chart.AddSeries(name, data)
 	}
@@ -168,8 +174,8 @@ func (chart *Chart) AddMany(series map[string]*timeseries.TimeSeries, topN int, 
 	return chart
 }
 
-func (chart *Chart) SetThreshold(name string, data *timeseries.TimeSeries) *Chart {
-	if data == nil {
+func (chart *Chart) SetThreshold(name string, data SeriesData) *Chart {
+	if data.IsEmpty() {
 		return chart
 	}
 	chart.Threshold = &Series{Name: name, Color: "black", Data: data}
@@ -186,6 +192,17 @@ type ChartGroup struct {
 	Charts []*Chart `json:"charts"`
 }
 
+func (cg *ChartGroup) MarshalJSON() ([]byte, error) {
+	autoFeatureChart(cg.Charts)
+	return json.Marshal(struct {
+		Title  string   `json:"title"`
+		Charts []*Chart `json:"charts"`
+	}{
+		Title:  cg.Title,
+		Charts: cg.Charts,
+	})
+}
+
 func (cg *ChartGroup) GetOrCreateChart(ctx timeseries.Context, title string) *Chart {
 	for _, ch := range cg.Charts {
 		if ch.Title == title {
@@ -197,32 +214,32 @@ func (cg *ChartGroup) GetOrCreateChart(ctx timeseries.Context, title string) *Ch
 	return ch
 }
 
-func (cg *ChartGroup) AutoFeatureChart() {
-	if len(cg.Charts) < 2 {
+func autoFeatureChart(charts []*Chart) {
+	if len(charts) < 2 {
 		return
 	}
-	type weightedChart struct {
-		ch *Chart
-		w  float64
-	}
-	for _, ch := range cg.Charts {
+	for _, ch := range charts {
 		if ch.Featured {
 			return
 		}
 	}
-	charts := make([]weightedChart, 0, len(cg.Charts))
-	for _, ch := range cg.Charts {
+	type weight struct {
+		i int
+		w float64
+	}
+	weights := make([]weight, 0, len(charts))
+	for i, ch := range charts {
 		var w float64
 		for _, s := range ch.Series.series {
 			w += s.Data.Reduce(timeseries.NanSum)
 		}
-		charts = append(charts, weightedChart{ch: ch, w: w})
+		weights = append(weights, weight{i: i, w: w})
 	}
-	sort.Slice(charts, func(i, j int) bool {
-		return charts[i].w > charts[j].w
+	sort.Slice(weights, func(i, j int) bool {
+		return weights[i].w > weights[j].w
 	})
-	if charts[0].w/charts[1].w > 1.2 {
-		charts[0].ch.Featured = true
+	if weights[0].w/weights[1].w > 1.2 {
+		charts[weights[0].i].Featured = true
 	}
 }
 
@@ -247,7 +264,7 @@ func topN(ss []*Series, n int, by timeseries.F) []*Series {
 		if (i + 1) < n {
 			res = append(res, s.Series)
 		} else {
-			other.Add(s.Data)
+			other.Add(s.Data.Get())
 		}
 	}
 	if otherTs := other.Get(); !otherTs.IsEmpty() {

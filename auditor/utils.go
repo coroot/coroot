@@ -5,26 +5,26 @@ import (
 	"github.com/coroot/coroot/timeseries"
 )
 
-func memoryConsumers(node *model.Node) map[string]*timeseries.TimeSeries {
-	usageByApp := map[string]*timeseries.TimeSeries{}
+func memoryConsumers(node *model.Node) map[string]model.SeriesData {
+	usageByApp := map[string]model.SeriesData{}
 	for _, instance := range node.Instances {
 		agg := timeseries.NewAggregate(timeseries.NanSum)
 		for _, c := range instance.Containers {
 			agg.Add(c.MemoryRss)
 		}
-		usageByApp[instance.OwnerId.Name] = agg.Get()
+		usageByApp[instance.OwnerId.Name] = agg
 	}
 	return usageByApp
 }
 
-func cpuConsumers(node *model.Node) map[string]*timeseries.TimeSeries {
-	usageByApp := map[string]*timeseries.TimeSeries{}
+func cpuConsumers(node *model.Node) map[string]model.SeriesData {
+	usageByApp := map[string]model.SeriesData{}
 	for _, instance := range node.Instances {
 		agg := timeseries.NewAggregate(timeseries.NanSum)
 		for _, c := range instance.Containers {
 			agg.Add(c.CpuUsage)
 		}
-		usageByApp[instance.OwnerId.Name] = agg.Get()
+		usageByApp[instance.OwnerId.Name] = agg
 	}
 	return usageByApp
 }

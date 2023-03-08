@@ -47,11 +47,15 @@ func (a *appAuditor) redis() {
 			roleCell.SetIcon("mdi-database-import-outline", "grey")
 		}
 
+		byCmd := map[string]model.SeriesData{}
+		for cmd, ts := range i.Redis.Calls {
+			byCmd[cmd] = ts
+		}
 		report.
 			GetOrCreateChartInGroup("Redis queries on <selector>, per seconds", i.Name).
 			Stacked().
 			Sorted().
-			AddMany(i.Redis.Calls, 5, timeseries.NanSum)
+			AddMany(byCmd, 5, timeseries.NanSum)
 
 		if avg.Last() > latency.Threshold {
 			latency.AddItem(i.Name)

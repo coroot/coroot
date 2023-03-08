@@ -119,8 +119,8 @@ func (a *appAuditor) postgres() {
 	}
 }
 
-func errorsByPattern(instance *model.Instance) map[string]*timeseries.TimeSeries {
-	res := map[string]*timeseries.TimeSeries{}
+func errorsByPattern(instance *model.Instance) map[string]model.SeriesData {
+	res := map[string]model.SeriesData{}
 	for _, p := range instance.LogPatterns {
 		if p.Level != model.LogLevelError && p.Level != model.LogLevelCritical {
 			continue
@@ -228,11 +228,11 @@ func pgConnections(report *model.AuditReport, instance *model.Instance, connecti
 		SetThreshold("max_connections", instance.Postgres.Settings["max_connections"].Samples)
 
 	for state, v := range connectionByState {
-		chart.AddSeries(state, v.Get(), pgConnectionStateColors[state])
+		chart.AddSeries(state, v, pgConnectionStateColors[state])
 	}
 
-	idleInTransaction := map[string]*timeseries.TimeSeries{}
-	locked := map[string]*timeseries.TimeSeries{}
+	idleInTransaction := map[string]model.SeriesData{}
+	locked := map[string]model.SeriesData{}
 
 	for k, v := range instance.Postgres.Connections {
 		switch {
@@ -253,7 +253,7 @@ func pgConnections(report *model.AuditReport, instance *model.Instance, connecti
 }
 
 func pgLocks(report *model.AuditReport, instance *model.Instance) {
-	blockingQueries := map[string]*timeseries.TimeSeries{}
+	blockingQueries := map[string]model.SeriesData{}
 	for k, v := range instance.Postgres.AwaitingQueriesByLockingQuery {
 		blockingQueries[k.Query] = v
 	}
@@ -265,8 +265,8 @@ func pgLocks(report *model.AuditReport, instance *model.Instance) {
 }
 
 func pgQueries(report *model.AuditReport, instance *model.Instance) {
-	totalTime := map[string]*timeseries.TimeSeries{}
-	ioTime := map[string]*timeseries.TimeSeries{}
+	totalTime := map[string]model.SeriesData{}
+	ioTime := map[string]model.SeriesData{}
 	for k, stat := range instance.Postgres.PerQuery {
 		q := k.String()
 		totalTime[q] = stat.TotalTime

@@ -21,6 +21,7 @@ func (a *appAuditor) cpu() {
 			l := limitByContainer[c.Name]
 			if l == nil {
 				l = timeseries.NewAggregate(timeseries.Max)
+				limitByContainer[c.Name] = l
 			}
 			l.Add(c.CpuLimit)
 			usageChart := report.GetOrCreateChartInGroup(cpuChartTitle, c.Name).AddSeries(i.Name, c.CpuUsage)
@@ -58,7 +59,7 @@ func (a *appAuditor) cpu() {
 		}
 	}
 	for container, limit := range limitByContainer {
-		report.GetOrCreateChartInGroup(cpuChartTitle, container).SetThreshold("limit", limit.Get())
+		report.GetOrCreateChartInGroup(cpuChartTitle, container).SetThreshold("limit", limit)
 	}
 
 	if a.p.Settings.Integrations.Pyroscope != nil {
