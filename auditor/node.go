@@ -9,16 +9,13 @@ func AuditNode(w *model.World, node *model.Node) *model.AuditReport {
 	id := model.NewApplicationId("", model.ApplicationKindNode, node.Name.Value())
 	report := model.NewAuditReport(model.NewApplication(id), w.Ctx, nil, model.AuditReportNode)
 
-	cpu := report.GetOrCreateChart("CPU usage, %").Sorted().Stacked()
-	for _, s := range cpuByModeSeries(node.CpuUsageByMode) {
-		cpu.Series = append(cpu.Series, s)
-	}
+	cpuByModeChart(report.GetOrCreateChart("CPU usage, %"), node.CpuUsageByMode)
 
 	report.GetOrCreateChart("CPU consumers, cores").
 		Stacked().
 		Sorted().
 		SetThreshold("total", node.CpuCapacity).
-		AddMany(timeseries.Top(cpuConsumers(node), timeseries.Max, 5))
+		AddMany(cpuConsumers(node), 5, timeseries.Max)
 
 	used := timeseries.Sub(
 		node.MemoryTotalBytes,
@@ -35,7 +32,7 @@ func AuditNode(w *model.World, node *model.Node) *model.AuditReport {
 	report.GetOrCreateChart("Memory consumers, bytes").
 		Stacked().
 		SetThreshold("total", node.MemoryTotalBytes).
-		AddMany(timeseries.Top(memoryConsumers(node), timeseries.Max, 5))
+		AddMany(memoryConsumers(node), 5, timeseries.Max)
 	netLatency(report, w, node)
 
 	for _, i := range node.NetInterfaces {

@@ -1,7 +1,9 @@
 package model
 
 import (
+	"encoding/json"
 	"github.com/coroot/coroot/timeseries"
+	"math"
 	"sort"
 	"strings"
 )
@@ -15,11 +17,33 @@ type Annotation struct {
 	Icon string          `json:"icon"`
 }
 
+type Series struct {
+	Name  string `json:"name"`
+	Color string `json:"color"`
+	Fill  bool   `json:"fill"`
+
+	Data *timeseries.TimeSeries `json:"data"`
+}
+
+type SeriesList struct {
+	series []*Series
+	topN   int
+	topF   timeseries.F
+}
+
+func (sl SeriesList) MarshalJSON() ([]byte, error) {
+	ss := sl.series
+	if sl.topN > 0 && sl.topF != nil {
+		ss = topN(ss, sl.topN, sl.topF)
+	}
+	return json.Marshal(ss)
+}
+
 type Chart struct {
 	Ctx timeseries.Context `json:"ctx"`
 
 	Title         string       `json:"title"`
-	Series        []*Series    `json:"series"`
+	Series        SeriesList   `json:"series"`
 	Threshold     *Series      `json:"threshold"`
 	Featured      bool         `json:"featured"`
 	IsStacked     bool         `json:"stacked"`
@@ -32,6 +56,10 @@ type Chart struct {
 
 func NewChart(ctx timeseries.Context, title string) *Chart {
 	return &Chart{Ctx: ctx, Title: title}
+}
+
+func (chart *Chart) IsEmpty() bool {
+	return len(chart.Series.series) == 0
 }
 
 func (chart *Chart) Stacked() *Chart {
@@ -119,13 +147,6 @@ func (chart *Chart) AddEventsAnnotations(events []*ApplicationEvent) *Chart {
 	return chart
 }
 
-func (chart *Chart) AddMany(series []timeseries.Named) *Chart {
-	for _, v := range series {
-		chart.AddSeries(v.Name, v.Series)
-	}
-	return chart
-}
-
 func (chart *Chart) AddSeries(name string, data *timeseries.TimeSeries, color ...string) *Chart {
 	if data.IsEmpty() {
 		return chart
@@ -134,7 +155,16 @@ func (chart *Chart) AddSeries(name string, data *timeseries.TimeSeries, color ..
 	if len(color) > 0 {
 		s.Color = color[0]
 	}
-	chart.Series = append(chart.Series, s)
+	chart.Series.series = append(chart.Series.series, s)
+	return chart
+}
+
+func (chart *Chart) AddMany(series map[string]*timeseries.TimeSeries, topN int, topF timeseries.F) *Chart {
+	for name, data := range series {
+		chart.AddSeries(name, data)
+	}
+	chart.Series.topN = topN
+	chart.Series.topF = topF
 	return chart
 }
 
@@ -149,14 +179,6 @@ func (chart *Chart) SetThreshold(name string, data *timeseries.TimeSeries) *Char
 func (chart *Chart) Feature() *Chart {
 	chart.Featured = true
 	return chart
-}
-
-type Series struct {
-	Name  string `json:"name"`
-	Color string `json:"color"`
-	Fill  bool   `json:"fill"`
-
-	Data *timeseries.TimeSeries `json:"data"`
 }
 
 type ChartGroup struct {
@@ -191,7 +213,7 @@ func (cg *ChartGroup) AutoFeatureChart() {
 	charts := make([]weightedChart, 0, len(cg.Charts))
 	for _, ch := range cg.Charts {
 		var w float64
-		for _, s := range ch.Series {
+		for _, s := range ch.Series.series {
 			w += s.Data.Reduce(timeseries.NanSum)
 		}
 		charts = append(charts, weightedChart{ch: ch, w: w})
@@ -202,4 +224,34 @@ func (cg *ChartGroup) AutoFeatureChart() {
 	if charts[0].w/charts[1].w > 1.2 {
 		charts[0].ch.Featured = true
 	}
+}
+
+func topN(ss []*Series, n int, by timeseries.F) []*Series {
+	type weighted struct {
+		*Series
+		weight float64
+	}
+	sortable := make([]weighted, 0, len(ss))
+	for _, s := range ss {
+		w := s.Data.Reduce(by)
+		if !math.IsNaN(w) {
+			sortable = append(sortable, weighted{Series: s, weight: w})
+		}
+	}
+	sort.Slice(sortable, func(i, j int) bool {
+		return sortable[i].weight > sortable[j].weight
+	})
+	res := make([]*Series, 0, n+1)
+	other := timeseries.NewAggregate(timeseries.NanSum)
+	for i, s := range sortable {
+		if (i + 1) < n {
+			res = append(res, s.Series)
+		} else {
+			other.Add(s.Data)
+		}
+	}
+	if otherTs := other.Get(); !otherTs.IsEmpty() {
+		res = append(res, &Series{Name: "other", Data: otherTs})
+	}
+	return res
 }

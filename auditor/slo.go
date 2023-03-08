@@ -5,6 +5,7 @@ import (
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
+	"github.com/dustin/go-humanize"
 	"math"
 )
 
@@ -118,17 +119,38 @@ func requestsChart(app *model.Application, report *model.AuditReport) {
 	ch := report.GetOrCreateChart(fmt.Sprintf("Requests to the <var>%s</var> app, per second", app.Id.Name)).Sorted().Stacked()
 	if len(app.LatencySLIs) > 0 {
 		sli := app.LatencySLIs[0]
-		if hist := sli.Histogram; len(hist) > 0 {
-			for _, s := range histogramSeries(sli.Histogram, sli.Config.ObjectiveBucket) {
-				ch.Series = append(ch.Series, s)
-			}
+		if len(sli.Histogram) > 0 {
+			histogramSeries(ch, sli.Histogram, sli.Config.ObjectiveBucket)
 		}
 	}
 	if len(app.AvailabilitySLIs) > 0 {
-		if len(ch.Series) == 0 {
+		if ch.IsEmpty() {
 			ch.AddSeries("total", app.AvailabilitySLIs[0].TotalRequests, "grey-lighten1")
 		}
 		ch.AddSeries("errors", app.AvailabilitySLIs[0].FailedRequests, "black")
+	}
+}
+
+func histogramSeries(ch *model.Chart, histogram []model.HistogramBucket, objectiveBucket float64) {
+	for i, b := range histogram {
+		color := "green"
+		if objectiveBucket > 0 && b.Le > objectiveBucket {
+			color = "red"
+		}
+		data := b.TimeSeries
+		legend := ""
+		if i == 0 {
+			legend = fmt.Sprintf("0-%.0f ms", b.Le*1000)
+		} else {
+			prev := histogram[i-1]
+			data = timeseries.Sub(data, prev.TimeSeries)
+			if prev.Le >= 0.1 {
+				legend = fmt.Sprintf("%s-%s s", humanize.Ftoa(prev.Le), humanize.Ftoa(b.Le))
+			} else {
+				legend = fmt.Sprintf("%.0f-%.0f ms", prev.Le*1000, b.Le*1000)
+			}
+		}
+		ch.AddSeries(legend, data, color)
 	}
 }
 

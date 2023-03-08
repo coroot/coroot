@@ -42,15 +42,13 @@ func (a *appAuditor) cpu() {
 					AddSeries(nodeName, i.Node.CpuUsagePercent).
 					Feature()
 
-				byMode := report.GetOrCreateChartInGroup("Node CPU usage <selector>, %", nodeName).Sorted().Stacked()
-				for _, s := range cpuByModeSeries(node.CpuUsageByMode) {
-					byMode.Series = append(byMode.Series, s)
-				}
+				cpuByModeChart(report.GetOrCreateChartInGroup("Node CPU usage <selector>, %", nodeName), node.CpuUsageByMode)
+
 				consumersChart := report.GetOrCreateChartInGroup("CPU consumers on <selector>, cores", nodeName).
 					Stacked().
 					Sorted().
 					SetThreshold("total", node.CpuCapacity).
-					AddMany(timeseries.Top(cpuConsumers(node), timeseries.Max, 5))
+					AddMany(cpuConsumers(node), 5, timeseries.Max)
 
 				if i.Node.CpuUsagePercent.Last() > nodeCpuCheck.Threshold {
 					consumersChart.Feature()

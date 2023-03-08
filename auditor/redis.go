@@ -51,7 +51,7 @@ func (a *appAuditor) redis() {
 			GetOrCreateChartInGroup("Redis queries on <selector>, per seconds", i.Name).
 			Stacked().
 			Sorted().
-			AddMany(timeseries.Top(i.Redis.Calls, timeseries.NanSum, 5))
+			AddMany(i.Redis.Calls, 5, timeseries.NanSum)
 
 		if avg.Last() > latency.Threshold {
 			latency.AddItem(i.Name)

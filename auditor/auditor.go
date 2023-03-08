@@ -70,7 +70,7 @@ func enrichWidgets(widgets []*model.Widget, events []*model.ApplicationEvent) []
 	var res []*model.Widget
 	for _, w := range widgets {
 		if w.Chart != nil {
-			if len(w.Chart.Series) == 0 {
+			if w.Chart.IsEmpty() {
 				continue
 			}
 			w.Chart.AddEventsAnnotations(events)
@@ -78,7 +78,7 @@ func enrichWidgets(widgets []*model.Widget, events []*model.ApplicationEvent) []
 		if w.ChartGroup != nil {
 			var charts []*model.Chart
 			for _, ch := range w.ChartGroup.Charts {
-				if len(ch.Series) == 0 {
+				if ch.IsEmpty() {
 					continue
 				}
 				charts = append(charts, ch)

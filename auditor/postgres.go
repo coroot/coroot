@@ -75,7 +75,7 @@ func (a *appAuditor) postgres() {
 		report.
 			GetOrCreateChartInGroup("Errors <selector>", i.Name).
 			Column().
-			AddMany(timeseries.Top(errorsByPattern(i), timeseries.NanSum, 5))
+			AddMany(errorsByPattern(i), 5, timeseries.NanSum)
 		pgConnections(report, i, connectionsCheck)
 		pgLocks(report, i)
 		primaryLsnTs := primaryLsn.Get()
@@ -245,11 +245,11 @@ func pgConnections(report *model.AuditReport, instance *model.Instance, connecti
 	report.
 		GetOrCreateChartInGroup("Idle transactions on <selector>", instance.Name).
 		Stacked().
-		AddMany(timeseries.Top(idleInTransaction, timeseries.NanSum, 5))
+		AddMany(idleInTransaction, 5, timeseries.NanSum)
 	report.
 		GetOrCreateChartInGroup("Locked queries on <selector>", instance.Name).
 		Stacked().
-		AddMany(timeseries.Top(locked, timeseries.NanSum, 5))
+		AddMany(locked, 5, timeseries.NanSum)
 }
 
 func pgLocks(report *model.AuditReport, instance *model.Instance) {
@@ -260,7 +260,7 @@ func pgLocks(report *model.AuditReport, instance *model.Instance) {
 	report.
 		GetOrCreateChartInGroup("Blocking queries by the number of awaiting queries on <selector>", instance.Name).
 		Stacked().
-		AddMany(timeseries.Top(blockingQueries, timeseries.NanSum, 5)).
+		AddMany(blockingQueries, 5, timeseries.NanSum).
 		ShiftColors()
 }
 
@@ -276,12 +276,12 @@ func pgQueries(report *model.AuditReport, instance *model.Instance) {
 		GetOrCreateChartInGroup("Queries by total time on <selector>, query seconds/second", instance.Name).
 		Stacked().
 		Sorted().
-		AddMany(timeseries.Top(totalTime, timeseries.NanSum, 5))
+		AddMany(totalTime, 5, timeseries.NanSum)
 	report.
 		GetOrCreateChartInGroup("Queries by I/O time on <selector>, query seconds/second", instance.Name).
 		Stacked().
 		Sorted().
-		AddMany(timeseries.Top(ioTime, timeseries.NanSum, 5))
+		AddMany(ioTime, 5, timeseries.NanSum)
 }
 
 func sumQueries(byDB map[string]*timeseries.TimeSeries) *timeseries.TimeSeries {

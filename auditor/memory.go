@@ -57,7 +57,7 @@ func (a *appAuditor) memory() {
 				report.GetOrCreateChartInGroup("Memory consumers <selector>, bytes", nodeName).
 					Stacked().
 					SetThreshold("total", node.MemoryTotalBytes).
-					AddMany(timeseries.Top(memoryConsumers(node), timeseries.Max, 5))
+					AddMany(memoryConsumers(node), 5, timeseries.Max)
 			}
 		}
 	}
