@@ -46,7 +46,7 @@ func getInstanceByPod(w *model.World, ns, pod string) *model.Instance {
 	return nil
 }
 
-func loadContainers(w *model.World, metrics map[string][]model.MetricValues) {
+func loadContainers(w *model.World, metrics map[string][]model.MetricValues, pjs promJobStatuses) {
 	rttByInstance := map[model.InstanceId]map[string]*timeseries.TimeSeries{}
 
 	for queryName := range metrics {
@@ -78,7 +78,6 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues) {
 				mc.node.Instances = append(mc.node.Instances, instance)
 			}
 			container := instance.GetOrCreateContainer(mc.container)
-			promJobStatus := prometheusJobStatus(metrics, m.Labels["job"], m.Labels["instance"])
 			switch queryName {
 			case "container_info":
 				if image := m.Labels["image"]; image != "" {
@@ -161,13 +160,13 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues) {
 			case "container_memory_limit":
 				container.MemoryLimit = merge(container.MemoryLimit, m.Values, timeseries.Any)
 			case "container_oom_kills_total":
-				container.OOMKills = merge(container.OOMKills, timeseries.Increase(m.Values, promJobStatus), timeseries.Any)
+				container.OOMKills = merge(container.OOMKills, timeseries.Increase(m.Values, pjs.get(m.Labels)), timeseries.Any)
 			case "container_restarts":
-				container.Restarts = merge(container.Restarts, timeseries.Increase(m.Values, promJobStatus), timeseries.Any)
+				container.Restarts = merge(container.Restarts, timeseries.Increase(m.Values, pjs.get(m.Labels)), timeseries.Any)
 			case "container_application_type":
 				container.ApplicationTypes[model.ApplicationType(m.Labels["application_type"])] = true
 			case "container_log_messages":
-				logMessage(instance, m.Labels, timeseries.Increase(m.Values, promJobStatus))
+				logMessage(instance, m.Labels, timeseries.Increase(m.Values, pjs.get(m.Labels)))
 			case "container_volume_size":
 				v := getOrCreateInstanceVolume(instance, m)
 				v.CapacityBytes = merge(v.CapacityBytes, m.Values, timeseries.Any)

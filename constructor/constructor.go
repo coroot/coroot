@@ -91,11 +91,14 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 		klog.Warningln(err)
 	}
 
+	pjs := promJobStatuses{}
+
 	// order is important
+	prof.stage("load_job_statuses", func() { loadPromJobStatuses(metrics, pjs) })
 	prof.stage("load_nodes", func() { loadNodes(w, metrics) })
 	prof.stage("load_k8s_metadata", func() { loadKubernetesMetadata(w, metrics) })
-	prof.stage("load_rds", func() { loadRds(w, metrics) })
-	prof.stage("load_containers", func() { loadContainers(w, metrics) })
+	prof.stage("load_rds", func() { loadRds(w, metrics, pjs) })
+	prof.stage("load_containers", func() { loadContainers(w, metrics, pjs) })
 	prof.stage("enrich_instances", func() { enrichInstances(w, metrics) })
 	prof.stage("join_db_cluster", func() { joinDBClusterComponents(w) })
 	prof.stage("calc_app_categories", func() { c.calcApplicationCategories(w) })
@@ -204,6 +207,23 @@ func (c *Constructor) loadApplicationDeployments(w *model.World) {
 	}
 }
 
+type promJob struct {
+	job      string
+	instance string
+}
+
+type promJobStatuses map[promJob]*timeseries.TimeSeries
+
+func (s promJobStatuses) get(ls model.Labels) *timeseries.TimeSeries {
+	return s[promJob{job: ls["job"], instance: ls["instance"]}]
+}
+
+func loadPromJobStatuses(metrics map[string][]model.MetricValues, statuses promJobStatuses) {
+	for _, m := range metrics["up"] {
+		statuses[promJob{job: m.Labels["job"], instance: m.Labels["instance"]}] = m.Values
+	}
+}
+
 func enrichInstances(w *model.World, metrics map[string][]model.MetricValues) {
 	for queryName := range metrics {
 		for _, m := range metrics[queryName] {
@@ -215,15 +235,6 @@ func enrichInstances(w *model.World, metrics map[string][]model.MetricValues) {
 			}
 		}
 	}
-}
-
-func prometheusJobStatus(metrics map[string][]model.MetricValues, job, instance string) *timeseries.TimeSeries {
-	for _, m := range metrics["up"] {
-		if m.Labels["job"] == job && m.Labels["instance"] == instance {
-			return m.Values
-		}
-	}
-	return nil
 }
 
 func joinDBClusterComponents(w *model.World) {
