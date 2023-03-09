@@ -224,14 +224,39 @@ func loadPromJobStatuses(metrics map[string][]model.MetricValues, statuses promJ
 	}
 }
 
+type podId struct {
+	name, ns string
+}
+
 func enrichInstances(w *model.World, metrics map[string][]model.MetricValues) {
+	instancesByListen := map[model.Listen]*model.Instance{}
+	instancesByPod := map[podId]*model.Instance{}
+	rdsInstancesById := map[string]*model.Instance{}
+
+	for _, app := range w.Applications {
+		for _, i := range app.Instances {
+			if app.Id.Kind == model.ApplicationKindRds {
+				rdsId := app.Id.Name + "/" + i.Name
+				rdsInstancesById[rdsId] = i
+			}
+			if i.Pod != nil {
+				instancesByPod[podId{name: i.Name, ns: app.Id.Namespace}] = i
+			}
+			for l := range i.TcpListens {
+				instancesByListen[l] = i
+			}
+		}
+	}
+
 	for queryName := range metrics {
 		for _, m := range metrics[queryName] {
 			switch {
 			case strings.HasPrefix(queryName, "pg_"):
-				postgres(w, queryName, m)
+				instance := findInstance(instancesByPod, instancesByListen, rdsInstancesById, m.Labels, model.ApplicationTypePostgres)
+				postgres(instance, queryName, m)
 			case strings.HasPrefix(queryName, "redis_"):
-				redis(w, queryName, m)
+				instance := findInstance(instancesByPod, instancesByListen, rdsInstancesById, m.Labels, model.ApplicationTypeRedis, model.ApplicationTypeKeyDB)
+				redis(instance, queryName, m)
 			}
 		}
 	}
@@ -290,17 +315,23 @@ func guessNamespace(ls model.Labels) string {
 	return ""
 }
 
-func findInstance(w *model.World, ls model.Labels, applicationTypes ...model.ApplicationType) *model.Instance {
+func findInstance(instancesByPod map[podId]*model.Instance, instancesByListen map[model.Listen]*model.Instance, rdsInstancesById map[string]*model.Instance, ls model.Labels, applicationTypes ...model.ApplicationType) *model.Instance {
 	if rdsId := ls["rds_instance_id"]; rdsId != "" {
-		return getOrCreateRdsInstance(w, rdsId)
+		return rdsInstancesById[rdsId]
 	}
 	if host, port, err := net.SplitHostPort(ls["instance"]); err == nil {
 		if ip := net.ParseIP(host); ip != nil && !ip.IsLoopback() {
-			return getActualServiceInstance(w.FindInstanceByListen(host, port), applicationTypes...)
+			var instance *model.Instance
+			for _, l := range []model.Listen{{IP: host, Port: port, Proxied: true}, {IP: host, Port: port, Proxied: false}, {IP: host, Port: "0", Proxied: false}} {
+				if instance = instancesByListen[l]; instance != nil {
+					break
+				}
+			}
+			return getActualServiceInstance(instance, applicationTypes...)
 		}
 	}
 	if ns, pod := guessNamespace(ls), guessPod(ls); ns != "" && pod != "" {
-		return getActualServiceInstance(w.FindInstanceByPod(ns, pod), applicationTypes...)
+		return getActualServiceInstance(instancesByPod[podId{name: pod, ns: ns}], applicationTypes...)
 	}
 	return nil
 }

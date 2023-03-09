@@ -64,33 +64,6 @@ func (w *World) GetServiceForConnection(c *Connection) *Service {
 	return nil
 }
 
-func (w *World) FindInstanceByListen(ip, port string) *Instance {
-	for _, l := range []Listen{{IP: ip, Port: port, Proxied: true}, {IP: ip, Port: port, Proxied: false}, {IP: ip, Port: "0", Proxied: false}} {
-		for _, app := range w.Applications {
-			for _, i := range app.Instances {
-				if _, ok := i.TcpListens[l]; ok {
-					return i
-				}
-			}
-		}
-	}
-	return nil
-}
-
-func (w *World) FindInstanceByPod(ns, pod string) *Instance {
-	for _, app := range w.Applications {
-		if app.Id.Namespace != ns {
-			continue
-		}
-		for _, i := range app.Instances {
-			if i.Pod != nil && i.Name == pod {
-				return i
-			}
-		}
-	}
-	return nil
-}
-
 func (w *World) GetNode(name string) *Node {
 	for _, n := range w.Nodes {
 		if n.Name.Value() == name {

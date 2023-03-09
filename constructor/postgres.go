@@ -5,8 +5,7 @@ import (
 	"github.com/coroot/coroot/timeseries"
 )
 
-func postgres(w *model.World, queryName string, m model.MetricValues) {
-	instance := findInstance(w, m.Labels, model.ApplicationTypePostgres)
+func postgres(instance *model.Instance, queryName string, m model.MetricValues) {
 	if instance == nil {
 		return
 	}
