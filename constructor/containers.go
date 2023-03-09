@@ -32,13 +32,23 @@ func getMetricContext(w *model.World, ls model.Labels) *metricContext {
 	return mc
 }
 
-func getInstanceByPod(w *model.World, ns, pod string) *model.Instance {
+func getInstanceByPod(w *model.World, node *model.Node, ns, pod string) *model.Instance {
 	for _, a := range w.Applications {
 		if a.Id.Namespace != ns {
 			continue
 		}
 		for _, i := range a.Instances {
-			if i.Pod != nil && i.Name == pod {
+			if i.Pod == nil || i.Name != pod {
+				continue
+			}
+			if a.Id.Kind == model.ApplicationKindStatefulSet {
+				if node == nil {
+					return i
+				}
+				if i.NodeName() == node.Name.Value() {
+					return i
+				}
+			} else {
 				return i
 			}
 		}
@@ -62,20 +72,16 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues, pjs
 			switch {
 			case mc.pod != "" && mc.ns != "":
 				w.IntegrationStatus.KubeStateMetrics.Required = true
-				if instance = getInstanceByPod(w, mc.ns, mc.pod); instance == nil {
+				if instance = getInstanceByPod(w, mc.node, mc.ns, mc.pod); instance == nil {
 					continue
 				}
 			case mc.container != "" && mc.node != nil:
 				appId := model.NewApplicationId("", model.ApplicationKindUnknown, mc.container)
 				instanceName := fmt.Sprintf("%s@%s", mc.container, mc.node.Name.Value())
-				instance = w.GetOrCreateApplication(appId).GetOrCreateInstance(instanceName)
+				instance = w.GetOrCreateApplication(appId).GetOrCreateInstance(instanceName, mc.node)
 			}
 			if instance == nil {
 				continue
-			}
-			if instance.Node == nil && mc.node != nil {
-				instance.Node = mc.node
-				mc.node.Instances = append(mc.node.Instances, instance)
 			}
 			container := instance.GetOrCreateContainer(mc.container)
 			switch queryName {
@@ -205,7 +211,10 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues, pjs
 				}
 				if u.RemoteInstance = instancesByListen[l]; u.RemoteInstance == nil {
 					l.Proxied = false
-					u.RemoteInstance = instancesByListen[l]
+					if u.RemoteInstance = instancesByListen[l]; u.RemoteInstance == nil {
+						l.Port = "0"
+						u.RemoteInstance = instancesByListen[l]
+					}
 				}
 				if upstreams, ok := rttByInstance[instance.InstanceId]; ok {
 					u.Rtt = merge(u.Rtt, upstreams[u.ActualRemoteIP], timeseries.Any)
@@ -233,7 +242,7 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues, pjs
 				} else {
 					appId.Name = u.ActualRemoteIP + ":" + u.ActualRemotePort
 				}
-				ri := w.GetOrCreateApplication(appId).GetOrCreateInstance(appId.Name)
+				ri := w.GetOrCreateApplication(appId).GetOrCreateInstance(appId.Name, nil)
 				ri.TcpListens[model.Listen{IP: u.ActualRemoteIP, Port: u.ActualRemotePort}] = true
 				u.RemoteInstance = ri
 			}

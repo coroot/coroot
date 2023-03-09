@@ -64,9 +64,9 @@ func (a *appAuditor) network() {
 				sn := instance.Node
 				dn := u.RemoteInstance.Node
 				report.GetOrCreateDependencyMap().UpdateLink(
-					model.DependencyMapInstance{Name: instance.Name, Obsolete: instance.IsObsolete()},
+					model.DependencyMapInstance{Id: instance.Name + "@" + instance.NodeName(), Name: instance.Name, Obsolete: instance.IsObsolete()},
 					model.DependencyMapNode{Name: sn.Name.Value(), Provider: sn.CloudProvider.Value(), Region: sn.Region.Value(), AZ: sn.AvailabilityZone.Value()},
-					model.DependencyMapInstance{Name: u.RemoteInstance.Name, Obsolete: u.IsObsolete()},
+					model.DependencyMapInstance{Id: u.RemoteInstance.Name + "@" + u.RemoteInstance.NodeName(), Name: u.RemoteInstance.Name, Obsolete: u.IsObsolete()},
 					model.DependencyMapNode{Name: dn.Name.Value(), Provider: dn.CloudProvider.Value(), Region: dn.Region.Value(), AZ: dn.AvailabilityZone.Value()},
 					linkStatus,
 				)

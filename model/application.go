@@ -42,20 +42,36 @@ func (app *Application) SLOStatus() Status {
 	return UNKNOWN
 }
 
-func (app *Application) GetInstance(name string) *Instance {
+func (app *Application) GetInstance(name, node string) *Instance {
 	for _, i := range app.Instances {
-		if i.Name == name {
+		if i.Name != name {
+			continue
+		}
+		switch app.Id.Kind {
+		case ApplicationKindStatefulSet:
+			if i.NodeName() == node {
+				return i
+			}
+		default:
 			return i
 		}
 	}
 	return nil
 }
 
-func (app *Application) GetOrCreateInstance(name string) *Instance {
-	instance := app.GetInstance(name)
+func (app *Application) GetOrCreateInstance(name string, node *Node) *Instance {
+	nodeName := ""
+	if node != nil {
+		nodeName = node.Name.Value()
+	}
+	instance := app.GetInstance(name, nodeName)
 	if instance == nil {
 		instance = NewInstance(name, app.Id)
 		app.Instances = append(app.Instances, instance)
+		if node != nil {
+			instance.Node = node
+			node.Instances = append(node.Instances, instance)
+		}
 	}
 	return instance
 }

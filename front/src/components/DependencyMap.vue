@@ -8,10 +8,10 @@
                         <div class="node-title">{{n.name}}</div>
                         <div class="node-body">
                             <div class="src">
-                                <div v-for="i in n.src_instances" :data-id="'src-'+i.name" class="instance" :class="{obsolete: i.obsolete}" :title="'instance' + (i.obsolete ? ' (obsolete)' : '')">{{i.name}}</div>
+                                <div v-for="i in n.src_instances" :data-id="'src-'+i.id" class="instance" :class="{obsolete: i.obsolete}" :title="'instance' + (i.obsolete ? ' (obsolete)' : '')">{{i.name}}</div>
                             </div>
                             <div class="dst">
-                                <div v-for="i in n.dst_instances" :data-id="'dst-'+i.name" class="instance" :class="{obsolete: i.obsolete}" :title="'instance' + (i.obsolete ? ' (obsolete)' : '')">{{i.name}}</div>
+                                <div v-for="i in n.dst_instances" :data-id="'dst-'+i.id" class="instance" :class="{obsolete: i.obsolete}" :title="'instance' + (i.obsolete ? ' (obsolete)' : '')">{{i.name}}</div>
                             </div>
                         </div>
                     </div>

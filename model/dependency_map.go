@@ -6,6 +6,7 @@ type DependencyMap struct {
 }
 
 type DependencyMapInstance struct {
+	Id       string `json:"id"`
 	Name     string `json:"name"`
 	Obsolete bool   `json:"obsolete"`
 }
@@ -60,5 +61,5 @@ func (m *DependencyMap) UpdateLink(src DependencyMapInstance, sNode DependencyMa
 	sn.AddSrcInstance(src)
 	dn := m.GetOrCreateNode(dNode)
 	dn.AddDstInstance(dst)
-	m.Links = append(m.Links, &DependencyMapLink{SrcInstance: src.Name, DstInstance: dst.Name, Status: linkStatus})
+	m.Links = append(m.Links, &DependencyMapLink{SrcInstance: src.Id, DstInstance: dst.Id, Status: linkStatus})
 }

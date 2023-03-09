@@ -331,9 +331,5 @@ func getActualServiceInstance(instance *model.Instance, applicationTypes ...mode
 			return ri
 		}
 	}
-	klog.Warningf(
-		`couldn't find actual instance for "%v", initial instance is "%s" (%+v)`,
-		applicationTypes, instance.Name, instance.ApplicationTypes(),
-	)
-	return nil
+	return instance
 }

@@ -232,7 +232,7 @@ func (instance *Instance) UpAndRunning() *timeseries.TimeSeries {
 
 func (instance *Instance) IsListenActive(ip, port string) bool {
 	for l, active := range instance.TcpListens {
-		if l.IP == ip && l.Port == port {
+		if l.IP == ip && (l.Port == port || l.Port == "0") {
 			return active
 		}
 	}

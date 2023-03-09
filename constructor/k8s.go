@@ -4,13 +4,9 @@ import (
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"k8s.io/klog"
+	"net"
 	"strings"
 )
-
-type podId struct {
-	pod string
-	ns  string
-}
 
 func loadKubernetesMetadata(w *model.World, metrics map[string][]model.MetricValues) {
 	loadServices(w, metrics["kube_service_info"])
@@ -78,43 +74,52 @@ func loadApplications(w *model.World, metrics map[string][]model.MetricValues) {
 	}
 }
 
-func podInfo(w *model.World, metrics []model.MetricValues) map[podId]*model.Instance {
-	pods := map[podId]*model.Instance{}
+func podInfo(w *model.World, metrics []model.MetricValues) map[string]*model.Instance {
+	pods := map[string]*model.Instance{}
 	for _, m := range metrics {
 		w.IntegrationStatus.KubeStateMetrics.Installed = true
 		pod := m.Labels["pod"]
 		ns := m.Labels["namespace"]
 		ownerName := m.Labels["created_by_name"]
 		ownerKind := m.Labels["created_by_kind"]
+		nodeName := m.Labels["node"]
+		uid := m.Labels["uid"]
+		node := w.GetNode(nodeName)
 		var appId model.ApplicationId
 
 		switch {
 		case ownerKind == "" || ownerKind == "<none>" || ownerKind == "Node":
-			appId = model.NewApplicationId(ns, model.ApplicationKindStaticPods, strings.TrimSuffix(pod, "-"+m.Labels["node"]))
+			appId = model.NewApplicationId(ns, model.ApplicationKindStaticPods, strings.TrimSuffix(pod, "-"+nodeName))
 		case ownerName != "" && ownerKind != "":
 			appId = model.NewApplicationId(ns, model.ApplicationKind(ownerKind), ownerName)
 		default:
 			continue
 		}
-		instance := w.GetOrCreateApplication(appId).GetOrCreateInstance(pod)
+		instance := w.GetOrCreateApplication(appId).GetOrCreateInstance(pod, node)
+
+		podIp := m.Labels["pod_ip"]
+		hostIp := m.Labels["host_ip"]
+		if podIp != "" && podIp != hostIp {
+			if ip := net.ParseIP(podIp); ip != nil {
+				isActive := m.Values.Last() == 1
+				instance.TcpListens[model.Listen{IP: podIp, Port: "0", Proxied: false}] = isActive
+			}
+		}
 		instance.Pod = &model.Pod{}
 		if model.ApplicationKind(ownerKind) == model.ApplicationKindReplicaSet {
 			instance.Pod.ReplicaSet = ownerName
 		}
-		pods[podId{
-			pod: instance.Name,
-			ns:  instance.InstanceId.OwnerId.Namespace,
-		}] = instance
+		pods[uid] = instance
 	}
 	return pods
 }
 
-func podLabels(metrics []model.MetricValues, pods map[podId]*model.Instance) {
+func podLabels(metrics []model.MetricValues, pods map[string]*model.Instance) {
 	for _, m := range metrics {
-		id := podId{pod: m.Labels["pod"], ns: m.Labels["namespace"]}
-		instance := pods[id]
+		uid := m.Labels["uid"]
+		instance := pods[uid]
 		if instance == nil {
-			klog.Warningln("unknown pod:", id)
+			klog.Warningln("unknown pod:", uid, m.Labels["pod"], m.Labels["namespace"])
 			continue
 		}
 		cluster, role := "", ""
@@ -143,12 +148,12 @@ func podLabels(metrics []model.MetricValues, pods map[podId]*model.Instance) {
 	}
 }
 
-func podStatus(queryName string, metrics []model.MetricValues, pods map[podId]*model.Instance) {
+func podStatus(queryName string, metrics []model.MetricValues, pods map[string]*model.Instance) {
 	for _, m := range metrics {
-		id := podId{pod: m.Labels["pod"], ns: m.Labels["namespace"]}
-		instance := pods[id]
+		uid := m.Labels["uid"]
+		instance := pods[uid]
 		if instance == nil {
-			klog.Warningln("unknown pod:", id)
+			klog.Warningln("unknown pod:", uid, m.Labels["pod"], m.Labels["namespace"])
 			continue
 		}
 		switch queryName {
@@ -172,12 +177,12 @@ func podStatus(queryName string, metrics []model.MetricValues, pods map[podId]*m
 	}
 }
 
-func podContainerStatus(queryName string, metrics []model.MetricValues, pods map[podId]*model.Instance) {
+func podContainerStatus(queryName string, metrics []model.MetricValues, pods map[string]*model.Instance) {
 	for _, m := range metrics {
-		id := podId{pod: m.Labels["pod"], ns: m.Labels["namespace"]}
-		instance := pods[id]
+		uid := m.Labels["uid"]
+		instance := pods[uid]
 		if instance == nil {
-			klog.Warningln("unknown pod:", id)
+			klog.Warningln("unknown pod:", uid, m.Labels["pod"], m.Labels["namespace"])
 			continue
 		}
 		container := instance.GetOrCreateContainer(m.Labels["container"])

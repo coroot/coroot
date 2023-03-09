@@ -13,7 +13,7 @@ func getOrCreateRdsInstance(w *model.World, rdsId string) *model.Instance {
 		return nil
 	}
 	id := model.NewApplicationId("", model.ApplicationKindRds, parts[1])
-	return w.GetOrCreateApplication(id).GetOrCreateInstance(parts[1])
+	return w.GetOrCreateApplication(id).GetOrCreateInstance(parts[1], nil)
 }
 
 func loadRds(w *model.World, metrics map[string][]model.MetricValues, pjs promJobStatuses) {
