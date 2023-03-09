@@ -12,6 +12,7 @@ import (
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
+	"github.com/prometheus/procfs"
 	"github.com/pyroscope-io/godeltaprof"
 	"io/ioutil"
 	"k8s.io/klog"
@@ -23,10 +24,11 @@ import (
 )
 
 const (
-	collectUrl      = "https://coroot.com/ce/usage-statistics"
-	collectInterval = time.Hour
-	sendTimeout     = time.Minute
-	worldWindow     = timeseries.Hour
+	collectUrl       = "https://coroot.com/ce/usage-statistics"
+	collectInterval  = time.Hour
+	sendTimeout      = time.Minute
+	worldWindow      = timeseries.Hour
+	procStatInterval = time.Minute
 )
 
 type Stats struct {
@@ -69,6 +71,8 @@ type Stats struct {
 	} `json:"ux"`
 	Performance struct {
 		Constructor constructor.Profile `json:"constructor"`
+		CPUUsage    []float32           `json:"cpu_usage"`
+		MemoryUsage []float32           `json:"memory_usage"`
 	} `json:"performance"`
 	Profile struct {
 		From   int64  `json:"from"`
@@ -96,6 +100,9 @@ type Collector struct {
 	lock              sync.Mutex
 
 	heapProfiler *godeltaprof.HeapProfiler
+
+	cpuUsage []float32
+	memUsage []float32
 }
 
 func NewCollector(instanceUuid, version string, db *db.DB, cache *cache.Cache) *Collector {
@@ -125,6 +132,8 @@ func NewCollector(instanceUuid, version string, db *db.DB, cache *cache.Cache) *
 			c.send()
 		}
 	}()
+
+	c.startProcessStatsCollector()
 
 	return c
 }
@@ -202,7 +211,9 @@ func (c *Collector) collect() Stats {
 
 	stats.UX.UsersByScreenSize = map[string]int{}
 	stats.UX.Users = utils.NewStringSet()
+
 	c.lock.Lock()
+
 	stats.UX.PageViews = c.pageViews
 	c.pageViews = map[string]int{}
 	for size, us := range c.usersByScreenSize {
@@ -210,6 +221,12 @@ func (c *Collector) collect() Stats {
 		stats.UX.Users.Add(us.Items()...)
 	}
 	c.usersByScreenSize = map[string]*utils.StringSet{}
+
+	stats.Performance.CPUUsage = c.cpuUsage
+	stats.Performance.MemoryUsage = c.memUsage
+	c.cpuUsage = nil
+	c.memUsage = nil
+
 	c.lock.Unlock()
 
 	projects, err := c.db.GetProjects()
@@ -342,6 +359,40 @@ func (c *Collector) collect() Stats {
 	stats.UX.SentNotifications = c.db.GetSentIncidentNotificationsStat(now.Add(-timeseries.Duration(collectInterval.Seconds())))
 
 	return stats
+}
+
+func (c *Collector) startProcessStatsCollector() {
+	fs, err := procfs.NewDefaultFS()
+	if err != nil {
+		klog.Errorln(err)
+		return
+	}
+	p, err := fs.Self()
+	if err != nil {
+		klog.Errorln(err)
+		return
+	}
+
+	go func() {
+		ticker := time.NewTicker(procStatInterval)
+		prevCpu := 0.0
+		for range ticker.C {
+			ps, err := p.Stat()
+			if err != nil {
+				klog.Errorln(err)
+				continue
+			}
+			currCpu := ps.CPUTime()
+			if prevCpu > 0 {
+				delta := currCpu - prevCpu
+				if delta >= 0 {
+					c.cpuUsage = append(c.cpuUsage, float32(delta/procStatInterval.Seconds()))
+				}
+			}
+			prevCpu = currCpu
+			c.memUsage = append(c.memUsage, float32(ps.ResidentMemory()))
+		}
+	}()
 }
 
 func avgDuration(durations []time.Duration) float32 {
