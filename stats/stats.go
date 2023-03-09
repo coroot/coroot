@@ -10,7 +10,6 @@ import (
 	"github.com/coroot/coroot/constructor"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
-	"github.com/coroot/coroot/prom"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 	"github.com/pyroscope-io/godeltaprof"
@@ -228,7 +227,7 @@ func (c *Collector) collect() Stats {
 	stats.Stack.Services = utils.NewStringSet()
 	stats.Stack.InstrumentedServices = utils.NewStringSet()
 	stats.Performance.Constructor.Stages = map[string]float32{}
-	stats.Performance.Constructor.Queries = map[string]prom.QueryStats{}
+	stats.Performance.Constructor.Queries = map[string]constructor.QueryStats{}
 	stats.Infra.DeploymentSummaries = map[string]int{}
 	var loadTime, auditTime []time.Duration
 	now := timeseries.Now()

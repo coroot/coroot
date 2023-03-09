@@ -105,21 +105,17 @@ func (c *AuditReport) CreateCheck(cfg CheckConfig) *Check {
 	}
 	switch cfg.Id {
 	case Checks.SLOAvailability.Id:
-		configs, _ := c.checkConfigs.GetAvailability(c.app.Id)
-		if len(configs) > 0 {
-			ch.Threshold = configs[0].ObjectivePercentage
-		}
+		availabilityCfg, _ := c.checkConfigs.GetAvailability(c.app.Id)
+		ch.Threshold = availabilityCfg.ObjectivePercentage
 	case Checks.SLOLatency.Id:
-		configs, _ := c.checkConfigs.GetLatency(c.app.Id, c.app.Category)
-		if len(configs) > 0 {
-			ch.Threshold = configs[0].ObjectivePercentage
-			ch.ConditionFormatTemplate = strings.Replace(
-				ch.ConditionFormatTemplate,
-				"<bucket>",
-				utils.FormatLatency(configs[0].ObjectiveBucket),
-				1,
-			)
-		}
+		latencyCfg, _ := c.checkConfigs.GetLatency(c.app.Id, c.app.Category)
+		ch.Threshold = latencyCfg.ObjectivePercentage
+		ch.ConditionFormatTemplate = strings.Replace(
+			ch.ConditionFormatTemplate,
+			"<bucket>",
+			utils.FormatLatency(latencyCfg.ObjectiveBucket),
+			1,
+		)
 	default:
 		ch.Threshold = c.checkConfigs.GetSimple(cfg.Id, c.app.Id).Threshold
 	}

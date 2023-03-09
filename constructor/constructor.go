@@ -2,6 +2,8 @@ package constructor
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/prom"
@@ -9,13 +11,19 @@ import (
 	"k8s.io/klog"
 	"net"
 	"strings"
+	"sync"
 	"time"
+)
+
+var (
+	ErrUnknownQuery = errors.New("unknown query")
 )
 
 type Option int
 
 const (
 	OptionLoadPerConnectionHistograms Option = iota
+	OptionDoNotLoadRawSLIs
 )
 
 type Constructor struct {
@@ -33,9 +41,15 @@ func New(db *db.DB, project *db.Project, prom prom.Client, options ...Option) *C
 	return c
 }
 
+type QueryStats struct {
+	MetricsCount int     `json:"metrics_count"`
+	QueryTime    float32 `json:"query_time"`
+	Failed       bool    `json:"failed"`
+}
+
 type Profile struct {
-	Stages  map[string]float32         `json:"stages"`
-	Queries map[string]prom.QueryStats `json:"queries"`
+	Stages  map[string]float32    `json:"stages"`
+	Queries map[string]QueryStats `json:"queries"`
 }
 
 func (p *Profile) stage(name string, f func()) {
@@ -68,17 +82,13 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 
 	var metrics map[string][]model.MetricValues
 	prof.stage("query", func() {
-		queries := map[string]string{}
-		for n, q := range QUERIES {
-			if !c.options[OptionLoadPerConnectionHistograms] && strings.HasPrefix(n, "container_") && strings.HasSuffix(n, "_histogram") {
-				continue
-			}
-			queries[n] = q
-		}
-		metrics, err = prom.ParallelQueryRange(ctx, c.prom, from, to, step, queries, prof.Queries)
+		metrics, err = c.queryCache(ctx, from, to, step, w.CheckConfigs, prof.Queries)
 	})
 	if err != nil {
-		return nil, err
+		if !errors.Is(err, ErrUnknownQuery) {
+			return nil, err
+		}
+		klog.Warningln(err)
 	}
 
 	// order is important
@@ -89,12 +99,88 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 	prof.stage("enrich_instances", func() { enrichInstances(w, metrics) })
 	prof.stage("join_db_cluster", func() { joinDBClusterComponents(w) })
 	prof.stage("calc_app_categories", func() { c.calcApplicationCategories(w) })
-	prof.stage("load_sli", func() { c.loadSLIs(ctx, w, from, to, step) })
+	prof.stage("load_sli", func() { c.loadSLIs(w, metrics) })
 	prof.stage("load_app_deployments", func() { c.loadApplicationDeployments(w) })
 	prof.stage("calc_app_events", func() { calcAppEvents(w) })
 
 	klog.Infof("got %d nodes, %d services, %d applications", len(w.Nodes), len(w.Services), len(w.Applications))
 	return w, nil
+}
+
+type cacheQuery struct {
+	query     string
+	from, to  timeseries.Time
+	step      timeseries.Duration
+	statsName string
+}
+
+func (c *Constructor) queryCache(ctx context.Context, from, to timeseries.Time, step timeseries.Duration, checkConfigs model.CheckConfigs, stats map[string]QueryStats) (map[string][]model.MetricValues, error) {
+	queries := map[string]cacheQuery{}
+	rawFrom := to.Add(-model.MaxAlertRuleWindow)
+	rawStep := c.project.Prometheus.RefreshInterval
+
+	addQuery := func(name, statsName, query string, sli bool) {
+		queries[name] = cacheQuery{query: query, from: from, to: to, step: step, statsName: statsName}
+		if sli && !c.options[OptionDoNotLoadRawSLIs] {
+			queries[name+"_raw"] = cacheQuery{query: query, from: rawFrom, to: to, step: rawStep, statsName: statsName + "_raw"}
+		}
+	}
+
+	for n, q := range QUERIES {
+		if !c.options[OptionLoadPerConnectionHistograms] && strings.HasPrefix(n, "container_") && strings.HasSuffix(n, "_histogram") {
+			continue
+		}
+		addQuery(n, n, q, false)
+	}
+
+	for name := range RecordingRules {
+		addQuery(name, name, name, true)
+	}
+
+	for appId := range checkConfigs {
+		qName := fmt.Sprintf("%s/%s/", qApplicationCustomSLI, appId)
+		availabilityCfg, _ := checkConfigs.GetAvailability(appId)
+		if availabilityCfg.Custom {
+			addQuery(qName+"total_requests", qApplicationCustomSLI, availabilityCfg.Total(), true)
+			addQuery(qName+"failed_requests", qApplicationCustomSLI, availabilityCfg.Failed(), true)
+		}
+		latencyCfg, _ := checkConfigs.GetLatency(appId, model.CalcApplicationCategory(appId, c.project.Settings.ApplicationCategories))
+		if latencyCfg.Custom {
+			addQuery(qName+"requests_histogram", qApplicationCustomSLI, latencyCfg.Histogram(), true)
+		}
+	}
+
+	res := make(map[string][]model.MetricValues, len(queries))
+	var lock sync.Mutex
+	var lastErr error
+	wg := sync.WaitGroup{}
+	now := time.Now()
+	for name, query := range queries {
+		wg.Add(1)
+		go func(name string, q cacheQuery) {
+			defer wg.Done()
+			metrics, err := c.prom.QueryRange(ctx, q.query, q.from, q.to, q.step)
+			if stats != nil {
+				queryTime := float32(time.Since(now).Seconds())
+				lock.Lock()
+				s := stats[q.statsName]
+				s.MetricsCount += len(metrics)
+				s.QueryTime += queryTime
+				s.Failed = s.Failed || err != nil
+				stats[q.statsName] = s
+				lock.Unlock()
+			}
+			if err != nil {
+				lastErr = err
+				return
+			}
+			lock.Lock()
+			res[name] = metrics
+			lock.Unlock()
+		}(name, query)
+	}
+	wg.Wait()
+	return res, lastErr
 }
 
 func (c *Constructor) calcApplicationCategories(w *model.World) {

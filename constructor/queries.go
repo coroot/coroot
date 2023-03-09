@@ -8,6 +8,12 @@ import (
 	promModel "github.com/prometheus/common/model"
 )
 
+const (
+	qApplicationCustomSLI                  = "application_custom_sli"
+	qRecordingRuleInboundRequestsTotal     = "rr_application_inbound_requests_total"
+	qRecordingRuleInboundRequestsHistogram = "rr_application_inbound_requests_histogram"
+)
+
 var QUERIES = map[string]string{
 	"node_agent_info": `node_agent_info`,
 
@@ -146,7 +152,8 @@ var QUERIES = map[string]string{
 }
 
 var RecordingRules = map[string]func(p *db.Project, w *model.World) []model.MetricValues{
-	"rr_application_inbound_requests_total": func(p *db.Project, w *model.World) []model.MetricValues {
+
+	qRecordingRuleInboundRequestsTotal: func(p *db.Project, w *model.World) []model.MetricValues {
 		var res []model.MetricValues
 		for _, app := range w.Applications {
 			byClient := app.GetClientsConnections()
@@ -182,7 +189,8 @@ var RecordingRules = map[string]func(p *db.Project, w *model.World) []model.Metr
 		}
 		return res
 	},
-	"rr_application_inbound_requests_histogram": func(p *db.Project, w *model.World) []model.MetricValues {
+
+	qRecordingRuleInboundRequestsHistogram: func(p *db.Project, w *model.World) []model.MetricValues {
 		var res []model.MetricValues
 		for _, app := range w.Applications {
 			byClient := app.GetClientsConnections()

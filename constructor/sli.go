@@ -1,66 +1,101 @@
 package constructor
 
 import (
-	"context"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"k8s.io/klog"
 	"sort"
 	"strconv"
+	"strings"
 )
 
-func (c *Constructor) loadSLIs(ctx context.Context, w *model.World, from, to timeseries.Time, step timeseries.Duration) {
-	rawFrom := to.Add(-model.MaxAlertRuleWindow)
-	rawStep := c.project.Prometheus.RefreshInterval
-	availabilityFromInboundConnections := c.loadAvailabilityFromInboundConnections(ctx, from, to, step)
-	availabilityFromInboundConnectionsRaw := c.loadAvailabilityFromInboundConnections(ctx, rawFrom, to, rawStep)
-	latencyFromInboundConnections := c.loadLatencyFromInboundConnections(ctx, from, to, step)
-	latencyFromInboundConnectionsRaw := c.loadLatencyFromInboundConnections(ctx, rawFrom, to, rawStep)
+func (c *Constructor) loadSLIs(w *model.World, metrics map[string][]model.MetricValues) {
+	builtinAvailabilityCur := builtinAvailability(metrics[qRecordingRuleInboundRequestsTotal])
+	builtinAvailabilityRaw := builtinAvailability(metrics[qRecordingRuleInboundRequestsTotal+"_raw"])
+	builtinLatencyCur := builtinLatency(metrics[qRecordingRuleInboundRequestsHistogram])
+	builtinLatencyRaw := builtinLatency(metrics[qRecordingRuleInboundRequestsHistogram+"_raw"])
+
+	customAvailabilityCur := map[model.ApplicationId]availabilitySlis{}
+	customAvailabilityRaw := map[model.ApplicationId]availabilitySlis{}
+	customLatencyCur := map[model.ApplicationId][]model.HistogramBucket{}
+	customLatencyRaw := map[model.ApplicationId][]model.HistogramBucket{}
+	loadCustomSLIs(metrics, customAvailabilityCur, customAvailabilityRaw, customLatencyCur, customLatencyRaw)
 
 	for _, app := range w.Applications {
-		availability, _ := w.CheckConfigs.GetAvailability(app.Id)
-		for _, cfg := range availability {
-			sli := &model.AvailabilitySLI{Config: cfg}
-			app.AvailabilitySLIs = append(app.AvailabilitySLIs, sli)
-			if cfg.Custom {
-				qTotal, qFailed := cfg.Total(), cfg.Failed()
-				sli.TotalRequests = c.loadAvailabilityFromConfiguredSli(ctx, qTotal, from, to, step)
-				sli.TotalRequestsRaw = c.loadAvailabilityFromConfiguredSli(ctx, qTotal, rawFrom, to, rawStep)
-				sli.FailedRequests = c.loadAvailabilityFromConfiguredSli(ctx, qFailed, from, to, step)
-				sli.FailedRequestsRaw = c.loadAvailabilityFromConfiguredSli(ctx, qFailed, rawFrom, to, rawStep)
-			} else {
-				sli.TotalRequests = availabilityFromInboundConnections[app.Id].total
-				sli.FailedRequests = availabilityFromInboundConnections[app.Id].failed
-				sli.TotalRequestsRaw = availabilityFromInboundConnectionsRaw[app.Id].total
-				sli.FailedRequestsRaw = availabilityFromInboundConnectionsRaw[app.Id].failed
+		availabilityCfg, _ := w.CheckConfigs.GetAvailability(app.Id)
+		if availabilityCfg.Custom {
+			cur, raw := customAvailabilityCur[app.Id], customAvailabilityRaw[app.Id]
+			app.AvailabilitySLIs = append(app.AvailabilitySLIs, &model.AvailabilitySLI{
+				Config:        availabilityCfg,
+				TotalRequests: cur.total, TotalRequestsRaw: raw.total,
+				FailedRequests: cur.failed, FailedRequestsRaw: raw.failed,
+			})
+		} else {
+			cur, raw := builtinAvailabilityCur[app.Id], builtinAvailabilityRaw[app.Id]
+			if !cur.total.IsEmpty() || !raw.total.IsEmpty() {
+				app.AvailabilitySLIs = append(app.AvailabilitySLIs, &model.AvailabilitySLI{
+					Config:        availabilityCfg,
+					TotalRequests: cur.total, TotalRequestsRaw: raw.total,
+					FailedRequests: cur.failed, FailedRequestsRaw: raw.failed,
+				})
 			}
 		}
-		latency, _ := w.CheckConfigs.GetLatency(app.Id, app.Category)
-		for _, cfg := range latency {
-			sli := &model.LatencySLI{Config: cfg}
-			app.LatencySLIs = append(app.LatencySLIs, sli)
-			if cfg.Custom {
-				q := cfg.Histogram()
-				sli.Histogram = c.loadLatencyFromConfiguredSli(ctx, q, from, to, step)
-				sli.HistogramRaw = c.loadLatencyFromConfiguredSli(ctx, q, rawFrom, to, rawStep)
-			} else {
-				sli.Histogram = latencyFromInboundConnections[app.Id]
-				sli.HistogramRaw = latencyFromInboundConnectionsRaw[app.Id]
+
+		latencyCfg, _ := w.CheckConfigs.GetLatency(app.Id, app.Category)
+		if latencyCfg.Custom {
+			cur, raw := customLatencyCur[app.Id], customLatencyRaw[app.Id]
+			app.LatencySLIs = append(app.LatencySLIs, &model.LatencySLI{
+				Config:    latencyCfg,
+				Histogram: cur, HistogramRaw: raw,
+			})
+		} else {
+			cur, raw := builtinLatencyCur[app.Id], builtinLatencyRaw[app.Id]
+			if len(cur) > 0 || len(raw) > 0 {
+				app.LatencySLIs = append(app.LatencySLIs, &model.LatencySLI{
+					Config:    latencyCfg,
+					Histogram: cur, HistogramRaw: raw,
+				})
 			}
 		}
 	}
 }
 
-func (c *Constructor) loadAvailabilityFromConfiguredSli(ctx context.Context, query string, from, to timeseries.Time, step timeseries.Duration) *timeseries.TimeSeries {
-	values, err := c.prom.QueryRange(ctx, query, from, to, step)
-	if err != nil {
-		klog.Warningln(err)
-		return nil
+func loadCustomSLIs(metrics map[string][]model.MetricValues,
+	availabilityCur, availabilityRaw map[model.ApplicationId]availabilitySlis,
+	latencyCur, latencyRaw map[model.ApplicationId][]model.HistogramBucket,
+) {
+	for queryName, values := range metrics {
+		if len(values) == 0 || !strings.HasPrefix(queryName, qApplicationCustomSLI) {
+			continue
+		}
+		parts := strings.Split(queryName, "/")
+		if len(parts) != 3 {
+			continue
+		}
+		appId, _ := model.NewApplicationIdFromString(parts[1])
+		switch parts[2] {
+		case "total_requests":
+			a := availabilityCur[appId]
+			a.total = values[0].Values
+			availabilityCur[appId] = a
+		case "total_requests_raw":
+			a := availabilityRaw[appId]
+			a.total = values[0].Values
+			availabilityRaw[appId] = a
+		case "failed_requests":
+			a := availabilityCur[appId]
+			a.failed = values[0].Values
+			availabilityCur[appId] = a
+		case "failed_requests_raw":
+			a := availabilityRaw[appId]
+			a.failed = values[0].Values
+			availabilityRaw[appId] = a
+		case "requests_histogram":
+			latencyCur[appId] = histogramBuckets(values)
+		case "requests_histogram_raw":
+			latencyRaw[appId] = histogramBuckets(values)
+		}
 	}
-	if len(values) == 0 {
-		return nil
-	}
-	return values[0].Values
 }
 
 type availabilitySlis struct {
@@ -68,12 +103,7 @@ type availabilitySlis struct {
 	failed *timeseries.TimeSeries
 }
 
-func (c *Constructor) loadAvailabilityFromInboundConnections(ctx context.Context, from, to timeseries.Time, step timeseries.Duration) map[model.ApplicationId]availabilitySlis {
-	values, err := c.prom.QueryRange(ctx, "rr_application_inbound_requests_total", from, to, step)
-	if err != nil {
-		klog.Warningln(err)
-		return nil
-	}
+func builtinAvailability(values []model.MetricValues) map[model.ApplicationId]availabilitySlis {
 	if len(values) == 0 {
 		return nil
 	}
@@ -105,12 +135,29 @@ func (c *Constructor) loadAvailabilityFromInboundConnections(ctx context.Context
 	return res
 }
 
-func (c *Constructor) loadLatencyFromConfiguredSli(ctx context.Context, query string, from, to timeseries.Time, step timeseries.Duration) []model.HistogramBucket {
-	values, err := c.prom.QueryRange(ctx, query, from, to, step)
-	if err != nil {
-		klog.Warningln(err)
+func builtinLatency(values []model.MetricValues) map[model.ApplicationId][]model.HistogramBucket {
+	if len(values) == 0 {
 		return nil
 	}
+
+	byApp := map[model.ApplicationId][]model.MetricValues{}
+	for _, mv := range values {
+		appId, err := model.NewApplicationIdFromString(mv.Labels["application"])
+		if err != nil {
+			klog.Warningln(err)
+			continue
+		}
+		byApp[appId] = append(byApp[appId], mv)
+	}
+
+	res := map[model.ApplicationId][]model.HistogramBucket{}
+	for appId, mvs := range byApp {
+		res[appId] = histogramBuckets(mvs)
+	}
+	return res
+}
+
+func histogramBuckets(values []model.MetricValues) []model.HistogramBucket {
 	buckets := make([]model.HistogramBucket, 0, len(values))
 	for _, m := range values {
 		le, err := strconv.ParseFloat(m.Labels["le"], 64)
@@ -124,44 +171,4 @@ func (c *Constructor) loadLatencyFromConfiguredSli(ctx context.Context, query st
 		return buckets[i].Le < buckets[j].Le
 	})
 	return buckets
-}
-
-func (c *Constructor) loadLatencyFromInboundConnections(ctx context.Context, from, to timeseries.Time, step timeseries.Duration) map[model.ApplicationId][]model.HistogramBucket {
-	values, err := c.prom.QueryRange(ctx, "rr_application_inbound_requests_histogram", from, to, step)
-	if err != nil {
-		klog.Warningln(err)
-		return nil
-	}
-	if len(values) == 0 {
-		return nil
-	}
-	byApp := map[model.ApplicationId]map[float64]*timeseries.TimeSeries{}
-	for _, mv := range values {
-		appId, err := model.NewApplicationIdFromString(mv.Labels["application"])
-		if err != nil {
-			klog.Warningln(err)
-			continue
-		}
-		le, err := strconv.ParseFloat(mv.Labels["le"], 64)
-		if err != nil {
-			klog.Warningln(err)
-			continue
-		}
-		if byApp[appId] == nil {
-			byApp[appId] = map[float64]*timeseries.TimeSeries{}
-		}
-		byApp[appId][le] = mv.Values
-	}
-	res := map[model.ApplicationId][]model.HistogramBucket{}
-	for appId, byLe := range byApp {
-		buckets := make([]model.HistogramBucket, 0, len(values))
-		for le, ts := range byLe {
-			buckets = append(buckets, model.HistogramBucket{Le: le, TimeSeries: ts})
-		}
-		sort.Slice(buckets, func(i, j int) bool {
-			return buckets[i].Le < buckets[j].Le
-		})
-		res[appId] = buckets
-	}
-	return res
 }

@@ -431,11 +431,11 @@ func (api *Api) Check(w http.ResponseWriter, r *http.Request) {
 		}
 		switch checkId {
 		case model.Checks.SLOAvailability.Id:
-			configs, def := checkConfigs.GetAvailability(appId)
-			res.Form = CheckConfigSLOAvailabilityForm{Configs: configs, Default: def}
+			cfg, def := checkConfigs.GetAvailability(appId)
+			res.Form = CheckConfigSLOAvailabilityForm{Configs: []model.CheckConfigSLOAvailability{cfg}, Default: def}
 		case model.Checks.SLOLatency.Id:
-			configs, def := checkConfigs.GetLatency(appId, model.CalcApplicationCategory(appId, project.Settings.ApplicationCategories))
-			res.Form = CheckConfigSLOLatencyForm{Configs: configs, Default: def}
+			cfg, def := checkConfigs.GetLatency(appId, model.CalcApplicationCategory(appId, project.Settings.ApplicationCategories))
+			res.Form = CheckConfigSLOLatencyForm{Configs: []model.CheckConfigSLOLatency{cfg}, Default: def}
 		default:
 			form := CheckConfigForm{
 				Configs: checkConfigs.GetSimpleAll(checkId, appId),

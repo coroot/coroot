@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/coroot/coroot/cache/chunk"
+	"github.com/coroot/coroot/constructor"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/prom"
@@ -38,7 +39,7 @@ func (c *Client) QueryRange(ctx context.Context, query string, from, to timeseri
 	queryHash := hash(query)
 	qData, ok := byProject[queryHash]
 	if !ok {
-		return nil, fmt.Errorf("unknown query: %s", query)
+		return nil, fmt.Errorf("%w: %s", constructor.ErrUnknownQuery, query)
 	}
 	start := from
 	end := to

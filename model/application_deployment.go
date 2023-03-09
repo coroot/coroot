@@ -163,16 +163,8 @@ func CalcApplicationDeploymentStatuses(app *Application, checkConfigs CheckConfi
 }
 
 func CalcApplicationDeploymentSummary(app *Application, checkConfigs CheckConfigs, t timeseries.Time, curr, prev *MetricsSnapshot) ([]ApplicationDeploymentSummary, Status) {
-	availabilityObjectivePercentage := 99.0
-	if configs, _ := checkConfigs.GetAvailability(app.Id); len(configs) > 0 {
-		availabilityObjectivePercentage = configs[0].ObjectivePercentage
-	}
-	latencyObjectiveBucket := 0.5
-	latencyObjectivePercentage := 99.0
-	if configs, _ := checkConfigs.GetLatency(app.Id, app.Category); len(configs) > 0 {
-		latencyObjectiveBucket = configs[0].ObjectiveBucket
-		latencyObjectivePercentage = configs[0].ObjectivePercentage
-	}
+	availabilityCfg, _ := checkConfigs.GetAvailability(app.Id)
+	latencyCfg, _ := checkConfigs.GetLatency(app.Id, app.Category)
 	memoryLeakThreshold := int64(checkConfigs.GetSimple(Checks.MemoryLeak.Id, app.Id).Threshold * 1024 * 1024)
 	significantPercentageDifference := 5.0
 
@@ -187,14 +179,14 @@ func CalcApplicationDeploymentSummary(app *Application, checkConfigs CheckConfig
 	if curr.Requests > 0 {
 		vCurr := float64(curr.Requests-curr.Errors) * 100 / float64(curr.Requests)
 		v := utils.FormatPercentage(vCurr)
-		o := utils.FormatPercentage(availabilityObjectivePercentage)
-		if vCurr < availabilityObjectivePercentage {
+		o := utils.FormatPercentage(availabilityCfg.ObjectivePercentage)
+		if vCurr < availabilityCfg.ObjectivePercentage {
 			status = CRITICAL
 			add(AuditReportSLO, false, "Availability: %s (objective: %s)", v, o)
 		} else if prev != nil {
 			if prev.Requests > 0 {
 				vPrev := float64(prev.Requests-prev.Errors) * 100 / float64(prev.Requests)
-				if vPrev < availabilityObjectivePercentage {
+				if vPrev < availabilityCfg.ObjectivePercentage {
 					add(AuditReportSLO, true, "Availability: %s (objective: %s)", v, o)
 				}
 			}
@@ -202,18 +194,18 @@ func CalcApplicationDeploymentSummary(app *Application, checkConfigs CheckConfig
 	}
 
 	// Latency
-	if fast := getFastRequestsCount(curr.Latency, latencyObjectiveBucket); !math.IsNaN(fast) {
+	if fast := getFastRequestsCount(curr.Latency, latencyCfg.ObjectiveBucket); !math.IsNaN(fast) {
 		vCurr := fast * 100 / float64(curr.Requests)
 		v := utils.FormatPercentage(vCurr)
-		b := utils.FormatFloat(latencyObjectiveBucket * 1000)
-		o := utils.FormatPercentage(latencyObjectivePercentage)
-		if vCurr < latencyObjectivePercentage {
+		b := utils.FormatFloat(latencyCfg.ObjectiveBucket * 1000)
+		o := utils.FormatPercentage(latencyCfg.ObjectivePercentage)
+		if vCurr < latencyCfg.ObjectivePercentage {
 			status = CRITICAL
 			add(AuditReportSLO, false, "Latency: %s of requests faster %sms (objective: %s)", v, b, o)
 		} else if prev != nil {
-			if fast := getFastRequestsCount(prev.Latency, latencyObjectiveBucket); !math.IsNaN(fast) {
+			if fast := getFastRequestsCount(prev.Latency, latencyCfg.ObjectiveBucket); !math.IsNaN(fast) {
 				vPrev := fast * 100 / float64(prev.Requests)
-				if vPrev < latencyObjectivePercentage {
+				if vPrev < latencyCfg.ObjectivePercentage {
 					add(AuditReportSLO, true, "Latency: %s of requests faster %sms (objective: %s)", v, b, o)
 				}
 			}

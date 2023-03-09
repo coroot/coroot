@@ -487,11 +487,11 @@ func (cc CheckConfigs) GetByCheck(id CheckId) map[ApplicationId][]any {
 	return res
 }
 
-func (cc CheckConfigs) GetAvailability(appId ApplicationId) ([]CheckConfigSLOAvailability, bool) {
-	defaultCfg := []CheckConfigSLOAvailability{{
+func (cc CheckConfigs) GetAvailability(appId ApplicationId) (CheckConfigSLOAvailability, bool) {
+	defaultCfg := CheckConfigSLOAvailability{
 		Custom:              false,
 		ObjectivePercentage: Checks.SLOAvailability.DefaultThreshold,
-	}}
+	}
 	appConfigs := cc[appId]
 	if appConfigs == nil {
 		return defaultCfg, true
@@ -508,19 +508,19 @@ func (cc CheckConfigs) GetAvailability(appId ApplicationId) ([]CheckConfigSLOAva
 	if len(res) == 0 {
 		return defaultCfg, true
 	}
-	return res, false
+	return res[0], false
 }
 
-func (cc CheckConfigs) GetLatency(appId ApplicationId, category ApplicationCategory) ([]CheckConfigSLOLatency, bool) {
+func (cc CheckConfigs) GetLatency(appId ApplicationId, category ApplicationCategory) (CheckConfigSLOLatency, bool) {
 	objectiveBucket := 0.5
 	if category.Auxiliary() {
 		objectiveBucket = 5
 	}
-	defaultCfg := []CheckConfigSLOLatency{{
+	defaultCfg := CheckConfigSLOLatency{
 		Custom:              false,
 		ObjectivePercentage: Checks.SLOLatency.DefaultThreshold,
 		ObjectiveBucket:     objectiveBucket,
-	}}
+	}
 	appConfigs := cc[appId]
 	if appConfigs == nil {
 		return defaultCfg, true
@@ -537,7 +537,7 @@ func (cc CheckConfigs) GetLatency(appId ApplicationId, category ApplicationCateg
 	if len(res) == 0 {
 		return defaultCfg, true
 	}
-	return res, false
+	return res[0], false
 }
 
 func unmarshal[T any](raw json.RawMessage) (T, error) {

@@ -78,17 +78,13 @@ func (c *Cache) updaterWorker(projects *sync.Map, projectId db.ProjectId) {
 			queries = append(queries, q)
 		}
 		for appId := range checkConfigs {
-			availability, _ := checkConfigs.GetAvailability(appId)
-			for _, cfg := range availability {
-				if cfg.Custom {
-					queries = append(queries, cfg.Total(), cfg.Failed())
-				}
+			availabilityCfg, _ := checkConfigs.GetAvailability(appId)
+			if availabilityCfg.Custom {
+				queries = append(queries, availabilityCfg.Total(), availabilityCfg.Failed())
 			}
-			latency, _ := checkConfigs.GetLatency(appId, model.CalcApplicationCategory(appId, project.Settings.ApplicationCategories))
-			for _, cfg := range latency {
-				if cfg.Custom {
-					queries = append(queries, cfg.Histogram())
-				}
+			latencyCfg, _ := checkConfigs.GetLatency(appId, model.CalcApplicationCategory(appId, project.Settings.ApplicationCategories))
+			if latencyCfg.Custom {
+				queries = append(queries, latencyCfg.Histogram())
 			}
 		}
 
@@ -259,7 +255,7 @@ func (p *recordingRulesProcessor) QueryRange(ctx context.Context, query string, 
 	if p.cacheTo.Before(to) {
 		return nil, fmt.Errorf("cache is outdated")
 	}
-	c := constructor.New(p.db, p.project, p.cacheClient, constructor.OptionLoadPerConnectionHistograms)
+	c := constructor.New(p.db, p.project, p.cacheClient, constructor.OptionLoadPerConnectionHistograms, constructor.OptionDoNotLoadRawSLIs)
 	world, err := c.LoadWorld(ctx, from, to, step, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load world: %w", err)
