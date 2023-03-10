@@ -6,17 +6,7 @@ import (
 	"strings"
 )
 
-func getNode(w *model.World, ls model.Labels) *model.Node {
-	machineId := ls["machine_id"]
-	for _, node := range w.Nodes {
-		if node.MachineID == machineId {
-			return node
-		}
-	}
-	return nil
-}
-
-func initNodesList(w *model.World, nodeInfoMetrics []model.MetricValues) {
+func initNodesList(w *model.World, nodeInfoMetrics []model.MetricValues, nodesByMachineID map[string]*model.Node) {
 	for _, m := range nodeInfoMetrics {
 		name := m.Labels["hostname"]
 		machineID := m.Labels["machine_id"]
@@ -34,20 +24,21 @@ func initNodesList(w *model.World, nodeInfoMetrics []model.MetricValues) {
 		if node == nil {
 			node = model.NewNode(machineID)
 			w.Nodes = append(w.Nodes, node)
+			nodesByMachineID[machineID] = node
 		}
 		node.Name.Update(m.Values, name)
 	}
 }
 
-func loadNodes(w *model.World, metrics map[string][]model.MetricValues) {
-	initNodesList(w, metrics["node_info"])
+func loadNodes(w *model.World, metrics map[string][]model.MetricValues, nodesByMachineID map[string]*model.Node) {
+	initNodesList(w, metrics["node_info"], nodesByMachineID)
 
 	for queryName := range metrics {
 		if !strings.HasPrefix(queryName, "node_") {
 			continue
 		}
 		for _, m := range metrics[queryName] {
-			node := getNode(w, m.Labels)
+			node := nodesByMachineID[m.Labels["machine_id"]]
 			if node == nil {
 				continue
 			}

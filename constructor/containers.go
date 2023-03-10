@@ -6,102 +6,84 @@ import (
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/logpattern"
 	"k8s.io/klog"
+	"math"
 	"net"
 	"strconv"
 	"strings"
 )
 
-type metricContext struct {
-	ns        string
-	pod       string
-	node      *model.Node
-	container string
+type instanceId struct {
+	ns, name, node string
 }
 
-func getMetricContext(w *model.World, ls model.Labels) *metricContext {
-	mc := &metricContext{node: getNode(w, ls)}
-	containerId := ls["container_id"]
+func getInstanceAndContainer(w *model.World, node *model.Node, instances map[instanceId]*model.Instance, containerId string) (*model.Instance, *model.Container) {
+	nodeName := ""
+	if node != nil {
+		nodeName = node.Name.Value()
+	}
 	parts := strings.Split(containerId, "/")
+	var instance *model.Instance
+	var containerName string
 	if parts[1] == "k8s" && len(parts) == 5 {
-		mc.ns = parts[2]
-		mc.pod = parts[3]
-		mc.container = parts[4]
+		w.IntegrationStatus.KubeStateMetrics.Required = true
+		ns, pod := parts[2], parts[3]
+		containerName = parts[4]
+		instance = instances[instanceId{ns: ns, name: pod, node: nodeName}]
 	} else {
-		mc.container = strings.TrimSuffix(parts[len(parts)-1], ".service")
+		containerName = strings.TrimSuffix(parts[len(parts)-1], ".service")
+		appId := model.NewApplicationId("", model.ApplicationKindUnknown, containerName)
+		instanceName := fmt.Sprintf("%s@%s", containerName, nodeName)
+		id := instanceId{ns: "", name: instanceName, node: nodeName}
+		instance = instances[id]
+		if instance == nil {
+			instance = w.GetOrCreateApplication(appId).GetOrCreateInstance(instanceName, node)
+			instances[id] = instance
+		}
 	}
-	return mc
+	if instance == nil {
+		return nil, nil
+	}
+	return instance, instance.GetOrCreateContainer(containerName)
 }
 
-func getInstanceByPod(w *model.World, node *model.Node, ns, pod string) *model.Instance {
+func loadContainers(w *model.World, metrics map[string][]model.MetricValues, pjs promJobStatuses, nodesByMachineID map[string]*model.Node) {
+	instances := map[instanceId]*model.Instance{}
 	for _, a := range w.Applications {
-		if a.Id.Namespace != ns {
-			continue
-		}
 		for _, i := range a.Instances {
-			if i.Pod == nil || i.Name != pod {
-				continue
-			}
-			if a.Id.Kind == model.ApplicationKindStatefulSet {
-				if node == nil {
-					return i
-				}
-				if i.NodeName() == node.Name.Value() {
-					return i
-				}
-			} else {
-				return i
-			}
+			instances[instanceId{ns: a.Id.Namespace, name: i.Name, node: i.NodeName()}] = i
 		}
 	}
-	return nil
-}
 
-func loadContainers(w *model.World, metrics map[string][]model.MetricValues, pjs promJobStatuses) {
-	rttByInstance := map[model.InstanceId]map[string]*timeseries.TimeSeries{}
-
+	connectionCache := map[connectionKey]*model.Connection{}
+	rttByInstance := map[instanceId]map[string]*timeseries.TimeSeries{}
 	for queryName := range metrics {
 		if !strings.HasPrefix(queryName, "container_") {
 			continue
 		}
 		for _, m := range metrics[queryName] {
-			mc := getMetricContext(w, m.Labels)
-			if mc == nil {
+			instance, container := getInstanceAndContainer(w, nodesByMachineID[m.Labels["machine_id"]], instances, m.Labels["container_id"])
+			if instance == nil || container == nil {
 				continue
 			}
-			var instance *model.Instance
-			switch {
-			case mc.pod != "" && mc.ns != "":
-				w.IntegrationStatus.KubeStateMetrics.Required = true
-				if instance = getInstanceByPod(w, mc.node, mc.ns, mc.pod); instance == nil {
-					continue
-				}
-			case mc.container != "" && mc.node != nil:
-				appId := model.NewApplicationId("", model.ApplicationKindUnknown, mc.container)
-				instanceName := fmt.Sprintf("%s@%s", mc.container, mc.node.Name.Value())
-				instance = w.GetOrCreateApplication(appId).GetOrCreateInstance(instanceName, mc.node)
-			}
-			if instance == nil {
-				continue
-			}
-			container := instance.GetOrCreateContainer(mc.container)
 			switch queryName {
 			case "container_info":
 				if image := m.Labels["image"]; image != "" {
 					container.Image = image
 				}
 			case "container_net_latency":
-				rtts := rttByInstance[instance.InstanceId]
+				id := instanceId{ns: instance.OwnerId.Namespace, name: instance.Name, node: instance.NodeName()}
+				rtts := rttByInstance[id]
 				if rtts == nil {
 					rtts = map[string]*timeseries.TimeSeries{}
 				}
 				rtts[m.Labels["destination_ip"]] = merge(rtts[m.Labels["destination_ip"]], m.Values, timeseries.Any)
-				rttByInstance[instance.InstanceId] = rtts
+				rttByInstance[id] = rtts
 			case "container_net_tcp_successful_connects":
-				if c := getOrCreateConnection(instance, mc.container, m, w); c != nil {
+				if c := getOrCreateConnection(instance, container.Name, m, w, connectionCache); c != nil {
 					c.Connects = merge(c.Connects, m.Values, timeseries.Any)
 				}
 			case "container_net_tcp_active_connections":
-				if c := getOrCreateConnection(instance, mc.container, m, w); c != nil {
+				if c := getOrCreateConnection(instance, container.Name, m, w, connectionCache); c != nil {
 					c.Active = merge(c.Active, m.Values, timeseries.Any)
 				}
 			case "container_net_tcp_listen_info":
@@ -118,7 +100,7 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues, pjs
 			case "container_http_requests_count", "container_postgres_queries_count", "container_redis_queries_count",
 				"container_memcached_queries_count", "container_mysql_queries_count", "container_mongo_queries_count",
 				"container_kafka_requests_count", "container_cassandra_queries_count", "container_rabbitmq_messages":
-				if c := getOrCreateConnection(instance, mc.container, m, w); c != nil {
+				if c := getOrCreateConnection(instance, container.Name, m, w, connectionCache); c != nil {
 					protocol := model.Protocol(strings.SplitN(queryName, "_", 3)[1])
 					status := m.Labels["status"]
 					if protocol == "rabbitmq" {
@@ -132,14 +114,14 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues, pjs
 			case "container_http_requests_latency", "container_postgres_queries_latency", "container_redis_queries_latency",
 				"container_memcached_queries_latency", "container_mysql_queries_latency", "container_mongo_queries_latency",
 				"container_kafka_requests_latency", "container_cassandra_queries_latency":
-				if c := getOrCreateConnection(instance, mc.container, m, w); c != nil {
+				if c := getOrCreateConnection(instance, container.Name, m, w, connectionCache); c != nil {
 					protocol := model.Protocol(strings.SplitN(queryName, "_", 3)[1])
 					c.RequestsLatency[protocol] = merge(c.RequestsLatency[protocol], m.Values, timeseries.Any)
 				}
 			case "container_http_requests_histogram", "container_postgres_queries_histogram", "container_redis_queries_histogram",
 				"container_memcached_queries_histogram", "container_mysql_queries_histogram", "container_mongo_queries_histogram",
 				"container_kafka_requests_histogram", "container_cassandra_queries_histogram":
-				if c := getOrCreateConnection(instance, mc.container, m, w); c != nil {
+				if c := getOrCreateConnection(instance, container.Name, m, w, connectionCache); c != nil {
 					protocol := model.Protocol(strings.SplitN(queryName, "_", 3)[1])
 					le, err := strconv.ParseFloat(m.Labels["le"], 64)
 					if err != nil {
@@ -216,12 +198,13 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues, pjs
 						u.RemoteInstance = instancesByListen[l]
 					}
 				}
-				if upstreams, ok := rttByInstance[instance.InstanceId]; ok {
+				if upstreams, ok := rttByInstance[instanceId{ns: instance.OwnerId.Namespace, name: instance.Name, node: instance.NodeName()}]; ok {
 					u.Rtt = merge(u.Rtt, upstreams[u.ActualRemoteIP], timeseries.Any)
 				}
 			}
 		}
 	}
+
 	for _, app := range w.Applications { // creating ApplicationKindExternalService for unknown remote instances
 		for _, instance := range app.Instances {
 			for _, u := range instance.Upstreams {
@@ -262,15 +245,54 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues, pjs
 	}
 }
 
-func getOrCreateConnection(instance *model.Instance, container string, m model.MetricValues, w *model.World) *model.Connection {
-	if m.Values.Reduce(timeseries.NanSum) == 0 {
-		return nil
-	}
+type connectionKey struct {
+	instanceId
+	destination, actualDestination string
+}
+
+func getOrCreateConnection(instance *model.Instance, container string, m model.MetricValues, w *model.World, cache map[connectionKey]*model.Connection) *model.Connection {
 	if instance.OwnerId.Name == "docker" { // ignore docker-proxy's connections
 		return nil
 	}
-	connection := instance.GetOrCreateUpstreamConnection(m.Labels, container)
-	updateServiceEndpoints(w, connection)
+
+	// check the last value before `Reduce` for performance optimization
+	last := m.Values.Last()
+	if (last == 0 || math.IsNaN(last)) && m.Values.Reduce(timeseries.NanSum) == 0 {
+		return nil
+	}
+
+	dest := m.Labels["destination"]
+	actualDest := m.Labels["actual_destination"]
+	connKey := connectionKey{
+		instanceId: instanceId{
+			ns:   instance.OwnerId.Namespace,
+			name: instance.Name,
+			node: instance.NodeName(),
+		},
+		destination:       dest,
+		actualDestination: actualDest,
+	}
+	connection := cache[connKey]
+	if connection == nil {
+		var actualIP, actualPort, serviceIP, servicePort string
+		var err error
+		serviceIP, servicePort, err = net.SplitHostPort(dest)
+		if err != nil {
+			klog.Warningf("failed to split %s to ip:port pair: %s", dest, err)
+			return nil
+		}
+		if actualDest != "" {
+			actualIP, actualPort, err = net.SplitHostPort(actualDest)
+			if err != nil {
+				klog.Warningf("failed to split %s to ip:port pair: %s", actualDest, err)
+				return nil
+			}
+		}
+		connection = instance.AddUpstreamConnection(actualIP, actualPort, serviceIP, servicePort, container)
+		cache[connKey] = connection
+		updateServiceEndpoints(w, connection)
+	}
+
 	return connection
 }
 
@@ -339,16 +361,11 @@ func markMultilineMessage(msg string) string {
 }
 
 func updateServiceEndpoints(w *model.World, c *model.Connection) {
-	if c.ActualRemoteIP == "" && c.ServiceRemoteIP == "" && c.ServiceRemoteIP == c.ActualRemoteIP {
+	if c.ActualRemoteIP == "" && c.ServiceRemoteIP == "" {
 		return
 	}
 	for _, s := range w.Services {
 		if s.ClusterIP == c.ServiceRemoteIP {
-			for _, cc := range s.Connections {
-				if c == cc {
-					return
-				}
-			}
 			s.Connections = append(s.Connections, c)
 		}
 	}

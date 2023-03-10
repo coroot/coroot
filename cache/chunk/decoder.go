@@ -91,7 +91,7 @@ func (d *Decoder) readMetricLabels(offset, size int) (model.Labels, error) {
 			return nil, err
 		}
 	}
-	res := model.Labels{}
+	res := make(model.Labels, 20)
 	err := jsonparser.ObjectEach(d.meta[offset:offset+size], func(key []byte, value []byte, dataType jsonparser.ValueType, offset int) error {
 		v, err := jsonparser.ParseString(value)
 		if err != nil {

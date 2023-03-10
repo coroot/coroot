@@ -92,13 +92,14 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 	}
 
 	pjs := promJobStatuses{}
+	nodesByMachineID := map[string]*model.Node{}
 
 	// order is important
 	prof.stage("load_job_statuses", func() { loadPromJobStatuses(metrics, pjs) })
-	prof.stage("load_nodes", func() { loadNodes(w, metrics) })
+	prof.stage("load_nodes", func() { loadNodes(w, metrics, nodesByMachineID) })
 	prof.stage("load_k8s_metadata", func() { loadKubernetesMetadata(w, metrics) })
 	prof.stage("load_rds", func() { loadRds(w, metrics, pjs) })
-	prof.stage("load_containers", func() { loadContainers(w, metrics, pjs) })
+	prof.stage("load_containers", func() { loadContainers(w, metrics, pjs, nodesByMachineID) })
 	prof.stage("enrich_instances", func() { enrichInstances(w, metrics) })
 	prof.stage("join_db_cluster", func() { joinDBClusterComponents(w) })
 	prof.stage("calc_app_categories", func() { c.calcApplicationCategories(w) })

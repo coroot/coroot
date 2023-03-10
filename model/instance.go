@@ -2,14 +2,7 @@ package model
 
 import (
 	"github.com/coroot/coroot/timeseries"
-	"k8s.io/klog"
-	"net"
 )
-
-type InstanceId struct {
-	Name    string
-	OwnerId ApplicationId
-}
 
 type ClusterRole int
 
@@ -30,7 +23,8 @@ func (r ClusterRole) String() string {
 }
 
 type Instance struct {
-	InstanceId
+	Name    string
+	OwnerId ApplicationId
 
 	Node *Node
 
@@ -60,7 +54,8 @@ type Instance struct {
 
 func NewInstance(name string, owner ApplicationId) *Instance {
 	return &Instance{
-		InstanceId:         InstanceId{Name: name, OwnerId: owner},
+		Name:               name,
+		OwnerId:            owner,
 		LogMessagesByLevel: map[LogLevel]*timeseries.TimeSeries{},
 		LogPatterns:        map[string]*LogPattern{},
 		Containers:         map[string]*Container{},
@@ -97,31 +92,7 @@ func (instance *Instance) GetOrCreateContainer(name string) *Container {
 	return c
 }
 
-func (instance *Instance) GetOrCreateUpstreamConnection(ls Labels, container string) *Connection {
-	actualDest := ls["actual_destination"]
-	dest := ls["destination"]
-
-	var serviceIP, servicePort, actualIP, actualPort string
-	var err error
-
-	serviceIP, servicePort, err = net.SplitHostPort(dest)
-	if err != nil {
-		klog.Warningf("failed to split %s to ip:port pair: %s", dest, err)
-		return nil
-	}
-	if actualDest != "" {
-		actualIP, actualPort, err = net.SplitHostPort(actualDest)
-		if err != nil {
-			klog.Warningf("failed to split %s to ip:port pair: %s", actualDest, err)
-			return nil
-		}
-	}
-	for _, c := range instance.Upstreams {
-		if c.ActualRemoteIP == actualIP && c.ActualRemotePort == actualPort &&
-			c.ServiceRemoteIP == serviceIP && c.ServiceRemotePort == servicePort {
-			return c
-		}
-	}
+func (instance *Instance) AddUpstreamConnection(actualIP, actualPort, serviceIP, servicePort, container string) *Connection {
 	c := &Connection{
 		Instance:          instance,
 		ActualRemoteIP:    actualIP,
