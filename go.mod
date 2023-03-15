@@ -3,6 +3,7 @@ module github.com/coroot/coroot
 go 1.18
 
 require (
+	github.com/DataDog/golz4 v1.3.0
 	github.com/PagerDuty/go-pagerduty v1.6.0
 	github.com/atc0005/go-teams-notify/v2 v2.7.0
 	github.com/buger/jsonparser v1.1.1
@@ -18,6 +19,7 @@ require (
 	github.com/pierrec/lz4 v2.6.1+incompatible
 	github.com/prometheus/client_golang v1.14.0
 	github.com/prometheus/common v0.39.0
+	github.com/prometheus/procfs v0.8.0
 	github.com/prometheus/prometheus v0.42.0
 	github.com/pyroscope-io/godeltaprof v0.1.0
 	github.com/pyroscope-io/pyroscope v0.37.1
@@ -54,7 +56,6 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_model v0.3.0 // indirect
-	github.com/prometheus/procfs v0.8.0 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/goleak v1.2.0 // indirect

@@ -15,7 +15,6 @@ type Client struct {
 	cache           *Cache
 	projectId       db.ProjectId
 	refreshInterval timeseries.Duration
-	promClient      prom.Client
 }
 
 func (c *Cache) GetCacheClient(p *db.Project) *Client {

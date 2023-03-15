@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"github.com/coroot/coroot/model"
-	"github.com/coroot/coroot/pool"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/pierrec/lz4"
 )
@@ -17,7 +16,7 @@ type Encoder struct {
 
 func (e *Encoder) compressValues(src []byte) error {
 	l := lz4.CompressBlockBound(len(src))
-	e.valuesData = pool.GetByteArray(l + 4)
+	e.valuesData = make([]byte, l+4)
 	binary.LittleEndian.PutUint32(e.valuesData, uint32(len(src)))
 	n, err := lz4.CompressBlock(src, e.valuesData[4:], nil)
 	e.valuesData = e.valuesData[:n+4]
@@ -26,7 +25,7 @@ func (e *Encoder) compressValues(src []byte) error {
 
 func (e *Encoder) compressMeta(src []byte) error {
 	l := lz4.CompressBlockBound(len(src))
-	e.metaData = pool.GetByteArray(l + 4)
+	e.metaData = make([]byte, l+4)
 	binary.LittleEndian.PutUint32(e.metaData, uint32(len(src)))
 	n, err := lz4.CompressBlock(src, e.metaData[4:], nil)
 	e.metaData = e.metaData[:n+4]
@@ -34,8 +33,7 @@ func (e *Encoder) compressMeta(src []byte) error {
 }
 
 func (e *Encoder) encode(from timeseries.Time, pointsCount int, step timeseries.Duration, metrics []model.MetricValues) error {
-	buf := pool.GetByteArray(len(metrics) * (16 + pointsCount*8))
-	defer pool.PutByteArray(buf)
+	buf := make([]byte, len(metrics)*(16+pointsCount*8))
 	valuesBuf := bytes.NewBuffer(buf)
 	valuesBuf.Reset()
 	metaBuf := &bytes.Buffer{}
@@ -49,7 +47,7 @@ func (e *Encoder) encode(from timeseries.Time, pointsCount int, step timeseries.
 			return err
 		}
 		l := uint32(len(j))
-		v := metric{
+		v := metricMeta{
 			Hash:       m.LabelsHash,
 			MetaOffset: offset,
 			MetaSize:   l,
@@ -74,7 +72,7 @@ func (e *Encoder) encode(from timeseries.Time, pointsCount int, step timeseries.
 			idx := int((t - from) / timeseries.Time(step))
 			tmp[idx] = vv
 		}
-		if err = binary.Write(valuesBuf, binary.LittleEndian, tmp); err != nil {
+		if _, err = valuesBuf.Write(asBytes(tmp)); err != nil {
 			return err
 		}
 		if _, err = metaBuf.Write(j); err != nil {
@@ -88,9 +86,4 @@ func (e *Encoder) encode(from timeseries.Time, pointsCount int, step timeseries.
 		return err
 	}
 	return err
-}
-
-func (e *Encoder) close() {
-	pool.PutByteArray(e.valuesData)
-	pool.PutByteArray(e.metaData)
 }

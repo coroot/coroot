@@ -5,10 +5,9 @@ import (
 	"encoding/binary"
 	"github.com/buger/jsonparser"
 	"github.com/coroot/coroot/model"
-	"github.com/coroot/coroot/pool"
 	"github.com/coroot/coroot/timeseries"
+	"github.com/pierrec/lz4"
 	"io"
-	"math"
 )
 
 type Decoder struct {
@@ -18,42 +17,28 @@ type Decoder struct {
 	meta   []byte
 }
 
-func newDecoder(reader io.Reader, size int) (*Decoder, error) {
-	d := &Decoder{reader: reader, header: &header{}, size: size}
-	if err := binary.Read(d.reader, binary.LittleEndian, d.header); err != nil {
-		return nil, err
-	}
+func newDecoder(reader io.Reader, size int, header *header) (*Decoder, error) {
+	d := &Decoder{reader: reader, header: header, size: size}
 	return d, nil
 }
 
-func (d *Decoder) close() {
-	if d.meta != nil {
-		pool.PutByteArray(d.meta)
-	}
-}
-
 func (d *Decoder) decode(from timeseries.Time, pointsCount int, step timeseries.Duration, dest map[uint64]model.MetricValues) error {
-	compressedValue := pool.GetByteArray(int(d.header.ValuesSize))
-	defer pool.PutByteArray(compressedValue)
-	if _, err := io.ReadFull(d.reader, compressedValue); err != nil {
+	compressed := make([]byte, d.header.DataSizeOrMetricsCount)
+	if _, err := io.ReadFull(d.reader, compressed); err != nil {
 		return err
 	}
-
-	l := binary.LittleEndian.Uint32(compressedValue)
+	l := binary.LittleEndian.Uint32(compressed)
 	if l == 0 {
 		return nil
 	}
-	decompressed := pool.GetByteArray(int(l))
-	defer pool.PutByteArray(decompressed)
-	if err := decompress(compressedValue, decompressed); err != nil {
+	decompressed := make([]byte, l)
+	if err := decompress(compressed, decompressed); err != nil {
 		return nil
 	}
 	valuesReader := bytes.NewReader(decompressed)
 
-	data := make([]float64, int(d.header.PointsCount))
-
 	for {
-		m := metric{}
+		m := metricMeta{}
 		if err := binary.Read(valuesReader, binary.LittleEndian, &m); err != nil {
 			if err == io.EOF {
 				break
@@ -61,13 +46,12 @@ func (d *Decoder) decode(from timeseries.Time, pointsCount int, step timeseries.
 			return err
 		}
 		offset, _ := valuesReader.Seek(0, io.SeekCurrent)
-		readFloats(decompressed[offset:], data)
 		valuesReader.Seek(8*int64(d.header.PointsCount), io.SeekCurrent)
 		mv, ok := dest[m.Hash]
 		if !ok {
 			mv.Values = timeseries.New(from, pointsCount, step)
 		}
-		if !mv.Values.Fill(d.header.From, d.header.Step, data) && !ok {
+		if !mv.Values.Fill(d.header.From, d.header.Step, asFloats(decompressed[offset:offset+int64(d.header.PointsCount)*8])) && !ok {
 			mv.Values = nil
 			continue
 		}
@@ -104,8 +88,7 @@ func (d *Decoder) readMetricLabels(offset, size int) (model.Labels, error) {
 }
 
 func (d *Decoder) readMetadata() error {
-	compressed := pool.GetByteArray(d.size - headerSize - int(d.header.ValuesSize))
-	defer pool.PutByteArray(compressed)
+	compressed := make([]byte, d.size-headerSize-int(d.header.DataSizeOrMetricsCount))
 	if _, err := io.ReadFull(d.reader, compressed); err != nil {
 		return nil
 	}
@@ -113,12 +96,11 @@ func (d *Decoder) readMetadata() error {
 	if l == 0 {
 		return nil
 	}
-	d.meta = pool.GetByteArray(int(l))
+	d.meta = make([]byte, l)
 	return decompress(compressed, d.meta)
 }
 
-func readFloats(src []byte, dst []float64) {
-	for i := range dst {
-		dst[i] = math.Float64frombits(binary.LittleEndian.Uint64(src[i*8:]))
-	}
+func decompress(src, dst []byte) error {
+	_, err := lz4.UncompressBlock(src[4:], dst)
+	return err
 }

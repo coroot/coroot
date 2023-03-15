@@ -1,4 +1,5 @@
 FROM golang:1.18-stretch AS backend-builder
+RUN apt update && apt install -y liblz4-dev
 WORKDIR /tmp/src
 COPY go.mod .
 COPY go.sum .

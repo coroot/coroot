@@ -1,3 +1,5 @@
+github.com/DataDog/golz4 v1.3.0 h1:RHcPnTmGKHGuvry23CicJ2U5ycihxMoB5fWCLrse7Bs=
+github.com/DataDog/golz4 v1.3.0/go.mod h1:wg5dfG8pRzsEpNAhHdqC186TJxYI6OWPK05R/eKSgU8=
 github.com/PagerDuty/go-pagerduty v1.6.0 h1:am81SzvG5Pw+s3JZ5yEy6kGvsXXklTNRrGr3d8WKpsU=
 github.com/PagerDuty/go-pagerduty v1.6.0/go.mod h1:7eaBLzsDpK7VUvU0SJ5mohczQkoWrrr5CjDaw5gh1as=
 github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751 h1:JYp7IbQjafoB+tBA3gMyHYHrpOtNuDiK/uB5uXxq5wM=
