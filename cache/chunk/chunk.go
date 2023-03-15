@@ -112,7 +112,9 @@ func WriteV2(path string, from timeseries.Time, pointsCount int, step timeseries
 		return err
 	}
 
-	w := lz4.NewWriter(f)
+	zw := lz4.NewWriter(f)
+	w := bufio.NewWriter(zw)
+
 	var metaOffset, metaSize int
 	buf := make([]float64, pointsCount)
 	for i := range metrics {
@@ -153,7 +155,10 @@ func WriteV2(path string, from timeseries.Time, pointsCount int, step timeseries
 		return nil
 	}
 
-	if err = w.Close(); err != nil {
+	if err = w.Flush(); err != nil {
+		return err
+	}
+	if err = zw.Close(); err != nil {
 		return err
 	}
 	if err = f.Close(); err != nil {
