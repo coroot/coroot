@@ -92,15 +92,16 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 	}
 
 	pjs := promJobStatuses{}
-	nodesByMachineID := map[string]*model.Node{}
+	nodesByMachineId := map[string]*model.Node{}
+	rdsInstancesById := map[string]*model.Instance{}
 
 	// order is important
 	prof.stage("load_job_statuses", func() { loadPromJobStatuses(metrics, pjs) })
-	prof.stage("load_nodes", func() { loadNodes(w, metrics, nodesByMachineID) })
+	prof.stage("load_nodes", func() { loadNodes(w, metrics, nodesByMachineId) })
 	prof.stage("load_k8s_metadata", func() { loadKubernetesMetadata(w, metrics) })
-	prof.stage("load_rds", func() { loadRds(w, metrics, pjs) })
-	prof.stage("load_containers", func() { loadContainers(w, metrics, pjs, nodesByMachineID) })
-	prof.stage("enrich_instances", func() { enrichInstances(w, metrics) })
+	prof.stage("load_rds", func() { loadRds(w, metrics, pjs, rdsInstancesById) })
+	prof.stage("load_containers", func() { loadContainers(w, metrics, pjs, nodesByMachineId) })
+	prof.stage("enrich_instances", func() { enrichInstances(w, metrics, rdsInstancesById) })
 	prof.stage("join_db_cluster", func() { joinDBClusterComponents(w) })
 	prof.stage("calc_app_categories", func() { c.calcApplicationCategories(w) })
 	prof.stage("load_sli", func() { c.loadSLIs(w, metrics) })
@@ -229,17 +230,11 @@ type podId struct {
 	name, ns string
 }
 
-func enrichInstances(w *model.World, metrics map[string][]model.MetricValues) {
+func enrichInstances(w *model.World, metrics map[string][]model.MetricValues, rdsInstancesById map[string]*model.Instance) {
 	instancesByListen := map[model.Listen]*model.Instance{}
 	instancesByPod := map[podId]*model.Instance{}
-	rdsInstancesById := map[string]*model.Instance{}
-
 	for _, app := range w.Applications {
 		for _, i := range app.Instances {
-			if app.Id.Kind == model.ApplicationKindRds {
-				rdsId := app.Id.Name + "/" + i.Name
-				rdsInstancesById[rdsId] = i
-			}
 			if i.Pod != nil {
 				instancesByPod[podId{name: i.Name, ns: app.Id.Namespace}] = i
 			}

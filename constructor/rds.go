@@ -7,16 +7,7 @@ import (
 	"strings"
 )
 
-func getOrCreateRdsInstance(w *model.World, rdsId string) *model.Instance {
-	parts := strings.SplitN(rdsId, "/", 2)
-	if len(parts) != 2 {
-		return nil
-	}
-	id := model.NewApplicationId("", model.ApplicationKindRds, parts[1])
-	return w.GetOrCreateApplication(id).GetOrCreateInstance(parts[1], nil)
-}
-
-func loadRds(w *model.World, metrics map[string][]model.MetricValues, pjs promJobStatuses) {
+func loadRds(w *model.World, metrics map[string][]model.MetricValues, pjs promJobStatuses, rdsInstancesById map[string]*model.Instance) {
 	for queryName := range QUERIES {
 		if !strings.HasPrefix(queryName, "aws_rds_") {
 			continue
@@ -26,7 +17,16 @@ func loadRds(w *model.World, metrics map[string][]model.MetricValues, pjs promJo
 			if rdsId == "" {
 				continue
 			}
-			instance := getOrCreateRdsInstance(w, rdsId)
+			instance := rdsInstancesById[rdsId]
+			if instance == nil {
+				parts := strings.SplitN(rdsId, "/", 2)
+				if len(parts) != 2 {
+					continue
+				}
+				id := model.NewApplicationId("", model.ApplicationKindRds, parts[1])
+				instance = w.GetOrCreateApplication(id).GetOrCreateInstance(parts[1], nil)
+				rdsInstancesById[rdsId] = instance
+			}
 			if instance.Rds == nil {
 				instance.Rds = &model.Rds{}
 			}

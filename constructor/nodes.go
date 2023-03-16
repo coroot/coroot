@@ -30,15 +30,15 @@ func initNodesList(w *model.World, nodeInfoMetrics []model.MetricValues, nodesBy
 	}
 }
 
-func loadNodes(w *model.World, metrics map[string][]model.MetricValues, nodesByMachineID map[string]*model.Node) {
-	initNodesList(w, metrics["node_info"], nodesByMachineID)
+func loadNodes(w *model.World, metrics map[string][]model.MetricValues, nodesByMachineId map[string]*model.Node) {
+	initNodesList(w, metrics["node_info"], nodesByMachineId)
 
 	for queryName := range metrics {
 		if !strings.HasPrefix(queryName, "node_") {
 			continue
 		}
 		for _, m := range metrics[queryName] {
-			node := nodesByMachineID[m.Labels["machine_id"]]
+			node := nodesByMachineId[m.Labels["machine_id"]]
 			if node == nil {
 				continue
 			}

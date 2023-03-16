@@ -46,7 +46,7 @@ func getInstanceAndContainer(w *model.World, node *model.Node, instances map[ins
 	return instance, instance.GetOrCreateContainer(containerName)
 }
 
-func loadContainers(w *model.World, metrics map[string][]model.MetricValues, pjs promJobStatuses, nodesByMachineID map[string]*model.Node) {
+func loadContainers(w *model.World, metrics map[string][]model.MetricValues, pjs promJobStatuses, nodesByMachineId map[string]*model.Node) {
 	instances := map[instanceId]*model.Instance{}
 	for _, a := range w.Applications {
 		for _, i := range a.Instances {
@@ -61,7 +61,7 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues, pjs
 			continue
 		}
 		for _, m := range metrics[queryName] {
-			instance, container := getInstanceAndContainer(w, nodesByMachineID[m.Labels["machine_id"]], instances, m.Labels["container_id"])
+			instance, container := getInstanceAndContainer(w, nodesByMachineId[m.Labels["machine_id"]], instances, m.Labels["container_id"])
 			if instance == nil || container == nil {
 				continue
 			}
