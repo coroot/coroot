@@ -217,6 +217,7 @@ func readV1(reader io.Reader, size int, header *header, from timeseries.Time, po
 
 func readV2(reader io.Reader, header *header, from timeseries.Time, pointsCount int, step timeseries.Duration, dest map[uint64]model.MetricValues) error {
 	r := lz4.NewDecompressReader(reader)
+	defer r.Close()
 	buf := make([]byte, metricMetaSize+8*header.PointsCount)
 	var labelsToRead []*metricMeta
 	var maxLabelSize uint32
