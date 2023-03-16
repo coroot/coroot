@@ -14,6 +14,8 @@ type appAuditor struct {
 }
 
 func Audit(w *model.World, p *db.Project) {
+	ncs := nodeConsumersByNode{}
+
 	for _, app := range w.Applications {
 		a := &appAuditor{
 			w:   w,
@@ -22,8 +24,8 @@ func Audit(w *model.World, p *db.Project) {
 		}
 		a.slo()
 		a.instances()
-		a.cpu()
-		a.memory()
+		a.cpu(ncs)
+		a.memory(ncs)
 		a.storage()
 		a.network()
 		a.postgres()

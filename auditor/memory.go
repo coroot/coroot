@@ -7,7 +7,7 @@ import (
 	"math"
 )
 
-func (a *appAuditor) memory() {
+func (a *appAuditor) memory(ncs nodeConsumersByNode) {
 	report := a.addReport(model.AuditReportMemory)
 	relevantNodes := map[string]*model.Node{}
 
@@ -57,7 +57,7 @@ func (a *appAuditor) memory() {
 				report.GetOrCreateChartInGroup("Memory consumers <selector>, bytes", nodeName).
 					Stacked().
 					SetThreshold("total", node.MemoryTotalBytes).
-					AddMany(memoryConsumers(node), 5, timeseries.Max)
+					AddMany(ncs.get(node).memory, 5, timeseries.Max)
 			}
 		}
 	}

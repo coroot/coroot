@@ -6,7 +6,7 @@ import (
 	"github.com/coroot/coroot/timeseries"
 )
 
-func (a *appAuditor) cpu() {
+func (a *appAuditor) cpu(ncs nodeConsumersByNode) {
 	report := a.addReport(model.AuditReportCPU)
 	relevantNodes := map[string]*model.Node{}
 	nodeCpuCheck := report.CreateCheck(model.Checks.CPUNode)
@@ -49,7 +49,7 @@ func (a *appAuditor) cpu() {
 					Stacked().
 					Sorted().
 					SetThreshold("total", node.CpuCapacity).
-					AddMany(cpuConsumers(node), 5, timeseries.Max)
+					AddMany(ncs.get(node).cpu, 5, timeseries.Max)
 
 				if i.Node.CpuUsagePercent.Last() > nodeCpuCheck.Threshold {
 					consumersChart.Feature()

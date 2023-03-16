@@ -5,28 +5,41 @@ import (
 	"github.com/coroot/coroot/timeseries"
 )
 
-func memoryConsumers(node *model.Node) map[string]model.SeriesData {
-	usageByApp := map[string]model.SeriesData{}
-	for _, instance := range node.Instances {
-		agg := timeseries.NewAggregate(timeseries.NanSum)
-		for _, c := range instance.Containers {
-			agg.Add(c.MemoryRss)
-		}
-		usageByApp[instance.OwnerId.Name] = agg
-	}
-	return usageByApp
+type nodeConsumers struct {
+	cpu    map[string]model.SeriesData
+	memory map[string]model.SeriesData
 }
 
-func cpuConsumers(node *model.Node) map[string]model.SeriesData {
-	usageByApp := map[string]model.SeriesData{}
-	for _, instance := range node.Instances {
-		agg := timeseries.NewAggregate(timeseries.NanSum)
-		for _, c := range instance.Containers {
-			agg.Add(c.CpuUsage)
-		}
-		usageByApp[instance.OwnerId.Name] = agg
+func getNodeConsumers(node *model.Node) *nodeConsumers {
+	nc := &nodeConsumers{
+		cpu:    map[string]model.SeriesData{},
+		memory: map[string]model.SeriesData{},
 	}
-	return usageByApp
+	for _, i := range node.Instances {
+		for _, c := range i.Containers {
+			app := i.OwnerId.Name
+			if nc.cpu[app] == nil {
+				nc.cpu[app] = timeseries.NewAggregate(timeseries.NanSum)
+			}
+			if nc.memory[app] == nil {
+				nc.memory[app] = timeseries.NewAggregate(timeseries.NanSum)
+			}
+			nc.cpu[app].(*timeseries.Aggregate).Add(c.CpuUsage)
+			nc.memory[app].(*timeseries.Aggregate).Add(c.MemoryRss)
+		}
+	}
+	return nc
+}
+
+type nodeConsumersByNode map[string]*nodeConsumers
+
+func (m nodeConsumersByNode) get(node *model.Node) *nodeConsumers {
+	ncs := m[node.Name.Value()]
+	if ncs == nil {
+		ncs = getNodeConsumers(node)
+		m[node.Name.Value()] = ncs
+	}
+	return ncs
 }
 
 func cpuByModeChart(ch *model.Chart, modes map[string]*timeseries.TimeSeries) {
