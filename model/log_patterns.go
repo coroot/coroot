@@ -2,7 +2,7 @@ package model
 
 import (
 	"github.com/coroot/coroot/timeseries"
-	"github.com/coroot/logpattern"
+	"github.com/coroot/logparser"
 )
 
 type LogPatterns struct {
@@ -11,7 +11,7 @@ type LogPatterns struct {
 }
 
 type LogPatternInfo struct {
-	Pattern *logpattern.Pattern `json:"-"`
+	Pattern *logparser.Pattern `json:"-"`
 
 	Featured   bool                   `json:"featured"`
 	Level      string                 `json:"level"`

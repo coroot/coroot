@@ -2,7 +2,7 @@ package model
 
 import (
 	"github.com/coroot/coroot/timeseries"
-	"github.com/coroot/logpattern"
+	"github.com/coroot/logparser"
 )
 
 type LogLevel string
@@ -14,7 +14,7 @@ const (
 )
 
 type LogPattern struct {
-	Pattern   *logpattern.Pattern
+	Pattern   *logparser.Pattern
 	Level     LogLevel
 	Sample    string
 	Multiline bool

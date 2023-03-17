@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
-	"github.com/coroot/logpattern"
+	"github.com/coroot/logparser"
 	"k8s.io/klog"
 	"math"
 	"net"
@@ -321,7 +321,7 @@ func logMessage(instance *model.Instance, ls model.Labels, values *timeseries.Ti
 		p := instance.LogPatterns[hash]
 		if p == nil {
 			sample := ls["sample"]
-			pattern := logpattern.NewPattern(sample)
+			pattern := logparser.NewPattern(sample)
 
 			p = &model.LogPattern{
 				Level:     level,
