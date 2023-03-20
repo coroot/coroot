@@ -3,11 +3,11 @@ package timeseries
 type Iterator struct {
 	from Time
 	step Duration
-	data []float64
+	data []float32
 	idx  int
 
 	t Time
-	v float64
+	v float32
 }
 
 func (i *Iterator) Next() bool {
@@ -25,6 +25,6 @@ func (i *Iterator) Next() bool {
 	return true
 }
 
-func (i *Iterator) Value() (Time, float64) {
+func (i *Iterator) Value() (Time, float32) {
 	return i.t, i.v
 }

@@ -6,7 +6,6 @@ import (
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 	"github.com/dustin/go-humanize"
-	"math"
 )
 
 func (a *appAuditor) slo() {
@@ -32,7 +31,7 @@ func availability(ctx timeseries.Context, app *model.Application, report *model.
 		}
 		successfulPercentage := timeseries.Aggregate2(
 			sli.TotalRequests, failed.Map(timeseries.NanToZero),
-			func(total, failed float64) float64 {
+			func(total, failed float32) float32 {
 				return (total - failed) / total * 100
 			},
 		)
@@ -79,7 +78,7 @@ func latency(ctx timeseries.Context, app *model.Application, report *model.Audit
 	if !total.IsEmpty() {
 		fastPercentage := timeseries.Aggregate2(
 			total, fast,
-			func(total, fast float64) float64 {
+			func(total, fast float32) float32 {
 				return fast / total * 100
 			},
 		)
@@ -131,7 +130,7 @@ func requestsChart(app *model.Application, report *model.AuditReport) {
 	}
 }
 
-func histogramSeries(ch *model.Chart, histogram []model.HistogramBucket, objectiveBucket float64) {
+func histogramSeries(ch *model.Chart, histogram []model.HistogramBucket, objectiveBucket float32) {
 	for i, b := range histogram {
 		color := "green"
 		if objectiveBucket > 0 && b.Le > objectiveBucket {
@@ -145,7 +144,7 @@ func histogramSeries(ch *model.Chart, histogram []model.HistogramBucket, objecti
 			prev := histogram[i-1]
 			data = timeseries.Sub(data, prev.TimeSeries)
 			if prev.Le >= 0.1 {
-				legend = fmt.Sprintf("%s-%s s", humanize.Ftoa(prev.Le), humanize.Ftoa(b.Le))
+				legend = fmt.Sprintf("%s-%s s", humanize.Ftoa(float64(prev.Le)), humanize.Ftoa(float64(b.Le)))
 			} else {
 				legend = fmt.Sprintf("%.0f-%.0f ms", prev.Le*1000, b.Le*1000)
 			}
@@ -174,10 +173,10 @@ func clientRequests(app *model.Application, report *model.AuditReport) {
 		return
 	}
 	t := report.GetOrCreateTable("Client", "", "Requests", "Latency", "Errors")
-	var rpsTotal float64
+	var rpsTotal float32
 	for _, s := range clients {
 		s.rps = model.GetConnectionsRequestsSum(s.connections)
-		if last := s.rps.Last(); !math.IsNaN(last) {
+		if last := s.rps.Last(); !timeseries.IsNaN(last) {
 			rpsTotal += last
 		}
 	}

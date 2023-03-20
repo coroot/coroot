@@ -22,7 +22,7 @@ type Connection struct {
 
 	RequestsCount     map[Protocol]map[string]*timeseries.TimeSeries // by status
 	RequestsLatency   map[Protocol]*timeseries.TimeSeries
-	RequestsHistogram map[Protocol]map[float64]*timeseries.TimeSeries // by le
+	RequestsHistogram map[Protocol]map[float32]*timeseries.TimeSeries // by le
 
 	ServiceRemoteIP   string
 	ServiceRemotePort string

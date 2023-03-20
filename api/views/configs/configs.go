@@ -14,14 +14,14 @@ type View struct {
 
 type Check struct {
 	model.Check
-	GlobalThreshold      float64       `json:"global_threshold"`
-	ProjectThreshold     *float64      `json:"project_threshold"`
+	GlobalThreshold      float32       `json:"global_threshold"`
+	ProjectThreshold     *float32      `json:"project_threshold"`
 	ApplicationOverrides []Application `json:"application_overrides"`
 }
 
 type Application struct {
 	Id        model.ApplicationId `json:"id"`
-	Threshold float64             `json:"threshold"`
+	Threshold float32             `json:"threshold"`
 	Details   string              `json:"details"`
 }
 

@@ -103,7 +103,7 @@ func (instance *Instance) AddUpstreamConnection(actualIP, actualPort, serviceIP,
 
 		RequestsCount:     map[Protocol]map[string]*timeseries.TimeSeries{},
 		RequestsLatency:   map[Protocol]*timeseries.TimeSeries{},
-		RequestsHistogram: map[Protocol]map[float64]*timeseries.TimeSeries{},
+		RequestsHistogram: map[Protocol]map[float32]*timeseries.TimeSeries{},
 	}
 	instance.Upstreams = append(instance.Upstreams, c)
 	return c
@@ -119,16 +119,16 @@ func (instance *Instance) NodeName() string {
 func (instance *Instance) UpdateClusterRole(role string, v *timeseries.TimeSeries) {
 	switch role {
 	case "primary":
-		instance.clusterRole = v.Map(func(t timeseries.Time, v float64) float64 {
+		instance.clusterRole = v.Map(func(t timeseries.Time, v float32) float32 {
 			if v == 1 {
-				return float64(ClusterRolePrimary)
+				return float32(ClusterRolePrimary)
 			}
 			return timeseries.NaN
 		})
 	case "replica":
-		instance.clusterRole = v.Map(func(t timeseries.Time, v float64) float64 {
+		instance.clusterRole = v.Map(func(t timeseries.Time, v float32) float32 {
 			if v == 1 {
-				return float64(ClusterRoleReplica)
+				return float32(ClusterRoleReplica)
 			}
 			return timeseries.NaN
 		})
@@ -187,7 +187,7 @@ func (instance *Instance) UpAndRunning() *timeseries.TimeSeries {
 	if memTs.IsEmpty() {
 		return nil
 	}
-	up := memTs.Map(func(t timeseries.Time, v float64) float64 {
+	up := memTs.Map(func(t timeseries.Time, v float32) float32 {
 		if v > 0 {
 			return 1
 		}

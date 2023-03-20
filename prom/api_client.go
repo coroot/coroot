@@ -115,11 +115,10 @@ func (c *ApiClient) QueryRange(ctx context.Context, query string, from, to times
 	buf := pool.Get().(*bytes.Buffer)
 	buf.Reset()
 	defer pool.Put(buf)
-	_, err = buf.ReadFrom(resp.Body)
-
-	if err != nil {
+	if _, err = buf.ReadFrom(resp.Body); err != nil {
 		return nil, err
 	}
+
 	var res []model.MetricValues
 	f := func(value []byte, dataType jsonparser.ValueType, offset int, err error) {
 		mv := model.MetricValues{
@@ -174,7 +173,7 @@ func (c *ApiClient) QueryRange(ctx context.Context, query string, from, to times
 					}
 				}
 			}
-			mv.Values.Set(t, v)
+			mv.Values.Set(t, float32(v))
 		}, "values")
 		if err != nil {
 			return

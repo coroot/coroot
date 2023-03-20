@@ -4,7 +4,6 @@ import (
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/profiling"
 	"github.com/coroot/coroot/timeseries"
-	"math"
 )
 
 func (a *appAuditor) memory(ncs nodeConsumersByNode) {
@@ -13,7 +12,7 @@ func (a *appAuditor) memory(ncs nodeConsumersByNode) {
 
 	oomCheck := report.CreateCheck(model.Checks.MemoryOOM)
 	leakCheck := report.CreateCheck(model.Checks.MemoryLeak)
-	var leak float64
+	var leak float32
 	now := timeseries.Now()
 	seenContainers := false
 	limitByContainer := map[string]*timeseries.Aggregate{}
@@ -31,7 +30,7 @@ func (a *appAuditor) memory(ncs nodeConsumersByNode) {
 			report.GetOrCreateChartInGroup(memoryUsageChartTitle, c.Name).AddSeries(i.Name, c.MemoryRss)
 			oom.Add(c.OOMKills)
 			if lr := timeseries.NewLinearRegression(c.MemoryRss); lr != nil {
-				if v := (lr.Calc(now) - lr.Calc(now.Add(-timeseries.Hour))) / 1024 / 1024; !math.IsNaN(v) {
+				if v := (lr.Calc(now) - lr.Calc(now.Add(-timeseries.Hour))) / 1024 / 1024; !timeseries.IsNaN(v) {
 					leak += v
 				}
 			}
@@ -51,7 +50,7 @@ func (a *appAuditor) memory(ncs nodeConsumersByNode) {
 						nodeName,
 						timeseries.Aggregate2(
 							node.MemoryAvailableBytes, node.MemoryTotalBytes,
-							func(avail, total float64) float64 { return (total - avail) / total * 100 },
+							func(avail, total float32) float32 { return (total - avail) / total * 100 },
 						),
 					)
 				report.GetOrCreateChartInGroup("Memory consumers <selector>, bytes", nodeName).

@@ -40,7 +40,7 @@ func (a *appAuditor) deployments() {
 				summary.SetStub("Not enough data due to the lifetime < %s", utils.FormatDuration(model.ApplicationDeploymentMinLifetime, 1))
 			}
 		case model.ApplicationDeploymentStateStuck:
-			deploymentStatusCheck.SetValue(float64(now.Sub(ds.Deployment.StartedAt)))
+			deploymentStatusCheck.SetValue(float32(now.Sub(ds.Deployment.StartedAt)))
 			summary.DeploymentSummaries = append(summary.DeploymentSummaries, model.ApplicationDeploymentSummary{
 				Report:  model.AuditReportInstances,
 				Ok:      false,

@@ -3,7 +3,6 @@ package constructor
 import (
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
-	"math"
 	"sort"
 )
 
@@ -68,7 +67,7 @@ func calcUpDownEvents(app *model.Application) []*model.ApplicationEvent {
 
 func calcClusterSwitchovers(app *model.Application) []*model.ApplicationEvent {
 	names := map[int]string{}
-	f := func(t timeseries.Time, accumulator, v float64) float64 {
+	f := func(t timeseries.Time, accumulator, v float32) float32 {
 		if accumulator < 0 {
 			return -1
 		}
@@ -84,9 +83,9 @@ func calcClusterSwitchovers(app *model.Application) []*model.ApplicationEvent {
 	for i, instance := range app.Instances {
 		names[i] = instance.Name
 		if role := instance.ClusterRole(); role != nil {
-			num := float64(i)
-			primaryNum.Add(role.Map(func(t timeseries.Time, v float64) float64 {
-				if v == float64(model.ClusterRolePrimary) {
+			num := float32(i)
+			primaryNum.Add(role.Map(func(t timeseries.Time, v float32) float32 {
+				if v == float32(model.ClusterRolePrimary) {
 					return num
 				}
 				return timeseries.NaN
@@ -101,11 +100,11 @@ func calcClusterSwitchovers(app *model.Application) []*model.ApplicationEvent {
 	var events []*model.ApplicationEvent
 	var event *model.ApplicationEvent
 	iter := primaryNumTs.Iter()
-	prev := float64(-1)
+	prev := float32(-1)
 	for iter.Next() {
 		t, curr := iter.Value()
 		if prev == -1 {
-			if !math.IsNaN(curr) {
+			if !timeseries.IsNaN(curr) {
 				prev = curr
 			}
 			continue
@@ -113,13 +112,13 @@ func calcClusterSwitchovers(app *model.Application) []*model.ApplicationEvent {
 		if curr != prev && event == nil {
 			event = &model.ApplicationEvent{Start: t, Details: names[int(prev)] + " &rarr; ", Type: model.ApplicationEventTypeSwitchover}
 		}
-		if curr != prev && event != nil && !math.IsNaN(curr) && curr >= 0 {
+		if curr != prev && event != nil && !timeseries.IsNaN(curr) && curr >= 0 {
 			event.End = t
 			event.Details += names[int(curr)]
 			events = append(events, event)
 			event = nil
 		}
-		if !math.IsNaN(curr) && curr >= 0 {
+		if !timeseries.IsNaN(curr) && curr >= 0 {
 			prev = curr
 		}
 	}

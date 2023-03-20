@@ -3,7 +3,6 @@ package model
 import (
 	"encoding/json"
 	"github.com/coroot/coroot/timeseries"
-	"math"
 	"sort"
 	"strings"
 )
@@ -20,7 +19,7 @@ type Annotation struct {
 type SeriesData interface {
 	IsEmpty() bool
 	Get() *timeseries.TimeSeries
-	Reduce(timeseries.F) float64
+	Reduce(timeseries.F) float32
 }
 
 type Series struct {
@@ -225,11 +224,11 @@ func autoFeatureChart(charts []*Chart) {
 	}
 	type weight struct {
 		i int
-		w float64
+		w float32
 	}
 	weights := make([]weight, 0, len(charts))
 	for i, ch := range charts {
-		var w float64
+		var w float32
 		for _, s := range ch.Series.series {
 			w += s.Data.Reduce(timeseries.NanSum)
 		}
@@ -246,12 +245,12 @@ func autoFeatureChart(charts []*Chart) {
 func topN(ss []*Series, n int, by timeseries.F) []*Series {
 	type weighted struct {
 		*Series
-		weight float64
+		weight float32
 	}
 	sortable := make([]weighted, 0, len(ss))
 	for _, s := range ss {
 		w := s.Data.Reduce(by)
-		if !math.IsNaN(w) {
+		if !timeseries.IsNaN(w) {
 			sortable = append(sortable, weighted{Series: s, weight: w})
 		}
 	}

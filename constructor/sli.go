@@ -165,7 +165,7 @@ func histogramBuckets(values []model.MetricValues) []model.HistogramBucket {
 			klog.Warningln(err)
 			continue
 		}
-		buckets = append(buckets, model.HistogramBucket{Le: le, TimeSeries: m.Values})
+		buckets = append(buckets, model.HistogramBucket{Le: float32(le), TimeSeries: m.Values})
 	}
 	sort.Slice(buckets, func(i, j int) bool {
 		return buckets[i].Le < buckets[j].Le

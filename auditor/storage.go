@@ -3,9 +3,9 @@ package auditor
 import (
 	"fmt"
 	"github.com/coroot/coroot/model"
+	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 	"github.com/dustin/go-humanize"
-	"math"
 )
 
 func (a *appAuditor) storage() {
@@ -43,7 +43,7 @@ func (a *appAuditor) storage() {
 
 					latencyMs := model.NewTableCell().SetUnit("ms").SetValue(utils.FormatFloat(d.Await.Last() * 1000))
 					ioPercent := model.NewTableCell()
-					if last := d.IOUtilizationPercent.Last(); !math.IsNaN(last) {
+					if last := d.IOUtilizationPercent.Last(); !timeseries.IsNaN(last) {
 						ioPercent.SetValue(fmt.Sprintf("%.0f%%", last))
 					}
 					space := model.NewTableCell()

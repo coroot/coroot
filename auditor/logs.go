@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
-	"math"
 	"sort"
 	"strings"
 )
@@ -52,7 +51,7 @@ func (a *appAuditor) logs() {
 				continue
 			}
 			events := p.Sum.Reduce(timeseries.NanSum)
-			if math.IsNaN(events) || events == 0 {
+			if timeseries.IsNaN(events) || events == 0 {
 				continue
 			}
 			pattern := byHash[hash]

@@ -5,7 +5,6 @@ import (
 	"github.com/coroot/coroot/timeseries"
 	"github.com/dustin/go-humanize"
 	"github.com/hako/durafmt"
-	"math"
 	"strings"
 )
 
@@ -13,9 +12,9 @@ var (
 	shortDurations, _ = durafmt.DefaultUnitsCoder.Decode("y:y,w:w,d:d,h:h,m:m,s:s,ms:ms,µs:µs")
 )
 
-func FormatFloat(v float64) string {
+func FormatFloat(v float32) string {
 	switch {
-	case math.IsNaN(v):
+	case timeseries.IsNaN(v):
 		return ""
 	case v == 0:
 		return "0"
@@ -36,7 +35,7 @@ func FormatDurationShort(d timeseries.Duration, limitFirstN int) string {
 	return strings.Replace(durafmt.Parse(d.ToStandard()).LimitFirstN(limitFirstN).Format(shortDurations), " ", "", -1)
 }
 
-func FormatBytes(b float64) (string, string) {
+func FormatBytes(b float32) (string, string) {
 	s := humanize.Bytes(uint64(b))
 	parts := strings.Fields(s)
 	if len(parts) != 2 {
@@ -45,21 +44,21 @@ func FormatBytes(b float64) (string, string) {
 	return parts[0], parts[1]
 }
 
-func HumanBits(v float64) string {
-	if math.IsNaN(v) {
+func HumanBits(v float32) string {
+	if timeseries.IsNaN(v) {
 		return ""
 	}
 	return strings.Replace(humanize.Bytes(uint64(v)), "B", "b", -1) + "ps"
 }
 
-func FormatLatency(v float64) string {
+func FormatLatency(v float32) string {
 	if v < 1 {
 		return FormatFloat(v*1000) + " ms"
 	}
 	return FormatFloat(v) + "s"
 }
 
-func FormatPercentage(v float64) string {
+func FormatPercentage(v float32) string {
 	return strings.TrimRight(strings.TrimRight(fmt.Sprintf("%.2f", v), "0"), ".") + "%"
 }
 

@@ -113,7 +113,7 @@ func nodeDisk(node *model.Node, queryName string, m model.MetricValues) {
 	case "node_disk_written_bytes":
 		stat.WrittenBytes = merge(stat.WrittenBytes, m.Values, timeseries.Any)
 	case "node_disk_io_time":
-		stat.IOUtilizationPercent = merge(stat.IOUtilizationPercent, m.Values.Map(func(t timeseries.Time, v float64) float64 {
+		stat.IOUtilizationPercent = merge(stat.IOUtilizationPercent, m.Values.Map(func(t timeseries.Time, v float32) float32 {
 			return v * 100
 		}), timeseries.Any)
 	}

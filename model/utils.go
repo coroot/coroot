@@ -3,7 +3,6 @@ package model
 import (
 	"encoding/json"
 	"github.com/coroot/coroot/timeseries"
-	"math"
 )
 
 type LabelLastValue struct {
@@ -17,7 +16,7 @@ func (lv LabelLastValue) Value() string {
 
 func (lv *LabelLastValue) Update(ts *timeseries.TimeSeries, value string) {
 	t, v := ts.LastNotNull()
-	if t < lv.t || math.IsNaN(v) {
+	if t < lv.t || timeseries.IsNaN(v) {
 		return
 	}
 	lv.v = value
@@ -30,7 +29,7 @@ func (lv LabelLastValue) MarshalJSON() ([]byte, error) {
 
 func DataIsMissing(ts *timeseries.TimeSeries) bool {
 	for _, v := range ts.LastN(3) {
-		if !math.IsNaN(v) {
+		if !timeseries.IsNaN(v) {
 			return false
 		}
 	}

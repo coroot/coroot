@@ -5,7 +5,6 @@ import (
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
-	"math"
 	"sort"
 )
 
@@ -244,11 +243,11 @@ func (i *Instance) addInternalLink(id string, status model.Status) {
 func (l *ApplicationLink) calcStats() {
 	requests := model.GetConnectionsRequestsSum(l.connections).Last()
 	latency := model.GetConnectionsRequestsLatency(l.connections).Last()
-	if !math.IsNaN(requests) {
-		l.Weight = float32(requests)
+	if !timeseries.IsNaN(requests) {
+		l.Weight = requests
 		l.Stats = append(l.Stats, utils.FormatFloat(requests)+" rps")
 	}
-	if !math.IsNaN(latency) {
+	if !timeseries.IsNaN(latency) {
 		l.Stats = append(l.Stats, utils.FormatLatency(latency))
 	}
 }

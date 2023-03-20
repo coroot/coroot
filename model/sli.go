@@ -2,7 +2,6 @@ package model
 
 import (
 	"github.com/coroot/coroot/timeseries"
-	"math"
 )
 
 type AvailabilitySLI struct {
@@ -16,7 +15,7 @@ type AvailabilitySLI struct {
 }
 
 type HistogramBucket struct {
-	Le         float64
+	Le         float32
 	TimeSeries *timeseries.TimeSeries
 }
 
@@ -37,7 +36,7 @@ func (sli *LatencySLI) GetTotalAndFast(raw bool) (*timeseries.TimeSeries, *times
 		if b.Le <= sli.Config.ObjectiveBucket {
 			fast = b.TimeSeries
 		}
-		if math.IsInf(b.Le, 1) {
+		if timeseries.IsInf(b.Le, 1) {
 			total = b.TimeSeries
 		}
 	}

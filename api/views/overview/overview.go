@@ -5,7 +5,6 @@ import (
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 	"github.com/dustin/go-humanize"
-	"math"
 	"net"
 	"sort"
 	"strconv"
@@ -82,11 +81,11 @@ func Render(w *model.World) *View {
 			l := Link{Id: id, Status: s.status}
 			requests := model.GetConnectionsRequestsSum(s.connections).Last()
 			latency := model.GetConnectionsRequestsLatency(s.connections).Last()
-			if !math.IsNaN(requests) {
-				l.Weight = float32(requests)
+			if !timeseries.IsNaN(requests) {
+				l.Weight = requests
 				l.Stats = append(l.Stats, utils.FormatFloat(requests)+" rps")
 			}
-			if !math.IsNaN(latency) {
+			if !timeseries.IsNaN(latency) {
 				l.Stats = append(l.Stats, utils.FormatLatency(latency))
 			}
 			app.Upstreams = append(app.Upstreams, l)
@@ -121,16 +120,16 @@ func Render(w *model.World) *View {
 		if t := n.InstanceType.Value(); t != "" {
 			node.AddTag("Type: " + t)
 		}
-		if l := n.CpuCapacity.Last(); !math.IsNaN(l) {
+		if l := n.CpuCapacity.Last(); !timeseries.IsNaN(l) {
 			node.AddTag("vCPU: " + strconv.Itoa(int(l)))
 		}
-		if l := n.CpuUsagePercent.Last(); !math.IsNaN(l) {
+		if l := n.CpuUsagePercent.Last(); !timeseries.IsNaN(l) {
 			cpuPercent.SetProgress(int(l), "blue")
 		}
 
-		if total := n.MemoryTotalBytes.Last(); !math.IsNaN(total) {
+		if total := n.MemoryTotalBytes.Last(); !timeseries.IsNaN(total) {
 			node.AddTag("memory: " + humanize.Bytes(uint64(total)))
-			if avail := n.MemoryAvailableBytes.Last(); !math.IsNaN(avail) {
+			if avail := n.MemoryAvailableBytes.Last(); !timeseries.IsNaN(avail) {
 				memoryPercent.SetProgress(int(100-avail/total*100), "deep-purple")
 			}
 		}
@@ -171,7 +170,7 @@ func Render(w *model.World) *View {
 		})
 
 		uptime := model.NewTableCell()
-		if v := n.Uptime.Last(); !math.IsNaN(v) {
+		if v := n.Uptime.Last(); !timeseries.IsNaN(v) {
 			uptime.SetValue(utils.FormatDurationShort(timeseries.Duration(int64(v)), 1))
 		}
 

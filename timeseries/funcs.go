@@ -1,33 +1,29 @@
 package timeseries
 
-import (
-	"math"
-)
+type F func(Time, float32, float32) float32
 
-type F func(Time, float64, float64) float64
-
-func Any(t Time, v1, v2 float64) float64 {
-	if !math.IsNaN(v1) {
+func Any(t Time, v1, v2 float32) float32 {
+	if !IsNaN(v1) {
 		return v1
 	}
 	return v2
 }
 
-func NanSum(t Time, sum, v float64) float64 {
-	if math.IsNaN(sum) {
+func NanSum(t Time, sum, v float32) float32 {
+	if IsNaN(sum) {
 		sum = 0
 	}
-	if !math.IsNaN(v) {
+	if !IsNaN(v) {
 		sum += v
 	}
 	return sum
 }
 
-func Max(t Time, max, v float64) float64 {
-	if math.IsNaN(max) {
+func Max(t Time, max, v float32) float32 {
+	if IsNaN(max) {
 		return v
 	}
-	if math.IsNaN(v) {
+	if IsNaN(v) {
 		return max
 	}
 	if v > max {
@@ -36,11 +32,11 @@ func Max(t Time, max, v float64) float64 {
 	return max
 }
 
-func Min(t Time, min, v float64) float64 {
-	if math.IsNaN(min) {
+func Min(t Time, min, v float32) float32 {
+	if IsNaN(min) {
 		return v
 	}
-	if math.IsNaN(v) {
+	if IsNaN(v) {
 		return min
 	}
 	if v < min {
@@ -49,15 +45,15 @@ func Min(t Time, min, v float64) float64 {
 	return min
 }
 
-func Defined(t Time, v float64) float64 {
-	if math.IsNaN(v) {
+func Defined(t Time, v float32) float32 {
+	if IsNaN(v) {
 		return 0
 	}
 	return 1
 }
 
-func NanToZero(t Time, v float64) float64 {
-	if math.IsNaN(v) {
+func NanToZero(t Time, v float32) float32 {
+	if IsNaN(v) {
 		return 0
 	}
 	return v

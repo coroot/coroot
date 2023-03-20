@@ -5,7 +5,6 @@ import (
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
-	"math"
 	"regexp"
 )
 
@@ -100,7 +99,7 @@ func (a *appAuditor) postgres() {
 			status.SetStatus(model.WARNING, "down (no metrics)")
 		}
 		errorsCell := model.NewTableCell()
-		if total := errors.Reduce(timeseries.NanSum); !math.IsNaN(total) {
+		if total := errors.Reduce(timeseries.NanSum); !timeseries.IsNaN(total) {
 			errorsCheck.Inc(int64(total))
 			errorsCell.SetValue(fmt.Sprintf("%.0f", total))
 		}
@@ -143,12 +142,12 @@ func checkReplicationLag(instanceName string, primaryLsn, lag *timeseries.TimeSe
 		return res
 	}
 	last := lag.Last()
-	if math.IsNaN(last) {
+	if timeseries.IsNaN(last) {
 		return res
 	}
 
 	tCurr, vCurr := primaryLsn.LastNotNull()
-	t, tPast, vPast := timeseries.Time(0), timeseries.Time(0), math.NaN()
+	t, tPast, vPast := timeseries.Time(0), timeseries.Time(0), timeseries.NaN
 	iter := primaryLsn.Iter()
 	for iter.Next() {
 		t, vPast = iter.Value()
@@ -180,7 +179,7 @@ func checkReplicationLag(instanceName string, primaryLsn, lag *timeseries.TimeSe
 func pgReplicationLag(primaryLsn, replayLsn *timeseries.TimeSeries) *timeseries.TimeSeries {
 	return timeseries.Aggregate2(
 		primaryLsn, replayLsn,
-		func(primary, replay float64) float64 {
+		func(primary, replay float32) float32 {
 			res := primary - replay
 			if res < 0 {
 				return 0
@@ -191,9 +190,9 @@ func pgReplicationLag(primaryLsn, replayLsn *timeseries.TimeSeries) *timeseries.
 
 func pgConnections(report *model.AuditReport, instance *model.Instance, connectionsCheck *model.Check) {
 	connectionByState := map[string]*timeseries.Aggregate{}
-	var total float64
+	var total float32
 	for k, v := range instance.Postgres.Connections {
-		if last := v.Last(); !math.IsNaN(last) {
+		if last := v.Last(); !timeseries.IsNaN(last) {
 			total += last
 		}
 		state := k.State
@@ -212,7 +211,7 @@ func pgConnections(report *model.AuditReport, instance *model.Instance, connecti
 	for _, setting := range []string{"superuser_reserved_connections", "rds.rds_superuser_reserved_connections"} {
 		v := instance.Postgres.Settings[setting].Samples
 		connectionByState["reserved"].Add(v)
-		if last := v.Last(); !math.IsNaN(last) {
+		if last := v.Last(); !timeseries.IsNaN(last) {
 			total += last
 		}
 	}

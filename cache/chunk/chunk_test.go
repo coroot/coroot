@@ -10,38 +10,7 @@ import (
 	"testing"
 )
 
-func TestChunkV1(t *testing.T) {
-	tmp, err := os.MkdirTemp(os.TempDir(), "")
-	require.NoError(t, err)
-	defer os.RemoveAll(tmp)
-
-	chunkPath := path.Join(tmp, "chunk.db")
-
-	nan := timeseries.NaN
-	ts := timeseries.NewWithData(0, 30, []float64{nan, 1, nan, nan, nan, nan, nan, nan, 2, nan})
-
-	err = WriteV1(chunkPath, 0, 10, 30, false, []model.MetricValues{
-		{Labels: model.Labels{"a": "b"}, LabelsHash: 123, Values: ts},
-		{Labels: model.Labels{"a": "c"}, LabelsHash: 321, Values: ts},
-	})
-	require.NoError(t, err)
-
-	meta, err := ReadMeta(chunkPath)
-	require.NoError(t, err)
-	assert.Equal(t, Meta{Path: chunkPath, From: 0, PointsCount: 10, Step: 30, Finalized: false}, *meta)
-
-	res := map[uint64]model.MetricValues{}
-	require.NoError(t, Read(chunkPath, 60, 10, 30, res))
-
-	assert.Equal(t, model.Labels{"a": "b"}, res[123].Labels)
-	assert.Equal(t, model.Labels{"a": "c"}, res[321].Labels)
-	assert.Equal(t,
-		"TimeSeries(60, 10, 30, [. . . . . . 2 . . .])",
-		res[123].Values.String(),
-	)
-}
-
-func TestChunkV2(t *testing.T) {
+func TestChunk(t *testing.T) {
 	tmp, err := os.MkdirTemp(os.TempDir(), "")
 	require.NoError(t, err)
 	defer os.RemoveAll(tmp)
@@ -50,13 +19,13 @@ func TestChunkV2(t *testing.T) {
 	chunk2 := path.Join(tmp, "chunk2.db")
 
 	nan := timeseries.NaN
-	data := []float64{nan, 1, nan, nan, 2, nan, nan, nan, 3, nan}
-	err = WriteV2(chunk1, 0, 10, 30, false, []model.MetricValues{
+	data := []float32{nan, 1, nan, nan, 2, nan, nan, nan, 3, nan}
+	err = Write(chunk1, 0, 10, 30, false, []model.MetricValues{
 		{Labels: model.Labels{"a": "bb"}, LabelsHash: 111, Values: timeseries.NewWithData(0, 30, data)},
 		{Labels: model.Labels{"a": "dddd"}, LabelsHash: 333, Values: timeseries.NewWithData(0, 30, data)},
 	})
 	require.NoError(t, err)
-	err = WriteV2(chunk2, 300, 10, 30, false, []model.MetricValues{
+	err = Write(chunk2, 300, 10, 30, false, []model.MetricValues{
 		{Labels: model.Labels{"a": "bb"}, LabelsHash: 111, Values: timeseries.NewWithData(300, 30, data)},
 		{Labels: model.Labels{"a": "ccc"}, LabelsHash: 222, Values: timeseries.NewWithData(300, 30, data)},
 		{Labels: model.Labels{"a": "dddd"}, LabelsHash: 333, Values: timeseries.NewWithData(300, 30, data)},

@@ -5,7 +5,6 @@ import (
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
-	"math"
 	"net"
 	"strconv"
 	"strings"
@@ -26,7 +25,7 @@ func (a *appAuditor) instances() {
 		status := model.NewTableCell().SetStatus(model.UNKNOWN, "unknown")
 		if i.Rds != nil {
 			switch {
-			case math.IsNaN(i.Rds.LifeSpan.Last()):
+			case timeseries.IsNaN(i.Rds.LifeSpan.Last()):
 				status.SetStatus(model.WARNING, "down (no metrics)")
 			case i.Rds.Status.Value() != "available":
 				status.SetStatus(model.WARNING, i.Rds.Status.Value())
@@ -101,7 +100,7 @@ func (a *appAuditor) instances() {
 		}
 		restartsCount := int64(0)
 		for _, c := range i.Containers {
-			if r := c.Restarts.Reduce(timeseries.NanSum); !math.IsNaN(r) {
+			if r := c.Restarts.Reduce(timeseries.NanSum); !timeseries.IsNaN(r) {
 				restarts.Inc(int64(r))
 				restartsCount += int64(r)
 			}
@@ -132,10 +131,10 @@ func (a *appAuditor) instances() {
 	}
 	desired := a.app.DesiredInstances.Last()
 	if a.app.Id.Kind == model.ApplicationKindUnknown {
-		desired = float64(len(a.app.Instances))
+		desired = float32(len(a.app.Instances))
 	}
 	if desired > 0 {
-		if p := float64(availableInstances) / desired * 100; p < availability.Threshold {
+		if p := float32(availableInstances) / desired * 100; p < availability.Threshold {
 			if p == 0 {
 				availability.SetStatus(model.WARNING, "no instances available")
 			} else {

@@ -14,7 +14,7 @@ func TestCalcDeployments(t *testing.T) {
 	createApp := func() {
 		app = model.NewApplication(model.NewApplicationId("default", model.ApplicationKindDeployment, "catalog"))
 	}
-	addInstance := func(name string, rs string, lifeSpan ...float64) {
+	addInstance := func(name string, rs string, lifeSpan ...float32) {
 		i := app.GetOrCreateInstance(name, nil)
 		i.Pod = &model.Pod{ReplicaSet: rs}
 		i.Pod.LifeSpan = timeseries.NewWithData(1, 1, lifeSpan)

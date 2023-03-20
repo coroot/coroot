@@ -6,7 +6,6 @@ import (
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/logparser"
 	"k8s.io/klog"
-	"math"
 	"net"
 	"strconv"
 	"strings"
@@ -123,15 +122,15 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues, pjs
 				"container_kafka_requests_histogram", "container_cassandra_queries_histogram":
 				if c := getOrCreateConnection(instance, container.Name, m, w, connectionCache); c != nil {
 					protocol := model.Protocol(strings.SplitN(queryName, "_", 3)[1])
-					le, err := strconv.ParseFloat(m.Labels["le"], 64)
+					le, err := strconv.ParseFloat(m.Labels["le"], 32)
 					if err != nil {
 						klog.Warningln(err)
 						continue
 					}
 					if c.RequestsHistogram[protocol] == nil {
-						c.RequestsHistogram[protocol] = map[float64]*timeseries.TimeSeries{}
+						c.RequestsHistogram[protocol] = map[float32]*timeseries.TimeSeries{}
 					}
-					c.RequestsHistogram[protocol][le] = merge(c.RequestsHistogram[protocol][le], m.Values, timeseries.NanSum)
+					c.RequestsHistogram[protocol][float32(le)] = merge(c.RequestsHistogram[protocol][float32(le)], m.Values, timeseries.NanSum)
 				}
 			case "container_cpu_limit":
 				container.CpuLimit = merge(container.CpuLimit, m.Values, timeseries.Any)
@@ -257,7 +256,7 @@ func getOrCreateConnection(instance *model.Instance, container string, m model.M
 
 	// check the last value before `Reduce` for performance optimization
 	last := m.Values.Last()
-	if (last == 0 || math.IsNaN(last)) && m.Values.Reduce(timeseries.NanSum) == 0 {
+	if (last == 0 || timeseries.IsNaN(last)) && m.Values.Reduce(timeseries.NanSum) == 0 {
 		return nil
 	}
 

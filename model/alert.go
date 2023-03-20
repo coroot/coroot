@@ -4,13 +4,12 @@ import (
 	"fmt"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/dustin/go-humanize/english"
-	"math"
 )
 
 type AlertRule struct {
 	LongWindow        timeseries.Duration
 	ShortWindow       timeseries.Duration
-	BurnRateThreshold float64
+	BurnRateThreshold float32
 	Severity          Status
 }
 
@@ -37,7 +36,7 @@ func init() {
 }
 
 type BurnRate struct {
-	Value    float64
+	Value    float32
 	Window   timeseries.Duration
 	Severity Status
 }
@@ -47,15 +46,15 @@ func (br BurnRate) FormatSLOStatus() string {
 	return fmt.Sprintf("error budget burn rate is %.1fx within %s", br.Value, english.Plural(hours, "hour", ""))
 }
 
-func CheckBurnRates(now timeseries.Time, bad, total *timeseries.TimeSeries, objectivePercentage float64) BurnRate {
+func CheckBurnRates(now timeseries.Time, bad, total *timeseries.TimeSeries, objectivePercentage float32) BurnRate {
 	if bad.IsEmpty() || total.IsEmpty() {
 		return BurnRate{Severity: UNKNOWN}
 	}
 
 	objective := 1 - objectivePercentage/100
 
-	sumFrom := func(ts *timeseries.TimeSeries, from timeseries.Time) float64 {
-		return ts.Reduce(func(t timeseries.Time, accumulator, v float64) float64 {
+	sumFrom := func(ts *timeseries.TimeSeries, from timeseries.Time) float32 {
+		return ts.Reduce(func(t timeseries.Time, accumulator, v float32) float32 {
 			if t.Before(from) {
 				return 0
 			}
@@ -67,7 +66,7 @@ func CheckBurnRates(now timeseries.Time, bad, total *timeseries.TimeSeries, obje
 	for _, r := range AlertRules {
 		from := now.Add(-r.LongWindow)
 		br := sumFrom(bad, from) / sumFrom(total, from) / objective
-		if math.IsNaN(br) {
+		if timeseries.IsNaN(br) {
 			br = 0
 		}
 		if first.Window == 0 {
@@ -79,7 +78,7 @@ func CheckBurnRates(now timeseries.Time, bad, total *timeseries.TimeSeries, obje
 		}
 		from = now.Add(-r.ShortWindow)
 		br = sumFrom(bad, from) / sumFrom(total, from) / objective
-		if math.IsNaN(br) {
+		if timeseries.IsNaN(br) {
 			br = 0
 		}
 		if br < r.BurnRateThreshold {

@@ -177,15 +177,15 @@ func CalcApplicationDeploymentSummary(app *Application, checkConfigs CheckConfig
 
 	// Availability
 	if curr.Requests > 0 {
-		vCurr := float64(curr.Requests-curr.Errors) * 100 / float64(curr.Requests)
+		vCurr := float32(curr.Requests-curr.Errors) * 100 / float32(curr.Requests)
 		v := utils.FormatPercentage(vCurr)
-		o := utils.FormatPercentage(availabilityCfg.ObjectivePercentage)
+		o := utils.FormatPercentage(float32(availabilityCfg.ObjectivePercentage))
 		if vCurr < availabilityCfg.ObjectivePercentage {
 			status = CRITICAL
 			add(AuditReportSLO, false, "Availability: %s (objective: %s)", v, o)
 		} else if prev != nil {
 			if prev.Requests > 0 {
-				vPrev := float64(prev.Requests-prev.Errors) * 100 / float64(prev.Requests)
+				vPrev := float32(prev.Requests-prev.Errors) * 100 / float32(prev.Requests)
 				if vPrev < availabilityCfg.ObjectivePercentage {
 					add(AuditReportSLO, true, "Availability: %s (objective: %s)", v, o)
 				}
@@ -194,8 +194,8 @@ func CalcApplicationDeploymentSummary(app *Application, checkConfigs CheckConfig
 	}
 
 	// Latency
-	if fast := getFastRequestsCount(curr.Latency, latencyCfg.ObjectiveBucket); !math.IsNaN(fast) {
-		vCurr := fast * 100 / float64(curr.Requests)
+	if fast := getFastRequestsCount(curr.Latency, latencyCfg.ObjectiveBucket); !timeseries.IsNaN(fast) {
+		vCurr := fast * 100 / float32(curr.Requests)
 		v := utils.FormatPercentage(vCurr)
 		b := utils.FormatFloat(latencyCfg.ObjectiveBucket * 1000)
 		o := utils.FormatPercentage(latencyCfg.ObjectivePercentage)
@@ -203,8 +203,8 @@ func CalcApplicationDeploymentSummary(app *Application, checkConfigs CheckConfig
 			status = CRITICAL
 			add(AuditReportSLO, false, "Latency: %s of requests faster %sms (objective: %s)", v, b, o)
 		} else if prev != nil {
-			if fast := getFastRequestsCount(prev.Latency, latencyCfg.ObjectiveBucket); !math.IsNaN(fast) {
-				vPrev := fast * 100 / float64(prev.Requests)
+			if fast := getFastRequestsCount(prev.Latency, latencyCfg.ObjectiveBucket); !timeseries.IsNaN(fast) {
+				vPrev := fast * 100 / float32(prev.Requests)
 				if vPrev < latencyCfg.ObjectivePercentage {
 					add(AuditReportSLO, true, "Latency: %s of requests faster %sms (objective: %s)", v, b, o)
 				}
@@ -214,10 +214,10 @@ func CalcApplicationDeploymentSummary(app *Application, checkConfigs CheckConfig
 
 	// CPU
 	if prev != nil && curr.Requests > 0 && prev.Requests > 0 && curr.CPUUsage > 0 && prev.CPUUsage > 0 {
-		perRequestCurr := float64(curr.CPUUsage) / float64(curr.Requests)
-		perRequestPrev := float64(prev.CPUUsage) / float64(prev.Requests)
+		perRequestCurr := curr.CPUUsage / float32(curr.Requests)
+		perRequestPrev := prev.CPUUsage / float32(prev.Requests)
 		diff := (perRequestCurr - perRequestPrev) * 100 / perRequestPrev
-		if math.Abs(diff) > significantPercentageDifference {
+		if math.Abs(float64(diff)) > significantPercentageDifference {
 			add(AuditReportCPU, diff < 0, "CPU usage: %+.f%% (compared to the previous deployment)", diff)
 		}
 	}
@@ -228,7 +228,7 @@ func CalcApplicationDeploymentSummary(app *Application, checkConfigs CheckConfig
 		add(AuditReportMemory, false, "Memory: app containers have been restarted %s by the OOM killer", v)
 	} else {
 		if curr.MemoryLeak > memoryLeakThreshold {
-			value, unit := utils.FormatBytes(float64(curr.MemoryLeak))
+			value, unit := utils.FormatBytes(float32(curr.MemoryLeak))
 			add(AuditReportMemory, false, "Memory: a memory leak detected (%s%s per hour)", value, unit)
 		} else if prev != nil && prev.MemoryLeak > memoryLeakThreshold {
 			add(AuditReportMemory, true, "Memory: looks like the memory leak has been fixed")
@@ -248,17 +248,17 @@ func CalcApplicationDeploymentSummary(app *Application, checkConfigs CheckConfig
 			if curr.LogErrors == 0 {
 				add(AuditReportLogs, true, "Logs: there are no more errors in the logs")
 			} else {
-				perRequestCurr := float64(curr.LogErrors) / float64(curr.Requests)
-				perRequestPrev := float64(prev.LogErrors) / float64(prev.Requests)
+				perRequestCurr := float32(curr.LogErrors) / float32(curr.Requests)
+				perRequestPrev := float32(prev.LogErrors) / float32(prev.Requests)
 				diff := (perRequestCurr - perRequestPrev) * 100 / perRequestPrev
-				if math.Abs(diff) > significantPercentageDifference {
+				if math.Abs(float64(diff)) > significantPercentageDifference {
 					ok := false
 					verb := "increased"
 					if diff < 0 {
 						ok = true
 						verb = "decreased"
 					}
-					add(AuditReportLogs, ok, "Logs: the number of errors in the logs has %s by %d%%", verb, int(math.Abs(diff)))
+					add(AuditReportLogs, ok, "Logs: the number of errors in the logs has %s by %d%%", verb, int(math.Abs(float64(diff))))
 				}
 			}
 		}
@@ -271,19 +271,19 @@ func CalcApplicationDeploymentSummary(app *Application, checkConfigs CheckConfig
 }
 
 type histogramBucket struct {
-	le    float64
+	le    float32
 	count int64
 }
 
-func getFastRequestsCount(histogram map[string]int64, objectiveBucket float64) float64 {
+func getFastRequestsCount(histogram map[string]int64, objectiveBucket float32) float32 {
 	var buckets []histogramBucket
 	for leStr, count := range histogram {
-		le, err := strconv.ParseFloat(leStr, 64)
+		le, err := strconv.ParseFloat(leStr, 32)
 		if err != nil {
 			klog.Warningln(err)
 			continue
 		}
-		buckets = append(buckets, histogramBucket{le: le, count: count})
+		buckets = append(buckets, histogramBucket{le: float32(le), count: count})
 	}
 	if len(buckets) == 0 {
 		return timeseries.NaN
@@ -294,7 +294,7 @@ func getFastRequestsCount(histogram map[string]int64, objectiveBucket float64) f
 	res := timeseries.NaN
 	for _, b := range buckets {
 		if b.le <= objectiveBucket {
-			res = float64(b.count)
+			res = float32(b.count)
 			continue
 		}
 		break

@@ -7,7 +7,6 @@ import (
 	"github.com/DataDog/golz4"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
-	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -17,6 +16,7 @@ import (
 const (
 	V1 uint8 = 1
 	V2 uint8 = 2
+	V3 uint8 = 3
 )
 
 type Meta struct {
@@ -47,47 +47,7 @@ type header struct {
 
 const headerSize = 26
 
-func WriteV1(path string, from timeseries.Time, pointsCount int, step timeseries.Duration, finalized bool, metrics []model.MetricValues) error {
-	dir, file := filepath.Split(path)
-	if dir == "" {
-		dir = "."
-	}
-	e := &Encoder{}
-	if err := e.encode(from, pointsCount, step, metrics); err != nil {
-		return err
-	}
-	h := header{
-		Version:                V1,
-		From:                   from,
-		PointsCount:            uint32(pointsCount),
-		Step:                   step,
-		Finalized:              finalized,
-		DataSizeOrMetricsCount: uint32(len(e.valuesData)),
-	}
-	f, err := ioutil.TempFile(dir, file)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		f.Close()
-		os.Remove(f.Name())
-	}()
-	if err = binary.Write(f, binary.LittleEndian, h); err != nil {
-		return err
-	}
-	if _, err = f.Write(e.valuesData); err != nil {
-		return err
-	}
-	if _, err = f.Write(e.metaData); err != nil {
-		return err
-	}
-	if err = f.Close(); err != nil {
-		return err
-	}
-	return os.Rename(f.Name(), path)
-}
-
-func WriteV2(path string, from timeseries.Time, pointsCount int, step timeseries.Duration, finalized bool, metrics []model.MetricValues) error {
+func Write(path string, from timeseries.Time, pointsCount int, step timeseries.Duration, finalized bool, metrics []model.MetricValues) error {
 	dir, file := filepath.Split(path)
 	if dir == "" {
 		dir = "."
@@ -101,7 +61,7 @@ func WriteV2(path string, from timeseries.Time, pointsCount int, step timeseries
 		_ = os.Remove(f.Name())
 	}()
 	h := header{
-		Version:                V2,
+		Version:                V3,
 		From:                   from,
 		PointsCount:            uint32(pointsCount),
 		Step:                   step,
@@ -116,7 +76,7 @@ func WriteV2(path string, from timeseries.Time, pointsCount int, step timeseries
 	w := bufio.NewWriter(zw)
 
 	var metaOffset, metaSize int
-	buf := make([]float64, pointsCount)
+	buf := make([]float32, pointsCount)
 	for i := range metrics {
 		metaSize = 0
 		for k, v := range metrics[i].Labels {
@@ -146,7 +106,7 @@ func WriteV2(path string, from timeseries.Time, pointsCount int, step timeseries
 			}
 			buf[int((t-from)/timeseries.Time(step))] = v
 		}
-		if _, err = w.Write(asBytes(buf)); err != nil {
+		if _, err = w.Write(asBytes32(buf)); err != nil {
 			return err
 		}
 	}
@@ -202,113 +162,25 @@ func Read(path string, from timeseries.Time, pointsCount int, step timeseries.Du
 		return readV1(reader, int(st.Size()), &h, from, pointsCount, step, dest)
 	case V2:
 		return readV2(reader, &h, from, pointsCount, step, dest)
+	case V3:
+		return readV3(reader, &h, from, pointsCount, step, dest)
 	default:
 		return fmt.Errorf("unknown version: %d", h.Version)
 	}
 }
 
-func readV1(reader io.Reader, size int, header *header, from timeseries.Time, pointsCount int, step timeseries.Duration, dest map[uint64]model.MetricValues) error {
-	decoder, err := newDecoder(reader, size, header)
-	if err != nil {
-		return err
-	}
-	return decoder.decode(from, pointsCount, step, dest)
+func asBytes32(f []float32) []byte {
+	return unsafe.Slice((*byte)(unsafe.Pointer(&f[0])), len(f)*4)
 }
 
-func readV2(reader io.Reader, header *header, from timeseries.Time, pointsCount int, step timeseries.Duration, dest map[uint64]model.MetricValues) error {
-	r := lz4.NewDecompressReader(reader)
-	defer r.Close()
-	buf := make([]byte, metricMetaSize+8*header.PointsCount)
-	var labelsToRead []*metricMeta
-	var maxLabelSize uint32
-	var err error
-	for i := uint32(0); i < header.DataSizeOrMetricsCount; i++ {
-		if _, err = io.ReadFull(r, buf); err != nil {
-			return err
-		}
-		m := metricMeta{
-			Hash:       binary.LittleEndian.Uint64(buf),
-			MetaOffset: binary.LittleEndian.Uint32(buf[8:]),
-			MetaSize:   binary.LittleEndian.Uint32(buf[12:]),
-		}
-		mv, ok := dest[m.Hash]
-		if !ok {
-			mv.Values = timeseries.New(from, pointsCount, step)
-			labelsToRead = append(labelsToRead, &m)
-			if m.MetaSize > maxLabelSize {
-				maxLabelSize = m.MetaSize
-			}
-		}
-		if !mv.Values.Fill(header.From, header.Step, asFloats(buf[metricMetaSize:])) && !ok {
-			continue
-		}
-		dest[m.Hash] = mv
-	}
-	if len(labelsToRead) > 0 {
-		buf = make([]byte, maxLabelSize)
-		offset := uint32(0)
-		for _, m := range labelsToRead {
-			mv, ok := dest[m.Hash]
-			if !ok {
-				continue
-			}
-			toSkip := m.MetaOffset - offset
-			if toSkip > 0 {
-				if _, err := io.CopyN(io.Discard, r, int64(toSkip)); err != nil {
-					return err
-				}
-			}
-			if _, err = io.ReadFull(r, buf[:m.MetaSize]); err != nil {
-				return err
-			}
-			offset = m.MetaOffset + m.MetaSize
-			mv.LabelsHash = m.Hash
-			mv.Labels = make(model.Labels, 20)
-			readLabelsV2(buf[:m.MetaSize], mv.Labels)
-			dest[m.Hash] = mv
-		}
-	}
-	return nil
-}
-
-func writeLabelsV2(metrics []model.MetricValues, dst io.Writer) error {
-	var err error
-	for _, m := range metrics {
-		for k, v := range m.Labels {
-			if _, err = dst.Write(append([]byte(k), byte(0))); err != nil {
-				return err
-			}
-			if _, err = dst.Write(append([]byte(v), byte(0))); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func readLabelsV2(src []byte, dst model.Labels) {
-	var key []byte
-	isValue := false
-	f := 0
-	for i, b := range src {
-		if b != 0 {
-			continue
-		}
-		if isValue {
-			dst[string(key)] = string(src[f:i])
-			isValue = false
-		} else {
-			key = src[f:i]
-			isValue = true
-		}
-		f = i + 1
-	}
-}
-
-func asBytes(f []float64) []byte {
+func asBytes64(f []float64) []byte {
 	return unsafe.Slice((*byte)(unsafe.Pointer(&f[0])), len(f)*8)
 }
 
-func asFloats(b []byte) []float64 {
+func asFloats32(b []byte) []float32 {
+	return unsafe.Slice((*float32)(unsafe.Pointer(&b[0])), len(b)/4)
+}
+
+func asFloats64(b []byte) []float64 {
 	return unsafe.Slice((*float64)(unsafe.Pointer(&b[0])), len(b)/8)
 }

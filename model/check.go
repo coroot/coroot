@@ -31,7 +31,7 @@ const (
 	CheckUnitByte    = "byte"
 )
 
-func (u CheckUnit) FormatValue(v float64) string {
+func (u CheckUnit) FormatValue(v float32) string {
 	switch u {
 	case CheckUnitSecond:
 		return utils.FormatDuration(timeseries.Duration(v), 1)
@@ -49,7 +49,7 @@ type CheckConfig struct {
 	Type  CheckType
 	Title string
 
-	DefaultThreshold        float64
+	DefaultThreshold        float32
 	Unit                    CheckUnit
 	MessageTemplate         string
 	ConditionFormatTemplate string
@@ -268,7 +268,7 @@ func init() {
 type CheckContext struct {
 	items *utils.StringSet
 	count int64
-	value float64
+	value float32
 	unit  CheckUnit
 }
 
@@ -305,7 +305,7 @@ type Check struct {
 	Title                   string    `json:"title"`
 	Status                  Status    `json:"status"`
 	Message                 string    `json:"message"`
-	Threshold               float64   `json:"threshold"`
+	Threshold               float32   `json:"threshold"`
 	Unit                    CheckUnit `json:"unit"`
 	ConditionFormatTemplate string    `json:"condition_format_template"`
 
@@ -313,11 +313,11 @@ type Check struct {
 	messageTemplate string
 	items           *utils.StringSet
 	count           int64
-	value           float64
+	value           float32
 	fired           bool
 }
 
-func (ch *Check) SetValue(v float64) {
+func (ch *Check) SetValue(v float32) {
 	ch.value = v
 }
 
@@ -377,14 +377,14 @@ func (ch *Check) Calc() {
 }
 
 type CheckConfigSimple struct {
-	Threshold float64 `json:"threshold"`
+	Threshold float32 `json:"threshold"`
 }
 
 type CheckConfigSLOAvailability struct {
 	Custom              bool    `json:"custom"`
 	TotalRequestsQuery  string  `json:"total_requests_query"`
 	FailedRequestsQuery string  `json:"failed_requests_query"`
-	ObjectivePercentage float64 `json:"objective_percentage"`
+	ObjectivePercentage float32 `json:"objective_percentage"`
 }
 
 func (cfg *CheckConfigSLOAvailability) Total() string {
@@ -398,8 +398,8 @@ func (cfg *CheckConfigSLOAvailability) Failed() string {
 type CheckConfigSLOLatency struct {
 	Custom              bool    `json:"custom"`
 	HistogramQuery      string  `json:"histogram_query"`
-	ObjectiveBucket     float64 `json:"objective_bucket"`
-	ObjectivePercentage float64 `json:"objective_percentage"`
+	ObjectiveBucket     float32 `json:"objective_bucket"`
+	ObjectivePercentage float32 `json:"objective_percentage"`
 }
 
 func (cfg *CheckConfigSLOLatency) Histogram() string {
@@ -512,7 +512,7 @@ func (cc CheckConfigs) GetAvailability(appId ApplicationId) (CheckConfigSLOAvail
 }
 
 func (cc CheckConfigs) GetLatency(appId ApplicationId, category ApplicationCategory) (CheckConfigSLOLatency, bool) {
-	objectiveBucket := 0.5
+	objectiveBucket := float32(0.5)
 	if category.Auxiliary() {
 		objectiveBucket = 5
 	}

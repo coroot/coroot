@@ -54,7 +54,7 @@ var QUERIES = map[string]string{
 	"container_net_tcp_successful_connects": `rate(container_net_tcp_successful_connects_total[$RANGE])`,
 	"container_net_tcp_active_connections":  `container_net_tcp_active_connections`,
 	"container_net_tcp_listen_info":         `container_net_tcp_listen_info`,
-	"container_log_messages":                `container_log_messages_total`,
+	"container_log_messages":                `container_log_messages_total % 10000000`,
 	"container_application_type":            `container_application_type`,
 	"container_cpu_limit":                   `container_resources_cpu_limit_cores`,
 	"container_cpu_usage":                   `rate(container_resources_cpu_usage_seconds_total[$RANGE])`,
@@ -63,8 +63,8 @@ var QUERIES = map[string]string{
 	"container_memory_rss":                  `container_resources_memory_rss_bytes`,
 	"container_memory_cache":                `container_resources_memory_cache_bytes`,
 	"container_memory_limit":                `container_resources_memory_limit_bytes`,
-	"container_oom_kills_total":             `container_oom_kills_total`,
-	"container_restarts":                    `container_restarts_total`,
+	"container_oom_kills_total":             `container_oom_kills_total % 10000000`,
+	"container_restarts":                    `container_restarts_total % 10000000`,
 	"container_volume_size":                 `container_resources_disk_size_bytes`,
 	"container_volume_used":                 `container_resources_disk_used_bytes`,
 
@@ -120,7 +120,7 @@ var QUERIES = map[string]string{
 	"aws_rds_fs_total_bytes":              `aws_rds_fs_total_bytes{mount_point="/rdsdbdata"}`,
 	"aws_rds_fs_used_bytes":               `aws_rds_fs_used_bytes{mount_point="/rdsdbdata"}`,
 	"aws_rds_io_await_seconds":            `aws_rds_io_await_seconds`,
-	"aws_rds_log_messages_total":          `aws_rds_log_messages_total`,
+	"aws_rds_log_messages_total":          `aws_rds_log_messages_total % 10000000`,
 	"aws_rds_net_rx_bytes_per_second":     `aws_rds_net_rx_bytes_per_second`,
 	"aws_rds_net_tx_bytes_per_second":     `aws_rds_net_tx_bytes_per_second`,
 
@@ -198,7 +198,7 @@ var RecordingRules = map[string]func(p *db.Project, w *model.World) []model.Metr
 				continue
 			}
 			appCategory := model.CalcApplicationCategory(app.Id, p.Settings.ApplicationCategories)
-			sum := map[float64]*timeseries.Aggregate{}
+			sum := map[float32]*timeseries.Aggregate{}
 			for client, connections := range byClient {
 				clientCategory := model.CalcApplicationCategory(client, p.Settings.ApplicationCategories)
 				if !appCategory.Monitoring() && clientCategory.Monitoring() {

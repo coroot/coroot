@@ -217,7 +217,7 @@ func (c *Cache) writeChunk(projectID db.ProjectId, queryHash string, from timese
 		Finalized:   finalized,
 	}
 
-	return chunk.WriteV2(chunkFilePath, from, pointsCount, step, finalized, metrics)
+	return chunk.Write(chunkFilePath, from, pointsCount, step, finalized, metrics)
 }
 
 func (c *Cache) processRecordingRules(now timeseries.Time, project *db.Project, states map[string]*PrometheusQueryState) {

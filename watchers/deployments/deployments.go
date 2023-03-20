@@ -11,7 +11,6 @@ import (
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 	"k8s.io/klog"
-	"math"
 	"sort"
 	"time"
 )
@@ -254,7 +253,7 @@ func calcDeployments(app *model.Application) []*model.ApplicationDeployment {
 	for {
 		names := make([]string, 0, len(lifeSpans))
 		var t timeseries.Time
-		var v float64
+		var v float32
 		for name, iter := range iters {
 			if !iter.Next() {
 				done = true
@@ -396,7 +395,7 @@ func calcMetricsSnapshot(app *model.Application, from, to timeseries.Time, step 
 			}
 		}
 	}
-	ms.CPUUsage = float32(sumRF(cpuUsage.Get(), step))
+	ms.CPUUsage = sumRF(cpuUsage.Get(), step)
 	if lr := timeseries.NewLinearRegression(memUsage.Get()); lr != nil {
 		ms.MemoryLeak = int64(lr.Calc(from.Add(timeseries.Hour)) - lr.Calc(from))
 	}
@@ -411,17 +410,17 @@ func sumR(ts *timeseries.TimeSeries, step timeseries.Duration) int64 {
 	return int64(sumRF(ts, step))
 }
 
-func sumRF(ts *timeseries.TimeSeries, step timeseries.Duration) float64 {
-	return sumF(ts) * float64(step/timeseries.Second)
+func sumRF(ts *timeseries.TimeSeries, step timeseries.Duration) float32 {
+	return sumF(ts) * float32(step/timeseries.Second)
 }
 
 func sum(ts *timeseries.TimeSeries) int64 {
 	return int64(sumF(ts))
 }
 
-func sumF(ts *timeseries.TimeSeries) float64 {
+func sumF(ts *timeseries.TimeSeries) float32 {
 	v := ts.Reduce(timeseries.NanSum)
-	if math.IsNaN(v) {
+	if timeseries.IsNaN(v) {
 		return 0
 	}
 	return v

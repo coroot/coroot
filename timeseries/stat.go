@@ -2,7 +2,6 @@ package timeseries
 
 import (
 	"gonum.org/v1/gonum/stat"
-	"math"
 )
 
 type LinearRegression struct {
@@ -17,16 +16,16 @@ func NewLinearRegression(ts *TimeSeries) *LinearRegression {
 	var (
 		x, y []float64
 		t    Time
-		v    float64
+		v    float32
 	)
 	iter := ts.Iter()
 	for iter.Next() {
 		t, v = iter.Value()
-		if math.IsNaN(v) {
+		if IsNaN(v) {
 			continue
 		}
 		x = append(x, float64(t))
-		y = append(y, v)
+		y = append(y, float64(v))
 	}
 	if len(x) == 0 {
 		return nil
@@ -35,9 +34,9 @@ func NewLinearRegression(ts *TimeSeries) *LinearRegression {
 	return lr
 }
 
-func (lr *LinearRegression) Calc(t Time) float64 {
+func (lr *LinearRegression) Calc(t Time) float32 {
 	if lr == nil {
 		return NaN
 	}
-	return lr.alpha + lr.beta*float64(t)
+	return float32(lr.alpha + lr.beta*float64(t))
 }
