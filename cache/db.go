@@ -49,6 +49,8 @@ func openStateDB(path string) (*sql.DB, error) {
 }
 
 func (c *Cache) saveState(state *PrometheusQueryState) error {
+	c.stateLock.Lock()
+	defer c.stateLock.Unlock()
 	_, err := c.state.Exec(
 		"INSERT OR REPLACE INTO prometheus_query_state (project_id, query, last_ts, last_error) values ($1, $2, $3, $4)",
 		state.ProjectId, state.Query, state.LastTs, state.LastError)
@@ -73,11 +75,15 @@ func (c *Cache) loadStates(projectId db.ProjectId) (map[string]*PrometheusQueryS
 }
 
 func (c *Cache) deleteState(state *PrometheusQueryState) error {
+	c.stateLock.Lock()
+	defer c.stateLock.Unlock()
 	_, err := c.state.Exec("DELETE FROM prometheus_query_state WHERE project_id = $1 AND query = $2", state.ProjectId, state.Query)
 	return err
 }
 
 func (c *Cache) deleteProject(projectId db.ProjectId) error {
+	c.stateLock.Lock()
+	defer c.stateLock.Unlock()
 	projectDir := path.Join(c.cfg.Path, string(projectId))
 	if err := os.RemoveAll(projectDir); err != nil {
 		return err

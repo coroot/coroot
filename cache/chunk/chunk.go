@@ -7,9 +7,8 @@ import (
 	"github.com/DataDog/golz4"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
-	"io/ioutil"
+	"io"
 	"os"
-	"path/filepath"
 	"unsafe"
 )
 
@@ -47,19 +46,8 @@ type header struct {
 
 const headerSize = 26
 
-func Write(path string, from timeseries.Time, pointsCount int, step timeseries.Duration, finalized bool, metrics []model.MetricValues) error {
-	dir, file := filepath.Split(path)
-	if dir == "" {
-		dir = "."
-	}
-	f, err := ioutil.TempFile(dir, file)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		_ = f.Close()
-		_ = os.Remove(f.Name())
-	}()
+func Write(f io.Writer, from timeseries.Time, pointsCount int, step timeseries.Duration, finalized bool, metrics []model.MetricValues) error {
+	var err error
 	h := header{
 		Version:                V3,
 		From:                   from,
@@ -121,10 +109,7 @@ func Write(path string, from timeseries.Time, pointsCount int, step timeseries.D
 	if err = zw.Close(); err != nil {
 		return err
 	}
-	if err = f.Close(); err != nil {
-		return err
-	}
-	return os.Rename(f.Name(), path)
+	return nil
 }
 
 func ReadMeta(path string) (*Meta, error) {

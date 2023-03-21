@@ -129,19 +129,17 @@ func (c *Cache) compact(t CompactionTask) error {
 	for _, m := range metrics {
 		dst = append(dst, m)
 	}
-
-	c.lock.Lock()
-	defer c.lock.Unlock()
-
 	if err := c.writeChunk(t.projectID, t.queryHash, t.dstChunk, pointsCount, step, true, dst); err != nil {
 		return err
 	}
+
+	c.lock.Lock()
+	defer c.lock.Unlock()
 	qData := c.byProject[t.projectID][t.queryHash]
 	if qData == nil {
 		klog.Errorf("query data not found: %s-%s", t.projectID, t.queryHash)
 	} else {
 		for _, src := range t.src {
-			klog.Infoln("deleting chunk after compaction:", src.Path)
 			if err := os.Remove(src.Path); err != nil {
 				klog.Errorf("failed to delete chunk %s: %s", src.Path, err)
 			}

@@ -23,11 +23,12 @@ const (
 )
 
 type Cache struct {
-	lock      sync.RWMutex
+	cfg       Config
 	byProject map[db.ProjectId]map[string]*queryData
+	lock      sync.RWMutex
 	db        *db.DB
 	state     *sql.DB
-	cfg       Config
+	stateLock sync.Mutex
 
 	refreshIntervalMin timeseries.Duration
 

@@ -11,8 +11,11 @@ import (
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 	promModel "github.com/prometheus/common/model"
+	"io/ioutil"
 	"k8s.io/klog"
+	"os"
 	"path"
+	"path/filepath"
 	"sync"
 	"time"
 )
@@ -168,12 +171,9 @@ func (c *Cache) download(now timeseries.Time, promClient prom.Client, project *d
 		for _, v := range vs {
 			delete(v.Labels, promModel.MetricNameLabel)
 		}
-		c.lock.Lock()
 		chunkEnd := i.chunkTs.Add(timeseries.Duration(pointsCount-1) * step)
 		finalized := chunkEnd == i.toTs
-
 		err = c.writeChunk(project.Id, queryHash, i.chunkTs, pointsCount, step, finalized, vs)
-		c.lock.Unlock()
 		if err != nil {
 			klog.Errorln("failed to save chunk:", err)
 			return
@@ -181,9 +181,7 @@ func (c *Cache) download(now timeseries.Time, promClient prom.Client, project *d
 
 		state.LastTs = i.toTs
 		state.LastError = ""
-		c.lock.Lock()
 		err = c.saveState(state)
-		c.lock.Unlock()
 		if err != nil {
 			klog.Errorln("failed to save state:", err)
 			return
@@ -192,12 +190,14 @@ func (c *Cache) download(now timeseries.Time, promClient prom.Client, project *d
 }
 
 func (c *Cache) writeChunk(projectID db.ProjectId, queryHash string, from timeseries.Time, pointsCount int, step timeseries.Duration, finalized bool, metrics []model.MetricValues) error {
+	c.lock.Lock()
 	byProject, ok := c.byProject[projectID]
 	projectDir := path.Join(c.cfg.Path, string(projectID))
 	if !ok {
 		byProject = map[string]*queryData{}
 		c.byProject[projectID] = byProject
 		if err := utils.CreateDirectoryIfNotExists(projectDir); err != nil {
+			c.lock.Unlock()
 			return err
 		}
 	}
@@ -206,9 +206,35 @@ func (c *Cache) writeChunk(projectID db.ProjectId, queryHash string, from timese
 		qData = newQueryData()
 		byProject[queryHash] = qData
 	}
+	c.lock.Unlock()
+
 	chunkFilePath := path.Join(projectDir, fmt.Sprintf(
 		"%s-%s-%d-%d-%d.db",
 		projectID, queryHash, from, pointsCount, step))
+	dir, file := filepath.Split(chunkFilePath)
+	if dir == "" {
+		dir = "."
+	}
+	f, err := ioutil.TempFile(dir, file)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = f.Close()
+		_ = os.Remove(f.Name())
+	}()
+	if err = chunk.Write(f, from, pointsCount, step, finalized, metrics); err != nil {
+		return err
+	}
+	if err = f.Close(); err != nil {
+		return err
+	}
+
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	if err = os.Rename(f.Name(), chunkFilePath); err != nil {
+		return err
+	}
 	qData.chunksOnDisk[chunkFilePath] = &chunk.Meta{
 		Path:        chunkFilePath,
 		From:        from,
@@ -216,8 +242,7 @@ func (c *Cache) writeChunk(projectID db.ProjectId, queryHash string, from timese
 		Step:        step,
 		Finalized:   finalized,
 	}
-
-	return chunk.Write(chunkFilePath, from, pointsCount, step, finalized, metrics)
+	return nil
 }
 
 func (c *Cache) processRecordingRules(now timeseries.Time, project *db.Project, states map[string]*PrometheusQueryState) {

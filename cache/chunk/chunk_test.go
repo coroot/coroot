@@ -17,15 +17,19 @@ func TestChunk(t *testing.T) {
 
 	chunk1 := path.Join(tmp, "chunk1.db")
 	chunk2 := path.Join(tmp, "chunk2.db")
+	f1, err := os.Create(chunk1)
+	require.NoError(t, err)
+	f2, err := os.Create(chunk2)
+	require.NoError(t, err)
 
 	nan := timeseries.NaN
 	data := []float32{nan, 1, nan, nan, 2, nan, nan, nan, 3, nan}
-	err = Write(chunk1, 0, 10, 30, false, []model.MetricValues{
+	err = Write(f1, 0, 10, 30, false, []model.MetricValues{
 		{Labels: model.Labels{"a": "bb"}, LabelsHash: 111, Values: timeseries.NewWithData(0, 30, data)},
 		{Labels: model.Labels{"a": "dddd"}, LabelsHash: 333, Values: timeseries.NewWithData(0, 30, data)},
 	})
 	require.NoError(t, err)
-	err = Write(chunk2, 300, 10, 30, false, []model.MetricValues{
+	err = Write(f2, 300, 10, 30, false, []model.MetricValues{
 		{Labels: model.Labels{"a": "bb"}, LabelsHash: 111, Values: timeseries.NewWithData(300, 30, data)},
 		{Labels: model.Labels{"a": "ccc"}, LabelsHash: 222, Values: timeseries.NewWithData(300, 30, data)},
 		{Labels: model.Labels{"a": "dddd"}, LabelsHash: 333, Values: timeseries.NewWithData(300, 30, data)},
