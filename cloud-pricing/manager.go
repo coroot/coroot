@@ -9,7 +9,6 @@ import (
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/utils"
 	"io"
-	"io/ioutil"
 	"k8s.io/klog"
 	"net/http"
 	"os"
@@ -21,9 +20,9 @@ import (
 
 const (
 	dumpURL        = "https://coroot.github.io/cloud-pricing/data/cloud-pricing.json.gz"
-	timeout        = time.Second * 30
-	updateInterval = time.Hour * 24
 	dumpFileName   = "cloud-pricing.json.gz"
+	dumpTimeout    = time.Second * 30
+	updateInterval = time.Hour * 24
 )
 
 type Manager struct {
@@ -38,9 +37,14 @@ func NewManager(dataDir string) (*Manager, error) {
 	}
 	var err error
 	m := &Manager{dataDir: dataDir}
-	m.model, err = m.loadFromFile(path.Join(dataDir, dumpFileName))
+	m.model, err = loadFromFile(path.Join(dataDir, dumpFileName))
 	if err != nil {
-		klog.Warningln("failed to update cloud pricing:", err)
+		if os.IsNotExist(err) {
+			err = m.updateModel()
+		}
+		if err != nil {
+			klog.Warningln("failed to load cloud pricing:", err)
+		}
 	}
 	go func() {
 		for range time.Tick(updateInterval) {
@@ -52,20 +56,20 @@ func NewManager(dataDir string) (*Manager, error) {
 	return m, nil
 }
 
-func (m *Manager) GetNodePricePerHour(node *model.Node) float32 {
-	m.lock.Lock()
-	defer m.lock.Unlock()
-	if m.model == nil {
+func (mgr *Manager) GetNodePricePerHour(node *model.Node) float32 {
+	mgr.lock.Lock()
+	defer mgr.lock.Unlock()
+	if mgr.model == nil {
 		return 0
 	}
 	var pricing *CloudPricing
 	switch strings.ToLower(node.CloudProvider.Value()) {
 	case "aws":
-		pricing = m.model.AWS
+		pricing = mgr.model.AWS
 	case "gcp":
-		pricing = m.model.GCP
+		pricing = mgr.model.GCP
 	case "azure":
-		pricing = m.model.Azure
+		pricing = mgr.model.Azure
 	default:
 		return 0
 	}
@@ -86,39 +90,17 @@ func (m *Manager) GetNodePricePerHour(node *model.Node) float32 {
 	return i.OnDemand
 }
 
-func (m *Manager) loadFromFile(p string) (*Model, error) {
-	st, err := os.Stat(p)
-	if err != nil {
-		return nil, err
-	}
-	data, err := ioutil.ReadFile(p)
-	if err != nil {
-		return nil, err
-	}
-	r, err := gzip.NewReader(bytes.NewReader(data))
-	if err != nil {
-		return nil, err
-	}
-	model := &Model{
-		timestamp: st.ModTime().UTC(),
-	}
-	if err = json.NewDecoder(r).Decode(model); err != nil {
-		return nil, err
-	}
-	return model, nil
-}
-
-func (m *Manager) updateModel() error {
+func (mgr *Manager) updateModel() error {
 	req, err := http.NewRequest("GET", dumpURL, nil)
 	if err != nil {
 		return err
 	}
 
-	if t := m.getCurrentModelTimestamp(); !t.IsZero() {
+	if t := mgr.getCurrentModelTimestamp(); !t.IsZero() {
 		req.Header.Set("If-Modified-Since", t.Format(http.TimeFormat))
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), dumpTimeout)
 	defer cancel()
 	req = req.WithContext(ctx)
 	resp, err := http.DefaultClient.Do(req)
@@ -132,7 +114,10 @@ func (m *Manager) updateModel() error {
 		return fmt.Errorf(resp.Status)
 	}
 	defer resp.Body.Close()
-	tmp, err := os.CreateTemp(m.dataDir, dumpFileName)
+	tmp, err := os.CreateTemp(mgr.dataDir, dumpFileName)
+	if err != nil {
+		return err
+	}
 	defer os.Remove(tmp.Name())
 	defer tmp.Close()
 	if _, err = io.Copy(tmp, resp.Body); err != nil {
@@ -144,25 +129,46 @@ func (m *Manager) updateModel() error {
 	if t, err := time.Parse(http.TimeFormat, resp.Header.Get("last-modified")); err == nil {
 		_ = os.Chtimes(tmp.Name(), t, t)
 	}
-
-	model, err := m.loadFromFile(tmp.Name())
+	m, err := loadFromFile(tmp.Name())
 	if err != nil {
 		return err
 	}
-	m.lock.Lock()
-	defer m.lock.Unlock()
-	if err = os.Rename(tmp.Name(), path.Join(m.dataDir, dumpFileName)); err != nil {
+	mgr.lock.Lock()
+	defer mgr.lock.Unlock()
+	if err = os.Rename(tmp.Name(), path.Join(mgr.dataDir, dumpFileName)); err != nil {
 		return err
 	}
-	m.model = model
+	mgr.model = m
 	return nil
 }
 
-func (m *Manager) getCurrentModelTimestamp() time.Time {
-	m.lock.Lock()
-	defer m.lock.Unlock()
-	if m.model == nil {
+func (mgr *Manager) getCurrentModelTimestamp() time.Time {
+	mgr.lock.Lock()
+	defer mgr.lock.Unlock()
+	if mgr.model == nil {
 		return time.Time{}
 	}
-	return m.model.timestamp
+	return mgr.model.timestamp
+}
+
+func loadFromFile(p string) (*Model, error) {
+	st, err := os.Stat(p)
+	if err != nil {
+		return nil, err
+	}
+	data, err := os.ReadFile(p)
+	if err != nil {
+		return nil, err
+	}
+	r, err := gzip.NewReader(bytes.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
+	m := &Model{
+		timestamp: st.ModTime().UTC(),
+	}
+	if err = json.NewDecoder(r).Decode(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
