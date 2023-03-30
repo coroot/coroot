@@ -33,7 +33,6 @@ func Audit(w *model.World, p *db.Project) {
 		a.jvm()
 		a.logs()
 		a.deployments()
-		a.costs()
 
 		for _, r := range a.reports {
 			widgets := enrichWidgets(r.Widgets, app.Events)

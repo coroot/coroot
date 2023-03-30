@@ -284,6 +284,7 @@ func joinDBClusterComponents(w *model.World) {
 			} else {
 				for _, instance := range app.Instances {
 					instance.OwnerId = cluster.Id
+					instance.ClusterComponent = app
 				}
 				cluster.Instances = append(cluster.Instances, app.Instances...)
 				cluster.Downstreams = append(cluster.Downstreams, app.Downstreams...)

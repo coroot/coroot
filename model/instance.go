@@ -45,8 +45,9 @@ type Instance struct {
 	LogMessagesByLevel map[LogLevel]*timeseries.TimeSeries
 	LogPatterns        map[string]*LogPattern
 
-	ClusterName LabelLastValue
-	clusterRole *timeseries.TimeSeries
+	ClusterName      LabelLastValue
+	clusterRole      *timeseries.TimeSeries
+	ClusterComponent *Application
 
 	Postgres *Postgres
 	Redis    *Redis
@@ -208,34 +209,6 @@ func (instance *Instance) IsListenActive(ip, port string) bool {
 		}
 	}
 	return false
-}
-
-func (instance *Instance) Costs() *Costs {
-	avg := func(ts *timeseries.TimeSeries) float32 {
-		if l := ts.Len(); l > 0 {
-			return ts.Reduce(timeseries.NanSum) / float32(l)
-		}
-		return 0
-	}
-	if instance.Node == nil {
-		return nil
-	}
-	price := instance.Node.GetPriceBreakdown()
-	if price == nil {
-		return nil
-	}
-	c := &Costs{}
-	for _, container := range instance.Containers {
-		c.CPUUsagePerHour += avg(container.CpuUsage) * price.CPUPerCore
-		if !container.CpuRequest.IsEmpty() {
-			c.CPURequestPerHour += avg(container.CpuRequest) * price.CPUPerCore
-		}
-		c.MemoryUsagePerHour += (avg(container.MemoryRss) + avg(container.MemoryCache)) * price.MemoryPerByte
-		if !container.MemoryRequest.IsEmpty() {
-			c.MemoryRequestPerHour += avg(container.MemoryRequest) * price.MemoryPerByte
-		}
-	}
-	return c
 }
 
 type Listen struct {

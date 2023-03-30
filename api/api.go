@@ -188,7 +188,7 @@ func (api *Api) Overview(w http.ResponseWriter, r *http.Request) {
 		n.PricePerHour = api.cloudPricing.GetNodePricePerHour(n)
 	}
 	auditor.Audit(world, project)
-	utils.WriteJson(w, views.Overview(world))
+	utils.WriteJson(w, views.Overview(world, mux.Vars(r)["view"]))
 }
 
 func (api *Api) Search(w http.ResponseWriter, r *http.Request) {

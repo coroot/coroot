@@ -27,7 +27,6 @@ type InterfaceStats struct {
 type NodePriceBreakdown struct {
 	CPUPerCore    float32
 	MemoryPerByte float32
-	Costs
 }
 
 type Node struct {
@@ -86,9 +85,5 @@ func (node *Node) GetPriceBreakdown() *NodePriceBreakdown {
 	return &NodePriceBreakdown{
 		CPUPerCore:    perUnit,
 		MemoryPerByte: perUnit / (1000 * 1000 * 1000),
-		Costs: Costs{
-			CPUUsagePerHour:    perUnit * cores,
-			MemoryUsagePerHour: perUnit * ramGb,
-		},
 	}
 }
