@@ -28,7 +28,7 @@ func Render(w *model.World, view string) *View {
 	case "nodes":
 		v.Nodes = renderNodes(w)
 	case "costs":
-		v.Costs = calcCosts(w)
+		v.Costs = renderCosts(w)
 	}
 	return v
 }

@@ -14,6 +14,9 @@ const (
 )
 
 func (rt resourceType) format(v float32) string {
+	if v == 0 {
+		return ""
+	}
 	switch rt {
 	case resourceCpu:
 		return utils.FormatFloat(v*1000) + "m"
@@ -55,11 +58,12 @@ type resource struct {
 }
 
 type instance struct {
-	ownerId model.ApplicationId
-	name    string
-	cpu     resource
-	memory  resource
-	price   *model.NodePriceBreakdown
+	ownerId         model.ApplicationId
+	name            string
+	cpu             resource
+	memory          resource
+	cpuPricePerCore float32
+	memPricePerByte float32
 }
 
 func (i *instance) getResource(rt resourceType) resource {

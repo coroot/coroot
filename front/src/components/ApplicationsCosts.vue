@@ -120,22 +120,22 @@
             </tr>
             </thead>
             <tbody>
-            <tr v-for="a in application.applications" :key="a.name">
+            <tr v-for="c in application.components" :key="c.name">
                 <td class="py-1">
-                    {{a.name}}
-                    <div v-if="a.kind" class="caption grey--text">{{a.kind}}</div>
+                    {{c.name}}
+                    <div v-if="c.kind" class="caption grey--text">{{c.kind}}</div>
                 </td>
                 <td class="text-right">
-                    {{a.cpu_request ? a.cpu_request : '—'}}
-                    <div v-if="a.cpu_request_recommended" class="caption green--text">recommended: {{a.cpu_request_recommended}}</div>
+                    {{c.cpu_request ? c.cpu_request : '—'}}
+                    <div v-if="c.cpu_request_recommended" class="caption green--text">recommended: {{c.cpu_request_recommended}}</div>
                 </td>
                 <td class="text-right">
-                    {{a.memory_request ? a.memory_request : '—'}}
-                    <div v-if="a.memory_request_recommended" class="caption green--text">recommended: {{a.memory_request_recommended}}</div>
+                    {{c.memory_request ? c.memory_request : '—'}}
+                    <div v-if="c.memory_request_recommended" class="caption green--text">recommended: {{c.memory_request_recommended}}</div>
                 </td>
                 <td class="text-right">
-                    ${{a.allocation_costs.toFixed(2)}}<span class="caption grey--text">/mo</span>
-                    <div class="caption green--text">recommended: ${{a.allocation_costs_recommended.toFixed(2)}}/mo</div>
+                    ${{c.allocation_costs.toFixed(2)}}<span class="caption grey--text">/mo</span>
+                    <div class="caption green--text">recommended: ${{c.allocation_costs_recommended.toFixed(2)}}/mo</div>
                 </td>
             </tr>
             </tbody>
