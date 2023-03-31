@@ -2,7 +2,7 @@
     <v-tooltip bottom>
         <template #activator="{ on }">
             <span v-on="on">
-                <Led :status="app.status" />{{$api.appId(app.id).name}}
+                <Led :status="app.status" />{{$utils.appId(app.id).name}}
             </span>
         </template>
         <div v-for="i in app.indicators">

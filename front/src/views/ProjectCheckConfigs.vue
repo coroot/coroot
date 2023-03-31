@@ -30,7 +30,7 @@
                 </td>
                 <td>
                     <div v-for="a in c.application_overrides" class="text-no-wrap">
-                        {{$api.appId(a.id).name}}:
+                        {{$utils.appId(a.id).name}}:
                         <a @click="edit(a.id, c)">
                             {{ format(a.threshold, c.unit, a.details) }}
                         </a>

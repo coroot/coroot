@@ -164,6 +164,7 @@ func loadFromFile(p string) (*Model, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer r.Close()
 	m := &Model{
 		timestamp: st.ModTime().UTC(),
 	}

@@ -9,10 +9,12 @@
     </v-alert>
 
     <v-tabs height="40" show-arrows slider-size="2" class="mb-3">
-        <v-tab v-for="v in views" :key="v" :to="{params: {view: v}, query: $route.query}">{{ v }}</v-tab>
+        <v-tab v-for="v in views" :key="v" :to="{params: {view: v === 'applications' ? undefined : v }, query: $route.query}" exact-path>
+            {{ v }}
+        </v-tab>
     </v-tabs>
 
-    <template v-if="view === 'applications'">
+    <template v-if="!view">
         <AppsMap v-if="applications" :applications="applications" />
         <NoData v-else-if="!loading" />
     </template>
@@ -54,9 +56,6 @@ export default {
     },
 
     mounted() {
-        if (!this.view) {
-            this.$router.replace({params: {view: 'applications'}}).catch(err => err);
-        }
         this.get();
         this.$events.watch(this, this.get, 'refresh');
     },
@@ -69,8 +68,9 @@ export default {
 
     methods: {
         get() {
+            const view = this.view || 'applications';
             this.loading = true;
-            this.$api.getOverview(this.view, (data, error) => {
+            this.$api.getOverview(view, (data, error) => {
                 this.loading = false;
                 if (error) {
                     this.error = error;
@@ -80,8 +80,8 @@ export default {
                 this.applications = data.applications;
                 this.nodes = data.nodes;
                 this.costs = data.costs;
-                if (!this.views.find(v => v === this.view)) {
-                    this.$router.replace({params: {view: 'applications'}}).catch(err => err);
+                if (!this.views.find(v => v === view)) {
+                    this.$router.replace({params: {view: undefined}}).catch(err => err);
                 }
             });
         }

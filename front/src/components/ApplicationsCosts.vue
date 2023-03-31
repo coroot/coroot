@@ -7,11 +7,11 @@
             category: {{category}}
         </v-chip>
         <v-chip v-if="application" @click:close="application=null" label close color="primary" class="ml-3">
-            application: {{$api.appId(application.id).name}}
+            application: {{$utils.appId(application.id).name}}
         </v-chip>
         <v-spacer />
         <span v-if="category !== null && application === null && $vuetify.breakpoint.mdAndUp" style="max-width: 50%">
-            <v-text-field v-model="search" dense hide-details append-icon="mdi-magnify" label="Search" single-line outlined class="search" />
+            <v-text-field v-model="search" dense hide-details clearable prepend-inner-icon="mdi-magnify" label="Search" single-line outlined class="search" />
         </span>
     </h2>
 
@@ -84,7 +84,7 @@
         :custom-filter="searchApplication"
     >
         <template #item.name="{item}">
-            <a class="name" @click="application = item">{{ $api.appId(item.id).name }}</a>
+            <a class="name" @click="application = item">{{ $utils.appId(item.id).name }}</a>
         </template>
         <template #item.usage_costs="{item}">
             ${{item.usage_costs.toFixed(2)}}<span class="caption grey--text">/mo</span>
@@ -106,7 +106,7 @@
     <div v-else>
         <div class="text-right">
             <router-link :to="{name: 'application', params: {id: application.id}}">
-                {{ $api.appId(application.id).name }}
+                {{ $utils.appId(application.id).name }}
                 <v-icon small>mdi-open-in-new</v-icon>
             </router-link>
         </div>
@@ -214,10 +214,35 @@ export default {
         },
     },
 
+    watch: {
+        category: 'filtersToUri',
+        application: 'filtersToUri',
+        search: 'filtersToUri',
+    },
+
+    mounted() {
+        this.filtersFromUri();
+    },
+
     methods: {
+        filtersToUri() {
+            const s = {
+                c: this.category !== null ? this.category : undefined,
+                a: this.application ? this.application.id : undefined,
+                s: this.search || undefined,
+            };
+            this.$utils.stateToUri(s);
+        },
+        filtersFromUri() {
+            const s = this.$utils.stateFromUri();
+            this.category = s.c === undefined ? null : s.c;
+            this.application = this.applications.find(a => a.id === s.a) || null;
+            this.search = s.s || '';
+        },
         back() {
             this.category = null;
             this.application = null;
+            this.search = '';
         },
         searchApplication(value, search, item) {
             return !search || item.id.indexOf(search) !== -1;
@@ -227,13 +252,13 @@ export default {
 </script>
 
 <style scoped>
-.table >>> table {
+.table:deep(table) {
     min-width: 500px;
 }
-.table >>> tr:hover {
+.table:deep(tr:hover) {
     background-color: unset !important;
 }
-.table >>> th, .table >>> td {
+.table:deep(th), .table:deep(td) {
     padding: 4px 8px !important;
 }
 .table .name {
@@ -244,7 +269,7 @@ export default {
     text-overflow: ellipsis;
     text-align: left;
 }
-.table >>> .v-data-footer {
+.table:deep(.v-data-footer) {
     border-top: none;
     flex-wrap: nowrap;
 }

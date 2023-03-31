@@ -26,15 +26,6 @@ export default class Api {
         })
     }
 
-    appId(id) {
-        const parts = id.split(':');
-        return {
-            ns: parts[0] !== '_' ? parts[0] : '',
-            kind: parts[1],
-            name: parts[3] ? ':'+parts[3] : parts[2],
-        }
-    }
-
     stats(type, data) {
         const event = {
             ...data,

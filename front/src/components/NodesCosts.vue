@@ -18,7 +18,7 @@
             <router-link :to="{name: 'node', params: {name: item.name}}" class="name">{{item.name}}</router-link>
             <div v-if="$vuetify.breakpoint.mdAndUp" class="caption grey--text name">{{item.description}}</div>
         </template>
-        <template #item.fake="{item}">
+        <template #item.fake="{}">
             <div class="caption grey--text">usage:</div>
             <div class="caption grey--text">request:</div>
         </template>
@@ -60,14 +60,8 @@
 
 <script>
 import NodeUsageBar from "@/components/NodeUsageBar";
-import vuetify from "@/plugins/vuetify";
 
 export default {
-    methods: {
-        vuetify() {
-            return vuetify
-        }
-    },
     props: {
         nodes: Array,
     },
@@ -88,13 +82,13 @@ export default {
 </script>
 
 <style scoped>
-.table >>> table {
+.table:deep(table) {
     min-width: 500px;
 }
-.table >>> tr:hover {
+.table:deep(tr:hover) {
     background-color: unset !important;
 }
-.table >>> th, .table >>> td {
+.table:deep(th), .table:deep(td) {
     padding: 4px 8px !important;
 }
 .table .name {
@@ -105,7 +99,7 @@ export default {
     text-overflow: ellipsis;
     text-align: left;
 }
-.table >>> .v-data-footer {
+.table:deep(.v-data-footer) {
     border-top: none;
     flex-wrap: nowrap;
 }
