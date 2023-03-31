@@ -4,7 +4,6 @@ import (
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
-	"github.com/dustin/go-humanize"
 	"net"
 	"sort"
 	"strconv"
@@ -93,7 +92,8 @@ func getNodeTags(n *model.Node) []string {
 		tags = append(tags, strconv.Itoa(int(l))+" vCPU")
 	}
 	if l := n.MemoryTotalBytes.Last(); !timeseries.IsNaN(l) {
-		tags = append(tags, humanize.Bytes(uint64(l)))
+		v, u := utils.FormatBytes(l)
+		tags = append(tags, v+u)
 	}
 	return tags
 }

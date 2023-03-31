@@ -41,7 +41,7 @@ func FormatBytes(b float32) (string, string) {
 	if len(parts) != 2 {
 		return "", ""
 	}
-	return parts[0], parts[1]
+	return strings.TrimSuffix(parts[0], ".0"), parts[1]
 }
 
 func HumanBits(v float32) string {
