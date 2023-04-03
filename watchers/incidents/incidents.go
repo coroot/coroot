@@ -85,5 +85,5 @@ func (w *Watcher) loadWorld(project *db.Project) (*model.World, error) {
 	step := project.Prometheus.RefreshInterval
 	to := cacheTo.Truncate(step)
 	from := to.Add(-timeseries.Hour)
-	return constructor.New(w.db, project, cc).LoadWorld(context.Background(), from, to, step, nil)
+	return constructor.New(w.db, project, cc, nil).LoadWorld(context.Background(), from, to, step, nil)
 }

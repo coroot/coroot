@@ -8,9 +8,8 @@ import (
 )
 
 const (
-	month     = 24 * 30
-	gb        = 1e9
 	usageTopN = 5
+	month     = float32(timeseries.Month)
 )
 
 type Costs struct {
@@ -92,14 +91,9 @@ func renderCosts(w *model.World) *Costs {
 	for _, n := range w.Nodes {
 		nodeCpuCores := n.CpuCapacity.Last()
 		nodeMemoryBytes := n.MemoryTotalBytes.Last()
-		if n.PricePerHour == 0 || timeseries.IsNaN(nodeCpuCores) || timeseries.IsNaN(nodeMemoryBytes) {
+		if n.Price == nil || timeseries.IsNaN(nodeCpuCores) || timeseries.IsNaN(nodeMemoryBytes) {
 			continue
 		}
-		// assume that 1Gb of memory costs the same as 1 vCPU
-		pricePerUnit := n.PricePerHour / (nodeCpuCores + nodeMemoryBytes/gb)
-		cpuPricePerCore := pricePerUnit
-		memPricePerByte := pricePerUnit / gb
-
 		nodeApps := map[model.ApplicationId][]*instance{}
 		for _, i := range n.Instances {
 			owner := applicationsIndex[i.OwnerId]
@@ -120,12 +114,11 @@ func renderCosts(w *model.World) *Costs {
 				memRequest.Add(c.MemoryRequest)
 			}
 			ii := &instance{
-				ownerId:         owner.Id,
-				name:            i.Name,
-				cpu:             resource{usage: cpuUsage.Get(), request: cpuRequest.Get()},
-				memory:          resource{usage: memUsage.Get(), request: memRequest.Get()},
-				cpuPricePerCore: cpuPricePerCore,
-				memPricePerByte: memPricePerByte,
+				ownerId:   owner.Id,
+				name:      i.Name,
+				cpu:       resource{usage: cpuUsage.Get(), request: cpuRequest.Get()},
+				memory:    resource{usage: memUsage.Get(), request: memRequest.Get()},
+				nodePrice: n.Price,
 			}
 			if _, ok := desiredInstances[owner.Id]; !ok && owner.IsK8s() {
 				desiredInstances[owner.Id] = owner.DesiredInstances.Last()
@@ -134,8 +127,8 @@ func renderCosts(w *model.World) *Costs {
 			applications[i.OwnerId] = append(applications[i.OwnerId], ii)
 		}
 
-		cpuIdleCost := nodeCpuCores * (1 - n.CpuUsagePercent.Last()/100) * cpuPricePerCore
-		memIdleCost := n.MemoryFreeBytes.Last() * memPricePerByte
+		cpuIdleCost := nodeCpuCores * (1 - n.CpuUsagePercent.Last()/100) * n.Price.PerCPUCore
+		memIdleCost := n.MemoryFreeBytes.Last() * n.Price.PerMemoryByte
 		nodeAppsCpu := renderNodeApplications(nodeCpuCores, nodeApps, resourceCpu)
 		nodeAppsMem := renderNodeApplications(nodeMemoryBytes, nodeApps, resourceMemory)
 		nc := &NodeCosts{
@@ -146,7 +139,7 @@ func renderCosts(w *model.World) *Costs {
 			CpuRequestApplications:    topByRequest(nodeAppsCpu),
 			MemoryUsageApplications:   topByUsage(nodeAppsMem),
 			MemoryRequestApplications: topByRequest(nodeAppsMem),
-			Price:                     n.PricePerHour * month,
+			Price:                     n.Price.Total * month,
 			IdleCosts:                 (cpuIdleCost + memIdleCost) * month,
 		}
 		for _, a := range nc.CpuUsageApplications {
@@ -193,7 +186,7 @@ func renderApplicationCosts(appInstances []*instance, desiredInstances map[model
 				if avg > cpuUsageMax {
 					cpuUsageMax = avg
 				}
-				res.UsageCosts += avg * i.cpuPricePerCore * month
+				res.UsageCosts += avg * i.nodePrice.PerCPUCore * month
 			}
 			if u := ai.MemoryUsage.Reduce(timeseries.NanSum); u > 0 {
 				up = true
@@ -203,7 +196,7 @@ func renderApplicationCosts(appInstances []*instance, desiredInstances map[model
 				if avg > memUsageMax {
 					memUsageMax = avg
 				}
-				res.UsageCosts += avg * i.memPricePerByte * month
+				res.UsageCosts += avg * i.nodePrice.PerMemoryByte * month
 			}
 			if !up {
 				continue
@@ -238,12 +231,12 @@ func renderApplicationCosts(appInstances []*instance, desiredInstances map[model
 			ac.MemoryRequestRecommended = resourceMemory.format(memRequestRecommended)
 			for _, i := range componentInstances {
 				if l := i.cpu.usage.Last(); l > 0 {
-					ac.AllocationCosts += cpuRequest * i.cpuPricePerCore * month
-					ac.AllocationCostsRecommended += cpuRequestRecommended * i.cpuPricePerCore * month
+					ac.AllocationCosts += cpuRequest * i.nodePrice.PerCPUCore * month
+					ac.AllocationCostsRecommended += cpuRequestRecommended * i.nodePrice.PerCPUCore * month
 				}
 				if l := i.memory.usage.Last(); l > 0 {
-					ac.AllocationCosts += memRequest * i.memPricePerByte * month
-					ac.AllocationCostsRecommended += memRequestRecommended * i.memPricePerByte * month
+					ac.AllocationCosts += memRequest * i.nodePrice.PerMemoryByte * month
+					ac.AllocationCostsRecommended += memRequestRecommended * i.nodePrice.PerMemoryByte * month
 				}
 			}
 		}

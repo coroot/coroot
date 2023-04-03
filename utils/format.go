@@ -5,6 +5,7 @@ import (
 	"github.com/coroot/coroot/timeseries"
 	"github.com/dustin/go-humanize"
 	"github.com/hako/durafmt"
+	"math"
 	"strings"
 )
 
@@ -35,13 +36,16 @@ func FormatDurationShort(d timeseries.Duration, limitFirstN int) string {
 	return strings.Replace(durafmt.Parse(d.ToStandard()).LimitFirstN(limitFirstN).Format(shortDurations), " ", "", -1)
 }
 
-func FormatBytes(b float32) (string, string) {
-	s := humanize.Bytes(uint64(b))
-	parts := strings.Fields(s)
-	if len(parts) != 2 {
-		return "", ""
+func FormatBytes(v float32) (string, string) {
+	base := 1000.0
+	sizes := []string{"B", "kB", "MB", "GB", "TB", "PB", "EB"}
+	e := math.Floor(math.Log(float64(v)) / math.Log(base))
+	if int(e) < 0 || int(e) > len(sizes)-1 {
+		return fmt.Sprintf("%.f", v), ""
 	}
-	return strings.TrimSuffix(parts[0], ".0"), parts[1]
+	unit := sizes[int(e)]
+	val := fmt.Sprintf("%.0f", math.Round(float64(v)/math.Pow(base, e)))
+	return val, unit
 }
 
 func HumanBits(v float32) string {
@@ -60,6 +64,17 @@ func FormatLatency(v float32) string {
 
 func FormatPercentage(v float32) string {
 	return strings.TrimRight(strings.TrimRight(fmt.Sprintf("%.2f", v), "0"), ".") + "%"
+}
+
+func FormatMoney(v float32) string {
+	s := ""
+	switch {
+	case v > 0:
+		s = "+"
+	case v < 0:
+		s = "-"
+	}
+	return fmt.Sprintf("%s$%.2f", s, math.Abs(float64(v)))
 }
 
 func LastPart(s string, sep string) string {

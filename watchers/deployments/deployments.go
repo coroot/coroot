@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/coroot/coroot/cache"
+	cloud_pricing "github.com/coroot/coroot/cloud-pricing"
 	"github.com/coroot/coroot/constructor"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
@@ -20,12 +21,13 @@ const (
 )
 
 type Watcher struct {
-	db    *db.DB
-	cache *cache.Cache
+	db      *db.DB
+	cache   *cache.Cache
+	pricing *cloud_pricing.Manager
 }
 
-func NewWatcher(db *db.DB, cache *cache.Cache) *Watcher {
-	return &Watcher{db: db, cache: cache}
+func NewWatcher(db *db.DB, cache *cache.Cache, pricing *cloud_pricing.Manager) *Watcher {
+	return &Watcher{db: db, cache: cache, pricing: pricing}
 }
 
 func (w *Watcher) Start(interval time.Duration) {
@@ -63,7 +65,7 @@ func (w *Watcher) discoverAndSaveDeployments(project *db.Project) (*model.World,
 	step := project.Prometheus.RefreshInterval
 	to := cacheTo
 	from := to.Add(-timeseries.Hour)
-	world, err := constructor.New(w.db, project, cacheClient).LoadWorld(context.Background(), from, to, step, nil)
+	world, err := constructor.New(w.db, project, cacheClient, w.pricing).LoadWorld(context.Background(), from, to, step, nil)
 	if err != nil {
 		klog.Errorln("failed to load world:", err)
 		return nil, cacheTo
@@ -130,7 +132,7 @@ func (w *Watcher) snapshotDeploymentMetrics(project *db.Project, applications []
 			if to.After(nextOrNow) {
 				continue
 			}
-			world, err := constructor.New(w.db, project, cacheClient).LoadWorld(context.Background(), from, to, step, nil)
+			world, err := constructor.New(w.db, project, cacheClient, w.pricing).LoadWorld(context.Background(), from, to, step, nil)
 			if err != nil {
 				klog.Errorln("failed to load world:", err)
 				continue

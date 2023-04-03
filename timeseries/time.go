@@ -11,6 +11,7 @@ const (
 	Minute = Second * 60
 	Hour   = Minute * 60
 	Day    = Hour * 24
+	Month  = Day * 30
 )
 
 type Context struct {

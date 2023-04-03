@@ -21,14 +21,14 @@ import (
 )
 
 type Api struct {
-	cache        *cache.Cache
-	db           *db.DB
-	cloudPricing *cloud_pricing.Manager
-	readOnly     bool
+	cache    *cache.Cache
+	db       *db.DB
+	pricing  *cloud_pricing.Manager
+	readOnly bool
 }
 
-func NewApi(cache *cache.Cache, db *db.DB, cloudPricing *cloud_pricing.Manager, readOnly bool) *Api {
-	return &Api{cache: cache, db: db, cloudPricing: cloudPricing, readOnly: readOnly}
+func NewApi(cache *cache.Cache, db *db.DB, pricing *cloud_pricing.Manager, readOnly bool) *Api {
+	return &Api{cache: cache, db: db, pricing: pricing, readOnly: readOnly}
 }
 
 func (api *Api) Projects(w http.ResponseWriter, _ *http.Request) {
@@ -184,9 +184,6 @@ func (api *Api) Overview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	for _, n := range world.Nodes {
-		n.PricePerHour = api.cloudPricing.GetNodePricePerHour(n)
-	}
 	auditor.Audit(world, project)
 	utils.WriteJson(w, views.Overview(world, mux.Vars(r)["view"]))
 }
@@ -393,9 +390,6 @@ func (api *Api) App(w http.ResponseWriter, r *http.Request) {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
 		return
-	}
-	for _, n := range world.Nodes {
-		n.PricePerHour = api.cloudPricing.GetNodePricePerHour(n)
 	}
 	auditor.Audit(world, project)
 	utils.WriteJson(w, views.Application(world, app, incidents))
@@ -612,7 +606,7 @@ func (api *Api) loadWorld(ctx context.Context, project *db.Project, from, to tim
 	step = increaseStepForBigDurations(duration, step)
 
 	t := time.Now()
-	world, err := constructor.New(api.db, project, cc).LoadWorld(ctx, from, to, step, nil)
+	world, err := constructor.New(api.db, project, cc, api.pricing).LoadWorld(ctx, from, to, step, nil)
 	klog.Infof("world loaded in %s", time.Since(t))
 	return world, err
 }

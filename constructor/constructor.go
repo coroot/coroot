@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	cloud_pricing "github.com/coroot/coroot/cloud-pricing"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/prom"
@@ -30,11 +31,12 @@ type Constructor struct {
 	db      *db.DB
 	project *db.Project
 	prom    prom.Client
+	pricing *cloud_pricing.Manager
 	options map[Option]bool
 }
 
-func New(db *db.DB, project *db.Project, prom prom.Client, options ...Option) *Constructor {
-	c := &Constructor{db: db, project: project, prom: prom, options: map[Option]bool{}}
+func New(db *db.DB, project *db.Project, prom prom.Client, pricing *cloud_pricing.Manager, options ...Option) *Constructor {
+	c := &Constructor{db: db, project: project, prom: prom, pricing: pricing, options: map[Option]bool{}}
 	for _, o := range options {
 		c.options[o] = true
 	}
@@ -97,7 +99,7 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 
 	// order is important
 	prof.stage("load_job_statuses", func() { loadPromJobStatuses(metrics, pjs) })
-	prof.stage("load_nodes", func() { loadNodes(w, metrics, nodesByMachineId) })
+	prof.stage("load_nodes", func() { c.loadNodes(w, metrics, nodesByMachineId) })
 	prof.stage("load_k8s_metadata", func() { loadKubernetesMetadata(w, metrics) })
 	prof.stage("load_rds", func() { loadRds(w, metrics, pjs, rdsInstancesById) })
 	prof.stage("load_containers", func() { loadContainers(w, metrics, pjs, nodesByMachineId) })

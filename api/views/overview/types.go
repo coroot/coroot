@@ -58,12 +58,11 @@ type resource struct {
 }
 
 type instance struct {
-	ownerId         model.ApplicationId
-	name            string
-	cpu             resource
-	memory          resource
-	cpuPricePerCore float32
-	memPricePerByte float32
+	ownerId   model.ApplicationId
+	name      string
+	cpu       resource
+	memory    resource
+	nodePrice *model.NodePrice
 }
 
 func (i *instance) getResource(rt resourceType) resource {

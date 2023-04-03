@@ -16,7 +16,7 @@ func Render(w *model.World, view string) *View {
 		Views: []string{"applications", "nodes"},
 	}
 	for _, n := range w.Nodes {
-		if n.PricePerHour > 0 {
+		if n.Price != nil {
 			v.Views = append(v.Views, "costs")
 			break
 		}

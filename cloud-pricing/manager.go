@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/coroot/coroot/model"
+	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 	"io"
 	"k8s.io/klog"
@@ -56,11 +57,11 @@ func NewManager(dataDir string) (*Manager, error) {
 	return m, nil
 }
 
-func (mgr *Manager) GetNodePricePerHour(node *model.Node) float32 {
+func (mgr *Manager) GetNodePrice(node *model.Node) *model.NodePrice {
 	mgr.lock.Lock()
 	defer mgr.lock.Unlock()
 	if mgr.model == nil {
-		return 0
+		return nil
 	}
 	var pricing *CloudPricing
 	switch strings.ToLower(node.CloudProvider.Value()) {
@@ -71,23 +72,38 @@ func (mgr *Manager) GetNodePricePerHour(node *model.Node) float32 {
 	case "azure":
 		pricing = mgr.model.Azure
 	default:
-		return 0
+		return nil
 	}
 	reg, ok := pricing.Compute[node.Region.Value()]
 	if !ok {
-		return 0
+		return nil
 	}
 	i, ok := reg[node.InstanceType.Value()]
 	if !ok {
-		return 0
+		return nil
 	}
+	var price float32
 	switch strings.ToLower(node.InstanceLifeCycle.Value()) {
 	case "":
-		return 0
+		return nil
 	case "spot", "preemptible":
-		return i.Spot
+		price = i.Spot
+	default:
+		price = i.OnDemand
 	}
-	return i.OnDemand
+	price /= float32(timeseries.Hour)
+	cpuCores := node.CpuCapacity.Last()
+	memBytes := node.MemoryTotalBytes.Last()
+	if timeseries.IsNaN(cpuCores) || timeseries.IsNaN(memBytes) {
+		return nil
+	}
+	const gb = 1e9
+	perUnit := price / (cpuCores + memBytes/gb) // assume that 1Gb of memory costs the same as 1 vCPU
+	return &model.NodePrice{
+		Total:         price,
+		PerCPUCore:    perUnit,
+		PerMemoryByte: perUnit / gb,
+	}
 }
 
 func (mgr *Manager) updateModel() error {

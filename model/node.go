@@ -51,7 +51,13 @@ type Node struct {
 	InstanceType      LabelLastValue
 	InstanceLifeCycle LabelLastValue
 
-	PricePerHour float32
+	Price *NodePrice
+}
+
+type NodePrice struct {
+	Total         float32
+	PerCPUCore    float32
+	PerMemoryByte float32
 }
 
 func NewNode(machineId string) *Node {

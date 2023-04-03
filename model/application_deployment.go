@@ -172,7 +172,6 @@ func CalcApplicationDeploymentSummary(app *Application, checkConfigs CheckConfig
 	var res []ApplicationDeploymentSummary
 	add := func(r AuditReportName, ok bool, format string, a ...any) {
 		res = append(res, ApplicationDeploymentSummary{Report: r, Ok: ok, Message: fmt.Sprintf(format, a...)})
-
 	}
 
 	// Availability
@@ -216,9 +215,24 @@ func CalcApplicationDeploymentSummary(app *Application, checkConfigs CheckConfig
 	if prev != nil && curr.Requests > 0 && prev.Requests > 0 && curr.CPUUsage > 0 && prev.CPUUsage > 0 {
 		perRequestCurr := curr.CPUUsage / float32(curr.Requests)
 		perRequestPrev := prev.CPUUsage / float32(prev.Requests)
-		diff := (perRequestCurr - perRequestPrev) * 100 / perRequestPrev
-		if math.Abs(float64(diff)) > significantPercentageDifference {
-			add(AuditReportCPU, diff < 0, "CPU usage: %+.f%% (compared to the previous deployment)", diff)
+		diffPercent := (perRequestCurr - perRequestPrev) * 100 / perRequestPrev
+		if math.Abs(float64(diffPercent)) > significantPercentageDifference {
+			var totalPrice, count float32
+			for _, i := range app.Instances {
+				if i.Node == nil || i.Node.Price == nil {
+					continue
+				}
+				totalPrice += i.Node.Price.PerCPUCore
+				count++
+			}
+			avgPricePerCpu := totalPrice / count
+			var costs string
+			if totalPrice > 0 {
+				prevAvgCpuUsage := prev.CPUUsage / float32(ApplicationDeploymentMetricsSnapshotWindow)
+				diffCosts := prevAvgCpuUsage * avgPricePerCpu * diffPercent / 100
+				costs = fmt.Sprintf(" (%s/mo)", utils.FormatMoney(diffCosts*float32(timeseries.Month)))
+			}
+			add(AuditReportCPU, diffPercent < 0, "CPU usage: %+.f%%%s compared to the previous deployment", diffPercent, costs)
 		}
 	}
 

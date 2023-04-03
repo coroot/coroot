@@ -30,7 +30,7 @@ func initNodesList(w *model.World, nodeInfoMetrics []model.MetricValues, nodesBy
 	}
 }
 
-func loadNodes(w *model.World, metrics map[string][]model.MetricValues, nodesByMachineId map[string]*model.Node) {
+func (c *Constructor) loadNodes(w *model.World, metrics map[string][]model.MetricValues, nodesByMachineId map[string]*model.Node) {
 	initNodesList(w, metrics["node_info"], nodesByMachineId)
 
 	for queryName := range metrics {
@@ -87,10 +87,13 @@ func loadNodes(w *model.World, metrics map[string][]model.MetricValues, nodesByM
 			case d.Wait == nil && !d.Await.IsEmpty(): // rds
 				d.Wait = timeseries.Mul(d.Await, timeseries.NewAggregate(timeseries.NanSum).Add(d.ReadOps, d.WriteOps).Get())
 			}
-
 		}
 	}
-
+	if c.pricing != nil {
+		for _, n := range w.Nodes {
+			n.Price = c.pricing.GetNodePrice(n)
+		}
+	}
 }
 
 func nodeDisk(node *model.Node, queryName string, m model.MetricValues) {

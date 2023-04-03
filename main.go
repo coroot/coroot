@@ -62,12 +62,6 @@ func main() {
 	bootstrapPrometheus(database, *bootstrapPrometheusUrl, *bootstrapRefreshInterval, *bootstrapPrometheusExtraSelector)
 	bootstrapPyroscope(database, *bootstrapPyroscopeUrl)
 
-	pricing, err := cloud_pricing.NewManager(path.Join(*dataDir, "cloud-pricing"))
-	if err != nil {
-		klog.Exitln(err)
-	}
-	_ = pricing
-
 	cacheConfig := cache.Config{
 		Path: path.Join(*dataDir, "cache"),
 		GC: &cache.GcConfig{
@@ -80,11 +74,16 @@ func main() {
 		klog.Exitln(err)
 	}
 
+	pricing, err := cloud_pricing.NewManager(path.Join(*dataDir, "cloud-pricing"))
+	if err != nil {
+		klog.Exitln(err)
+	}
+
 	instanceUuid := getInstanceUuid(*dataDir)
 
 	var statsCollector *stats.Collector
 	if !*disableStats {
-		statsCollector = stats.NewCollector(instanceUuid, version, database, promCache)
+		statsCollector = stats.NewCollector(instanceUuid, version, database, promCache, pricing)
 	}
 
 	notifier := notifications.NewIncidentNotifier(database)
@@ -94,7 +93,7 @@ func main() {
 	}
 
 	if *deploymentsWatchInterval > 0 {
-		deployments.NewWatcher(database, promCache).Start(*deploymentsWatchInterval)
+		deployments.NewWatcher(database, promCache, pricing).Start(*deploymentsWatchInterval)
 	}
 
 	a := api.NewApi(promCache, database, pricing, *readOnly)
