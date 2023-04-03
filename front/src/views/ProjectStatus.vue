@@ -71,7 +71,7 @@
                 </div>
                 <div v-for="(ok, id) in ex.applications" :key="id" class="ml-5">
                     <Led :status="ok ? 'ok' : 'warning'" />
-                    <router-link :to="{name: 'application', params: {id}}">{{$api.appId(id).name}}</router-link>
+                    <router-link :to="{name: 'application', params: {id}}">{{$utils.appId(id).name}}</router-link>
                 </div>
             </div>
         </div>

@@ -32,7 +32,7 @@
                 <v-list-item v-for="a in results.apps" :key="a.id" :to="{name: 'application', params: {id: a.id}, query: $route.query}">
                     <v-list-item-title class="ml-3">
                         <Led :status="a.status" />
-                        {{$api.appId(a.id).name}}
+                        {{$utils.appId(a.id).name}}
                     </v-list-item-title>
                 </v-list-item>
             </template>

@@ -8,7 +8,7 @@
         </thead>
         <tbody v-if="form">
         <tr v-if="form.configs.length === 3">
-            <td>Override for the <var>{{$api.appId(this.appId).name}}</var> app</td>
+            <td>Override for the <var>{{$utils.appId(this.appId).name}}</var> app</td>
             <td>
                 <div v-if="form.configs[2] !== null" class="d-flex align-center">
                     <div class="flex-grow-1 capfirst py-3">

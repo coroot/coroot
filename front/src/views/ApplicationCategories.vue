@@ -82,7 +82,7 @@
                         </li>
                     </ul>
                     <div v-else class="grey--text">No notification integrations configured.</div>
-                    <v-btn color="primary" small :to="{name: 'project_settings', hash: '#integrations'}" @click="form.active=false" class="mt-1">Configure integrations</v-btn>
+                    <v-btn color="primary" small :to="{name: 'project_settings', params:{tab: 'notifications'}}" @click="form.active=false" class="mt-1">Configure integrations</v-btn>
                 </div>
 
                 <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>

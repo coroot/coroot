@@ -4,6 +4,7 @@ import vuetify from '@/plugins/vuetify';
 import '@/plugins/resize';
 import pluralize from 'pluralize';
 import events from '@/utils/events';
+import Utils from "@/utils/utils";
 import * as validators from "@/utils/validators";
 import * as storage from "@/utils/storage";
 import * as format from '@/utils/format';
@@ -26,7 +27,7 @@ const router = new VueRouter({
     routes: [
         {path: '/p/new/:tab?', name: 'project_new', component: Project},
         {path: '/p/:projectId/settings/:tab?', name: 'project_settings', component: Project, props: true},
-        {path: '/p/:projectId', name: 'overview', component: Overview, props: true},
+        {path: '/p/:projectId/:view?', name: 'overview', component: Overview, props: true},
         {path: '/p/:projectId/app/:id/:report?', name: 'application', component: Application, props: true},
         {path: '/p/:projectId/node/:name', name: 'node', component: Node, props: true},
         {path: '/welcome', name: 'welcome', component: Welcome},
@@ -35,11 +36,16 @@ const router = new VueRouter({
     ],
     scrollBehavior(to) {
         if (to.hash) {
-            return new Promise((resolve) => {
-                setTimeout(() => {
-                    resolve({selector: to.hash, behavior: 'smooth'});
-                }, 300);
-            });
+            try {
+                document.querySelector(to.hash);
+                return new Promise((resolve) => {
+                    setTimeout(() => {
+                        resolve({selector: to.hash, behavior: 'smooth'});
+                    }, 300);
+                });
+            } catch {
+                //
+            }
         }
     },
 });
@@ -63,6 +69,7 @@ Vue.prototype.$events = events;
 Vue.prototype.$format = format;
 Vue.prototype.$pluralize = pluralize;
 Vue.prototype.$api = api;
+Vue.prototype.$utils = new Utils(router);
 Vue.prototype.$validators = validators;
 Vue.prototype.$storage = storage;
 Vue.prototype.$coroot = config;

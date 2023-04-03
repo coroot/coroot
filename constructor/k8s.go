@@ -18,9 +18,9 @@ func loadKubernetesMetadata(w *model.World, metrics map[string][]model.MetricVal
 		case strings.HasPrefix(queryName, "kube_pod_status_"):
 			podStatus(queryName, metrics[queryName], pods)
 		case strings.HasPrefix(queryName, "kube_pod_init_container_"):
-			podContainerStatus(queryName, metrics[queryName], pods)
-		case strings.HasPrefix(queryName, "kube_pod_container_status_"):
-			podContainerStatus(queryName, metrics[queryName], pods)
+			podContainer(queryName, metrics[queryName], pods)
+		case strings.HasPrefix(queryName, "kube_pod_container_"):
+			podContainer(queryName, metrics[queryName], pods)
 		}
 	}
 	loadApplications(w, metrics)
@@ -177,7 +177,7 @@ func podStatus(queryName string, metrics []model.MetricValues, pods map[string]*
 	}
 }
 
-func podContainerStatus(queryName string, metrics []model.MetricValues, pods map[string]*model.Instance) {
+func podContainer(queryName string, metrics []model.MetricValues, pods map[string]*model.Instance) {
 	for _, m := range metrics {
 		uid := m.Labels["uid"]
 		instance := pods[uid]
@@ -190,6 +190,13 @@ func podContainerStatus(queryName string, metrics []model.MetricValues, pods map
 		switch queryName {
 		case "kube_pod_init_container_info":
 			container.InitContainer = true
+		case "kube_pod_container_resource_requests":
+			switch m.Labels["resource"] {
+			case "cpu":
+				container.CpuRequest = merge(container.CpuRequest, m.Values, timeseries.Max)
+			case "memory":
+				container.MemoryRequest = merge(container.MemoryRequest, m.Values, timeseries.Max)
+			}
 		case "kube_pod_container_status_ready":
 			container.Ready = m.Values.Last() > 0
 		case "kube_pod_container_status_waiting":

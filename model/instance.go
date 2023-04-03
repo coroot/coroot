@@ -45,8 +45,9 @@ type Instance struct {
 	LogMessagesByLevel map[LogLevel]*timeseries.TimeSeries
 	LogPatterns        map[string]*LogPattern
 
-	ClusterName LabelLastValue
-	clusterRole *timeseries.TimeSeries
+	ClusterName      LabelLastValue
+	clusterRole      *timeseries.TimeSeries
+	ClusterComponent *Application
 
 	Postgres *Postgres
 	Redis    *Redis

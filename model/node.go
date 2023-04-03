@@ -45,10 +45,19 @@ type Node struct {
 
 	Instances []*Instance `json:"-"`
 
-	CloudProvider    LabelLastValue
-	Region           LabelLastValue
-	AvailabilityZone LabelLastValue
-	InstanceType     LabelLastValue
+	CloudProvider     LabelLastValue
+	Region            LabelLastValue
+	AvailabilityZone  LabelLastValue
+	InstanceType      LabelLastValue
+	InstanceLifeCycle LabelLastValue
+
+	Price *NodePrice
+}
+
+type NodePrice struct {
+	Total         float32
+	PerCPUCore    float32
+	PerMemoryByte float32
 }
 
 func NewNode(machineId string) *Node {

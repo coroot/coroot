@@ -9,6 +9,13 @@ func Any(t Time, v1, v2 float32) float32 {
 	return v2
 }
 
+func LastNotNaN(t Time, v1, v2 float32) float32 {
+	if !IsNaN(v2) {
+		return v2
+	}
+	return v1
+}
+
 func NanSum(t Time, sum, v float32) float32 {
 	if IsNaN(sum) {
 		sum = 0

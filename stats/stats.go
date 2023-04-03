@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"github.com/coroot/coroot/auditor"
 	"github.com/coroot/coroot/cache"
+	cloud_pricing "github.com/coroot/coroot/cloud-pricing"
 	"github.com/coroot/coroot/constructor"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
@@ -47,6 +48,7 @@ type Stats struct {
 		ApplicationCategories     int                                  `json:"application_categories"`
 		AlertingIntegrations      *utils.StringSet                     `json:"alerting_integrations"`
 		Pyroscope                 bool                                 `json:"pyroscope"`
+		CloudCosts                bool                                 `json:"cloud_costs"`
 	} `json:"integration"`
 	Stack struct {
 		Clouds               *utils.StringSet `json:"clouds"`
@@ -88,9 +90,10 @@ type InspectionOverride struct {
 }
 
 type Collector struct {
-	db     *db.DB
-	cache  *cache.Cache
-	client *http.Client
+	db      *db.DB
+	cache   *cache.Cache
+	pricing *cloud_pricing.Manager
+	client  *http.Client
 
 	instanceUuid    string
 	instanceVersion string
@@ -105,10 +108,11 @@ type Collector struct {
 	memUsage []float32
 }
 
-func NewCollector(instanceUuid, version string, db *db.DB, cache *cache.Cache) *Collector {
+func NewCollector(instanceUuid, version string, db *db.DB, cache *cache.Cache, pricing *cloud_pricing.Manager) *Collector {
 	c := &Collector{
-		db:    db,
-		cache: cache,
+		db:      db,
+		cache:   cache,
+		pricing: pricing,
 
 		client: &http.Client{Timeout: sendTimeout},
 
@@ -297,7 +301,7 @@ func (c *Collector) collect() Stats {
 		}
 		t := time.Now()
 		step := p.Prometheus.RefreshInterval
-		cr := constructor.New(c.db, p, cc, constructor.OptionLoadPerConnectionHistograms)
+		cr := constructor.New(c.db, p, cc, c.pricing, constructor.OptionLoadPerConnectionHistograms)
 		w, err := cr.LoadWorld(context.Background(), cacheTo.Add(-worldWindow), cacheTo, step, &stats.Performance.Constructor)
 		if err != nil {
 			klog.Errorln("failed to load world:", err)
@@ -322,6 +326,9 @@ func (c *Collector) collect() Stats {
 		for _, n := range w.Nodes {
 			stats.Integration.NodeAgentVersions.Add(n.AgentVersion.Value())
 			stats.Stack.Clouds.Add(strings.ToLower(n.CloudProvider.Value()))
+			if n.Price != nil {
+				stats.Integration.CloudCosts = true
+			}
 		}
 
 		for _, a := range w.Applications {

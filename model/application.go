@@ -158,6 +158,15 @@ func (app *Application) IsStandalone() bool {
 	return true
 }
 
+func (app *Application) IsK8s() bool {
+	for _, i := range app.Instances {
+		if i.Pod != nil {
+			return true
+		}
+	}
+	return false
+}
+
 func (app *Application) InstrumentationStatus() map[ApplicationType]bool {
 	res := map[ApplicationType]bool{}
 	for _, i := range app.Instances {

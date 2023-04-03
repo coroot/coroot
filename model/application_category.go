@@ -39,6 +39,9 @@ var BuiltinCategoryPatterns = map[ApplicationCategory][]string{
 		"*/kube-apiserver",
 		"*/k3s",
 		"*/k3s-agent",
+		"*/systemd*",
+		"*/containerd",
+		"*/docker*",
 	},
 	ApplicationCategoryMonitoring: {
 		"monitoring/*",

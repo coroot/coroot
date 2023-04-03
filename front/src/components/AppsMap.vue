@@ -150,7 +150,7 @@ export default {
             }
             applications = applications.filter(filter);
             applications.forEach((a) => {
-                a.name = this.$api.appId(a.id).name;
+                a.name = this.$utils.appId(a.id).name;
                 a.level = 0;
                 a.upstreams = a.upstreams.filter(filter);
                 a.upstreams.sort((u1, u2) => u1.id.localeCompare(u2.id));

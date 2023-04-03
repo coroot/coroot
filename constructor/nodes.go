@@ -30,7 +30,7 @@ func initNodesList(w *model.World, nodeInfoMetrics []model.MetricValues, nodesBy
 	}
 }
 
-func loadNodes(w *model.World, metrics map[string][]model.MetricValues, nodesByMachineId map[string]*model.Node) {
+func (c *Constructor) loadNodes(w *model.World, metrics map[string][]model.MetricValues, nodesByMachineId map[string]*model.Node) {
 	initNodesList(w, metrics["node_info"], nodesByMachineId)
 
 	for queryName := range metrics {
@@ -64,6 +64,7 @@ func loadNodes(w *model.World, metrics map[string][]model.MetricValues, nodesByM
 				node.Region.Update(m.Values, m.Labels["region"])
 				node.AvailabilityZone.Update(m.Values, m.Labels["availability_zone"])
 				node.InstanceType.Update(m.Values, m.Labels["instance_type"])
+				node.InstanceLifeCycle.Update(m.Values, m.Labels["instance_life_cycle"])
 			case "node_uptime_seconds":
 				node.Uptime = merge(node.Uptime, m.Values, timeseries.Any)
 			default:
@@ -86,10 +87,13 @@ func loadNodes(w *model.World, metrics map[string][]model.MetricValues, nodesByM
 			case d.Wait == nil && !d.Await.IsEmpty(): // rds
 				d.Wait = timeseries.Mul(d.Await, timeseries.NewAggregate(timeseries.NanSum).Add(d.ReadOps, d.WriteOps).Get())
 			}
-
 		}
 	}
-
+	if c.pricing != nil {
+		for _, n := range w.Nodes {
+			n.Price = c.pricing.GetNodePrice(n)
+		}
+	}
 }
 
 func nodeDisk(node *model.Node, queryName string, m model.MetricValues) {

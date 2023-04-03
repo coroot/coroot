@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"github.com/coroot/coroot/api"
 	"github.com/coroot/coroot/cache"
+	"github.com/coroot/coroot/cloud-pricing"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/notifications"
 	"github.com/coroot/coroot/prom"
@@ -73,11 +74,16 @@ func main() {
 		klog.Exitln(err)
 	}
 
+	pricing, err := cloud_pricing.NewManager(path.Join(*dataDir, "cloud-pricing"))
+	if err != nil {
+		klog.Exitln(err)
+	}
+
 	instanceUuid := getInstanceUuid(*dataDir)
 
 	var statsCollector *stats.Collector
 	if !*disableStats {
-		statsCollector = stats.NewCollector(instanceUuid, version, database, promCache)
+		statsCollector = stats.NewCollector(instanceUuid, version, database, promCache, pricing)
 	}
 
 	notifier := notifications.NewIncidentNotifier(database)
@@ -87,10 +93,10 @@ func main() {
 	}
 
 	if *deploymentsWatchInterval > 0 {
-		deployments.NewWatcher(database, promCache).Start(*deploymentsWatchInterval)
+		deployments.NewWatcher(database, promCache, pricing).Start(*deploymentsWatchInterval)
 	}
 
-	a := api.NewApi(promCache, database, *readOnly)
+	a := api.NewApi(promCache, database, pricing, *readOnly)
 
 	router := mux.NewRouter()
 	router.PathPrefix("/debug/pprof/").Handler(http.DefaultServeMux)
@@ -105,7 +111,7 @@ func main() {
 	r.HandleFunc("/api/project/", a.Project).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/project/{project}", a.Project).Methods(http.MethodGet, http.MethodPost, http.MethodDelete)
 	r.HandleFunc("/api/project/{project}/status", a.Status).Methods(http.MethodGet, http.MethodPost)
-	r.HandleFunc("/api/project/{project}/overview", a.Overview).Methods(http.MethodGet)
+	r.HandleFunc("/api/project/{project}/overview/{view}", a.Overview).Methods(http.MethodGet)
 	r.HandleFunc("/api/project/{project}/search", a.Search).Methods(http.MethodGet)
 	r.HandleFunc("/api/project/{project}/configs", a.Configs).Methods(http.MethodGet)
 	r.HandleFunc("/api/project/{project}/categories", a.Categories).Methods(http.MethodGet, http.MethodPost)

@@ -25,7 +25,8 @@ func (a *Aggregate) Get() *TimeSeries {
 	if len(a.input) == 1 {
 		return a.input[0]
 	}
-	data := make([]float32, a.input[0].len())
+
+	data := make([]float32, a.input[0].Len())
 	for i := range data {
 		data[i] = NaN
 	}

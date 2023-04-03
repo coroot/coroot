@@ -95,6 +95,7 @@ var QUERIES = map[string]string{
 	"container_rabbitmq_messages":           `rate(container_rabbitmq_messages_total[$RANGE])`,
 
 	"kube_pod_init_container_info":                     `kube_pod_init_container_info`,
+	"kube_pod_container_resource_requests":             `kube_pod_container_resource_requests`,
 	"kube_pod_container_status_ready":                  `kube_pod_container_status_ready > 0`,
 	"kube_pod_container_status_waiting":                `kube_pod_container_status_waiting > 0`,
 	"kube_pod_container_status_running":                `kube_pod_container_status_running > 0 `,

@@ -29,7 +29,7 @@
     <v-dialog v-model="configure" max-width="800">
         <v-card class="pa-5">
             <div class="d-flex align-center font-weight-medium mb-4">
-                Link "{{ $api.appId(appId).name }}" with a Pyroscope application
+                Link "{{ $utils.appId(appId).name }}" with a Pyroscope application
                 <v-spacer />
                 <v-btn icon @click="configure = false"><v-icon>mdi-close</v-icon></v-btn>
             </div>

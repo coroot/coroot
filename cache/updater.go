@@ -280,7 +280,7 @@ func (p *recordingRulesProcessor) QueryRange(ctx context.Context, query string, 
 	if p.cacheTo.Before(to) {
 		return nil, fmt.Errorf("cache is outdated")
 	}
-	c := constructor.New(p.db, p.project, p.cacheClient, constructor.OptionLoadPerConnectionHistograms, constructor.OptionDoNotLoadRawSLIs)
+	c := constructor.New(p.db, p.project, p.cacheClient, nil, constructor.OptionLoadPerConnectionHistograms, constructor.OptionDoNotLoadRawSLIs)
 	world, err := c.LoadWorld(ctx, from, to, step, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load world: %w", err)

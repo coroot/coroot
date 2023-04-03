@@ -35,7 +35,7 @@
                             </li>
                         </ul>
                         <div v-else class="grey--text">No notification integrations configured.</div>
-                        <v-btn color="primary" small :to="{name: 'project_settings', hash: '#integrations'}" class="mt-1">Configure integrations</v-btn>
+                        <v-btn color="primary" small :to="{name: 'project_settings', params:{tab: 'notifications'}}" class="mt-1">Configure integrations</v-btn>
                     </div>
                 </div>
 
