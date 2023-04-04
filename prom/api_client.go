@@ -18,7 +18,6 @@ import (
 	"k8s.io/klog"
 	"net"
 	"net/http"
-	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -56,14 +55,10 @@ type ApiClient struct {
 	customHeaders []utils.Header
 }
 
-func NewApiClient(address, user, password string, skipTlsVerify bool, extraSelector string, customHeaders []utils.Header) (*ApiClient, error) {
-	if user != "" {
-		if u, err := url.Parse(address); err != nil {
-			klog.Errorln("failed to parse url:", err)
-		} else {
-			u.User = url.UserPassword(user, password)
-			address = u.String()
-		}
+func NewApiClient(address string, basicAuth *utils.BasicAuth, skipTlsVerify bool, extraSelector string, customHeaders []utils.Header) (*ApiClient, error) {
+	address, err := basicAuth.AddTo(address)
+	if err != nil {
+		return nil, err
 	}
 	cl := secureClient
 	if skipTlsVerify {
@@ -105,7 +100,7 @@ func (c *ApiClient) QueryRange(ctx context.Context, query string, from, to times
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	for _, h := range c.customHeaders {
-		req.Header.Set(h.Key, h.Value)
+		req.Header.Add(h.Key, h.Value)
 	}
 	req = req.WithContext(ctx)
 

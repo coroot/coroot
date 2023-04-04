@@ -3,20 +3,16 @@
         <div class="subtitle-1">Pyroscope URL</div>
         <div class="caption">
         </div>
-        <v-text-field outlined dense v-model="form.url" :rules="[$validators.isUrl]" placeholder="http://pyroscope.example.com:4040" hide-details="auto" class="flex-grow-1" clearable />
-        <v-checkbox v-model="form.tls_skip_verify" :disabled="!form.url || !form.url.startsWith('https')" label="Skip TLS verify" hide-details class="mt-1" />
-        <div class="d-md-flex gap">
-            <v-checkbox v-model="basic_auth" label="HTTP basic auth" class="mt-1" hide-details />
-            <template v-if="basic_auth">
-                <v-text-field outlined dense v-model="form.basic_auth.user" label="username"  />
-                <v-text-field v-model="form.basic_auth.password" label="password" type="password" outlined dense />
-            </template>
+        <v-text-field outlined dense v-model="form.url" :rules="[$validators.isUrl]" placeholder="http://pyroscope.example.com:4040" hide-details="auto" class="flex-grow-1" clearable single-line />
+        <v-checkbox v-model="form.tls_skip_verify" :disabled="!form.url || !form.url.startsWith('https')" label="Skip TLS verify" hide-details class="my-2" />
+        <v-checkbox v-model="basic_auth" label="HTTP basic auth" hide-details class="my-2" />
+        <div v-if="basic_auth" class="d-flex gap">
+            <v-text-field v-model="form.basic_auth.user" label="username" outlined dense hide-details single-line />
+            <v-text-field v-model="form.basic_auth.password" label="password" type="password" outlined dense hide-details single-line />
         </div>
-        <div class="d-md-flex gap">
-            <v-checkbox v-model="api_key_auth" label="API key auth" class="mt-1" />
-            <template v-if="api_key_auth">
-                <v-text-field outlined dense v-model="form.api_key" label="API key"  />
-            </template>
+        <v-checkbox v-model="api_key_auth" label="API key auth" hide-details class="my-2" />
+        <div v-if="api_key_auth" class="d-flex gap">
+            <v-text-field v-model="form.api_key" label="API key" outlined dense single-line />
         </div>
         <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
             {{error}}

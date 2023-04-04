@@ -80,11 +80,7 @@ func (c *Client) GetStatus() (*Status, error) {
 }
 
 func (c *Cache) getPromClient(p *db.Project) prom.Client {
-	user, password := "", ""
-	if p.Prometheus.BasicAuth != nil {
-		user, password = p.Prometheus.BasicAuth.User, p.Prometheus.BasicAuth.Password
-	}
-	client, err := prom.NewApiClient(p.Prometheus.Url, user, password, p.Prometheus.TlsSkipVerify, p.Prometheus.ExtraSelector, p.Prometheus.CustomHeaders)
+	client, err := prom.NewApiClient(p.Prometheus.Url, p.Prometheus.BasicAuth, p.Prometheus.TlsSkipVerify, p.Prometheus.ExtraSelector, p.Prometheus.CustomHeaders)
 	if err != nil {
 		return NewErrorClient(err)
 	}

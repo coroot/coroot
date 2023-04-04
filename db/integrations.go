@@ -83,16 +83,16 @@ type IntegrationsPrometheus struct {
 	Url             string              `json:"url"`
 	RefreshInterval timeseries.Duration `json:"refresh_interval"`
 	TlsSkipVerify   bool                `json:"tls_skip_verify"`
-	BasicAuth       *BasicAuth          `json:"basic_auth"`
+	BasicAuth       *utils.BasicAuth    `json:"basic_auth"`
 	ExtraSelector   string              `json:"extra_selector"`
 	CustomHeaders   []utils.Header      `json:"custom_headers"`
 }
 
 type IntegrationPyroscope struct {
-	Url           string     `json:"url"`
-	TlsSkipVerify bool       `json:"tls_skip_verify"`
-	BasicAuth     *BasicAuth `json:"basic_auth,omitempty"`
-	ApiKey        string     `json:"api_key"`
+	Url           string           `json:"url"`
+	TlsSkipVerify bool             `json:"tls_skip_verify"`
+	BasicAuth     *utils.BasicAuth `json:"basic_auth,omitempty"`
+	ApiKey        string           `json:"api_key"`
 }
 
 type IntegrationSlack struct {
@@ -118,11 +118,6 @@ type IntegrationOpsgenie struct {
 	ApiKey     string `json:"api_key"`
 	EUInstance bool   `json:"eu_instance"`
 	Incidents  bool   `json:"incidents"`
-}
-
-type BasicAuth struct {
-	User     string `json:"user"`
-	Password string `json:"password"`
 }
 
 func (db *DB) SaveIntegrationsBaseUrl(id ProjectId, baseUrl string) error {

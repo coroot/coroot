@@ -9,7 +9,6 @@ import (
 	"github.com/coroot/coroot/profiling"
 	"github.com/coroot/coroot/prom"
 	"github.com/coroot/coroot/utils"
-	"golang.org/x/net/http/httpguts"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -175,7 +174,7 @@ func (f *IntegrationFormPrometheus) Valid() bool {
 	}
 	var validHeaders []utils.Header
 	for _, h := range f.CustomHeaders {
-		if httpguts.ValidHeaderFieldName(h.Key) && httpguts.ValidHeaderFieldValue(h.Value) {
+		if h.Valid() {
 			validHeaders = append(validHeaders, h)
 		}
 	}
@@ -192,8 +191,12 @@ func (f *IntegrationFormPrometheus) Get(project *db.Project, masked bool) {
 	f.IntegrationsPrometheus = cfg
 	if masked {
 		f.Url = "http://<hidden>"
+		if f.BasicAuth != nil {
+			f.BasicAuth.User = "<user>"
+			f.BasicAuth.Password = "<password>"
+		}
 		for i := range f.CustomHeaders {
-			f.CustomHeaders[i].Value = "<hidden>"
+			f.CustomHeaders[i].Value = "<header>"
 		}
 	}
 }
@@ -207,11 +210,7 @@ func (f *IntegrationFormPrometheus) Update(ctx context.Context, project *db.Proj
 }
 
 func (f *IntegrationFormPrometheus) Test(ctx context.Context, project *db.Project) error {
-	user, password := "", ""
-	if f.BasicAuth != nil {
-		user, password = f.BasicAuth.User, f.BasicAuth.Password
-	}
-	client, err := prom.NewApiClient(f.Url, user, password, f.TlsSkipVerify, f.ExtraSelector, f.CustomHeaders)
+	client, err := prom.NewApiClient(f.Url, f.BasicAuth, f.TlsSkipVerify, f.ExtraSelector, f.CustomHeaders)
 	if err != nil {
 		return err
 	}
@@ -243,6 +242,10 @@ func (f *IntegrationFormPyroscope) Get(project *db.Project, masked bool) {
 		if f.ApiKey != "" {
 			f.ApiKey = "<api_key>"
 		}
+		if f.BasicAuth != nil {
+			f.BasicAuth.User = "<user>"
+			f.BasicAuth.Password = "<password>"
+		}
 	}
 }
 
@@ -260,8 +263,11 @@ func (f *IntegrationFormPyroscope) Update(ctx context.Context, project *db.Proje
 }
 
 func (f *IntegrationFormPyroscope) Test(ctx context.Context, project *db.Project) error {
-	client := profiling.NewPyroscope(f.Url, f.ApiKey)
-	_, err := client.Metadata(ctx)
+	client, err := profiling.NewPyroscope(f.Url, f.ApiKey, f.BasicAuth)
+	if err != nil {
+		return err
+	}
+	_, err = client.Metadata(ctx)
 	return err
 }
 

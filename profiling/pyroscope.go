@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/coroot/coroot/timeseries"
+	"github.com/coroot/coroot/utils"
 	"github.com/pyroscope-io/pyroscope/pkg/model/appmetadata"
 	"io"
 	"net/http"
@@ -25,13 +26,17 @@ type Pyroscope struct {
 	apiKey string
 }
 
-func NewPyroscope(url string, apiKey string) *Pyroscope {
+func NewPyroscope(address string, apiKey string, basicAuth *utils.BasicAuth) (*Pyroscope, error) {
+	address, err := basicAuth.AddTo(address)
+	if err != nil {
+		return nil, err
+	}
 	c := &Pyroscope{
-		url:    url,
+		url:    address,
 		apiKey: apiKey,
 		client: http.DefaultClient,
 	}
-	return c
+	return c, nil
 }
 
 func (c *Pyroscope) Metadata(ctx context.Context) (Metadata, error) {

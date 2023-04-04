@@ -4,20 +4,20 @@
         <div class="caption">
             Coroot works on top of the telemetry data stored in your Prometheus server.
         </div>
-        <v-text-field outlined dense v-model="form.url" :rules="[$validators.notEmpty, $validators.isUrl]" placeholder="https://prom.example.com:9090" hide-details="auto" class="flex-grow-1" />
-        <v-checkbox v-model="form.tls_skip_verify" :disabled="!form.url.startsWith('https')" label="Skip TLS verify" hide-details class="mt-1" />
-        <div class="d-md-flex gap">
-            <v-checkbox v-model="basic_auth" label="HTTP basic auth" class="mt-1" hide-details />
-            <template v-if="basic_auth">
-                <v-text-field outlined dense v-model="form.basic_auth.user" label="username" hide-details />
-                <v-text-field v-model="form.basic_auth.password" label="password" type="password" outlined dense hide-details />
-            </template>
+        <v-text-field outlined dense v-model="form.url" :rules="[$validators.notEmpty, $validators.isUrl]" placeholder="https://prom.example.com:9090" hide-details="auto" class="flex-grow-1" single-line />
+        <v-checkbox v-model="form.tls_skip_verify" :disabled="!form.url.startsWith('https')" label="Skip TLS verify" hide-details class="my-2" />
+
+        <v-checkbox v-model="basic_auth" label="HTTP basic auth" class="my-2" hide-details />
+        <div v-if="basic_auth" class="d-flex gap">
+            <v-text-field outlined dense v-model="form.basic_auth.user" label="username" hide-details single-line />
+            <v-text-field v-model="form.basic_auth.password" label="password" type="password" outlined dense hide-details single-line />
         </div>
-        <v-checkbox v-model="custom_headers" label="Custom HTTP headers" class="mt-1 mb-2" hide-details />
+
+        <v-checkbox v-model="custom_headers" label="Custom HTTP headers" class="my-2" hide-details />
         <template v-if="custom_headers">
-            <div v-for="(h, i) in form.custom_headers" :key="i" class="d-md-flex gap mb-2 align-center">
-                <v-text-field outlined dense v-model="h.key" label="header" hide-details />
-                <v-text-field outlined dense v-model="h.value" type="password" label="value" hide-details />
+            <div v-for="(h, i) in form.custom_headers" :key="i" class="d-flex gap mb-2 align-center">
+                <v-text-field outlined dense v-model="h.key" label="header" hide-details single-line />
+                <v-text-field outlined dense v-model="h.value" type="password" label="value" hide-details single-line />
                 <v-btn @click="form.custom_headers.splice(i, 1)" icon small>
                     <v-icon small>mdi-trash-can-outline</v-icon>
                 </v-btn>
@@ -36,7 +36,7 @@
         <div class="caption">
             An additional metric selector that will be added to every Prometheus query (e.g. <var>{cluster="us-west-1"}</var>)
         </div>
-        <v-text-field outlined dense v-model="form.extra_selector" :rules="[$validators.isPrometheusSelector]" />
+        <v-text-field outlined dense v-model="form.extra_selector" :rules="[$validators.isPrometheusSelector]" single-line />
 
         <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
             {{error}}
@@ -144,10 +144,10 @@ export default {
                 }
                 this.$events.emit('refresh');
                 this.message = 'Settings were successfully updated. The changes will take effect in a minute or two.';
-                this.get();
                 setTimeout(() => {
                     this.message = '';
                 }, 1000);
+                this.get();
             });
         },
     },

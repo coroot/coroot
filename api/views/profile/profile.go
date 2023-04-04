@@ -46,8 +46,11 @@ func Render(ctx context.Context, project *db.Project, app *model.Application, ap
 	to := utils.ParseTime(wCtx.To, sTo, wCtx.To)
 
 	v := &View{}
-	client := profiling.NewPyroscope(cfg.Url, cfg.ApiKey)
-	meta, err := client.Metadata(ctx)
+	var meta profiling.Metadata
+	client, err := profiling.NewPyroscope(cfg.Url, cfg.ApiKey, cfg.BasicAuth)
+	if err == nil {
+		meta, err = client.Metadata(ctx)
+	}
 	if err != nil {
 		klog.Errorln(err)
 		v.Status = model.WARNING

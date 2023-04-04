@@ -3,7 +3,9 @@ package utils
 import (
 	"github.com/coroot/coroot/timeseries"
 	"github.com/xhit/go-str2duration/v2"
+	"golang.org/x/net/http/httpguts"
 	"k8s.io/klog"
+	"net/url"
 	"strconv"
 	"strings"
 )
@@ -11,6 +13,27 @@ import (
 type Header struct {
 	Key   string `json:"key"`
 	Value string `json:"value"`
+}
+
+func (h Header) Valid() bool {
+	return httpguts.ValidHeaderFieldName(h.Key) && httpguts.ValidHeaderFieldValue(h.Value)
+}
+
+type BasicAuth struct {
+	User     string `json:"user"`
+	Password string `json:"password"`
+}
+
+func (ba *BasicAuth) AddTo(address string) (string, error) {
+	if ba == nil {
+		return address, nil
+	}
+	u, err := url.Parse(address)
+	if err != nil {
+		return "", err
+	}
+	u.User = url.UserPassword(ba.User, ba.Password)
+	return u.String(), nil
 }
 
 func ParseTime(now timeseries.Time, val string, def timeseries.Time) timeseries.Time {
