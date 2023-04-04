@@ -1,5 +1,5 @@
 <template>
-    <v-form v-if="form" v-model="valid" ref="form" style="max-width: 800px">
+    <v-form v-model="valid" ref="form" style="max-width: 800px">
         <div class="subtitle-1">Prometheus URL</div>
         <div class="caption">
             Coroot works on top of the telemetry data stored in your Prometheus server.
@@ -7,14 +7,25 @@
         <v-text-field outlined dense v-model="form.url" :rules="[$validators.notEmpty, $validators.isUrl]" placeholder="https://prom.example.com:9090" hide-details="auto" class="flex-grow-1" />
         <v-checkbox v-model="form.tls_skip_verify" :disabled="!form.url.startsWith('https')" label="Skip TLS verify" hide-details class="mt-1" />
         <div class="d-md-flex gap">
-            <v-checkbox v-model="basic_auth" label="HTTP basic auth" class="mt-1" />
+            <v-checkbox v-model="basic_auth" label="HTTP basic auth" class="mt-1" hide-details />
             <template v-if="basic_auth">
-                <v-text-field outlined dense v-model="form.basic_auth.user" label="username"  />
-                <v-text-field v-model="form.basic_auth.password" label="password" type="password" outlined dense />
+                <v-text-field outlined dense v-model="form.basic_auth.user" label="username" hide-details />
+                <v-text-field v-model="form.basic_auth.password" label="password" type="password" outlined dense hide-details />
             </template>
         </div>
+        <v-checkbox v-model="custom_headers" label="Custom HTTP headers" class="mt-1 mb-2" hide-details />
+        <template v-if="custom_headers">
+            <div v-for="(h, i) in form.custom_headers" :key="i" class="d-md-flex gap mb-2 align-center">
+                <v-text-field outlined dense v-model="h.key" label="header" hide-details />
+                <v-text-field outlined dense v-model="h.value" type="password" label="value" hide-details />
+                <v-btn @click="form.custom_headers.splice(i, 1)" icon small>
+                    <v-icon small>mdi-trash-can-outline</v-icon>
+                </v-btn>
+            </div>
+            <v-btn color="primary" @click="form.custom_headers.push({key: '', value: ''})">Add header</v-btn>
+        </template>
 
-        <div class="subtitle-1">Refresh interval</div>
+        <div class="subtitle-1 mt-3">Refresh interval</div>
         <div class="caption">
             How often Coroot retrieves telemetry data from a Prometheus.
             The value must be greater than the <a href="https://prometheus.io/docs/prometheus/latest/configuration/configuration/" target="_blank" rel="noopener noreferrer"><var>scrape_interval</var></a> of the Prometheus server.
@@ -53,8 +64,16 @@ export default {
 
     data() {
         return {
-            form: null,
+            form: {
+                url: '',
+                tls_skip_verify: false,
+                basic_auth: null,
+                custom_headers: [],
+                refresh_interval: 0,
+                extra_selector: '',
+            },
             basic_auth: false,
+            custom_headers: true,
             valid: false,
             loading: false,
             error: '',
@@ -69,6 +88,11 @@ export default {
     watch: {
         projectId() {
             this.get();
+        },
+        custom_headers(v) {
+            if (v && !this.form.custom_headers.length) {
+                this.form.custom_headers.push({key: '', value: ''});
+            }
         }
     },
 
@@ -88,13 +112,17 @@ export default {
                     this.error = error;
                     return;
                 }
-                this.form = data;
+                this.form = Object.assign({}, this.form, data);
                 if (!this.form.basic_auth) {
                     this.form.basic_auth = {user: '', password: ''};
                     this.basic_auth = false;
                 } else {
                     this.basic_auth = true;
                 }
+                if (!this.form.custom_headers) {
+                    this.form.custom_headers = [];
+                }
+                this.custom_headers = !!this.form.custom_headers.length;
             });
         },
         save() {
@@ -103,6 +131,9 @@ export default {
             const form = JSON.parse(JSON.stringify(this.form));
             if (!this.basic_auth) {
                 form.basic_auth = null;
+            }
+            if (!this.custom_headers) {
+                form.custom_headers = [];
             }
             this.message = '';
             this.$api.saveIntegrations('prometheus', 'save', form, (data, error) => {
@@ -113,6 +144,7 @@ export default {
                 }
                 this.$events.emit('refresh');
                 this.message = 'Settings were successfully updated. The changes will take effect in a minute or two.';
+                this.get();
                 setTimeout(() => {
                     this.message = '';
                 }, 1000);

@@ -3,6 +3,7 @@ package db
 import (
 	"fmt"
 	"github.com/coroot/coroot/timeseries"
+	"github.com/coroot/coroot/utils"
 )
 
 type IntegrationType string
@@ -84,6 +85,7 @@ type IntegrationsPrometheus struct {
 	TlsSkipVerify   bool                `json:"tls_skip_verify"`
 	BasicAuth       *BasicAuth          `json:"basic_auth"`
 	ExtraSelector   string              `json:"extra_selector"`
+	CustomHeaders   []utils.Header      `json:"custom_headers"`
 }
 
 type IntegrationPyroscope struct {

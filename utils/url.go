@@ -8,6 +8,11 @@ import (
 	"strings"
 )
 
+type Header struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
 func ParseTime(now timeseries.Time, val string, def timeseries.Time) timeseries.Time {
 	if val == "" {
 		return def

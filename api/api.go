@@ -354,7 +354,7 @@ func (api *Api) Prom(w http.ResponseWriter, r *http.Request) {
 	if p.BasicAuth != nil {
 		user, password = p.BasicAuth.User, p.BasicAuth.Password
 	}
-	c, err := prom.NewApiClient(p.Url, user, password, p.TlsSkipVerify, p.ExtraSelector)
+	c, err := prom.NewApiClient(p.Url, user, password, p.TlsSkipVerify, p.ExtraSelector, p.CustomHeaders)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)

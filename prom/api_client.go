@@ -9,6 +9,7 @@ import (
 	"github.com/buger/jsonparser"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
+	"github.com/coroot/coroot/utils"
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/api"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
@@ -52,9 +53,10 @@ type ApiClient struct {
 	apiClient     api.Client
 	httpClient    *http.Client
 	extraSelector string
+	customHeaders []utils.Header
 }
 
-func NewApiClient(address, user, password string, skipTlsVerify bool, extraSelector string) (*ApiClient, error) {
+func NewApiClient(address, user, password string, skipTlsVerify bool, extraSelector string, customHeaders []utils.Header) (*ApiClient, error) {
 	if user != "" {
 		if u, err := url.Parse(address); err != nil {
 			klog.Errorln("failed to parse url:", err)
@@ -71,7 +73,7 @@ func NewApiClient(address, user, password string, skipTlsVerify bool, extraSelec
 	if err != nil {
 		return nil, err
 	}
-	return &ApiClient{api: v1.NewAPI(c), apiClient: c, httpClient: cl, extraSelector: extraSelector}, nil
+	return &ApiClient{api: v1.NewAPI(c), apiClient: c, httpClient: cl, extraSelector: extraSelector, customHeaders: customHeaders}, nil
 }
 
 func (c *ApiClient) Ping(ctx context.Context) error {
@@ -102,6 +104,9 @@ func (c *ApiClient) QueryRange(ctx context.Context, query string, from, to times
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	for _, h := range c.customHeaders {
+		req.Header.Set(h.Key, h.Value)
+	}
 	req = req.WithContext(ctx)
 
 	resp, err := c.httpClient.Do(req)

@@ -9,6 +9,7 @@ import (
 	"github.com/coroot/coroot/profiling"
 	"github.com/coroot/coroot/prom"
 	"github.com/coroot/coroot/utils"
+	"golang.org/x/net/http/httpguts"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -172,6 +173,13 @@ func (f *IntegrationFormPrometheus) Valid() bool {
 	if !prom.IsSelectorValid(f.IntegrationsPrometheus.ExtraSelector) {
 		return false
 	}
+	var validHeaders []utils.Header
+	for _, h := range f.CustomHeaders {
+		if httpguts.ValidHeaderFieldName(h.Key) && httpguts.ValidHeaderFieldValue(h.Value) {
+			validHeaders = append(validHeaders, h)
+		}
+	}
+	f.CustomHeaders = validHeaders
 	return true
 }
 
@@ -184,6 +192,9 @@ func (f *IntegrationFormPrometheus) Get(project *db.Project, masked bool) {
 	f.IntegrationsPrometheus = cfg
 	if masked {
 		f.Url = "http://<hidden>"
+		for i := range f.CustomHeaders {
+			f.CustomHeaders[i].Value = "<hidden>"
+		}
 	}
 }
 
@@ -200,7 +211,7 @@ func (f *IntegrationFormPrometheus) Test(ctx context.Context, project *db.Projec
 	if f.BasicAuth != nil {
 		user, password = f.BasicAuth.User, f.BasicAuth.Password
 	}
-	client, err := prom.NewApiClient(f.Url, user, password, f.TlsSkipVerify, f.ExtraSelector)
+	client, err := prom.NewApiClient(f.Url, user, password, f.TlsSkipVerify, f.ExtraSelector, f.CustomHeaders)
 	if err != nil {
 		return err
 	}
