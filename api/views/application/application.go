@@ -131,27 +131,16 @@ func Render(world *model.World, app *model.Application, incidents []db.Incident)
 
 	if len(incidents) > 0 {
 		now := timeseries.Now()
-		for i := range incidents {
-			if !incidents[i].Resolved() {
-				incidents[i].ResolvedAt = now
+		annotations := make([]model.Annotation, 0, len(incidents))
+		for _, i := range incidents {
+			if !i.Resolved() {
+				i.ResolvedAt = now
 			}
+			annotations = append(annotations, model.Annotation{Name: "incident", X1: i.OpenedAt, X2: i.ResolvedAt})
 		}
 		for _, r := range app.Reports {
 			for _, w := range r.Widgets {
-				var charts []*model.Chart
-				switch {
-				case w.ChartGroup != nil:
-					charts = w.ChartGroup.Charts
-				case w.Chart != nil:
-					charts = []*model.Chart{w.Chart}
-				default:
-					continue
-				}
-				for _, ch := range charts {
-					for _, i := range incidents {
-						ch.AddAnnotation("incident", i.OpenedAt, i.ResolvedAt, "")
-					}
-				}
+				w.AddAnnotation(annotations...)
 			}
 		}
 	}

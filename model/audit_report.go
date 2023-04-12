@@ -70,6 +70,19 @@ func (c *AuditReport) GetOrCreateChart(title string) *Chart {
 	return ch
 }
 
+func (c *AuditReport) GetOrCreateHeatmap(title string) *Heatmap {
+	for _, w := range c.Widgets {
+		if h := w.Heatmap; h != nil {
+			if h.Title == title {
+				return h
+			}
+		}
+	}
+	h := NewHeatmap(c.ctx, title)
+	c.Widgets = append(c.Widgets, &Widget{Heatmap: h, Width: "100%"})
+	return h
+}
+
 func (c *AuditReport) GetOrCreateDependencyMap() *DependencyMap {
 	for _, w := range c.Widgets {
 		if w.DependencyMap != nil {

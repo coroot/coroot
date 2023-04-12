@@ -35,7 +35,7 @@ func Audit(w *model.World, p *db.Project) {
 		a.deployments()
 
 		for _, r := range a.reports {
-			widgets := enrichWidgets(r.Widgets, app.Events)
+			widgets := a.enrichWidgets(r.Widgets, app.Events)
 			sort.SliceStable(widgets, func(i, j int) bool {
 				return widgets[i].Table != nil
 			})
@@ -68,14 +68,14 @@ func (a *appAuditor) addReport(name model.AuditReportName) *model.AuditReport {
 	return r
 }
 
-func enrichWidgets(widgets []*model.Widget, events []*model.ApplicationEvent) []*model.Widget {
+func (a *appAuditor) enrichWidgets(widgets []*model.Widget, events []*model.ApplicationEvent) []*model.Widget {
+	annotations := model.EventsToAnnotations(events, a.w.Ctx)
 	var res []*model.Widget
 	for _, w := range widgets {
 		if w.Chart != nil {
 			if w.Chart.IsEmpty() {
 				continue
 			}
-			w.Chart.AddEventsAnnotations(events)
 		}
 		if w.ChartGroup != nil {
 			var charts []*model.Chart
@@ -84,20 +84,13 @@ func enrichWidgets(widgets []*model.Widget, events []*model.ApplicationEvent) []
 					continue
 				}
 				charts = append(charts, ch)
-				ch.AddEventsAnnotations(events)
 			}
 			if len(charts) == 0 {
 				continue
 			}
 			w.ChartGroup.Charts = charts
 		}
-		if w.LogPatterns != nil {
-			for _, p := range w.LogPatterns.Patterns {
-				if p.Instances != nil {
-					p.Instances.AddEventsAnnotations(events)
-				}
-			}
-		}
+		w.AddAnnotation(annotations...)
 		res = append(res, w)
 	}
 	return res
