@@ -94,6 +94,7 @@ export default {
     computed: {
         config() {
             const c = JSON.parse(JSON.stringify(this.heatmap));
+            c.series = (c.series || []).filter((s) => s.data != null);
             c.ctx.data = Array.from({length: (c.ctx.to - c.ctx.from) / c.ctx.step + 1}, (_, i) => c.ctx.from + (i * c.ctx.step));
             c.ctx.min = Math.min(...c.series.map(s => Math.min(...s.data.filter(v => !!v))));
             c.ctx.max = Math.max(...c.series.map(s => Math.max(...s.data)));
@@ -123,7 +124,7 @@ export default {
                 return none;
             }
             const b = this.bbox;
-            const h = b.height / (c.series.length + 1);
+            const h = b.height / c.series.length;
             return {
                 content: c.series[idx].threshold,
                 style: {
@@ -135,10 +136,10 @@ export default {
             };
         },
         annotations() {
-            return this.config.annotations.filter(a => a.name !== 'incident').map((a) => ({msg: a.name, x: a.x1, icon: a.icon}));
+            return (this.config.annotations || []).filter(a => a.name !== 'incident').map((a) => ({msg: a.name, x: a.x1, icon: a.icon}));
         },
         incidents() {
-            return this.config.annotations.filter(a => a.name === 'incident').map((a) => ({x1: a.x1, x2: a.x2}));
+            return (this.config.annotations || []).filter(a => a.name === 'incident').map((a) => ({x1: a.x1, x2: a.x2}));
         },
         tooltip() {
             const c = this.config;
@@ -186,7 +187,7 @@ export default {
                 scales: {
                     y: {
                         min: 0,
-                        max: c.series.length+1,
+                        max: c.series.length,
                     },
                 },
                 axes: [
@@ -241,7 +242,7 @@ export default {
             return (u, seriesIdx) => {
                 const xs = u.data[0];
                 const ys = u.data[seriesIdx];
-                const h = u.bbox.height / (c.series.length + 1);
+                const h = u.bbox.height / c.series.length;
                 const w = u.bbox.width / xs.length;
                 const y = u.bbox.height + u.bbox.top - seriesIdx*h;
                 const x = u.bbox.left - w/2 + margin/2;
@@ -277,7 +278,7 @@ export default {
     width: 120px;
     height: 10px;
     background: linear-gradient(to right, hsl(200 100% 75%), hsl(200 100% 25%));
-    margin: 0 10px 0 auto;
+    margin: 5px 10px 15px auto;
     display: flex;
 }
 .legend .item {

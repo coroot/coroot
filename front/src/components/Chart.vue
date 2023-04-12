@@ -167,10 +167,10 @@ export default {
             return {...link, query};
         },
         annotations() {
-            return this.config.annotations.filter(a => a.name !== 'incident').map((a) => ({msg: a.name, x: a.x1, icon: a.icon}));
+            return (this.config.annotations || []).filter(a => a.name !== 'incident').map((a) => ({msg: a.name, x: a.x1, icon: a.icon}));
         },
         incidents() {
-            return this.config.annotations.filter(a => a.name === 'incident').map((a) => ({x1: a.x1, x2: a.x2}));
+            return (this.config.annotations || []).filter(a => a.name === 'incident').map((a) => ({x1: a.x1, x2: a.x2}));
         },
         tooltip() {
             const c = this.config;
