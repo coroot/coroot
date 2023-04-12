@@ -238,14 +238,14 @@ export default {
             const c = this.config;
             const norm = c.ctx.max - c.ctx.min;
             const margin = 1;
-            return (u, seriesIdx, idx0, idx1) => {
+            return (u, seriesIdx) => {
                 const xs = u.data[0];
                 const ys = u.data[seriesIdx];
                 const h = u.bbox.height / (c.series.length + 1);
                 const w = u.bbox.width / xs.length;
                 const y = u.bbox.height + u.bbox.top - seriesIdx*h;
                 const x = u.bbox.left - w/2 + margin/2;
-                uPlot.orient(u, seriesIdx, (series, dataX, dataY, scaleX, scaleY, valToPosX, valToPosY, xOff, yOff, xDim, yDim, moveTo, lineTo, rect, arc) => {
+                uPlot.orient(u, seriesIdx, (series, dataX, dataY, scaleX, scaleY, valToPosX, valToPosY, xOff, yOff, xDim, yDim, moveTo, lineTo, rect) => {
                     u.ctx.save();
                     xs.forEach((_, i) => {
                         if (!ys[i]) {
