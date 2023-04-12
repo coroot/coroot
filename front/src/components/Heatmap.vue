@@ -302,11 +302,13 @@ export default {
     position: absolute;
     background-color: white;
     border-top: 1px dashed black;
+    pointer-events: none;
 }
 .threshold .icon {
     position: absolute;
     right: -20px;
     top: -8px;
+    pointer-events: auto;
 }
 
 .tooltip .item {

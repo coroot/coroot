@@ -36,11 +36,11 @@ export default {
                 return null;
             }
             const long = incident.x2 - incident.x1 > 3600000;
-            const tsFormat = long ? tsFormatShort : tsFormat;
+            const fmt = long ? tsFormatShort : tsFormat;
             const precision = long ? 'm' : 's';
             return {
-                from: this.$format.date(incident.x1, tsFormat),
-                to: incident.x2 < this.ctx.to && this.$format.date(incident.x2, tsFormat),
+                from: this.$format.date(incident.x1, fmt),
+                to: incident.x2 < this.ctx.to && this.$format.date(incident.x2, fmt),
                 dur: this.$format.duration((incident.x2-incident.x1 + this.ctx.step), precision),
             }
         },
@@ -50,7 +50,6 @@ export default {
             const init = (u) => {
                 const t = this.$refs.tooltip;
                 u.over.appendChild(t);
-                u.over.addEventListener("mouseenter", () => t.style.display = 'block');
                 u.over.addEventListener("mouseleave", () => t.style.display = 'none');
             }
             const setCursor = (u) => {
@@ -63,6 +62,7 @@ export default {
                 const t = this.$refs.tooltip;
                 const l = left - (left >= u.over.clientWidth/2 ? t.clientWidth + 5 : -5);
                 t.style.transform = "translate(" + l + "px, " + top + "px)";
+                t.style.display = 'block';
             }
             return {hooks: {init, setCursor}}
         },
@@ -89,7 +89,6 @@ export default {
 .tooltip .incident {
     margin-top: 10px;
     padding-top: 5px;
-    /*color: hsl(4, 90%, 58%);*/
     border-top: 1px solid black;
 }
 .tooltip .incident .label {

@@ -56,5 +56,6 @@ export default {
     flex-grow: 1;
     border-left: 0.08rem dashed rgba(0,0,0,0.5);
     margin-left: -0.04rem;
+    pointer-events: none;
 }
 </style>
