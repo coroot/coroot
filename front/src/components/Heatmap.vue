@@ -1,0 +1,347 @@
+<template>
+    <div class="heatmap">
+        <div class="title" v-html="config.title" />
+
+        <div>
+            <div class="legend">
+                <div v-for="i in legend" class="item" :class="i.type">
+                    {{i.value}}
+                </div>
+            </div>
+        </div>
+
+        <div ref="uplot" v-on-resize="redraw" style="position: relative">
+            <div class="threshold" style="z-index: 1" :style="threshold.style">
+                <v-tooltip left>
+                    <template #activator="{on}">
+                        <v-icon v-on="on" small class="icon">mdi-target</v-icon>
+                    </template>
+                    <div v-html="threshold.content" class="text-center"/>
+                </v-tooltip>
+            </div>
+            <ChartAnnotations :ctx="config.ctx" :bbox="bbox" :annotations="annotations" />
+            <ChartIncidents :ctx="config.ctx" :bbox="bbox" :incidents="incidents" />
+        </div>
+
+        <ChartTooltip ref="tooltip" v-model="idx" :ctx="config.ctx" :incidents="incidents" class="tooltip">
+            <div v-for="i in tooltip" class="item" :class="{threshold: !!i.threshold}">
+                <span v-if="!!i.threshold" class="details">
+                    <span class="above">{{i.threshold.above}}</span>
+                    <br>
+                    <span class="below">{{i.threshold.below}}</span>
+                </span>
+                <div class="label" :style="{width: i.width+'ch'}">{{i.label}}</div>
+                <div class="value">
+                    <div class="bar" :style="{width: i.bar+'%'}">{{i.value}}</div>
+                </div>
+            </div>
+        </ChartTooltip>
+    </div>
+</template>
+
+<script>
+import uPlot from "uplot";
+import ChartTooltip from "@/components/ChartTooltip";
+import ChartAnnotations from "@/components/ChartAnnotations";
+import ChartIncidents from "@/components/ChartIncidents";
+
+const font = '12px Roboto, sans-serif'
+
+function fmtDigits(...v) {
+    const min = Math.min(...v.filter(v => !!v));
+    const p = Math.floor(Math.log(min) / Math.log(10));
+    if (p >= 0) {
+        return 0
+    }
+    return -p;
+}
+
+function fmtVal(v, unit, digits) {
+    if (!v) {
+        return '-';
+    }
+    if (digits === undefined) {
+        digits = fmtDigits(v)
+    }
+    return v.toFixed(digits)+unit;
+}
+
+export default {
+    props: {
+        heatmap: Object,
+    },
+    components: {ChartTooltip, ChartAnnotations, ChartIncidents},
+    data() {
+        return {
+            ch: null,
+            bbox: null,
+            idx: null,
+        };
+    },
+    mounted() {
+        this.$nextTick(this.redraw);
+    },
+    beforeDestroy() {
+        this.ch && this.ch.destroy();
+    },
+
+    watch: {
+        config() {
+            this.$nextTick(this.redraw);
+        },
+    },
+
+    computed: {
+        config() {
+            const c = JSON.parse(JSON.stringify(this.heatmap));
+            c.series = (c.series || []).filter((s) => s.data != null);
+            c.ctx.data = Array.from({length: (c.ctx.to - c.ctx.from) / c.ctx.step + 1}, (_, i) => c.ctx.from + (i * c.ctx.step));
+            c.ctx.min = Math.min(...c.series.map(s => Math.min(...s.data.filter(v => !!v))));
+            c.ctx.max = Math.max(...c.series.map(s => Math.max(...s.data)));
+            return c;
+        },
+        legend() {
+            const c = this.config;
+            if (!c) {
+                return [];
+            }
+            const {min, max} = c.ctx;
+            const avg = (min + max)/2;
+            return [
+                {type: 'min', value: fmtVal(min, '/s')},
+                {type: 'avg', value: fmtVal(avg, '/s')},
+                {type: 'max', value: fmtVal(max, '/s')},
+            ]
+        },
+        threshold() {
+            const none = {style: {display: 'none'}};
+            const c = this.config;
+            if (!this.ch || !c) {
+                return none;
+            }
+            const idx = c.series.findIndex(s => !!s.threshold);
+            if (idx === -1) {
+                return none;
+            }
+            const b = this.bbox;
+            const h = b.height / c.series.length;
+            return {
+                content: c.series[idx].threshold,
+                style: {
+                    display: 'block',
+                    top: b.top + b.height - h * (idx + 1) - 1 + 'px',
+                    left: b.left + 'px',
+                    width: b.width + 5 + 'px',
+                }
+            };
+        },
+        annotations() {
+            return (this.config.annotations || []).filter(a => a.name !== 'incident').map((a) => ({msg: a.name, x: a.x1, icon: a.icon}));
+        },
+        incidents() {
+            return (this.config.annotations || []).filter(a => a.name === 'incident').map((a) => ({x1: a.x1, x2: a.x2}));
+        },
+        tooltip() {
+            const c = this.config;
+            if (!c || this.idx === null) {
+                return [];
+            }
+            const idx = this.idx;
+            const max = Math.max(...c.series.map(s => s.data[idx]));
+            let threshold = null;
+            const thresholdIdx = c.series.findIndex(s => !!s.threshold);
+            if (thresholdIdx > -1) {
+                let below = c.series.filter((_, i) => i <= thresholdIdx).reduce((sum, s) => sum+s.data[idx], 0);
+                let above = c.series.filter((_, i) => i > thresholdIdx).reduce((sum, s) => sum+s.data[idx], 0);
+                const total = below + above;
+                below = below * 100 / total;
+                above = above * 100 / total;
+                const digits = fmtDigits(below, above)
+                threshold = {
+                    below: fmtVal(below, '%', digits),
+                    above: fmtVal(above, '%', digits),
+                }
+            }
+            const width = Math.max(...c.series.map(s => s.title.length));
+            return c.series.map((s, i) => {
+                return {
+                    label: s.title,
+                    value: fmtVal(s.data[idx], '/s'),
+                    bar: s.data[idx] ? Math.trunc(s.data[idx]*100/max) : 0,
+                    threshold: i === thresholdIdx && threshold,
+                    width,
+                }
+            }).reverse();
+        },
+    },
+
+    methods: {
+        redraw() {
+            const c = this.config;
+            const hm = this.heatmapPaths();
+            const opts = {
+                height: 250,
+                width: this.$refs.uplot.clientWidth,
+                padding: [20, 20, 0, 0],
+                ms: 1,
+                scales: {
+                    y: {
+                        min: 0,
+                        max: c.series.length,
+                    },
+                },
+                axes: [
+                    {
+                        space: 80,
+                        font,
+                        values: [
+                            [60000, "{HH}:{mm}", null, null, "{MMM} {DD}", null, null, null, 0],
+                            [1000, "{HH}:{mm}:{ss}", null, null, "{MMM} {DD}", null, null, null, 0],
+                        ],
+                    },
+                    {
+                        scale: 'y',
+                        font,
+                        gap: 0,
+                        size: 60,
+                        splits: [0, ...c.series.map((_, i) => i+1)],
+                        values: ['0', ...c.series.map(s => s.name)],
+                    },
+                ],
+                series: [{}, ...c.series.map(() => ({paths: hm}))],
+                cursor: {
+                    points: {show: false},
+                    y: false,
+                    drag: {setScale: false},
+                    bind: {
+                        dblclick: (u) => {
+                            return () => {
+                                u.setSelect({width: 0, height: 0}, false);
+                                return null;
+                            }
+                        },
+                    },
+                },
+                legend: {show: false},
+                plugins: [
+                    this.$refs.tooltip.plugin(),
+                ],
+            };
+
+            if (this.ch) {
+                this.ch.destroy();
+            }
+            this.ch = new uPlot(opts, [c.ctx.data, ...c.series.map(s => s.data)], this.$refs.uplot);
+            this.ch.root.style.font = font;
+            this.bbox = Object.entries(this.ch.bbox).reduce((o, e) => {o[e[0]]=e[1]/devicePixelRatio; return o}, {});
+        },
+        heatmapPaths() {
+            const c = this.config;
+            const norm = c.ctx.max - c.ctx.min;
+            const margin = 1;
+            return (u, seriesIdx) => {
+                const xs = u.data[0];
+                const ys = u.data[seriesIdx];
+                const h = u.bbox.height / c.series.length;
+                const w = u.bbox.width / xs.length;
+                const y = u.bbox.height + u.bbox.top - seriesIdx*h;
+                const x = u.bbox.left - w/2 + margin/2;
+                uPlot.orient(u, seriesIdx, (series, dataX, dataY, scaleX, scaleY, valToPosX, valToPosY, xOff, yOff, xDim, yDim, moveTo, lineTo, rect) => {
+                    u.ctx.save();
+                    xs.forEach((_, i) => {
+                        if (!ys[i]) {
+                            return
+                        }
+                        const p = new Path2D();
+                        rect(p, x+i*w+w/2, y, w-margin, h-margin);
+                        const b = ys[i]/norm;
+                        u.ctx.fillStyle = 'hsl(200 100% ' + (75-Math.trunc(b*50)) + '%)';
+                        u.ctx.fill(p);
+                    })
+                    u.ctx.restore();
+                })
+            }
+        },
+    },
+}
+</script>
+
+<style scoped>
+.title {
+    font-size: 14px !important;
+    font-weight: normal !important;
+    text-align: center;
+    line-height: 1.5em;
+}
+
+.legend {
+    width: 120px;
+    height: 10px;
+    background: linear-gradient(to right, hsl(200 100% 75%), hsl(200 100% 25%));
+    margin: 5px 10px 15px auto;
+    display: flex;
+}
+.legend .item {
+    font-size: 12px;
+    margin-top: 10px;
+    width: 100%;
+}
+.legend .item.min {
+    text-align: left;
+    margin-left: -10px;
+}
+.legend .item.avg {
+    text-align: center;
+}
+.legend .item.max {
+    text-align: right;
+    margin-right: -10px;
+}
+
+.threshold {
+    position: absolute;
+    background-color: white;
+    border-top: 1px dashed black;
+    pointer-events: none;
+}
+.threshold .icon {
+    position: absolute;
+    right: -20px;
+    top: -8px;
+    pointer-events: auto;
+}
+
+.tooltip .item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding-right: 50px;
+    position: relative;
+}
+.tooltip .item.threshold {
+    border-top: 1px dashed black;
+}
+.tooltip .item .label {
+    text-align: right;
+}
+.tooltip .item .value {
+    width: 60px;
+}
+.tooltip .item .value .bar {
+    height: 12px;
+    background-color: hsl(200 100% 75%);
+    font-size: 10px;
+}
+.tooltip .item .details {
+    position: absolute;
+    right: 0;
+    top: -14px;
+    text-align: right;
+}
+.tooltip .item .details .above {
+    color: red;
+}
+.tooltip .item .details .below {
+    color: green;
+}
+</style>

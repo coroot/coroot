@@ -7,8 +7,6 @@ import (
 	"strings"
 )
 
-type ChartType string
-
 type Annotation struct {
 	Name string          `json:"name"`
 	X1   timeseries.Time `json:"x1"`
@@ -23,9 +21,11 @@ type SeriesData interface {
 }
 
 type Series struct {
-	Name  string `json:"name"`
-	Color string `json:"color"`
-	Fill  bool   `json:"fill"`
+	Name      string `json:"name"`
+	Title     string `json:"title,omitempty"`
+	Color     string `json:"color,omitempty"`
+	Fill      bool   `json:"fill,omitempty"`
+	Threshold string `json:"threshold,omitempty"`
 
 	Data SeriesData `json:"data"`
 }
@@ -88,67 +88,8 @@ func (chart *Chart) ShiftColors() *Chart {
 	return chart
 }
 
-func (chart *Chart) AddAnnotation(name string, start, end timeseries.Time, icon string) *Chart {
-	chart.Annotations = append(chart.Annotations, Annotation{X1: start, X2: end, Name: name, Icon: icon})
-	return chart
-}
-
-func (chart *Chart) AddEventsAnnotations(events []*ApplicationEvent) *Chart {
-	if len(events) == 0 {
-		return chart
-	}
-
-	type annotation struct {
-		start  timeseries.Time
-		end    timeseries.Time
-		events []*ApplicationEvent
-	}
-	var annotations []*annotation
-	getLast := func() *annotation {
-		if len(annotations) == 0 {
-			return nil
-		}
-		return annotations[len(annotations)-1]
-	}
-	for _, e := range events {
-		last := getLast()
-		if last == nil || e.Start.Sub(last.start) > 3*chart.Ctx.Step {
-			a := &annotation{start: e.Start, end: e.End, events: []*ApplicationEvent{e}}
-			annotations = append(annotations, a)
-			continue
-		}
-		last.events = append(last.events, e)
-		last.end = e.End
-	}
-
-	for _, a := range annotations {
-		sort.Slice(a.events, func(i, j int) bool {
-			return a.events[i].Type < a.events[j].Type
-		})
-		icon := ""
-		var msgs []string
-		for _, e := range a.events {
-			i := ""
-			switch e.Type {
-			case ApplicationEventTypeRollout:
-				msgs = append(msgs, "deployment "+e.Details)
-				i = "mdi-swap-horizontal-circle-outline"
-			case ApplicationEventTypeSwitchover:
-				msgs = append(msgs, "switchover "+e.Details)
-				i = "mdi-database-sync-outline"
-			case ApplicationEventTypeInstanceUp:
-				msgs = append(msgs, e.Details+" is up")
-				i = "mdi-alert-octagon-outline"
-			case ApplicationEventTypeInstanceDown:
-				msgs = append(msgs, e.Details+" is down")
-				i = "mdi-alert-octagon-outline"
-			}
-			if icon == "" {
-				icon = i
-			}
-		}
-		chart.AddAnnotation(strings.Join(msgs, "<br>"), a.start, a.end, icon)
-	}
+func (chart *Chart) AddAnnotation(annotations ...Annotation) *Chart {
+	chart.Annotations = append(chart.Annotations, annotations...)
 	return chart
 }
 
@@ -213,6 +154,33 @@ func (cg *ChartGroup) GetOrCreateChart(ctx timeseries.Context, title string) *Ch
 	return ch
 }
 
+type Heatmap struct {
+	Ctx timeseries.Context `json:"ctx"`
+
+	Title  string     `json:"title"`
+	Series SeriesList `json:"series"`
+
+	Annotations []Annotation `json:"annotations"`
+}
+
+func NewHeatmap(ctx timeseries.Context, title string) *Heatmap {
+	return &Heatmap{Ctx: ctx, Title: title}
+}
+
+func (hm *Heatmap) AddSeries(name, title string, data SeriesData, threshold string) *Heatmap {
+	if data.IsEmpty() {
+		return hm
+	}
+	s := &Series{Name: name, Title: title, Data: data, Threshold: threshold}
+	hm.Series.series = append(hm.Series.series, s)
+	return hm
+}
+
+func (hm *Heatmap) AddAnnotation(annotations ...Annotation) *Heatmap {
+	hm.Annotations = append(hm.Annotations, annotations...)
+	return hm
+}
+
 func autoFeatureChart(charts []*Chart) {
 	if len(charts) < 2 {
 		return
@@ -268,6 +236,71 @@ func topN(ss []*Series, n int, by timeseries.F) []*Series {
 	}
 	if otherTs := other.Get(); !otherTs.IsEmpty() {
 		res = append(res, &Series{Name: "other", Data: otherTs})
+	}
+	return res
+}
+
+func EventsToAnnotations(events []*ApplicationEvent, ctx timeseries.Context) []Annotation {
+	if len(events) == 0 {
+		return nil
+	}
+
+	type annotation struct {
+		start  timeseries.Time
+		end    timeseries.Time
+		events []*ApplicationEvent
+	}
+	var annotations []*annotation
+	getLast := func() *annotation {
+		if len(annotations) == 0 {
+			return nil
+		}
+		return annotations[len(annotations)-1]
+	}
+	for _, e := range events {
+		last := getLast()
+		if last == nil || e.Start.Sub(last.start) > 3*ctx.Step {
+			a := &annotation{start: e.Start, end: e.End, events: []*ApplicationEvent{e}}
+			annotations = append(annotations, a)
+			continue
+		}
+		last.events = append(last.events, e)
+		last.end = e.End
+	}
+
+	res := make([]Annotation, 0, len(annotations))
+	for _, a := range annotations {
+		sort.Slice(a.events, func(i, j int) bool {
+			return a.events[i].Type < a.events[j].Type
+		})
+		icon := ""
+		var msgs []string
+		for _, e := range a.events {
+			i := ""
+			switch e.Type {
+			case ApplicationEventTypeRollout:
+				msgs = append(msgs, "deployment "+e.Details)
+				i = "mdi-swap-horizontal-circle-outline"
+			case ApplicationEventTypeSwitchover:
+				msgs = append(msgs, "switchover "+e.Details)
+				i = "mdi-database-sync-outline"
+			case ApplicationEventTypeInstanceUp:
+				msgs = append(msgs, e.Details+" is up")
+				i = "mdi-alert-octagon-outline"
+			case ApplicationEventTypeInstanceDown:
+				msgs = append(msgs, e.Details+" is down")
+				i = "mdi-alert-octagon-outline"
+			}
+			if icon == "" {
+				icon = i
+			}
+		}
+		res = append(res, Annotation{
+			Name: strings.Join(msgs, "<br>"),
+			X1:   a.start,
+			X2:   a.end,
+			Icon: icon,
+		})
 	}
 	return res
 }

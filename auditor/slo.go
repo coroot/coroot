@@ -6,6 +6,7 @@ import (
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 	"github.com/dustin/go-humanize"
+	"strings"
 )
 
 func (a *appAuditor) slo() {
@@ -115,42 +116,77 @@ func latency(ctx timeseries.Context, app *model.Application, report *model.Audit
 }
 
 func requestsChart(app *model.Application, report *model.AuditReport) {
-	ch := report.GetOrCreateChart(fmt.Sprintf("Requests to the <var>%s</var> app, per second", app.Id.Name)).Sorted().Stacked()
+	title := fmt.Sprintf("Requests to the <var>%s</var> app, per second", app.Id.Name)
+	var ch *model.Chart
 	if len(app.LatencySLIs) > 0 {
 		sli := app.LatencySLIs[0]
 		if len(sli.Histogram) > 0 {
-			histogramSeries(ch, sli.Histogram, sli.Config.ObjectiveBucket)
+			hm := report.GetOrCreateHeatmap("Latency heatmap, requests per second")
+			ch = report.GetOrCreateChart(title).Sorted().Stacked()
+			for _, h := range histograms(sli.Histogram, sli.Config.ObjectiveBucket, sli.Config.ObjectivePercentage) {
+				ch.AddSeries(h.title, h.data, h.color)
+				hm.AddSeries(h.name, h.title, h.data, h.threshold)
+			}
 		}
 	}
 	if len(app.AvailabilitySLIs) > 0 {
-		if ch.IsEmpty() {
+		if ch == nil {
+			ch = report.GetOrCreateChart(title).Sorted().Stacked()
 			ch.AddSeries("total", app.AvailabilitySLIs[0].TotalRequests, "grey-lighten1")
 		}
 		ch.AddSeries("errors", app.AvailabilitySLIs[0].FailedRequests, "black")
 	}
 }
 
-func histogramSeries(ch *model.Chart, histogram []model.HistogramBucket, objectiveBucket float32) {
-	for i, b := range histogram {
-		color := "green"
-		if objectiveBucket > 0 && b.Le > objectiveBucket {
-			color = "red"
-		}
-		data := b.TimeSeries
-		legend := ""
+type histogram struct {
+	name, title string
+	color       string
+	data        *timeseries.TimeSeries
+	threshold   string
+}
+
+func histograms(buckets []model.HistogramBucket, objectiveBucket, objectivePercentage float32) []histogram {
+	res := make([]histogram, 0, len(buckets))
+	var from, to float32
+	thresholdIdx := -1
+	for i, b := range buckets {
+		var h histogram
+		to = b.Le
 		if i == 0 {
-			legend = fmt.Sprintf("0-%.0f ms", b.Le*1000)
+			from = 0
+			h.data = b.TimeSeries
 		} else {
-			prev := histogram[i-1]
-			data = timeseries.Sub(data, prev.TimeSeries)
-			if prev.Le >= 0.1 {
-				legend = fmt.Sprintf("%s-%s s", humanize.Ftoa(float64(prev.Le)), humanize.Ftoa(float64(b.Le)))
-			} else {
-				legend = fmt.Sprintf("%.0f-%.0f ms", prev.Le*1000, b.Le*1000)
-			}
+			from = buckets[i-1].Le
+			h.data = timeseries.Sub(b.TimeSeries, buckets[i-1].TimeSeries)
 		}
-		ch.AddSeries(legend, data, color)
+		h.color = "green"
+		if objectiveBucket > 0 && to > objectiveBucket {
+			h.color = "red"
+		} else {
+			h.color = "green"
+			thresholdIdx = i
+		}
+		switch {
+		case timeseries.IsInf(to, 0):
+			h.name = fmt.Sprintf(">%ss", humanize.Ftoa(float64(from)))
+			h.title = fmt.Sprintf(">%s s", humanize.Ftoa(float64(from)))
+		case from < 0.1:
+			//h.name = fmt.Sprintf("%.0fms", to*1000)
+			h.name = utils.FormatLatency(to)
+			h.title = fmt.Sprintf("%.0f-%.0f ms", from*1000, to*1000)
+		default:
+			//h.name = fmt.Sprintf("%ss", humanize.Ftoa(float64(to)))
+			h.name = utils.FormatLatency(to)
+			h.title = fmt.Sprintf("%s-%s s", humanize.Ftoa(float64(from)), humanize.Ftoa(float64(to)))
+		}
+		res = append(res, h)
 	}
+	if thresholdIdx > -1 {
+		res[thresholdIdx].threshold = fmt.Sprintf(
+			"<b>Latency objective</b><br> %s of requests should be served faster than %s",
+			utils.FormatPercentage(objectivePercentage), utils.FormatLatency(objectiveBucket))
+	}
+	return res
 }
 
 type clientRequestsSummary struct {
@@ -183,16 +219,13 @@ func clientRequests(app *model.Application, report *model.AuditReport) {
 	for id, s := range clients {
 		client := model.NewTableCell(id.Name)
 		client.Link = model.NewRouterLink(id.Name).SetRoute("application").SetParam("id", id)
-		for _, p := range s.protocols.Items() {
-			client.AddTag(p)
-		}
+		client.SetUnit(strings.Join(s.protocols.Items(), " "))
 
 		chart := model.NewTableCell().SetChart(s.rps)
 
 		requests := model.NewTableCell().SetUnit("/s")
 		if last := s.rps.Last(); last > 0 {
 			requests.SetValue(utils.FormatFloat(last))
-			requests.AddTag("%.0f%%", last*100/rpsTotal)
 		}
 
 		latency := model.NewTableCell().SetUnit("ms")
@@ -203,7 +236,6 @@ func clientRequests(app *model.Application, report *model.AuditReport) {
 		errors := model.NewTableCell().SetUnit("/s")
 		if last := model.GetConnectionsErrorsSum(s.connections).Last(); last > 0 {
 			errors.SetValue(utils.FormatFloat(last))
-			errors.AddTag("%.0f%%", last*100/s.rps.Last())
 		}
 
 		t.AddRow(client, chart, requests, latency, errors)

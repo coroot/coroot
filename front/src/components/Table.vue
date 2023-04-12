@@ -1,5 +1,5 @@
 <template>
-    <v-simple-table>
+    <v-simple-table dense>
         <thead>
         <tr>
             <th class="text-left" v-for="h in header">{{h}}</th>
@@ -7,7 +7,7 @@
         </thead>
         <tbody>
         <tr v-for="r in rows" :id="r.id" :class="{hi: r.id && $route.hash && $route.hash === '#'+r.id}">
-            <td v-for="c in r.cells" class="py-2">
+            <td v-for="c in r.cells" class="py-1">
                 <v-progress-linear v-if="c.progress"
                                    :background-color='c.progress.color + " lighten-4"'
                                    height="16"
@@ -28,7 +28,7 @@
                     </span>
                 </div>
 
-                <v-sparkline v-else-if="c.chart" :value="c.chart.map((v) => v === null ? 0 : v)" fill smooth padding="4" color="blue lighten-2" height="40" style="min-width: 100px" />
+                <v-sparkline v-else-if="c.chart" :value="c.chart.map((v) => v === null ? 0 : v)" fill smooth padding="4" color="blue lighten-2" height="32" style="min-width: 100px" />
 
                 <div v-else-if="c.values" v-for="v in c.values">
                     {{v}}

@@ -6,6 +6,7 @@
     <DependencyMap v-if="w.dependency_map" :nodes="w.dependency_map.nodes" :links="w.dependency_map.links" />
     <Table v-if="w.table" :header="w.table.header" :rows="w.table.rows" />
     <Profile v-if="w.profile" :appId="w.profile.application_id" />
+    <Heatmap v-if="w.heatmap" :heatmap="w.heatmap" />
 </div>
 </template>
 
@@ -16,13 +17,14 @@ import LogPatterns from "@/components/LogPatterns";
 import DependencyMap from "@/components/DependencyMap";
 import Table from "@/components/Table";
 import Profile from "@/views/Profile";
+import Heatmap from "@/components/Heatmap";
 
 export default {
     props: {
         w: Object,
     },
 
-    components: {Chart, ChartGroup, LogPatterns, DependencyMap, Table, Profile},
+    components: {Chart, ChartGroup, LogPatterns, DependencyMap, Table, Profile, Heatmap},
 }
 </script>
 

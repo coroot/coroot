@@ -7,8 +7,30 @@ type Widget struct {
 	LogPatterns   *LogPatterns   `json:"log_patterns,omitempty"`
 	DependencyMap *DependencyMap `json:"dependency_map,omitempty"`
 	Profile       *Profile       `json:"profile,omitempty"`
+	Heatmap       *Heatmap       `json:"heatmap,omitempty"`
 
 	Width string `json:"width,omitempty"`
+}
+
+func (w *Widget) AddAnnotation(annotations ...Annotation) {
+	if w.Chart != nil {
+		w.Chart.AddAnnotation(annotations...)
+	}
+	if w.ChartGroup != nil {
+		for _, ch := range w.ChartGroup.Charts {
+			ch.AddAnnotation(annotations...)
+		}
+	}
+	if w.LogPatterns != nil {
+		for _, p := range w.LogPatterns.Patterns {
+			if p.Instances != nil {
+				p.Instances.AddAnnotation(annotations...)
+			}
+		}
+	}
+	if w.Heatmap != nil {
+		w.Heatmap.AddAnnotation(annotations...)
+	}
 }
 
 type RouterLink struct {

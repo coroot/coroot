@@ -2,7 +2,7 @@
     <div ref="container" class="chart">
         <div class="title">
             <slot name="title">
-                <span v-html="title"></span>
+                <span v-html="config.title"></span>
             </slot>
 
             <v-btn v-if="link" :to="link" x-small color="primary" class="ml-3">
@@ -28,32 +28,18 @@
             </div>
 
             <template v-if="!(selection && selection.to > selection.from )">
-                <div v-for="f in flags" class="flag" :style="{left: f.left+'px', height: f.height+'px'}">
-                    <v-tooltip bottom>
-                        <template #activator="{on}">
-                            <v-icon v-on="on" small style="z-index: 2">{{f.icon}}</v-icon>
-                        </template>
-                        <div v-html="f.type" class="text-center"/>
-                    </v-tooltip>
-                    <div class="line" style="z-index: 2"></div>
-                </div>
+                <ChartAnnotations :ctx="config.ctx" :bbox="bbox" :annotations="annotations" />
             </template>
+            <ChartIncidents :ctx="config.ctx" :bbox="bbox" :incidents="incidents" />
         </div>
 
-        <div ref="tooltip" style="display: none; position: absolute; z-index: 1;">
-            <div v-if="tooltip" class="tooltip">
-                <div class="ts">{{tooltip.ts}}</div>
-                <div v-for="i in tooltip.items" class="item">
-                    <span class="marker" :style="{backgroundColor: i.color}" />
-                    <span class="label">{{i.label}}:</span>
-                    <span class="value">{{i.value}}</span>
-                </div>
-                <div v-if="tooltip.outage" class="outage">
-                    <span class="label">incident</span>:
-                    {{tooltip.outage.from}} - {{tooltip.outage.to || 'in progress'}} ({{tooltip.outage.dur}})
-                </div>
+        <ChartTooltip ref="tooltip" v-model="idx" :ctx="config.ctx" :incidents="incidents" class="tooltip">
+            <div v-for="i in tooltip" class="item">
+                <span class="marker" :style="{backgroundColor: i.color}" />
+                <span class="label">{{i.label}}:</span>
+                <span class="value">{{i.value}}</span>
             </div>
-        </div>
+        </ChartTooltip>
 
         <div v-if="legend" class="legend">
             <div v-for="l in legend" class="item" :style="{opacity: l.hidden ? '0.5' : '1'}"
@@ -70,6 +56,9 @@ import 'uplot/dist/uPlot.min.css';
 import uPlot from 'uplot';
 import {palette} from "@/utils/colors";
 import convert from 'color-convert';
+import ChartAnnotations from "@/components/ChartAnnotations";
+import ChartIncidents from "@/components/ChartIncidents";
+import ChartTooltip from "@/components/ChartTooltip";
 
 const font = '12px Roboto, sans-serif'
 
@@ -97,9 +86,12 @@ export default {
         selection: Object,
     },
 
+    components: {ChartTooltip, ChartAnnotations, ChartIncidents},
+
     data() {
         return {
             ch: null,
+            bbox: null,
             idx: null,
             hiddenSeries: (this.chart.series || []).filter((s) => s.hidden).map((s) => s.name),
             highlightedSeries: null,
@@ -164,31 +156,7 @@ export default {
                 s.fill = s.stacked || s.fill;
             });
             delete c.stacked;
-
-            if (c.annotations) {
-                c.outages = c.annotations.filter((a) => a.name === 'incident').map((a) => ({x1: a.x1, x2: a.x2}));
-                c.flags = c.annotations.filter((a) => a.name !== 'incident').map((a) => ({msg: a.name, x: a.x1, icon: a.icon}));
-            }
-            delete c.annotations;
             return c;
-        },
-        flags() {
-            if (!this.config || !this.config.flags || !this.ch) {
-                return [];
-            }
-            const c = this.config;
-            const b = this.ch.bbox;
-            const norm = (x) => (x - c.ctx.from) / (c.ctx.to - c.ctx.from);
-            return c.flags.map((f) => {
-                const type = f.msg;
-                const left = (b.left + b.width * norm(f.x)) / window.devicePixelRatio;
-                const height = (b.top + b.height) / window.devicePixelRatio;
-                const icon = f.icon || 'mdi-alert-circle-outline';
-                return {type, left, height, icon};
-            });
-        },
-        title() {
-            return this.config.title;
         },
         link() {
             const link = this.config.drill_down_link;
@@ -198,35 +166,21 @@ export default {
             const query = {...this.$route.query, ...link.query};
             return {...link, query};
         },
+        annotations() {
+            return (this.config.annotations || []).filter(a => a.name !== 'incident').map((a) => ({msg: a.name, x: a.x1, icon: a.icon}));
+        },
+        incidents() {
+            return (this.config.annotations || []).filter(a => a.name === 'incident').map((a) => ({x1: a.x1, x2: a.x2}));
+        },
         tooltip() {
-            if (this.idx === null) {
-                return null;
-            }
             const c = this.config;
+            if (!c || this.idx === null) {
+                return [];
+            }
             const ss = c.series.filter(this.isActive);
             const max = ss.reduce((p, c) => Math.max(p, ...c.data), null);
             const f = fmtVal(max, c.unit, 2);
-            const ts = c.ctx.data[this.idx];
-            const o = (c.outages || []).find((o) => o.x1 <= ts && ts <= o.x2);
-            let tsFormat = '{MMM} {DD}, {HH}:{mm}:{ss}';
-            const res = {
-                ts: this.$format.date(ts, tsFormat),
-                items: ss.map((s) => ({label: s.name, value: f(s.data[this.idx]), color: s.color})),
-                outage: null,
-            };
-            if (o) {
-                let precision = 's';
-                if (o.x2 - o.x1 > 3600000) {
-                    precision = 'm';
-                    tsFormat = '{MMM} {DD}, {HH}:{mm}';
-                }
-                res.outage = {
-                    from: this.$format.date(o.x1, tsFormat),
-                    to: o.x2 < c.ctx.to && this.$format.date(o.x2, tsFormat),
-                    dur: this.$format.duration((o.x2-o.x1 + c.ctx.step), precision),
-                }
-            }
-            return res;
+            return ss.map((s) => ({label: s.name, value: f(s.data[this.idx]), color: s.color}));
         },
         legend() {
             const c = this.config;
@@ -275,6 +229,7 @@ export default {
             }
             const opts = {
                 height: 150,
+                padding: [10, 20, 0, 0],
                 width: this.$refs.uplot.clientWidth,
                 ms: 1,
                 axes: [
@@ -292,14 +247,9 @@ export default {
                     drag: {setScale: false},
                 },
                 legend: {show: false},
-                hooks: {
-                    draw: [
-                        this.drawOutages,
-                    ],
-                },
                 plugins: [
                     this.selectionPlugin(),
-                    this.tooltipPlugin(),
+                    this.$refs.tooltip.plugin(),
                 ],
             };
 
@@ -308,26 +258,7 @@ export default {
             }
             this.ch = new uPlot(opts, [c.ctx.data, ...data], this.$refs.uplot);
             this.ch.root.style.font = font;
-        },
-        drawOutages(u) {
-            const c = this.config;
-            if (!c.outages || !c.outages.length) {
-                return;
-            }
-            const norm = (x) => (x - c.ctx.from) / (c.ctx.to - c.ctx.from);
-            const b = u.bbox;
-            u.ctx.save();
-            const h = 3*window.devicePixelRatio;
-            const y = b.top + b.height + 3*window.devicePixelRatio;
-            u.ctx.fillStyle = 'hsl(141, 50%, 70%)';
-            u.ctx.fillRect(b.left, y, b.width, h);
-            u.ctx.fillStyle = 'hsl(4, 90%, 60%)';
-            c.outages.forEach((o) => {
-                const x1 = Math.max(b.left, b.left + b.width * norm(o.x1 - c.ctx.step/2));
-                const x2 = Math.min(b.left + b.width, b.left + b.width * norm(o.x2 + c.ctx.step/2));
-                u.ctx.fillRect(x1, y,x2-x1, h);
-            });
-            u.ctx.restore();
+            this.bbox = Object.entries(this.ch.bbox).reduce((o, e) => {o[e[0]]=e[1]/devicePixelRatio; return o}, {});
         },
         drawSelection(u, s) {
             if (!u || !s) {
@@ -411,27 +342,6 @@ export default {
             }
             return {hooks: {init, ready, setCursor, setSelect}};
         },
-        tooltipPlugin() {
-            const init = (u) => {
-                const t = this.$refs.tooltip;
-                u.over.appendChild(t);
-                u.over.addEventListener("mouseenter", () => t.style.display = 'block');
-                u.over.addEventListener("mouseleave", () => t.style.display = 'none');
-                const sc = this.$refs["selection-control"];
-                sc && sc.addEventListener("mouseenter", () => t.style.display = 'none');
-            }
-            const setCursor = (u) => {
-                const { left, top, idx } = u.cursor;
-                if (idx === null) {
-                    return;
-                }
-                this.idx = idx;
-                const t = this.$refs.tooltip;
-                const l = left - (left > u.over.clientWidth/2 ? t.clientWidth + 5 : -5);
-                t.style.transform = "translate(" + l + "px, " + top + "px)";
-            }
-            return {hooks: {init, setCursor}}
-        },
         toggleSeries(name) {
             const i = this.hiddenSeries.indexOf(name);
             if (i > -1) {
@@ -503,17 +413,6 @@ export default {
     left: 4px;
 }
 
-.tooltip {
-    background-color: white;
-    padding: 8px;
-    border: 1px solid rgba(0,0,0,0.2);
-    border-radius: 4px;
-    pointer-events: none;
-    font-size: 12px;
-}
-.tooltip .ts {
-    text-align: center;
-}
 .tooltip .item {
     display: flex;
     align-items: center;
@@ -533,16 +432,6 @@ export default {
     flex-grow: 2;
     text-align: right;
     margin-left: 8px;
-    font-weight: 600;
-}
-.tooltip .outage {
-    margin-top: 10px;
-    padding-top: 5px;
-    /*color: hsl(4, 90%, 58%);*/
-    border-top: 1px solid black;
-}
-.tooltip .outage .label {
-    color: hsl(4, 90%, 58%);
     font-weight: 600;
 }
 
@@ -571,18 +460,5 @@ export default {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-}
-
-.flag {
-    position: absolute;
-    transition: none;
-    display: flex;
-    flex-direction: column;
-    width: 0;
-}
-.flag .line {
-    flex-grow: 1;
-    border-left: 0.08rem dashed rgba(0,0,0,0.5);
-    margin-left: -0.04rem;
 }
 </style>

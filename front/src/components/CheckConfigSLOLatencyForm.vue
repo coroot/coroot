@@ -1,7 +1,7 @@
 <template>
     <div>
         Metrics:
-        <v-select v-model="config.custom" :items="[{value: false, text: 'inbound requests (built-in)'}, {value: true, text: 'custom'}]" outlined dense :menu-props="{offsetY: true}"/>
+        <v-select v-model="config.custom" :items="[{value: false, text: 'inbound requests (built-in)'}, {value: true, text: 'custom'}]" outlined dense :menu-props="{offsetY: true}" hide-details class="mb-3"/>
 
         <template v-if="config.custom">
             Histogram query:

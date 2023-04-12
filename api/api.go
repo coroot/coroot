@@ -649,7 +649,7 @@ func increaseStepForBigDurations(duration, step timeseries.Duration) timeseries.
 		return maxDuration(step, 10*timeseries.Minute)
 	case duration > 6*timeseries.Hour:
 		return maxDuration(step, 5*timeseries.Minute)
-	case duration > 4*timeseries.Hour:
+	case duration > timeseries.Hour:
 		return maxDuration(step, timeseries.Minute)
 	}
 	return step
