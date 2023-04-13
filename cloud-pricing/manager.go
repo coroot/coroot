@@ -91,6 +91,9 @@ func (mgr *Manager) GetNodePrice(node *model.Node) *model.NodePrice {
 	default:
 		price = i.OnDemand
 	}
+	if !(price > 0) {
+		return nil
+	}
 	price /= float32(timeseries.Hour)
 	cpuCores := node.CpuCapacity.Last()
 	memBytes := node.MemoryTotalBytes.Last()

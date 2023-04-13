@@ -91,7 +91,7 @@ func renderCosts(w *model.World) *Costs {
 	for _, n := range w.Nodes {
 		nodeCpuCores := n.CpuCapacity.Last()
 		nodeMemoryBytes := n.MemoryTotalBytes.Last()
-		if n.Price == nil || timeseries.IsNaN(nodeCpuCores) || timeseries.IsNaN(nodeMemoryBytes) {
+		if n.Price == nil || !(nodeCpuCores > 0) || !(nodeMemoryBytes > 0) {
 			continue
 		}
 		nodeApps := map[model.ApplicationId][]*instance{}
@@ -127,8 +127,16 @@ func renderCosts(w *model.World) *Costs {
 			applications[i.OwnerId] = append(applications[i.OwnerId], ii)
 		}
 
-		cpuIdleCost := nodeCpuCores * (1 - n.CpuUsagePercent.Last()/100) * n.Price.PerCPUCore
-		memIdleCost := n.MemoryFreeBytes.Last() * n.Price.PerMemoryByte
+		nodeCpuUsagePercent := n.CpuUsagePercent.Last()
+		if timeseries.IsNaN(nodeCpuUsagePercent) {
+			nodeCpuUsagePercent = 0
+		}
+		nodeMemoryFreeBytes := n.MemoryFreeBytes.Last()
+		if timeseries.IsNaN(nodeMemoryFreeBytes) {
+			nodeMemoryFreeBytes = 0
+		}
+		cpuIdleCost := nodeCpuCores * (1 - nodeCpuUsagePercent/100) * n.Price.PerCPUCore
+		memIdleCost := nodeMemoryFreeBytes * n.Price.PerMemoryByte
 		nodeAppsCpu := renderNodeApplications(nodeCpuCores, nodeApps, resourceCpu)
 		nodeAppsMem := renderNodeApplications(nodeMemoryBytes, nodeApps, resourceMemory)
 		nc := &NodeCosts{
@@ -250,7 +258,7 @@ func renderApplicationCosts(appInstances []*instance, desiredInstances map[model
 }
 
 func renderNodeApplications(total float32, apps map[model.ApplicationId][]*instance, rt resourceType) []NodeApplication {
-	if timeseries.IsNaN(total) {
+	if !(total > 0) {
 		return nil
 	}
 	var res []NodeApplication
@@ -264,7 +272,7 @@ func renderNodeApplications(total float32, apps map[model.ApplicationId][]*insta
 				avg := u / usage.Map(timeseries.Defined).Reduce(timeseries.NanSum)
 				ai.Usage = rt.format(avg)
 				ai.Chart = usage
-				if r := request.Reduce(timeseries.LastNotNaN); !timeseries.IsNaN(r) {
+				if r := request.Reduce(timeseries.LastNotNaN); r > 0 {
 					ai.Request = rt.format(r)
 				}
 				a.Instances = append(a.Instances, ai)
