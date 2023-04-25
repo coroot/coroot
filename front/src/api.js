@@ -143,11 +143,19 @@ export default class Api {
     }
 
     getProfile(appId, profile, cb) {
-        this.get(this.projectPath(`app/${appId}/profile/${profile}`), {}, cb);
+        this.get(this.projectPath(`app/${appId}/profile`), {profile}, cb);
     }
 
     saveProfileSettings(appId, form, cb) {
         this.post(this.projectPath(`app/${appId}/profile`), form, cb);
+    }
+
+    getTracing(appId, trace, cb) {
+        this.get(this.projectPath(`app/${appId}/tracing`), {trace}, cb);
+    }
+
+    saveTracingSettings(appId, form, cb) {
+        this.post(this.projectPath(`app/${appId}/tracing`), form, cb);
     }
 
     getNode(nodeName, cb) {

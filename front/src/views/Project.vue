@@ -47,6 +47,19 @@
         <IntegrationPyroscope />
     </template>
 
+    <template v-if="tab === 'tracing'">
+        <h1 class="text-h5 my-5">
+            Clickhouse integration
+            <a href="https://coroot.com/docs/coroot-community-edition/tracing" target="_blank">
+                <v-icon>mdi-information-outline</v-icon>
+            </a>
+        </h1>
+        <p>
+            Coroot stores tracing spans in Clickhouse.
+        </p>
+        <IntegrationClickhouse />
+    </template>
+
     <template v-if="tab === 'inspections'">
         <h1 class="text-h5 my-5">
             Inspection configs
@@ -91,13 +104,15 @@ import ProjectDelete from "@/views/ProjectDelete";
 import ProjectCheckConfigs from "@/views/ProjectCheckConfigs";
 import ApplicationCategories from "@/views/ApplicationCategories";
 import Integrations from "@/views/Integrations";
-import IntegrationPyroscope from "@/views/IntegrationPyroscope";
 import IntegrationPrometheus from "@/views/IntegrationPrometheus";
+import IntegrationPyroscope from "@/views/IntegrationPyroscope";
+import IntegrationClickhouse from "@/views/IntegrationClickhouse";
 
 const tabs = [
     {id: undefined, name: 'General'},
     {id: 'prometheus', name: 'Prometheus'},
     {id: 'profiling', name: 'Profiling'},
+    {id: 'tracing', name: 'Tracing'},
     {id: 'inspections', name: 'Inspections'},
     {id: 'categories', name: 'Categories'},
     {id: 'notifications', name: 'Notifications'},
@@ -111,8 +126,7 @@ export default {
     },
 
     components: {
-        IntegrationPrometheus,
-        ProjectCheckConfigs, ProjectSettings, ProjectStatus, ProjectDelete, ApplicationCategories, Integrations, IntegrationPyroscope},
+        IntegrationPrometheus, IntegrationPyroscope, IntegrationClickhouse, ProjectCheckConfigs, ProjectSettings, ProjectStatus, ProjectDelete, ApplicationCategories, Integrations},
 
     computed: {
         tabs() {

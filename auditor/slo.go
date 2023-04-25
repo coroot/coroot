@@ -5,7 +5,6 @@ import (
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
-	"github.com/dustin/go-humanize"
 	"strings"
 )
 
@@ -118,75 +117,33 @@ func latency(ctx timeseries.Context, app *model.Application, report *model.Audit
 func requestsChart(app *model.Application, report *model.AuditReport) {
 	title := fmt.Sprintf("Requests to the <var>%s</var> app, per second", app.Id.Name)
 	var ch *model.Chart
+	var hm *model.Heatmap
 	if len(app.LatencySLIs) > 0 {
 		sli := app.LatencySLIs[0]
 		if len(sli.Histogram) > 0 {
-			hm := report.GetOrCreateHeatmap("Latency heatmap, requests per second")
+			hm = report.GetOrCreateHeatmap("Latency & Errors heatmap, requests per second")
 			ch = report.GetOrCreateChart(title).Sorted().Stacked()
-			for _, h := range histograms(sli.Histogram, sli.Config.ObjectiveBucket, sli.Config.ObjectivePercentage) {
-				ch.AddSeries(h.title, h.data, h.color)
-				hm.AddSeries(h.name, h.title, h.data, h.threshold)
+			for _, h := range model.HistogramSeries(sli.Histogram, sli.Config.ObjectiveBucket, sli.Config.ObjectivePercentage) {
+				ch.AddSeries(h.Title, h.Data, h.Color)
+				hm.AddSeries(h.Name, h.Title, h.Data, h.Threshold, h.Value)
 			}
 		}
 	}
 	if len(app.AvailabilitySLIs) > 0 {
+		sli := app.AvailabilitySLIs[0]
 		if ch == nil {
 			ch = report.GetOrCreateChart(title).Sorted().Stacked()
-			ch.AddSeries("total", app.AvailabilitySLIs[0].TotalRequests, "grey-lighten1")
+			ch.AddSeries("total", sli.TotalRequests, "grey-lighten1")
 		}
-		ch.AddSeries("errors", app.AvailabilitySLIs[0].FailedRequests, "black")
+		ch.AddSeries("errors", sli.FailedRequests, "black")
+		if hm != nil {
+			failed := sli.FailedRequests
+			if failed.IsEmpty() {
+				failed = sli.TotalRequests.WithNewValue(0)
+			}
+			hm.AddSeries("errors", "errors", failed, "", "err")
+		}
 	}
-}
-
-type histogram struct {
-	name, title string
-	color       string
-	data        *timeseries.TimeSeries
-	threshold   string
-}
-
-func histograms(buckets []model.HistogramBucket, objectiveBucket, objectivePercentage float32) []histogram {
-	res := make([]histogram, 0, len(buckets))
-	var from, to float32
-	thresholdIdx := -1
-	for i, b := range buckets {
-		var h histogram
-		to = b.Le
-		if i == 0 {
-			from = 0
-			h.data = b.TimeSeries
-		} else {
-			from = buckets[i-1].Le
-			h.data = timeseries.Sub(b.TimeSeries, buckets[i-1].TimeSeries)
-		}
-		h.color = "green"
-		if objectiveBucket > 0 && to > objectiveBucket {
-			h.color = "red"
-		} else {
-			h.color = "green"
-			thresholdIdx = i
-		}
-		switch {
-		case timeseries.IsInf(to, 0):
-			h.name = fmt.Sprintf(">%ss", humanize.Ftoa(float64(from)))
-			h.title = fmt.Sprintf(">%s s", humanize.Ftoa(float64(from)))
-		case from < 0.1:
-			//h.name = fmt.Sprintf("%.0fms", to*1000)
-			h.name = utils.FormatLatency(to)
-			h.title = fmt.Sprintf("%.0f-%.0f ms", from*1000, to*1000)
-		default:
-			//h.name = fmt.Sprintf("%ss", humanize.Ftoa(float64(to)))
-			h.name = utils.FormatLatency(to)
-			h.title = fmt.Sprintf("%s-%s s", humanize.Ftoa(float64(from)), humanize.Ftoa(float64(to)))
-		}
-		res = append(res, h)
-	}
-	if thresholdIdx > -1 {
-		res[thresholdIdx].threshold = fmt.Sprintf(
-			"<b>Latency objective</b><br> %s of requests should be served faster than %s",
-			utils.FormatPercentage(objectivePercentage), utils.FormatLatency(objectiveBucket))
-	}
-	return res
 }
 
 type clientRequestsSummary struct {

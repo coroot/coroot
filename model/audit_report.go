@@ -22,7 +22,7 @@ const (
 	AuditReportNode        AuditReportName = "Node"
 	AuditReportDeployments AuditReportName = "Deployments"
 	AuditReportProfiling   AuditReportName = "Profiling"
-	AuditReportCosts       AuditReportName = "Costs"
+	AuditReportTracing     AuditReportName = "Tracing"
 )
 
 type AuditReport struct {

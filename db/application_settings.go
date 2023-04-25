@@ -5,11 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"github.com/coroot/coroot/model"
-	"k8s.io/klog"
 )
 
 type ApplicationSettings struct {
 	Pyroscope *ApplicationSettingsPyroscope `json:"pyroscope,omitempty"`
+	Tracing   *ApplicationSettingsTracing   `json:"tracing,omitempty"`
 }
 
 func (s *ApplicationSettings) Migrate(m *Migrator) error {
@@ -23,6 +23,10 @@ func (s *ApplicationSettings) Migrate(m *Migrator) error {
 }
 
 type ApplicationSettingsPyroscope struct {
+	Application string `json:"application"`
+}
+
+type ApplicationSettingsTracing struct {
 	Application string `json:"application"`
 }
 
@@ -54,8 +58,9 @@ func (db *DB) SaveApplicationSetting(projectId ProjectId, appId model.Applicatio
 	}
 	switch v := s.(type) {
 	case *ApplicationSettingsPyroscope:
-		klog.Infoln(v)
 		as.Pyroscope = v
+	case *ApplicationSettingsTracing:
+		as.Tracing = v
 	default:
 		return fmt.Errorf("unsupported type: %T", s)
 	}

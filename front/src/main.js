@@ -2,6 +2,7 @@ import Vue from "vue";
 import VueRouter from "vue-router";
 import vuetify from '@/plugins/vuetify';
 import '@/plugins/resize';
+import '@/plugins/highlight';
 import pluralize from 'pluralize';
 import events from '@/utils/events';
 import Utils from "@/utils/utils";

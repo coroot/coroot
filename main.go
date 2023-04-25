@@ -119,8 +119,8 @@ func main() {
 	r.HandleFunc("/api/project/{project}/integrations/{type}", a.Integration).Methods(http.MethodGet, http.MethodPut, http.MethodDelete, http.MethodPost)
 	r.HandleFunc("/api/project/{project}/app/{app}", a.App).Methods(http.MethodGet)
 	r.HandleFunc("/api/project/{project}/app/{app}/check/{check}/config", a.Check).Methods(http.MethodGet, http.MethodPost)
-	r.HandleFunc("/api/project/{project}/app/{app}/profile/{profile}", a.Profile).Methods(http.MethodGet)
-	r.HandleFunc("/api/project/{project}/app/{app}/profile", a.Profile).Methods(http.MethodPost)
+	r.HandleFunc("/api/project/{project}/app/{app}/profile", a.Profile).Methods(http.MethodGet, http.MethodPost)
+	r.HandleFunc("/api/project/{project}/app/{app}/tracing", a.Tracing).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/project/{project}/node/{node}", a.Node).Methods(http.MethodGet)
 	r.PathPrefix("/api/project/{project}/prom").HandlerFunc(a.Prom)
 

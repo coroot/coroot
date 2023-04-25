@@ -1,6 +1,7 @@
 package constructor
 
 import (
+	"fmt"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"k8s.io/klog"
@@ -185,7 +186,8 @@ func podContainer(queryName string, metrics []model.MetricValues, pods map[strin
 			klog.Warningln("unknown pod:", uid, m.Labels["pod"], m.Labels["namespace"])
 			continue
 		}
-		container := instance.GetOrCreateContainer(m.Labels["container"])
+		containerId := fmt.Sprintf("/k8s/%s/%s/%s", m.Labels["namespace"], m.Labels["pod"], m.Labels["container"])
+		container := instance.GetOrCreateContainer(containerId, m.Labels["container"])
 
 		switch queryName {
 		case "kube_pod_init_container_info":

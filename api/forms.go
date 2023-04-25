@@ -8,7 +8,9 @@ import (
 	"github.com/coroot/coroot/notifications"
 	"github.com/coroot/coroot/profiling"
 	"github.com/coroot/coroot/prom"
+	"github.com/coroot/coroot/tracing"
 	"github.com/coroot/coroot/utils"
+	"net"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -124,6 +126,14 @@ func (f *ApplicationSettingsPyroscopeForm) Valid() bool {
 	return true
 }
 
+type ApplicationSettingsTracingForm struct {
+	db.ApplicationSettingsTracing
+}
+
+func (f *ApplicationSettingsTracingForm) Valid() bool {
+	return true
+}
+
 type IntegrationsForm struct {
 	BaseUrl string `json:"base_url"`
 }
@@ -149,6 +159,8 @@ func NewIntegrationForm(t db.IntegrationType) IntegrationForm {
 		return &IntegrationFormPrometheus{}
 	case db.IntegrationTypePyroscope:
 		return &IntegrationFormPyroscope{}
+	case db.IntegrationTypeClickhouse:
+		return &IntegrationFormClickhouse{}
 	case db.IntegrationTypeSlack:
 		return &IntegrationFormSlack{}
 	case db.IntegrationTypeTeams:
@@ -269,6 +281,53 @@ func (f *IntegrationFormPyroscope) Test(ctx context.Context, project *db.Project
 	}
 	_, err = client.Metadata(ctx)
 	return err
+}
+
+type IntegrationFormClickhouse struct {
+	db.IntegrationClickhouse
+}
+
+func (f *IntegrationFormClickhouse) Valid() bool {
+	if _, _, err := net.SplitHostPort(f.Addr); err != nil {
+		return false
+	}
+	return true
+}
+
+func (f *IntegrationFormClickhouse) Get(project *db.Project, masked bool) {
+	cfg := project.Settings.Integrations.Clickhouse
+	if cfg == nil {
+		return
+	}
+	f.IntegrationClickhouse = *cfg
+	if masked {
+		f.Addr = "<hidden>"
+		if f.Auth != nil {
+			f.Auth.User = "<user>"
+			f.Auth.Password = "<password>"
+		}
+	}
+}
+
+func (f *IntegrationFormClickhouse) Update(ctx context.Context, project *db.Project, clear bool) error {
+	cfg := &f.IntegrationClickhouse
+	if clear {
+		cfg = nil
+	} else {
+		if err := f.Test(ctx, project); err != nil {
+			return err
+		}
+	}
+	project.Settings.Integrations.Clickhouse = cfg
+	return nil
+}
+
+func (f *IntegrationFormClickhouse) Test(ctx context.Context, project *db.Project) error {
+	client, err := tracing.NewClickhouseClient(f.Addr, f.Auth)
+	if err != nil {
+		return err
+	}
+	return client.Ping(ctx)
 }
 
 type IntegrationFormSlack struct {

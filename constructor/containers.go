@@ -42,7 +42,7 @@ func getInstanceAndContainer(w *model.World, node *model.Node, instances map[ins
 	if instance == nil {
 		return nil, nil
 	}
-	return instance, instance.GetOrCreateContainer(containerName)
+	return instance, instance.GetOrCreateContainer(containerId, containerName)
 }
 
 func loadContainers(w *model.World, metrics map[string][]model.MetricValues, pjs promJobStatuses, nodesByMachineId map[string]*model.Node) {

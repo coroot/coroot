@@ -27,7 +27,8 @@ type Series struct {
 	Fill      bool   `json:"fill,omitempty"`
 	Threshold string `json:"threshold,omitempty"`
 
-	Data SeriesData `json:"data"`
+	Data  SeriesData `json:"data"`
+	Value string     `json:"value"`
 }
 
 type SeriesList struct {
@@ -167,11 +168,11 @@ func NewHeatmap(ctx timeseries.Context, title string) *Heatmap {
 	return &Heatmap{Ctx: ctx, Title: title}
 }
 
-func (hm *Heatmap) AddSeries(name, title string, data SeriesData, threshold string) *Heatmap {
+func (hm *Heatmap) AddSeries(name, title string, data SeriesData, threshold string, value string) *Heatmap {
 	if data.IsEmpty() {
 		return hm
 	}
-	s := &Series{Name: name, Title: title, Data: data, Threshold: threshold}
+	s := &Series{Name: name, Title: title, Data: data, Threshold: threshold, Value: value}
 	hm.Series.series = append(hm.Series.series, s)
 	return hm
 }

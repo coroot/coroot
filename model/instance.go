@@ -84,10 +84,10 @@ func (instance *Instance) InstrumentedType() ApplicationType {
 	return ApplicationTypeUnknown
 }
 
-func (instance *Instance) GetOrCreateContainer(name string) *Container {
+func (instance *Instance) GetOrCreateContainer(id, name string) *Container {
 	c := instance.Containers[name]
 	if c == nil {
-		c = NewContainer(name)
+		c = NewContainer(id, name)
 		instance.Containers[name] = c
 	}
 	return c
