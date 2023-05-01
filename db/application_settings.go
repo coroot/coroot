@@ -27,7 +27,7 @@ type ApplicationSettingsPyroscope struct {
 }
 
 type ApplicationSettingsTracing struct {
-	Application string `json:"application"`
+	Service string `json:"service"`
 }
 
 func (db *DB) GetApplicationSettings(projectId ProjectId, appId model.ApplicationId) (*ApplicationSettings, error) {

@@ -223,8 +223,9 @@ export default {
                     y: true,
                     drag: {setScale: false, x: true, y: true},
                     bind: {
-                        dblclick: () => () => null, // prevent some strange y-axis collapse
+                        dblclick: () => () => null, // avoid some strange collapse of the y-axis
                     },
+                    lock: true,
                 },
                 legend: {show: false},
                 plugins: [

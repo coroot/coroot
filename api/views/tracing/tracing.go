@@ -21,13 +21,13 @@ const (
 )
 
 type View struct {
-	Status       model.Status   `json:"status"`
-	Message      string         `json:"message"`
-	Sources      []Source       `json:"sources"`
-	Applications []Application  `json:"applications"`
-	Heatmap      *model.Heatmap `json:"heatmap"`
-	Spans        []Span         `json:"spans"`
-	Limit        int            `json:"limit"`
+	Status   model.Status   `json:"status"`
+	Message  string         `json:"message"`
+	Sources  []Source       `json:"sources"`
+	Services []Service      `json:"services"`
+	Heatmap  *model.Heatmap `json:"heatmap"`
+	Spans    []Span         `json:"spans"`
+	Limit    int            `json:"limit"`
 }
 
 type Source struct {
@@ -36,7 +36,7 @@ type Source struct {
 	Selected bool         `json:"selected"`
 }
 
-type Application struct {
+type Service struct {
 	Name   string `json:"name"`
 	Linked bool   `json:"linked"`
 }
@@ -80,7 +80,7 @@ func Render(ctx context.Context, project *db.Project, app *model.Application, ap
 	durFromStr, durToStr := parts[0], parts[1]
 	durFrom := parseDuration(durFromStr)
 	durTo := parseDuration(durToStr)
-	errors := durFromStr == "err" || durToStr == "err"
+	errors := durFromStr == "inf" || durToStr == "err"
 
 	v := &View{}
 
@@ -112,45 +112,51 @@ func Render(ctx context.Context, project *db.Project, app *model.Application, ap
 		return v
 	}
 
-	applications, err := cl.GetApplications(ctx, w.Ctx.From, w.Ctx.To)
+	services, err := cl.GetServiceNames(ctx, w.Ctx.From, w.Ctx.To)
 	if err != nil {
 		klog.Errorln(err)
 		v.Status = model.WARNING
 		v.Message = fmt.Sprintf("clickhouse error: %s", err)
 		return v
 	}
-	application := app.Id.Name
+	service := app.Id.Name
 	if appSettings != nil && appSettings.Tracing != nil {
-		application = appSettings.Tracing.Application
+		service = appSettings.Tracing.Service
 	}
-	var applicationFound bool
-	for _, a := range applications {
-		if a == application {
-			applicationFound = true
+	var serviceFound, ebpfSpansFound bool
+	for _, s := range services {
+		if s == service {
+			serviceFound = true
 		}
-		v.Applications = append(v.Applications, Application{
-			Name:   a,
-			Linked: a == application,
+		if s == "coroot-node-agent" {
+			ebpfSpansFound = true
+			continue
+		}
+		v.Services = append(v.Services, Service{
+			Name:   s,
+			Linked: s == service,
 		})
 	}
-	sort.Slice(v.Applications, func(i, j int) bool {
-		return v.Applications[i].Name < v.Applications[j].Name
+	sort.Slice(v.Services, func(i, j int) bool {
+		return v.Services[i].Name < v.Services[j].Name
 	})
 
-	if applicationFound {
+	if serviceFound {
 		v.Sources = append(v.Sources, Source{Type: tracing.TypeOtel, Name: "OpenTelemetry"})
 	}
-	v.Sources = append(v.Sources, Source{Type: tracing.TypeOtelEbpf, Name: "OpenTelemetry (eBPF)"})
+	if ebpfSpansFound {
+		v.Sources = append(v.Sources, Source{Type: tracing.TypeOtelEbpf, Name: "OpenTelemetry (eBPF)"})
+	}
 
 	var spans []*tracing.Span
 	if traceId != "" {
 		spans, err = cl.GetSpansByTraceId(ctx, traceId)
 	} else {
 		switch {
-		case (typ == "" || typ == tracing.TypeOtel) && applicationFound:
+		case (typ == "" || typ == tracing.TypeOtel) && serviceFound:
 			typ = tracing.TypeOtel
-			spans, err = cl.GetSpansByApplicationName(ctx, application, tsFrom, tsTo, durFrom, durTo, errors, limit)
-		case typ == "" || typ == tracing.TypeOtelEbpf:
+			spans, err = cl.GetSpansByServiceName(ctx, service, tsFrom, tsTo, durFrom, durTo, errors, limit)
+		case (typ == "" || typ == tracing.TypeOtelEbpf) && ebpfSpansFound:
 			typ = tracing.TypeOtelEbpf
 			var listens []model.Listen
 			for _, i := range app.Instances {
@@ -158,7 +164,7 @@ func Render(ctx context.Context, project *db.Project, app *model.Application, ap
 					listens = append(listens, l)
 				}
 			}
-			spans, err = cl.GetSpansByListens(ctx, listens, tsFrom, tsTo, durFrom, durTo, errors, limit)
+			spans, err = cl.GetInboundSpans(ctx, listens, tsFrom, tsTo, durFrom, durTo, errors, limit)
 		}
 		if len(spans) == limit {
 			v.Limit = limit
@@ -166,7 +172,7 @@ func Render(ctx context.Context, project *db.Project, app *model.Application, ap
 	}
 	switch typ {
 	case tracing.TypeOtel:
-		v.Message = fmt.Sprintf("Using traces of <i>%s</i>", application)
+		v.Message = fmt.Sprintf("Using traces of <i>%s</i>", service)
 	case tracing.TypeOtelEbpf:
 		v.Message = "Using data gathered by the eBPF tracer"
 	}
@@ -181,7 +187,7 @@ func Render(ctx context.Context, project *db.Project, app *model.Application, ap
 		return v
 	}
 
-	if traceId == "" && !applicationFound && len(spans) == 0 {
+	if traceId == "" && !serviceFound && len(spans) == 0 {
 		v.Status = model.UNKNOWN
 		v.Message = "No traces found"
 		return v
@@ -288,16 +294,13 @@ func getClients(ctx context.Context, cl *tracing.ClickhouseClient, typ tracing.T
 		for _, s := range spans {
 			k := spanKey{traceId: s.TraceId, spanId: s.SpanId}
 			res[k] = appByContainerId[s.Attributes["container.id"]]
-			if res[k] == "" {
-				res[k] = s.Attributes["net.peer.name"]
-			}
 		}
 	}
 	return res
 }
 
 func parseDuration(s string) time.Duration {
-	if s == "inf" || s == "err" {
+	if s == "" || s == "inf" || s == "err" {
 		return 0
 	}
 	v, err := strconv.ParseFloat(s, 64)

@@ -87,13 +87,13 @@
     <v-dialog v-model="configure" max-width="800">
         <v-card class="pa-5">
             <div class="d-flex align-center font-weight-medium mb-4">
-                Link "{{ $utils.appId(appId).name }}" with a Pyroscope application
+                Link "{{ $utils.appId(appId).name }}" with a service
                 <v-spacer />
                 <v-btn icon @click="configure = false"><v-icon>mdi-close</v-icon></v-btn>
             </div>
 
             <div class="subtitle-1">Choose a corresponding OpenTelemetry service:</div>
-            <v-select v-model="form.application" :items="applications" outlined dense hide-details :menu-props="{offsetY: true}" clearable />
+            <v-select v-model="form.service" :items="services" outlined dense hide-details :menu-props="{offsetY: true}" clearable />
 
             <div class="grey--text my-4">
                 To configure an application to send traces follow the <a href="https://coroot.com/docs/coroot-community-edition/tracing" target="_blank">documentation</a>.
@@ -132,7 +132,7 @@ export default {
 
             configure: false,
             form: {
-                application: null,
+                service: null,
             },
             saved: '',
             saving: false,
@@ -151,8 +151,8 @@ export default {
         source() {
             return {type: this.trace.type};
         },
-        applications() {
-            return (this.view.applications || []).map(a => a.name);
+        services() {
+            return (this.view.services || []).map(a => a.name);
         },
         changed() {
             return !!this.form && this.saved !== JSON.stringify(this.form);
@@ -253,8 +253,8 @@ export default {
                     return;
                 }
                 this.view = data;
-                const application = (this.view.applications || []).find((a) => a.linked);
-                this.form.application = application ? application.name : null;
+                const service = (this.view.services || []).find((s) => s.linked);
+                this.form.service = service ? service.name : null;
                 this.saved = JSON.stringify(this.form);
                 const source = (this.view.sources || []).find((s) => s.selected);
                 if (source) {

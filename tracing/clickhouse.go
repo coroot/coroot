@@ -39,14 +39,8 @@ func (c *ClickhouseClient) Ping(ctx context.Context) error {
 	return c.conn.Ping(ctx)
 }
 
-func (c *ClickhouseClient) GetApplications(ctx context.Context, from, to timeseries.Time) ([]string, error) {
-	q := `SELECT ServiceName
-		FROM otel_traces
-		WHERE
-    		Timestamp BETWEEN @from AND @to AND 
-    		ServiceName != 'coroot-node-agent' AND
-    		SpanKind = 'SPAN_KIND_SERVER'
-		GROUP BY ServiceName`
+func (c *ClickhouseClient) GetServiceNames(ctx context.Context, from, to timeseries.Time) ([]string, error) {
+	q := "SELECT ServiceName FROM otel_traces WHERE Timestamp BETWEEN @from AND @to GROUP BY ServiceName"
 	rows, err := c.conn.Query(ctx, q,
 		clickhouse.DateNamed("from", from.ToStandard(), clickhouse.NanoSeconds),
 		clickhouse.DateNamed("to", to.ToStandard(), clickhouse.NanoSeconds),
@@ -68,14 +62,14 @@ func (c *ClickhouseClient) GetApplications(ctx context.Context, from, to timeser
 	return res, nil
 }
 
-func (c *ClickhouseClient) GetSpansByApplicationName(ctx context.Context, name string, tsFrom, tsTo timeseries.Time, durFrom, durTo time.Duration, errors bool, limit int) ([]*Span, error) {
+func (c *ClickhouseClient) GetSpansByServiceName(ctx context.Context, name string, tsFrom, tsTo timeseries.Time, durFrom, durTo time.Duration, errors bool, limit int) ([]*Span, error) {
 	return c.getSpans(ctx, tsFrom, tsTo, durFrom, durTo, errors, "Timestamp DESC", limit,
 		"ServiceName = @name AND SpanKind = 'SPAN_KIND_SERVER'",
 		clickhouse.Named("name", name),
 	)
 }
 
-func (c *ClickhouseClient) GetSpansByListens(ctx context.Context, listens []model.Listen, tsFrom, tsTo timeseries.Time, durFrom, durTo time.Duration, errors bool, limit int) ([]*Span, error) {
+func (c *ClickhouseClient) GetInboundSpans(ctx context.Context, listens []model.Listen, tsFrom, tsTo timeseries.Time, durFrom, durTo time.Duration, errors bool, limit int) ([]*Span, error) {
 	if len(listens) == 0 {
 		return nil, nil
 	}
