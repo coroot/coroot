@@ -87,8 +87,9 @@ func Render(ctx context.Context, project *db.Project, app *model.Application, ap
 	if len(app.LatencySLIs) > 0 {
 		sli := app.LatencySLIs[0]
 		if len(sli.Histogram) > 0 {
-			annotations := model.EventsToAnnotations(app.Events, w.Ctx)
-			v.Heatmap = model.NewHeatmap(w.Ctx, "Latency & Errors heatmap, requests per second").AddAnnotation(annotations...)
+			events := model.EventsToAnnotations(app.Events, w.Ctx)
+			incidents := model.IncidentsToAnnotations(app.Incidents, w.Ctx)
+			v.Heatmap = model.NewHeatmap(w.Ctx, "Latency & Errors heatmap, requests per second").AddAnnotation(events...).AddAnnotation(incidents...)
 			for _, h := range model.HistogramSeries(sli.Histogram, sli.Config.ObjectiveBucket, sli.Config.ObjectivePercentage) {
 				v.Heatmap.AddSeries(h.Name, h.Title, h.Data, h.Threshold, h.Value)
 			}

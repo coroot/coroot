@@ -381,14 +381,8 @@ func (api *Api) App(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Application not found", http.StatusNotFound)
 		return
 	}
-	incidents, err := api.db.GetIncidentsByApp(project.Id, app.Id, world.Ctx.From, world.Ctx.To)
-	if err != nil {
-		klog.Errorln(err)
-		http.Error(w, "", http.StatusInternalServerError)
-		return
-	}
 	auditor.Audit(world, project)
-	utils.WriteJson(w, views.Application(world, app, incidents))
+	utils.WriteJson(w, views.Application(world, app))
 }
 
 func (api *Api) Check(w http.ResponseWriter, r *http.Request) {

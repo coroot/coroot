@@ -305,3 +305,14 @@ func EventsToAnnotations(events []*ApplicationEvent, ctx timeseries.Context) []A
 	}
 	return res
 }
+
+func IncidentsToAnnotations(incidents []*ApplicationIncident, ctx timeseries.Context) []Annotation {
+	res := make([]Annotation, 0, len(incidents))
+	for _, i := range incidents {
+		if !i.Resolved() {
+			i.ResolvedAt = ctx.To
+		}
+		res = append(res, Annotation{Name: "incident", X1: i.OpenedAt, X2: i.ResolvedAt})
+	}
+	return res
+}

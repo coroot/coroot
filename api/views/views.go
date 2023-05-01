@@ -27,8 +27,8 @@ func Overview(w *model.World, view string) *overview.View {
 	return overview.Render(w, view)
 }
 
-func Application(w *model.World, app *model.Application, incidents []db.Incident) *application.View {
-	return application.Render(w, app, incidents)
+func Application(w *model.World, app *model.Application) *application.View {
+	return application.Render(w, app)
 }
 
 func Profile(ctx context.Context, project *db.Project, app *model.Application, appSettings *db.ApplicationSettings, q url.Values, wCtx timeseries.Context) *profile.View {

@@ -1,7 +1,6 @@
 package application
 
 import (
-	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
@@ -53,7 +52,7 @@ type InstanceLink struct {
 	Direction string       `json:"direction"`
 }
 
-func Render(world *model.World, app *model.Application, incidents []db.Incident) *View {
+func Render(world *model.World, app *model.Application) *View {
 	appMap := &AppMap{
 		Application: &Application{
 			Id:         app.Id,
@@ -129,15 +128,8 @@ func Render(world *model.World, app *model.Application, incidents []db.Incident)
 		return appMap.Dependencies[i].Id.Name < appMap.Dependencies[j].Id.Name
 	})
 
-	if len(incidents) > 0 {
-		now := timeseries.Now()
-		annotations := make([]model.Annotation, 0, len(incidents))
-		for _, i := range incidents {
-			if !i.Resolved() {
-				i.ResolvedAt = now
-			}
-			annotations = append(annotations, model.Annotation{Name: "incident", X1: i.OpenedAt, X2: i.ResolvedAt})
-		}
+	if len(app.Incidents) > 0 {
+		annotations := model.IncidentsToAnnotations(app.Incidents, world.Ctx)
 		for _, r := range app.Reports {
 			for _, w := range r.Widgets {
 				w.AddAnnotation(annotations...)
