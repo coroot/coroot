@@ -289,7 +289,7 @@ export default {
                 const opts = {left: 0, width: 0, top: 0, height: 0};
                 opts.left = Math.max(u.valToPos(sel.x1 || c.ctx.from, 'x'), 0);
                 opts.width = Math.min(u.valToPos(sel.x2 || c.ctx.to, 'x') - opts.left, u.bbox.width/devicePixelRatio);
-                opts.top = u.valToPos(c.series.findIndex(s => s.value === sel.y2) + 1, 'y') + 1;
+                opts.top = (sel.y2 === '' ? 0 : u.valToPos(c.series.findIndex(s => s.value === sel.y2) + 1, 'y')) + 1;
                 opts.height = (sel.y1 === '' ? u.bbox.height/devicePixelRatio : u.valToPos(c.series.findIndex(s => s.value === sel.y1)+1, 'y')) - opts.top;
                 this.select = opts;
                 u.setSelect(opts, false);
@@ -305,8 +305,8 @@ export default {
                 const x2 = Math.trunc(u.posToVal(s.left + s.width, 'x'));
                 let y1 = Math.trunc(u.posToVal(s.top+s.height, 'y'));
                 let y2 = Math.trunc(u.posToVal(s.top, 'y'));
-                y1 = y1 === 0 ? '' : c.series[y1-1].value;
-                y2 = c.series[y2].value;
+                y1 = y1 <= 0 ? '' : c.series[y1-1].value;
+                y2 = y2 >= c.series.length ? '' : c.series[y2].value;
                 emitSelection({x1, x2, y1, y2});
             }
 
