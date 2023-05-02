@@ -19,7 +19,7 @@
         </div>
     </v-card>
 
-    <Chart v-if="view.chart" :chart="view.chart" class="my-5" :selection="selection" @select="setSelection" :style="{pointerEvents: loading ? 'none' : 'all'}" />
+    <Chart v-if="view.chart" :chart="view.chart" class="my-5" :selection="selection" @select="setSelection" :loading="loading" />
 
     <div style="position: relative; min-height: 100vh">
         <v-progress-linear v-if="loading" indeterminate color="green" height="4" style="position: absolute"/>

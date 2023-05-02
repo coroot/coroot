@@ -10,7 +10,7 @@
             </v-btn>
         </div>
 
-        <div ref="uplot" v-on-resize="redraw" style="position: relative">
+        <div ref="uplot" v-on-resize="redraw" class="chart" :class="{loading: loading}">
             <div v-if="selection" ref="selection" class="selection">
                 <div ref="selection-control" class="selection-control">
                     <v-btn-toggle v-if="selection.to > selection.from" :value="selection.mode" @change="setSelectionMode">
@@ -84,6 +84,7 @@ export default {
     props: {
         chart: Object,
         selection: Object,
+        loading: Boolean,
     },
 
     components: {ChartTooltip, ChartAnnotations, ChartIncidents},
@@ -244,7 +245,10 @@ export default {
                 cursor: {
                     points: {show: false},
                     y: false,
-                    drag: {setScale: false},
+                    drag: {
+                        setScale: false,
+                        click: () => {}, // allow `click` propagation for the selection buttons
+                    },
                 },
                 legend: {show: false},
                 plugins: [
@@ -367,6 +371,10 @@ export default {
 </script>
 
 <style scoped>
+.chart {
+    position: relative;
+}
+
 .title {
     font-size: 14px !important;
     font-weight: normal !important;
@@ -460,5 +468,9 @@ export default {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.loading {
+    pointer-events: none;
 }
 </style>

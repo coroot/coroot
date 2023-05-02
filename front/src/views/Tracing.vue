@@ -27,7 +27,7 @@
         </div>
     </v-card>
 
-    <Heatmap v-if="view.heatmap" :heatmap="view.heatmap" :selection="selection" @select="setSelection" class="my-5" />
+    <Heatmap v-if="view.heatmap" :heatmap="view.heatmap" :selection="selection" @select="setSelection" :loading="loading" class="my-5" />
 
     <div v-if="trace.id" class="my-5" style="min-height: 50vh">
         <div class="text-h6 mb-3">

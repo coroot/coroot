@@ -10,7 +10,7 @@
             </div>
         </div>
 
-        <div ref="uplot" v-on-resize="redraw" class="chart">
+        <div ref="uplot" v-on-resize="redraw" class="chart" :class="{loading: loading}">
             <div class="threshold" style="z-index: 1" :style="threshold.style">
                 <v-tooltip left>
                     <template #activator="{on}">
@@ -70,6 +70,7 @@ export default {
     props: {
         heatmap: Object,
         selection: Object,
+        loading: Boolean,
     },
 
     components: {ChartTooltip, ChartAnnotations, ChartIncidents},
@@ -307,7 +308,8 @@ export default {
                 let y1 = Math.trunc(u.posToVal(s.top+s.height, 'y'));
                 let y2 = Math.trunc(u.posToVal(s.top, 'y'));
                 y1 = y1 <= 0 ? '' : c.series[y1-1].value;
-                y2 = y2 >= c.series.length ? '' : c.series[y2].value;
+                const l = c.series.length;
+                y2 = y2 >= l ? c.series[l-1].value : c.series[y2].value;
                 emitSelection({x1, x2, y1, y2});
             }
 
@@ -318,6 +320,14 @@ export default {
 </script>
 
 <style scoped>
+.chart {
+    position: relative;
+}
+.chart:deep(.u-select) {
+    border: 1px dashed #FFEB3B;
+    background-color: #FFEB3B80;
+}
+
 .title {
     font-size: 14px !important;
     font-weight: normal !important;
@@ -396,11 +406,7 @@ export default {
     color: green;
 }
 
-.chart {
-    position: relative;
-}
-.chart:deep(.u-select) {
-    border: 1px dashed #FFEB3B;
-    background-color: #FFEB3B80;
+.loading {
+    pointer-events: none;
 }
 </style>

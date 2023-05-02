@@ -21,6 +21,7 @@ export default {
     data() {
         return {
             idx: null,
+            mousedown: false,
         }
     },
     computed: {
@@ -50,7 +51,17 @@ export default {
             const init = (u) => {
                 const t = this.$refs.tooltip;
                 u.over.appendChild(t);
-                u.over.addEventListener("mouseleave", () => t.style.display = 'none');
+                u.over.addEventListener("mouseleave", () => {
+                    t.style.display = 'none';
+                    this.mousedown = false;
+                });
+                u.over.addEventListener("mousedown", () => {
+                    t.style.display = 'none';
+                    this.mousedown = true;
+                });
+                u.over.addEventListener("mouseup", () => {
+                    this.mousedown = false;
+                });
             }
             const setCursor = (u) => {
                 const { left, top, idx } = u.cursor;
@@ -62,7 +73,9 @@ export default {
                 const t = this.$refs.tooltip;
                 const l = left - (left >= u.over.clientWidth/2 ? t.clientWidth + 5 : -5);
                 t.style.transform = "translate(" + l + "px, " + top + "px)";
-                t.style.display = 'block';
+                if (!this.mousedown) {
+                    t.style.display = 'block';
+                }
             }
             return {hooks: {init, setCursor}}
         },
