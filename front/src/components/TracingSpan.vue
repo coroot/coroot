@@ -14,7 +14,7 @@
                 <span class="caption grey--text ml-1">{{span.name}}</span>
             </span>
             <v-spacer />
-            <v-icon v-if="span.status.error" color="error" small class="mr-1">mdi-alert-octagon</v-icon>
+            <v-icon v-if="span.status.error" color="error" small class="mr-1">mdi-alert-circle</v-icon>
         </div>
         <div class="barColumn" :style="barColumn">
             <div v-for="(t, i) in ticks" class="tick" :style="{left: i*t.width+'%'}"></div>
@@ -32,6 +32,14 @@
                 <span><span class="caption grey--text">Name:</span> {{span.name}}</span>
                 <span class="ml-2"><span class="caption grey--text">Service:</span> {{span.service}}</span>
                 <span class="ml-2"><span class="caption grey--text">Duration:</span> {{span.duration.toFixed(2)}}ms</span>
+                <span class="ml-2">
+                    <span class="caption grey--text mr-1">Status:</span>
+                    <span class="d-inline-flex">
+                        <v-icon v-if="span.status.error" color="error" small>mdi-alert-circle</v-icon>
+                        <v-icon v-else color="success" small>mdi-check-circle</v-icon>
+                        {{span.status.message}}
+                    </span>
+                </span>
                 <v-spacer />
                 <v-btn icon @click="details = false"><v-icon>mdi-close</v-icon></v-btn>
             </div>

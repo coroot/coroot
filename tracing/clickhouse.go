@@ -163,7 +163,7 @@ func (c *ClickhouseClient) getSpans(ctx context.Context, tsFrom, tsTo timeseries
 		args = append(args, clickhouse.Named("durTo", durTo.Nanoseconds()))
 	}
 
-	q := "SELECT Timestamp, TraceId, SpanId, ParentSpanId, SpanName, ServiceName, Duration, StatusCode, SpanAttributes FROM otel_traces"
+	q := "SELECT Timestamp, TraceId, SpanId, ParentSpanId, SpanName, ServiceName, Duration, StatusCode, StatusMessage, SpanAttributes FROM otel_traces"
 	q += " WHERE " + strings.Join(filters, " AND ")
 	if orderBy != "" {
 		q += " ORDER BY " + orderBy
@@ -182,7 +182,7 @@ func (c *ClickhouseClient) getSpans(ctx context.Context, tsFrom, tsTo timeseries
 	var res []*Span
 	for rows.Next() {
 		var s Span
-		if err = rows.Scan(&s.Timestamp, &s.TraceId, &s.SpanId, &s.ParentSpanId, &s.Name, &s.ServiceName, &s.Duration, &s.Status, &s.Attributes); err != nil {
+		if err = rows.Scan(&s.Timestamp, &s.TraceId, &s.SpanId, &s.ParentSpanId, &s.Name, &s.ServiceName, &s.Duration, &s.StatusCode, &s.StatusMessage, &s.Attributes); err != nil {
 			return nil, err
 		}
 		res = append(res, &s)

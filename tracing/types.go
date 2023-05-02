@@ -12,13 +12,14 @@ const (
 )
 
 type Span struct {
-	Timestamp    time.Time
-	Name         string
-	TraceId      string
-	SpanId       string
-	ParentSpanId string
-	ServiceName  string
-	Duration     time.Duration
-	Status       string
-	Attributes   map[string]string
+	Timestamp     time.Time
+	Name          string
+	TraceId       string
+	SpanId        string
+	ParentSpanId  string
+	ServiceName   string
+	Duration      time.Duration
+	StatusCode    string
+	StatusMessage string
+	Attributes    map[string]string
 }

@@ -3,10 +3,12 @@
         <div class="details mb-3">
             <span class="grey--text">Started at:</span> {{$format.date(range.from, '{YYYY}-{MM}-{DD} {HH}:{mm}:{ss}.{fff}')}}
             <span class="grey--text ml-1">Duration:</span> {{(range.to - range.from).toFixed(2)}}ms
-            <span class="grey--text ml-1">Status:</span>
-            <v-icon v-if="roots[0].status.error" color="error" small class="ml-1" style="margin-bottom: 2px">mdi-alert-circle</v-icon>
-            <v-icon v-else color="success" small class="ml-1" style="margin-bottom: 2px">mdi-check-circle</v-icon>
-            <span>{{roots[0].status.message}}</span>
+            <span class="grey--text ml-1 mr-1">Status:</span>
+            <span class="d-inline-flex">
+                <v-icon v-if="roots[0].status.error" color="error" small>mdi-alert-circle</v-icon>
+                <v-icon v-else color="success" small>mdi-check-circle</v-icon>
+                {{roots[0].status.message}}
+            </span>
         </div>
         <div class="header">
             <div class="name" :style="{width: split+'%'}">

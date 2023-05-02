@@ -252,9 +252,12 @@ func getService(typ tracing.Type, s *tracing.Span, app *model.Application) strin
 
 func getStatus(s *tracing.Span) Status {
 	res := Status{Message: "OK"}
-	if s.Status == "STATUS_CODE_ERROR" {
+	if s.StatusCode == "STATUS_CODE_ERROR" {
 		res.Error = true
 		res.Message = "ERROR"
+		if s.StatusMessage != "" {
+			res.Message = s.StatusMessage
+		}
 	}
 	if c := s.Attributes["http.status_code"]; c != "" {
 		res.Message = "HTTP-" + c
