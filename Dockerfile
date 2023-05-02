@@ -1,4 +1,4 @@
-FROM golang:1.18-stretch AS backend-builder
+FROM golang:1.18-buster AS backend-builder
 RUN apt update && apt install -y liblz4-dev
 WORKDIR /tmp/src
 COPY go.mod .
@@ -18,7 +18,7 @@ COPY ./front .
 RUN npx vue-cli-service build --dest=static src/main.js
 
 
-FROM debian:stretch
+FROM debian:buster
 RUN apt update && apt install -y ca-certificates && apt clean
 
 WORKDIR /opt/coroot
