@@ -70,10 +70,15 @@ func renderNodes(w *model.World) *model.Table {
 			status.SetUnit("(" + utils.FormatDurationShort(timeseries.Duration(int64(v)), 1) + ")")
 		}
 
+		az := n.AvailabilityZone.Value()
+		if az == "" {
+			az = n.Region.Value()
+		}
+
 		table.AddRow(
 			node,
 			status,
-			model.NewTableCell(n.AvailabilityZone.Value()).SetUnit("("+strings.ToLower(n.CloudProvider.Value())+")"),
+			model.NewTableCell(az).SetUnit("("+strings.ToLower(n.CloudProvider.Value())+")"),
 			model.NewTableCell(ips.Items()...),
 			cpuPercent,
 			memoryPercent,
