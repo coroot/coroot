@@ -84,8 +84,6 @@ func (mgr *Manager) GetNodePrice(node *model.Node) *model.NodePrice {
 	}
 	var price float32
 	switch strings.ToLower(node.InstanceLifeCycle.Value()) {
-	case "":
-		return nil
 	case "spot", "preemptible":
 		price = i.Spot
 	default:
