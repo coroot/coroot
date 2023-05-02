@@ -27,7 +27,7 @@ func NewClickhouseClient(addr string, auth *utils.BasicAuth) (*ClickhouseClient,
 			Username: user,
 			Password: password,
 		},
-		//Debug: true,
+		Debug: true,
 	})
 	if err != nil {
 		return nil, err
@@ -62,14 +62,19 @@ func (c *ClickhouseClient) GetServiceNames(ctx context.Context, from, to timeser
 	return res, nil
 }
 
-func (c *ClickhouseClient) GetSpansByServiceName(ctx context.Context, name string, tsFrom, tsTo timeseries.Time, durFrom, durTo time.Duration, errors bool, limit int) ([]*Span, error) {
+func (c *ClickhouseClient) GetSpansByServiceName(ctx context.Context, name string, ignoredPeerAddrs []string, tsFrom, tsTo timeseries.Time, durFrom, durTo time.Duration, errors bool, limit int) ([]*Span, error) {
 	return c.getSpans(ctx, tsFrom, tsTo, durFrom, durTo, errors, "Timestamp DESC", limit,
-		"ServiceName = @name AND SpanKind = 'SPAN_KIND_SERVER'",
+		`
+			ServiceName = @name AND 
+			SpanKind = 'SPAN_KIND_SERVER' AND 
+			SpanAttributes['net.sock.peer.addr'] NOT IN (@addrs)
+		`,
 		clickhouse.Named("name", name),
+		clickhouse.Named("addrs", ignoredPeerAddrs),
 	)
 }
 
-func (c *ClickhouseClient) GetInboundSpans(ctx context.Context, listens []model.Listen, tsFrom, tsTo timeseries.Time, durFrom, durTo time.Duration, errors bool, limit int) ([]*Span, error) {
+func (c *ClickhouseClient) GetInboundSpans(ctx context.Context, listens []model.Listen, ignoredContainerIds []string, tsFrom, tsTo timeseries.Time, durFrom, durTo time.Duration, errors bool, limit int) ([]*Span, error) {
 	if len(listens) == 0 {
 		return nil, nil
 	}
@@ -84,9 +89,14 @@ func (c *ClickhouseClient) GetInboundSpans(ctx context.Context, listens []model.
 		addrs = append(addrs, clickhouse.GroupSet{Value: []any{l.IP, l.Port}})
 	}
 	return c.getSpans(ctx, tsFrom, tsTo, durFrom, durTo, errors, "Timestamp DESC", limit,
-		"ServiceName = 'coroot-node-agent' AND (SpanAttributes['net.peer.name'] IN (@ips) OR (SpanAttributes['net.peer.name'], SpanAttributes['net.peer.port']) IN (@addrs))",
+		`
+			ServiceName = 'coroot-node-agent' AND 
+			(SpanAttributes['net.peer.name'] IN (@ips) OR (SpanAttributes['net.peer.name'], SpanAttributes['net.peer.port']) IN (@addrs)) 
+			AND SpanAttributes['container.id'] NOT IN (@containerIds)
+		`,
 		clickhouse.Named("ips", ips.Items()),
 		clickhouse.Named("addrs", addrs),
+		clickhouse.Named("containerIds", ignoredContainerIds),
 	)
 }
 

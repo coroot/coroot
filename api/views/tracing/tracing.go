@@ -153,9 +153,23 @@ func Render(ctx context.Context, project *db.Project, app *model.Application, ap
 		spans, err = cl.GetSpansByTraceId(ctx, traceId)
 	} else {
 		switch {
+
 		case (typ == "" || typ == tracing.TypeOtel) && serviceFound:
 			typ = tracing.TypeOtel
-			spans, err = cl.GetSpansByServiceName(ctx, service, tsFrom, tsTo, durFrom, durTo, errors, limit)
+			var monitoringPodIps []string
+			for _, a := range w.Applications {
+				if a.Category.Monitoring() {
+					for _, i := range a.Instances {
+						for l := range i.TcpListens {
+							if l.Port == "0" {
+								monitoringPodIps = append(monitoringPodIps, l.IP)
+							}
+						}
+					}
+				}
+			}
+			spans, err = cl.GetSpansByServiceName(ctx, service, monitoringPodIps, tsFrom, tsTo, durFrom, durTo, errors, limit)
+
 		case (typ == "" || typ == tracing.TypeOtelEbpf) && ebpfSpansFound:
 			typ = tracing.TypeOtelEbpf
 			var listens []model.Listen
@@ -164,8 +178,19 @@ func Render(ctx context.Context, project *db.Project, app *model.Application, ap
 					listens = append(listens, l)
 				}
 			}
-			spans, err = cl.GetInboundSpans(ctx, listens, tsFrom, tsTo, durFrom, durTo, errors, limit)
+			var monitoringContainerIds []string
+			for _, a := range w.Applications {
+				if a.Category.Monitoring() {
+					for _, i := range a.Instances {
+						for _, c := range i.Containers {
+							monitoringContainerIds = append(monitoringContainerIds, c.Id)
+						}
+					}
+				}
+			}
+			spans, err = cl.GetInboundSpans(ctx, listens, monitoringContainerIds, tsFrom, tsTo, durFrom, durTo, errors, limit)
 		}
+
 		if len(spans) == limit {
 			v.Limit = limit
 		}
@@ -275,11 +300,25 @@ func getClients(ctx context.Context, cl *tracing.ClickhouseClient, typ tracing.T
 			k := spanKey{traceId: s.TraceId, spanId: s.SpanId}
 			serviceNames[k] = s.ServiceName
 		}
+		appByPodIp := map[string]model.ApplicationId{}
+		for _, a := range w.Applications {
+			for _, i := range a.Instances {
+				for l := range i.TcpListens {
+					if l.Port == "0" {
+						appByPodIp[l.IP] = a.Id
+					}
+				}
+			}
+		}
 		for _, s := range spans {
 			k := spanKey{traceId: s.TraceId, spanId: s.SpanId}
 			res[k] = serviceNames[spanKey{traceId: s.TraceId, spanId: s.ParentSpanId}]
+			addr := s.Attributes["net.sock.peer.addr"]
 			if res[k] == "" {
-				res[k] = s.Attributes["net.sock.peer.addr"]
+				res[k] = appByPodIp[addr].Name
+			}
+			if res[k] == "" {
+				res[k] = addr
 			}
 		}
 	case tracing.TypeOtelEbpf:
