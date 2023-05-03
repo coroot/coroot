@@ -18,7 +18,9 @@
         </div>
 
         <div class="subtitle-1 mt-3">Database</div>
-        <v-text-field v-model="form.database" outlined dense hide-details single-line />
+        <v-text-field v-model="form.database" :rules="[$validators.notEmpty]" outlined dense hide-details single-line />
+        <div class="subtitle-1 mt-3">Traces table</div>
+        <v-text-field v-model="form.traces_table" :rules="[$validators.notEmpty]" outlined dense hide-details single-line />
 
         <v-checkbox v-model="form.tls_enable" label="Enable TLS" hide-details class="my-2" />
         <v-checkbox v-model="form.tls_skip_verify" :disabled="!form.tls_enable" label="Skip TLS verify" hide-details class="my-2" />

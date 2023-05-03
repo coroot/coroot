@@ -104,6 +104,7 @@ type IntegrationClickhouse struct {
 	Database      string          `json:"database"`
 	TlsEnable     bool            `json:"tls_enable"`
 	TlsSkipVerify bool            `json:"tls_skip_verify"`
+	TracesTable   string          `json:"traces_table"`
 }
 
 type IntegrationSlack struct {

@@ -305,6 +305,9 @@ func (f *IntegrationFormClickhouse) Get(project *db.Project, masked bool) {
 	if f.Database == "" {
 		f.Database = "default"
 	}
+	if f.TracesTable == "" {
+		f.TracesTable = "otel_traces"
+	}
 	if masked {
 		f.Addr = "<hidden>"
 		f.Auth.User = "<user>"
@@ -326,7 +329,7 @@ func (f *IntegrationFormClickhouse) Update(ctx context.Context, project *db.Proj
 }
 
 func (f *IntegrationFormClickhouse) Test(ctx context.Context, project *db.Project) error {
-	client, err := tracing.NewClickhouseClient(f.Protocol, f.Addr, f.TlsEnable, f.TlsSkipVerify, f.Auth, f.Database)
+	client, err := tracing.NewClickhouseClient(f.Protocol, f.Addr, f.TlsEnable, f.TlsSkipVerify, f.Auth, f.Database, f.TracesTable)
 	if err != nil {
 		return err
 	}

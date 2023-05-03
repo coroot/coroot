@@ -14,9 +14,11 @@ import (
 
 type ClickhouseClient struct {
 	conn clickhouse.Conn
+
+	tracesTable string
 }
 
-func NewClickhouseClient(protocol, addr string, tlsEnable, tlsSkipVerify bool, auth utils.BasicAuth, database string) (*ClickhouseClient, error) {
+func NewClickhouseClient(protocol, addr string, tlsEnable, tlsSkipVerify bool, auth utils.BasicAuth, database, tracesTable string) (*ClickhouseClient, error) {
 	opts := &clickhouse.Options{
 		Addr: []string{addr},
 		Auth: clickhouse.Auth{
@@ -44,7 +46,7 @@ func NewClickhouseClient(protocol, addr string, tlsEnable, tlsSkipVerify bool, a
 	if err != nil {
 		return nil, err
 	}
-	return &ClickhouseClient{conn: conn}, nil
+	return &ClickhouseClient{conn: conn, tracesTable: tracesTable}, nil
 }
 
 func (c *ClickhouseClient) Ping(ctx context.Context) error {
@@ -52,7 +54,9 @@ func (c *ClickhouseClient) Ping(ctx context.Context) error {
 }
 
 func (c *ClickhouseClient) GetServiceNames(ctx context.Context, from, to timeseries.Time) ([]string, error) {
-	q := "SELECT ServiceName FROM otel_traces WHERE Timestamp BETWEEN @from AND @to GROUP BY ServiceName"
+	q := "SELECT ServiceName"
+	q += " FROM " + c.tracesTable
+	q += " WHERE Timestamp BETWEEN @from AND @to GROUP BY ServiceName"
 	rows, err := c.conn.Query(ctx, q,
 		clickhouse.DateNamed("from", from.ToStandard(), clickhouse.NanoSeconds),
 		clickhouse.DateNamed("to", to.ToStandard(), clickhouse.NanoSeconds),
@@ -176,7 +180,7 @@ func (c *ClickhouseClient) getSpans(ctx context.Context, tsFrom, tsTo timeseries
 	}
 
 	q := "SELECT Timestamp, TraceId, SpanId, ParentSpanId, SpanName, ServiceName, Duration, StatusCode, StatusMessage, SpanAttributes, Events.Timestamp, Events.Name, Events.Attributes"
-	q += " FROM otel_traces"
+	q += " FROM " + c.tracesTable
 	q += " WHERE " + strings.Join(filters, " AND ")
 	if orderBy != "" {
 		q += " ORDER BY " + orderBy
