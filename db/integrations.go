@@ -98,8 +98,12 @@ type IntegrationPyroscope struct {
 }
 
 type IntegrationClickhouse struct {
-	Addr string           `json:"addr"`
-	Auth *utils.BasicAuth `json:"auth,omitempty"`
+	Protocol      string          `json:"protocol"`
+	Addr          string          `json:"addr"`
+	Auth          utils.BasicAuth `json:"auth"`
+	Database      string          `json:"database"`
+	TlsEnable     bool            `json:"tls_enable"`
+	TlsSkipVerify bool            `json:"tls_skip_verify"`
 }
 
 type IntegrationSlack struct {

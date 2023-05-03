@@ -296,16 +296,19 @@ func (f *IntegrationFormClickhouse) Valid() bool {
 
 func (f *IntegrationFormClickhouse) Get(project *db.Project, masked bool) {
 	cfg := project.Settings.Integrations.Clickhouse
-	if cfg == nil {
-		return
+	if cfg != nil {
+		f.IntegrationClickhouse = *cfg
 	}
-	f.IntegrationClickhouse = *cfg
+	if f.Protocol == "" {
+		f.Protocol = "native"
+	}
+	if f.Database == "" {
+		f.Database = "default"
+	}
 	if masked {
 		f.Addr = "<hidden>"
-		if f.Auth != nil {
-			f.Auth.User = "<user>"
-			f.Auth.Password = "<password>"
-		}
+		f.Auth.User = "<user>"
+		f.Auth.Password = "<password>"
 	}
 }
 
@@ -323,7 +326,7 @@ func (f *IntegrationFormClickhouse) Update(ctx context.Context, project *db.Proj
 }
 
 func (f *IntegrationFormClickhouse) Test(ctx context.Context, project *db.Project) error {
-	client, err := tracing.NewClickhouseClient(f.Addr, f.Auth)
+	client, err := tracing.NewClickhouseClient(f.Protocol, f.Addr, f.TlsEnable, f.TlsSkipVerify, f.Auth, f.Database)
 	if err != nil {
 		return err
 	}

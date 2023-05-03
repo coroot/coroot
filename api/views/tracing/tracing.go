@@ -111,7 +111,7 @@ func Render(ctx context.Context, project *db.Project, app *model.Application, ap
 		v.Heatmap.AddSeries("errors", "errors", failed, "", "err")
 	}
 
-	cl, err := tracing.NewClickhouseClient(cfg.Addr, cfg.Auth)
+	cl, err := tracing.NewClickhouseClient(cfg.Protocol, cfg.Addr, cfg.TlsEnable, cfg.TlsSkipVerify, cfg.Auth, cfg.Database)
 	if err != nil {
 		klog.Errorln(err)
 		v.Status = model.WARNING

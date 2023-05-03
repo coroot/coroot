@@ -2,6 +2,7 @@ package tracing
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/coroot/coroot/model"
@@ -15,21 +16,31 @@ type ClickhouseClient struct {
 	conn clickhouse.Conn
 }
 
-func NewClickhouseClient(addr string, auth *utils.BasicAuth) (*ClickhouseClient, error) {
-	var user, password string
-	if auth != nil {
-		user, password = auth.User, auth.Password
-	}
-	conn, err := clickhouse.Open(&clickhouse.Options{
+func NewClickhouseClient(protocol, addr string, tlsEnable, tlsSkipVerify bool, auth utils.BasicAuth, database string) (*ClickhouseClient, error) {
+	opts := &clickhouse.Options{
 		Addr: []string{addr},
 		Auth: clickhouse.Auth{
-			Database: "default",
-			Username: user,
-			Password: password,
+			Database: database,
+			Username: auth.User,
+			Password: auth.Password,
 		},
 		Compression: &clickhouse.Compression{Method: clickhouse.CompressionLZ4},
 		DialTimeout: 10 * time.Second,
-	})
+	}
+	switch protocol {
+	case "native":
+		opts.Protocol = clickhouse.Native
+	case "http":
+		opts.Protocol = clickhouse.HTTP
+	default:
+		return nil, fmt.Errorf("unknown protocol: %s", protocol)
+	}
+	if tlsEnable {
+		opts.TLS = &tls.Config{
+			InsecureSkipVerify: tlsSkipVerify,
+		}
+	}
+	conn, err := clickhouse.Open(opts)
 	if err != nil {
 		return nil, err
 	}

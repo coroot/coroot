@@ -1,22 +1,38 @@
 <template>
     <v-form v-if="form" v-model="valid" ref="form" style="max-width: 800px">
+
+        <div class="subtitle-1">Protocol</div>
+        <v-radio-group v-model="form.protocol" row dense class="mt-0">
+            <v-radio label="Native" value="native"></v-radio>
+            <v-radio label="HTTP" value="http"></v-radio>
+        </v-radio-group>
+
         <div class="subtitle-1">Clickhouse address</div>
-        <div class="caption">
-        </div>
+        <div class="caption"></div>
         <v-text-field outlined dense v-model="form.addr" :rules="[$validators.isAddr]" placeholder="clickhouse:9000" hide-details="auto" class="flex-grow-1" clearable single-line />
-        <v-checkbox v-model="auth" label="auth" hide-details class="my-2" />
-        <div v-if="auth" class="d-flex gap my-2">
-            <v-text-field v-model="form.auth.user" label="username" outlined dense hide-details single-line />
-            <v-text-field v-model="form.auth.password" label="password" type="password" outlined dense hide-details single-line />
+
+        <div class="subtitle-1 mt-3">Credentials</div>
+        <div class="d-flex gap">
+            <v-text-field v-model="form.auth.user" :rules="[$validators.notEmpty]" label="username" outlined dense hide-details single-line />
+            <v-text-field v-model="form.auth.password" :rules="[$validators.notEmpty]" label="password" type="password" outlined dense hide-details single-line />
         </div>
+
+        <div class="subtitle-1 mt-3">Database</div>
+        <v-text-field v-model="form.database" outlined dense hide-details single-line />
+
+        <v-checkbox v-model="form.tls_enable" label="Enable TLS" hide-details class="my-2" />
+        <v-checkbox v-model="form.tls_skip_verify" :disabled="!form.tls_enable" label="Skip TLS verify" hide-details class="my-2" />
+
         <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
             {{error}}
         </v-alert>
         <v-alert v-if="message" color="green" outlined text>
             {{message}}
         </v-alert>
-        <v-btn v-if="saved.url && !form.url" block color="error" @click="del" :loading="loading">Delete</v-btn>
-        <v-btn v-else block color="primary" @click="save" :disabled="!form.addr || !valid" :loading="loading">Test & Save</v-btn>
+        <div class="mt-3">
+            <v-btn v-if="saved.addr && !form.addr" block color="error" @click="del" :loading="loading">Delete</v-btn>
+            <v-btn v-else block color="primary" @click="save" :disabled="!form.addr || !valid" :loading="loading">Test & Save</v-btn>
+        </div>
     </v-form>
 </template>
 
@@ -25,7 +41,6 @@ export default {
     data() {
         return {
             form: null,
-            auth: false,
             valid: false,
             loading: false,
             error: '',
@@ -55,12 +70,6 @@ export default {
                     return;
                 }
                 this.form = data;
-                if (!this.form.auth) {
-                    this.form.auth = {user: '', password: ''};
-                    this.auth = false;
-                } else {
-                    this.auth = true;
-                }
                 this.saved = JSON.parse(JSON.stringify(this.form));
             });
         },
@@ -69,9 +78,6 @@ export default {
             this.error = '';
             this.message = '';
             const form = JSON.parse(JSON.stringify(this.form));
-            if (!this.auth) {
-                form.auth = null;
-            }
             this.$api.saveIntegrations('clickhouse', 'save', form, (data, error) => {
                 this.loading = false;
                 if (error) {
