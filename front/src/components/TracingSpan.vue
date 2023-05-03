@@ -28,23 +28,31 @@
 
     <v-dialog v-model="details" width="80%">
         <v-card class="pa-5">
-            <div class="d-flex">
-                <span><span class="caption grey--text">Name:</span> {{span.name}}</span>
-                <span class="ml-2"><span class="caption grey--text">Service:</span> {{span.service}}</span>
-                <span class="ml-2"><span class="caption grey--text">Duration:</span> {{span.duration.toFixed(2)}}ms</span>
-                <span class="ml-2">
-                    <span class="caption grey--text mr-1">Status:</span>
-                    <span class="d-inline-flex">
-                        <v-icon v-if="span.status.error" color="error" small>mdi-alert-circle</v-icon>
-                        <v-icon v-else color="success" small>mdi-check-circle</v-icon>
-                        {{span.status.message}}
-                    </span>
-                </span>
+            <div class="text-h6 d-flex">
+                <span>Span: {{span.id}}</span>
                 <v-spacer />
                 <v-btn icon @click="details = false"><v-icon>mdi-close</v-icon></v-btn>
             </div>
 
-            <div class="font-weight-medium">Attributes</div>
+            <v-simple-table dense>
+                <tbody>
+                <tr><td>name</td><td><pre>{{span.name}}</pre></td></tr>
+                <tr><td>service</td><td><pre>{{span.service}}</pre></td></tr>
+                <tr><td>duration</td><td><pre>{{span.duration.toFixed(2)}}ms</pre></td></tr>
+                <tr>
+                    <td>status</td>
+                    <td>
+                        <div class="d-flex">
+                            <v-icon v-if="span.status.error" color="error" small>mdi-alert-circle</v-icon>
+                            <v-icon v-else color="success" small>mdi-check-circle</v-icon>
+                            <pre>{{span.status.message}}</pre>
+                        </div>
+                    </td>
+                </tr>
+                </tbody>
+            </v-simple-table>
+
+            <div class="font-weight-medium mt-4">Attributes</div>
             <v-simple-table dense>
                 <tbody>
                 <tr v-for="(v, k) in span.attributes">
@@ -54,7 +62,7 @@
                 </tbody>
             </v-simple-table>
 
-            <div v-for="e in span.events" class="event mt-3">
+            <div v-for="e in span.events" class="event mt-4">
                 <div>
                     <span class="font-weight-medium">Event:</span> {{e.name}}
                     <span class="caption grey--text">{{e.timestamp - span.timestamp}}ms since span start</span>
