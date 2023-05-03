@@ -22,4 +22,11 @@ type Span struct {
 	StatusCode    string
 	StatusMessage string
 	Attributes    map[string]string
+	Events        []Event
+}
+
+type Event struct {
+	Timestamp  time.Time
+	Name       string
+	Attributes map[string]string
 }

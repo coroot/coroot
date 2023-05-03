@@ -74,6 +74,7 @@ export default {
                     timestamp: s.timestamp,
                     duration: s.duration,
                     attributes: s.attributes,
+                    events: s.events,
                 };
                 parent.children.push(span);
                 this.spans.filter(s => s.parent_id === span.id).forEach(s => {

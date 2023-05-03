@@ -53,6 +53,7 @@ type Span struct {
 	Status     Status            `json:"status"`
 	Details    Details           `json:"details"`
 	Attributes map[string]string `json:"attributes"`
+	Events     []Event           `json:"events"`
 }
 
 type Status struct {
@@ -63,6 +64,12 @@ type Status struct {
 type Details struct {
 	Text string `json:"text"`
 	Lang string `json:"lang"`
+}
+
+type Event struct {
+	Name       string            `json:"name"`
+	Timestamp  int64             `json:"timestamp"`
+	Attributes map[string]string `json:"attributes"`
 }
 
 func Render(ctx context.Context, project *db.Project, app *model.Application, appSettings *db.ApplicationSettings, q url.Values, w *model.World) *View {
@@ -234,6 +241,14 @@ func Render(ctx context.Context, project *db.Project, app *model.Application, ap
 			Attributes: s.Attributes,
 			Client:     clients[spanKey{traceId: s.TraceId, spanId: s.SpanId}],
 			Details:    getDetails(s),
+		}
+		for _, e := range s.Events {
+			ee := Event{
+				Name:       e.Name,
+				Timestamp:  e.Timestamp.UnixMilli(),
+				Attributes: e.Attributes,
+			}
+			ss.Events = append(ss.Events, ee)
 		}
 		v.Spans = append(v.Spans, ss)
 	}

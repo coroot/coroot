@@ -43,13 +43,27 @@
                 <v-spacer />
                 <v-btn icon @click="details = false"><v-icon>mdi-close</v-icon></v-btn>
             </div>
-            <div>
-                <div class="font-weight-medium">Attributes</div>
+
+            <div class="font-weight-medium">Attributes</div>
+            <v-simple-table dense>
+                <tbody>
+                <tr v-for="(v, k) in span.attributes">
+                    <td>{{k}}</td>
+                    <td><pre>{{v}}</pre></td>
+                </tr>
+                </tbody>
+            </v-simple-table>
+
+            <div v-for="e in span.events" class="event mt-3">
+                <div>
+                    <span class="font-weight-medium">Event:</span> {{e.name}}
+                    <span class="caption grey--text">{{e.timestamp - span.timestamp}}ms since span start</span>
+                </div>
                 <v-simple-table dense>
                     <tbody>
-                    <tr v-for="(k, v) in span.attributes">
-                        <td>{{v}}</td>
+                    <tr v-for="(v, k) in e.attributes">
                         <td>{{k}}</td>
+                        <td><pre>{{v}}</pre></td>
                     </tr>
                     </tbody>
                 </v-simple-table>

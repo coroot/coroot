@@ -27,7 +27,8 @@ func NewClickhouseClient(addr string, auth *utils.BasicAuth) (*ClickhouseClient,
 			Username: user,
 			Password: password,
 		},
-		Debug: true,
+		Compression: &clickhouse.Compression{Method: clickhouse.CompressionLZ4},
+		DialTimeout: 10 * time.Second,
 	})
 	if err != nil {
 		return nil, err
@@ -163,7 +164,8 @@ func (c *ClickhouseClient) getSpans(ctx context.Context, tsFrom, tsTo timeseries
 		args = append(args, clickhouse.Named("durTo", durTo.Nanoseconds()))
 	}
 
-	q := "SELECT Timestamp, TraceId, SpanId, ParentSpanId, SpanName, ServiceName, Duration, StatusCode, StatusMessage, SpanAttributes FROM otel_traces"
+	q := "SELECT Timestamp, TraceId, SpanId, ParentSpanId, SpanName, ServiceName, Duration, StatusCode, StatusMessage, SpanAttributes, Events.Timestamp, Events.Name, Events.Attributes"
+	q += " FROM otel_traces"
 	q += " WHERE " + strings.Join(filters, " AND ")
 	if orderBy != "" {
 		q += " ORDER BY " + orderBy
@@ -182,8 +184,22 @@ func (c *ClickhouseClient) getSpans(ctx context.Context, tsFrom, tsTo timeseries
 	var res []*Span
 	for rows.Next() {
 		var s Span
-		if err = rows.Scan(&s.Timestamp, &s.TraceId, &s.SpanId, &s.ParentSpanId, &s.Name, &s.ServiceName, &s.Duration, &s.StatusCode, &s.StatusMessage, &s.Attributes); err != nil {
+		var eventsTimestamp []time.Time
+		var eventsName []string
+		var eventsAttributes []map[string]string
+		if err = rows.Scan(&s.Timestamp, &s.TraceId, &s.SpanId, &s.ParentSpanId, &s.Name, &s.ServiceName, &s.Duration,
+			&s.StatusCode, &s.StatusMessage, &s.Attributes, &eventsTimestamp, &eventsName, &eventsAttributes,
+		); err != nil {
 			return nil, err
+		}
+		l := len(eventsTimestamp)
+		if l > 0 && l == len(eventsName) && l == len(eventsAttributes) {
+			s.Events = make([]Event, l, l)
+			for i := range eventsTimestamp {
+				s.Events[i].Timestamp = eventsTimestamp[i]
+				s.Events[i].Name = eventsName[i]
+				s.Events[i].Attributes = eventsAttributes[i]
+			}
 		}
 		res = append(res, &s)
 	}
