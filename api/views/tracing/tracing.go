@@ -115,7 +115,7 @@ func Render(ctx context.Context, project *db.Project, app *model.Application, ap
 	if err != nil {
 		klog.Errorln(err)
 		v.Status = model.WARNING
-		v.Message = fmt.Sprintf("clickhouse error: %s", err)
+		v.Message = fmt.Sprintf("Clickhouse error: %s", err)
 		return v
 	}
 
@@ -123,7 +123,7 @@ func Render(ctx context.Context, project *db.Project, app *model.Application, ap
 	if err != nil {
 		klog.Errorln(err)
 		v.Status = model.WARNING
-		v.Message = fmt.Sprintf("clickhouse error: %s", err)
+		v.Message = fmt.Sprintf("Clickhouse error: %s", err)
 		return v
 	}
 	service := app.Id.Name
@@ -153,6 +153,12 @@ func Render(ctx context.Context, project *db.Project, app *model.Application, ap
 	}
 	if ebpfSpansFound {
 		v.Sources = append(v.Sources, Source{Type: tracing.TypeOtelEbpf, Name: "OpenTelemetry (eBPF)"})
+	}
+
+	if !serviceFound && !ebpfSpansFound {
+		v.Status = model.UNKNOWN
+		v.Message = "No traces found"
+		return v
 	}
 
 	var spans []*tracing.Span
@@ -215,17 +221,14 @@ func Render(ctx context.Context, project *db.Project, app *model.Application, ap
 	if err != nil {
 		klog.Errorln(err)
 		v.Status = model.WARNING
-		v.Message = fmt.Sprintf("clickhouse error: %s", err)
+		v.Message = fmt.Sprintf("Clickhouse error: %s", err)
 		return v
 	}
 
-	if traceId == "" && !serviceFound && len(spans) == 0 {
-		v.Status = model.UNKNOWN
-		v.Message = "No traces found"
-		return v
+	clients := map[spanKey]string{}
+	if traceId == "" {
+		clients = getClients(ctx, cl, typ, spans, w, tsFrom, tsTo)
 	}
-
-	clients := getClients(ctx, cl, typ, spans, w, tsFrom, tsTo)
 
 	v.Status = model.OK
 	for _, s := range spans {

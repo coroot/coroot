@@ -54,13 +54,9 @@ func (c *ClickhouseClient) Ping(ctx context.Context) error {
 }
 
 func (c *ClickhouseClient) GetServiceNames(ctx context.Context, from, to timeseries.Time) ([]string, error) {
-	q := "SELECT ServiceName"
+	q := "SELECT DISTINCT ServiceName"
 	q += " FROM " + c.tracesTable
-	q += " WHERE Timestamp BETWEEN @from AND @to GROUP BY ServiceName"
-	rows, err := c.conn.Query(ctx, q,
-		clickhouse.DateNamed("from", from.ToStandard(), clickhouse.NanoSeconds),
-		clickhouse.DateNamed("to", to.ToStandard(), clickhouse.NanoSeconds),
-	)
+	rows, err := c.conn.Query(ctx, q)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +75,7 @@ func (c *ClickhouseClient) GetServiceNames(ctx context.Context, from, to timeser
 }
 
 func (c *ClickhouseClient) GetSpansByServiceName(ctx context.Context, name string, ignoredPeerAddrs []string, tsFrom, tsTo timeseries.Time, durFrom, durTo time.Duration, errors bool, limit int) ([]*Span, error) {
-	return c.getSpans(ctx, tsFrom, tsTo, durFrom, durTo, errors, "Timestamp DESC", limit,
+	return c.getSpans(ctx, tsFrom, tsTo, durFrom, durTo, errors, "", "", limit,
 		`
 			ServiceName = @name AND 
 			SpanKind = 'SPAN_KIND_SERVER' AND 
@@ -104,7 +100,7 @@ func (c *ClickhouseClient) GetInboundSpans(ctx context.Context, listens []model.
 	for _, l := range listens {
 		addrs = append(addrs, clickhouse.GroupSet{Value: []any{l.IP, l.Port}})
 	}
-	return c.getSpans(ctx, tsFrom, tsTo, durFrom, durTo, errors, "Timestamp DESC", limit,
+	return c.getSpans(ctx, tsFrom, tsTo, durFrom, durTo, errors, "", "Timestamp DESC", limit,
 		`
 			ServiceName = 'coroot-node-agent' AND 
 			(SpanAttributes['net.peer.name'] IN (@ips) OR (SpanAttributes['net.peer.name'], SpanAttributes['net.peer.port']) IN (@addrs)) 
@@ -117,29 +113,36 @@ func (c *ClickhouseClient) GetInboundSpans(ctx context.Context, listens []model.
 }
 
 func (c *ClickhouseClient) GetParentSpans(ctx context.Context, spans []*Span, tsFrom, tsTo timeseries.Time) ([]*Span, error) {
+	traceIds := utils.NewStringSet()
 	var ids []clickhouse.GroupSet
 	for _, s := range spans {
 		if s.ParentSpanId != "" {
 			ids = append(ids, clickhouse.GroupSet{Value: []any{s.TraceId, s.ParentSpanId}})
+			traceIds.Add(s.TraceId)
 		}
 	}
 	if len(ids) == 0 {
 		return nil, nil
 	}
-	return c.getSpans(ctx, tsFrom, tsTo, 0, 0, false, "", 0,
-		"(TraceId, SpanId) IN (@ids)",
+	return c.getSpans(ctx, 0, 0, 0, 0, false,
+		"@traceIds as traceIds, (SELECT min(Start) FROM otel_traces_trace_id_ts WHERE TraceId IN (traceIds)) as start, (SELECT max(End) + 1 FROM otel_traces_trace_id_ts WHERE TraceId IN (traceIds)) as end",
+		"", 0,
+		"Timestamp BETWEEN start AND end AND TraceId IN (traceIds) AND (TraceId, SpanId) IN (@ids)",
+		clickhouse.Named("traceIds", traceIds.Items()),
 		clickhouse.Named("ids", ids),
 	)
 }
 
 func (c *ClickhouseClient) GetSpansByTraceId(ctx context.Context, traceId string) ([]*Span, error) {
-	return c.getSpans(ctx, 0, 0, 0, 0, false, "Timestamp", 0,
-		"TraceId = @traceId AND Timestamp BETWEEN (SELECT min(Start) FROM otel_traces_trace_id_ts WHERE TraceId = @traceId) AND (SELECT max(End) + 1 FROM otel_traces_trace_id_ts WHERE TraceId = @traceId)",
+	return c.getSpans(ctx, 0, 0, 0, 0, false,
+		"(SELECT min(Start) FROM otel_traces_trace_id_ts WHERE TraceId = @traceId) as start, (SELECT max(End) + 1 FROM otel_traces_trace_id_ts WHERE TraceId = @traceId) as end",
+		"Timestamp", 0,
+		"TraceId = @traceId AND Timestamp BETWEEN start AND end",
 		clickhouse.Named("traceId", traceId),
 	)
 }
 
-func (c *ClickhouseClient) getSpans(ctx context.Context, tsFrom, tsTo timeseries.Time, durFrom, durTo time.Duration, errors bool, orderBy string, limit int, filter string, filterArgs ...any) ([]*Span, error) {
+func (c *ClickhouseClient) getSpans(ctx context.Context, tsFrom, tsTo timeseries.Time, durFrom, durTo time.Duration, errors bool, with string, orderBy string, limit int, filter string, filterArgs ...any) ([]*Span, error) {
 	var filters []string
 	var args []any
 
@@ -179,7 +182,11 @@ func (c *ClickhouseClient) getSpans(ctx context.Context, tsFrom, tsTo timeseries
 		args = append(args, clickhouse.Named("durTo", durTo.Nanoseconds()))
 	}
 
-	q := "SELECT Timestamp, TraceId, SpanId, ParentSpanId, SpanName, ServiceName, Duration, StatusCode, StatusMessage, SpanAttributes, Events.Timestamp, Events.Name, Events.Attributes"
+	q := ""
+	if with != "" {
+		q += "WITH " + with
+	}
+	q += " SELECT Timestamp, TraceId, SpanId, ParentSpanId, SpanName, ServiceName, Duration, StatusCode, StatusMessage, SpanAttributes, Events.Timestamp, Events.Name, Events.Attributes"
 	q += " FROM " + c.tracesTable
 	q += " WHERE " + strings.Join(filters, " AND ")
 	if orderBy != "" {

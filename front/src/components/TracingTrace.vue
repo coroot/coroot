@@ -1,7 +1,9 @@
 <template>
     <div v-if="roots.length">
         <div class="details mb-3">
-            <span class="grey--text">Started at:</span> {{$format.date(range.from, '{YYYY}-{MM}-{DD} {HH}:{mm}:{ss}.{fff}')}}
+            <span class="d-none d-md-inline">
+                <span class="grey--text">Started at:</span> {{$format.date(range.from, '{YYYY}-{MM}-{DD} {HH}:{mm}:{ss}.{fff}')}}
+            </span>
             <span class="grey--text ml-1">Duration:</span> {{(range.to - range.from).toFixed(2)}}ms
             <span class="grey--text ml-1 mr-1">Status:</span>
             <span class="d-inline-flex">
@@ -11,14 +13,14 @@
             </span>
         </div>
         <div class="header">
-            <div class="name" :style="{width: split+'%'}">
+            <div class="name" :style="{minWidth: split+'%'}">
                 Service & Operation
                 <v-spacer />
-                <v-btn @click="full = !full" x-small plain color="primary" class="caption">
+                <a @click="full = !full" class="caption px-1">
                     {{full ? 'show sub-trace' : 'show full trace'}}
-                </v-btn>
+                </a>
             </div>
-            <div class="ticks" :style="{width: 100-split+'%'}">
+            <div class="ticks d-none d-md-flex" :style="{width: 100-split+'%'}">
                 <div v-for="t in ticks" class="tick grey--text caption" :style="{width: t.width+'%'}">
                     {{t.value}}
                 </div>
@@ -151,6 +153,8 @@ export default {
 }
 .name {
     display: flex;
+    flex-grow: 1;
+    align-items: center;
 }
 .ticks {
     display: flex;

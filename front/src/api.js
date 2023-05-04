@@ -3,6 +3,7 @@ import * as storage from "@/utils/storage";
 import {v4} from 'uuid';
 
 const defaultErrorMessage = 'Something went wrong, please try again later.';
+const timeoutErrorMessage = 'Request timed out.';
 
 export default class Api {
     axios = null;
@@ -23,6 +24,7 @@ export default class Api {
         this.axios = axios.create({
             baseURL: this.basePath + 'api/',
             timeout: 30000,
+            timeoutErrorMessage: timeoutErrorMessage,
         })
     }
 
@@ -44,7 +46,7 @@ export default class Api {
                 console.error(e);
             }
         }).catch((error) => {
-            const err = error.response && error.response.data && error.response.data.trim() || defaultErrorMessage;
+            const err = error.response && error.response.data && error.response.data.trim() || error.message || defaultErrorMessage;
             cb(null, err);
         })
     }

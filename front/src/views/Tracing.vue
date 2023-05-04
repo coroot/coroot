@@ -9,7 +9,7 @@
                     (<a @click="configure = true">configure</a>)
                 </span>
             </template>
-            <span v-else>Loading...</span>
+            <span v-else-if="loading">Loading...</span>
             <v-progress-circular v-if="loading" indeterminate size="16" width="2" color="green" />
         </div>
         <v-select v-if="view.sources" :value="source" :items="sources" @change="changeSource" outlined hide-details dense :menu-props="{offsetY: true}" class="mt-4" />
@@ -17,20 +17,20 @@
             <v-icon size="20" style="vertical-align: baseline">mdi-lightbulb-on-outline</v-icon>
             Select a chart area to see traces for a specific time range, duration, or status.
         </div>
-        <div>
+        <div class="d-flex flex-column flex-md-row" style="gap: 8px; row-gap: 8px">
             <v-btn depressed small color="primary" :disabled="loading" class="text-body-2" @click="setSelection('errors')">
                 <v-icon left small class="mr-0">mdi-filter</v-icon>Show error traces
             </v-btn>
-            <v-btn depressed small color="primary" :disabled="loading" class="text-body-2 ml-2" @click="setSelection('slo violations')">
+            <v-btn depressed small color="primary" :disabled="loading" class="text-body-2" @click="setSelection('slo violations')">
                 <v-icon left small class="mr-0">mdi-filter</v-icon>Show latency SLO violations
             </v-btn>
         </div>
     </v-card>
 
-    <Heatmap v-if="view.heatmap" :heatmap="view.heatmap" :selection="selection" @select="setSelection" :loading="loading" class="my-5" />
+    <Heatmap v-if="view.heatmap" :heatmap="view.heatmap" :selection="selection" @select="setSelection" :loading="loading" class="mt-5" />
 
-    <div v-if="trace.id" class="my-5" style="min-height: 50vh">
-        <div class="text-h6 mb-3">
+    <div v-if="trace.id" class="mt-5" style="min-height: 50vh">
+        <div class="text-md-h6 mb-3">
             <router-link :to="{query: setTrace({id: '', span: ''})}">
                 <v-icon>mdi-arrow-left</v-icon>
             </router-link>
@@ -40,8 +40,7 @@
         <TracingTrace v-if="view.spans" :spans="view.spans" :span="trace.span" />
     </div>
 
-    <div v-else>
-        <v-progress-linear v-if="loading" indeterminate color="green" height="4" />
+    <div v-else class="mt-5" style="min-height: 50vh">
         <v-simple-table class="spans">
             <thead>
             <tr>
@@ -54,6 +53,11 @@
             </tr>
             </thead>
             <tbody>
+            <tr v-if="loading">
+                <td colspan="6" class="pa-0" style="vertical-align: top">
+                    <v-progress-linear v-if="loading" indeterminate color="green" height="4" />
+                </td>
+            </tr>
             <tr v-for="s in view.spans">
                 <td>
                     <v-btn small icon :to="{query: setTrace({id: s.trace_id, span: s.id})}" exact>
@@ -76,11 +80,14 @@
             </tr>
             </tbody>
         </v-simple-table>
-        <div v-if="!loading && (!view.spans || !view.spans.length)" class="pa-3 text-center grey--text">
+        <div v-if="!loading && loadingError" class="pa-3 text-center red--text">
+            {{loadingError}}
+        </div>
+        <div v-else-if="!loading && (!view.spans || !view.spans.length)" class="pa-3 text-center grey--text">
             No traces found
         </div>
         <div v-if="view.spans && view.spans.length && view.limit" class="text-right caption grey--text">
-            Only the most recent {{view.limit}} traces are displayed.
+            The output is capped at {{view.limit}} traces.
         </div>
     </div>
 
@@ -127,8 +134,10 @@ export default {
     data() {
         return {
             loading: false,
+            loadingError: '',
 
             view: {},
+            init: false,
 
             configure: false,
             form: {
@@ -239,17 +248,29 @@ export default {
             this.$router.push({query}).catch(err => err);
         },
         get() {
+            if (this.init) {
+                this.init = false;
+                return;
+            }
             this.loading = true;
-            this.error = '';
+            this.loadingError = '';
             this.view.spans = [];
             this.$api.getTracing(this.appId, this.$route.query.trace, (data, error) => {
                 this.loading = false;
+                const errMsg = 'Failed to load traces';
                 if (error) {
-                    this.error = error;
+                    this.loadingError = error;
+                    this.view.status = 'warning';
+                    this.view.message = errMsg;
                     this.view.spans = [];
                     return;
                 }
                 this.view = data;
+                if (this.view.status === 'warning') {
+                    this.loadingError = this.view.message;
+                    this.view.message = errMsg;
+                    return;
+                }
                 const service = (this.view.services || []).find((s) => s.linked);
                 this.form.service = service ? service.name : null;
                 this.saved = JSON.stringify(this.form);
@@ -257,6 +278,7 @@ export default {
                 if (source) {
                     const query = this.setTrace({type: source.type});
                     if (this.$route.query.trace !== query.trace) {
+                        this.init = true;
                         this.$router.replace({query}).catch(err => err);
                     }
                 }
