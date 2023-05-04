@@ -9,7 +9,7 @@
     </v-alert>
 
     <v-tabs height="40" show-arrows slider-size="2" class="mb-3">
-        <v-tab v-for="v in views" :key="v" :to="{params: {view: v === 'applications' ? undefined : v }, query: $route.query}" exact-path>
+        <v-tab v-for="v in views" :key="v" :to="{params: {view: v === 'applications' ? undefined : v }, query: $utils.contextQuery()}" exact-path>
             {{ v }}
         </v-tab>
     </v-tabs>

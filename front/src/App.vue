@@ -4,7 +4,7 @@
 
     <v-app-bar app flat dark color="#080d1b" class="menu">
         <v-container class="py-0 fill-height flex-nowrap">
-            <router-link :to="project ? {name: 'overview', query: $route.query} : {name: 'index'}">
+            <router-link :to="project ? {name: 'overview', query: $utils.contextQuery()} : {name: 'index'}">
                 <img :src="`${$coroot.base_path}static/logo.svg`" height="38" style="vertical-align: middle;">
             </router-link>
 

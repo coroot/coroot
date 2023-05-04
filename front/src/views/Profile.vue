@@ -118,7 +118,6 @@ export default {
     },
 
     beforeDestroy() {
-        this.$router.replace({query: {...this.$route.query, profile: undefined}}).catch(err => err);
         this.flamegraph.unmount();
     },
 

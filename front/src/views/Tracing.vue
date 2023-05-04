@@ -206,9 +206,6 @@ export default {
         this.get();
         this.$events.watch(this, this.get, 'refresh');
     },
-    beforeDestroy() {
-        this.$router.replace({query: {...this.$route.query, trace: undefined}}).catch(err => err);
-    },
 
     methods: {
         setTrace(t, ctx) {
