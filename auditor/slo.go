@@ -2,6 +2,7 @@ package auditor
 
 import (
 	"fmt"
+	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
@@ -10,7 +11,7 @@ import (
 
 func (a *appAuditor) slo() {
 	report := a.addReport(model.AuditReportSLO)
-	requestsChart(a.app, report)
+	requestsChart(a.app, report, a.p)
 	availability(a.w.Ctx, a.app, report)
 	latency(a.w.Ctx, a.app, report)
 	clientRequests(a.app, report)
@@ -114,7 +115,7 @@ func latency(ctx timeseries.Context, app *model.Application, report *model.Audit
 	}
 }
 
-func requestsChart(app *model.Application, report *model.AuditReport) {
+func requestsChart(app *model.Application, report *model.AuditReport, p *db.Project) {
 	title := fmt.Sprintf("Requests to the <var>%s</var> app, per second", app.Id.Name)
 	var ch *model.Chart
 	var hm *model.Heatmap
@@ -143,6 +144,9 @@ func requestsChart(app *model.Application, report *model.AuditReport) {
 			}
 			hm.AddSeries("errors", "errors", failed, "", "err")
 		}
+	}
+	if hm != nil && p.Settings.Integrations.Clickhouse != nil {
+		hm.DrillDownLink = model.NewRouterLink("tracing").SetParam("report", model.AuditReportTracing)
 	}
 }
 

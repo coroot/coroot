@@ -221,8 +221,8 @@ export default {
                 series: [{}, ...c.series.map(() => ({paths: hm}))],
                 cursor: {
                     points: {show: false},
-                    y: true,
-                    drag: {setScale: false, x: true, y: true},
+                    y: !!this.selection,
+                    drag: {setScale: false, x: !!this.selection, y: !!this.selection},
                     bind: {
                         dblclick: () => () => null, // avoid some strange collapse of the y-axis
                     },
@@ -300,7 +300,7 @@ export default {
                 const c = this.config;
                 const s = u.select;
                 const rs = this.select;
-                if (!s.width || !s.height || (s.left === rs.left && s.width === rs.width && s.top === rs.top && s.height === rs.height)) {
+                if ((!s.width && !s.height) || (s.left === rs.left && s.width === rs.width && s.top === rs.top && s.height === rs.height)) {
                     return;
                 }
                 const x1 = Math.trunc(u.posToVal(s.left, 'x'));

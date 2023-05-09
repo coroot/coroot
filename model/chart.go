@@ -162,6 +162,8 @@ type Heatmap struct {
 	Series SeriesList `json:"series"`
 
 	Annotations []Annotation `json:"annotations"`
+
+	DrillDownLink *RouterLink `json:"drill_down_link"`
 }
 
 func NewHeatmap(ctx timeseries.Context, title string) *Heatmap {
