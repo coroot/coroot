@@ -333,7 +333,12 @@ func (f *IntegrationFormClickhouse) Test(ctx context.Context, project *db.Projec
 	if err != nil {
 		return err
 	}
-	return client.Ping(ctx)
+	err = client.Ping(ctx)
+	if err != nil {
+		return err
+	}
+	_, err = client.GetServiceNames(ctx)
+	return err
 }
 
 type IntegrationFormSlack struct {

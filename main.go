@@ -44,6 +44,11 @@ func main() {
 	deploymentsWatchInterval := kingpin.Flag("deployments-watch-interval", "how often to check new deployments").Envar("DEPLOYMENTS_WATCH_INTERVAL").Default("1m").Duration()
 	doNotCheckForUpdates := kingpin.Flag("do-not-check-for-updates", "don't check for new versions").Envar("DO_NOT_CHECK_FOR_UPDATES").Bool()
 	bootstrapPyroscopeUrl := kingpin.Flag("bootstrap-pyroscope-url", "if set, Coroot will add a Pyroscope integration for the default project").Envar("BOOTSTRAP_PYROSCOPE_URL").String()
+	bootstrapClickhouseAddr := kingpin.Flag("bootstrap-clickhouse-address", "if set, Coroot will add a Clickhouse integration for the default project").Envar("BOOTSTRAP_CLICKHOUSE_ADDRESS").String()
+	bootstrapClickhouseUser := kingpin.Flag("bootstrap-clickhouse-user", "Clickhouse user").Envar("BOOTSTRAP_CLICKHOUSE_USER").Default("default").String()
+	bootstrapClickhousePassword := kingpin.Flag("bootstrap-clickhouse-password", "Clickhouse password").Envar("BOOTSTRAP_CLICKHOUSE_PASSWORD").String()
+	bootstrapClickhouseDatabase := kingpin.Flag("bootstrap-clickhouse-database", "Clickhouse database").Envar("BOOTSTRAP_CLICKHOUSE_DATABASE").Default("default").String()
+	bootstrapClickhouseTracesTable := kingpin.Flag("bootstrap-clickhouse-traces-table", "Clickhouse traces table").Envar("BOOTSTRAP_CLICKHOUSE_TRACES_TABLE").Default("otel_traces").String()
 
 	kingpin.Version(version)
 	kingpin.Parse()
@@ -61,6 +66,7 @@ func main() {
 
 	bootstrapPrometheus(database, *bootstrapPrometheusUrl, *bootstrapRefreshInterval, *bootstrapPrometheusExtraSelector)
 	bootstrapPyroscope(database, *bootstrapPyroscopeUrl)
+	bootstrapClickhouse(database, *bootstrapClickhouseAddr, *bootstrapClickhouseUser, *bootstrapClickhousePassword, *bootstrapClickhouseDatabase, *bootstrapClickhouseTracesTable)
 
 	cacheConfig := cache.Config{
 		Path: path.Join(*dataDir, "cache"),
@@ -241,6 +247,36 @@ func bootstrapPyroscope(database *db.DB, url string) {
 	}
 	project.Settings.Integrations.Pyroscope = &db.IntegrationPyroscope{Url: url}
 	if err := database.SaveProjectIntegration(project, db.IntegrationTypePyroscope); err != nil {
+		klog.Exitln(err)
+	}
+}
+
+func bootstrapClickhouse(database *db.DB, addr, user, password, databaseName, tracesTable string) {
+	if addr == "" || user == "" || password == "" || databaseName == "" || tracesTable == "" {
+		return
+	}
+	projects, err := database.GetProjects()
+	if err != nil {
+		klog.Exitln(err)
+	}
+	if len(projects) != 1 {
+		return
+	}
+	project := projects[0]
+	if project.Settings.Integrations.Clickhouse != nil {
+		return
+	}
+	project.Settings.Integrations.Clickhouse = &db.IntegrationClickhouse{
+		Protocol: "native",
+		Addr:     addr,
+		Auth: utils.BasicAuth{
+			User:     user,
+			Password: password,
+		},
+		Database:    databaseName,
+		TracesTable: tracesTable,
+	}
+	if err := database.SaveProjectIntegration(project, db.IntegrationTypeClickhouse); err != nil {
 		klog.Exitln(err)
 	}
 }

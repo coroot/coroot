@@ -37,6 +37,9 @@ func NewClickhouseClient(protocol, addr string, tlsEnable, tlsSkipVerify bool, a
 	default:
 		return nil, fmt.Errorf("unknown protocol: %s", protocol)
 	}
+	if tracesTable == "" {
+		return nil, fmt.Errorf("empty table name")
+	}
 	if tlsEnable {
 		opts.TLS = &tls.Config{
 			InsecureSkipVerify: tlsSkipVerify,
@@ -53,7 +56,7 @@ func (c *ClickhouseClient) Ping(ctx context.Context) error {
 	return c.conn.Ping(ctx)
 }
 
-func (c *ClickhouseClient) GetServiceNames(ctx context.Context, from, to timeseries.Time) ([]string, error) {
+func (c *ClickhouseClient) GetServiceNames(ctx context.Context) ([]string, error) {
 	q := "SELECT DISTINCT ServiceName"
 	q += " FROM " + c.tracesTable
 	rows, err := c.conn.Query(ctx, q)
@@ -112,7 +115,7 @@ func (c *ClickhouseClient) GetInboundSpans(ctx context.Context, listens []model.
 	)
 }
 
-func (c *ClickhouseClient) GetParentSpans(ctx context.Context, spans []*Span, tsFrom, tsTo timeseries.Time) ([]*Span, error) {
+func (c *ClickhouseClient) GetParentSpans(ctx context.Context, spans []*Span) ([]*Span, error) {
 	traceIds := utils.NewStringSet()
 	var ids []clickhouse.GroupSet
 	for _, s := range spans {

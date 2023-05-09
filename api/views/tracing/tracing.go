@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
-	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/tracing"
 	"github.com/coroot/coroot/utils"
 	"k8s.io/klog"
@@ -119,7 +118,7 @@ func Render(ctx context.Context, project *db.Project, app *model.Application, ap
 		return v
 	}
 
-	services, err := cl.GetServiceNames(ctx, w.Ctx.From, w.Ctx.To)
+	services, err := cl.GetServiceNames(ctx)
 	if err != nil {
 		klog.Errorln(err)
 		v.Status = model.WARNING
@@ -227,7 +226,7 @@ func Render(ctx context.Context, project *db.Project, app *model.Application, ap
 
 	clients := map[spanKey]string{}
 	if traceId == "" {
-		clients = getClients(ctx, cl, typ, spans, w, tsFrom, tsTo)
+		clients = getClients(ctx, cl, typ, spans, w)
 	}
 
 	v.Status = model.OK
@@ -307,11 +306,11 @@ type spanKey struct {
 	traceId, spanId string
 }
 
-func getClients(ctx context.Context, cl *tracing.ClickhouseClient, typ tracing.Type, spans []*tracing.Span, w *model.World, from, to timeseries.Time) map[spanKey]string {
+func getClients(ctx context.Context, cl *tracing.ClickhouseClient, typ tracing.Type, spans []*tracing.Span, w *model.World) map[spanKey]string {
 	res := map[spanKey]string{}
 	switch typ {
 	case tracing.TypeOtel:
-		parentSpans, err := cl.GetParentSpans(ctx, spans, from, to)
+		parentSpans, err := cl.GetParentSpans(ctx, spans)
 		if err != nil {
 			klog.Errorln(err)
 			return nil
