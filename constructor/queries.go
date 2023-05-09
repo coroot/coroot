@@ -41,6 +41,7 @@ var QUERIES = map[string]string{
 	"node_net_rx_bytes":           `rate(node_net_received_bytes_total[$RANGE])`,
 	"node_net_tx_bytes":           `rate(node_net_transmitted_bytes_total[$RANGE])`,
 
+	"kube_node_info":    `kube_node_info`,
 	"kube_service_info": `kube_service_info`,
 
 	"kube_pod_info":             `kube_pod_info`,

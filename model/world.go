@@ -66,7 +66,7 @@ func (w *World) GetServiceForConnection(c *Connection) *Service {
 
 func (w *World) GetNode(name string) *Node {
 	for _, n := range w.Nodes {
-		if n.Name.Value() == name {
+		if n.Name.Value() == name || n.K8sName.Value() == name {
 			return n
 		}
 	}

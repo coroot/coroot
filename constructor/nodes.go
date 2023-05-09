@@ -6,21 +6,15 @@ import (
 	"strings"
 )
 
-func initNodesList(w *model.World, nodeInfoMetrics []model.MetricValues, nodesByMachineID map[string]*model.Node) {
-	for _, m := range nodeInfoMetrics {
+func initNodesList(w *model.World, metrics map[string][]model.MetricValues, nodesByMachineID map[string]*model.Node) {
+	for _, m := range metrics["node_info"] {
 		name := m.Labels["hostname"]
 		machineID := m.Labels["machine_id"]
 		if machineID == "" {
 			continue
 		}
 		w.IntegrationStatus.NodeAgent.Installed = true
-		var node *model.Node
-		for _, n := range w.Nodes {
-			if n.MachineID == machineID {
-				node = n
-				break
-			}
-		}
+		node := nodesByMachineID[machineID]
 		if node == nil {
 			node = model.NewNode(machineID)
 			w.Nodes = append(w.Nodes, node)
@@ -28,10 +22,24 @@ func initNodesList(w *model.World, nodeInfoMetrics []model.MetricValues, nodesBy
 		}
 		node.Name.Update(m.Values, name)
 	}
+	for _, m := range metrics["kube_node_info"] {
+		name := m.Labels["node"]
+		machineID := strings.Replace(m.Labels["system_uuid"], "-", "", -1)
+		if machineID == "" {
+			continue
+		}
+		node := nodesByMachineID[machineID]
+		if node == nil {
+			node = model.NewNode(machineID)
+			w.Nodes = append(w.Nodes, node)
+			nodesByMachineID[machineID] = node
+		}
+		node.K8sName.Update(m.Values, name)
+	}
 }
 
 func (c *Constructor) loadNodes(w *model.World, metrics map[string][]model.MetricValues, nodesByMachineId map[string]*model.Node) {
-	initNodesList(w, metrics["node_info"], nodesByMachineId)
+	initNodesList(w, metrics, nodesByMachineId)
 
 	for queryName := range metrics {
 		if !strings.HasPrefix(queryName, "node_") {

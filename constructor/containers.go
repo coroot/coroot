@@ -16,8 +16,9 @@ type instanceId struct {
 }
 
 func getInstanceAndContainer(w *model.World, node *model.Node, instances map[instanceId]*model.Instance, containerId string) (*model.Instance, *model.Container) {
-	nodeName := ""
+	nodeId, nodeName := "", ""
 	if node != nil {
+		nodeId = node.MachineID
 		nodeName = node.Name.Value()
 	}
 	parts := strings.Split(containerId, "/")
@@ -27,12 +28,12 @@ func getInstanceAndContainer(w *model.World, node *model.Node, instances map[ins
 		w.IntegrationStatus.KubeStateMetrics.Required = true
 		ns, pod := parts[2], parts[3]
 		containerName = parts[4]
-		instance = instances[instanceId{ns: ns, name: pod, node: nodeName}]
+		instance = instances[instanceId{ns: ns, name: pod, node: nodeId}]
 	} else {
 		containerName = strings.TrimSuffix(parts[len(parts)-1], ".service")
 		appId := model.NewApplicationId("", model.ApplicationKindUnknown, containerName)
 		instanceName := fmt.Sprintf("%s@%s", containerName, nodeName)
-		id := instanceId{ns: "", name: instanceName, node: nodeName}
+		id := instanceId{ns: "", name: instanceName, node: nodeId}
 		instance = instances[id]
 		if instance == nil {
 			instance = w.GetOrCreateApplication(appId).GetOrCreateInstance(instanceName, node)
@@ -49,7 +50,11 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues, pjs
 	instances := map[instanceId]*model.Instance{}
 	for _, a := range w.Applications {
 		for _, i := range a.Instances {
-			instances[instanceId{ns: a.Id.Namespace, name: i.Name, node: i.NodeName()}] = i
+			nodeId := ""
+			if i.Node != nil {
+				nodeId = i.Node.MachineID
+			}
+			instances[instanceId{ns: a.Id.Namespace, name: i.Name, node: nodeId}] = i
 		}
 	}
 

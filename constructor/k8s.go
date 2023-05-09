@@ -85,6 +85,10 @@ func podInfo(w *model.World, metrics []model.MetricValues) map[string]*model.Ins
 		ownerKind := m.Labels["created_by_kind"]
 		nodeName := m.Labels["node"]
 		uid := m.Labels["uid"]
+		if uid == "" {
+			klog.Errorln("invalid 'kube_pod_info' metric: 'uid' label is empty")
+			continue
+		}
 		node := w.GetNode(nodeName)
 		var appId model.ApplicationId
 
@@ -118,6 +122,9 @@ func podInfo(w *model.World, metrics []model.MetricValues) map[string]*model.Ins
 func podLabels(metrics []model.MetricValues, pods map[string]*model.Instance) {
 	for _, m := range metrics {
 		uid := m.Labels["uid"]
+		if uid == "" {
+			continue
+		}
 		instance := pods[uid]
 		if instance == nil {
 			klog.Warningln("unknown pod:", uid, m.Labels["pod"], m.Labels["namespace"])
@@ -152,6 +159,9 @@ func podLabels(metrics []model.MetricValues, pods map[string]*model.Instance) {
 func podStatus(queryName string, metrics []model.MetricValues, pods map[string]*model.Instance) {
 	for _, m := range metrics {
 		uid := m.Labels["uid"]
+		if uid == "" {
+			continue
+		}
 		instance := pods[uid]
 		if instance == nil {
 			klog.Warningln("unknown pod:", uid, m.Labels["pod"], m.Labels["namespace"])
@@ -181,6 +191,9 @@ func podStatus(queryName string, metrics []model.MetricValues, pods map[string]*
 func podContainer(queryName string, metrics []model.MetricValues, pods map[string]*model.Instance) {
 	for _, m := range metrics {
 		uid := m.Labels["uid"]
+		if uid == "" {
+			continue
+		}
 		instance := pods[uid]
 		if instance == nil {
 			klog.Warningln("unknown pod:", uid, m.Labels["pod"], m.Labels["namespace"])

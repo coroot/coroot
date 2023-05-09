@@ -28,6 +28,7 @@ type Node struct {
 	AgentVersion LabelLastValue
 
 	Name      LabelLastValue
+	K8sName   LabelLastValue
 	MachineID string
 	Uptime    *timeseries.TimeSeries
 
