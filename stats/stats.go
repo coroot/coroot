@@ -49,6 +49,7 @@ type Stats struct {
 		AlertingIntegrations      *utils.StringSet                     `json:"alerting_integrations"`
 		Pyroscope                 bool                                 `json:"pyroscope"`
 		CloudCosts                bool                                 `json:"cloud_costs"`
+		Clickhouse                bool                                 `json:"clickhouse"`
 	} `json:"integration"`
 	Stack struct {
 		Clouds               *utils.StringSet `json:"clouds"`
@@ -261,6 +262,9 @@ func (c *Collector) collect() Stats {
 		}
 		if cfg := p.Settings.Integrations.Pyroscope; cfg != nil && cfg.Url != "" {
 			stats.Integration.Pyroscope = true
+		}
+		if cfg := p.Settings.Integrations.Clickhouse; cfg != nil && cfg.Addr != "" {
+			stats.Integration.Clickhouse = true
 		}
 
 		for category := range p.Settings.ApplicationCategories {

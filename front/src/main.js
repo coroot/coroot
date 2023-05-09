@@ -27,9 +27,9 @@ const router = new VueRouter({
     base: config.base_path,
     routes: [
         {path: '/p/new/:tab?', name: 'project_new', component: Project},
-        {path: '/p/:projectId/settings/:tab?', name: 'project_settings', component: Project, props: true},
-        {path: '/p/:projectId/:view?', name: 'overview', component: Overview, props: true},
-        {path: '/p/:projectId/app/:id/:report?', name: 'application', component: Application, props: true},
+        {path: '/p/:projectId/settings/:tab?', name: 'project_settings', component: Project, props: true, meta: {stats: {param: 'tab'}}},
+        {path: '/p/:projectId/:view?', name: 'overview', component: Overview, props: true, meta: {stats: {param: 'view'}}},
+        {path: '/p/:projectId/app/:id/:report?', name: 'application', component: Application, props: true, meta: {stats: {param: 'report'}}},
         {path: '/p/:projectId/node/:name', name: 'node', component: Node, props: true},
         {path: '/welcome', name: 'welcome', component: Welcome},
         {path: '/', name: 'index', component: App},
@@ -60,8 +60,18 @@ router.afterEach((to, from) => {
     const m = to.matched[0];
     if (m) {
         let p = m.path;
-        p = p.replace(':report?', to.params.report || '')
+        if (to.meta.stats && to.meta.stats.param) {
+            p = p.replace(':'+to.meta.stats.param, to.params[to.meta.stats.param] || '');
+        }
         p = p.replaceAll(':', '$');
+        if (to.query.profile) {
+            const [type, name, mode, fromTs, toTs] = to.query.profile.split(':');
+            p += `${type}:${name}:${mode}:${Number(fromTs) || Number(toTs) ? 'ts' : '-'}`;
+        }
+        if (to.query.trace) {
+            const [type, id, ts, dur] = to.query.trace.split(':');
+            p += `${type}:${id ? 'id' : '-'}:${ts !== '-' ? 'ts' : '-'}:${dur}`;
+        }
         api.stats("route-open", {path: p});
     }
 });
