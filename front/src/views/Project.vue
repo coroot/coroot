@@ -55,7 +55,8 @@
             </a>
         </h1>
         <p>
-            Coroot stores tracing spans in Clickhouse.
+            Coroot can display OpenTelemetry traces stored in a ClickHouse database
+            (<a href="https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/exporter/clickhouseexporter" target="_blank">clickhouse-exporter</a>).
         </p>
         <IntegrationClickhouse />
     </template>
