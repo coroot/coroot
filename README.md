@@ -46,6 +46,17 @@ helping you identify and resolve application issues quickly.
 <img width="774" src="https://user-images.githubusercontent.com/194465/235189583-add2b84f-bc61-4df0-b859-0396f4b26101.png">
 </p>
 
+### Explore any outlier requests with distributed tracing
+
+* Investigate any anomaly with just one click
+* Vendor-neutral instrumentation with OpenTelemetry
+* Are you unable to instrument legacy or third-party services?
+Coroot's eBPF-based instrumentation can capture requests without requiring any code changes.
+
+<p align="center">
+<img width="1352" src="https://github.com/coroot/coroot/assets/194465/f5a4342f-776d-48b1-a3b8-03ccbdf43b5e">
+</p>
+
 ### Grasp insights from logs with just a quick glance
 
 * Coroot turns terabytes of logs into just a few dozen metrics by extracting repeated patterns right on the node
