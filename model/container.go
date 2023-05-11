@@ -11,6 +11,7 @@ const (
 )
 
 type Container struct {
+	Id   string
 	Name string
 
 	InitContainer bool
@@ -40,8 +41,9 @@ type Container struct {
 	OOMKills *timeseries.TimeSeries
 }
 
-func NewContainer(name string) *Container {
+func NewContainer(id, name string) *Container {
 	return &Container{
+		Id:               id,
 		Name:             name,
 		ApplicationTypes: map[ApplicationType]bool{},
 	}

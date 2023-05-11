@@ -6,7 +6,7 @@
                  @mouseenter="focus('client', app.id)" @mouseleave="unfocus"
             >
                 <div>
-                    <router-link :to="{name: 'application', params: {id: app.id}, query: $route.query}" class="name">
+                    <router-link :to="{name: 'application', params: {id: app.id}, query: $utils.contextQuery()}" class="name">
                         <AppHealth :app="app"/>
                     </router-link>
                     <Labels v-if="!hideLabels(map.clients)" :labels="app.labels" class="d-none d-sm-block ml-4" />
@@ -44,7 +44,7 @@
                  @mouseenter="focus('dependency', app.id)" @mouseleave="unfocus"
             >
                 <div>
-                    <router-link :to="{name: 'application', params: {id: app.id}, query: $route.query}" class="name">
+                    <router-link :to="{name: 'application', params: {id: app.id}, query: $utils.contextQuery()}" class="name">
                         <AppHealth :app="app"/>
                     </router-link>
                     <Labels v-if="!hideLabels(map.dependencies)" :labels="app.labels" class="d-none d-sm-block ml-4" />

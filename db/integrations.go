@@ -11,6 +11,7 @@ type IntegrationType string
 const (
 	IntegrationTypePrometheus IntegrationType = "prometheus"
 	IntegrationTypePyroscope  IntegrationType = "pyroscope"
+	IntegrationTypeClickhouse IntegrationType = "clickhouse"
 	IntegrationTypeSlack      IntegrationType = "slack"
 	IntegrationTypePagerduty  IntegrationType = "pagerduty"
 	IntegrationTypeTeams      IntegrationType = "teams"
@@ -25,7 +26,8 @@ type Integrations struct {
 	Teams     *IntegrationTeams     `json:"teams,omitempty"`
 	Opsgenie  *IntegrationOpsgenie  `json:"opsgenie,omitempty"`
 
-	Pyroscope *IntegrationPyroscope `json:"pyroscope,omitempty"`
+	Pyroscope  *IntegrationPyroscope  `json:"pyroscope,omitempty"`
+	Clickhouse *IntegrationClickhouse `json:"clickhouse,omitempty"`
 }
 
 type IntegrationInfo struct {
@@ -93,6 +95,16 @@ type IntegrationPyroscope struct {
 	TlsSkipVerify bool             `json:"tls_skip_verify"`
 	BasicAuth     *utils.BasicAuth `json:"basic_auth,omitempty"`
 	ApiKey        string           `json:"api_key"`
+}
+
+type IntegrationClickhouse struct {
+	Protocol      string          `json:"protocol"`
+	Addr          string          `json:"addr"`
+	Auth          utils.BasicAuth `json:"auth"`
+	Database      string          `json:"database"`
+	TlsEnable     bool            `json:"tls_enable"`
+	TlsSkipVerify bool            `json:"tls_skip_verify"`
+	TracesTable   string          `json:"traces_table"`
 }
 
 type IntegrationSlack struct {

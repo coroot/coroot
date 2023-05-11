@@ -8,7 +8,7 @@
             <div v-for="apps in levels" class="level" style="z-index: 1" :style="{rowGap: 200 / apps.length + 'px', maxWidth: 100 / levels.length + '%' }">
                 <div v-for="a in apps" style="text-align: center">
                     <span :ref="a.id" class="app" :class="a.hi(hi) ? 'selected' : ''" @mouseenter="hi = a.id" @mouseleave="hi = null">
-                        <router-link :to="{name: 'application', params: {id: a.id}, query: $route.query}" class="name">
+                        <router-link :to="{name: 'application', params: {id: a.id}, query: $utils.contextQuery()}" class="name">
                             <AppHealth :app="a"/>
                         </router-link>
                         <Labels v-if="!hideLabels" :labels="a.labels" class="d-none d-sm-block ml-4" />

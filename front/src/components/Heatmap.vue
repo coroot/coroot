@@ -10,7 +10,7 @@
             </div>
         </div>
 
-        <div ref="uplot" v-on-resize="redraw" style="position: relative">
+        <div ref="uplot" v-on-resize="redraw" class="chart" :class="{loading: loading}">
             <div class="threshold" style="z-index: 1" :style="threshold.style">
                 <v-tooltip left>
                     <template #activator="{on}">
@@ -69,18 +69,25 @@ function fmtVal(v, unit, digits) {
 export default {
     props: {
         heatmap: Object,
+        selection: Object,
+        loading: Boolean,
     },
+
     components: {ChartTooltip, ChartAnnotations, ChartIncidents},
+
     data() {
         return {
             ch: null,
             bbox: null,
             idx: null,
+            select: {},
         };
     },
+
     mounted() {
         this.$nextTick(this.redraw);
     },
+
     beforeDestroy() {
         this.ch && this.ch.destroy();
     },
@@ -106,6 +113,9 @@ export default {
                 return [];
             }
             const {min, max} = c.ctx;
+            if (min === Infinity) {
+                return [];
+            }
             const avg = (min + max)/2;
             return [
                 {type: 'min', value: fmtVal(min, '/s')},
@@ -211,20 +221,17 @@ export default {
                 series: [{}, ...c.series.map(() => ({paths: hm}))],
                 cursor: {
                     points: {show: false},
-                    y: false,
-                    drag: {setScale: false},
+                    y: !!this.selection,
+                    drag: {setScale: false, x: !!this.selection, y: !!this.selection},
                     bind: {
-                        dblclick: (u) => {
-                            return () => {
-                                u.setSelect({width: 0, height: 0}, false);
-                                return null;
-                            }
-                        },
+                        dblclick: () => () => null, // avoid some strange collapse of the y-axis
                     },
+                    lock: true,
                 },
                 legend: {show: false},
                 plugins: [
                     this.$refs.tooltip.plugin(),
+                    this.selectionPlugin(),
                 ],
             };
 
@@ -262,11 +269,65 @@ export default {
                 })
             }
         },
+        selectionPlugin() {
+            if (!this.selection) {
+                return {};
+            }
+            const emitSelection = (s) => {
+                this.$emit('select', s);
+            }
+            const init = (u) => {
+                u.over.addEventListener("click", () => {
+                    u.setSelect({width: 0, height: 0}, false);
+                    emitSelection({});
+                });
+            }
+            const ready = (u) => {
+                const c = this.config;
+                const sel = this.selection;
+                if (!sel.x1 && !sel.x2 && !sel.y1 && !sel.y2) {
+                    return;
+                }
+                const opts = {left: 0, width: 0, top: 0, height: 0};
+                opts.left = Math.max(u.valToPos(sel.x1 || c.ctx.from, 'x'), 0);
+                opts.width = Math.min(u.valToPos(sel.x2 || c.ctx.to, 'x') - opts.left, u.bbox.width/devicePixelRatio);
+                opts.top = (sel.y2 === '' ? 0 : u.valToPos(c.series.findIndex(s => s.value === sel.y2) + 1, 'y')) + 1;
+                opts.height = (sel.y1 === '' ? u.bbox.height/devicePixelRatio : u.valToPos(c.series.findIndex(s => s.value === sel.y1)+1, 'y')) - opts.top;
+                this.select = opts;
+                u.setSelect(opts, false);
+            }
+            const setSelect = (u) => {
+                const c = this.config;
+                const s = u.select;
+                const rs = this.select;
+                if ((!s.width && !s.height) || (s.left === rs.left && s.width === rs.width && s.top === rs.top && s.height === rs.height)) {
+                    return;
+                }
+                const x1 = Math.trunc(u.posToVal(s.left, 'x'));
+                const x2 = Math.trunc(u.posToVal(s.left + s.width, 'x'));
+                let y1 = Math.trunc(u.posToVal(s.top+s.height, 'y'));
+                let y2 = Math.trunc(u.posToVal(s.top, 'y'));
+                y1 = y1 <= 0 ? '' : c.series[y1-1].value;
+                const l = c.series.length;
+                y2 = y2 >= l ? c.series[l-1].value : c.series[y2].value;
+                emitSelection({x1, x2, y1, y2});
+            }
+
+            return {hooks: {init, ready, setSelect}}
+        },
     },
 }
 </script>
 
 <style scoped>
+.chart {
+    position: relative;
+}
+.chart:deep(.u-select) {
+    border: 1px dashed #FFEB3B;
+    background-color: #FFEB3B80;
+}
+
 .title {
     font-size: 14px !important;
     font-weight: normal !important;
@@ -343,5 +404,9 @@ export default {
 }
 .tooltip .item .details .below {
     color: green;
+}
+
+.loading {
+    pointer-events: none;
 }
 </style>

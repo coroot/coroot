@@ -9,16 +9,7 @@ import (
 	"k8s.io/klog"
 )
 
-type Incident struct {
-	Key        string
-	OpenedAt   timeseries.Time
-	ResolvedAt timeseries.Time
-	Severity   model.Status
-}
-
-func (i *Incident) Resolved() bool {
-	return !i.ResolvedAt.IsZero()
-}
+type Incident model.ApplicationIncident
 
 func (i *Incident) Migrate(m *Migrator) error {
 	return m.Exec(`
@@ -73,38 +64,39 @@ type IncidentNotificationDetailsReport struct {
 	Message string                `json:"message"`
 }
 
-func (db *DB) GetIncidentByKey(projectId ProjectId, key string) (*Incident, error) {
-	i := &Incident{Key: key}
+func (db *DB) GetIncidentByKey(projectId ProjectId, key string) (*model.ApplicationIncident, error) {
+	i := &model.ApplicationIncident{Key: key}
 	err := db.db.QueryRow(
 		"SELECT opened_at, resolved_at, severity FROM incident WHERE project_id = $1 AND key = $2 LIMIT 1",
 		projectId, key).Scan(&i.OpenedAt, &i.ResolvedAt, &i.Severity)
 	return i, err
 }
 
-func (db *DB) GetIncidentsByApp(projectId ProjectId, appId model.ApplicationId, from, to timeseries.Time) ([]Incident, error) {
+func (db *DB) GetApplicationIncidents(projectId ProjectId, from, to timeseries.Time) (map[model.ApplicationId][]*model.ApplicationIncident, error) {
 	rows, err := db.db.Query(
-		"SELECT key, opened_at, resolved_at, severity FROM incident WHERE project_id = $1 AND application_id = $2 AND opened_at <= $3 AND (resolved_at = 0 OR resolved_at >= $4)",
-		projectId, appId.String(), to, from)
+		"SELECT application_id, key, opened_at, resolved_at, severity FROM incident WHERE project_id = $1 AND opened_at <= $2 AND (resolved_at = 0 OR resolved_at >= $3)",
+		projectId, to, from)
 	if err != nil {
 		return nil, err
 	}
 	defer func() {
 		_ = rows.Close()
 	}()
-	var res []Incident
-	var i Incident
+	res := map[model.ApplicationId][]*model.ApplicationIncident{}
+	var appId model.ApplicationId
 	for rows.Next() {
-		if err := rows.Scan(&i.Key, &i.OpenedAt, &i.ResolvedAt, &i.Severity); err != nil {
+		var i model.ApplicationIncident
+		if err := rows.Scan(&appId, &i.Key, &i.OpenedAt, &i.ResolvedAt, &i.Severity); err != nil {
 			return nil, err
 		}
-		res = append(res, i)
+		res[appId] = append(res[appId], &i)
 	}
 	return res, err
 }
 
-func (db *DB) CreateOrUpdateIncident(projectId ProjectId, appId model.ApplicationId, now timeseries.Time, severity model.Status) (*Incident, error) {
+func (db *DB) CreateOrUpdateIncident(projectId ProjectId, appId model.ApplicationId, now timeseries.Time, severity model.Status) (*model.ApplicationIncident, error) {
 	appIdStr := appId.String()
-	var last Incident
+	var last model.ApplicationIncident
 	err := db.db.QueryRow(
 		"SELECT key, opened_at, resolved_at, severity FROM incident WHERE project_id = $1 AND application_id = $2 ORDER BY opened_at DESC LIMIT 1",
 		projectId, appIdStr).Scan(&last.Key, &last.OpenedAt, &last.ResolvedAt, &last.Severity)
@@ -114,7 +106,7 @@ func (db *DB) CreateOrUpdateIncident(projectId ProjectId, appId model.Applicatio
 
 	if last.OpenedAt.IsZero() || last.Resolved() {
 		if severity > model.OK { // open
-			i := Incident{Key: utils.NanoId(8), OpenedAt: now, Severity: severity}
+			i := model.ApplicationIncident{Key: utils.NanoId(8), OpenedAt: now, Severity: severity}
 			_, err := db.db.Exec(
 				"INSERT INTO incident (project_id, application_id, key, opened_at, severity) VALUES ($1, $2, $3, $4, $5)",
 				projectId, appIdStr, i.Key, i.OpenedAt, i.Severity)

@@ -1,5 +1,6 @@
 const slugRe = /^[-_0-9a-z]{3,}$/;
 const urlRe = /^https?:\/\/.{3,}$/;
+const addrRe = /^[-_0-9a-z.]+:[0-9]+$/;
 const selectorRe = /^{.+=.+}$/;
 
 export function notEmpty(v) {
@@ -12,6 +13,10 @@ export function isSlug(v) {
 
 export function isUrl(v) {
     return !v || urlRe.test(v) || 'a valid URL is required, e.g. https://yourdomain.com';
+}
+
+export function isAddr(v) {
+    return !v || addrRe.test(v) || 'a valid address is required, e.g. HOST:PORT';
 }
 
 export function isFloat(v) {

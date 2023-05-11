@@ -23,6 +23,7 @@ type Application struct {
 
 	Events      []*ApplicationEvent
 	Deployments []*ApplicationDeployment
+	Incidents   []*ApplicationIncident
 
 	Status  Status
 	Reports []*AuditReport

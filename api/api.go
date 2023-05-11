@@ -381,14 +381,8 @@ func (api *Api) App(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Application not found", http.StatusNotFound)
 		return
 	}
-	incidents, err := api.db.GetIncidentsByApp(project.Id, app.Id, world.Ctx.From, world.Ctx.To)
-	if err != nil {
-		klog.Errorln(err)
-		http.Error(w, "", http.StatusInternalServerError)
-		return
-	}
 	auditor.Audit(world, project)
-	utils.WriteJson(w, views.Application(world, app, incidents))
+	utils.WriteJson(w, views.Application(world, app))
 }
 
 func (api *Api) Check(w http.ResponseWriter, r *http.Request) {
@@ -557,6 +551,59 @@ func (api *Api) Profile(w http.ResponseWriter, r *http.Request) {
 	}
 	q := r.URL.Query()
 	utils.WriteJson(w, views.Profile(r.Context(), project, app, settings, q, world.Ctx))
+}
+
+func (api *Api) Tracing(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	projectId := db.ProjectId(vars["project"])
+	appId, err := model.NewApplicationIdFromString(vars["app"])
+	if err != nil {
+		klog.Warningln(err)
+		http.Error(w, "invalid application id: "+vars["app"], http.StatusBadRequest)
+		return
+	}
+
+	if r.Method == http.MethodPost {
+		if api.readOnly {
+			return
+		}
+		var form ApplicationSettingsTracingForm
+		if err := ReadAndValidate(r, &form); err != nil {
+			klog.Warningln("bad request:", err)
+			http.Error(w, "invalid data", http.StatusBadRequest)
+			return
+		}
+		if err := api.db.SaveApplicationSetting(projectId, appId, &form.ApplicationSettingsTracing); err != nil {
+			klog.Errorln(err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		return
+	}
+
+	world, project, err := api.loadWorldByRequest(r)
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	if world == nil {
+		return
+	}
+	app := world.GetApplication(appId)
+	if app == nil {
+		klog.Warningln("application not found:", appId)
+		http.Error(w, "Application not found", http.StatusNotFound)
+		return
+	}
+	settings, err := api.db.GetApplicationSettings(project.Id, app.Id)
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	q := r.URL.Query()
+	utils.WriteJson(w, views.Tracing(r.Context(), project, app, settings, q, world))
 }
 
 func (api *Api) Node(w http.ResponseWriter, r *http.Request) {

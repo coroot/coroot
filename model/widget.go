@@ -6,8 +6,10 @@ type Widget struct {
 	Table         *Table         `json:"table,omitempty"`
 	LogPatterns   *LogPatterns   `json:"log_patterns,omitempty"`
 	DependencyMap *DependencyMap `json:"dependency_map,omitempty"`
-	Profile       *Profile       `json:"profile,omitempty"`
 	Heatmap       *Heatmap       `json:"heatmap,omitempty"`
+
+	Profile *Profile `json:"profile,omitempty"`
+	Tracing *Tracing `json:"tracing,omitempty"`
 
 	Width string `json:"width,omitempty"`
 }
@@ -72,5 +74,9 @@ func (l *RouterLink) SetHash(v string) *RouterLink {
 }
 
 type Profile struct {
+	ApplicationId ApplicationId `json:"application_id"`
+}
+
+type Tracing struct {
 	ApplicationId ApplicationId `json:"application_id"`
 }

@@ -108,6 +108,7 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 	prof.stage("calc_app_categories", func() { c.calcApplicationCategories(w) })
 	prof.stage("load_sli", func() { c.loadSLIs(w, metrics) })
 	prof.stage("load_app_deployments", func() { c.loadApplicationDeployments(w) })
+	prof.stage("load_app_incidents", func() { c.loadApplicationIncidents(w) })
 	prof.stage("calc_app_events", func() { calcAppEvents(w) })
 
 	klog.Infof("got %d nodes, %d services, %d applications", len(w.Nodes), len(w.Services), len(w.Applications))
@@ -208,6 +209,21 @@ func (c *Constructor) loadApplicationDeployments(w *model.World) {
 			continue
 		}
 		app.Deployments = deployments
+	}
+}
+
+func (c *Constructor) loadApplicationIncidents(w *model.World) {
+	byApp, err := c.db.GetApplicationIncidents(c.project.Id, w.Ctx.From, w.Ctx.To)
+	if err != nil {
+		klog.Errorln(err)
+		return
+	}
+	for id, incidents := range byApp {
+		app := w.GetApplication(id)
+		if app == nil {
+			continue
+		}
+		app.Incidents = incidents
 	}
 }
 

@@ -41,7 +41,7 @@ func getClient(destination db.IntegrationType, integrations db.Integrations) Not
 	return nil
 }
 
-func incidentDetails(app *model.Application, incident *db.Incident) *db.IncidentNotificationDetails {
+func incidentDetails(app *model.Application, incident *model.ApplicationIncident) *db.IncidentNotificationDetails {
 	var reports []db.IncidentNotificationDetailsReport
 	if !incident.Resolved() {
 		for _, r := range app.Reports {

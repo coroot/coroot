@@ -34,4 +34,13 @@ export default class Utils {
             name: parts[3] ? ':'+parts[3] : parts[2],
         }
     }
+
+    contextQuery() {
+        const r = this.router.currentRoute;
+        if (!r) {
+            return {};
+        }
+        const {from, to} = r.query || {};
+        return {from, to};
+    }
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/coroot/coroot/api/views/profile"
 	"github.com/coroot/coroot/api/views/project"
 	"github.com/coroot/coroot/api/views/search"
+	"github.com/coroot/coroot/api/views/tracing"
 	"github.com/coroot/coroot/cache"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
@@ -26,12 +27,16 @@ func Overview(w *model.World, view string) *overview.View {
 	return overview.Render(w, view)
 }
 
-func Application(w *model.World, app *model.Application, incidents []db.Incident) *application.View {
-	return application.Render(w, app, incidents)
+func Application(w *model.World, app *model.Application) *application.View {
+	return application.Render(w, app)
 }
 
 func Profile(ctx context.Context, project *db.Project, app *model.Application, appSettings *db.ApplicationSettings, q url.Values, wCtx timeseries.Context) *profile.View {
 	return profile.Render(ctx, project, app, appSettings, q, wCtx)
+}
+
+func Tracing(ctx context.Context, project *db.Project, app *model.Application, appSettings *db.ApplicationSettings, q url.Values, w *model.World) *tracing.View {
+	return tracing.Render(ctx, project, app, appSettings, q, w)
 }
 
 func Node(w *model.World, n *model.Node) *model.AuditReport {

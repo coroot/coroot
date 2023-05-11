@@ -1,5 +1,28 @@
 import vc from 'vuetify/lib/util/colors';
 
+const colors = [
+    'rgb(163, 194, 156)',
+    'rgb(236, 212, 153)',
+    'rgb(106, 136, 190)',
+    'rgb(240, 180, 122)',
+    'rgb(226, 114, 114)',
+    'rgb(119, 157, 186)',
+    'rgb(208, 160, 201)',
+    'rgb(162, 151, 195)',
+    'rgb(144, 181, 122)',
+    'rgb(232, 195, 84)',
+    'rgb(102, 172, 184)',
+    'rgb(240, 146, 84)',
+    'rgb(203, 87, 87)',
+    'rgb(83, 125, 177)',
+    'rgb(174, 105, 174)',
+    'rgb(120, 102, 148)',
+];
+
+function hash(str) {
+    return str.split("").reduce((a, b) => (a << 5) - a + b.charCodeAt(0), 0) >>> 0;
+}
+
 class Palette {
     byName = new Map();
     byIndex = [];
@@ -37,8 +60,11 @@ class Palette {
         if (str === grey) {
             return this.byIndex2[l];
         }
-        const hash = str.split("").reduce((a, b) => (a << 5) - a + b.charCodeAt(0), 0) >>> 0;
-        return this.byIndex2[hash % l];
+        return this.byIndex2[hash(str) % l];
+    }
+
+    hash2(str) {
+        return colors[hash(str) % colors.length];
     }
 }
 

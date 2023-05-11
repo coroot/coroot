@@ -27,7 +27,8 @@ type Series struct {
 	Fill      bool   `json:"fill,omitempty"`
 	Threshold string `json:"threshold,omitempty"`
 
-	Data SeriesData `json:"data"`
+	Data  SeriesData `json:"data"`
+	Value string     `json:"value"`
 }
 
 type SeriesList struct {
@@ -161,17 +162,19 @@ type Heatmap struct {
 	Series SeriesList `json:"series"`
 
 	Annotations []Annotation `json:"annotations"`
+
+	DrillDownLink *RouterLink `json:"drill_down_link"`
 }
 
 func NewHeatmap(ctx timeseries.Context, title string) *Heatmap {
 	return &Heatmap{Ctx: ctx, Title: title}
 }
 
-func (hm *Heatmap) AddSeries(name, title string, data SeriesData, threshold string) *Heatmap {
+func (hm *Heatmap) AddSeries(name, title string, data SeriesData, threshold string, value string) *Heatmap {
 	if data.IsEmpty() {
 		return hm
 	}
-	s := &Series{Name: name, Title: title, Data: data, Threshold: threshold}
+	s := &Series{Name: name, Title: title, Data: data, Threshold: threshold, Value: value}
 	hm.Series.series = append(hm.Series.series, s)
 	return hm
 }
@@ -301,6 +304,17 @@ func EventsToAnnotations(events []*ApplicationEvent, ctx timeseries.Context) []A
 			X2:   a.end,
 			Icon: icon,
 		})
+	}
+	return res
+}
+
+func IncidentsToAnnotations(incidents []*ApplicationIncident, ctx timeseries.Context) []Annotation {
+	res := make([]Annotation, 0, len(incidents))
+	for _, i := range incidents {
+		if !i.Resolved() {
+			i.ResolvedAt = ctx.To
+		}
+		res = append(res, Annotation{Name: "incident", X1: i.OpenedAt, X2: i.ResolvedAt})
 	}
 	return res
 }

@@ -1,7 +1,7 @@
 <template>
 <div>
     <h1 class="text-h5 my-5">
-        <router-link :to="{name: 'overview', query: $route.query}">Applications</router-link> / {{$utils.appId(id).name}}
+        <router-link :to="{name: 'overview', query: $utils.contextQuery()}">Applications</router-link> / {{$utils.appId(id).name}}
         <v-progress-linear v-if="loading" indeterminate color="green" />
     </h1>
 
@@ -13,7 +13,7 @@
         <AppMap v-if="app.app_map" :map="app.app_map" class="my-5" />
 
         <v-tabs v-if="app.reports && app.reports.length" height="40" show-arrows slider-size="2">
-            <v-tab v-for="r in app.reports" :key="r.name" :to="{params: {report: r.name}, query: $route.query}">
+            <v-tab v-for="r in app.reports" :key="r.name" :to="{params: {report: r.name}, query: $utils.contextQuery()}" exact-path>
                 <Led v-if="r && r.checks" :status="r.status" />
                 {{r.name}}
             </v-tab>
@@ -92,12 +92,12 @@ export default {
                 } else {
                     this.r = this.app.reports[0];
                 }
-                this.$router.replace({params: {report: this.r.name}, query: this.$route.query}).catch(err => err);
+                this.$router.replace({params: {report: this.r.name}, query: this.$utils.contextQuery()}).catch(err => err);
                 return;
             }
             const r = this.app.reports.find((r) => r.name === this.report);
             if (!r) {
-                this.$router.replace({params: {report: null}, query: this.$route.query}).catch(err => err);
+                this.$router.replace({params: {report: null}, query: this.$utils.contextQuery()}).catch(err => err);
                 return;
             }
             this.r = r;

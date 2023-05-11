@@ -24,7 +24,7 @@ func NewIncidentNotifier(db *db.DB) *IncidentNotifier {
 	return &n
 }
 
-func (n *IncidentNotifier) Enqueue(project *db.Project, app *model.Application, incident *db.Incident, now timeseries.Time) {
+func (n *IncidentNotifier) Enqueue(project *db.Project, app *model.Application, incident *model.ApplicationIncident, now timeseries.Time) {
 	integrations := project.Settings.Integrations
 	for _, i := range integrations.GetInfo() {
 		if i.Configured && i.Incidents {
@@ -98,7 +98,7 @@ func (n *IncidentNotifier) sendIncidents() {
 	}
 }
 
-func (n *IncidentNotifier) enqueue(project *db.Project, app *model.Application, incident *db.Incident, destination db.IntegrationType, now timeseries.Time) {
+func (n *IncidentNotifier) enqueue(project *db.Project, app *model.Application, incident *model.ApplicationIncident, destination db.IntegrationType, now timeseries.Time) {
 	notification := db.IncidentNotification{
 		ProjectId:     project.Id,
 		ApplicationId: app.Id,
