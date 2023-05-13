@@ -7,7 +7,7 @@ RUN go mod download
 COPY . .
 ARG VERSION=unknown
 RUN go test ./...
-RUN go install -mod=readonly -ldflags "-X main.version=$VERSION" .
+RUN go install -mod=readonly -ldflags "-w -s -X main.version=$VERSION" .
 
 
 FROM node:18-buster AS frontend-builder
