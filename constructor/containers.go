@@ -30,9 +30,17 @@ func getInstanceAndContainer(w *model.World, node *model.Node, instances map[ins
 		containerName = parts[4]
 		instance = instances[instanceId{ns: ns, name: pod, node: nodeId}]
 	} else {
-		containerName = strings.TrimSuffix(parts[len(parts)-1], ".service")
-		appId := model.NewApplicationId("", model.ApplicationKindUnknown, containerName)
-		instanceName := fmt.Sprintf("%s@%s", containerName, nodeName)
+		var appId model.ApplicationId
+		var instanceName string
+		if parts[1] == "swarm" && len(parts) == 5 {
+			appId = model.NewApplicationId(parts[2], model.ApplicationKindDockerSwarmService, parts[3])
+			containerName = parts[3]
+			instanceName = parts[3] + "." + parts[4]
+		} else {
+			containerName = strings.TrimSuffix(parts[len(parts)-1], ".service")
+			appId = model.NewApplicationId("", model.ApplicationKindUnknown, containerName)
+			instanceName = fmt.Sprintf("%s@%s", containerName, nodeName)
+		}
 		id := instanceId{ns: "", name: instanceName, node: nodeId}
 		instance = instances[id]
 		if instance == nil {

@@ -33,6 +33,7 @@
                     <v-list-item-title class="ml-3">
                         <Led :status="a.status" />
                         {{$utils.appId(a.id).name}}
+                        <span v-if="$utils.appId(a.id).ns" class="caption">(ns: {{$utils.appId(a.id).ns}})</span>
                     </v-list-item-title>
                 </v-list-item>
             </template>

@@ -51,6 +51,7 @@ var BuiltinCategoryPatterns = map[ApplicationCategory][]string{
 		"*/*grafana*",
 		"*/*alertmanager*",
 		"coroot/*",
+		"*/*coroot*",
 	},
 }
 

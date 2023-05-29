@@ -7,19 +7,20 @@ import (
 type ApplicationKind string
 
 const (
-	ApplicationKindDeployment      ApplicationKind = "Deployment"
-	ApplicationKindStatefulSet     ApplicationKind = "StatefulSet"
-	ApplicationKindDaemonSet       ApplicationKind = "DaemonSet"
-	ApplicationKindCronJob         ApplicationKind = "CronJob"
-	ApplicationKindJob             ApplicationKind = "Job"
-	ApplicationKindReplicaSet      ApplicationKind = "ReplicaSet"
-	ApplicationKindPod             ApplicationKind = "Pod"
-	ApplicationKindStaticPods      ApplicationKind = "StaticPods"
-	ApplicationKindUnknown         ApplicationKind = "Unknown"
-	ApplicationKindExternalService ApplicationKind = "ExternalService"
-	ApplicationKindDatabaseCluster ApplicationKind = "DatabaseCluster"
-	ApplicationKindRds             ApplicationKind = "RDS"
-	ApplicationKindNode            ApplicationKind = "Node"
+	ApplicationKindDeployment         ApplicationKind = "Deployment"
+	ApplicationKindStatefulSet        ApplicationKind = "StatefulSet"
+	ApplicationKindDaemonSet          ApplicationKind = "DaemonSet"
+	ApplicationKindCronJob            ApplicationKind = "CronJob"
+	ApplicationKindJob                ApplicationKind = "Job"
+	ApplicationKindReplicaSet         ApplicationKind = "ReplicaSet"
+	ApplicationKindPod                ApplicationKind = "Pod"
+	ApplicationKindStaticPods         ApplicationKind = "StaticPods"
+	ApplicationKindUnknown            ApplicationKind = "Unknown"
+	ApplicationKindDockerSwarmService ApplicationKind = "DockerSwarmService"
+	ApplicationKindExternalService    ApplicationKind = "ExternalService"
+	ApplicationKindDatabaseCluster    ApplicationKind = "DatabaseCluster"
+	ApplicationKindRds                ApplicationKind = "RDS"
+	ApplicationKindNode               ApplicationKind = "Node"
 )
 
 type Job struct{}
