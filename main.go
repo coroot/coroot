@@ -200,33 +200,46 @@ func getInstanceUuid(dataDir string) string {
 	return instanceUuid
 }
 
+func getOrCreateDefaultProject(database *db.DB) *db.Project {
+	projects, err := database.GetProjects()
+	if err != nil {
+		klog.Exitln(err)
+	}
+	switch len(projects) {
+	case 0:
+		p := db.Project{Name: "default"}
+		klog.Infof("creating default project")
+		if p.Id, err = database.SaveProject(p); err != nil {
+			klog.Exitln(err)
+		}
+		return &p
+	case 1:
+		return projects[0]
+	}
+	return nil
+}
+
 func bootstrapPrometheus(database *db.DB, url string, refreshInterval time.Duration, extraSelector string) {
 	if url == "" || refreshInterval == 0 {
 		return
 	}
-	projects, err := database.GetProjectNames()
-	if err != nil {
-		klog.Exitln(err)
+	if !prom.IsSelectorValid(extraSelector) {
+		klog.Exitf("invalid Prometheus extra selector: %s", extraSelector)
 	}
-	if len(projects) == 0 {
-		if !prom.IsSelectorValid(extraSelector) {
-			klog.Exitf("invalid Prometheus extra selector: %s", extraSelector)
-		}
-		p := db.Project{
-			Name: "default",
-			Prometheus: db.IntegrationsPrometheus{
-				Url:             url,
-				RefreshInterval: timeseries.Duration(int64((refreshInterval).Seconds())),
-				ExtraSelector:   extraSelector,
-			},
-		}
-		klog.Infof("creating project: %s(%s, %s)", p.Name, url, refreshInterval)
-		if p.Id, err = database.SaveProject(p); err != nil {
-			klog.Exitln(err)
-		}
-		if err := database.SaveProjectIntegration(&p, db.IntegrationTypePrometheus); err != nil {
-			klog.Exitln(err)
-		}
+	p := getOrCreateDefaultProject(database)
+	if p == nil {
+		return
+	}
+	if p.Prometheus.Url != "" {
+		return
+	}
+	p.Prometheus = db.IntegrationsPrometheus{
+		Url:             url,
+		RefreshInterval: timeseries.Duration(int64((refreshInterval).Seconds())),
+		ExtraSelector:   extraSelector,
+	}
+	if err := database.SaveProjectIntegration(p, db.IntegrationTypePrometheus); err != nil {
+		klog.Exitln(err)
 	}
 }
 
@@ -234,19 +247,15 @@ func bootstrapPyroscope(database *db.DB, url string) {
 	if url == "" {
 		return
 	}
-	projects, err := database.GetProjects()
-	if err != nil {
-		klog.Exitln(err)
-	}
-	if len(projects) != 1 {
+	p := getOrCreateDefaultProject(database)
+	if p == nil {
 		return
 	}
-	project := projects[0]
-	if project.Settings.Integrations.Pyroscope != nil {
+	if p.Settings.Integrations.Pyroscope != nil {
 		return
 	}
-	project.Settings.Integrations.Pyroscope = &db.IntegrationPyroscope{Url: url}
-	if err := database.SaveProjectIntegration(project, db.IntegrationTypePyroscope); err != nil {
+	p.Settings.Integrations.Pyroscope = &db.IntegrationPyroscope{Url: url}
+	if err := database.SaveProjectIntegration(p, db.IntegrationTypePyroscope); err != nil {
 		klog.Exitln(err)
 	}
 }
@@ -255,18 +264,14 @@ func bootstrapClickhouse(database *db.DB, addr, user, password, databaseName, tr
 	if addr == "" || user == "" || password == "" || databaseName == "" || tracesTable == "" {
 		return
 	}
-	projects, err := database.GetProjects()
-	if err != nil {
-		klog.Exitln(err)
-	}
-	if len(projects) != 1 {
+	p := getOrCreateDefaultProject(database)
+	if p == nil {
 		return
 	}
-	project := projects[0]
-	if project.Settings.Integrations.Clickhouse != nil {
+	if p.Settings.Integrations.Clickhouse != nil {
 		return
 	}
-	project.Settings.Integrations.Clickhouse = &db.IntegrationClickhouse{
+	p.Settings.Integrations.Clickhouse = &db.IntegrationClickhouse{
 		Protocol: "native",
 		Addr:     addr,
 		Auth: utils.BasicAuth{
@@ -276,7 +281,7 @@ func bootstrapClickhouse(database *db.DB, addr, user, password, databaseName, tr
 		Database:    databaseName,
 		TracesTable: tracesTable,
 	}
-	if err := database.SaveProjectIntegration(project, db.IntegrationTypeClickhouse); err != nil {
+	if err := database.SaveProjectIntegration(p, db.IntegrationTypeClickhouse); err != nil {
 		klog.Exitln(err)
 	}
 }
