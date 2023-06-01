@@ -126,7 +126,10 @@ func loadRds(w *model.World, metrics map[string][]model.MetricValues, pjs promJo
 					}
 				}
 				if stat == nil {
-					stat = &model.InterfaceStats{Name: name}
+					stat = &model.InterfaceStats{Name: name, Up: m.Values.WithNewValue(1)}
+					for l := range instance.TcpListens {
+						stat.Addresses = append(stat.Addresses, l.IP)
+					}
 					instance.Node.NetInterfaces = append(instance.Node.NetInterfaces, stat)
 				}
 				switch queryName {
