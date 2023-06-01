@@ -23,6 +23,9 @@
 
     <div style="position: relative; min-height: 100vh">
         <v-progress-linear v-if="loading" indeterminate color="green" height="4" style="position: absolute"/>
+        <div v-else-if="loadingError" class="pa-3 text-center red--text">
+            {{loadingError}}
+        </div>
         <div ref="flamegraph" class="pt-0"></div>
     </div>
 
@@ -72,6 +75,7 @@ export default {
     data() {
         return {
             loading: false,
+            loadingError: '',
 
             view: {},
 
@@ -158,11 +162,15 @@ export default {
         },
         get() {
             this.loading = true;
-            this.error = '';
+            this.loadingError = '';
             this.$api.getProfile(this.appId, this.$route.query.profile, (data, error) => {
                 this.loading = false;
+                const errMsg = 'Failed to load profile';
                 if (error) {
-                    this.error = error;
+                    this.loadingError = error;
+                    this.view.status = 'warning';
+                    this.view.message = errMsg;
+                    this.view.chart = null;
                     this.view.profile = null;
                     return;
                 }
