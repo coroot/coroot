@@ -7,9 +7,55 @@ import (
 	"strings"
 )
 
+func loadRdsMetadata(w *model.World, metrics map[string][]model.MetricValues, pjs promJobStatuses, rdsInstancesById map[string]*model.Instance) {
+	for _, m := range metrics["aws_rds_info"] {
+		rdsId := m.Labels["rds_instance_id"]
+		if rdsId == "" {
+			continue
+		}
+		instance := rdsInstancesById[rdsId]
+		if instance == nil {
+			var id model.ApplicationId
+			instanceParts := strings.SplitN(rdsId, "/", 2)
+			if len(instanceParts) != 2 {
+				continue
+			}
+			if clusterParts := strings.SplitN(m.Labels["cluster_id"], "/", 2); len(clusterParts) == 2 {
+				id = model.NewApplicationId("", model.ApplicationKindRds, clusterParts[1])
+			} else {
+				id = model.NewApplicationId("", model.ApplicationKindRds, instanceParts[1])
+			}
+			instance = w.GetOrCreateApplication(id).GetOrCreateInstance(instanceParts[1], nil)
+			rdsInstancesById[rdsId] = instance
+			instance.Rds = &model.Rds{}
+		}
+		if instance.Node == nil {
+			instance.Node = model.NewNode("rds:" + instance.Name)
+			instance.Node.Name.Update(m.Values, "rds:"+instance.Name)
+			instance.Node.Instances = append(instance.Node.Instances, instance)
+			w.Nodes = append(w.Nodes, instance.Node)
+		}
+		if len(instance.Volumes) == 0 { // the RDS instance should have only one volume
+			instance.Volumes = append(instance.Volumes, &model.Volume{
+				MountPoint: "/rdsdbdata",
+				EBS:        &model.EBS{},
+			})
+		}
+		instance.TcpListens[model.Listen{IP: m.Labels["ipv4"], Port: m.Labels["port"]}] = true
+		instance.Rds.Engine.Update(m.Values, m.Labels["engine"])
+		instance.Rds.EngineVersion.Update(m.Values, m.Labels["engine_version"])
+		instance.Node.InstanceType.Update(m.Values, m.Labels["instance_type"])
+		instance.Volumes[0].EBS.StorageType.Update(m.Values, m.Labels["storage_type"])
+		instance.Node.CloudProvider.Update(m.Values, "aws")
+		instance.Node.Region.Update(m.Values, m.Labels["region"])
+		instance.Node.AvailabilityZone.Update(m.Values, m.Labels["availability_zone"])
+		instance.Rds.MultiAz, _ = strconv.ParseBool(m.Labels["multi_az"])
+	}
+}
+
 func loadRds(w *model.World, metrics map[string][]model.MetricValues, pjs promJobStatuses, rdsInstancesById map[string]*model.Instance) {
 	for queryName := range QUERIES {
-		if !strings.HasPrefix(queryName, "aws_rds_") {
+		if !strings.HasPrefix(queryName, "aws_rds_") || queryName == "aws_rds_info" {
 			continue
 		}
 		for _, m := range metrics[queryName] {
@@ -19,41 +65,10 @@ func loadRds(w *model.World, metrics map[string][]model.MetricValues, pjs promJo
 			}
 			instance := rdsInstancesById[rdsId]
 			if instance == nil {
-				parts := strings.SplitN(rdsId, "/", 2)
-				if len(parts) != 2 {
-					continue
-				}
-				id := model.NewApplicationId("", model.ApplicationKindRds, parts[1])
-				instance = w.GetOrCreateApplication(id).GetOrCreateInstance(parts[1], nil)
-				rdsInstancesById[rdsId] = instance
-			}
-			if instance.Rds == nil {
-				instance.Rds = &model.Rds{}
-			}
-			if instance.Node == nil {
-				instance.Node = model.NewNode("rds:" + instance.Name)
-				instance.Node.Name.Update(m.Values, "rds:"+instance.Name)
-				instance.Node.Instances = append(instance.Node.Instances, instance)
-				w.Nodes = append(w.Nodes, instance.Node)
-			}
-			if len(instance.Volumes) == 0 { // the RDS instance should have only one volume
-				instance.Volumes = append(instance.Volumes, &model.Volume{
-					MountPoint: "/rdsdbdata",
-					EBS:        &model.EBS{},
-				})
+				continue
 			}
 			volume := instance.Volumes[0]
 			switch queryName {
-			case "aws_rds_info":
-				instance.TcpListens[model.Listen{IP: m.Labels["ipv4"], Port: m.Labels["port"]}] = true
-				instance.Rds.Engine.Update(m.Values, m.Labels["engine"])
-				instance.Rds.EngineVersion.Update(m.Values, m.Labels["engine_version"])
-				instance.Node.InstanceType.Update(m.Values, m.Labels["instance_type"])
-				volume.EBS.StorageType.Update(m.Values, m.Labels["storage_type"])
-				instance.Node.CloudProvider.Update(m.Values, "aws")
-				instance.Node.Region.Update(m.Values, m.Labels["region"])
-				instance.Node.AvailabilityZone.Update(m.Values, m.Labels["availability_zone"])
-				instance.Rds.MultiAz, _ = strconv.ParseBool(m.Labels["multi_az"])
 			case "aws_rds_status":
 				instance.Rds.LifeSpan = merge(instance.Rds.LifeSpan, m.Values, timeseries.Any)
 				instance.Rds.Status.Update(m.Values, m.Labels["status"])

@@ -101,6 +101,7 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 	prof.stage("load_job_statuses", func() { loadPromJobStatuses(metrics, pjs) })
 	prof.stage("load_nodes", func() { c.loadNodes(w, metrics, nodesByMachineId) })
 	prof.stage("load_k8s_metadata", func() { loadKubernetesMetadata(w, metrics) })
+	prof.stage("load_rds_metadata", func() { loadRdsMetadata(w, metrics, pjs, rdsInstancesById) })
 	prof.stage("load_rds", func() { loadRds(w, metrics, pjs, rdsInstancesById) })
 	prof.stage("load_containers", func() { loadContainers(w, metrics, pjs, nodesByMachineId) })
 	prof.stage("enrich_instances", func() { enrichInstances(w, metrics, rdsInstancesById) })
