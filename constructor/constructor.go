@@ -30,12 +30,12 @@ const (
 type Constructor struct {
 	db      *db.DB
 	project *db.Project
-	prom    prom.Client
+	prom    prom.Querier
 	pricing *cloud_pricing.Manager
 	options map[Option]bool
 }
 
-func New(db *db.DB, project *db.Project, prom prom.Client, pricing *cloud_pricing.Manager, options ...Option) *Constructor {
+func New(db *db.DB, project *db.Project, prom prom.Querier, pricing *cloud_pricing.Manager, options ...Option) *Constructor {
 	c := &Constructor{db: db, project: project, prom: prom, pricing: pricing, options: map[Option]bool{}}
 	for _, o := range options {
 		c.options[o] = true
@@ -126,12 +126,11 @@ type cacheQuery struct {
 func (c *Constructor) queryCache(ctx context.Context, from, to timeseries.Time, step timeseries.Duration, checkConfigs model.CheckConfigs, stats map[string]QueryStats) (map[string][]model.MetricValues, error) {
 	queries := map[string]cacheQuery{}
 	rawFrom := to.Add(-model.MaxAlertRuleWindow)
-	rawStep := c.project.Prometheus.RefreshInterval
 
 	addQuery := func(name, statsName, query string, sli bool) {
 		queries[name] = cacheQuery{query: query, from: from, to: to, step: step, statsName: statsName}
 		if sli && !c.options[OptionDoNotLoadRawSLIs] {
-			queries[name+"_raw"] = cacheQuery{query: query, from: rawFrom, to: to, step: rawStep, statsName: statsName + "_raw"}
+			queries[name+"_raw"] = cacheQuery{query: query, from: rawFrom, to: to, step: prom.StepUndefined, statsName: statsName + "_raw"}
 		}
 	}
 

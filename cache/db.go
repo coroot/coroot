@@ -3,7 +3,6 @@ package cache
 import (
 	"database/sql"
 	"errors"
-	"fmt"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/timeseries"
 	_ "github.com/mattn/go-sqlite3"
@@ -36,23 +35,20 @@ type Status struct {
 	LagAvg timeseries.Duration
 }
 
-func openStateDB(path string) (*sql.DB, error) {
-	database, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?mode=rwc&_sync=full", path))
-	if err != nil {
-		return nil, err
-	}
-	database.SetMaxOpenConns(1)
-	if err := db.NewMigrator(db.TypeSqlite, database).Migrate(&PrometheusQueryState{}); err != nil {
-		return nil, err
-	}
-	return database, nil
-}
-
 func (c *Cache) saveState(state *PrometheusQueryState) error {
 	c.stateLock.Lock()
 	defer c.stateLock.Unlock()
-	_, err := c.state.Exec(
-		"INSERT OR REPLACE INTO prometheus_query_state (project_id, query, last_ts, last_error) values ($1, $2, $3, $4)",
+	res, err := c.state.Exec(
+		"UPDATE prometheus_query_state SET last_ts = $1, last_error = $2 WHERE project_id = $3 AND query = $4",
+		state.LastTs, state.LastError, state.ProjectId, state.Query)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n > 0 {
+		return nil
+	}
+	_, err = c.state.Exec(
+		"INSERT INTO prometheus_query_state (project_id, query, last_ts, last_error) values ($1, $2, $3, $4)",
 		state.ProjectId, state.Query, state.LastTs, state.LastError)
 	return err
 }

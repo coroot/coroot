@@ -93,8 +93,11 @@ func (c *Cache) compaction() {
 		var tasks []*CompactionTask
 		c.lock.RLock()
 
-		for projectID, queries := range c.byProject {
-			for queryHash, qData := range queries {
+		for projectID, projData := range c.byProject {
+			if projData == nil {
+				continue
+			}
+			for queryHash, qData := range projData.queries {
 				for _, cfg := range cfg.Compactors {
 					tasks = append(tasks, calcCompactionTasks(cfg, projectID, queryHash, qData.chunksOnDisk)...)
 				}
@@ -135,15 +138,20 @@ func (c *Cache) compact(t CompactionTask) error {
 
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	qData := c.byProject[t.projectID][t.queryHash]
-	if qData == nil {
-		klog.Errorf("query data not found: %s-%s", t.projectID, t.queryHash)
+	projData := c.byProject[t.projectID]
+	if projData == nil {
+		klog.Errorf("project data not found: %s", t.projectID)
 	} else {
-		for _, src := range t.src {
-			if err := os.Remove(src.Path); err != nil {
-				klog.Errorf("failed to delete chunk %s: %s", src.Path, err)
+		qData := projData.queries[t.queryHash]
+		if qData == nil {
+			klog.Errorf("query data not found: %s-%s", t.projectID, t.queryHash)
+		} else {
+			for _, src := range t.src {
+				if err := os.Remove(src.Path); err != nil {
+					klog.Errorf("failed to delete chunk %s: %s", src.Path, err)
+				}
+				delete(qData.chunksOnDisk, src.Path)
 			}
-			delete(qData.chunksOnDisk, src.Path)
 		}
 	}
 	c.compactedChunks.WithLabelValues(

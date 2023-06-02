@@ -8,48 +8,74 @@ import (
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
+	"net"
 	"strings"
 	"time"
 )
 
-type ClickhouseClient struct {
-	conn clickhouse.Conn
-
-	tracesTable string
+type ClickhouseClientConfig struct {
+	Protocol      string
+	Address       string
+	TlsEnable     bool
+	TlsSkipVerify bool
+	User          string
+	Password      string
+	Database      string
+	TracesTable   string
+	DialContext   func(ctx context.Context, addr string) (net.Conn, error)
 }
 
-func NewClickhouseClient(protocol, addr string, tlsEnable, tlsSkipVerify bool, auth utils.BasicAuth, database, tracesTable string) (*ClickhouseClient, error) {
+func NewClickhouseClientConfig(address, user, password string) ClickhouseClientConfig {
+	return ClickhouseClientConfig{
+		Protocol:    "native",
+		Address:     address,
+		User:        user,
+		Password:    password,
+		Database:    "default",
+		TracesTable: "otel_traces",
+	}
+}
+
+type ClickhouseClient struct {
+	config ClickhouseClientConfig
+	conn   clickhouse.Conn
+}
+
+func NewClickhouseClient(config ClickhouseClientConfig) (*ClickhouseClient, error) {
 	opts := &clickhouse.Options{
-		Addr: []string{addr},
+		Addr: []string{config.Address},
 		Auth: clickhouse.Auth{
-			Database: database,
-			Username: auth.User,
-			Password: auth.Password,
+			Database: config.Database,
+			Username: config.User,
+			Password: config.Password,
 		},
 		Compression: &clickhouse.Compression{Method: clickhouse.CompressionLZ4},
 		DialTimeout: 10 * time.Second,
 	}
-	switch protocol {
+	switch config.Protocol {
 	case "native":
 		opts.Protocol = clickhouse.Native
 	case "http":
 		opts.Protocol = clickhouse.HTTP
 	default:
-		return nil, fmt.Errorf("unknown protocol: %s", protocol)
+		return nil, fmt.Errorf("unknown protocol: %s", config.Protocol)
 	}
-	if tracesTable == "" {
+	if config.TracesTable == "" {
 		return nil, fmt.Errorf("empty table name")
 	}
-	if tlsEnable {
+	if config.DialContext != nil {
+		opts.DialContext = config.DialContext
+	}
+	if config.TlsEnable {
 		opts.TLS = &tls.Config{
-			InsecureSkipVerify: tlsSkipVerify,
+			InsecureSkipVerify: config.TlsSkipVerify,
 		}
 	}
 	conn, err := clickhouse.Open(opts)
 	if err != nil {
 		return nil, err
 	}
-	return &ClickhouseClient{conn: conn, tracesTable: tracesTable}, nil
+	return &ClickhouseClient{config: config, conn: conn}, nil
 }
 
 func (c *ClickhouseClient) Ping(ctx context.Context) error {
@@ -58,7 +84,7 @@ func (c *ClickhouseClient) Ping(ctx context.Context) error {
 
 func (c *ClickhouseClient) GetServiceNames(ctx context.Context) ([]string, error) {
 	q := "SELECT DISTINCT ServiceName"
-	q += " FROM " + c.tracesTable
+	q += " FROM " + c.config.TracesTable
 	rows, err := c.conn.Query(ctx, q)
 	if err != nil {
 		return nil, err
@@ -190,7 +216,7 @@ func (c *ClickhouseClient) getSpans(ctx context.Context, tsFrom, tsTo timeseries
 		q += "WITH " + with
 	}
 	q += " SELECT Timestamp, TraceId, SpanId, ParentSpanId, SpanName, ServiceName, Duration, StatusCode, StatusMessage, SpanAttributes, Events.Timestamp, Events.Name, Events.Attributes"
-	q += " FROM " + c.tracesTable
+	q += " FROM " + c.config.TracesTable
 	q += " WHERE " + strings.Join(filters, " AND ")
 	if orderBy != "" {
 		q += " ORDER BY " + orderBy

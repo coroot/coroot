@@ -55,13 +55,6 @@ func Audit(w *model.World, p *db.Project) {
 			}
 			app.Reports = append(app.Reports, r)
 		}
-
-		if p.Settings.Integrations.Pyroscope != nil {
-			app.AddReport(model.AuditReportProfiling, &model.Widget{Profile: &model.Profile{ApplicationId: app.Id}, Width: "100%"})
-		}
-		if p.Settings.Integrations.Clickhouse != nil {
-			app.AddReport(model.AuditReportTracing, &model.Widget{Tracing: &model.Tracing{ApplicationId: app.Id}, Width: "100%"})
-		}
 	}
 }
 
