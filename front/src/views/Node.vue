@@ -15,8 +15,8 @@
 </template>
 
 <script>
-import Dashboard from "@/components/Dashboard";
-import NoData from "@/components/NoData";
+import Dashboard from "../components/Dashboard";
+import NoData from "../components/NoData";
 
 export default {
     props: {

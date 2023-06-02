@@ -32,11 +32,11 @@
 </template>
 
 <script>
-import AppsMap from "@/components/AppsMap";
-import Table from "@/components/Table";
-import NoData from "@/components/NoData";
-import NodesCosts from "@/components/NodesCosts";
-import ApplicationsCosts from "@/components/ApplicationsCosts";
+import AppsMap from "../components/AppsMap";
+import Table from "../components/Table";
+import NoData from "../components/NoData";
+import NodesCosts from "../components/NodesCosts";
+import ApplicationsCosts from "../components/ApplicationsCosts";
 
 export default {
     components: {NoData, AppsMap, Table, NodesCosts, ApplicationsCosts},
@@ -76,7 +76,7 @@ export default {
                     this.error = error;
                     return;
                 }
-                this.views = data.views;
+                this.views = data.views || this.views;
                 this.applications = data.applications;
                 this.nodes = data.nodes;
                 this.costs = data.costs;

@@ -54,11 +54,11 @@
 <script>
 import 'uplot/dist/uPlot.min.css';
 import uPlot from 'uplot';
-import {palette} from "@/utils/colors";
+import { palette } from "../utils/colors";
 import convert from 'color-convert';
-import ChartAnnotations from "@/components/ChartAnnotations";
-import ChartIncidents from "@/components/ChartIncidents";
-import ChartTooltip from "@/components/ChartTooltip";
+import ChartAnnotations from "./ChartAnnotations";
+import ChartIncidents from "./ChartIncidents";
+import ChartTooltip from "./ChartTooltip";
 
 const font = '12px Roboto, sans-serif'
 

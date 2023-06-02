@@ -31,8 +31,8 @@
 </template>
 
 <script>
-import {palette} from "@/utils/colors";
-import TracingSpan from "@/components/TracingSpan";
+import {palette} from "../utils/colors";
+import TracingSpan from "./TracingSpan";
 
 const nameColumnWidth = 50; // %
 const barsAreaWidth = 80; // %

@@ -22,7 +22,7 @@
 </template>
 
 <script>
-import MetricSelector from "@/components/MetricSelector";
+import MetricSelector from "./MetricSelector";
 
 export default {
     components: {MetricSelector},

@@ -115,10 +115,10 @@
 </template>
 
 <script>
-import TimePicker from "@/components/TimePicker";
-import Search from "@/views/Search";
-import Led from "@/components/Led";
-import CheckForUpdates from "@/components/CheckForUpdates.vue";
+import TimePicker from "./components/TimePicker.vue";
+import Search from "./views/Search.vue";
+import Led from "./components/Led.vue";
+import CheckForUpdates from "./components/CheckForUpdates.vue";
 
 export default {
     components: {Search, TimePicker, Led, CheckForUpdates},

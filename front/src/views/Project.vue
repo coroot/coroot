@@ -99,15 +99,15 @@
 </template>
 
 <script>
-import ProjectSettings from "@/views/ProjectSettings";
-import ProjectStatus from "@/views/ProjectStatus";
-import ProjectDelete from "@/views/ProjectDelete";
-import ProjectCheckConfigs from "@/views/ProjectCheckConfigs";
-import ApplicationCategories from "@/views/ApplicationCategories";
-import Integrations from "@/views/Integrations";
-import IntegrationPrometheus from "@/views/IntegrationPrometheus";
-import IntegrationPyroscope from "@/views/IntegrationPyroscope";
-import IntegrationClickhouse from "@/views/IntegrationClickhouse";
+import ProjectSettings from "./ProjectSettings.vue";
+import ProjectStatus from "./ProjectStatus.vue";
+import ProjectDelete from "./ProjectDelete.vue";
+import ProjectCheckConfigs from "./ProjectCheckConfigs.vue";
+import ApplicationCategories from "./ApplicationCategories.vue";
+import Integrations from "./Integrations.vue";
+import IntegrationPrometheus from "./IntegrationPrometheus.vue";
+import IntegrationPyroscope from "./IntegrationPyroscope.vue";
+import IntegrationClickhouse from "./IntegrationClickhouse.vue";
 
 const tabs = [
     {id: undefined, name: 'General'},

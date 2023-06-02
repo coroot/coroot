@@ -12,7 +12,7 @@
 </template>
 
 <script>
-import Led from "@/components/Led";
+import Led from "./Led";
 
 export default {
     props: {

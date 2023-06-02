@@ -12,14 +12,14 @@
 </template>
 
 <script>
-import Chart from "@/components/Chart";
-import ChartGroup from "@/components/ChartGroup";
-import LogPatterns from "@/components/LogPatterns";
-import DependencyMap from "@/components/DependencyMap";
-import Table from "@/components/Table";
-import Heatmap from "@/components/Heatmap";
-import Profile from "@/views/Profile";
-import Tracing from "@/views/Tracing";
+import Chart from "./Chart";
+import ChartGroup from "./ChartGroup";
+import LogPatterns from "./LogPatterns";
+import DependencyMap from "./DependencyMap";
+import Table from "./Table";
+import Heatmap from "./Heatmap";
+import Profile from "../views/Profile";
+import Tracing from "../views/Tracing";
 
 export default {
     props: {

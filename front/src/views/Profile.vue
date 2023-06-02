@@ -60,8 +60,8 @@
 <script>
 import '@pyroscope/flamegraph/dist/index.css';
 import {FlamegraphRenderer} from '@pyroscope/flamegraph';
-import Chart from "@/components/Chart.vue";
-import Led from "@/components/Led.vue";
+import Chart from "../components/Chart.vue";
+import Led from "../components/Led.vue";
 import React from "react";
 import ReactDom from "react-dom/client";
 

@@ -168,7 +168,11 @@ export default class Api {
         this.get(this.projectPath(`search`), {}, cb);
     }
 
-    getPromPath() {
-        return this.basePath + 'api/' + this.projectPath('prom');
+    getPrometheusCompleteConfiguration() {
+        return {
+            remote: {
+                apiPrefix: this.basePath + 'api/' + this.projectPath('prom') + '/api/v1',
+            },
+        }
     }
 }

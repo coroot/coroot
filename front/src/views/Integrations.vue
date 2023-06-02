@@ -59,7 +59,7 @@
 </template>
 
 <script>
-import IntegrationForm from "@/views/IntegrationForm";
+import IntegrationForm from "./IntegrationForm.vue";
 
 export default {
     props: {

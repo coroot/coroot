@@ -7,16 +7,28 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  VERSION: ${{ github.event.release.tag_name }}
 
 jobs:
   build-frontend:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./front/
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-node@v3
         with:
           node-version: '18.x'
-      - run: cd ./front/ && npm install && npx vue-cli-service build --dest=../static src/main.js
+          registry-url: 'https://npm.pkg.github.com'
+          cache: 'npm'
+          cache-dependency-path: ./front/package-lock.json
+      - run: npm ci
+      - run: npm version ${{ env.VERSION }}
+      - run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: npx vue-cli-service build --dest=../static src/main.js
       - uses: actions/upload-artifact@v3
         with:
           name: static

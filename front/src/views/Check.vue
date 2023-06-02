@@ -18,8 +18,8 @@
 </template>
 
 <script>
-import Led from "@/components/Led";
-import CheckForm from "@/views/CheckForm";
+import Led from "../components/Led";
+import CheckForm from "./CheckForm";
 
 export default {
     props: {
