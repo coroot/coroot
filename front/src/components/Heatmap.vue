@@ -41,9 +41,9 @@
 
 <script>
 import uPlot from "uplot";
-import ChartTooltip from "@/components/ChartTooltip";
-import ChartAnnotations from "@/components/ChartAnnotations";
-import ChartIncidents from "@/components/ChartIncidents";
+import ChartTooltip from "./ChartTooltip";
+import ChartAnnotations from "./ChartAnnotations";
+import ChartIncidents from "./ChartIncidents";
 
 const font = '12px Roboto, sans-serif'
 

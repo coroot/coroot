@@ -34,9 +34,8 @@ type Meta struct {
 	Selected bool           `json:"selected"`
 }
 
-func Render(ctx context.Context, project *db.Project, app *model.Application, appSettings *db.ApplicationSettings, q url.Values, wCtx timeseries.Context) *View {
-	cfg := project.Settings.Integrations.Pyroscope
-	if cfg == nil {
+func Render(ctx context.Context, pyroscope *profiling.PyroscopeClient, app *model.Application, appSettings *db.ApplicationSettings, q url.Values, wCtx timeseries.Context) *View {
+	if pyroscope == nil {
 		return nil
 	}
 
@@ -46,11 +45,8 @@ func Render(ctx context.Context, project *db.Project, app *model.Application, ap
 	to := utils.ParseTime(wCtx.To, sTo, wCtx.To)
 
 	v := &View{}
-	var meta profiling.Metadata
-	client, err := profiling.NewPyroscope(cfg.Url, cfg.ApiKey, cfg.BasicAuth)
-	if err == nil {
-		meta, err = client.Metadata(ctx)
-	}
+
+	meta, err := pyroscope.Metadata(ctx)
 	if err != nil {
 		klog.Errorln(err)
 		v.Status = model.WARNING
@@ -121,7 +117,7 @@ func Render(ctx context.Context, project *db.Project, app *model.Application, ap
 	if profile.Spy == profiling.SpyEbpf {
 		query += fmt.Sprintf(`{namespace="%s", pod=~"(%s)"}`, app.Id.Namespace, strings.Join(pods, "|"))
 	}
-	v.Profile, err = client.Profile(ctx, profiling.View(view), query, from, to)
+	v.Profile, err = pyroscope.Profile(ctx, profiling.View(view), query, from, to)
 	if err != nil {
 		klog.Errorln(err)
 		v.Status = model.WARNING

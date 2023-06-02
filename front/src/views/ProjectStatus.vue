@@ -79,7 +79,7 @@
 </template>
 
 <script>
-import Led from "@/components/Led";
+import Led from "../components/Led.vue";
 
 export default {
     props: {

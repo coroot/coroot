@@ -76,8 +76,8 @@
 </template>
 
 <script>
-import Labels from '@/components/Labels';
-import AppHealth from "@/components/AppHealth";
+import Labels from './Labels';
+import AppHealth from "./AppHealth";
 
 export default {
     props: {

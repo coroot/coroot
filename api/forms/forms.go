@@ -1,4 +1,4 @@
-package api
+package forms
 
 import (
 	"context"
@@ -94,10 +94,11 @@ func (f *CheckConfigSLOLatencyForm) Valid() bool {
 }
 
 type ApplicationCategoryForm struct {
-	Name           model.ApplicationCategory `json:"name"`
-	NewName        model.ApplicationCategory `json:"new_name"`
-	CustomPatterns string                    `json:"custom_patterns"`
-	customPatterns []string
+	Name    model.ApplicationCategory `json:"name"`
+	NewName model.ApplicationCategory `json:"new_name"`
+
+	CustomPatternsStr string `json:"custom_patterns"`
+	CustomPatterns    []string
 
 	NotifyOfDeployments bool `json:"notify_of_deployments"`
 }
@@ -106,11 +107,11 @@ func (f *ApplicationCategoryForm) Valid() bool {
 	if !slugRe.MatchString(string(f.NewName)) {
 		return false
 	}
-	f.customPatterns = strings.Fields(f.CustomPatterns)
-	if !utils.GlobValidate(f.customPatterns) {
+	f.CustomPatterns = strings.Fields(f.CustomPatternsStr)
+	if !utils.GlobValidate(f.CustomPatterns) {
 		return false
 	}
-	for _, p := range f.customPatterns {
+	for _, p := range f.CustomPatterns {
 		if strings.Count(p, "/") != 1 || strings.Index(p, "/") < 1 {
 			return false
 		}
@@ -222,7 +223,12 @@ func (f *IntegrationFormPrometheus) Update(ctx context.Context, project *db.Proj
 }
 
 func (f *IntegrationFormPrometheus) Test(ctx context.Context, project *db.Project) error {
-	client, err := prom.NewApiClient(f.Url, f.BasicAuth, f.TlsSkipVerify, f.ExtraSelector, f.CustomHeaders)
+	config := prom.NewClientConfig(f.Url, f.RefreshInterval)
+	config.BasicAuth = f.BasicAuth
+	config.TlsSkipVerify = f.TlsSkipVerify
+	config.ExtraSelector = f.ExtraSelector
+	config.CustomHeaders = f.CustomHeaders
+	client, err := prom.NewClient(config)
 	if err != nil {
 		return err
 	}
@@ -275,7 +281,11 @@ func (f *IntegrationFormPyroscope) Update(ctx context.Context, project *db.Proje
 }
 
 func (f *IntegrationFormPyroscope) Test(ctx context.Context, project *db.Project) error {
-	client, err := profiling.NewPyroscope(f.Url, f.ApiKey, f.BasicAuth)
+	config := profiling.NewPyroscopeClientConfig(f.Url)
+	config.ApiKey = f.ApiKey
+	config.BasicAuth = f.BasicAuth
+	config.TlsSkipVerify = f.TlsSkipVerify
+	client, err := profiling.NewPyroscopeClient(config)
 	if err != nil {
 		return err
 	}
@@ -329,7 +339,13 @@ func (f *IntegrationFormClickhouse) Update(ctx context.Context, project *db.Proj
 }
 
 func (f *IntegrationFormClickhouse) Test(ctx context.Context, project *db.Project) error {
-	client, err := tracing.NewClickhouseClient(f.Protocol, f.Addr, f.TlsEnable, f.TlsSkipVerify, f.Auth, f.Database, f.TracesTable)
+	config := tracing.NewClickhouseClientConfig(f.Addr, f.Auth.User, f.Auth.Password)
+	config.Protocol = f.Protocol
+	config.Database = f.Database
+	config.TracesTable = f.TracesTable
+	config.TlsEnable = f.TlsEnable
+	config.TlsSkipVerify = f.TlsSkipVerify
+	client, err := tracing.NewClickhouseClient(config)
 	if err != nil {
 		return err
 	}

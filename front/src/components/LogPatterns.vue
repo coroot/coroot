@@ -30,8 +30,8 @@
 </template>
 
 <script>
-import Chart from '@/components/Chart';
-import { palette } from '@/utils/colors';
+import Chart from './Chart';
+import { palette } from '../utils/colors';
 
 export default {
     props: {

@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"github.com/coroot/coroot/cache/chunk"
 	"github.com/coroot/coroot/db"
+	"github.com/coroot/coroot/prom"
 	"github.com/coroot/coroot/timeseries"
-	"github.com/coroot/coroot/utils"
 	"github.com/prometheus/client_golang/prometheus"
 	"hash/fnv"
 	"io/ioutil"
@@ -22,18 +22,47 @@ const (
 	chunkSize = timeseries.Hour
 )
 
+type PrometheusClientFactory func(project *db.Project) (*prom.Client, error)
+
+func DefaultPrometheusClientFactory(p *db.Project) (*prom.Client, error) {
+	if p.Prometheus.Url == "" {
+		return nil, fmt.Errorf("prometheus is not configured")
+	}
+	cfg := prom.NewClientConfig(p.Prometheus.Url, p.Prometheus.RefreshInterval)
+	cfg.BasicAuth = p.Prometheus.BasicAuth
+	cfg.TlsSkipVerify = p.Prometheus.TlsSkipVerify
+	cfg.ExtraSelector = p.Prometheus.ExtraSelector
+	cfg.CustomHeaders = p.Prometheus.CustomHeaders
+	client, err := prom.NewClient(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return client, nil
+}
+
 type Cache struct {
 	cfg       Config
-	byProject map[db.ProjectId]map[string]*queryData
+	byProject map[db.ProjectId]*projectData
 	lock      sync.RWMutex
 	db        *db.DB
 	state     *sql.DB
 	stateLock sync.Mutex
 
-	refreshIntervalMin timeseries.Duration
+	promClientFactory PrometheusClientFactory
 
 	pendingCompactions prometheus.Gauge
 	compactedChunks    *prometheus.CounterVec
+}
+
+type projectData struct {
+	refreshInterval timeseries.Duration
+	queries         map[string]*queryData
+}
+
+func newProjectData() *projectData {
+	return &projectData{
+		queries: map[string]*queryData{},
+	}
 }
 
 type queryData struct {
@@ -46,21 +75,18 @@ func newQueryData() *queryData {
 	}
 }
 
-func NewCache(cfg Config, database *db.DB) (*Cache, error) {
-	if err := utils.CreateDirectoryIfNotExists(cfg.Path); err != nil {
-		return nil, err
-	}
-
-	state, err := openStateDB(path.Join(cfg.Path, "db.sqlite"))
-	if err != nil {
+func NewCache(cfg Config, database, state *db.DB, promClientFactory PrometheusClientFactory) (*Cache, error) {
+	if err := state.Migrate(&PrometheusQueryState{}); err != nil {
 		return nil, err
 	}
 
 	cache := &Cache{
 		cfg:       cfg,
-		byProject: map[db.ProjectId]map[string]*queryData{},
+		byProject: map[db.ProjectId]*projectData{},
 		db:        database,
-		state:     state,
+		state:     state.DB(),
+
+		promClientFactory: promClientFactory,
 
 		pendingCompactions: prometheus.NewGauge(
 			prometheus.GaugeOpts{
@@ -103,9 +129,10 @@ func (c *Cache) initCacheIndexFromDir() error {
 		if err != nil {
 			return err
 		}
-		byProject := map[string]*queryData{}
-		c.byProject[db.ProjectId(projectId)] = byProject
+		projData := newProjectData()
+		c.byProject[db.ProjectId(projectId)] = projData
 
+		var metaFrom timeseries.Time
 		for _, chunkFile := range projFiles {
 			if !strings.HasSuffix(chunkFile.Name(), ".db") {
 				continue
@@ -120,12 +147,16 @@ func (c *Cache) initCacheIndexFromDir() error {
 				klog.Errorln(err)
 				continue
 			}
-			byQuery, ok := byProject[queryId]
-			if !ok {
-				byQuery = newQueryData()
-				byProject[queryId] = byQuery
+			if meta.From > metaFrom {
+				projData.refreshInterval = meta.Step
+				metaFrom = meta.From
 			}
-			byQuery.chunksOnDisk[meta.Path] = meta
+			qData, ok := projData.queries[queryId]
+			if !ok {
+				qData = newQueryData()
+				projData.queries[queryId] = qData
+			}
+			qData.chunksOnDisk[meta.Path] = meta
 		}
 	}
 	klog.Infof("cache loaded from disk in %s", time.Since(t))

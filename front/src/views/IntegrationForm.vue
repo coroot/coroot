@@ -38,10 +38,10 @@
 </template>
 
 <script>
-import IntegrationFormSlack from "@/components/IntegrationFormSlack.vue";
-import IntegrationFormTeams from "@/components/IntegrationFormTeams.vue";
-import IntegrationFormPagerduty from "@/components/IntegrationFormPagerduty.vue";
-import IntegrationFormOpsgenie from "@/components/IntegrationFormOpsgenie.vue";
+import IntegrationFormSlack from "../components/IntegrationFormSlack.vue";
+import IntegrationFormTeams from "../components/IntegrationFormTeams.vue";
+import IntegrationFormPagerduty from "../components/IntegrationFormPagerduty.vue";
+import IntegrationFormOpsgenie from "../components/IntegrationFormOpsgenie.vue";
 
 export default {
     props: {

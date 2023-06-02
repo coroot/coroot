@@ -93,12 +93,7 @@ export default {
     },
 
     mounted() {
-        const conf = {
-            remote: {
-                apiPrefix: this.$api.getPromPath() + '/api/v1',
-            },
-        }
-        const promQL = new PromQLExtension().setComplete(conf);
+        const promQL = new PromQLExtension().setComplete(this.$api.getPrometheusCompleteConfiguration());
         this.view = new EditorView({
             state: EditorState.create({
                 doc: this.value,

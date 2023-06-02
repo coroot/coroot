@@ -2,6 +2,7 @@ package timeseries
 
 import (
 	"encoding/json"
+	"fmt"
 	"strconv"
 	"time"
 )
@@ -39,11 +40,18 @@ func (d Duration) MarshalJSON() ([]byte, error) {
 
 func (d *Duration) UnmarshalJSON(b []byte) error {
 	var i int64
-	if err := json.Unmarshal(b, &i); err != nil {
-		return err
+	if err := json.Unmarshal(b, &i); err == nil {
+		*d = Duration(i / 1000)
+		return nil
 	}
-	*d = Duration(i / 1000)
-	return nil
+	var s string
+	if err := json.Unmarshal(b, &s); err == nil {
+		if td, err := time.ParseDuration(s); err == nil {
+			*d = Duration(td.Seconds())
+			return nil
+		}
+	}
+	return fmt.Errorf("invalid duration: %s", string(b))
 }
 
 type Time int64

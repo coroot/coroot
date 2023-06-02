@@ -30,6 +30,10 @@ type DB struct {
 	db  *sql.DB
 }
 
+func NewDB(typ Type, db *sql.DB) *DB {
+	return &DB{typ: typ, db: db}
+}
+
 func Open(dataDir string, pgConnString string) (*DB, error) {
 	var db *sql.DB
 	var err error
@@ -47,22 +51,31 @@ func Open(dataDir string, pgConnString string) (*DB, error) {
 		return nil, err
 	}
 	db.SetMaxOpenConns(1)
-	err = NewMigrator(typ, db).Migrate(
+	return NewDB(typ, db), nil
+}
+
+func (db *DB) Type() Type {
+	return db.typ
+}
+
+func (db *DB) DB() *sql.DB {
+	return db.db
+}
+
+func (db *DB) Migrate(tables ...Table) error {
+	return NewMigrator(db.typ, db.db).Migrate(tables...)
+}
+
+func (db *DB) MigrateDefault(extraTables ...Table) error {
+	defaultTables := []Table{
 		&Project{},
 		&CheckConfigs{},
 		&Incident{},
 		&IncidentNotification{},
 		&ApplicationDeployment{},
 		&ApplicationSettings{},
-	)
-	if err != nil {
-		return nil, err
 	}
-	return &DB{typ: typ, db: db}, nil
-}
-
-func (db *DB) Type() Type {
-	return db.typ
+	return NewMigrator(db.typ, db.db).Migrate(append(defaultTables, extraTables...)...)
 }
 
 func (db *DB) IsUniqueViolationError(err error) bool {
@@ -106,8 +119,8 @@ func NewMigrator(t Type, db *sql.DB) *Migrator {
 }
 
 func (m *Migrator) Migrate(tables ...Table) error {
-	for _, o := range tables {
-		err := o.Migrate(m)
+	for _, t := range tables {
+		err := t.Migrate(m)
 		if err != nil {
 			return err
 		}

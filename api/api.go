@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"errors"
+	"github.com/coroot/coroot/api/forms"
 	"github.com/coroot/coroot/api/views"
 	"github.com/coroot/coroot/auditor"
 	"github.com/coroot/coroot/cache"
@@ -10,8 +11,10 @@ import (
 	"github.com/coroot/coroot/constructor"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
+	"github.com/coroot/coroot/profiling"
 	"github.com/coroot/coroot/prom"
 	"github.com/coroot/coroot/timeseries"
+	"github.com/coroot/coroot/tracing"
 	"github.com/coroot/coroot/utils"
 	"github.com/gorilla/mux"
 	"k8s.io/klog"
@@ -59,7 +62,7 @@ func (api *Api) Project(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 
 	case http.MethodGet:
-		res := ProjectForm{}
+		res := forms.ProjectForm{}
 		if id != "" {
 			project, err := api.db.GetProject(id)
 			if err != nil {
@@ -79,8 +82,8 @@ func (api *Api) Project(w http.ResponseWriter, r *http.Request) {
 		if api.readOnly {
 			return
 		}
-		var form ProjectForm
-		if err := ReadAndValidate(r, &form); err != nil {
+		var form forms.ProjectForm
+		if err := forms.ReadAndValidate(r, &form); err != nil {
 			klog.Warningln("bad request:", err)
 			http.Error(w, "", http.StatusBadRequest)
 			return
@@ -123,8 +126,8 @@ func (api *Api) Status(w http.ResponseWriter, r *http.Request) {
 		if api.readOnly {
 			return
 		}
-		var form ProjectStatusForm
-		if err := ReadAndValidate(r, &form); err != nil {
+		var form forms.ProjectStatusForm
+		if err := forms.ReadAndValidate(r, &form); err != nil {
 			klog.Warningln("bad request:", err)
 			http.Error(w, "", http.StatusBadRequest)
 			return
@@ -157,7 +160,7 @@ func (api *Api) Status(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
-	cacheStatus, err := api.cache.GetCacheClient(project).GetStatus()
+	cacheStatus, err := api.cache.GetCacheClient(project.Id).GetStatus()
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
@@ -221,13 +224,13 @@ func (api *Api) Categories(w http.ResponseWriter, r *http.Request) {
 		if api.readOnly {
 			return
 		}
-		var form ApplicationCategoryForm
-		if err := ReadAndValidate(r, &form); err != nil {
+		var form forms.ApplicationCategoryForm
+		if err := forms.ReadAndValidate(r, &form); err != nil {
 			klog.Warningln("bad request:", err)
 			http.Error(w, "Invalid name or patterns", http.StatusBadRequest)
 			return
 		}
-		if err := api.db.SaveApplicationCategory(projectId, form.Name, form.NewName, form.customPatterns, form.NotifyOfDeployments); err != nil {
+		if err := api.db.SaveApplicationCategory(projectId, form.Name, form.NewName, form.CustomPatterns, form.NotifyOfDeployments); err != nil {
 			klog.Errorln("failed to save:", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
@@ -252,8 +255,8 @@ func (api *Api) Integrations(w http.ResponseWriter, r *http.Request) {
 		if api.readOnly {
 			return
 		}
-		var form IntegrationsForm
-		if err := ReadAndValidate(r, &form); err != nil {
+		var form forms.IntegrationsForm
+		if err := forms.ReadAndValidate(r, &form); err != nil {
 			klog.Warningln("bad request:", err)
 			http.Error(w, "Invalid base url", http.StatusBadRequest)
 			return
@@ -287,7 +290,7 @@ func (api *Api) Integration(w http.ResponseWriter, r *http.Request) {
 	}
 
 	t := db.IntegrationType(vars["type"])
-	form := NewIntegrationForm(t)
+	form := forms.NewIntegrationForm(t)
 	if form == nil {
 		klog.Warningln("unknown integration type:", t)
 		http.Error(w, "", http.StatusBadRequest)
@@ -306,7 +309,7 @@ func (api *Api) Integration(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case http.MethodPost, http.MethodPut:
-		if err := ReadAndValidate(r, form); err != nil {
+		if err := forms.ReadAndValidate(r, form); err != nil {
 			klog.Warningln("bad request:", err)
 			http.Error(w, "invalid data", http.StatusBadRequest)
 			return
@@ -350,7 +353,12 @@ func (api *Api) Prom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p := project.Prometheus
-	c, err := prom.NewApiClient(p.Url, p.BasicAuth, p.TlsSkipVerify, p.ExtraSelector, p.CustomHeaders)
+	cfg := prom.NewClientConfig(p.Url, p.RefreshInterval)
+	cfg.BasicAuth = p.BasicAuth
+	cfg.TlsSkipVerify = p.TlsSkipVerify
+	cfg.ExtraSelector = p.ExtraSelector
+	cfg.CustomHeaders = p.CustomHeaders
+	c, err := prom.NewClient(cfg)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
@@ -382,6 +390,12 @@ func (api *Api) App(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	auditor.Audit(world, project)
+	if project.Settings.Integrations.Pyroscope != nil {
+		app.AddReport(model.AuditReportProfiling, &model.Widget{Profile: &model.Profile{ApplicationId: app.Id}, Width: "100%"})
+	}
+	if project.Settings.Integrations.Clickhouse != nil {
+		app.AddReport(model.AuditReportTracing, &model.Widget{Tracing: &model.Tracing{ApplicationId: app.Id}, Width: "100%"})
+	}
 	utils.WriteJson(w, views.Application(world, app))
 }
 
@@ -425,12 +439,12 @@ func (api *Api) Check(w http.ResponseWriter, r *http.Request) {
 		switch checkId {
 		case model.Checks.SLOAvailability.Id:
 			cfg, def := checkConfigs.GetAvailability(appId)
-			res.Form = CheckConfigSLOAvailabilityForm{Configs: []model.CheckConfigSLOAvailability{cfg}, Default: def}
+			res.Form = forms.CheckConfigSLOAvailabilityForm{Configs: []model.CheckConfigSLOAvailability{cfg}, Default: def}
 		case model.Checks.SLOLatency.Id:
 			cfg, def := checkConfigs.GetLatency(appId, model.CalcApplicationCategory(appId, project.Settings.ApplicationCategories))
-			res.Form = CheckConfigSLOLatencyForm{Configs: []model.CheckConfigSLOLatency{cfg}, Default: def}
+			res.Form = forms.CheckConfigSLOLatencyForm{Configs: []model.CheckConfigSLOLatency{cfg}, Default: def}
 		default:
-			form := CheckConfigForm{
+			form := forms.CheckConfigForm{
 				Configs: checkConfigs.GetSimpleAll(checkId, appId),
 			}
 			if len(form.Configs) == 0 {
@@ -448,8 +462,8 @@ func (api *Api) Check(w http.ResponseWriter, r *http.Request) {
 		}
 		switch checkId {
 		case model.Checks.SLOAvailability.Id:
-			var form CheckConfigSLOAvailabilityForm
-			if err := ReadAndValidate(r, &form); err != nil {
+			var form forms.CheckConfigSLOAvailabilityForm
+			if err := forms.ReadAndValidate(r, &form); err != nil {
 				klog.Warningln("bad request:", err)
 				http.Error(w, "", http.StatusBadRequest)
 				return
@@ -460,8 +474,8 @@ func (api *Api) Check(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		case model.Checks.SLOLatency.Id:
-			var form CheckConfigSLOLatencyForm
-			if err := ReadAndValidate(r, &form); err != nil {
+			var form forms.CheckConfigSLOLatencyForm
+			if err := forms.ReadAndValidate(r, &form); err != nil {
 				klog.Warningln("bad request:", err)
 				http.Error(w, "", http.StatusBadRequest)
 				return
@@ -472,8 +486,8 @@ func (api *Api) Check(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		default:
-			var form CheckConfigForm
-			if err := ReadAndValidate(r, &form); err != nil {
+			var form forms.CheckConfigForm
+			if err := forms.ReadAndValidate(r, &form); err != nil {
 				klog.Warningln("bad request:", err)
 				http.Error(w, "", http.StatusBadRequest)
 				return
@@ -513,8 +527,8 @@ func (api *Api) Profile(w http.ResponseWriter, r *http.Request) {
 		if api.readOnly {
 			return
 		}
-		var form ApplicationSettingsPyroscopeForm
-		if err := ReadAndValidate(r, &form); err != nil {
+		var form forms.ApplicationSettingsPyroscopeForm
+		if err := forms.ReadAndValidate(r, &form); err != nil {
 			klog.Warningln("bad request:", err)
 			http.Error(w, "invalid data", http.StatusBadRequest)
 			return
@@ -549,8 +563,19 @@ func (api *Api) Profile(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
+	var pyroscope *profiling.PyroscopeClient
+	if cfg := project.Settings.Integrations.Pyroscope; cfg != nil {
+		config := profiling.NewPyroscopeClientConfig(cfg.Url)
+		config.ApiKey = cfg.ApiKey
+		config.BasicAuth = cfg.BasicAuth
+		config.TlsSkipVerify = cfg.TlsSkipVerify
+		pyroscope, err = profiling.NewPyroscopeClient(config)
+		if err != nil {
+			klog.Warningln(err)
+		}
+	}
 	q := r.URL.Query()
-	utils.WriteJson(w, views.Profile(r.Context(), project, app, settings, q, world.Ctx))
+	utils.WriteJson(w, views.Profile(r.Context(), pyroscope, app, settings, q, world.Ctx))
 }
 
 func (api *Api) Tracing(w http.ResponseWriter, r *http.Request) {
@@ -567,8 +592,8 @@ func (api *Api) Tracing(w http.ResponseWriter, r *http.Request) {
 		if api.readOnly {
 			return
 		}
-		var form ApplicationSettingsTracingForm
-		if err := ReadAndValidate(r, &form); err != nil {
+		var form forms.ApplicationSettingsTracingForm
+		if err := forms.ReadAndValidate(r, &form); err != nil {
 			klog.Warningln("bad request:", err)
 			http.Error(w, "invalid data", http.StatusBadRequest)
 			return
@@ -603,7 +628,20 @@ func (api *Api) Tracing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	q := r.URL.Query()
-	utils.WriteJson(w, views.Tracing(r.Context(), project, app, settings, q, world))
+	var clickhouse *tracing.ClickhouseClient
+	if cfg := project.Settings.Integrations.Clickhouse; cfg != nil {
+		config := tracing.NewClickhouseClientConfig(cfg.Addr, cfg.Auth.User, cfg.Auth.Password)
+		config.Protocol = cfg.Protocol
+		config.Database = cfg.Database
+		config.TracesTable = cfg.TracesTable
+		config.TlsEnable = cfg.TlsEnable
+		config.TlsSkipVerify = cfg.TlsSkipVerify
+		clickhouse, err = tracing.NewClickhouseClient(config)
+		if err != nil {
+			klog.Warningln(err)
+		}
+	}
+	utils.WriteJson(w, views.Tracing(r.Context(), clickhouse, app, settings, q, world))
 }
 
 func (api *Api) Node(w http.ResponseWriter, r *http.Request) {
@@ -627,7 +665,7 @@ func (api *Api) Node(w http.ResponseWriter, r *http.Request) {
 }
 
 func (api *Api) loadWorld(ctx context.Context, project *db.Project, from, to timeseries.Time) (*model.World, error) {
-	cc := api.cache.GetCacheClient(project)
+	cc := api.cache.GetCacheClient(project.Id)
 	cacheTo, err := cc.GetTo()
 	if err != nil {
 		return nil, err

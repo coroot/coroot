@@ -1,7 +1,6 @@
 {
-  "name": "coroot",
+  "name": "@coroot/coroot",
   "version": "0.1.0",
-  "private": true,
   "scripts": {
     "build": "vue-cli-service build --dest=../static --watch",
     "lint": "vue-cli-service lint"

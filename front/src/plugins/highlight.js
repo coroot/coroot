@@ -3,7 +3,7 @@ import hl from 'highlight.js';
 import 'highlight.js/styles/intellij-light.css';
 import { format as sql } from 'sql-formatter';
 
-Vue.directive('hl', function (el, binding) {
+Vue.directive('highlight', function (el, binding) {
     const lang = binding.value;
     if (!lang) {
         return;

@@ -59,7 +59,7 @@
 </template>
 
 <script>
-import NodeUsageBar from "@/components/NodeUsageBar";
+import NodeUsageBar from "./NodeUsageBar";
 
 export default {
     props: {

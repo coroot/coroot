@@ -74,7 +74,7 @@ func (w *Watcher) checkProject(project *db.Project) {
 }
 
 func (w *Watcher) loadWorld(project *db.Project) (*model.World, error) {
-	cc := w.cache.GetCacheClient(project)
+	cc := w.cache.GetCacheClient(project.Id)
 	cacheTo, err := cc.GetTo()
 	if err != nil {
 		return nil, err

@@ -18,6 +18,7 @@ import Node from "@/views/Node";
 import Welcome from "@/views/Welcome";
 
 Vue.config.productionTip = false;
+Vue.config.devtools = false;
 
 const config = window.coroot;
 

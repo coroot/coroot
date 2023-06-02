@@ -35,7 +35,7 @@
 </template>
 
 <script>
-import { palette } from '@/utils/colors';
+import { palette } from '../utils/colors';
 
 export default {
     props: {

@@ -43,7 +43,7 @@
 </template>
 
 <script>
-import CheckForm from "@/views/CheckForm";
+import CheckForm from "./CheckForm.vue";
 
 export default {
     components: {CheckForm},

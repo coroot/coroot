@@ -63,6 +63,9 @@ func main() {
 	if err != nil {
 		klog.Exitln(err)
 	}
+	if err = database.MigrateDefault(); err != nil {
+		klog.Exitln(err)
+	}
 
 	bootstrapPrometheus(database, *bootstrapPrometheusUrl, *bootstrapRefreshInterval, *bootstrapPrometheusExtraSelector)
 	bootstrapPyroscope(database, *bootstrapPyroscopeUrl)
@@ -75,7 +78,11 @@ func main() {
 			Interval: *cacheGcInterval,
 		},
 	}
-	promCache, err := cache.NewCache(cacheConfig, database)
+	if err = utils.CreateDirectoryIfNotExists(cacheConfig.Path); err != nil {
+		klog.Exitln(err)
+	}
+	cacheState, err := db.Open(cacheConfig.Path, "")
+	promCache, err := cache.NewCache(cacheConfig, database, cacheState, cache.DefaultPrometheusClientFactory)
 	if err != nil {
 		klog.Exitln(err)
 	}

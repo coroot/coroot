@@ -35,14 +35,15 @@ func (c *Cache) updater() {
 		}
 		ids := map[db.ProjectId]bool{}
 		for _, project := range projects {
-			if project.Prometheus.Url == "" {
+			cl, _ := c.promClientFactory(project)
+			if cl == nil {
 				continue
 			}
 			ids[project.Id] = true
 			_, ok := workers.Load(project.Id)
 			workers.Store(project.Id, project)
 			if !ok {
-				go c.updaterWorker(workers, project.Id)
+				go c.updaterWorker(workers, project.Id, cl.GetStep())
 			}
 		}
 		workers.Range(func(key, value interface{}) bool {
@@ -54,7 +55,23 @@ func (c *Cache) updater() {
 	}
 }
 
-func (c *Cache) updaterWorker(projects *sync.Map, projectId db.ProjectId) {
+func (c *Cache) updaterWorker(projects *sync.Map, projectId db.ProjectId, step timeseries.Duration) {
+	refreshInterval := step
+	c.lock.Lock()
+	if projData := c.byProject[projectId]; projData == nil {
+		projData = newProjectData()
+		projData.refreshInterval = refreshInterval
+		c.byProject[projectId] = projData
+		projectDir := path.Join(c.cfg.Path, string(projectId))
+		if err := utils.CreateDirectoryIfNotExists(projectDir); err != nil {
+			c.lock.Unlock()
+			klog.Errorln(err)
+			return
+		}
+	} else {
+		refreshInterval = projData.refreshInterval
+	}
+	c.lock.Unlock()
 	for {
 		t := timeseries.Now()
 		klog.Infoln("worker iteration for", projectId)
@@ -121,45 +138,50 @@ func (c *Cache) updaterWorker(projects *sync.Map, projectId db.ProjectId) {
 			}
 		}
 
-		promClient := c.getPromClient(project)
-		wg := sync.WaitGroup{}
-		tasks := make(chan *PrometheusQueryState)
-		now = timeseries.Now()
-		for i := 0; i < QueryConcurrency; i++ {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				for state := range tasks {
-					c.download(now, promClient, project, state)
+		if promClient, _ := c.promClientFactory(project); promClient != nil {
+			if step = promClient.GetStep(); step != refreshInterval {
+				refreshInterval = step
+				c.lock.Lock()
+				if c.byProject[projectId] == nil {
+					c.lock.Unlock()
+					klog.Warningln("unknown project:", projectId)
+					return
 				}
-			}()
-		}
-		for _, q := range queries {
-			tasks <- states[q]
-		}
-		close(tasks)
-		wg.Wait()
+				c.byProject[projectId].refreshInterval = refreshInterval
+				c.lock.Unlock()
+			}
+			wg := sync.WaitGroup{}
+			tasks := make(chan *PrometheusQueryState)
+			now = timeseries.Now()
+			for i := 0; i < QueryConcurrency; i++ {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					for state := range tasks {
+						c.download(now, promClient, project.Id, refreshInterval, state)
+					}
+				}()
+			}
+			for _, q := range queries {
+				tasks <- states[q]
+			}
+			close(tasks)
+			wg.Wait()
 
-		c.processRecordingRules(now, project, states)
-
-		refreshInterval := project.Prometheus.RefreshInterval
-		if refreshInterval < c.refreshIntervalMin {
-			refreshInterval = c.refreshIntervalMin
+			c.processRecordingRules(now, project, refreshInterval, states)
 		}
 		time.Sleep(time.Duration(refreshInterval-timeseries.Since(t)) * time.Second)
 	}
 }
 
-func (c *Cache) download(now timeseries.Time, promClient prom.Client, project *db.Project, state *PrometheusQueryState) {
-	queryHash, jitter := QueryId(project.Id, state.Query)
-	step := project.Prometheus.RefreshInterval
+func (c *Cache) download(now timeseries.Time, promClient prom.Querier, projectId db.ProjectId, step timeseries.Duration, state *PrometheusQueryState) {
+	queryHash, jitter := QueryId(projectId, state.Query)
 	pointsCount := int(chunkSize / step)
 	for _, i := range calcIntervals(state.LastTs, step, now.Add(-step), jitter) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 		vs, err := promClient.QueryRange(ctx, state.Query, i.chunkTs, i.toTs, step)
 		cancel()
 		if err != nil {
-			klog.Errorln(err)
 			if constructor.RecordingRules[state.Query] == nil {
 				state.LastError = err.Error()
 			}
@@ -173,7 +195,7 @@ func (c *Cache) download(now timeseries.Time, promClient prom.Client, project *d
 		}
 		chunkEnd := i.chunkTs.Add(timeseries.Duration(pointsCount-1) * step)
 		finalized := chunkEnd == i.toTs
-		err = c.writeChunk(project.Id, queryHash, i.chunkTs, pointsCount, step, finalized, vs)
+		err = c.writeChunk(projectId, queryHash, i.chunkTs, pointsCount, step, finalized, vs)
 		if err != nil {
 			klog.Errorln("failed to save chunk:", err)
 			return
@@ -189,28 +211,23 @@ func (c *Cache) download(now timeseries.Time, promClient prom.Client, project *d
 	}
 }
 
-func (c *Cache) writeChunk(projectID db.ProjectId, queryHash string, from timeseries.Time, pointsCount int, step timeseries.Duration, finalized bool, metrics []model.MetricValues) error {
+func (c *Cache) writeChunk(projectId db.ProjectId, queryHash string, from timeseries.Time, pointsCount int, step timeseries.Duration, finalized bool, metrics []model.MetricValues) error {
 	c.lock.Lock()
-	byProject, ok := c.byProject[projectID]
-	projectDir := path.Join(c.cfg.Path, string(projectID))
-	if !ok {
-		byProject = map[string]*queryData{}
-		c.byProject[projectID] = byProject
-		if err := utils.CreateDirectoryIfNotExists(projectDir); err != nil {
-			c.lock.Unlock()
-			return err
-		}
+	projData := c.byProject[projectId]
+	if projData == nil {
+		return fmt.Errorf("unknown project: %s", projectId)
 	}
-	qData, ok := byProject[queryHash]
-	if !ok {
+	qData := projData.queries[queryHash]
+	if qData == nil {
 		qData = newQueryData()
-		byProject[queryHash] = qData
+		projData.queries[queryHash] = qData
 	}
 	c.lock.Unlock()
 
+	projectDir := path.Join(c.cfg.Path, string(projectId))
 	chunkFilePath := path.Join(projectDir, fmt.Sprintf(
 		"%s-%s-%d-%d-%d.db",
-		projectID, queryHash, from, pointsCount, step))
+		projectId, queryHash, from, pointsCount, step))
 	dir, file := filepath.Split(chunkFilePath)
 	if dir == "" {
 		dir = "."
@@ -245,7 +262,7 @@ func (c *Cache) writeChunk(projectID db.ProjectId, queryHash string, from timese
 	return nil
 }
 
-func (c *Cache) processRecordingRules(now timeseries.Time, project *db.Project, states map[string]*PrometheusQueryState) {
+func (c *Cache) processRecordingRules(now timeseries.Time, project *db.Project, step timeseries.Duration, states map[string]*PrometheusQueryState) {
 	var cacheTo timeseries.Time
 	for query, state := range states {
 		if constructor.RecordingRules[query] != nil {
@@ -258,10 +275,10 @@ func (c *Cache) processRecordingRules(now timeseries.Time, project *db.Project, 
 	if cacheTo.IsZero() {
 		return
 	}
-	cacheClient := c.GetCacheClient(project)
+	cacheClient := c.GetCacheClient(project.Id)
 	promClient := &recordingRulesProcessor{db: c.db, project: project, cacheClient: cacheClient, cacheTo: cacheTo}
 	for rr := range constructor.RecordingRules {
-		c.download(now, promClient, project, states[rr])
+		c.download(now, promClient, project.Id, step, states[rr])
 	}
 }
 
@@ -286,10 +303,6 @@ func (p *recordingRulesProcessor) QueryRange(ctx context.Context, query string, 
 		return nil, fmt.Errorf("failed to load world: %w", err)
 	}
 	return recordingRule(p.project, world), nil
-}
-
-func (p *recordingRulesProcessor) Ping(_ context.Context) error {
-	return nil
 }
 
 type interval struct {

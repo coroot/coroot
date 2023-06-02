@@ -11,33 +11,33 @@ import (
 	"github.com/coroot/coroot/timeseries"
 )
 
-type Client struct {
-	cache           *Cache
-	projectId       db.ProjectId
-	refreshInterval timeseries.Duration
+func (c *Cache) GetCacheClient(projectId db.ProjectId) *Client {
+	return &Client{
+		cache:     c,
+		projectId: projectId,
+	}
 }
 
-func (c *Cache) GetCacheClient(p *db.Project) *Client {
-	return &Client{
-		cache:           c,
-		projectId:       p.Id,
-		refreshInterval: p.Prometheus.RefreshInterval,
-	}
+type Client struct {
+	cache     *Cache
+	projectId db.ProjectId
 }
 
 func (c *Client) QueryRange(ctx context.Context, query string, from, to timeseries.Time, step timeseries.Duration) ([]model.MetricValues, error) {
-	from = from.Truncate(step)
-	to = to.Truncate(step)
 	c.cache.lock.RLock()
 	defer c.cache.lock.RUnlock()
-
-	byProject, ok := c.cache.byProject[c.projectId]
-	if !ok {
+	projData := c.cache.byProject[c.projectId]
+	if projData == nil {
 		return nil, fmt.Errorf("unknown project: %s", c.projectId)
 	}
+	if step == prom.StepUndefined {
+		step = projData.refreshInterval
+	}
+	from = from.Truncate(step)
+	to = to.Truncate(step)
 	queryHash := hash(query)
-	qData, ok := byProject[queryHash]
-	if !ok {
+	qData := projData.queries[queryHash]
+	if qData == nil {
 		return nil, fmt.Errorf("%w: %s", constructor.ErrUnknownQuery, query)
 	}
 	start := from
@@ -60,45 +60,27 @@ func (c *Client) QueryRange(ctx context.Context, query string, from, to timeseri
 	return r, nil
 }
 
-func (c *Client) Ping(ctx context.Context) error {
-	return fmt.Errorf("not implemented")
-}
-
 func (c *Client) GetTo() (timeseries.Time, error) {
 	to, err := c.cache.getMinUpdateTime(c.projectId)
 	if err != nil {
 		return 0, err
 	}
+
 	if to.IsZero() {
 		return 0, nil
 	}
-	return to.Add(-c.refreshInterval), nil
+
+	c.cache.lock.RLock()
+	defer c.cache.lock.RUnlock()
+	projData := c.cache.byProject[c.projectId]
+	if projData == nil {
+		return 0, fmt.Errorf("unknown project: %s", c.projectId)
+	}
+	step := projData.refreshInterval
+
+	return to.Add(-step), nil
 }
 
 func (c *Client) GetStatus() (*Status, error) {
 	return c.cache.getStatus(c.projectId)
-}
-
-func (c *Cache) getPromClient(p *db.Project) prom.Client {
-	client, err := prom.NewApiClient(p.Prometheus.Url, p.Prometheus.BasicAuth, p.Prometheus.TlsSkipVerify, p.Prometheus.ExtraSelector, p.Prometheus.CustomHeaders)
-	if err != nil {
-		return NewErrorClient(err)
-	}
-	return client
-}
-
-type ErrorClient struct {
-	err error
-}
-
-func NewErrorClient(err error) *ErrorClient {
-	return &ErrorClient{err: err}
-}
-
-func (e ErrorClient) QueryRange(ctx context.Context, query string, from, to timeseries.Time, step timeseries.Duration) ([]model.MetricValues, error) {
-	return nil, e.err
-}
-
-func (e ErrorClient) Ping(ctx context.Context) error {
-	return e.err
 }

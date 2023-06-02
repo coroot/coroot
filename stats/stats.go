@@ -294,7 +294,7 @@ func (c *Collector) collect() Stats {
 			}
 		}
 
-		cc := c.cache.GetCacheClient(p)
+		cc := c.cache.GetCacheClient(p.Id)
 		cacheTo, err := cc.GetTo()
 		if err != nil {
 			klog.Errorln(err)

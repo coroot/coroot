@@ -11,11 +11,13 @@ import (
 	"github.com/coroot/coroot/api/views/profile"
 	"github.com/coroot/coroot/api/views/project"
 	"github.com/coroot/coroot/api/views/search"
-	"github.com/coroot/coroot/api/views/tracing"
+	"github.com/coroot/coroot/api/views/trace"
 	"github.com/coroot/coroot/cache"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
+	"github.com/coroot/coroot/profiling"
 	"github.com/coroot/coroot/timeseries"
+	"github.com/coroot/coroot/tracing"
 	"net/url"
 )
 
@@ -31,12 +33,12 @@ func Application(w *model.World, app *model.Application) *application.View {
 	return application.Render(w, app)
 }
 
-func Profile(ctx context.Context, project *db.Project, app *model.Application, appSettings *db.ApplicationSettings, q url.Values, wCtx timeseries.Context) *profile.View {
-	return profile.Render(ctx, project, app, appSettings, q, wCtx)
+func Profile(ctx context.Context, pyroscope *profiling.PyroscopeClient, app *model.Application, appSettings *db.ApplicationSettings, q url.Values, wCtx timeseries.Context) *profile.View {
+	return profile.Render(ctx, pyroscope, app, appSettings, q, wCtx)
 }
 
-func Tracing(ctx context.Context, project *db.Project, app *model.Application, appSettings *db.ApplicationSettings, q url.Values, w *model.World) *tracing.View {
-	return tracing.Render(ctx, project, app, appSettings, q, w)
+func Tracing(ctx context.Context, clickhouse *tracing.ClickhouseClient, app *model.Application, appSettings *db.ApplicationSettings, q url.Values, w *model.World) *trace.View {
+	return trace.Render(ctx, clickhouse, app, appSettings, q, w)
 }
 
 func Node(w *model.World, n *model.Node) *model.AuditReport {

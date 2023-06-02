@@ -37,9 +37,12 @@ func (c *Cache) gc() {
 		minTs := timeseries.Time(now.Add(-c.cfg.GC.TTL).Unix())
 		toDelete := map[db.ProjectId]map[string][]string{}
 		c.lock.RLock()
-		for projectId, byQuery := range c.byProject {
+		for projectId, projData := range c.byProject {
+			if projData == nil {
+				continue
+			}
 			toDeleteInProject := map[string][]string{}
-			for queryHash, qData := range byQuery {
+			for queryHash, qData := range projData.queries {
 				for path, chunk := range qData.chunksOnDisk {
 					if chunk.From.Add(timeseries.Duration(chunk.PointsCount)*chunk.Step) < minTs {
 						toDeleteInProject[queryHash] = append(toDeleteInProject[queryHash], path)
@@ -54,8 +57,12 @@ func (c *Cache) gc() {
 
 		c.lock.Lock()
 		for projectId, toDeleteInProject := range toDelete {
+			projData := c.byProject[projectId]
+			if projData == nil {
+				continue
+			}
 			for queryHash, chunks := range toDeleteInProject {
-				qData := c.byProject[projectId][queryHash]
+				qData := projData.queries[queryHash]
 				for _, path := range chunks {
 					klog.Infoln("deleting obsolete chunk:", path)
 					if err := os.Remove(path); err != nil {
@@ -65,7 +72,7 @@ func (c *Cache) gc() {
 					}
 				}
 				if len(qData.chunksOnDisk) == 0 {
-					delete(c.byProject[projectId], queryHash)
+					delete(projData.queries, queryHash)
 				}
 			}
 		}

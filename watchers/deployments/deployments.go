@@ -205,7 +205,7 @@ func (w *Watcher) sendNotifications(project *db.Project, world *model.World, now
 }
 
 func (w *Watcher) getCacheClient(project *db.Project) (*cache.Client, timeseries.Time, error) {
-	cc := w.cache.GetCacheClient(project)
+	cc := w.cache.GetCacheClient(project.Id)
 	cacheTo, err := cc.GetTo()
 	if err != nil {
 		return nil, 0, err

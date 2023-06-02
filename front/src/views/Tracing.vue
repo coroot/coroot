@@ -75,7 +75,7 @@
                     {{s.name}}
                 </td>
                 <td>
-                    <div v-hl="s.details.lang" class="details">{{s.details.text}}</div>
+                    <div v-highlight="s.details.lang" class="details">{{s.details.text}}</div>
                 </td>
             </tr>
             </tbody>
@@ -120,9 +120,9 @@
 </template>
 
 <script>
-import Led from "@/components/Led.vue";
-import Heatmap from "@/components/Heatmap";
-import TracingTrace from "@/components/TracingTrace";
+import Led from "../components/Led.vue";
+import Heatmap from "../components/Heatmap.vue";
+import TracingTrace from "../components/TracingTrace.vue";
 
 export default {
     props: {

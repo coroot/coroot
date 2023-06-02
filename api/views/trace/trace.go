@@ -1,4 +1,4 @@
-package tracing
+package trace
 
 import (
 	"context"
@@ -71,9 +71,8 @@ type Event struct {
 	Attributes map[string]string `json:"attributes"`
 }
 
-func Render(ctx context.Context, project *db.Project, app *model.Application, appSettings *db.ApplicationSettings, q url.Values, w *model.World) *View {
-	cfg := project.Settings.Integrations.Clickhouse
-	if cfg == nil {
+func Render(ctx context.Context, clickhouse *tracing.ClickhouseClient, app *model.Application, appSettings *db.ApplicationSettings, q url.Values, w *model.World) *View {
+	if clickhouse == nil {
 		return nil
 	}
 
@@ -110,15 +109,7 @@ func Render(ctx context.Context, project *db.Project, app *model.Application, ap
 		v.Heatmap.AddSeries("errors", "errors", failed, "", "err")
 	}
 
-	cl, err := tracing.NewClickhouseClient(cfg.Protocol, cfg.Addr, cfg.TlsEnable, cfg.TlsSkipVerify, cfg.Auth, cfg.Database, cfg.TracesTable)
-	if err != nil {
-		klog.Errorln(err)
-		v.Status = model.WARNING
-		v.Message = fmt.Sprintf("Clickhouse error: %s", err)
-		return v
-	}
-
-	services, err := cl.GetServiceNames(ctx)
+	services, err := clickhouse.GetServiceNames(ctx)
 	if err != nil {
 		klog.Errorln(err)
 		v.Status = model.WARNING
@@ -162,7 +153,7 @@ func Render(ctx context.Context, project *db.Project, app *model.Application, ap
 
 	var spans []*tracing.Span
 	if traceId != "" {
-		spans, err = cl.GetSpansByTraceId(ctx, traceId)
+		spans, err = clickhouse.GetSpansByTraceId(ctx, traceId)
 	} else {
 		switch {
 
@@ -180,7 +171,7 @@ func Render(ctx context.Context, project *db.Project, app *model.Application, ap
 					}
 				}
 			}
-			spans, err = cl.GetSpansByServiceName(ctx, service, monitoringPodIps, tsFrom, tsTo, durFrom, durTo, errors, limit)
+			spans, err = clickhouse.GetSpansByServiceName(ctx, service, monitoringPodIps, tsFrom, tsTo, durFrom, durTo, errors, limit)
 
 		case (typ == "" || typ == tracing.TypeOtelEbpf) && ebpfSpansFound:
 			typ = tracing.TypeOtelEbpf
@@ -200,7 +191,7 @@ func Render(ctx context.Context, project *db.Project, app *model.Application, ap
 					}
 				}
 			}
-			spans, err = cl.GetInboundSpans(ctx, listens, monitoringContainerIds, tsFrom, tsTo, durFrom, durTo, errors, limit)
+			spans, err = clickhouse.GetInboundSpans(ctx, listens, monitoringContainerIds, tsFrom, tsTo, durFrom, durTo, errors, limit)
 		}
 
 		if len(spans) == limit {
@@ -226,7 +217,7 @@ func Render(ctx context.Context, project *db.Project, app *model.Application, ap
 
 	clients := map[spanKey]string{}
 	if traceId == "" {
-		clients = getClients(ctx, cl, typ, spans, w)
+		clients = getClients(ctx, clickhouse, typ, spans, w)
 	}
 
 	v.Status = model.OK

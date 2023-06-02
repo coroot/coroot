@@ -23,7 +23,7 @@
 </template>
 
 <script>
-import Chart from '@/components/Chart';
+import Chart from './Chart';
 
 export default {
     props: {

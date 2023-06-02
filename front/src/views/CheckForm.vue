@@ -52,9 +52,9 @@
 </template>
 
 <script>
-import CheckFormSLOAvailability from "@/components/CheckConfigSLOAvailabilityForm";
-import CheckFormSLOLatency from "@/components/CheckConfigSLOLatencyForm";
-import CheckFormSimple from "@/components/CheckConfigForm";
+import CheckFormSLOAvailability from "../components/CheckConfigSLOAvailabilityForm";
+import CheckFormSLOLatency from "../components/CheckConfigSLOLatencyForm";
+import CheckFormSimple from "../components/CheckConfigForm";
 
 export default {
     props: {

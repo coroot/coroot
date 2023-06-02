@@ -20,7 +20,7 @@
 </template>
 
 <script>
-import MetricSelector from "@/components/MetricSelector";
+import MetricSelector from "./MetricSelector";
 
 const buckets = [
     {value: 0.005, text: '5ms'},

@@ -30,11 +30,11 @@
 </template>
 
 <script>
-import AppMap from "@/components/AppMap";
-import Dashboard from "@/components/Dashboard";
-import NoData from "@/components/NoData";
-import Check from "@/views/Check";
-import Led from "@/components/Led";
+import AppMap from "../components/AppMap";
+import Dashboard from "../components/Dashboard";
+import NoData from "../components/NoData";
+import Check from "../views/Check";
+import Led from "../components/Led";
 
 export default {
     props: {
