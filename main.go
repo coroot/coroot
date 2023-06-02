@@ -63,6 +63,9 @@ func main() {
 	if err != nil {
 		klog.Exitln(err)
 	}
+	if err = database.MigrateDefault(); err != nil {
+		klog.Exitln(err)
+	}
 
 	bootstrapPrometheus(database, *bootstrapPrometheusUrl, *bootstrapRefreshInterval, *bootstrapPrometheusExtraSelector)
 	bootstrapPyroscope(database, *bootstrapPyroscopeUrl)
