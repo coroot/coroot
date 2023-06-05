@@ -96,15 +96,18 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 	pjs := promJobStatuses{}
 	nodesByMachineId := map[string]*model.Node{}
 	rdsInstancesById := map[string]*model.Instance{}
+	ecInstancesById := map[string]*model.Instance{}
 
 	// order is important
 	prof.stage("load_job_statuses", func() { loadPromJobStatuses(metrics, pjs) })
 	prof.stage("load_nodes", func() { c.loadNodes(w, metrics, nodesByMachineId) })
 	prof.stage("load_k8s_metadata", func() { loadKubernetesMetadata(w, metrics) })
 	prof.stage("load_rds_metadata", func() { loadRdsMetadata(w, metrics, pjs, rdsInstancesById) })
+	prof.stage("load_elasticache_metadata", func() { loadElasticacheMetadata(w, metrics, pjs, ecInstancesById) })
 	prof.stage("load_rds", func() { loadRds(w, metrics, pjs, rdsInstancesById) })
+	prof.stage("load_elasticache", func() { loadElasticache(w, metrics, pjs, ecInstancesById) })
 	prof.stage("load_containers", func() { loadContainers(w, metrics, pjs, nodesByMachineId) })
-	prof.stage("enrich_instances", func() { enrichInstances(w, metrics, rdsInstancesById) })
+	prof.stage("enrich_instances", func() { enrichInstances(w, metrics, rdsInstancesById, ecInstancesById) })
 	prof.stage("join_db_cluster", func() { joinDBClusterComponents(w) })
 	prof.stage("calc_app_categories", func() { c.calcApplicationCategories(w) })
 	prof.stage("load_sli", func() { c.loadSLIs(w, metrics) })
@@ -248,7 +251,7 @@ type podId struct {
 	name, ns string
 }
 
-func enrichInstances(w *model.World, metrics map[string][]model.MetricValues, rdsInstancesById map[string]*model.Instance) {
+func enrichInstances(w *model.World, metrics map[string][]model.MetricValues, rdsInstancesById map[string]*model.Instance, ecInstanceById map[string]*model.Instance) {
 	instancesByListen := map[model.Listen]*model.Instance{}
 	instancesByPod := map[podId]*model.Instance{}
 	for _, app := range w.Applications {
@@ -266,10 +269,10 @@ func enrichInstances(w *model.World, metrics map[string][]model.MetricValues, rd
 		for _, m := range metrics[queryName] {
 			switch {
 			case strings.HasPrefix(queryName, "pg_"):
-				instance := findInstance(instancesByPod, instancesByListen, rdsInstancesById, m.Labels, model.ApplicationTypePostgres)
+				instance := findInstance(instancesByPod, instancesByListen, rdsInstancesById, ecInstanceById, m.Labels, model.ApplicationTypePostgres)
 				postgres(instance, queryName, m)
 			case strings.HasPrefix(queryName, "redis_"):
-				instance := findInstance(instancesByPod, instancesByListen, rdsInstancesById, m.Labels, model.ApplicationTypeRedis, model.ApplicationTypeKeyDB)
+				instance := findInstance(instancesByPod, instancesByListen, rdsInstancesById, ecInstanceById, m.Labels, model.ApplicationTypeRedis, model.ApplicationTypeKeyDB)
 				redis(instance, queryName, m)
 			}
 		}
@@ -330,9 +333,12 @@ func guessNamespace(ls model.Labels) string {
 	return ""
 }
 
-func findInstance(instancesByPod map[podId]*model.Instance, instancesByListen map[model.Listen]*model.Instance, rdsInstancesById map[string]*model.Instance, ls model.Labels, applicationTypes ...model.ApplicationType) *model.Instance {
+func findInstance(instancesByPod map[podId]*model.Instance, instancesByListen map[model.Listen]*model.Instance, rdsInstancesById map[string]*model.Instance, ecInstancesById map[string]*model.Instance, ls model.Labels, applicationTypes ...model.ApplicationType) *model.Instance {
 	if rdsId := ls["rds_instance_id"]; rdsId != "" {
 		return rdsInstancesById[rdsId]
+	}
+	if ecId := ls["ec_instance_id"]; ecId != "" {
+		return ecInstancesById[ecId]
 	}
 	if host, port, err := net.SplitHostPort(ls["instance"]); err == nil {
 		if ip := net.ParseIP(host); ip != nil && !ip.IsLoopback() {

@@ -30,7 +30,8 @@ type Instance struct {
 
 	Pod *Pod
 
-	Rds *Rds
+	Rds         *Rds
+	Elasticache *Elasticache
 
 	Jvm *Jvm
 

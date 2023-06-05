@@ -20,6 +20,7 @@ const (
 	ApplicationKindExternalService    ApplicationKind = "ExternalService"
 	ApplicationKindDatabaseCluster    ApplicationKind = "DatabaseCluster"
 	ApplicationKindRds                ApplicationKind = "RDS"
+	ApplicationKindElasticacheCluster ApplicationKind = "ElasticacheCluster"
 	ApplicationKindNode               ApplicationKind = "Node"
 )
 
