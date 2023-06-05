@@ -126,6 +126,9 @@ var QUERIES = map[string]string{
 	"aws_rds_net_rx_bytes_per_second":     `aws_rds_net_rx_bytes_per_second`,
 	"aws_rds_net_tx_bytes_per_second":     `aws_rds_net_tx_bytes_per_second`,
 
+	"aws_elasticache_info":   `aws_elasticache_info`,
+	"aws_elasticache_status": `aws_elasticache_status`,
+
 	"pg_connections":                  `pg_connections{db!="postgres"}`,
 	"pg_up":                           `pg_up`,
 	"pg_info":                         `pg_info`,

@@ -32,6 +32,15 @@ func (a *appAuditor) instances() {
 			default:
 				status.SetStatus(model.OK, i.Rds.Status.Value())
 			}
+		} else if i.Elasticache != nil {
+			switch {
+			case timeseries.IsNaN(i.Elasticache.LifeSpan.Last()):
+				status.SetStatus(model.WARNING, "down (no metrics)")
+			case i.Elasticache.Status.Value() != "available":
+				status.SetStatus(model.WARNING, i.Elasticache.Status.Value())
+			default:
+				status.SetStatus(model.OK, i.Elasticache.Status.Value())
+			}
 		} else if i.Pod == nil {
 			if i.IsUp() {
 				status.SetStatus(model.OK, "ok")

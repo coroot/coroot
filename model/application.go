@@ -82,6 +82,8 @@ func (app *Application) Labels() Labels {
 	switch app.Id.Kind {
 	case ApplicationKindRds:
 		res["db"] = fmt.Sprintf(`%s (RDS)`, app.Instances[0].Rds.Engine.Value())
+	case ApplicationKindElasticacheCluster:
+		res["db"] = fmt.Sprintf(`%s (EC)`, app.Instances[0].Elasticache.Engine.Value())
 	case ApplicationKindUnknown, ApplicationKindDockerSwarmService:
 		res["instances"] = strconv.Itoa(len(app.Instances))
 	case ApplicationKindExternalService:

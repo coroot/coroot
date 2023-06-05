@@ -11,3 +11,12 @@ type Rds struct {
 
 	LifeSpan *timeseries.TimeSeries
 }
+
+type Elasticache struct {
+	Status LabelLastValue
+
+	Engine        LabelLastValue
+	EngineVersion LabelLastValue
+
+	LifeSpan *timeseries.TimeSeries
+}

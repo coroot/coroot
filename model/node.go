@@ -70,5 +70,10 @@ func NewNode(machineId string) *Node {
 }
 
 func (node *Node) IsUp() bool {
+	// currently, we don't collect OS metrics for Elasticache nodes
+	if len(node.Instances) == 1 && node.Instances[0].OwnerId.Kind == ApplicationKindElasticacheCluster {
+		return node.Instances[0].Elasticache.Status.Value() == "available"
+	}
+
 	return !DataIsMissing(node.CpuUsagePercent)
 }
