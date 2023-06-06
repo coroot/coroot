@@ -89,9 +89,7 @@ func renderCosts(w *model.World) *Costs {
 	applications := map[model.ApplicationId][]*instance{}
 	desiredInstances := map[model.ApplicationId]float32{}
 	for _, n := range w.Nodes {
-		nodeCpuCores := n.CpuCapacity.Last()
-		nodeMemoryBytes := n.MemoryTotalBytes.Last()
-		if n.Price == nil || !(nodeCpuCores > 0) || !(nodeMemoryBytes > 0) {
+		if n.Price == nil {
 			continue
 		}
 		nodeApps := map[model.ApplicationId][]*instance{}
@@ -112,6 +110,15 @@ func renderCosts(w *model.World) *Costs {
 				memUsage.Add(c.MemoryRss, c.MemoryCache)
 				cpuRequest.Add(c.CpuRequest)
 				memRequest.Add(c.MemoryRequest)
+			}
+			if i.Rds != nil {
+				cpuUsage.Add(
+					timeseries.Mul(
+						i.Node.CpuUsagePercent.Map(func(t timeseries.Time, v float32) float32 { return v / 100 }),
+						i.Node.CpuCapacity,
+					),
+				)
+				memUsage.Add(timeseries.Sub(i.Node.MemoryTotalBytes, i.Node.MemoryFreeBytes))
 			}
 			ii := &instance{
 				ownerId:   owner.Id,
@@ -135,21 +142,27 @@ func renderCosts(w *model.World) *Costs {
 		if timeseries.IsNaN(nodeMemoryFreeBytes) {
 			nodeMemoryFreeBytes = 0
 		}
-		cpuIdleCost := nodeCpuCores * (1 - nodeCpuUsagePercent/100) * n.Price.PerCPUCore
-		memIdleCost := nodeMemoryFreeBytes * n.Price.PerMemoryByte
-		nodeAppsCpu := renderNodeApplications(nodeCpuCores, nodeApps, resourceCpu)
-		nodeAppsMem := renderNodeApplications(nodeMemoryBytes, nodeApps, resourceMemory)
+		nodeCpuCores := n.CpuCapacity.Last()
+		nodeMemoryBytes := n.MemoryTotalBytes.Last()
+
 		nc := &NodeCosts{
-			Name:                      n.Name.Value(),
-			InstanceLifeCycle:         n.InstanceLifeCycle.Value(),
-			Description:               strings.Join(getNodeTags(n), " / "),
-			CpuUsageApplications:      topByUsage(nodeAppsCpu),
-			CpuRequestApplications:    topByRequest(nodeAppsCpu),
-			MemoryUsageApplications:   topByUsage(nodeAppsMem),
-			MemoryRequestApplications: topByRequest(nodeAppsMem),
-			Price:                     n.Price.Total * month,
-			IdleCosts:                 (cpuIdleCost + memIdleCost) * month,
+			Name:              n.Name.Value(),
+			InstanceLifeCycle: n.InstanceLifeCycle.Value(),
+			Description:       strings.Join(getNodeTags(n), " / "),
+			Price:             n.Price.Total * month,
 		}
+		if nodeCpuCores > 0 && nodeMemoryBytes > 0 {
+			cpuIdleCost := nodeCpuCores * (1 - nodeCpuUsagePercent/100) * n.Price.PerCPUCore
+			memIdleCost := nodeMemoryFreeBytes * n.Price.PerMemoryByte
+			nodeAppsCpu := renderNodeApplications(nodeCpuCores, nodeApps, resourceCpu)
+			nodeAppsMem := renderNodeApplications(nodeMemoryBytes, nodeApps, resourceMemory)
+			nc.CpuUsageApplications = topByUsage(nodeAppsCpu)
+			nc.CpuRequestApplications = topByRequest(nodeAppsCpu)
+			nc.MemoryUsageApplications = topByUsage(nodeAppsMem)
+			nc.MemoryRequestApplications = topByRequest(nodeAppsMem)
+			nc.IdleCosts = (cpuIdleCost + memIdleCost) * month
+		}
+
 		for _, a := range nc.CpuUsageApplications {
 			nc.CpuUsage += a.Value
 		}
@@ -205,6 +218,11 @@ func renderApplicationCosts(appInstances []*instance, desiredInstances map[model
 					memUsageMax = avg
 				}
 				res.UsageCosts += avg * i.nodePrice.PerMemoryByte * month
+			}
+			switch i.ownerId.Kind {
+			case model.ApplicationKindRds, model.ApplicationKindElasticacheCluster:
+				res.UsageCosts += i.nodePrice.Total * month
+				res.AllocationCosts += i.nodePrice.Total * month
 			}
 			if !up {
 				continue

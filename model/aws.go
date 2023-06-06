@@ -7,7 +7,7 @@ type Rds struct {
 
 	Engine        LabelLastValue
 	EngineVersion LabelLastValue
-	MultiAz       bool
+	MultiAz       LabelLastValue
 
 	LifeSpan *timeseries.TimeSeries
 }
