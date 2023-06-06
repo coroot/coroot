@@ -3,7 +3,6 @@ package constructor
 import (
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
-	"strconv"
 	"strings"
 )
 
@@ -49,11 +48,11 @@ func loadRdsMetadata(w *model.World, metrics map[string][]model.MetricValues, pj
 		instance.Node.CloudProvider.Update(m.Values, "aws")
 		instance.Node.Region.Update(m.Values, m.Labels["region"])
 		instance.Node.AvailabilityZone.Update(m.Values, m.Labels["availability_zone"])
-		instance.Rds.MultiAz, _ = strconv.ParseBool(m.Labels["multi_az"])
+		instance.Rds.MultiAz.Update(m.Values, m.Labels["multi_az"])
 	}
 }
 
-func loadRds(w *model.World, metrics map[string][]model.MetricValues, pjs promJobStatuses, rdsInstancesById map[string]*model.Instance) {
+func (c *Constructor) loadRds(w *model.World, metrics map[string][]model.MetricValues, pjs promJobStatuses, rdsInstancesById map[string]*model.Instance) {
 	for queryName := range QUERIES {
 		if !strings.HasPrefix(queryName, "aws_rds_") || queryName == "aws_rds_info" {
 			continue
@@ -141,5 +140,9 @@ func loadRds(w *model.World, metrics map[string][]model.MetricValues, pjs promJo
 			}
 		}
 	}
-
+	if c.pricing != nil {
+		for _, instance := range rdsInstancesById {
+			instance.Node.Price = c.pricing.GetNodePrice(instance.Node)
+		}
+	}
 }

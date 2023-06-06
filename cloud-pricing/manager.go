@@ -48,6 +48,9 @@ func NewManager(dataDir string) (*Manager, error) {
 		}
 	}
 	go func() {
+		if err := m.updateModel(); err != nil {
+			klog.Warningln("failed to update cloud pricing:", err)
+		}
 		for range time.Tick(updateInterval) {
 			if err := m.updateModel(); err != nil {
 				klog.Warningln("failed to update cloud pricing:", err)
@@ -64,6 +67,7 @@ func (mgr *Manager) GetNodePrice(node *model.Node) *model.NodePrice {
 		return nil
 	}
 	var pricing *CloudPricing
+	var price float32
 	switch strings.ToLower(node.CloudProvider.Value()) {
 	case "aws":
 		pricing = mgr.model.AWS
@@ -74,20 +78,57 @@ func (mgr *Manager) GetNodePrice(node *model.Node) *model.NodePrice {
 	default:
 		return nil
 	}
-	reg, ok := pricing.Compute[node.Region.Value()]
-	if !ok {
-		return nil
-	}
-	i, ok := reg[node.InstanceType.Value()]
-	if !ok {
-		return nil
-	}
-	var price float32
-	switch strings.ToLower(node.InstanceLifeCycle.Value()) {
-	case "spot", "preemptible":
-		price = i.Spot
-	default:
+	switch {
+	case len(node.Instances) == 1 && node.Instances[0].Rds != nil: //RDS
+		rds := node.Instances[0].Rds
+		reg, ok := pricing.ManagedDB[Region(node.Region.Value())]
+		if !ok {
+			return nil
+		}
+		e, ok := reg[Engine(rds.Engine.Value())]
+		if !ok {
+			return nil
+		}
+		i, ok := e[InstanceType(node.InstanceType.Value())]
+		if !ok {
+			return nil
+		}
+		switch rds.MultiAz.Value() {
+		case "", "false":
+			price = i.SingleAz.OnDemand
+		case "true":
+			price = i.MultiAz.OnDemand
+		}
+	case len(node.Instances) == 1 && node.Instances[0].Elasticache != nil: //Elasticache
+		ec := node.Instances[0].Elasticache
+		reg, ok := pricing.ManagedCache[Region(node.Region.Value())]
+		if !ok {
+			return nil
+		}
+		e, ok := reg[Engine(ec.Engine.Value())]
+		if !ok {
+			return nil
+		}
+		i, ok := e[InstanceType(node.InstanceType.Value())]
+		if !ok {
+			return nil
+		}
 		price = i.OnDemand
+	default: //compute
+		reg, ok := pricing.Compute[Region(node.Region.Value())]
+		if !ok {
+			return nil
+		}
+		i, ok := reg[InstanceType(node.InstanceType.Value())]
+		if !ok {
+			return nil
+		}
+		switch strings.ToLower(node.InstanceLifeCycle.Value()) {
+		case "spot", "preemptible":
+			price = i.Spot
+		default:
+			price = i.OnDemand
+		}
 	}
 	if !(price > 0) {
 		return nil
@@ -95,16 +136,15 @@ func (mgr *Manager) GetNodePrice(node *model.Node) *model.NodePrice {
 	price /= float32(timeseries.Hour)
 	cpuCores := node.CpuCapacity.Last()
 	memBytes := node.MemoryTotalBytes.Last()
+	np := &model.NodePrice{Total: price}
 	if timeseries.IsNaN(cpuCores) || timeseries.IsNaN(memBytes) {
-		return nil
+		return np
 	}
 	const gb = 1e9
 	perUnit := price / (cpuCores + memBytes/gb) // assume that 1Gb of memory costs the same as 1 vCPU
-	return &model.NodePrice{
-		Total:         price,
-		PerCPUCore:    perUnit,
-		PerMemoryByte: perUnit / gb,
-	}
+	np.PerCPUCore = perUnit
+	np.PerMemoryByte = perUnit / gb
+	return np
 }
 
 func (mgr *Manager) updateModel() error {

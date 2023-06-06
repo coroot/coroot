@@ -40,7 +40,7 @@ func loadElasticacheMetadata(w *model.World, metrics map[string][]model.MetricVa
 	}
 }
 
-func loadElasticache(w *model.World, metrics map[string][]model.MetricValues, pjs promJobStatuses, ecInstancesById map[string]*model.Instance) {
+func (c *Constructor) loadElasticache(w *model.World, metrics map[string][]model.MetricValues, pjs promJobStatuses, ecInstancesById map[string]*model.Instance) {
 	for queryName := range QUERIES {
 		if !strings.HasPrefix(queryName, "aws_elasticache_") || queryName == "aws_elasticache_info" {
 			continue
@@ -59,6 +59,11 @@ func loadElasticache(w *model.World, metrics map[string][]model.MetricValues, pj
 				instance.Elasticache.LifeSpan = merge(instance.Elasticache.LifeSpan, m.Values, timeseries.Any)
 				instance.Elasticache.Status.Update(m.Values, m.Labels["status"])
 			}
+		}
+	}
+	if c.pricing != nil {
+		for _, instance := range ecInstancesById {
+			instance.Node.Price = c.pricing.GetNodePrice(instance.Node)
 		}
 	}
 }
