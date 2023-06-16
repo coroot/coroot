@@ -294,8 +294,8 @@ func (c *Collector) collect() Stats {
 			}
 		}
 
-		cc := c.cache.GetCacheClient(p.Id)
-		cacheTo, err := cc.GetTo()
+		cacheClient := c.cache.GetCacheClient(p.Id)
+		cacheTo, err := cacheClient.GetTo()
 		if err != nil {
 			klog.Errorln(err)
 			continue
@@ -304,9 +304,15 @@ func (c *Collector) collect() Stats {
 			continue
 		}
 		t := time.Now()
-		step := p.Prometheus.RefreshInterval
-		cr := constructor.New(c.db, p, cc, c.pricing, constructor.OptionLoadPerConnectionHistograms)
-		w, err := cr.LoadWorld(context.Background(), cacheTo.Add(-worldWindow), cacheTo, step, &stats.Performance.Constructor)
+		to := cacheTo
+		from := to.Add(-worldWindow)
+		step, err := cacheClient.GetStep(from, to)
+		if err != nil {
+			klog.Errorln(err)
+			continue
+		}
+		ctr := constructor.New(c.db, p, cacheClient, c.pricing, constructor.OptionLoadPerConnectionHistograms)
+		w, err := ctr.LoadWorld(context.Background(), from, to, step, &stats.Performance.Constructor)
 		if err != nil {
 			klog.Errorln("failed to load world:", err)
 			continue

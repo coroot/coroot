@@ -74,16 +74,20 @@ func (w *Watcher) checkProject(project *db.Project) {
 }
 
 func (w *Watcher) loadWorld(project *db.Project) (*model.World, error) {
-	cc := w.cache.GetCacheClient(project.Id)
-	cacheTo, err := cc.GetTo()
+	cacheClient := w.cache.GetCacheClient(project.Id)
+	cacheTo, err := cacheClient.GetTo()
 	if err != nil {
 		return nil, err
 	}
 	if cacheTo.IsZero() {
 		return nil, fmt.Errorf("cache is empty")
 	}
-	step := project.Prometheus.RefreshInterval
-	to := cacheTo.Truncate(step)
+	to := cacheTo
 	from := to.Add(-timeseries.Hour)
-	return constructor.New(w.db, project, cc, nil).LoadWorld(context.Background(), from, to, step, nil)
+	step, err := cacheClient.GetStep(from, to)
+	if err != nil {
+		return nil, err
+	}
+	ctr := constructor.New(w.db, project, cacheClient, nil)
+	return ctr.LoadWorld(context.Background(), from, to, step, nil)
 }

@@ -59,13 +59,18 @@ func (w *Watcher) discoverAndSaveDeployments(project *db.Project) (*model.World,
 
 	cacheClient, cacheTo, err := w.getCacheClient(project)
 	if err != nil {
-		klog.Errorln("failed to get cache client:", err)
+		klog.Errorln(err)
 		return nil, cacheTo
 	}
-	step := project.Prometheus.RefreshInterval
 	to := cacheTo
 	from := to.Add(-timeseries.Hour)
-	world, err := constructor.New(w.db, project, cacheClient, w.pricing).LoadWorld(context.Background(), from, to, step, nil)
+	step, err := cacheClient.GetStep(from, to)
+	if err != nil {
+		klog.Errorln(err)
+		return nil, cacheTo
+	}
+	ctr := constructor.New(w.db, project, cacheClient, w.pricing)
+	world, err := ctr.LoadWorld(context.Background(), from, to, step, nil)
 	if err != nil {
 		klog.Errorln("failed to load world:", err)
 		return nil, cacheTo
@@ -114,17 +119,17 @@ func (w *Watcher) snapshotDeploymentMetrics(project *db.Project, applications []
 	}
 	cacheClient, cacheTo, err := w.getCacheClient(project)
 	if err != nil {
-		klog.Errorln("failed to get cache client:", err)
+		klog.Errorln(err)
 		return
 	}
-	step := project.Prometheus.RefreshInterval
+	ctr := constructor.New(w.db, project, cacheClient, w.pricing)
 	for _, app := range applications {
 		for i, d := range app.Deployments {
 			if d.MetricsSnapshot != nil || d.FinishedAt.IsZero() {
 				continue
 			}
-			from := d.FinishedAt.Add(model.ApplicationDeploymentMetricsSnapshotShift).Truncate(step)
-			to := from.Add(model.ApplicationDeploymentMetricsSnapshotWindow).Truncate(step)
+			from := d.FinishedAt.Add(model.ApplicationDeploymentMetricsSnapshotShift)
+			to := from.Add(model.ApplicationDeploymentMetricsSnapshotWindow)
 			nextOrNow := cacheTo
 			if i < len(app.Deployments)-1 {
 				nextOrNow = app.Deployments[i+1].StartedAt
@@ -132,7 +137,12 @@ func (w *Watcher) snapshotDeploymentMetrics(project *db.Project, applications []
 			if to.After(nextOrNow) {
 				continue
 			}
-			world, err := constructor.New(w.db, project, cacheClient, w.pricing).LoadWorld(context.Background(), from, to, step, nil)
+			step, err := cacheClient.GetStep(from, to)
+			if err != nil {
+				klog.Errorln(err)
+				continue
+			}
+			world, err := ctr.LoadWorld(context.Background(), from, to, step, nil)
 			if err != nil {
 				klog.Errorln("failed to load world:", err)
 				continue
@@ -205,15 +215,15 @@ func (w *Watcher) sendNotifications(project *db.Project, world *model.World, now
 }
 
 func (w *Watcher) getCacheClient(project *db.Project) (*cache.Client, timeseries.Time, error) {
-	cc := w.cache.GetCacheClient(project.Id)
-	cacheTo, err := cc.GetTo()
+	cacheClient := w.cache.GetCacheClient(project.Id)
+	cacheTo, err := cacheClient.GetTo()
 	if err != nil {
 		return nil, 0, err
 	}
 	if cacheTo.IsZero() {
 		return nil, 0, fmt.Errorf("cache is empty")
 	}
-	return cc, cacheTo, nil
+	return cacheClient, cacheTo, nil
 }
 
 func calcDeployments(app *model.Application) []*model.ApplicationDeployment {

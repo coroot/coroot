@@ -25,10 +25,6 @@ import (
 	"time"
 )
 
-const (
-	StepUndefined timeseries.Duration = 0
-)
-
 var (
 	secureTransport   *http.Transport
 	insecureTransport *http.Transport
@@ -103,14 +99,11 @@ func (c *Client) Ping(ctx context.Context) error {
 	return err
 }
 
-func (c *Client) GetStep() timeseries.Duration {
-	return c.config.Step
+func (c *Client) GetStep(from, to timeseries.Time) (timeseries.Duration, error) {
+	return c.config.Step, nil
 }
 
 func (c *Client) QueryRange(ctx context.Context, query string, from, to timeseries.Time, step timeseries.Duration) ([]model.MetricValues, error) {
-	if step == StepUndefined {
-		step = c.config.Step
-	}
 	query = strings.ReplaceAll(query, "$RANGE", fmt.Sprintf(`%.0fs`, (step*3).ToStandard().Seconds()))
 	var err error
 	query, err = addExtraSelector(query, c.config.ExtraSelector)

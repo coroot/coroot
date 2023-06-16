@@ -43,7 +43,8 @@ func (c *Cache) updater() {
 			_, ok := workers.Load(project.Id)
 			workers.Store(project.Id, project)
 			if !ok {
-				go c.updaterWorker(workers, project.Id, cl.GetStep())
+				step, _ := cl.GetStep(0, 0)
+				go c.updaterWorker(workers, project.Id, step)
 			}
 		}
 		workers.Range(func(key, value interface{}) bool {
@@ -139,7 +140,7 @@ func (c *Cache) updaterWorker(projects *sync.Map, projectId db.ProjectId, step t
 		}
 
 		if promClient, _ := c.promClientFactory(project); promClient != nil {
-			if step = promClient.GetStep(); step != refreshInterval {
+			if step, _ = promClient.GetStep(0, 0); step != refreshInterval {
 				refreshInterval = step
 				c.lock.Lock()
 				if c.byProject[projectId] == nil {
@@ -297,12 +298,16 @@ func (p *recordingRulesProcessor) QueryRange(ctx context.Context, query string, 
 	if p.cacheTo.Before(to) {
 		return nil, fmt.Errorf("cache is outdated")
 	}
-	c := constructor.New(p.db, p.project, p.cacheClient, nil, constructor.OptionLoadPerConnectionHistograms, constructor.OptionDoNotLoadRawSLIs)
-	world, err := c.LoadWorld(ctx, from, to, step, nil)
+	ctr := constructor.New(p.db, p.project, p.cacheClient, nil, constructor.OptionLoadPerConnectionHistograms, constructor.OptionDoNotLoadRawSLIs)
+	world, err := ctr.LoadWorld(ctx, from, to, step, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load world: %w", err)
 	}
 	return recordingRule(p.project, world), nil
+}
+
+func (p *recordingRulesProcessor) GetStep(from, to timeseries.Time) (timeseries.Duration, error) {
+	return p.cacheClient.GetStep(from, to)
 }
 
 type interval struct {

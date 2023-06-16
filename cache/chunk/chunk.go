@@ -26,6 +26,10 @@ type Meta struct {
 	Finalized   bool
 }
 
+func (m *Meta) To() timeseries.Time {
+	return m.From.Add(timeseries.Duration(m.PointsCount-1) * m.Step)
+}
+
 type metricMeta struct {
 	Hash       uint64
 	MetaOffset uint32

@@ -12,7 +12,7 @@
 
         <div class="subtitle-1">Slack app icon</div>
         <div class="caption mb-4">
-            Customize the image (you can use the <a href="https://coroot.com/static/img/coroot.png" target="_blank">Coroot logo</a>)
+            Customize the image (you can use the <a href="https://coroot.com/static/img/coroot_512.png" target="_blank">Coroot logo</a>)
         </div>
 
         <div class="subtitle-1">Slack Bot User OAuth Token</div>
