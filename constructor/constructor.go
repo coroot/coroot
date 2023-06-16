@@ -127,13 +127,27 @@ type cacheQuery struct {
 }
 
 func (c *Constructor) queryCache(ctx context.Context, from, to timeseries.Time, step timeseries.Duration, checkConfigs model.CheckConfigs, stats map[string]QueryStats) (map[string][]model.MetricValues, error) {
-	queries := map[string]cacheQuery{}
+	rawTo := to
 	rawFrom := to.Add(-model.MaxAlertRuleWindow)
+	var rawStep timeseries.Duration
+	loadRawSLIs := !c.options[OptionDoNotLoadRawSLIs]
+	if loadRawSLIs {
+		var err error
+		rawStep, err = c.prom.GetStep(from, to)
+		if err != nil {
+			return nil, err
+		}
+		rawFrom = rawFrom.Truncate(rawStep)
+		rawTo = rawTo.Truncate(rawStep)
+	}
 
+	from = from.Truncate(step)
+	to = to.Truncate(step)
+	queries := map[string]cacheQuery{}
 	addQuery := func(name, statsName, query string, sli bool) {
 		queries[name] = cacheQuery{query: query, from: from, to: to, step: step, statsName: statsName}
-		if sli && !c.options[OptionDoNotLoadRawSLIs] {
-			queries[name+"_raw"] = cacheQuery{query: query, from: rawFrom, to: to, step: prom.StepUndefined, statsName: statsName + "_raw"}
+		if sli && loadRawSLIs {
+			queries[name+"_raw"] = cacheQuery{query: query, from: rawFrom, to: rawTo, step: rawStep, statsName: statsName + "_raw"}
 		}
 	}
 

@@ -665,15 +665,16 @@ func (api *Api) Node(w http.ResponseWriter, r *http.Request) {
 }
 
 func (api *Api) loadWorld(ctx context.Context, project *db.Project, from, to timeseries.Time) (*model.World, error) {
-	cc := api.cache.GetCacheClient(project.Id)
-	cacheTo, err := cc.GetTo()
+	cacheClient := api.cache.GetCacheClient(project.Id)
+	cacheTo, err := cacheClient.GetTo()
 	if err != nil {
 		return nil, err
 	}
 
-	step := project.Prometheus.RefreshInterval
-	from = from.Truncate(step)
-	to = to.Truncate(step)
+	step, err := cacheClient.GetStep(from, to)
+	if err != nil {
+		return nil, err
+	}
 
 	if cacheTo.IsZero() || cacheTo.Before(from) {
 		return nil, nil
@@ -687,7 +688,8 @@ func (api *Api) loadWorld(ctx context.Context, project *db.Project, from, to tim
 	step = increaseStepForBigDurations(duration, step)
 
 	t := time.Now()
-	world, err := constructor.New(api.db, project, cc, api.pricing).LoadWorld(ctx, from, to, step, nil)
+	ctr := constructor.New(api.db, project, cacheClient, api.pricing)
+	world, err := ctr.LoadWorld(ctx, from, to, step, nil)
 	klog.Infof("world loaded in %s", time.Since(t))
 	return world, err
 }

@@ -7,7 +7,6 @@ import (
 	"github.com/coroot/coroot/constructor"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
-	"github.com/coroot/coroot/prom"
 	"github.com/coroot/coroot/timeseries"
 )
 
@@ -30,22 +29,17 @@ func (c *Client) QueryRange(ctx context.Context, query string, from, to timeseri
 	if projData == nil {
 		return nil, fmt.Errorf("unknown project: %s", c.projectId)
 	}
-	if step == prom.StepUndefined {
-		step = projData.refreshInterval
-	}
-	from = from.Truncate(step)
-	to = to.Truncate(step)
 	queryHash := hash(query)
 	qData := projData.queries[queryHash]
 	if qData == nil {
 		return nil, fmt.Errorf("%w: %s", constructor.ErrUnknownQuery, query)
 	}
-	start := from
-	end := to
+	from = from.Truncate(step)
+	to = to.Truncate(step)
 	res := map[uint64]model.MetricValues{}
 	resPoints := int(to.Sub(from)/step + 1)
 	for _, ch := range qData.chunksOnDisk {
-		if ch.From > end || ch.From.Add(timeseries.Duration(ch.PointsCount-1)*ch.Step) < start {
+		if ch.From > to || ch.To() < from {
 			continue
 		}
 		err := chunk.Read(ch.Path, from, resPoints, step, res)
@@ -58,6 +52,31 @@ func (c *Client) QueryRange(ctx context.Context, query string, from, to timeseri
 		r = append(r, mv)
 	}
 	return r, nil
+}
+
+func (c *Client) GetStep(from, to timeseries.Time) (timeseries.Duration, error) {
+	c.cache.lock.RLock()
+	defer c.cache.lock.RUnlock()
+	projData := c.cache.byProject[c.projectId]
+	if projData == nil {
+		return 0, fmt.Errorf("unknown project: %s", c.projectId)
+	}
+
+	var step timeseries.Duration
+	for _, qData := range projData.queries {
+		for _, ch := range qData.chunksOnDisk {
+			if ch.From > from || ch.To() < to {
+				continue
+			}
+			if ch.Step > step {
+				step = ch.Step
+			}
+		}
+	}
+	if step == 0 {
+		step = projData.refreshInterval
+	}
+	return step, nil
 }
 
 func (c *Client) GetTo() (timeseries.Time, error) {
