@@ -28,7 +28,7 @@ func (a *appAuditor) logs() {
 	check := report.CreateCheck(model.Checks.LogErrors)
 	seenContainers := false
 	patterns := &model.LogPatterns{
-		Title: fmt.Sprintf("Repeated patters from the <var>%s</var>'s log", a.app.Id.Name),
+		Title: fmt.Sprintf("Repeated patterns from the <var>%s</var>'s log", a.app.Id.Name),
 	}
 	totalEvents := uint64(0)
 
