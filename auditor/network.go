@@ -6,25 +6,21 @@ import (
 )
 
 type netSummary struct {
-	status   model.Status
-	rttMin   *timeseries.Aggregate
-	rttMax   *timeseries.Aggregate
-	rttSum   *timeseries.Aggregate
-	rttCount *timeseries.Aggregate
+	status          model.Status
+	retransmissions *timeseries.Aggregate
+	rttSum          *timeseries.Aggregate
+	rttCount        *timeseries.Aggregate
 }
 
 func newNetSummary() *netSummary {
 	return &netSummary{
-		rttMin:   timeseries.NewAggregate(timeseries.Min),
-		rttMax:   timeseries.NewAggregate(timeseries.Max),
-		rttSum:   timeseries.NewAggregate(timeseries.NanSum),
-		rttCount: timeseries.NewAggregate(timeseries.NanSum),
+		retransmissions: timeseries.NewAggregate(timeseries.NanSum),
+		rttSum:          timeseries.NewAggregate(timeseries.NanSum),
+		rttCount:        timeseries.NewAggregate(timeseries.NanSum),
 	}
 }
 
 func (s *netSummary) addRtt(rtt *timeseries.TimeSeries) {
-	s.rttMax.Add(rtt)
-	s.rttMin.Add(rtt)
 	s.rttSum.Add(rtt)
 	s.rttCount.Add(rtt.Map(timeseries.Defined))
 }
@@ -57,6 +53,9 @@ func (a *appAuditor) network() {
 			if u.Rtt != nil {
 				summary.addRtt(u.Rtt)
 			}
+			if u.Retransmissions != nil {
+				summary.retransmissions.Add(u.Retransmissions)
+			}
 			if instance.IsObsolete() || u.IsObsolete() {
 				linkStatus = model.UNKNOWN
 			}
@@ -78,10 +77,8 @@ func (a *appAuditor) network() {
 		if avg.Last() > rttCheck.Threshold {
 			rttCheck.AddItem(appId.Name)
 		}
-		report.GetOrCreateChartInGroup("Network round-trip time to <selector>, seconds", appId.Name).
-			AddSeries("min", summary.rttMin).
-			AddSeries("avg", avg).
-			AddSeries("max", summary.rttMax)
+		report.GetOrCreateChart("Network round-trip time, seconds").AddSeries("→"+appId.Name, avg)
+		report.GetOrCreateChart("TCP retransmissions, segments/second").AddSeries("→"+appId.Name, summary.retransmissions)
 	}
 	if !seenConnections {
 		rttCheck.SetStatus(model.UNKNOWN, "no data")

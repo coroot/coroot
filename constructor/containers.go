@@ -109,6 +109,10 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues, pjs
 				if !instance.TcpListens[l] {
 					instance.TcpListens[l] = isActive
 				}
+			case "container_net_tcp_retransmits":
+				if c := getOrCreateConnection(instance, container.Name, m, w, connectionCache); c != nil {
+					c.Retransmissions = merge(c.Retransmissions, m.Values, timeseries.Any)
+				}
 			case "container_http_requests_count", "container_postgres_queries_count", "container_redis_queries_count",
 				"container_memcached_queries_count", "container_mysql_queries_count", "container_mongo_queries_count",
 				"container_kafka_requests_count", "container_cassandra_queries_count", "container_rabbitmq_messages":

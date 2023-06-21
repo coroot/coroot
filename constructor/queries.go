@@ -55,6 +55,7 @@ var QUERIES = map[string]string{
 	"container_net_tcp_successful_connects": `rate(container_net_tcp_successful_connects_total[$RANGE])`,
 	"container_net_tcp_active_connections":  `container_net_tcp_active_connections`,
 	"container_net_tcp_listen_info":         `container_net_tcp_listen_info`,
+	"container_net_tcp_retransmits":         `rate(container_net_tcp_retransmits_total[$RANGE])`,
 	"container_log_messages":                `container_log_messages_total % 10000000`,
 	"container_application_type":            `container_application_type`,
 	"container_cpu_limit":                   `container_resources_cpu_limit_cores`,

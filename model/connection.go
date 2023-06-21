@@ -20,6 +20,8 @@ type Connection struct {
 	Connects *timeseries.TimeSeries
 	Active   *timeseries.TimeSeries
 
+	Retransmissions *timeseries.TimeSeries
+
 	RequestsCount     map[Protocol]map[string]*timeseries.TimeSeries // by status
 	RequestsLatency   map[Protocol]*timeseries.TimeSeries
 	RequestsHistogram map[Protocol]map[float32]*timeseries.TimeSeries // by le
