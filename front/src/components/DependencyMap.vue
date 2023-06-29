@@ -163,8 +163,13 @@ export default {
         stroke-width: 1;
     }
     line.warning {
+        stroke: #FF8F00;
+        stroke-width: 2;
+        stroke-dasharray: 4;
+    }
+    line.critical {
         stroke: red;
-        stroke-width: 1;
+        stroke-width: 2;
         stroke-dasharray: 4;
     }
     line.unknown {

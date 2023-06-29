@@ -52,7 +52,7 @@ func (c *Connection) Status() Status {
 	if c.IsActual() && !c.Rtt.IsEmpty() {
 		status = OK
 		if DataIsMissing(c.Rtt) {
-			status = WARNING
+			status = CRITICAL
 		}
 	}
 	return status
