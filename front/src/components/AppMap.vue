@@ -321,8 +321,14 @@ svg {
     fill: green;
 }
 .arrow.warning {
+    stroke: #FF8F00;
+    stroke-dasharray: 4;
+    fill: #FF8F00;
+}
+.arrow.critical {
     stroke: red;
     stroke-dasharray: 4;
+    stroke-width: 2;
     fill: red;
 }
 .arrow.unknown {
