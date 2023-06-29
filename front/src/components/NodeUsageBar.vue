@@ -50,9 +50,16 @@ export default {
 
     methods: {
         style(a) {
+            let color = palette.hash(a.name)
+            if (a.name === '~other') {
+                color = 'rgba(243,219,160)';
+            }
+            if (a.name === '~cached') {
+                color = 'rgb(196, 196, 196)';
+            }
             return {
                 width: a.value+'%',
-                backgroundColor: palette.hash(a.name, '~other'),
+                backgroundColor: color,
             };
         },
         enter(a, e) {

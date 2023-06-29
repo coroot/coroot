@@ -93,6 +93,7 @@ func renderCosts(w *model.World) *Costs {
 			continue
 		}
 		nodeApps := map[model.ApplicationId][]*instance{}
+		memCached := timeseries.NewAggregate(timeseries.NanSum)
 		for _, i := range n.Instances {
 			owner := applicationsIndex[i.OwnerId]
 			if owner == nil {
@@ -107,7 +108,8 @@ func renderCosts(w *model.World) *Costs {
 			memRequest := timeseries.NewAggregate(timeseries.NanSum)
 			for _, c := range i.Containers {
 				cpuUsage.Add(c.CpuUsage)
-				memUsage.Add(c.MemoryRss, c.MemoryCache)
+				memUsage.Add(c.MemoryRss)
+				memCached.Add(c.MemoryCache)
 				cpuRequest.Add(c.CpuRequest)
 				memRequest.Add(c.MemoryRequest)
 			}
@@ -161,6 +163,15 @@ func renderCosts(w *model.World) *Costs {
 			nc.MemoryUsageApplications = topByUsage(nodeAppsMem)
 			nc.MemoryRequestApplications = topByRequest(nodeAppsMem)
 			nc.IdleCosts = (cpuIdleCost + memIdleCost) * month
+
+			cached := memCached.Get()
+			cachedAvg := cached.Reduce(timeseries.NanSum) / cached.Map(timeseries.Defined).Reduce(timeseries.NanSum)
+			if cachedAvg > 0 {
+				nc.MemoryUsageApplications = append(nc.MemoryUsageApplications, NodeApplication{
+					Name:  "~cached",
+					Value: cachedAvg / nodeMemoryBytes * 100,
+				})
+			}
 		}
 
 		for _, a := range nc.CpuUsageApplications {
