@@ -68,7 +68,7 @@ func (c *Constructor) loadNodes(w *model.World, metrics map[string][]model.Metri
 			case "node_memory_free_bytes":
 				node.MemoryFreeBytes = merge(node.MemoryFreeBytes, m.Values, timeseries.Any)
 			case "node_cloud_info":
-				node.CloudProvider.Update(m.Values, m.Labels["provider"])
+				node.CloudProvider.Update(m.Values, strings.ToLower(m.Labels["provider"]))
 				node.Region.Update(m.Values, m.Labels["region"])
 				node.AvailabilityZone.Update(m.Values, m.Labels["availability_zone"])
 				node.InstanceType.Update(m.Values, m.Labels["instance_type"])
