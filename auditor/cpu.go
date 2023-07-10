@@ -28,7 +28,7 @@ func (a *appAuditor) cpu(ncs nodeConsumersByNode) {
 			report.GetOrCreateChartInGroup("CPU delay of container <selector>, seconds/second", c.Name).AddSeries(i.Name, c.CpuDelay)
 			report.GetOrCreateChartInGroup("Throttled time of container <selector>, seconds/second", c.Name).AddSeries(i.Name, c.ThrottledTime)
 
-			usage := c.CpuUsage.Last() / c.CpuLimit.Last()
+			usage := c.CpuUsage.Last() / c.CpuLimit.Last() * 100
 			if usage > containerCpuCheck.Threshold {
 				usageChart.Feature()
 				containerCpuCheck.AddItem("%s@%s", c.Name, i.Name)
