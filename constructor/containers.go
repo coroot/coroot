@@ -21,10 +21,14 @@ func getInstanceAndContainer(w *model.World, node *model.Node, instances map[ins
 		nodeId = node.MachineID
 		nodeName = node.Name.Value()
 	}
+	if !strings.HasPrefix(containerId, "/") {
+		klog.Warningln("invalid container id:", containerId)
+		return nil, nil
+	}
 	parts := strings.Split(containerId, "/")
 	var instance *model.Instance
 	var containerName string
-	if parts[1] == "k8s" && len(parts) == 5 {
+	if len(parts) == 5 && parts[1] == "k8s" {
 		w.IntegrationStatus.KubeStateMetrics.Required = true
 		ns, pod := parts[2], parts[3]
 		containerName = parts[4]
@@ -32,7 +36,7 @@ func getInstanceAndContainer(w *model.World, node *model.Node, instances map[ins
 	} else {
 		var appId model.ApplicationId
 		var instanceName string
-		if parts[1] == "swarm" && len(parts) == 5 {
+		if len(parts) == 5 && parts[1] == "swarm" {
 			appId = model.NewApplicationId(parts[2], model.ApplicationKindDockerSwarmService, parts[3])
 			containerName = parts[3]
 			instanceName = parts[3] + "." + parts[4]
