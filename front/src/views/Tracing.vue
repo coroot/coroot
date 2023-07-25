@@ -223,7 +223,7 @@ export default {
             return {...this.$route.query, ...ctx, trace};
         },
         changeSource(v) {
-            const query = this.setTrace({type: v.type, id: '', span: '', tsRange: '-', durRange: '-'});
+            const query = this.setTrace({type: v.type, id: '', span: ''});
             this.$router.push({query}).catch(err => err);
         },
         setSelection(s) {
@@ -295,6 +295,7 @@ export default {
                     return;
                 }
                 this.message = 'Settings were successfully updated.';
+                this.changeSource({type: ''});
                 setTimeout(() => {
                     this.message = '';
                     this.configure = false;
