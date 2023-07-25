@@ -24,29 +24,6 @@ func availability(ctx timeseries.Context, app *model.Application, report *model.
 		return
 	}
 	sli := app.AvailabilitySLIs[0]
-
-	if !sli.TotalRequests.IsEmpty() {
-		failed := sli.FailedRequests
-		if failed.IsEmpty() {
-			failed = sli.TotalRequests.WithNewValue(0)
-		}
-		successfulPercentage := timeseries.Aggregate2(
-			sli.TotalRequests, failed.Map(timeseries.NanToZero),
-			func(total, failed float32) float32 {
-				return (total - failed) / total * 100
-			},
-		)
-		chart := report.
-			GetOrCreateChart("Availability").
-			AddSeries("successful requests", successfulPercentage)
-		chart.Threshold = &model.Series{
-			Name:  "target",
-			Color: "red",
-			Fill:  true,
-			Data:  sli.TotalRequests.WithNewValue(sli.Config.ObjectivePercentage),
-		}
-	}
-
 	if sli.TotalRequestsRaw.IsEmpty() {
 		check.SetStatus(model.UNKNOWN, "no data")
 		return
@@ -55,6 +32,9 @@ func availability(ctx timeseries.Context, app *model.Application, report *model.
 		check.SetStatus(model.WARNING, "no data")
 		return
 	}
+
+	report.GetOrCreateChart("Errors, per second").
+		AddSeries("errors", sli.FailedRequests.Map(timeseries.NanToZero), "black").Stacked()
 
 	failedRaw := sli.FailedRequestsRaw
 	if failedRaw.IsEmpty() {
@@ -75,24 +55,7 @@ func latency(ctx timeseries.Context, app *model.Application, report *model.Audit
 	}
 	sli := app.LatencySLIs[0]
 
-	total, fast := sli.GetTotalAndFast(false)
-	if !total.IsEmpty() {
-		fastPercentage := timeseries.Aggregate2(
-			total, fast,
-			func(total, fast float32) float32 {
-				return fast / total * 100
-			},
-		)
-		chart := report.
-			GetOrCreateChart("Latency").
-			AddSeries("requests served faster than "+utils.FormatLatency(sli.Config.ObjectiveBucket), fastPercentage)
-		chart.Threshold = &model.Series{
-			Name:  "target",
-			Color: "red",
-			Fill:  true,
-			Data:  total.WithNewValue(sli.Config.ObjectivePercentage),
-		}
-	}
+	report.GetOrCreateChart("Latency, seconds").PercentilesFrom(sli.Histogram, 0.25, 0.5, 0.75, 0.95, 0.99)
 
 	totalRaw, fastRaw := sli.GetTotalAndFast(true)
 	if totalRaw.IsEmpty() {

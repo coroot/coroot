@@ -2,6 +2,7 @@ package model
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/coroot/coroot/timeseries"
 	"sort"
 	"strings"
@@ -33,14 +34,30 @@ type Series struct {
 
 type SeriesList struct {
 	series []*Series
-	topN   int
-	topF   timeseries.F
+
+	topN int
+	topF timeseries.F
+
+	histogram   []HistogramBucket
+	percentiles []float32
+}
+
+func (sl SeriesList) IsEmpty() bool {
+	return len(sl.series) == 0 && (len(sl.histogram) == 0 || len(sl.percentiles) == 0)
 }
 
 func (sl SeriesList) MarshalJSON() ([]byte, error) {
 	ss := sl.series
-	if sl.topN > 0 && sl.topF != nil {
+	switch {
+	case sl.topN > 0 && sl.topF != nil:
 		ss = topN(ss, sl.topN, sl.topF)
+	case len(sl.histogram) > 0 && len(sl.percentiles) > 0:
+		for _, q := range sl.percentiles {
+			ss = append(ss, &Series{
+				Name: fmt.Sprintf("p%d", int(q*100)),
+				Data: Quantile(sl.histogram, q),
+			})
+		}
 	}
 	return json.Marshal(ss)
 }
@@ -65,7 +82,7 @@ func NewChart(ctx timeseries.Context, title string) *Chart {
 }
 
 func (chart *Chart) IsEmpty() bool {
-	return len(chart.Series.series) == 0
+	return chart.Series.IsEmpty()
 }
 
 func (chart *Chart) Stacked() *Chart {
@@ -112,6 +129,12 @@ func (chart *Chart) AddMany(series map[string]SeriesData, topN int, topF timeser
 	}
 	chart.Series.topN = topN
 	chart.Series.topF = topF
+	return chart
+}
+
+func (chart *Chart) PercentilesFrom(histogram []HistogramBucket, percentiles ...float32) *Chart {
+	chart.Series.histogram = histogram
+	chart.Series.percentiles = percentiles
 	return chart
 }
 

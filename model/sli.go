@@ -89,3 +89,55 @@ func HistogramSeries(buckets []HistogramBucket, objectiveBucket, objectivePercen
 	}
 	return res
 }
+
+func Quantile(histogram []HistogramBucket, q float32) *timeseries.TimeSeries {
+	if len(histogram) == 0 {
+		return nil
+	}
+	total := histogram[len(histogram)-1]
+	type bucket struct {
+		iter *timeseries.Iterator
+		le   float32
+	}
+	var buckets []bucket
+	for _, b := range histogram {
+		buckets = append(buckets, bucket{
+			iter: b.TimeSeries.Iter(),
+			le:   b.Le,
+		})
+	}
+	res := make([]float32, total.TimeSeries.Len())
+	idx := 0
+	totalIter := total.TimeSeries.Iter()
+	var t, c, rank float32
+	var i int
+	var b bucket
+	for totalIter.Next() {
+		_, t = totalIter.Value()
+		rank = t * q
+		for _, b = range buckets {
+			b.iter.Next()
+		}
+		var prev, lower, upper, bc float32
+		for i, b = range buckets {
+			upper = b.le
+			if i > 0 {
+				_, prev = buckets[i-1].iter.Value()
+				lower = buckets[i-1].le
+			}
+			_, c = b.iter.Value()
+			if timeseries.IsNaN(c) {
+				c = 0.
+			}
+			if c < rank {
+				continue
+			}
+			bc = c - prev
+			res[idx] = lower + (upper-lower)*((rank-prev)/bc)
+			break
+		}
+		idx++
+	}
+
+	return total.TimeSeries.NewWithData(res)
+}

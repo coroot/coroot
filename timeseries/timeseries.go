@@ -209,6 +209,13 @@ func (ts *TimeSeries) WithNewValue(newValue float32) *TimeSeries {
 	return NewWithData(ts.from, ts.step, data)
 }
 
+func (ts *TimeSeries) NewWithData(data []float32) *TimeSeries {
+	if ts.IsEmpty() {
+		return nil
+	}
+	return NewWithData(ts.from, ts.step, data)
+}
+
 func (ts *TimeSeries) LastNotNull() (Time, float32) {
 	if ts.IsEmpty() {
 		return 0, NaN
