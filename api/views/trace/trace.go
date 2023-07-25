@@ -116,23 +116,22 @@ func Render(ctx context.Context, clickhouse *tracing.ClickhouseClient, app *mode
 		v.Message = fmt.Sprintf("Clickhouse error: %s", err)
 		return v
 	}
-	service := app.Id.Name
+	service := ""
 	if appSettings != nil && appSettings.Tracing != nil {
 		service = appSettings.Tracing.Service
+	} else {
+		service = guessService(services, app.Id)
 	}
 	var serviceFound, ebpfSpansFound bool
 	for _, s := range services {
-		if s == service {
-			serviceFound = true
-		}
 		if s == "coroot-node-agent" {
 			ebpfSpansFound = true
-			continue
+		} else {
+			if s == service {
+				serviceFound = true
+			}
+			v.Services = append(v.Services, Service{Name: s, Linked: s == service})
 		}
-		v.Services = append(v.Services, Service{
-			Name:   s,
-			Linked: s == service,
-		})
 	}
 	sort.Slice(v.Services, func(i, j int) bool {
 		return v.Services[i].Name < v.Services[j].Name
@@ -246,6 +245,21 @@ func Render(ctx context.Context, clickhouse *tracing.ClickhouseClient, app *mode
 		v.Spans = append(v.Spans, ss)
 	}
 	return v
+}
+
+func guessService(services []string, appId model.ApplicationId) string {
+	appName := appId.Name
+	for _, s := range services {
+		if s == appName {
+			return s
+		}
+	}
+	for _, s := range services {
+		if strings.HasSuffix(appName, s) {
+			return s
+		}
+	}
+	return ""
 }
 
 func getService(typ tracing.Type, s *tracing.Span, app *model.Application) string {
