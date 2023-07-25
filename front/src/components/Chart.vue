@@ -27,7 +27,7 @@
                 </div>
             </div>
 
-            <template v-if="!(selection && selection.to > selection.from )">
+            <template v-if="!(selection && selection.to > selection.from && selection.mode)">
                 <ChartAnnotations :ctx="config.ctx" :bbox="bbox" :annotations="annotations" />
             </template>
             <ChartIncidents :ctx="config.ctx" :bbox="bbox" :incidents="incidents" />
@@ -279,7 +279,7 @@ export default {
         },
         setSelection(u, s) {
             const empty = s.width === 0;
-            this.$refs["selection"].style.display = empty ? 'none' : 'block';
+            this.$refs["selection"].style.display = (empty || !this.selection.mode) ? 'none' : 'block';
             if (empty) {
                 return;
             }

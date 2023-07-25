@@ -17,14 +17,17 @@ type Connection struct {
 
 	Rtt *timeseries.TimeSeries
 
-	Connects *timeseries.TimeSeries
-	Active   *timeseries.TimeSeries
+	SuccessfulConnections *timeseries.TimeSeries
+	Active                *timeseries.TimeSeries
+	FailedConnections     *timeseries.TimeSeries
 
 	Retransmissions *timeseries.TimeSeries
 
 	RequestsCount     map[Protocol]map[string]*timeseries.TimeSeries // by status
 	RequestsLatency   map[Protocol]*timeseries.TimeSeries
 	RequestsHistogram map[Protocol]map[float32]*timeseries.TimeSeries // by le
+
+	Service *Service
 
 	ServiceRemoteIP   string
 	ServiceRemotePort string
@@ -37,7 +40,7 @@ func (c *Connection) IsActual() bool {
 	if !c.RemoteInstance.IsListenActive(c.ActualRemoteIP, c.ActualRemotePort) {
 		return false
 	}
-	return (c.Connects.Last() > 0) || (c.Active.Last() > 0)
+	return (c.SuccessfulConnections.Last() > 0) || (c.Active.Last() > 0)
 }
 
 func (c *Connection) IsObsolete() bool {

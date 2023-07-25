@@ -3,6 +3,7 @@ package auditor
 import (
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
+	"net"
 )
 
 type netSummary struct {
@@ -33,6 +34,14 @@ func (a *appAuditor) network() {
 	seenConnections := false
 	for _, instance := range a.app.Instances {
 		for _, u := range instance.Upstreams {
+			if u.FailedConnections != nil {
+				dest := net.JoinHostPort(u.ServiceRemoteIP, u.ServiceRemotePort)
+				if u.Service != nil {
+					dest += " (" + u.Service.Name + ")"
+				}
+				report.GetOrCreateChart("Failed TCP connections, per second").AddSeries("→"+dest, u.FailedConnections)
+			}
+
 			if u.RemoteInstance == nil {
 				continue
 			}

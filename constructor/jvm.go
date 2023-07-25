@@ -7,6 +7,9 @@ import (
 )
 
 func jvm(instance *model.Instance, queryName string, m model.MetricValues) {
+	if m.Labels["jvm"] == "" {
+		return
+	}
 	if instance.Jvm == nil {
 		instance.Jvm = &model.Jvm{
 			Name:   m.Labels["jvm"],
@@ -14,7 +17,7 @@ func jvm(instance *model.Instance, queryName string, m model.MetricValues) {
 		}
 	}
 	if instance.Jvm.Name != m.Labels["jvm"] {
-		klog.Warningf("only one JVM per instance is supported so far, will keep only %s", instance.Jvm.Name)
+		klog.Warningf(`only one JVM per instance is supported so far, will keep only "%s" (skipping "%s"")`, instance.Jvm.Name, m.Labels["jvm"])
 		return
 	}
 	switch queryName {

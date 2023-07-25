@@ -96,7 +96,11 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues, pjs
 				rttByInstance[id] = rtts
 			case "container_net_tcp_successful_connects":
 				if c := getOrCreateConnection(instance, container.Name, m, w, connectionCache); c != nil {
-					c.Connects = merge(c.Connects, m.Values, timeseries.Any)
+					c.SuccessfulConnections = merge(c.SuccessfulConnections, m.Values, timeseries.Any)
+				}
+			case "container_net_tcp_failed_connects":
+				if c := getOrCreateConnection(instance, container.Name, m, w, connectionCache); c != nil {
+					c.FailedConnections = merge(c.FailedConnections, m.Values, timeseries.Any)
 				}
 			case "container_net_tcp_active_connections":
 				if c := getOrCreateConnection(instance, container.Name, m, w, connectionCache); c != nil {
@@ -204,6 +208,11 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues, pjs
 		}
 	}
 
+	servicesByClusterIP := map[string]*model.Service{}
+	for _, svc := range w.Services {
+		servicesByClusterIP[svc.ClusterIP] = svc
+	}
+
 	for _, app := range w.Applications { // lookup remote instance by listen
 		for _, instance := range app.Instances {
 			for _, u := range instance.Upstreams {
@@ -217,6 +226,9 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues, pjs
 						l.Port = "0"
 						u.RemoteInstance = instancesByListen[l]
 					}
+				}
+				if svc := servicesByClusterIP[u.ServiceRemoteIP]; svc != nil {
+					u.Service = svc
 				}
 				if upstreams, ok := rttByInstance[instanceId{ns: instance.OwnerId.Namespace, name: instance.Name, node: instance.NodeName()}]; ok {
 					u.Rtt = merge(u.Rtt, upstreams[u.ActualRemoteIP], timeseries.Any)
@@ -234,6 +246,7 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues, pjs
 				appId := model.NewApplicationId("", model.ApplicationKindExternalService, "")
 				svc := w.GetServiceForConnection(u)
 				if svc != nil {
+					u.Service = svc
 					if id, ok := svc.GetDestinationApplicationId(); ok {
 						if a := w.GetApplication(id); a != nil {
 							a.Downstreams = append(a.Downstreams, u)
@@ -283,6 +296,9 @@ func getOrCreateConnection(instance *model.Instance, container string, m model.M
 
 	dest := m.Labels["destination"]
 	actualDest := m.Labels["actual_destination"]
+	if actualDest == "" {
+		actualDest = dest
+	}
 	connKey := connectionKey{
 		instanceId: instanceId{
 			ns:   instance.OwnerId.Namespace,
