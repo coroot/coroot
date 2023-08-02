@@ -121,19 +121,26 @@ func (instance *Instance) NodeName() string {
 func (instance *Instance) UpdateClusterRole(role string, v *timeseries.TimeSeries) {
 	switch role {
 	case "primary":
-		instance.clusterRole = v.Map(func(t timeseries.Time, v float32) float32 {
+		v = v.Map(func(t timeseries.Time, v float32) float32 {
 			if v == 1 {
 				return float32(ClusterRolePrimary)
 			}
 			return timeseries.NaN
 		})
 	case "replica":
-		instance.clusterRole = v.Map(func(t timeseries.Time, v float32) float32 {
+		v = v.Map(func(t timeseries.Time, v float32) float32 {
 			if v == 1 {
 				return float32(ClusterRoleReplica)
 			}
 			return timeseries.NaN
 		})
+	default:
+		return
+	}
+	if instance.clusterRole == nil {
+		instance.clusterRole = v
+	} else {
+		instance.clusterRole = timeseries.NewAggregate(timeseries.Any).Add(instance.clusterRole, v).Get()
 	}
 }
 
