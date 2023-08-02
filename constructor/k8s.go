@@ -100,7 +100,19 @@ func podInfo(w *model.World, metrics []model.MetricValues) map[string]*model.Ins
 		default:
 			continue
 		}
-		instance := w.GetOrCreateApplication(appId).GetOrCreateInstance(pod, node)
+		instance := pods[uid]
+		if instance == nil {
+			instance = w.GetOrCreateApplication(appId).GetOrCreateInstance(pod, node)
+			instance.Pod = &model.Pod{}
+			if model.ApplicationKind(ownerKind) == model.ApplicationKindReplicaSet {
+				instance.Pod.ReplicaSet = ownerName
+			}
+			pods[uid] = instance
+		}
+		if node != nil && instance.Node == nil {
+			instance.Node = node
+			node.Instances = append(node.Instances, instance)
+		}
 
 		podIp := m.Labels["pod_ip"]
 		hostIp := m.Labels["host_ip"]
@@ -110,11 +122,6 @@ func podInfo(w *model.World, metrics []model.MetricValues) map[string]*model.Ins
 				instance.TcpListens[model.Listen{IP: podIp, Port: "0", Proxied: false}] = isActive
 			}
 		}
-		instance.Pod = &model.Pod{}
-		if model.ApplicationKind(ownerKind) == model.ApplicationKindReplicaSet {
-			instance.Pod.ReplicaSet = ownerName
-		}
-		pods[uid] = instance
 	}
 	return pods
 }
