@@ -4,6 +4,10 @@ import (
 	"github.com/coroot/coroot/timeseries"
 )
 
+const (
+	CloudProviderAWS = "aws"
+)
+
 type DiskStats struct {
 	IOUtilizationPercent *timeseries.TimeSeries
 	ReadOps              *timeseries.TimeSeries
