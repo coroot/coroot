@@ -16,6 +16,8 @@ const (
 	ApplicationTypeRabbitmq      ApplicationType = "rabbitmq"
 	ApplicationTypeKafka         ApplicationType = "kafka"
 	ApplicationTypeZookeeper     ApplicationType = "zookeeper"
+	ApplicationTypeRDS           ApplicationType = "aws-rds"
+	ApplicationTypeElastiCache   ApplicationType = "aws-elasticache"
 )
 
 func (at ApplicationType) IsDatabase() bool {

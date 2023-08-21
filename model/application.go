@@ -170,11 +170,36 @@ func (app *Application) IsK8s() bool {
 	return false
 }
 
+func (app *Application) hasClientsInAWS() bool {
+	for _, d := range app.Downstreams {
+		if d.Instance != nil && d.Instance.Node != nil {
+			provider := d.Instance.Node.CloudProvider.Value()
+			if provider == CloudProviderAWS {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func (app *Application) InstrumentationStatus() map[ApplicationType]bool {
 	res := map[ApplicationType]bool{}
 	for _, i := range app.Instances {
 		if i.IsObsolete() {
 			continue
+		}
+		if app.Id.Kind == ApplicationKindExternalService {
+			if !app.hasClientsInAWS() {
+				continue
+			}
+			for l := range i.TcpListens {
+				switch l.Port {
+				case "5432", "3306":
+					res[ApplicationTypeRDS] = false
+				case "6379", "11211":
+					res[ApplicationTypeElastiCache] = false
+				}
+			}
 		}
 		for t := range i.ApplicationTypes() {
 			var instanceInstrumented bool

@@ -34,7 +34,7 @@ func loadElasticacheMetadata(w *model.World, metrics map[string][]model.MetricVa
 		instance.Elasticache.Engine.Update(m.Values, m.Labels["engine"])
 		instance.Elasticache.EngineVersion.Update(m.Values, m.Labels["engine_version"])
 		instance.Node.InstanceType.Update(m.Values, m.Labels["instance_type"])
-		instance.Node.CloudProvider.Update(m.Values, "aws")
+		instance.Node.CloudProvider.Update(m.Values, model.CloudProviderAWS)
 		instance.Node.Region.Update(m.Values, m.Labels["region"])
 		instance.Node.AvailabilityZone.Update(m.Values, m.Labels["availability_zone"])
 	}

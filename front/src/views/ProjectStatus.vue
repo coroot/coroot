@@ -62,11 +62,15 @@
                 </v-btn>
                 (<a :href="`https://coroot.com/docs/metric-exporters/${ex.exporter}`" target="_blank">docs</a>)
                 <div class="ml-5">
-                    <span class="text-capitalize">{{ex.type}}</span> metrics have been received from
-                    {{ex.instrumentedApps}} of {{$pluralize('application', ex.totalApps, true)}}.
-                    <template v-if="ex.instrumentedApps < ex.totalApps">
-                        Get <span class="font-weight-medium">{{ex.exporter}}</span> <a :href="`https://coroot.com/docs/metric-exporters/${ex.exporter}/installation`" target="_blank">installed</a>
-                        for every following application:
+                    <span v-if="ex.details.description" v-html="ex.details.description"/>
+                    <template v-else>
+                        <span class="text-capitalize">{{ex.type}}</span> metrics have been received from
+                        {{ex.instrumentedApps}} of {{$pluralize('application', ex.totalApps, true)}}.
+                        <template v-if="ex.instrumentedApps < ex.totalApps">
+                            Get <span class="font-weight-medium">{{ex.details.exporter}} </span>
+                            <a :href="`https://coroot.com/docs/metric-exporters/${ex.details.exporter}/installation`" target="_blank">installed</a>
+                            for every following application:
+                        </template>
                     </template>
                 </div>
                 <div v-for="(ok, id) in ex.applications" :key="id" class="ml-5">
@@ -102,9 +106,11 @@ export default {
             if (!this.status || !this.status.application_exporters) {
                 return [];
             }
-            const exporters = {
-                postgres: 'pg-agent',
-                redis: 'redis-exporter',
+            const instructions = {
+                'postgres': {exporter: 'pg-agent'},
+                'redis': {exporter: 'redis-exporter'},
+                'aws-rds': {description: 'It appears that AWS RDS is being used in this project. Please ensure that <a href="https://coroot.com/docs/metric-exporters/aws-agent/installation">aws-agent</a> is installed.'},
+                'aws-elasticache': {description: 'It appears that AWS ElastiCache is being used in this project. Please ensure that <a href="https://coroot.com/docs/metric-exporters/aws-agent/installation">aws-agent</a> is installed.'},
             };
             const res = [];
             for (const type in this.status.application_exporters) {
@@ -112,10 +118,11 @@ export default {
                 const dd = Object.values(ex.applications);
                 const totalApps = dd.length;
                 const instrumentedApps = dd.filter(ok => ok).length;
+                const details = instructions[type] || {};
                 res.push({
                     ...ex,
                     type,
-                    exporter: exporters[type] || 'unknown',
+                    details,
                     totalApps,
                     instrumentedApps,
                 });
