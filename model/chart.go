@@ -82,7 +82,7 @@ func NewChart(ctx timeseries.Context, title string) *Chart {
 }
 
 func (chart *Chart) IsEmpty() bool {
-	return chart.Series.IsEmpty()
+	return chart.Series.IsEmpty() && (chart.Threshold == nil || chart.Threshold.Data.IsEmpty())
 }
 
 func (chart *Chart) Stacked() *Chart {
@@ -205,6 +205,10 @@ func (hm *Heatmap) AddSeries(name, title string, data SeriesData, threshold stri
 func (hm *Heatmap) AddAnnotation(annotations ...Annotation) *Heatmap {
 	hm.Annotations = append(hm.Annotations, annotations...)
 	return hm
+}
+
+func (hm *Heatmap) IsEmpty() bool {
+	return hm.Series.IsEmpty()
 }
 
 func autoFeatureChart(charts []*Chart) {

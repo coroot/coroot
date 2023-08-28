@@ -73,6 +73,11 @@ func (a *appAuditor) enrichWidgets(widgets []*model.Widget, events []*model.Appl
 				continue
 			}
 		}
+		if w.Heatmap != nil {
+			if w.Heatmap.IsEmpty() {
+				continue
+			}
+		}
 		if w.ChartGroup != nil {
 			var charts []*model.Chart
 			for _, ch := range w.ChartGroup.Charts {
