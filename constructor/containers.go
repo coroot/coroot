@@ -123,11 +123,12 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues, pjs
 				}
 			case "container_http_requests_count", "container_postgres_queries_count", "container_redis_queries_count",
 				"container_memcached_queries_count", "container_mysql_queries_count", "container_mongo_queries_count",
-				"container_kafka_requests_count", "container_cassandra_queries_count", "container_rabbitmq_messages":
+				"container_kafka_requests_count", "container_cassandra_queries_count",
+				"container_rabbitmq_messages", "container_nats_messages":
 				if c := getOrCreateConnection(instance, container.Name, m, w, connectionCache); c != nil {
 					protocol := model.Protocol(strings.SplitN(queryName, "_", 3)[1])
 					status := m.Labels["status"]
-					if protocol == "rabbitmq" {
+					if protocol == "rabbitmq" || protocol == "nats" {
 						protocol += model.Protocol("-" + m.Labels["method"])
 					}
 					if c.RequestsCount[protocol] == nil {

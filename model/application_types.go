@@ -18,6 +18,7 @@ const (
 	ApplicationTypeZookeeper     ApplicationType = "zookeeper"
 	ApplicationTypeRDS           ApplicationType = "aws-rds"
 	ApplicationTypeElastiCache   ApplicationType = "aws-elasticache"
+	ApplicationTypeNats          ApplicationType = "nats"
 )
 
 func (at ApplicationType) IsDatabase() bool {
@@ -32,7 +33,7 @@ func (at ApplicationType) IsDatabase() bool {
 
 func (at ApplicationType) IsQueue() bool {
 	switch at {
-	case ApplicationTypeKafka, ApplicationTypeRabbitmq:
+	case ApplicationTypeKafka, ApplicationTypeRabbitmq, ApplicationTypeNats:
 		return true
 	}
 	return false
