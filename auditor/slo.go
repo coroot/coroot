@@ -79,14 +79,14 @@ func latency(ctx timeseries.Context, app *model.Application, report *model.Audit
 }
 
 func requestsChart(app *model.Application, report *model.AuditReport, p *db.Project) {
-	title := fmt.Sprintf("Requests to the <var>%s</var> app, per second", app.Id.Name)
-	var ch *model.Chart
-	var hm *model.Heatmap
+	hm := report.GetOrCreateHeatmap("Latency & Errors heatmap, requests per second")
+	ch := report.
+		GetOrCreateChart(fmt.Sprintf("Requests to the <var>%s</var> app, per second", app.Id.Name)).
+		Sorted().
+		Stacked()
 	if len(app.LatencySLIs) > 0 {
 		sli := app.LatencySLIs[0]
 		if len(sli.Histogram) > 0 {
-			hm = report.GetOrCreateHeatmap("Latency & Errors heatmap, requests per second")
-			ch = report.GetOrCreateChart(title).Sorted().Stacked()
 			for _, h := range model.HistogramSeries(sli.Histogram, sli.Config.ObjectiveBucket, sli.Config.ObjectivePercentage) {
 				ch.AddSeries(h.Title, h.Data, h.Color)
 				hm.AddSeries(h.Name, h.Title, h.Data, h.Threshold, h.Value)
@@ -95,12 +95,14 @@ func requestsChart(app *model.Application, report *model.AuditReport, p *db.Proj
 	}
 	if len(app.AvailabilitySLIs) > 0 {
 		sli := app.AvailabilitySLIs[0]
-		if ch == nil {
-			ch = report.GetOrCreateChart(title).Sorted().Stacked()
-			ch.AddSeries("total", sli.TotalRequests, "grey-lighten1")
+		ch.SetThreshold("total", sli.TotalRequests)
+		if ch.Threshold != nil {
+			ch.Threshold.Fill = true
+			ch.Threshold.Color = "grey-lighten1"
 		}
+
 		ch.AddSeries("errors", sli.FailedRequests, "black")
-		if hm != nil {
+		if !hm.IsEmpty() {
 			failed := sli.FailedRequests
 			if failed.IsEmpty() {
 				failed = sli.TotalRequests.WithNewValue(0)
@@ -108,7 +110,7 @@ func requestsChart(app *model.Application, report *model.AuditReport, p *db.Proj
 			hm.AddSeries("errors", "errors", failed, "", "err")
 		}
 	}
-	if hm != nil && p.Settings.Integrations.Clickhouse != nil {
+	if p.Settings.Integrations.Clickhouse != nil {
 		hm.DrillDownLink = model.NewRouterLink("tracing").SetParam("report", model.AuditReportTracing)
 	}
 }
