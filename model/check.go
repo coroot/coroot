@@ -240,7 +240,7 @@ var Checks = struct {
 		Type:                    CheckTypeItemBased,
 		Title:                   "JVM availability",
 		DefaultThreshold:        0,
-		MessageTemplate:         `{{.ItemsWithToBe "redis instance"}} unavailable`,
+		MessageTemplate:         `{{.ItemsWithToBe "JVM instance"}} unavailable`,
 		ConditionFormatTemplate: "the number of unavailable JVM instances > <threshold>",
 	},
 	JvmSafepointTime: CheckConfig{
