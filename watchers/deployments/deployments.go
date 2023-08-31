@@ -408,8 +408,19 @@ func calcMetricsSnapshot(app *model.Application, from, to timeseries.Time, step 
 		}
 	}
 	ms.CPUUsage = sumRF(cpuUsage.Get(), step)
-	if lr := timeseries.NewLinearRegression(memUsage.Get()); lr != nil {
-		ms.MemoryLeak = int64(lr.Calc(from.Add(timeseries.Hour)) - lr.Calc(from))
+	if totalMem := memUsage.Get(); !totalMem.IsEmpty() {
+		if lr := timeseries.NewLinearRegression(totalMem); lr != nil {
+			s := lr.Calc(from.Add(-timeseries.Hour))
+			e := lr.Calc(from)
+			if s > 0 && e > 0 {
+				ms.MemoryLeakPercent = (e - s) / s * 100
+			}
+		}
+		s := totalMem.Reduce(timeseries.NanSum)
+		c := totalMem.Map(timeseries.Defined).Reduce(timeseries.NanSum)
+		if c > 0 && s > 0 {
+			ms.MemoryUsage = int64(s / c)
+		}
 	}
 	ms.OOMKills = sum(oomKills.Get())
 	ms.Restarts = sum(restarts.Get())

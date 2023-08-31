@@ -63,7 +63,7 @@ var Checks = struct {
 	CPUNode                CheckConfig
 	CPUContainer           CheckConfig
 	MemoryOOM              CheckConfig
-	MemoryLeak             CheckConfig
+	MemoryLeakPercent      CheckConfig
 	StorageSpace           CheckConfig
 	StorageIO              CheckConfig
 	NetworkRTT             CheckConfig
@@ -122,12 +122,12 @@ var Checks = struct {
 		MessageTemplate:         `app containers have been restarted {{.Count "time"}} by the OOM killer`,
 		ConditionFormatTemplate: "the number of container terminations due to Out of Memory > <threshold>",
 	},
-	MemoryLeak: CheckConfig{
+	MemoryLeakPercent: CheckConfig{
 		Type:                    CheckTypeValueBased,
 		Title:                   "Memory leak",
-		DefaultThreshold:        10,
-		MessageTemplate:         `memory usage is growing by {{.Value}} MB per hour`,
-		ConditionFormatTemplate: "memory usage is growing by > <threshold> MB per hour",
+		DefaultThreshold:        5,
+		MessageTemplate:         `memory usage is growing by {{.Value}} %% per hour`,
+		ConditionFormatTemplate: "memory usage is growing by > <threshold> % per hour",
 	},
 	StorageIO: CheckConfig{
 		Type:                    CheckTypeItemBased,
@@ -240,7 +240,7 @@ var Checks = struct {
 		Type:                    CheckTypeItemBased,
 		Title:                   "JVM availability",
 		DefaultThreshold:        0,
-		MessageTemplate:         `{{.ItemsWithToBe "redis instance"}} unavailable`,
+		MessageTemplate:         `{{.ItemsWithToBe "JVM instance"}} unavailable`,
 		ConditionFormatTemplate: "the number of unavailable JVM instances > <threshold>",
 	},
 	JvmSafepointTime: CheckConfig{

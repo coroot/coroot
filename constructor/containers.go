@@ -257,9 +257,9 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues, pjs
 						appId.Name = svc.Name
 					}
 				} else {
-					appId.Name = u.ActualRemoteIP + ":" + u.ActualRemotePort
+					appId.Name = externalServiceName(u.ActualRemotePort)
 				}
-				ri := w.GetOrCreateApplication(appId).GetOrCreateInstance(appId.Name, nil)
+				ri := w.GetOrCreateApplication(appId).GetOrCreateInstance(u.ActualRemoteIP+":"+u.ActualRemotePort, nil)
 				ri.TcpListens[model.Listen{IP: u.ActualRemoteIP, Port: u.ActualRemotePort}] = true
 				u.RemoteInstance = ri
 			}
@@ -406,4 +406,33 @@ func updateServiceEndpoints(w *model.World, c *model.Connection) {
 			s.Connections = append(s.Connections, c)
 		}
 	}
+}
+
+func externalServiceName(port string) string {
+	service := ""
+	switch port {
+	case "5432":
+		service = "postgres"
+	case "3306":
+		service = "mysql"
+	case "11211":
+		service = "memcached"
+	case "2181":
+		service = "zookeeper"
+	case "9092", "9093", "9094":
+		service = "kafka"
+	case "6379":
+		service = "redis"
+	case "9042", "9160", "9142", "7000", "7001", "7199":
+		service = "cassandra"
+	case "27017", "27018":
+		service = "mongodb"
+	case "9200", "9300":
+		service = "elasticsearch"
+	case "80", "443", "8080":
+		service = "http"
+	default:
+		service = ":" + port
+	}
+	return "external " + service
 }

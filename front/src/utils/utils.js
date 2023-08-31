@@ -31,7 +31,7 @@ export default class Utils {
         return {
             ns: parts[0] !== '_' ? parts[0] : '',
             kind: parts[1],
-            name: parts[3] ? ':'+parts[3] : parts[2],
+            name: parts[3] ? parts[2] + ':'+parts[3] : parts[2],
         }
     }
 

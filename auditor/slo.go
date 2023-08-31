@@ -29,7 +29,7 @@ func availability(ctx timeseries.Context, app *model.Application, report *model.
 		return
 	}
 	if model.DataIsMissing(sli.TotalRequestsRaw) {
-		check.SetStatus(model.WARNING, "no data")
+		check.SetStatus(model.UNKNOWN, "no data")
 		return
 	}
 
@@ -63,7 +63,7 @@ func latency(ctx timeseries.Context, app *model.Application, report *model.Audit
 		return
 	}
 	if model.DataIsMissing(totalRaw) {
-		check.SetStatus(model.WARNING, "no data")
+		check.SetStatus(model.UNKNOWN, "no data")
 		return
 	}
 
