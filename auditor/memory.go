@@ -11,12 +11,12 @@ func (a *appAuditor) memory(ncs nodeConsumersByNode) {
 	relevantNodes := map[string]*model.Node{}
 
 	oomCheck := report.CreateCheck(model.Checks.MemoryOOM)
-	leakCheck := report.CreateCheck(model.Checks.MemoryLeak)
-	var leak float32
+	leakCheck := report.CreateCheck(model.Checks.MemoryLeakPercent)
 	now := timeseries.Now()
 	seenContainers := false
 	limitByContainer := map[string]*timeseries.Aggregate{}
 	memoryUsageChartTitle := "Memory usage (RSS) <selector>, bytes"
+	totalRss := timeseries.NewAggregate(timeseries.NanSum)
 	for _, i := range a.app.Instances {
 		oom := timeseries.NewAggregate(timeseries.NanSum)
 		for _, c := range i.Containers {
@@ -29,11 +29,7 @@ func (a *appAuditor) memory(ncs nodeConsumersByNode) {
 			l.Add(c.MemoryLimit)
 			report.GetOrCreateChartInGroup(memoryUsageChartTitle, c.Name).AddSeries(i.Name, c.MemoryRss)
 			oom.Add(c.OOMKills)
-			if lr := timeseries.NewLinearRegression(c.MemoryRss); lr != nil {
-				if v := (lr.Calc(now) - lr.Calc(now.Add(-timeseries.Hour))) / 1024 / 1024; !timeseries.IsNaN(v) {
-					leak += v
-				}
-			}
+			totalRss.Add(c.MemoryRss)
 		}
 		oomTs := oom.Get()
 		report.GetOrCreateChart("Out of memory events").Column().AddSeries(i.Name, oomTs)
@@ -80,6 +76,12 @@ func (a *appAuditor) memory(ncs nodeConsumersByNode) {
 	case model.ApplicationKindCronJob, model.ApplicationKindJob:
 		leakCheck.SetStatus(model.UNKNOWN, "not checked for Jobs and CronJobs")
 	default:
-		leakCheck.SetValue(leak)
+		if lr := timeseries.NewLinearRegression(totalRss.Get()); lr != nil {
+			s := lr.Calc(now.Add(-timeseries.Hour))
+			e := lr.Calc(now)
+			if s > 0 && e > 0 {
+				leakCheck.SetValue((e - s) / s * 100)
+			}
+		}
 	}
 }

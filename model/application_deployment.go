@@ -16,6 +16,8 @@ const (
 	ApplicationDeploymentMetricsSnapshotShift  = 10 * timeseries.Minute
 	ApplicationDeploymentMetricsSnapshotWindow = 20 * timeseries.Minute
 	ApplicationDeploymentMinLifetime           = ApplicationDeploymentMetricsSnapshotShift + ApplicationDeploymentMetricsSnapshotWindow
+
+	significantPercentageDifference float32 = 5
 )
 
 type ApplicationDeploymentState int
@@ -74,12 +76,13 @@ type MetricsSnapshot struct {
 	Errors   int64            `json:"errors"`
 	Latency  map[string]int64 `json:"latency"`
 
-	Restarts    int64   `json:"restarts"`
-	CPUUsage    float32 `json:"cpu_usage"`
-	MemoryLeak  int64   `json:"memory_leak"`
-	OOMKills    int64   `json:"oom_kills"`
-	LogErrors   int64   `json:"log_errors"`
-	LogWarnings int64   `json:"log_warnings"`
+	Restarts          int64   `json:"restarts"`
+	CPUUsage          float32 `json:"cpu_usage"`
+	MemoryLeakPercent float32 `json:"memory_leak_percent"`
+	MemoryUsage       int64   `json:"memory_usage"`
+	OOMKills          int64   `json:"oom_kills"`
+	LogErrors         int64   `json:"log_errors"`
+	LogWarnings       int64   `json:"log_warnings"`
 }
 
 type ApplicationDeploymentNotifications struct {
@@ -165,8 +168,6 @@ func CalcApplicationDeploymentStatuses(app *Application, checkConfigs CheckConfi
 func CalcApplicationDeploymentSummary(app *Application, checkConfigs CheckConfigs, t timeseries.Time, curr, prev *MetricsSnapshot) ([]ApplicationDeploymentSummary, Status) {
 	availabilityCfg, _ := checkConfigs.GetAvailability(app.Id)
 	latencyCfg, _ := checkConfigs.GetLatency(app.Id, app.Category)
-	memoryLeakThreshold := int64(checkConfigs.GetSimple(Checks.MemoryLeak.Id, app.Id).Threshold * 1024 * 1024)
-	significantPercentageDifference := 5.0
 
 	status := OK
 	var res []ApplicationDeploymentSummary
@@ -216,7 +217,7 @@ func CalcApplicationDeploymentSummary(app *Application, checkConfigs CheckConfig
 		perRequestCurr := curr.CPUUsage / float32(curr.Requests)
 		perRequestPrev := prev.CPUUsage / float32(prev.Requests)
 		diffPercent := (perRequestCurr - perRequestPrev) * 100 / perRequestPrev
-		if math.Abs(float64(diffPercent)) > significantPercentageDifference {
+		if float32(math.Abs(float64(diffPercent))) > significantPercentageDifference {
 			var totalPrice, count float32
 			for _, i := range app.Instances {
 				if i.Node == nil || i.Node.Price == nil {
@@ -240,13 +241,31 @@ func CalcApplicationDeploymentSummary(app *Application, checkConfigs CheckConfig
 	if curr.OOMKills > 0 {
 		v := english.Plural(int(curr.OOMKills), "time", "")
 		add(AuditReportMemory, false, "Memory: app containers have been restarted %s by the OOM killer", v)
-	} else {
-		if curr.MemoryLeak > memoryLeakThreshold {
-			value, unit := utils.FormatBytes(float32(curr.MemoryLeak))
-			add(AuditReportMemory, false, "Memory: a memory leak detected (%s%s per hour)", value, unit)
-		} else if prev != nil && prev.MemoryLeak > memoryLeakThreshold {
-			add(AuditReportMemory, true, "Memory: looks like the memory leak has been fixed")
+	}
+	if prev != nil && curr.MemoryUsage > 0 && prev.MemoryUsage > 0 {
+		diffPercent := float32(curr.MemoryUsage-prev.MemoryUsage) * 100 / float32(prev.MemoryUsage)
+		if float32(math.Abs(float64(diffPercent))) > significantPercentageDifference {
+			var totalPrice, count float32
+			for _, i := range app.Instances {
+				if i.Node == nil || i.Node.Price == nil {
+					continue
+				}
+				totalPrice += i.Node.Price.PerMemoryByte
+				count++
+			}
+			avgPricePerByte := totalPrice / count
+			var costs string
+			if totalPrice > 0 {
+				diffCosts := float32(prev.MemoryUsage) * avgPricePerByte * diffPercent / 100
+				costs = fmt.Sprintf(" (%s/mo)", utils.FormatMoney(diffCosts*float32(timeseries.Month)))
+			}
+			add(AuditReportMemory, diffPercent < 0, "Memory usage: %+.f%%%s compared to the previous deployment", diffPercent, costs)
 		}
+	}
+	if curr.MemoryLeakPercent > significantPercentageDifference {
+		add(AuditReportMemory, false, "Memory: a memory leak detected (%+.f%% per hour)", curr.MemoryLeakPercent)
+	} else if prev != nil && prev.MemoryLeakPercent > significantPercentageDifference {
+		add(AuditReportMemory, true, "Memory: looks like the memory leak has been fixed")
 	}
 
 	// Restarts
@@ -265,7 +284,7 @@ func CalcApplicationDeploymentSummary(app *Application, checkConfigs CheckConfig
 				perRequestCurr := float32(curr.LogErrors) / float32(curr.Requests)
 				perRequestPrev := float32(prev.LogErrors) / float32(prev.Requests)
 				diff := (perRequestCurr - perRequestPrev) * 100 / perRequestPrev
-				if math.Abs(float64(diff)) > significantPercentageDifference {
+				if float32(math.Abs(float64(diff))) > significantPercentageDifference {
 					ok := false
 					verb := "increased"
 					if diff < 0 {
