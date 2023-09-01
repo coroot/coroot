@@ -76,7 +76,7 @@ func (a *appAuditor) memory(ncs nodeConsumersByNode) {
 	case model.ApplicationKindCronJob, model.ApplicationKindJob:
 		leakCheck.SetStatus(model.UNKNOWN, "not checked for Jobs and CronJobs")
 	default:
-		if lr := timeseries.NewLinearRegression(totalRss.Get()); lr != nil {
+		if lr := timeseries.NewLinearRegression(totalRss.Get().Map(timeseries.ZeroToNan)); lr != nil {
 			s := lr.Calc(now.Add(-timeseries.Hour))
 			e := lr.Calc(now)
 			if s > 0 && e > 0 {
