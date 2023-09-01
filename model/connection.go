@@ -34,6 +34,9 @@ type Connection struct {
 }
 
 func (c *Connection) IsActual() bool {
+	if c.IsObsolete() {
+		return false
+	}
 	if c.RemoteInstance == nil {
 		return false
 	}
@@ -47,7 +50,7 @@ func (c *Connection) IsObsolete() bool {
 	if c.Container != "" && c.Instance.Pod != nil && c.Instance.Pod.InitContainers[c.Container] != nil {
 		return false
 	}
-	return c.RemoteInstance != nil && c.RemoteInstance.IsObsolete()
+	return (c.RemoteInstance != nil && c.RemoteInstance.IsObsolete()) || (c.Instance != nil && c.Instance.IsObsolete())
 }
 
 func (c *Connection) Status() Status {
