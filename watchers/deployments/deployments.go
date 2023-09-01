@@ -409,7 +409,7 @@ func calcMetricsSnapshot(app *model.Application, from, to timeseries.Time, step 
 	}
 	ms.CPUUsage = sumRF(cpuUsage.Get(), step)
 	if totalMem := memUsage.Get(); !totalMem.IsEmpty() {
-		if lr := timeseries.NewLinearRegression(totalMem); lr != nil {
+		if lr := timeseries.NewLinearRegression(totalMem.Map(timeseries.ZeroToNan)); lr != nil {
 			s := lr.Calc(from.Add(-timeseries.Hour))
 			e := lr.Calc(from)
 			if s > 0 && e > 0 {

@@ -65,3 +65,10 @@ func NanToZero(t Time, v float32) float32 {
 	}
 	return v
 }
+
+func ZeroToNan(t Time, v float32) float32 {
+	if v == 0 {
+		return NaN
+	}
+	return v
+}
