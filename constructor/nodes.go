@@ -3,6 +3,7 @@ package constructor
 import (
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
+	"strconv"
 	"strings"
 )
 
@@ -68,9 +69,15 @@ func (c *Constructor) loadNodes(w *model.World, metrics map[string][]model.Metri
 			case "node_memory_free_bytes":
 				node.MemoryFreeBytes = merge(node.MemoryFreeBytes, m.Values, timeseries.Any)
 			case "node_cloud_info":
-				node.CloudProvider.Update(m.Values, strings.ToLower(m.Labels["provider"]))
-				node.Region.Update(m.Values, m.Labels["region"])
-				node.AvailabilityZone.Update(m.Values, m.Labels["availability_zone"])
+				provider := strings.ToLower(m.Labels["provider"])
+				region := m.Labels["region"]
+				az := m.Labels["availability_zone"]
+				node.CloudProvider.Update(m.Values, provider)
+				node.Region.Update(m.Values, region)
+				if _, err := strconv.ParseInt(az, 10, 8); err == nil && provider == model.CloudProviderAzure {
+					az = region + "-" + az
+				}
+				node.AvailabilityZone.Update(m.Values, az)
 				node.InstanceType.Update(m.Values, m.Labels["instance_type"])
 				node.InstanceLifeCycle.Update(m.Values, m.Labels["instance_life_cycle"])
 			case "node_uptime_seconds":

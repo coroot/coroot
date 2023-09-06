@@ -5,7 +5,8 @@ import (
 )
 
 const (
-	CloudProviderAWS = "aws"
+	CloudProviderAWS   = "aws"
+	CloudProviderAzure = "azure"
 )
 
 type DiskStats struct {
