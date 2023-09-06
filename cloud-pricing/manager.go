@@ -78,10 +78,11 @@ func (mgr *Manager) GetNodePrice(node *model.Node) *model.NodePrice {
 	default:
 		return nil
 	}
+	region := Region(strings.ToLower(node.Region.Value()))
 	switch {
 	case len(node.Instances) == 1 && node.Instances[0].Rds != nil: //RDS
 		rds := node.Instances[0].Rds
-		reg, ok := pricing.ManagedDB[Region(node.Region.Value())]
+		reg, ok := pricing.ManagedDB[region]
 		if !ok {
 			return nil
 		}
@@ -101,7 +102,7 @@ func (mgr *Manager) GetNodePrice(node *model.Node) *model.NodePrice {
 		}
 	case len(node.Instances) == 1 && node.Instances[0].Elasticache != nil: //Elasticache
 		ec := node.Instances[0].Elasticache
-		reg, ok := pricing.ManagedCache[Region(node.Region.Value())]
+		reg, ok := pricing.ManagedCache[region]
 		if !ok {
 			return nil
 		}
@@ -115,7 +116,7 @@ func (mgr *Manager) GetNodePrice(node *model.Node) *model.NodePrice {
 		}
 		price = i.OnDemand
 	default: //compute
-		reg, ok := pricing.Compute[Region(node.Region.Value())]
+		reg, ok := pricing.Compute[region]
 		if !ok {
 			return nil
 		}
