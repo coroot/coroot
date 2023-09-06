@@ -289,12 +289,6 @@ func getOrCreateConnection(instance *model.Instance, container string, m model.M
 		return nil
 	}
 
-	// check the last value before `Reduce` for performance optimization
-	last := m.Values.Last()
-	if (last == 0 || timeseries.IsNaN(last)) && m.Values.Reduce(timeseries.NanSum) == 0 {
-		return nil
-	}
-
 	dest := m.Labels["destination"]
 	actualDest := m.Labels["actual_destination"]
 	if actualDest == "" {
