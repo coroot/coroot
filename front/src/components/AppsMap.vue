@@ -72,7 +72,6 @@ export default {
     props: {
         applications: Array,
         openApp: Function,
-        noFilter: Boolean,
     },
 
     components: {AppHealth, Labels},
@@ -96,6 +95,12 @@ export default {
             this.calcFilters();
             this.calc();
         },
+        filters: {
+            handler() {
+                this.saveActiveFilters();
+            },
+            deep: true,
+        },
     },
     computed : {
         hideLabels() {
@@ -117,22 +122,25 @@ export default {
                 this.filters = [];
                 return;
             }
+            const active = this.getActiveFilters();
             filters = Array.from(filters).map((f) => ({name: f, value: false}));
             filters.sort((a, b) => a.name.localeCompare(b.name));
             filters.forEach((f) => {
-                const fff = this.filters.find((ff) => ff.name === f.name);
-                fff && fff.value && (f.value = true);
+                f.value = !!active.find((ff) => ff === f.name);
             })
             if (!filters.some((f) => f.value)) {
-                if (this.noFilter) {
-                    filters.forEach((f) => {
-                        f.value = true;
-                    })
-                } else {
-                    filters[0].value = true;
-                }
+                filters[0].value = true;
             }
             this.filters = filters;
+        },
+        getActiveFilters() {
+            const projectId = this.$route.params.projectId;
+            return JSON.parse(localStorage.getItem('app-filters-' + projectId)) || [];
+        },
+        saveActiveFilters() {
+            const projectId = this.$route.params.projectId;
+            const activeFilters = this.filters.filter(f => f.value).map(f => f.name);
+            localStorage.setItem('app-filters-' + projectId, JSON.stringify(activeFilters));
         },
         calc() {
             let applications = Array.from(this.applications || []);
