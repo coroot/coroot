@@ -60,15 +60,15 @@
                         {{ex.muted ? 'unmute' : 'mute'}}
                     </v-tooltip>
                 </v-btn>
-                (<a :href="`https://coroot.com/docs/metric-exporters/${ex.exporter}`" target="_blank">docs</a>)
+                (<a :href="`https://coroot.com/docs/metric-exporters/${ex.instruction.exporter}`" target="_blank">docs</a>)
                 <div class="ml-5">
-                    <span v-if="ex.details.description" v-html="ex.details.description"/>
+                    <span v-if="ex.instruction.description" v-html="ex.instruction.description"/>
                     <template v-else>
                         <span class="text-capitalize">{{ex.type}}</span> metrics have been received from
                         {{ex.instrumentedApps}} of {{$pluralize('application', ex.totalApps, true)}}.
                         <template v-if="ex.instrumentedApps < ex.totalApps">
-                            Get <span class="font-weight-medium">{{ex.details.exporter}} </span>
-                            <a :href="`https://coroot.com/docs/metric-exporters/${ex.details.exporter}/installation`" target="_blank">installed</a>
+                            Get <span class="font-weight-medium">{{ex.instruction.exporter}} </span>
+                            <a :href="`https://coroot.com/docs/metric-exporters/${ex.instruction.exporter}/installation`" target="_blank">installed</a>
                             for every following application:
                         </template>
                     </template>
@@ -109,20 +109,19 @@ export default {
             const instructions = {
                 'postgres': {exporter: 'pg-agent'},
                 'redis': {exporter: 'redis-exporter'},
-                'aws-rds': {description: 'It appears that AWS RDS is being used in this project. Please ensure that <a href="https://coroot.com/docs/metric-exporters/aws-agent/installation">aws-agent</a> is installed.'},
-                'aws-elasticache': {description: 'It appears that AWS ElastiCache is being used in this project. Please ensure that <a href="https://coroot.com/docs/metric-exporters/aws-agent/installation">aws-agent</a> is installed.'},
+                'aws-rds': {exporter: 'aws-agent', description: 'It appears that AWS RDS is being used in this project. Please ensure that <a href="https://coroot.com/docs/metric-exporters/aws-agent/installation">aws-agent</a> is installed.'},
+                'aws-elasticache': {exporter: 'aws-agent', description: 'It appears that AWS ElastiCache is being used in this project. Please ensure that <a href="https://coroot.com/docs/metric-exporters/aws-agent/installation">aws-agent</a> is installed.'},
             };
             const res = [];
             for (const type in this.status.application_exporters) {
                 const ex = this.status.application_exporters[type];
-                const dd = Object.values(ex.applications);
-                const totalApps = dd.length;
-                const instrumentedApps = dd.filter(ok => ok).length;
-                const details = instructions[type] || {};
+                const totalApps = Object.keys(ex.applications).length;
+                const instrumentedApps = Object.values(ex.applications).filter(ok => ok).length;
+                const instruction = instructions[type] || {};
                 res.push({
                     ...ex,
                     type,
-                    details,
+                    instruction,
                     totalApps,
                     instrumentedApps,
                 });
