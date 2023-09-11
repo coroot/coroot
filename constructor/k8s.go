@@ -150,6 +150,12 @@ func podLabels(metrics []model.MetricValues, pods map[string]*model.Instance) {
 		case m.Labels["label_k8s_enterprisedb_io_cluster"] != "":
 			cluster = m.Labels["label_k8s_enterprisedb_io_cluster"]
 			role = m.Labels["label_role"]
+		case m.Labels["label_cnpg_io_cluster"] != "":
+			cluster = m.Labels["label_cnpg_io_cluster"]
+			role = m.Labels["label_role"]
+		case m.Labels["label_stackgres_io_cluster_name"] != "":
+			cluster = m.Labels["label_stackgres_io_cluster_name"]
+			role = m.Labels["label_role"]
 		default:
 			continue
 		}
