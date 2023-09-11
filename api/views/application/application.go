@@ -73,8 +73,7 @@ func Render(world *model.World, app *model.Application) *View {
 		}
 		if role := instance.ClusterRoleLast(); role != model.ClusterRoleNone {
 			i.Labels["role"] = role.String()
-		}
-		if instance.ApplicationTypes()[model.ApplicationTypePgbouncer] {
+		} else if instance.ApplicationTypes()[model.ApplicationTypePgbouncer] {
 			i.Labels["pooler"] = "pgbouncer"
 		}
 
