@@ -7,7 +7,7 @@
         <div class="applications" v-on-resize="calc" @scroll="calc">
             <div v-for="apps in levels" class="level" style="z-index: 1" :style="{rowGap: 200 / apps.length + 'px', maxWidth: 100 / levels.length + '%' }">
                 <div v-for="a in apps" style="text-align: center">
-                    <span :ref="a.id" class="app" :class="a.hi(hi) ? 'selected' : ''" @mouseenter="hi = a.id" @mouseleave="hi = null">
+                    <span :ref="a.id" class="app" :class="{selected: a.hi(hi)}" @mouseenter="hi = a.id" @mouseleave="hi = null">
                         <router-link :to="{name: 'application', params: {id: a.id}, query: $utils.contextQuery()}" class="name">
                             <AppHealth :app="a"/>
                         </router-link>
@@ -23,12 +23,12 @@
                 </defs>
 
                 <template v-for="a in arrows">
-                    <path v-if="a.hi(hi) && a.w(arrows, hi)" :d="a.dd(arrows, hi)" class="arrow" :class="a.status" />
-                    <path :d="a.d" class="arrow" :class="a.status" :stroke-opacity="a.hi(hi) ? 1 : 0.3" marker-end="url(#arrow)"/>
+                    <path v-if="a.dd" :d="a.dd" class="arrow" :class="a.status" />
+                    <path :d="a.d" class="arrow" :class="a.status" :stroke-opacity="a.hi ? 1 : 0.3" marker-end="url(#arrow)"/>
                 </template>
             </svg>
             <template v-for="a in arrows">
-                <div v-if="a.stats && a.hi(hi)" class="stats" :style="{top: a.stats.y+'px', left: a.stats.x+'px', zIndex: 3}">
+                <div v-if="a.stats && a.hi" class="stats" :style="{top: a.stats.y+'px', left: a.stats.x+'px', zIndex: 3}">
                     <div v-for="i in a.stats.items">{{i}}</div>
                 </div>
             </template>
@@ -101,8 +101,14 @@ export default {
             },
             deep: true,
         },
+        hi(hi) {
+            this.highlightArrows(hi);
+        },
     },
     computed : {
+        maxW() {
+            return Math.max(...this.arrows.filter((a) => a.hi(this.hi)).map((a) => a._w))
+        },
         hideLabels() {
             return this.levels.some((l) => l.length >= 15);
         },
@@ -225,8 +231,7 @@ export default {
                         src: app.id,
                         dst: u.id,
                         status: u.status,
-                        hi: (hi) => a.src === hi || a.dst === hi,
-                        _w: u.weight || 0,
+                        w: u.weight || 0,
                     };
                     const s = getRect(a.src)
                     const d = getRect(a.dst)
@@ -235,26 +240,44 @@ export default {
                     }
                     arrows.push(a);
 
-                    let x1 = s.left + s.width;
-                    let y1 = s.top  + s.height / 2;
-                    let x2 = d.left;
-                    let y2 = d.top + d.height / 2;
-                    if (x1 > x2) {
-                        x1 = s.left;
-                        x2 = d.left + d.width;
+                    a.x1 = s.left + s.width;
+                    a.y1 = s.top  + s.height / 2;
+                    a.x2 = d.left;
+                    a.y2 = d.top + d.height / 2;
+                    if (a.x1 > a.x2) {
+                        a.x1 = s.left;
+                        a.x2 = d.left + d.width;
                     }
-                    a.d = `M${x1},${y1} L${x2},${y2}`;
-
-                    a.w = (as, hi) => 3 * a._w / Math.max(...as.filter((a) => a.hi(hi)).map((a) => a._w));
-                    a.r = (as, hi) => a.w(as, hi)/2 + ((y2 - y1)**2 + (x2 - x1)**2)/(8*a.w(as, hi));
-                    a.dd = (as, hi) => `M${x1},${y1} A${a.r(as, hi)},${a.r(as, hi)} 0,0,0 ${x2},${y2} A${a.r(as, hi)},${a.r(as, hi)} 0,0,0 ${x1},${y1}`;
+                    a.d = `M${a.x1},${a.y1} L${a.x2},${a.y2}`;
 
                     if (u.stats && u.stats.length) {
-                        a.stats = {x: (x2+x1)/2-20, y: (y2+y1)/2-(u.stats.length*12)/2, items: u.stats};
+                        a.stats = {x: (a.x2+a.x1)/2-20, y: (a.y2+a.y1)/2-(u.stats.length*12)/2, items: u.stats};
                     }
                 });
             });
             this.arrows = arrows;
+        },
+        highlightArrows(hiApp) {
+            this.arrows.forEach(a => {
+                a.hi = hiApp && (a.src === hiApp || a.dst === hiApp);
+                a.dd = '';
+            })
+            if (!hiApp) {
+                return;
+            }
+            const hiArrows = this.arrows.filter(a => a.hi);
+            const maxW = Math.max(...hiArrows.map((a) => a.w));
+            if (!maxW) {
+                return;
+            }
+            hiArrows.forEach(a => {
+                if (!a.w) {
+                    return;
+                }
+                const w = 3 * a.w / maxW;
+                const r = w/2 + ((a.y2 - a.y1)**2 + (a.x2 - a.x1)**2)/(8*w);
+                a.dd = `M${a.x1},${a.y1} A${r},${r} 0,0,0 ${a.x2},${a.y2} A${r},${r} 0,0,0 ${a.x1},${a.y1}`;
+            })
         },
     },
 };

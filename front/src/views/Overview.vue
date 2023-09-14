@@ -15,7 +15,7 @@
     </v-tabs>
 
     <template v-if="!view">
-        <AppsMap v-if="applications" :applications="applications" />
+        <ServiceMap v-if="applications" :applications="applications" />
         <NoData v-else-if="!loading" />
     </template>
 
@@ -32,14 +32,14 @@
 </template>
 
 <script>
-import AppsMap from "../components/AppsMap";
+import ServiceMap from "../components/ServiceMap";
 import Table from "../components/Table";
 import NoData from "../components/NoData";
 import NodesCosts from "../components/NodesCosts";
 import ApplicationsCosts from "../components/ApplicationsCosts";
 
 export default {
-    components: {NoData, AppsMap, Table, NodesCosts, ApplicationsCosts},
+    components: {NoData, ServiceMap, Table, NodesCosts, ApplicationsCosts},
     props: {
         view: String,
     },
