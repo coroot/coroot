@@ -3,7 +3,6 @@ package model
 import "github.com/coroot/coroot/timeseries"
 
 type Jvm struct {
-	Name        string
 	JavaVersion LabelLastValue
 
 	HeapSize *timeseries.TimeSeries

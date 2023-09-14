@@ -3,35 +3,47 @@ package constructor
 import (
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
-	"k8s.io/klog"
+	"strings"
 )
 
 func jvm(instance *model.Instance, queryName string, m model.MetricValues) {
 	if m.Labels["jvm"] == "" {
 		return
 	}
-	if instance.Jvm == nil {
-		instance.Jvm = &model.Jvm{
-			Name:   m.Labels["jvm"],
-			GcTime: map[string]*timeseries.TimeSeries{},
-		}
+	if instance.Jvms == nil {
+		instance.Jvms = map[string]*model.Jvm{}
 	}
-	if instance.Jvm.Name != m.Labels["jvm"] {
-		klog.Warningf(`only one JVM per instance is supported so far, will keep only "%s" (skipping "%s"")`, instance.Jvm.Name, m.Labels["jvm"])
-		return
+	name := jvmName(m.Labels["jvm"])
+	j := instance.Jvms[name]
+	if j == nil {
+		j = &model.Jvm{GcTime: map[string]*timeseries.TimeSeries{}}
+		instance.Jvms[name] = j
 	}
 	switch queryName {
 	case "container_jvm_info":
-		instance.Jvm.JavaVersion.Update(m.Values, m.Labels["java_version"])
+		j.JavaVersion.Update(m.Values, m.Labels["java_version"])
 	case "container_jvm_heap_size_bytes":
-		instance.Jvm.HeapSize = merge(instance.Jvm.HeapSize, m.Values, timeseries.Any)
+		j.HeapSize = merge(j.HeapSize, m.Values, timeseries.Any)
 	case "container_jvm_heap_used_bytes":
-		instance.Jvm.HeapUsed = merge(instance.Jvm.HeapUsed, m.Values, timeseries.Any)
+		j.HeapUsed = merge(j.HeapUsed, m.Values, timeseries.Any)
 	case "container_jvm_gc_time_seconds":
-		instance.Jvm.GcTime[m.Labels["gc"]] = merge(instance.Jvm.GcTime[m.Labels["gc"]], m.Values, timeseries.Any)
+		j.GcTime[m.Labels["gc"]] = merge(j.GcTime[m.Labels["gc"]], m.Values, timeseries.Any)
 	case "container_jvm_safepoint_sync_time_seconds":
-		instance.Jvm.SafepointSyncTime = merge(instance.Jvm.SafepointSyncTime, m.Values, timeseries.Any)
+		j.SafepointSyncTime = merge(j.SafepointSyncTime, m.Values, timeseries.Any)
 	case "container_jvm_safepoint_time_seconds":
-		instance.Jvm.SafepointTime = merge(instance.Jvm.SafepointTime, m.Values, timeseries.Any)
+		j.SafepointTime = merge(j.SafepointTime, m.Values, timeseries.Any)
 	}
+}
+
+func jvmName(s string) string {
+	parts := strings.Fields(s)
+	if len(parts) == 0 {
+		return "unknown"
+	}
+	if strings.HasSuffix(parts[0], ".jar") {
+		parts = strings.Split(parts[0], "/")
+		return parts[len(parts)-1]
+	}
+	parts = strings.Split(parts[0], ".")
+	return parts[len(parts)-1]
 }

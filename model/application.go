@@ -138,7 +138,7 @@ func (app *Application) IsPostgres() bool {
 
 func (app *Application) IsJvm() bool {
 	for _, i := range app.Instances {
-		if i.Jvm != nil {
+		if len(i.Jvms) > 0 {
 			return true
 		}
 	}
