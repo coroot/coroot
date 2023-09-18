@@ -16,9 +16,11 @@ type Teams struct {
 }
 
 func NewTeams(webhookUrl string) *Teams {
+	var client = goteamsnotify.NewTeamsClient()
+	client.SkipWebhookURLValidationOnSend(true)
 	return &Teams{
 		webhookUrl: webhookUrl,
-		client:     goteamsnotify.NewTeamsClient(),
+		client:     client,
 	}
 }
 
