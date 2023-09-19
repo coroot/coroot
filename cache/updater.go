@@ -13,6 +13,7 @@ import (
 	promModel "github.com/prometheus/common/model"
 	"io/ioutil"
 	"k8s.io/klog"
+	"math"
 	"os"
 	"path"
 	"path/filepath"
@@ -23,6 +24,9 @@ import (
 const (
 	QueryConcurrency = 10
 	BackFillInterval = 4 * timeseries.Hour
+
+	defaultRefreshInterval = 15 * timeseries.Second
+	queryTimeout           = 5 * time.Minute
 )
 
 func (c *Cache) updater() {
@@ -35,16 +39,15 @@ func (c *Cache) updater() {
 		}
 		ids := map[db.ProjectId]bool{}
 		for _, project := range projects {
-			cl, _ := c.promClientFactory(project)
-			if cl == nil {
+			promClient, _ := c.promClientFactory(project)
+			if promClient == nil {
 				continue
 			}
 			ids[project.Id] = true
 			_, ok := workers.Load(project.Id)
 			workers.Store(project.Id, project)
 			if !ok {
-				step, _ := cl.GetStep(0, 0)
-				go c.updaterWorker(workers, project.Id, step)
+				go c.updaterWorker(workers, project.Id, promClient)
 			}
 		}
 		workers.Range(func(key, value interface{}) bool {
@@ -56,8 +59,8 @@ func (c *Cache) updater() {
 	}
 }
 
-func (c *Cache) updaterWorker(projects *sync.Map, projectId db.ProjectId, step timeseries.Duration) {
-	refreshInterval := step
+func (c *Cache) updaterWorker(projects *sync.Map, projectId db.ProjectId, promClient *prom.Client) {
+	refreshInterval := getRefreshInterval(promClient)
 	c.lock.Lock()
 	if projData := c.byProject[projectId]; projData == nil {
 		projData = newProjectData()
@@ -69,8 +72,6 @@ func (c *Cache) updaterWorker(projects *sync.Map, projectId db.ProjectId, step t
 			klog.Errorln(err)
 			return
 		}
-	} else {
-		refreshInterval = projData.refreshInterval
 	}
 	c.lock.Unlock()
 	for {
@@ -139,9 +140,9 @@ func (c *Cache) updaterWorker(projects *sync.Map, projectId db.ProjectId, step t
 			}
 		}
 
-		if promClient, _ := c.promClientFactory(project); promClient != nil {
-			if step, _ = promClient.GetStep(0, 0); step != refreshInterval {
-				refreshInterval = step
+		if promClient, _ = c.promClientFactory(project); promClient != nil {
+			if ri := getRefreshInterval(promClient); ri != refreshInterval {
+				refreshInterval = ri
 				c.lock.Lock()
 				if c.byProject[projectId] == nil {
 					c.lock.Unlock()
@@ -343,4 +344,37 @@ func calcIntervals(lastSavedTime timeseries.Time, scrapeInterval timeseries.Dura
 		res = append(res, i)
 	}
 	return res
+}
+
+func getRefreshInterval(promClient *prom.Client) timeseries.Duration {
+	step, _ := promClient.GetStep(0, 0)
+	if step == 0 {
+		klog.Warningln("step is zero")
+		step = defaultRefreshInterval
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), queryTimeout)
+	defer cancel()
+	to := timeseries.Now()
+	from := to.Add(-timeseries.Hour)
+	query := fmt.Sprintf("timestamp(node_info)-%d", from)
+	mvs, err := promClient.QueryRange(ctx, query, from, to, step)
+	if err != nil {
+		klog.Errorln(err)
+		return step
+	}
+	var minDelta float32
+	for _, mv := range mvs {
+		mv.Values.Reduce(func(t timeseries.Time, v1 float32, v2 float32) float32 {
+			delta := v2 - v1
+			if delta > 0 && (delta < minDelta || minDelta == 0) {
+				minDelta = delta
+			}
+			return v2
+		})
+	}
+	scrapeInterval := timeseries.Duration(math.Round(float64(minDelta)/float64(step)) * float64(step))
+	if scrapeInterval > step {
+		return scrapeInterval
+	}
+	return step
 }
