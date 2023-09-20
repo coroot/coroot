@@ -60,7 +60,10 @@ func (c *Cache) updater() {
 }
 
 func (c *Cache) updaterWorker(projects *sync.Map, projectId db.ProjectId, promClient *prom.Client) {
-	refreshInterval := getRefreshInterval(promClient)
+	refreshInterval, err := getRefreshInterval(promClient)
+	if err != nil {
+		klog.Errorln(err)
+	}
 	c.lock.Lock()
 	if projData := c.byProject[projectId]; projData == nil {
 		projData = newProjectData()
@@ -75,7 +78,7 @@ func (c *Cache) updaterWorker(projects *sync.Map, projectId db.ProjectId, promCl
 	}
 	c.lock.Unlock()
 	for {
-		t := timeseries.Now()
+		start := time.Now()
 		klog.Infoln("worker iteration for", projectId)
 		p, ok := projects.Load(projectId)
 		if !ok {
@@ -141,7 +144,10 @@ func (c *Cache) updaterWorker(projects *sync.Map, projectId db.ProjectId, promCl
 		}
 
 		if promClient, _ = c.promClientFactory(project); promClient != nil {
-			if ri := getRefreshInterval(promClient); ri != refreshInterval {
+			ri, err := getRefreshInterval(promClient)
+			if err != nil {
+				klog.Errorln(err)
+			} else if ri != refreshInterval {
 				refreshInterval = ri
 				c.lock.Lock()
 				if c.byProject[projectId] == nil {
@@ -172,7 +178,9 @@ func (c *Cache) updaterWorker(projects *sync.Map, projectId db.ProjectId, promCl
 
 			c.processRecordingRules(now, project, refreshInterval, states)
 		}
-		time.Sleep(time.Duration(refreshInterval-timeseries.Since(t)) * time.Second)
+		duration := time.Since(start)
+		klog.Infof("worker iteration for %s completed in %s", projectId, duration)
+		time.Sleep(refreshInterval.ToStandard() - duration)
 	}
 }
 
@@ -180,7 +188,7 @@ func (c *Cache) download(now timeseries.Time, promClient prom.Querier, projectId
 	queryHash, jitter := QueryId(projectId, state.Query)
 	pointsCount := int(chunkSize / step)
 	for _, i := range calcIntervals(state.LastTs, step, now.Add(-step), jitter) {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		ctx, cancel := context.WithTimeout(context.Background(), queryTimeout)
 		vs, err := promClient.QueryRange(ctx, state.Query, i.chunkTs, i.toTs, step)
 		cancel()
 		if err != nil {
@@ -346,7 +354,7 @@ func calcIntervals(lastSavedTime timeseries.Time, scrapeInterval timeseries.Dura
 	return res
 }
 
-func getRefreshInterval(promClient *prom.Client) timeseries.Duration {
+func getRefreshInterval(promClient *prom.Client) (timeseries.Duration, error) {
 	step, _ := promClient.GetStep(0, 0)
 	if step == 0 {
 		klog.Warningln("step is zero")
@@ -359,8 +367,7 @@ func getRefreshInterval(promClient *prom.Client) timeseries.Duration {
 	query := fmt.Sprintf("timestamp(node_info)-%d", from)
 	mvs, err := promClient.QueryRange(ctx, query, from, to, step)
 	if err != nil {
-		klog.Errorln(err)
-		return step
+		return step, err
 	}
 	var minDelta float32
 	for _, mv := range mvs {
@@ -374,7 +381,7 @@ func getRefreshInterval(promClient *prom.Client) timeseries.Duration {
 	}
 	scrapeInterval := timeseries.Duration(math.Round(float64(minDelta)/float64(step)) * float64(step))
 	if scrapeInterval > step {
-		return scrapeInterval
+		return scrapeInterval, nil
 	}
-	return step
+	return step, nil
 }
