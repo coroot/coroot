@@ -133,7 +133,11 @@ func Quantile(histogram []HistogramBucket, q float32) *timeseries.TimeSeries {
 				continue
 			}
 			bc = c - prev
-			res[idx] = lower + (upper-lower)*((rank-prev)/bc)
+			if timeseries.IsInf(upper, 1) {
+				res[idx] = lower
+			} else {
+				res[idx] = lower + (upper-lower)*((rank-prev)/bc)
+			}
 			break
 		}
 		idx++

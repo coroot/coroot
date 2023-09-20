@@ -15,7 +15,7 @@
     </v-tabs>
 
     <template v-if="!view">
-        <ServiceMap v-if="applications" :applications="applications" />
+        <ServiceMap v-if="applications" :applications="applications" :categoriesTo="{name: 'project_settings', params: {tab: 'categories'}}" />
         <NoData v-else-if="!loading" />
     </template>
 
