@@ -218,7 +218,7 @@ export default {
                         values: ['0', ...c.series.map(s => s.name)],
                     },
                 ],
-                series: [{}, ...c.series.map(() => ({paths: hm}))],
+                series: [{}, ...c.series.map(() => ({paths: hm, alpha: 0}))],
                 cursor: {
                     points: {show: false},
                     y: !!this.selection,

@@ -3,6 +3,14 @@
         <div v-if="filters" class="filters mb-3">
             <v-spacer v-if="$vuetify.breakpoint.mdAndUp"></v-spacer>
             <v-checkbox v-for="f in filters" :key="f.name" v-model="f.value" :label="f.name" class="filter" color="green" hide-details @click="calc" />
+            <v-tooltip v-if="categoriesTo" bottom>
+                <template v-slot:activator="{ on, attrs }">
+                    <v-btn :to="categoriesTo" v-bind="attrs" v-on="on" icon small class="ml-1" style="margin-top: 2px">
+                        <v-icon>mdi-plus</v-icon>
+                    </v-btn>
+                </template>
+                configure categories
+            </v-tooltip>
         </div>
         <div class="applications" v-on-resize="calc" @scroll="calc">
             <div v-for="apps in levels" class="level" style="z-index: 1" :style="{rowGap: 200 / apps.length + 'px', maxWidth: 100 / levels.length + '%' }">
@@ -71,7 +79,7 @@ function calcLevel(index, a, level, backLinks) {
 export default {
     props: {
         applications: Array,
-        openApp: Function,
+        categoriesTo: Object,
     },
 
     components: {AppHealth, Labels},
