@@ -187,7 +187,12 @@ func (c *Cache) updaterWorker(projects *sync.Map, projectId db.ProjectId, promCl
 func (c *Cache) download(now timeseries.Time, promClient prom.Querier, projectId db.ProjectId, step timeseries.Duration, state *PrometheusQueryState) {
 	queryHash, jitter := QueryId(projectId, state.Query)
 	pointsCount := int(chunkSize / step)
-	for _, i := range calcIntervals(state.LastTs, step, now.Add(-step), jitter) {
+	from := state.LastTs
+	to := now.Add(-step)
+	if to.Sub(from) > BackFillInterval {
+		from = to.Add(-BackFillInterval)
+	}
+	for _, i := range calcIntervals(from, step, to, jitter) {
 		ctx, cancel := context.WithTimeout(context.Background(), queryTimeout)
 		vs, err := promClient.QueryRange(ctx, state.Query, i.chunkTs, i.toTs, step)
 		cancel()
