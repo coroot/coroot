@@ -115,12 +115,12 @@ func (ts *TimeSeries) Fill(from Time, step Duration, data []float32) bool {
 			tNext = t.Truncate(ts.step)
 		}
 		if iNext < len(ts.data) {
-			ts.data[iNext] = data[i]
-			tNext = tNext.Add(ts.step)
-			iNext++
-			if !changed && !IsNaN(data[i]) {
+			if !IsNaN(data[i]) {
+				ts.data[iNext] = data[i]
 				changed = true
 			}
+			tNext = tNext.Add(ts.step)
+			iNext++
 		}
 	}
 	return changed

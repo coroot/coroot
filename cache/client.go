@@ -65,7 +65,7 @@ func (c *Client) GetStep(from, to timeseries.Time) (timeseries.Duration, error) 
 	var step timeseries.Duration
 	for _, qData := range projData.queries {
 		for _, ch := range qData.chunksOnDisk {
-			if ch.From > from || ch.To() < to {
+			if ch.From > to || ch.To() < from {
 				continue
 			}
 			if ch.Step > step {

@@ -120,7 +120,12 @@ func (c *Cache) compact(t CompactionTask) error {
 	sort.Slice(t.src, func(i, j int) bool {
 		return t.src[i].From < t.src[j].From
 	})
-	step := t.src[0].Step
+	var step timeseries.Duration
+	for _, ch := range t.src {
+		if ch.Step > step {
+			step = ch.Step
+		}
+	}
 	pointsCount := int(t.compactor.DstChunkDuration / step)
 	for _, i := range t.src {
 		if err := chunk.Read(i.Path, t.dstChunk, pointsCount, step, metrics); err != nil {
