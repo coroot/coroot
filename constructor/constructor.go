@@ -317,6 +317,7 @@ func joinDBClusterComponents(w *model.World) {
 			if cluster := toDelete[app.Id]; cluster == nil {
 				apps = append(apps, app)
 			} else {
+				cluster.DesiredInstances = merge(cluster.DesiredInstances, app.DesiredInstances, timeseries.NanSum)
 				for _, instance := range app.Instances {
 					instance.OwnerId = cluster.Id
 					instance.ClusterComponent = app
