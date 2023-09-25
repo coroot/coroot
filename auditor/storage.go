@@ -17,6 +17,9 @@ func (a *appAuditor) storage() {
 		for _, v := range i.Volumes {
 			fullName := i.Name + ":" + v.MountPoint
 			if i.Node != nil {
+				if a.app.IsK8s() && v.Name.Value() == "" {
+					continue
+				}
 				seenVolumes = true
 				if d := i.Node.Disks[v.Device.Value()]; d != nil {
 					report.GetOrCreateChartInGroup("I/O latency <selector>, seconds", v.MountPoint).
