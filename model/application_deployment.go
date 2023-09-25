@@ -118,15 +118,15 @@ type ApplicationDeploymentStatus struct {
 	Lifetime   timeseries.Duration
 	Summary    []ApplicationDeploymentSummary
 	Deployment *ApplicationDeployment
+	Last       bool
 }
 
 func CalcApplicationDeploymentStatuses(app *Application, checkConfigs CheckConfigs, now timeseries.Time) []ApplicationDeploymentStatus {
 	durationThreshold := timeseries.Duration(checkConfigs.GetSimple(Checks.DeploymentStatus.Id, app.Id).Threshold)
 	res := make([]ApplicationDeploymentStatus, 0, len(app.Deployments))
 	for i, d := range app.Deployments {
-		last := i == len(app.Deployments)-1
-		s := ApplicationDeploymentStatus{Deployment: d}
-		if last {
+		s := ApplicationDeploymentStatus{Deployment: d, Last: i == len(app.Deployments)-1}
+		if s.Last {
 			s.Lifetime = now.Sub(d.StartedAt)
 		} else {
 			s.Lifetime = app.Deployments[i+1].StartedAt.Sub(d.StartedAt)
@@ -147,7 +147,7 @@ func CalcApplicationDeploymentStatuses(app *Application, checkConfigs CheckConfi
 			s.Status = OK
 			s.State = ApplicationDeploymentStateDeployed
 			s.Message = "The service has been successfully deployed"
-		case !last:
+		case !s.Last:
 			s.Status = WARNING
 			s.State = ApplicationDeploymentStateCancelled
 			s.Message = "The deployment has been cancelled"
