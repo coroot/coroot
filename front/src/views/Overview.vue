@@ -15,13 +15,17 @@
     </v-tabs>
 
     <template v-if="!view">
-        <ServiceMap v-if="applications" :applications="applications" :categoriesTo="{name: 'project_settings', params: {tab: 'categories'}}" />
+        <ServiceMap v-if="applications" :applications="applications" />
         <NoData v-else-if="!loading" />
     </template>
 
     <template v-else-if="view === 'nodes'">
         <Table v-if="nodes && nodes.rows" :header="nodes.header" :rows="nodes.rows" />
         <NoData v-else-if="!loading" />
+    </template>
+
+    <template v-else-if="view === 'deployments'">
+        <Deployments :deployments="deployments" />
     </template>
 
     <template v-else-if="view === 'costs'">
@@ -37,19 +41,21 @@ import Table from "../components/Table";
 import NoData from "../components/NoData";
 import NodesCosts from "../components/NodesCosts";
 import ApplicationsCosts from "../components/ApplicationsCosts";
+import Deployments from "../components/Deployments.vue";
 
 export default {
-    components: {NoData, ServiceMap, Table, NodesCosts, ApplicationsCosts},
+    components: {Deployments, NoData, ServiceMap, Table, NodesCosts, ApplicationsCosts},
     props: {
         view: String,
     },
 
     data() {
         return {
-            views: ['applications', 'nodes'],
+            views: ['applications', 'nodes', 'deployments'],
             applications: null,
             nodes: null,
             costs: null,
+            deployments: null,
             loading: false,
             error: '',
         }
@@ -80,6 +86,7 @@ export default {
                 this.applications = data.applications;
                 this.nodes = data.nodes;
                 this.costs = data.costs;
+                this.deployments = data.deployments;
                 if (!this.views.find(v => v === view)) {
                     this.$router.replace({params: {view: undefined}}).catch(err => err);
                 }

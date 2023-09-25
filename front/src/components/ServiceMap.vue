@@ -1,16 +1,8 @@
 <template>
     <div>
-        <div v-if="filters" class="filters mb-3">
+        <div class="d-flex mb-3">
             <v-spacer v-if="$vuetify.breakpoint.mdAndUp"></v-spacer>
-            <v-checkbox v-for="f in filters" :key="f.name" v-model="f.value" :label="f.name" class="filter" color="green" hide-details @click="calc" />
-            <v-tooltip v-if="categoriesTo" bottom>
-                <template v-slot:activator="{ on, attrs }">
-                    <v-btn :to="categoriesTo" v-bind="attrs" v-on="on" icon small class="ml-1" style="margin-top: 2px">
-                        <v-icon>mdi-plus</v-icon>
-                    </v-btn>
-                </template>
-                configure categories
-            </v-tooltip>
+            <ApplicationCategories :categories="categories" :configureTo="categoriesTo" @change="setSelectedCategories" />
         </div>
         <div class="applications" v-on-resize="calc" @scroll="calc">
             <div v-for="apps in levels" class="level" style="z-index: 1" :style="{rowGap: 200 / apps.length + 'px', maxWidth: 100 / levels.length + '%' }">
@@ -47,6 +39,7 @@
 <script>
 import Labels from "./Labels";
 import AppHealth from "./AppHealth";
+import ApplicationCategories from "./ApplicationCategories.vue";
 
 function findBackLinks(index, a, discovered, finished, found) {
     discovered.add(a.id);
@@ -82,79 +75,43 @@ export default {
         categoriesTo: Object,
     },
 
-    components: {AppHealth, Labels},
+    components: {ApplicationCategories, AppHealth, Labels},
 
     data() {
         return {
             levels: [],
             arrows: [],
             hi: null,
-            filters: [],
+            selectedCategories: new Set(),
         };
     },
 
     mounted() {
-        this.calcFilters();
         this.calc();
     },
 
     watch: {
         applications() {
-            this.calcFilters();
             this.calc();
-        },
-        filters: {
-            handler() {
-                this.saveActiveFilters();
-            },
-            deep: true,
         },
         hi(hi) {
             this.highlightArrows(hi);
         },
+        selectedCategories() {
+            this.calc();
+        },
     },
     computed : {
-        maxW() {
-            return Math.max(...this.arrows.filter((a) => a.hi(this.hi)).map((a) => a._w))
+        categories() {
+            return Array.from(new Set((this.applications || []).map(a => a.category)).values());
         },
         hideLabels() {
             return this.levels.some((l) => l.length >= 15);
         },
     },
     methods: {
-        calcFilters() {
-            const applications = this.applications;
-            if (!applications || !applications.length) {
-                this.filters = [];
-                return;
-            }
-            let filters = new Set();
-            for (const a of applications) {
-                filters.add(a.category);
-            }
-            if (filters.size === 0) {
-                this.filters = [];
-                return;
-            }
-            const active = this.getActiveFilters();
-            filters = Array.from(filters).map((f) => ({name: f, value: false}));
-            filters.sort((a, b) => a.name.localeCompare(b.name));
-            filters.forEach((f) => {
-                f.value = !!active.find((ff) => ff === f.name);
-            })
-            if (!filters.some((f) => f.value)) {
-                filters[0].value = true;
-            }
-            this.filters = filters;
-        },
-        getActiveFilters() {
-            const projectId = this.$route.params.projectId;
-            return JSON.parse(localStorage.getItem('app-filters-' + projectId)) || [];
-        },
-        saveActiveFilters() {
-            const projectId = this.$route.params.projectId;
-            const activeFilters = this.filters.filter(f => f.value).map(f => f.name);
-            localStorage.setItem('app-filters-' + projectId, JSON.stringify(activeFilters));
+        setSelectedCategories(categories) {
+            this.selectedCategories = new Set(categories);
         },
         calc() {
             let applications = Array.from(this.applications || []);
@@ -162,14 +119,7 @@ export default {
             applications.forEach((a) => {
                 index.set(a.id, a);
             });
-            let filter = () => true;
-            if (this.filters.length > 0) {
-                const filters = new Map();
-                for (const f of this.filters) {
-                    filters.set(f.name, f.value);
-                }
-                filter = (a) => index.get(a.id) && filters.get(index.get(a.id).category);
-            }
+            const filter = (a) => index.get(a.id) && this.selectedCategories.has(index.get(a.id).category);
             applications = applications.filter(filter);
             applications.forEach((a) => {
                 a.name = this.$utils.appId(a.id).name;
@@ -292,13 +242,6 @@ export default {
 </script>
 
 <style scoped>
-.filters {
-    display: flex;
-    flex-wrap: wrap;
-}
-.filter{
-    margin: 0 8px;
-}
 .applications {
     position: relative;
     display: flex;

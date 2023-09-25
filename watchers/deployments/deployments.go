@@ -82,15 +82,7 @@ func (w *Watcher) discoverAndSaveDeployments(project *db.Project) (*model.World,
 		}
 		apps++
 
-		deployments := calcDeployments(app)
-
-		if len(app.Deployments) == 0 && len(deployments) == 0 {
-			if err := w.db.SaveApplicationDeployment(project.Id, calcInitialDeployment(app, cacheTo)); err != nil {
-				klog.Errorln("failed to save deployment:", err)
-			}
-			continue
-		}
-		for _, d := range deployments {
+		for _, d := range calcDeployments(app) {
 			var known *model.ApplicationDeployment
 			for _, dd := range app.Deployments {
 				if dd.Name == d.Name && dd.StartedAt == d.StartedAt {
@@ -342,34 +334,6 @@ func calcDeployments(app *model.Application) []*model.ApplicationDeployment {
 	}
 
 	return deployments
-}
-
-func calcInitialDeployment(app *model.Application, now timeseries.Time) *model.ApplicationDeployment {
-	name := ""
-	images := utils.NewStringSet()
-	for _, i := range app.Instances {
-		if i.Pod != nil && i.Pod.ReplicaSet != "" {
-			name = i.Pod.ReplicaSet
-		}
-		for _, c := range i.Containers {
-			if c.Image != "" {
-				images.Add(c.Image)
-			}
-		}
-	}
-	res := &model.ApplicationDeployment{
-		ApplicationId: app.Id,
-		Name:          name,
-		StartedAt:     now,
-		FinishedAt:    now,
-	}
-	if images.Len() > 0 {
-		res.Details = &model.ApplicationDeploymentDetails{ContainerImages: images.Items()}
-	}
-	res.Notifications = &model.ApplicationDeploymentNotifications{
-		State: model.ApplicationDeploymentStateSummary,
-	}
-	return res
 }
 
 func calcMetricsSnapshot(app *model.Application, from, to timeseries.Time, step timeseries.Duration) *model.MetricsSnapshot {

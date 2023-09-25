@@ -14,15 +14,14 @@ func (a *appAuditor) deployments() {
 	deploymentStatusCheck := report.CreateCheck(model.Checks.DeploymentStatus)
 
 	now := timeseries.Now()
-	table := report.GetOrCreateTable("Deployment", "Active", "Summary").SetSorted(true)
+	table := report.GetOrCreateTable("Deployment", "Deployed", "Summary").SetSorted(true)
 	statuses := model.CalcApplicationDeploymentStatuses(a.app, a.w.CheckConfigs, now)
 	for i := len(statuses) - 1; i >= 0; i-- {
 		ds := statuses[i]
-		startedAt := utils.FormatDuration(now.Sub(ds.Deployment.StartedAt), 1)
+		version := model.NewTableCell().SetStatus(ds.Status, ds.Deployment.Version()).AddTag("age: %s", utils.FormatDuration(ds.Lifetime, 1))
 		from, to := ds.Deployment.StartedAt.Add(-30*timeseries.Minute), ds.Deployment.StartedAt.Add(30*timeseries.Minute)
-		version := model.NewTableCell().SetStatus(ds.Status, ds.Deployment.Version()).AddTag(startedAt + " ago")
 		version.Link = model.NewRouterLink(ds.Deployment.Version()).SetParam("report", model.AuditReportInstances).SetArg("from", from).SetArg("to", to)
-		active := model.NewTableCell(utils.FormatDuration(ds.Lifetime, 1)).SetShortValue(utils.FormatDurationShort(ds.Lifetime, 1))
+		deployed := model.NewTableCell(utils.FormatDuration(now.Sub(ds.Deployment.StartedAt), 1) + " ago")
 
 		summary := model.NewTableCell()
 		switch ds.State {
@@ -51,6 +50,6 @@ func (a *appAuditor) deployments() {
 			summary.SetStub(ds.Message)
 		}
 
-		table.AddRow(version, active, summary).SetId(ds.Deployment.Id())
+		table.AddRow(version, deployed, summary).SetId(ds.Deployment.Id())
 	}
 }

@@ -7,13 +7,14 @@ import (
 type View struct {
 	Views        []string       `json:"views"`
 	Applications []*Application `json:"applications"`
-	Costs        *Costs         `json:"costs"`
 	Nodes        *model.Table   `json:"nodes"`
+	Costs        *Costs         `json:"costs"`
+	Deployments  []Deployment   `json:"deployments"`
 }
 
 func Render(w *model.World, view string) *View {
 	v := &View{
-		Views: []string{"applications", "nodes"},
+		Views: []string{"applications", "nodes", "deployments"},
 	}
 	for _, n := range w.Nodes {
 		if n.Price != nil {
@@ -29,6 +30,8 @@ func Render(w *model.World, view string) *View {
 		v.Nodes = renderNodes(w)
 	case "costs":
 		v.Costs = renderCosts(w)
+	case "deployments":
+		v.Deployments = renderDeployments(w)
 	}
 	return v
 }
