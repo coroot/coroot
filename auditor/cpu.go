@@ -13,9 +13,12 @@ func (a *appAuditor) cpu(ncs nodeConsumersByNode) {
 	containerCpuCheck := report.CreateCheck(model.Checks.CPUContainer)
 	seenContainers, seenRelatedNodes := false, false
 	limitByContainer := map[string]*timeseries.Aggregate{}
-	cpuChartTitle := "CPU usage of container <selector>, cores"
+	cpuChartTitle := "CPU usage <selector>, cores"
 
 	for _, i := range a.app.Instances {
+		instanceDelay := timeseries.NewAggregate(timeseries.NanSum)
+		instanceThrottledTime := timeseries.NewAggregate(timeseries.NanSum)
+		instanceUsage := timeseries.NewAggregate(timeseries.NanSum)
 		for _, c := range i.Containers {
 			seenContainers = true
 			l := limitByContainer[c.Name]
@@ -24,9 +27,12 @@ func (a *appAuditor) cpu(ncs nodeConsumersByNode) {
 				limitByContainer[c.Name] = l
 			}
 			l.Add(c.CpuLimit)
-			usageChart := report.GetOrCreateChartInGroup(cpuChartTitle, c.Name).AddSeries(i.Name, c.CpuUsage)
-			report.GetOrCreateChartInGroup("CPU delay of container <selector>, seconds/second", c.Name).AddSeries(i.Name, c.CpuDelay)
-			report.GetOrCreateChartInGroup("Throttled time of container <selector>, seconds/second", c.Name).AddSeries(i.Name, c.ThrottledTime)
+			instanceDelay.Add(c.CpuDelay)
+			instanceThrottledTime.Add(c.ThrottledTime)
+			instanceUsage.Add(c.CpuUsage)
+			usageChart := report.GetOrCreateChartInGroup(cpuChartTitle, "container: "+c.Name).AddSeries(i.Name, c.CpuUsage)
+			report.GetOrCreateChartInGroup("CPU delay <selector>, seconds/second", "container: "+c.Name).AddSeries(i.Name, c.CpuDelay)
+			report.GetOrCreateChartInGroup("Throttled time <selector>, seconds/second", "container: "+c.Name).AddSeries(i.Name, c.ThrottledTime)
 
 			usage := c.CpuUsage.Last() / c.CpuLimit.Last() * 100
 			if usage > containerCpuCheck.Threshold {
@@ -34,6 +40,17 @@ func (a *appAuditor) cpu(ncs nodeConsumersByNode) {
 				containerCpuCheck.AddItem("%s@%s", c.Name, i.Name)
 			}
 		}
+		report.GetOrCreateChartInGroup(cpuChartTitle, "total").
+			AddSeries(i.Name, instanceUsage).
+			Feature()
+		report.
+			GetOrCreateChartInGroup("CPU delay <selector>, seconds/second", "total").
+			AddSeries(i.Name, instanceDelay).
+			Feature()
+		report.GetOrCreateChartInGroup("Throttled time <selector>, seconds/second", "total").
+			AddSeries(i.Name, instanceThrottledTime).
+			Feature()
+
 		if node := i.Node; i.Node != nil {
 			seenRelatedNodes = true
 			nodeName := node.Name.Value()
@@ -59,7 +76,7 @@ func (a *appAuditor) cpu(ncs nodeConsumersByNode) {
 		}
 	}
 	for container, limit := range limitByContainer {
-		report.GetOrCreateChartInGroup(cpuChartTitle, container).SetThreshold("limit", limit)
+		report.GetOrCreateChartInGroup(cpuChartTitle, "container: "+container).SetThreshold("limit", limit)
 	}
 
 	if a.p.Settings.Integrations.Pyroscope != nil {

@@ -19,6 +19,7 @@ func (a *appAuditor) memory(ncs nodeConsumersByNode) {
 	totalRss := timeseries.NewAggregate(timeseries.NanSum)
 	for _, i := range a.app.Instances {
 		oom := timeseries.NewAggregate(timeseries.NanSum)
+		instanceRss := timeseries.NewAggregate(timeseries.NanSum)
 		for _, c := range i.Containers {
 			seenContainers = true
 			l := limitByContainer[c.Name]
@@ -27,10 +28,12 @@ func (a *appAuditor) memory(ncs nodeConsumersByNode) {
 				limitByContainer[c.Name] = l
 			}
 			l.Add(c.MemoryLimit)
-			report.GetOrCreateChartInGroup(memoryUsageChartTitle, c.Name).AddSeries(i.Name, c.MemoryRss)
+			report.GetOrCreateChartInGroup(memoryUsageChartTitle, "container: "+c.Name).AddSeries(i.Name, c.MemoryRss)
 			oom.Add(c.OOMKills)
 			totalRss.Add(c.MemoryRss)
+			instanceRss.Add(c.MemoryRss)
 		}
+		report.GetOrCreateChartInGroup(memoryUsageChartTitle, "total").AddSeries(i.Name, instanceRss).Feature()
 		oomTs := oom.Get()
 		report.GetOrCreateChart("Out of memory events").Column().AddSeries(i.Name, oomTs)
 
@@ -58,7 +61,7 @@ func (a *appAuditor) memory(ncs nodeConsumersByNode) {
 	}
 
 	for container, limit := range limitByContainer {
-		report.GetOrCreateChartInGroup(memoryUsageChartTitle, container).SetThreshold("limit", limit.Get())
+		report.GetOrCreateChartInGroup(memoryUsageChartTitle, "container: "+container).SetThreshold("limit", limit.Get())
 	}
 
 	if a.p.Settings.Integrations.Pyroscope != nil {
