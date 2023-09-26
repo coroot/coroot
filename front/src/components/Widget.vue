@@ -1,7 +1,7 @@
 <template>
 <div>
-    <Chart v-if="w.chart" :chart="w.chart"/>
-    <ChartGroup v-if="w.chart_group" :title="w.chart_group.title" :charts="w.chart_group.charts"/>
+    <Chart v-if="w.chart" :chart="w.chart" :selection="chartSelection" @select="chartZoom" />
+    <ChartGroup v-if="w.chart_group" :title="w.chart_group.title" :charts="w.chart_group.charts" :selection="chartSelection" @select="chartZoom" />
     <LogPatterns v-if="w.log_patterns" :title="w.log_patterns.title" :patterns="w.log_patterns.patterns" />
     <DependencyMap v-if="w.dependency_map" :nodes="w.dependency_map.nodes" :links="w.dependency_map.links" />
     <Table v-if="w.table" :header="w.table.header" :rows="w.table.rows" />
@@ -29,6 +29,9 @@ export default {
     components: {Chart, ChartGroup, LogPatterns, DependencyMap, Table, Heatmap, Profile, Tracing},
 
     computed: {
+        chartSelection() {
+            return {};
+        },
         heatmapSelection() {
             const hm = this.w.heatmap;
             return hm && hm.drill_down_link ? {} : null;
@@ -36,6 +39,11 @@ export default {
     },
 
     methods: {
+        chartZoom(s) {
+            const {from, to} = s.selection;
+            const query = {...this.$route.query, from, to};
+            this.$router.push({query}).catch(err => err);
+        },
         heatmapDrillDown(s) {
             const hm = this.w.heatmap;
             if (hm && hm.drill_down_link && s.x1) {

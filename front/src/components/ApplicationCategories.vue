@@ -70,7 +70,7 @@ export default {
             return (this.$storage.local(storageKey) || {})[projectId] || [];
         },
         saveSelected() {
-            const saved = this.$storage.local(storageKey);
+            const saved = this.$storage.local(storageKey) || {};
             const projectId = this.$route.params.projectId;
             saved[projectId] = this.getSelected();
             this.$storage.local(storageKey, saved);
