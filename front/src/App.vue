@@ -57,6 +57,9 @@
                         <v-list-item href="https://join.slack.com/t/coroot-community/shared_invite/zt-1gsnfo0wj-I~Zvtx5CAAb8vr~r~vecyw" target="_blank">
                             <v-icon small class="mr-1">mdi-slack</v-icon>Slack chat
                         </v-list-item>
+                        <v-list-item href="https://coroot.com/cloud" target="_blank">
+                            <v-icon small class="mr-1">mdi-cloud-outline</v-icon>Coroot cloud
+                        </v-list-item>
                         <v-divider />
                         <v-list-item href="https://github.com/coroot/coroot/releases" target="_blank">
                             Version: {{$coroot.version}}

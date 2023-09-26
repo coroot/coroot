@@ -1,5 +1,5 @@
 <template>
-    <Chart :chart="chart">
+    <Chart :chart="chart" :selection="selection" @select="select">
         <template v-slot:title>
             <span>{{splitTitle.head}}</span>
             <v-menu offset-y>
@@ -29,6 +29,7 @@ export default {
     props: {
         title: String,
         charts: Array,
+        selection: Object,
     },
 
     components: {Chart},
@@ -70,6 +71,9 @@ export default {
             res.sort((a, b) => a.title.localeCompare(b.title));
             return res;
         },
+        select(s) {
+            this.$emit('select', s);
+        }
     }
 };
 </script>

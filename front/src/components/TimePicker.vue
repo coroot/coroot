@@ -50,7 +50,7 @@ export default {
             const format = (t) => this.$format.date(t, '{MMM} {DD}, {HH}:{mm}');
             const f = isNaN(iFrom) ? from : format(iFrom);
             const t = isNaN(iTo) ? to : format(iTo);
-            intervals.unshift({text: f+' to '+t, query: {from, to}, active: true});
+            intervals.unshift({text: (f || '')+' to '+(t || 'now'), query: {from, to}, active: true});
             return intervals;
         },
     },
