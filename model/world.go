@@ -21,7 +21,6 @@ type World struct {
 
 	Nodes        []*Node
 	Applications []*Application
-	Services     []*Service
 
 	IntegrationStatus IntegrationStatus
 }
@@ -48,20 +47,6 @@ func (w *World) GetOrCreateApplication(id ApplicationId) *Application {
 		w.Applications = append(w.Applications, app)
 	}
 	return app
-}
-
-func (w *World) GetServiceForConnection(c *Connection) *Service {
-	for _, s := range w.Services {
-		if s.ClusterIP == c.ServiceRemoteIP {
-			return s
-		}
-		for _, sc := range s.Connections {
-			if sc.ActualRemoteIP == c.ActualRemoteIP {
-				return s
-			}
-		}
-	}
-	return nil
 }
 
 func (w *World) GetNode(name string) *Node {

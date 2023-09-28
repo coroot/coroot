@@ -9,8 +9,8 @@ import (
 	"strings"
 )
 
-func loadKubernetesMetadata(w *model.World, metrics map[string][]model.MetricValues) {
-	loadServices(w, metrics["kube_service_info"])
+func loadKubernetesMetadata(w *model.World, metrics map[string][]model.MetricValues, servicesByClusterIP map[string]*model.Service) {
+	loadServices(metrics["kube_service_info"], servicesByClusterIP)
 	pods := podInfo(w, metrics["kube_pod_info"])
 	podLabels(metrics["kube_pod_labels"], pods)
 
@@ -27,18 +27,18 @@ func loadKubernetesMetadata(w *model.World, metrics map[string][]model.MetricVal
 	loadApplications(w, metrics)
 }
 
-func loadServices(w *model.World, metrics []model.MetricValues) {
+func loadServices(metrics []model.MetricValues, servicesByClusterIP map[string]*model.Service) {
 	for _, m := range metrics {
 		name := m.Labels["service"]
 		if name == "kubernetes" {
 			name = "kube-apiserver"
 		}
 		if clusterIP := m.Labels["cluster_ip"]; clusterIP != "" {
-			w.Services = append(w.Services, &model.Service{
+			servicesByClusterIP[clusterIP] = &model.Service{
 				Name:      name,
 				Namespace: m.Labels["namespace"],
 				ClusterIP: clusterIP,
-			})
+			}
 		}
 	}
 }

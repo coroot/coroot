@@ -58,7 +58,7 @@ func getInstanceAndContainer(w *model.World, node *model.Node, instances map[ins
 	return instance, instance.GetOrCreateContainer(containerId, containerName)
 }
 
-func loadContainers(w *model.World, metrics map[string][]model.MetricValues, pjs promJobStatuses, nodesByMachineId map[string]*model.Node) {
+func loadContainers(w *model.World, metrics map[string][]model.MetricValues, pjs promJobStatuses, nodesByMachineId map[string]*model.Node, servicesByClusterIP map[string]*model.Service) {
 	instances := map[instanceId]*model.Instance{}
 	for _, a := range w.Applications {
 		for _, i := range a.Instances {
@@ -69,6 +69,8 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues, pjs
 			instances[instanceId{ns: a.Id.Namespace, name: i.Name, node: nodeId}] = i
 		}
 	}
+
+	servicesByActualDestIP := map[string]*model.Service{}
 
 	connectionCache := map[connectionKey]*model.Connection{}
 	rttByInstance := map[instanceId]map[string]*timeseries.TimeSeries{}
@@ -95,15 +97,15 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues, pjs
 				rtts[m.Labels["destination_ip"]] = merge(rtts[m.Labels["destination_ip"]], m.Values, timeseries.Any)
 				rttByInstance[id] = rtts
 			case "container_net_tcp_successful_connects":
-				if c := getOrCreateConnection(instance, container.Name, m, w, connectionCache); c != nil {
+				if c := getOrCreateConnection(instance, container.Name, m, connectionCache, servicesByClusterIP, servicesByActualDestIP); c != nil {
 					c.SuccessfulConnections = merge(c.SuccessfulConnections, m.Values, timeseries.Any)
 				}
 			case "container_net_tcp_failed_connects":
-				if c := getOrCreateConnection(instance, container.Name, m, w, connectionCache); c != nil {
+				if c := getOrCreateConnection(instance, container.Name, m, connectionCache, servicesByClusterIP, servicesByActualDestIP); c != nil {
 					c.FailedConnections = merge(c.FailedConnections, m.Values, timeseries.Any)
 				}
 			case "container_net_tcp_active_connections":
-				if c := getOrCreateConnection(instance, container.Name, m, w, connectionCache); c != nil {
+				if c := getOrCreateConnection(instance, container.Name, m, connectionCache, servicesByClusterIP, servicesByActualDestIP); c != nil {
 					c.Active = merge(c.Active, m.Values, timeseries.Any)
 				}
 			case "container_net_tcp_listen_info":
@@ -118,14 +120,14 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues, pjs
 					instance.TcpListens[l] = isActive
 				}
 			case "container_net_tcp_retransmits":
-				if c := getOrCreateConnection(instance, container.Name, m, w, connectionCache); c != nil {
+				if c := getOrCreateConnection(instance, container.Name, m, connectionCache, servicesByClusterIP, servicesByActualDestIP); c != nil {
 					c.Retransmissions = merge(c.Retransmissions, m.Values, timeseries.Any)
 				}
 			case "container_http_requests_count", "container_postgres_queries_count", "container_redis_queries_count",
 				"container_memcached_queries_count", "container_mysql_queries_count", "container_mongo_queries_count",
 				"container_kafka_requests_count", "container_cassandra_queries_count",
 				"container_rabbitmq_messages", "container_nats_messages":
-				if c := getOrCreateConnection(instance, container.Name, m, w, connectionCache); c != nil {
+				if c := getOrCreateConnection(instance, container.Name, m, connectionCache, servicesByClusterIP, servicesByActualDestIP); c != nil {
 					protocol := model.Protocol(strings.SplitN(queryName, "_", 3)[1])
 					status := m.Labels["status"]
 					if protocol == "rabbitmq" || protocol == "nats" {
@@ -139,14 +141,14 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues, pjs
 			case "container_http_requests_latency", "container_postgres_queries_latency", "container_redis_queries_latency",
 				"container_memcached_queries_latency", "container_mysql_queries_latency", "container_mongo_queries_latency",
 				"container_kafka_requests_latency", "container_cassandra_queries_latency":
-				if c := getOrCreateConnection(instance, container.Name, m, w, connectionCache); c != nil {
+				if c := getOrCreateConnection(instance, container.Name, m, connectionCache, servicesByClusterIP, servicesByActualDestIP); c != nil {
 					protocol := model.Protocol(strings.SplitN(queryName, "_", 3)[1])
 					c.RequestsLatency[protocol] = merge(c.RequestsLatency[protocol], m.Values, timeseries.Any)
 				}
 			case "container_http_requests_histogram", "container_postgres_queries_histogram", "container_redis_queries_histogram",
 				"container_memcached_queries_histogram", "container_mysql_queries_histogram", "container_mongo_queries_histogram",
 				"container_kafka_requests_histogram", "container_cassandra_queries_histogram":
-				if c := getOrCreateConnection(instance, container.Name, m, w, connectionCache); c != nil {
+				if c := getOrCreateConnection(instance, container.Name, m, connectionCache, servicesByClusterIP, servicesByActualDestIP); c != nil {
 					protocol := model.Protocol(strings.SplitN(queryName, "_", 3)[1])
 					le, err := strconv.ParseFloat(m.Labels["le"], 32)
 					if err != nil {
@@ -209,11 +211,6 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues, pjs
 		}
 	}
 
-	servicesByClusterIP := map[string]*model.Service{}
-	for _, svc := range w.Services {
-		servicesByClusterIP[svc.ClusterIP] = svc
-	}
-
 	for _, app := range w.Applications { // lookup remote instance by listen
 		for _, instance := range app.Instances {
 			for _, u := range instance.Upstreams {
@@ -245,7 +242,7 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues, pjs
 					continue
 				}
 				appId := model.NewApplicationId("", model.ApplicationKindExternalService, "")
-				svc := w.GetServiceForConnection(u)
+				svc := getServiceForConnection(u, servicesByClusterIP, servicesByActualDestIP)
 				if svc != nil {
 					u.Service = svc
 					if id, ok := svc.GetDestinationApplicationId(); ok {
@@ -279,12 +276,19 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues, pjs
 	}
 }
 
+func getServiceForConnection(c *model.Connection, byClusterIP map[string]*model.Service, byActualDestIP map[string]*model.Service) *model.Service {
+	if s := byClusterIP[c.ServiceRemoteIP]; s != nil {
+		return s
+	}
+	return byActualDestIP[c.ActualRemoteIP]
+}
+
 type connectionKey struct {
 	instanceId
 	destination, actualDestination string
 }
 
-func getOrCreateConnection(instance *model.Instance, container string, m model.MetricValues, w *model.World, cache map[connectionKey]*model.Connection) *model.Connection {
+func getOrCreateConnection(instance *model.Instance, container string, m model.MetricValues, cache map[connectionKey]*model.Connection, servicesByClusterIP, servicesByActualDestIP map[string]*model.Service) *model.Connection {
 	if instance.OwnerId.Name == "docker" { // ignore docker-proxy's connections
 		return nil
 	}
@@ -321,7 +325,7 @@ func getOrCreateConnection(instance *model.Instance, container string, m model.M
 		}
 		connection = instance.AddUpstreamConnection(actualIP, actualPort, serviceIP, servicePort, container)
 		cache[connKey] = connection
-		updateServiceEndpoints(w, connection)
+		updateServiceEndpoints(connection, servicesByClusterIP, servicesByActualDestIP)
 	}
 
 	return connection
@@ -391,14 +395,13 @@ func markMultilineMessage(msg string) string {
 	return strings.Join(lines, "\n")
 }
 
-func updateServiceEndpoints(w *model.World, c *model.Connection) {
+func updateServiceEndpoints(c *model.Connection, servicesByClusterIP, servicesByActualDestIP map[string]*model.Service) {
 	if c.ActualRemoteIP == "" && c.ServiceRemoteIP == "" {
 		return
 	}
-	for _, s := range w.Services {
-		if s.ClusterIP == c.ServiceRemoteIP {
-			s.Connections = append(s.Connections, c)
-		}
+	if s := servicesByClusterIP[c.ServiceRemoteIP]; s != nil {
+		s.Connections = append(s.Connections, c)
+		servicesByActualDestIP[c.ActualRemoteIP] = s
 	}
 }
 

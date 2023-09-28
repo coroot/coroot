@@ -97,16 +97,17 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 	nodesByMachineId := map[string]*model.Node{}
 	rdsInstancesById := map[string]*model.Instance{}
 	ecInstancesById := map[string]*model.Instance{}
+	servicesByClusterIP := map[string]*model.Service{}
 
 	// order is important
 	prof.stage("load_job_statuses", func() { loadPromJobStatuses(metrics, pjs) })
 	prof.stage("load_nodes", func() { c.loadNodes(w, metrics, nodesByMachineId) })
-	prof.stage("load_k8s_metadata", func() { loadKubernetesMetadata(w, metrics) })
+	prof.stage("load_k8s_metadata", func() { loadKubernetesMetadata(w, metrics, servicesByClusterIP) })
 	prof.stage("load_rds_metadata", func() { loadRdsMetadata(w, metrics, pjs, rdsInstancesById) })
 	prof.stage("load_elasticache_metadata", func() { loadElasticacheMetadata(w, metrics, pjs, ecInstancesById) })
 	prof.stage("load_rds", func() { c.loadRds(w, metrics, pjs, rdsInstancesById) })
 	prof.stage("load_elasticache", func() { c.loadElasticache(w, metrics, pjs, ecInstancesById) })
-	prof.stage("load_containers", func() { loadContainers(w, metrics, pjs, nodesByMachineId) })
+	prof.stage("load_containers", func() { loadContainers(w, metrics, pjs, nodesByMachineId, servicesByClusterIP) })
 	prof.stage("enrich_instances", func() { enrichInstances(w, metrics, rdsInstancesById, ecInstancesById) })
 	prof.stage("join_db_cluster", func() { joinDBClusterComponents(w) })
 	prof.stage("calc_app_categories", func() { c.calcApplicationCategories(w) })
@@ -115,7 +116,7 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 	prof.stage("load_app_incidents", func() { c.loadApplicationIncidents(w) })
 	prof.stage("calc_app_events", func() { calcAppEvents(w) })
 
-	klog.Infof("got %d nodes, %d services, %d applications", len(w.Nodes), len(w.Services), len(w.Applications))
+	klog.Infof("got %d nodes, %d services, %d applications", len(w.Nodes), len(servicesByClusterIP), len(w.Applications))
 	return w, nil
 }
 
