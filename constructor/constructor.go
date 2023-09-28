@@ -307,27 +307,26 @@ func joinDBClusterComponents(w *model.World) {
 			if cluster == nil {
 				cluster = model.NewApplication(id)
 				clusters[id] = cluster
-				w.Applications = append(w.Applications, cluster)
+				w.Applications[id] = cluster
 			}
 			toDelete[app.Id] = cluster
 		}
 	}
 	if len(toDelete) > 0 {
-		var apps []*model.Application
-		for _, app := range w.Applications {
-			if cluster := toDelete[app.Id]; cluster == nil {
-				apps = append(apps, app)
-			} else {
-				cluster.DesiredInstances = merge(cluster.DesiredInstances, app.DesiredInstances, timeseries.NanSum)
-				for _, instance := range app.Instances {
-					instance.OwnerId = cluster.Id
-					instance.ClusterComponent = app
-				}
-				cluster.Instances = append(cluster.Instances, app.Instances...)
-				cluster.Downstreams = append(cluster.Downstreams, app.Downstreams...)
+		for id, app := range w.Applications {
+			cluster := toDelete[app.Id]
+			if cluster == nil {
+				continue
 			}
+			cluster.DesiredInstances = merge(cluster.DesiredInstances, app.DesiredInstances, timeseries.NanSum)
+			for _, instance := range app.Instances {
+				instance.OwnerId = cluster.Id
+				instance.ClusterComponent = app
+			}
+			cluster.Instances = append(cluster.Instances, app.Instances...)
+			cluster.Downstreams = append(cluster.Downstreams, app.Downstreams...)
+			delete(w.Applications, id)
 		}
-		w.Applications = apps
 	}
 }
 

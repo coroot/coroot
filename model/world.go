@@ -20,31 +20,27 @@ type World struct {
 	CheckConfigs CheckConfigs
 
 	Nodes        []*Node
-	Applications []*Application
+	Applications map[ApplicationId]*Application
 
 	IntegrationStatus IntegrationStatus
 }
 
 func NewWorld(from, to timeseries.Time, step timeseries.Duration) *World {
 	return &World{
-		Ctx: timeseries.Context{From: from, To: to, Step: step},
+		Ctx:          timeseries.Context{From: from, To: to, Step: step},
+		Applications: map[ApplicationId]*Application{},
 	}
 }
 
 func (w *World) GetApplication(id ApplicationId) *Application {
-	for _, a := range w.Applications {
-		if a.Id == id {
-			return a
-		}
-	}
-	return nil
+	return w.Applications[id]
 }
 
 func (w *World) GetOrCreateApplication(id ApplicationId) *Application {
 	app := w.GetApplication(id)
 	if app == nil {
 		app = NewApplication(id)
-		w.Applications = append(w.Applications, app)
+		w.Applications[id] = app
 	}
 	return app
 }
