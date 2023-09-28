@@ -105,7 +105,7 @@ func (w *Watcher) discoverAndSaveDeployments(project *db.Project) (*model.World,
 	return world, cacheTo
 }
 
-func (w *Watcher) snapshotDeploymentMetrics(project *db.Project, applications []*model.Application) {
+func (w *Watcher) snapshotDeploymentMetrics(project *db.Project, applications map[model.ApplicationId]*model.Application) {
 	if len(applications) == 0 {
 		return
 	}

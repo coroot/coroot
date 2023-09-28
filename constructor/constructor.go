@@ -97,16 +97,17 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 	nodesByMachineId := map[string]*model.Node{}
 	rdsInstancesById := map[string]*model.Instance{}
 	ecInstancesById := map[string]*model.Instance{}
+	servicesByClusterIP := map[string]*model.Service{}
 
 	// order is important
 	prof.stage("load_job_statuses", func() { loadPromJobStatuses(metrics, pjs) })
 	prof.stage("load_nodes", func() { c.loadNodes(w, metrics, nodesByMachineId) })
-	prof.stage("load_k8s_metadata", func() { loadKubernetesMetadata(w, metrics) })
+	prof.stage("load_k8s_metadata", func() { loadKubernetesMetadata(w, metrics, servicesByClusterIP) })
 	prof.stage("load_rds_metadata", func() { loadRdsMetadata(w, metrics, pjs, rdsInstancesById) })
 	prof.stage("load_elasticache_metadata", func() { loadElasticacheMetadata(w, metrics, pjs, ecInstancesById) })
 	prof.stage("load_rds", func() { c.loadRds(w, metrics, pjs, rdsInstancesById) })
 	prof.stage("load_elasticache", func() { c.loadElasticache(w, metrics, pjs, ecInstancesById) })
-	prof.stage("load_containers", func() { loadContainers(w, metrics, pjs, nodesByMachineId) })
+	prof.stage("load_containers", func() { loadContainers(w, metrics, pjs, nodesByMachineId, servicesByClusterIP) })
 	prof.stage("enrich_instances", func() { enrichInstances(w, metrics, rdsInstancesById, ecInstancesById) })
 	prof.stage("join_db_cluster", func() { joinDBClusterComponents(w) })
 	prof.stage("calc_app_categories", func() { c.calcApplicationCategories(w) })
@@ -115,7 +116,7 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 	prof.stage("load_app_incidents", func() { c.loadApplicationIncidents(w) })
 	prof.stage("calc_app_events", func() { calcAppEvents(w) })
 
-	klog.Infof("got %d nodes, %d services, %d applications", len(w.Nodes), len(w.Services), len(w.Applications))
+	klog.Infof("got %d nodes, %d services, %d applications", len(w.Nodes), len(servicesByClusterIP), len(w.Applications))
 	return w, nil
 }
 
@@ -306,27 +307,26 @@ func joinDBClusterComponents(w *model.World) {
 			if cluster == nil {
 				cluster = model.NewApplication(id)
 				clusters[id] = cluster
-				w.Applications = append(w.Applications, cluster)
+				w.Applications[id] = cluster
 			}
 			toDelete[app.Id] = cluster
 		}
 	}
 	if len(toDelete) > 0 {
-		var apps []*model.Application
-		for _, app := range w.Applications {
-			if cluster := toDelete[app.Id]; cluster == nil {
-				apps = append(apps, app)
-			} else {
-				cluster.DesiredInstances = merge(cluster.DesiredInstances, app.DesiredInstances, timeseries.NanSum)
-				for _, instance := range app.Instances {
-					instance.OwnerId = cluster.Id
-					instance.ClusterComponent = app
-				}
-				cluster.Instances = append(cluster.Instances, app.Instances...)
-				cluster.Downstreams = append(cluster.Downstreams, app.Downstreams...)
+		for id, app := range w.Applications {
+			cluster := toDelete[app.Id]
+			if cluster == nil {
+				continue
 			}
+			cluster.DesiredInstances = merge(cluster.DesiredInstances, app.DesiredInstances, timeseries.NanSum)
+			for _, instance := range app.Instances {
+				instance.OwnerId = cluster.Id
+				instance.ClusterComponent = app
+			}
+			cluster.Instances = append(cluster.Instances, app.Instances...)
+			cluster.Downstreams = append(cluster.Downstreams, app.Downstreams...)
+			delete(w.Applications, id)
 		}
-		w.Applications = apps
 	}
 }
 
