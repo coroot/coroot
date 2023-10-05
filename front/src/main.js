@@ -54,13 +54,9 @@ const router = new VueRouter({
 
 const api = new Api(router, vuetify, config.base_path);
 
-router.afterEach((to, from) => {
-    if (to.params.projectId !== from.params.projectId || JSON.stringify(to.query) !== JSON.stringify(from.query)) {
-        events.emit('refresh');
-    }
-    const m = to.matched[0];
-    if (m) {
-        let p = m.path;
+router.afterEach((to) => {
+    if (to.matched[0]) {
+        let p = to.matched[0].path;
         if (to.meta.stats && to.meta.stats.param) {
             p = p.replace(':'+to.meta.stats.param, to.params[to.meta.stats.param] || '');
         }

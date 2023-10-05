@@ -10,6 +10,7 @@ import (
 type ApplicationSettings struct {
 	Pyroscope *ApplicationSettingsPyroscope `json:"pyroscope,omitempty"`
 	Tracing   *ApplicationSettingsTracing   `json:"tracing,omitempty"`
+	Logs      *ApplicationSettingsLogs      `json:"logs,omitempty"`
 }
 
 func (s *ApplicationSettings) Migrate(m *Migrator) error {
@@ -27,6 +28,10 @@ type ApplicationSettingsPyroscope struct {
 }
 
 type ApplicationSettingsTracing struct {
+	Service string `json:"service"`
+}
+
+type ApplicationSettingsLogs struct {
 	Service string `json:"service"`
 }
 
@@ -61,6 +66,8 @@ func (db *DB) SaveApplicationSetting(projectId ProjectId, appId model.Applicatio
 		as.Pyroscope = v
 	case *ApplicationSettingsTracing:
 		as.Tracing = v
+	case *ApplicationSettingsLogs:
+		as.Logs = v
 	default:
 		return fmt.Errorf("unsupported type: %T", s)
 	}

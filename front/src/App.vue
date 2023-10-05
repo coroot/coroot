@@ -136,6 +136,8 @@ export default {
     created() {
         this.$events.watch(this, this.getProjects, 'project-saved', 'project-deleted');
         this.$events.watch(this, this.getStatus, 'project-saved');
+        this.getProjects();
+        this.getStatus();
     },
 
     computed: {
@@ -149,19 +151,17 @@ export default {
     },
 
     watch: {
-        '$route': {
-            handler: function() {
-                this.getProjects();
-                this.getStatus();
-            },
-            immediate: true,
+        $route(curr, prev) {
+            if (curr.query.from !== prev.query.from || curr.query.to !== prev.query.to) {
+                this.$events.emit('refresh');
+            }
+            if (curr.params.projectId !== prev.params.projectId) {
+                this.$events.emit('refresh');
+                this.lastProject(curr.params.projectId);
+            }
+            this.getProjects();
+            this.getStatus();
         },
-        '$route.params.projectId': {
-            handler: function(id) {
-                this.lastProject(id);
-            },
-            immediate: true,
-        }
     },
 
     methods: {

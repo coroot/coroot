@@ -349,27 +349,33 @@ func getOrCreateInstanceVolume(instance *model.Instance, m model.MetricValues) *
 }
 
 func logMessage(instance *model.Instance, ls model.Labels, values *timeseries.TimeSeries) {
-	level := model.LogLevel(ls["level"])
-	instance.LogMessagesByLevel[level] = merge(instance.LogMessagesByLevel[level], values, timeseries.NanSum)
+	level := model.LogSeverity(ls["level"])
+	msgs := instance.LogMessages[level]
+	if msgs == nil {
+		msgs = &model.LogMessages{}
+		instance.LogMessages[level] = msgs
+	}
+	msgs.Messages = merge(msgs.Messages, values, timeseries.NanSum)
 
 	if hash := ls["pattern_hash"]; hash != "" {
-		p := instance.LogPatterns[hash]
+		if msgs.Patterns == nil {
+			msgs.Patterns = map[string]*model.LogPattern{}
+		}
+		p := msgs.Patterns[hash]
 		if p == nil {
 			sample := ls["sample"]
-			pattern := logparser.NewPattern(sample)
-
 			p = &model.LogPattern{
-				Level:     level,
+				Severity:  level,
 				Sample:    sample,
 				Multiline: strings.Contains(sample, "\n"),
-				Pattern:   pattern,
+				Pattern:   logparser.NewPattern(sample),
 			}
 			if p.Multiline {
 				p.Sample = markMultilineMessage(p.Sample)
 			}
-			instance.LogPatterns[hash] = p
+			msgs.Patterns[hash] = p
 		}
-		p.Sum = merge(p.Sum, values, timeseries.NanSum)
+		p.Messages = merge(p.Messages, values, timeseries.NanSum)
 	}
 }
 

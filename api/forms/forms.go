@@ -135,6 +135,14 @@ func (f *ApplicationSettingsTracingForm) Valid() bool {
 	return true
 }
 
+type ApplicationSettingsLogsForm struct {
+	db.ApplicationSettingsLogs
+}
+
+func (f *ApplicationSettingsLogsForm) Valid() bool {
+	return true
+}
+
 type IntegrationsForm struct {
 	BaseUrl string `json:"base_url"`
 }
@@ -318,6 +326,9 @@ func (f *IntegrationFormClickhouse) Get(project *db.Project, masked bool) {
 	if f.TracesTable == "" {
 		f.TracesTable = "otel_traces"
 	}
+	if f.LogsTable == "" {
+		f.LogsTable = "otel_logs"
+	}
 	if masked {
 		f.Addr = "<hidden>"
 		f.Auth.User = "<user>"
@@ -343,6 +354,7 @@ func (f *IntegrationFormClickhouse) Test(ctx context.Context, project *db.Projec
 	config.Protocol = f.Protocol
 	config.Database = f.Database
 	config.TracesTable = f.TracesTable
+	config.LogsTable = f.LogsTable
 	config.TlsEnable = f.TlsEnable
 	config.TlsSkipVerify = f.TlsSkipVerify
 	client, err := tracing.NewClickhouseClient(config)
@@ -353,7 +365,7 @@ func (f *IntegrationFormClickhouse) Test(ctx context.Context, project *db.Projec
 	if err != nil {
 		return err
 	}
-	_, err = client.GetServiceNames(ctx)
+	_, err = client.GetServiceNamesFromTraces(ctx)
 	return err
 }
 

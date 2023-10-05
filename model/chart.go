@@ -75,6 +75,7 @@ type Chart struct {
 	ColorShift    int          `json:"color_shift"`
 	Annotations   []Annotation `json:"annotations"`
 	DrillDownLink *RouterLink  `json:"drill_down_link"`
+	HideLegend    bool         `json:"hide_legend"`
 }
 
 func NewChart(ctx timeseries.Context, title string) *Chart {
@@ -98,6 +99,11 @@ func (chart *Chart) Sorted() *Chart {
 func (chart *Chart) Column() *Chart {
 	chart.IsColumn = true
 	chart.IsStacked = true
+	return chart
+}
+
+func (chart *Chart) Legend(on bool) *Chart {
+	chart.HideLegend = !on
 	return chart
 }
 

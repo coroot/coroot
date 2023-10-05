@@ -393,6 +393,7 @@ func (api *Api) App(w http.ResponseWriter, r *http.Request) {
 	if project.Settings.Integrations.Pyroscope != nil {
 		app.AddReport(model.AuditReportProfiling, &model.Widget{Profile: &model.Profile{ApplicationId: app.Id}, Width: "100%"})
 	}
+	// TODO: check for some `tracing.enabled`
 	if project.Settings.Integrations.Clickhouse != nil {
 		app.AddReport(model.AuditReportTracing, &model.Widget{Tracing: &model.Tracing{ApplicationId: app.Id}, Width: "100%"})
 	}
@@ -634,6 +635,7 @@ func (api *Api) Tracing(w http.ResponseWriter, r *http.Request) {
 		config.Protocol = cfg.Protocol
 		config.Database = cfg.Database
 		config.TracesTable = cfg.TracesTable
+		config.LogsTable = cfg.LogsTable
 		config.TlsEnable = cfg.TlsEnable
 		config.TlsSkipVerify = cfg.TlsSkipVerify
 		clickhouse, err = tracing.NewClickhouseClient(config)
@@ -642,6 +644,73 @@ func (api *Api) Tracing(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	utils.WriteJson(w, views.Tracing(r.Context(), clickhouse, app, settings, q, world))
+}
+
+func (api *Api) Logs(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	projectId := db.ProjectId(vars["project"])
+	appId, err := model.NewApplicationIdFromString(vars["app"])
+	if err != nil {
+		klog.Warningln(err)
+		http.Error(w, "invalid application id: "+vars["app"], http.StatusBadRequest)
+		return
+	}
+
+	if r.Method == http.MethodPost {
+		if api.readOnly {
+			return
+		}
+		var form forms.ApplicationSettingsLogsForm
+		if err := forms.ReadAndValidate(r, &form); err != nil {
+			klog.Warningln("bad request:", err)
+			http.Error(w, "invalid data", http.StatusBadRequest)
+			return
+		}
+		if err := api.db.SaveApplicationSetting(projectId, appId, &form.ApplicationSettingsLogs); err != nil {
+			klog.Errorln(err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		return
+	}
+
+	world, project, err := api.loadWorldByRequest(r)
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	if world == nil {
+		return
+	}
+	app := world.GetApplication(appId)
+	if app == nil {
+		klog.Warningln("application not found:", appId)
+		http.Error(w, "Application not found", http.StatusNotFound)
+		return
+	}
+	settings, err := api.db.GetApplicationSettings(project.Id, app.Id)
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	var clickhouse *tracing.ClickhouseClient
+	if cfg := project.Settings.Integrations.Clickhouse; cfg != nil {
+		config := tracing.NewClickhouseClientConfig(cfg.Addr, cfg.Auth.User, cfg.Auth.Password)
+		config.Protocol = cfg.Protocol
+		config.Database = cfg.Database
+		config.TracesTable = cfg.TracesTable
+		config.LogsTable = cfg.LogsTable
+		config.TlsEnable = cfg.TlsEnable
+		config.TlsSkipVerify = cfg.TlsSkipVerify
+		clickhouse, err = tracing.NewClickhouseClient(config)
+		if err != nil {
+			klog.Warningln(err)
+		}
+	}
+	q := r.URL.Query()
+	utils.WriteJson(w, views.Logs(r.Context(), clickhouse, app, settings, q, world))
 }
 
 func (api *Api) Node(w http.ResponseWriter, r *http.Request) {

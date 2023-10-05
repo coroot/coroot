@@ -5,18 +5,30 @@ import (
 	"github.com/coroot/logparser"
 )
 
-type LogLevel string
+type LogSeverity string
 
 const (
-	LogLevelWarning  LogLevel = "warning"
-	LogLevelError    LogLevel = "error"
-	LogLevelCritical LogLevel = "critical"
+	LogSeverityUnknown  LogSeverity = "unknown"
+	LogSeverityDebug    LogSeverity = "debug"
+	LogSeverityInfo     LogSeverity = "info"
+	LogSeverityWarning  LogSeverity = "warning"
+	LogSeverityError    LogSeverity = "error"
+	LogSeverityCritical LogSeverity = "critical"
 )
+
+func (s LogSeverity) IsError() bool {
+	return s == LogSeverityError || s == LogSeverityCritical
+}
+
+type LogMessages struct {
+	Messages *timeseries.TimeSeries
+	Patterns map[string]*LogPattern
+}
 
 type LogPattern struct {
 	Pattern   *logparser.Pattern
-	Level     LogLevel
+	Severity  LogSeverity
 	Sample    string
 	Multiline bool
-	Sum       *timeseries.TimeSeries
+	Messages  *timeseries.TimeSeries
 }

@@ -4,10 +4,10 @@ type Widget struct {
 	Chart         *Chart         `json:"chart,omitempty"`
 	ChartGroup    *ChartGroup    `json:"chart_group,omitempty"`
 	Table         *Table         `json:"table,omitempty"`
-	LogPatterns   *LogPatterns   `json:"log_patterns,omitempty"`
 	DependencyMap *DependencyMap `json:"dependency_map,omitempty"`
 	Heatmap       *Heatmap       `json:"heatmap,omitempty"`
 
+	Logs    *Logs    `json:"logs,omitempty"`
 	Profile *Profile `json:"profile,omitempty"`
 	Tracing *Tracing `json:"tracing,omitempty"`
 
@@ -21,13 +21,6 @@ func (w *Widget) AddAnnotation(annotations ...Annotation) {
 	if w.ChartGroup != nil {
 		for _, ch := range w.ChartGroup.Charts {
 			ch.AddAnnotation(annotations...)
-		}
-	}
-	if w.LogPatterns != nil {
-		for _, p := range w.LogPatterns.Patterns {
-			if p.Instances != nil {
-				p.Instances.AddAnnotation(annotations...)
-			}
 		}
 	}
 	if w.Heatmap != nil {
@@ -71,6 +64,11 @@ func (l *RouterLink) SetArg(k string, v any) *RouterLink {
 func (l *RouterLink) SetHash(v string) *RouterLink {
 	l.Hash = "#" + v
 	return l
+}
+
+type Logs struct {
+	ApplicationId ApplicationId `json:"application_id"`
+	Check         *Check        `json:"check"`
 }
 
 type Profile struct {

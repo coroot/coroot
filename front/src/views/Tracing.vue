@@ -216,6 +216,12 @@ export default {
         this.$events.watch(this, this.get, 'refresh');
     },
 
+    watch: {
+        '$route.query.trace'() {
+            this.get();
+        },
+    },
+
     methods: {
         setTrace(t, ctx) {
             t = {...this.trace, ...t};

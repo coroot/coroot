@@ -6,6 +6,7 @@ import (
 	"github.com/coroot/coroot/api/views/categories"
 	"github.com/coroot/coroot/api/views/configs"
 	"github.com/coroot/coroot/api/views/integrations"
+	"github.com/coroot/coroot/api/views/logs"
 	"github.com/coroot/coroot/api/views/node"
 	"github.com/coroot/coroot/api/views/overview"
 	"github.com/coroot/coroot/api/views/profile"
@@ -39,6 +40,10 @@ func Profile(ctx context.Context, pyroscope *profiling.PyroscopeClient, app *mod
 
 func Tracing(ctx context.Context, clickhouse *tracing.ClickhouseClient, app *model.Application, appSettings *db.ApplicationSettings, q url.Values, w *model.World) *trace.View {
 	return trace.Render(ctx, clickhouse, app, appSettings, q, w)
+}
+
+func Logs(ctx context.Context, clickhouse *tracing.ClickhouseClient, app *model.Application, appSettings *db.ApplicationSettings, q url.Values, w *model.World) *logs.View {
+	return logs.Render(ctx, clickhouse, app, appSettings, q, w)
 }
 
 func Node(w *model.World, n *model.Node) *model.AuditReport {

@@ -62,7 +62,22 @@ func (a *appAuditor) postgres() {
 		qps := sumQueries(i.Postgres.QueriesByDB)
 		report.GetOrCreateChart("Queries per second").AddSeries(i.Name, qps)
 
-		errors := timeseries.NewAggregate(timeseries.NanSum).Add(i.LogMessagesByLevel[model.LogLevelError], i.LogMessagesByLevel[model.LogLevelCritical]).Get()
+		errorsTotal := timeseries.NewAggregate(timeseries.NanSum)
+		errorsByPattern := map[string]model.SeriesData{}
+		for level, msgs := range i.LogMessages {
+			if !level.IsError() {
+				continue
+			}
+			errorsTotal.Add(msgs.Messages)
+			for _, p := range msgs.Patterns {
+				if groups := pgLogErrRegexp.FindStringSubmatch(p.Sample); len(groups) == 3 {
+					errorsByPattern[groups[1]+": "+groups[2]] = p.Messages
+				} else {
+					errorsByPattern[p.Sample] = p.Messages
+				}
+			}
+		}
+		errors := errorsTotal.Get()
 
 		pgQueries(report, i)
 
@@ -74,7 +89,7 @@ func (a *appAuditor) postgres() {
 		report.
 			GetOrCreateChartInGroup("Errors <selector>", i.Name).
 			Column().
-			AddMany(errorsByPattern(i), 5, timeseries.NanSum)
+			AddMany(errorsByPattern, 5, timeseries.NanSum)
 		pgConnections(report, i, connectionsCheck)
 		pgLocks(report, i)
 		primaryLsnTs := primaryLsn.Get()
@@ -116,21 +131,6 @@ func (a *appAuditor) postgres() {
 				lagCell,
 			)
 	}
-}
-
-func errorsByPattern(instance *model.Instance) map[string]model.SeriesData {
-	res := map[string]model.SeriesData{}
-	for _, p := range instance.LogPatterns {
-		if p.Level != model.LogLevelError && p.Level != model.LogLevelCritical {
-			continue
-		}
-		if groups := pgLogErrRegexp.FindStringSubmatch(p.Sample); len(groups) == 3 {
-			res[groups[1]+": "+groups[2]] = p.Sum
-		} else {
-			res[p.Sample] = p.Sum
-		}
-	}
-	return res
 }
 
 func checkReplicationLag(instanceName string, primaryLsn, lag *timeseries.TimeSeries, role model.ClusterRole, check *model.Check) *model.TableCell {
