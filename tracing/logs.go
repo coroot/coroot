@@ -9,6 +9,24 @@ import (
 	"strings"
 )
 
+var (
+	severityToNumber = map[model.LogSeverity][]int{
+		model.LogSeverityUnknown:  {0},
+		model.LogSeverityDebug:    {1, 2, 3, 4, 5, 6, 7, 8},
+		model.LogSeverityInfo:     {9, 10, 11, 12},
+		model.LogSeverityWarning:  {13, 14, 15, 16},
+		model.LogSeverityError:    {17, 18, 19, 20},
+		model.LogSeverityCritical: {21, 22, 23, 24},
+	}
+	severityNumbers = 0
+)
+
+func init() {
+	for _, nums := range severityToNumber {
+		severityNumbers += len(nums)
+	}
+}
+
 func (c *ClickhouseClient) GetServiceNamesFromLogs(ctx context.Context) ([]string, error) {
 	q := "SELECT DISTINCT ServiceName"
 	q += " FROM " + c.config.LogsTable
@@ -60,27 +78,16 @@ func (c *ClickhouseClient) getLogs(ctx context.Context, from, to timeseries.Time
 	)
 
 	if len(severity) > 0 {
-		var severityNumbers []int
+		var nums []int
 		for _, s := range severity {
-			switch s {
-			case "", model.LogSeverityUnknown:
-				severityNumbers = append(severityNumbers, 0)
-			case model.LogSeverityDebug:
-				severityNumbers = append(severityNumbers, 1, 2, 3, 4, 5, 6, 7, 8)
-			case model.LogSeverityInfo:
-				severityNumbers = append(severityNumbers, 9, 10, 11, 12)
-			case model.LogSeverityWarning:
-				severityNumbers = append(severityNumbers, 13, 14, 15, 16)
-			case model.LogSeverityError:
-				severityNumbers = append(severityNumbers, 17, 18, 19, 20)
-			case model.LogSeverityCritical:
-				severityNumbers = append(severityNumbers, 21, 22, 23, 24)
-			}
+			nums = append(nums, severityToNumber[s]...)
 		}
-		filters = append(filters, "SeverityNumber IN (@severityNumbers)")
-		args = append(args,
-			clickhouse.Named("severityNumbers", severityNumbers),
-		)
+		if len(nums) < severityNumbers {
+			filters = append(filters, "SeverityNumber IN (@severityNumbers)")
+			args = append(args,
+				clickhouse.Named("severityNumbers", nums),
+			)
+		}
 	}
 
 	if len(patternHash) > 0 {

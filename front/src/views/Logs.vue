@@ -15,24 +15,21 @@
             <v-progress-circular v-if="loading" indeterminate size="16" width="2" color="green" />
         </div>
 
-        <v-form :disabled="loading">
+        <v-form :disabled="disabled">
             <v-select :items="sources" v-model="query.source" @change="setQuery" outlined hide-details dense :menu-props="{offsetY: true}" class="mt-4" />
 
             <div class="subtitle-1 mt-3">Filter: </div>
-            <div class="d-flex flex-wrap align-center" style="margin-left: -8px">
-                <v-checkbox v-for="(s, name) in severities" :key="name" :value="name" v-model="query.severity" @change="setQuery" :label="name" :color="color(s.color)" class="ma-0 mx-1 text-no-wrap text-capitalize checkbox" dense hide-details />
+            <div class="d-flex flex-wrap align-center" style="margin-left: -5px; gap: 8px">
+                <v-checkbox v-for="(s, name) in severities" :key="name" :value="name" v-model="query.severity" :label="name" :color="color(s.color)" class="ma-0 text-no-wrap text-capitalize checkbox" dense hide-details />
+                <v-text-field v-model="query.search" @keydown.enter.prevent="runQuery" prepend-inner-icon="mdi-magnify" label="Filter messages" dense hide-details single-line outlined>
+                    <template v-if="query.hash && query.hash.length" #prepend-inner>
+                        <v-chip small label close @click:close="filterByPattern(null)" close-icon="mdi-close" class="mr-2">
+                            pattern: {{query.hash[0].substr(0, 7)}}
+                        </v-chip>
+                    </template>
+                </v-text-field>
+                <v-btn @click="runQuery" :disabled="disabled" color="primary" height="38">Query</v-btn>
             </div>
-
-            <v-text-field v-model="query.search" @keydown.enter.prevent="setQuery" dense hide-details prepend-inner-icon="mdi-magnify" label="Filter messages" single-line outlined class="mt-2">
-                <template v-if="query.hash && query.hash.length" #prepend-inner>
-                    <v-chip small label close @click:close="filterByPattern(null)" close-icon="mdi-close" class="mr-2">
-                        pattern: {{query.hash[0].substr(0, 7)}}
-                    </v-chip>
-                </template>
-                <template #append>
-                    <v-btn @click="setQuery" small color="primary" style="margin-top: -2px; margin-right: -5px">Search</v-btn>
-                </template>
-            </v-text-field>
         </v-form>
 
         <div class="subtitle-1 mt-2">View: </div>
@@ -42,8 +39,8 @@
                 <v-btn value="patterns" @click="filterByPattern(null)"><v-icon small>mdi-creation</v-icon>Patterns</v-btn>
             </v-btn-toggle>
             <v-btn-toggle v-model="order" @change="setQuery" dense>
-                <v-btn value="desc" :disabled="view !== 'list'"><v-icon small>mdi-arrow-up-thick</v-icon>Newest first</v-btn>
-                <v-btn value="asc" :disabled="view !== 'list'"><v-icon small>mdi-arrow-down-thick</v-icon>Oldest first</v-btn>
+                <v-btn value="desc" :disabled="disabled"><v-icon small>mdi-arrow-up-thick</v-icon>Newest first</v-btn>
+                <v-btn value="asc" :disabled="disabled"><v-icon small>mdi-arrow-down-thick</v-icon>Oldest first</v-btn>
             </v-btn-toggle>
         </div>
 
@@ -59,74 +56,94 @@
         <div v-if="!loading && loadingError" class="pa-3 text-center red--text">
             {{loadingError}}
         </div>
+        <template v-else>
+            <Chart v-if="chart" :chart="chart" :selection="{}" @select="zoom" />
 
-        <Chart v-if="chart" :chart="chart" :selection="{}" @select="zoom" />
-
-        <div v-if="view === 'list'" class="mt-5">
-            <v-simple-table v-if="entries" dense class="entries">
-                <thead>
-                <tr>
-                    <th>Date</th>
-                    <th>Message</th>
-                </tr>
-                </thead>
-                <tbody class="mono">
-                <tr v-for="e in entries" @click="entry = e" style="cursor: pointer">
-                    <td class="text-no-wrap" style="padding-left: 1px">
-                        <div class="d-flex" style="gap: 4px">
-                            <div class="marker" :style="{backgroundColor: e.color}" />
-                            <div>{{e.date}}</div>
+            <div v-if="view === 'list'" class="mt-5">
+                <v-simple-table v-if="entries" dense class="entries">
+                    <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Message</th>
+                    </tr>
+                    </thead>
+                    <tbody class="mono">
+                    <tr v-for="e in entries" @click="entry = e" style="cursor: pointer">
+                        <td class="text-no-wrap" style="padding-left: 1px">
+                            <div class="d-flex" style="gap: 4px">
+                                <div class="marker" :style="{backgroundColor: e.color}" />
+                                <div>{{e.date}}</div>
+                            </div>
+                        </td>
+                        <td class="text-no-wrap">{{e.multiline ? e.message.substr(0, e.multiline) : e.message}}</td>
+                    </tr>
+                    </tbody>
+                </v-simple-table>
+                <div v-else-if="!loading" class="pa-3 text-center grey--text">
+                    No messages found
+                </div>
+                <div v-if="entries && data.limit" class="text-right caption grey--text">
+                    The output is capped at {{data.limit}} messages.
+                </div>
+                <v-dialog v-if="entry" v-model="entry" width="80%">
+                    <v-card class="pa-5 entry">
+                        <div class="d-flex align-center">
+                            <div class="d-flex">
+                                <v-chip label dark small :color="entry.color" class="text-uppercase mr-2">{{entry.severity}}</v-chip>
+                                {{entry.date}}
+                            </div>
+                            <v-spacer />
+                            <v-btn icon @click="entry = null"><v-icon>mdi-close</v-icon></v-btn>
                         </div>
-                    </td>
-                    <td class="text-no-wrap">{{e.multiline ? e.message.substr(0, e.multiline) : e.message}}</td>
-                </tr>
-                </tbody>
-            </v-simple-table>
-            <div v-else-if="!loading" class="pa-3 text-center grey--text">
-                No messages found
-            </div>
-            <div v-if="entries && data.limit" class="text-right caption grey--text">
-                The output is capped at {{data.limit}} messages.
-            </div>
-        </div>
 
-        <div v-if="view === 'patterns' && patterns" class="patterns mt-5">
-            <div v-for="p in patterns" class="pattern" @click.stop="filterByPattern(p)">
-                <div class="sample preview" v-html="p.sample" />
-                <div class="line">
-                    <v-sparkline :value="p.messages" smooth height="30" fill :color="p.color" padding="4" />
+                        <div class="font-weight-medium my-3">Message</div>
+                        <div class="message" :class="{multiline: entry.multiline}" v-html="entry.message" />
+
+                        <div class="font-weight-medium mt-4 mb-2">Attributes</div>
+                        <v-simple-table dense>
+                            <tbody>
+                            <tr v-for="(v, k) in entry.attributes">
+                                <td>{{k}}</td>
+                                <td><pre>{{v}}</pre></td>
+                            </tr>
+                            </tbody>
+                        </v-simple-table>
+                    </v-card>
+                </v-dialog>
+            </div>
+
+            <div v-if="view === 'patterns'" class="mt-5">
+                <div v-if="patterns" class="patterns">
+                    <div v-for="p in patterns" class="pattern" @click="pattern = p">
+                        <div class="sample" v-html="p.sample" />
+                        <div class="line">
+                            <v-sparkline :value="p.messages" smooth height="30" fill :color="p.color" padding="4" />
+                        </div>
+                        <div class="percent">{{p.percent}}</div>
+                    </div>
                 </div>
-                <div class="percent">{{p.percent}}</div>
+                <div v-else-if="!loading" class="pa-3 text-center grey--text">
+                    No patterns found
+                </div>
+                <v-dialog v-if="pattern" v-model="pattern" width="80%">
+                    <v-card tile class="pa-5">
+                        <div class="d-flex align-center">
+                            <div class="d-flex">
+                                <v-chip label dark small :color="pattern.color" class="text-uppercase mr-2">{{pattern.severity}}</v-chip>
+                                {{pattern.sum}} events
+                            </div>
+                            <v-spacer />
+                            <v-btn icon @click="pattern = null"><v-icon>mdi-close</v-icon></v-btn>
+                        </div>
+                        <Chart v-if="pattern.chart" :chart="pattern.chart" />
+                        <div class="font-weight-medium my-3">Sample</div>
+                        <div class="message" :class="{multiline: pattern.multiline}" v-html="pattern.sample" />
+                        <v-btn color="primary" @click="filterByPattern(pattern)" class="mt-4">Show messages</v-btn>
+                    </v-card>
+                </v-dialog>
             </div>
-        </div>
-
+        </template>
     </div>
-
-    <v-dialog v-if="entry" v-model="entry" width="80%">
-        <v-card class="pa-5 details">
-            <div class="d-flex align-center">
-                <div class="d-flex">
-                    <v-chip label dark small :color="entry.color" class="text-uppercase mr-2">{{entry.severity}}</v-chip>
-                    {{entry.date}}
-                </div>
-                <v-spacer />
-                <v-btn icon @click="entry = null"><v-icon>mdi-close</v-icon></v-btn>
-            </div>
-
-            <div class="font-weight-medium mt-4 mb-2">Message</div>
-            <div class="message" :class="{multiline: entry.multiline}" v-html="entry.message" />
-
-            <div class="font-weight-medium mt-4 mb-2">Attributes</div>
-            <v-simple-table dense>
-                <tbody>
-                <tr v-for="(v, k) in entry.attributes">
-                    <td>{{k}}</td>
-                    <td><pre>{{v}}</pre></td>
-                </tr>
-                </tbody>
-            </v-simple-table>
-        </v-card>
-    </v-dialog>
 
     <v-dialog v-model="configure" max-width="800">
         <v-card class="pa-5">
@@ -196,6 +213,7 @@ export default {
             message: '',
 
             entry: null,
+            pattern: null,
         }
     },
 
@@ -226,7 +244,7 @@ export default {
                 return null;
             }
             const res = this.data.entries.map(e => {
-                const i = e.message.indexOf('\n');
+                const newline = e.message.indexOf('\n');
                 return {
                     severity: e.severity,
                     timestamp: e.timestamp,
@@ -234,7 +252,7 @@ export default {
                     date: this.$format.date(e.timestamp, '{MMM} {DD} {HH}:{mm}:{ss}'),
                     message: e.message,
                     attributes: e.attributes,
-                    multiline: i > 0 ? i : 0,
+                    multiline: newline > 0 ? newline : 0,
                 }
             });
             if (this.order === 'asc') {
@@ -251,15 +269,22 @@ export default {
             let total = this.data.patterns.reduce((t, p) => t + p.sum, 0);
             return this.data.patterns.map(p => {
                 const percent = p.sum * 100 / total;
+                const newline = p.sample.indexOf('\n');
                 return {
-                    sample: p.sample,
+                    severity: p.severity,
                     color: palette.get(severities[p.severity].color),
+                    sample: p.sample,
+                    multiline: newline > 0 ? newline : 0,
                     messages: p.messages.map((v) => v === null ? 0 : v),
                     sum: p.sum,
                     percent: (percent < 1 ? '<1' : Math.trunc(percent)) + '%',
                     hash: p.hash,
+                    chart: p.chart,
                 };
             });
+        },
+        disabled() {
+            return this.loading || this.view !== 'list'
         },
         changed() {
             return !!this.form && this.saved !== JSON.stringify(this.form);
@@ -307,6 +332,12 @@ export default {
             this.order = query.order || 'desc';
         },
         setQuery() {
+            if (this.view === 'patterns') {
+                this.query.severity = Object.keys(severities);
+                this.query.search = '';
+                this.query.hash = [];
+                this.order = '';
+            }
             const query = {
                 query: JSON.stringify(this.query),
                 view: this.view,
@@ -314,22 +345,29 @@ export default {
             };
             this.$router.push({query: {...this.$route.query, ...query}}).catch(err => err);
         },
-        zoom(s) {
-            const {from, to} = s.selection;
-            const query = {...this.$route.query, from, to};
-            this.$router.push({query}).catch(err => err);
+        runQuery() {
+            const q = this.$route.query.query;
+            this.setQuery();
+            if (this.$route.query.query === q) {
+                this.get();
+            }
         },
         filterByPattern(p) {
             this.view = 'list';
             this.query.hash = p ? p.hash : [];
             this.setQuery();
         },
+        zoom(s) {
+            const {from, to} = s.selection;
+            const query = {...this.$route.query, from, to};
+            this.$router.push({query}).catch(err => err);
+        },
         get() {
             this.loading = true;
             this.loadingError = '';
             this.$api.getLogs(this.appId, this.$route.query.query, (data, error) => {
                 this.loading = false;
-                const errMsg = 'Failed to load traces';
+                const errMsg = 'Failed to load logs';
                 if (error) {
                     this.loadingError = error;
                     this.data.status = 'warning';
@@ -338,12 +376,12 @@ export default {
                     this.data.patterns = null;
                     return;
                 }
-                this.data = data;
                 if (this.data.status === 'warning') {
                     this.loadingError = this.data.message;
                     this.data.message = errMsg;
                     return;
                 }
+                this.data = data;
                 const service = (this.data.services || []).find(s => s.linked);
                 this.form.service = service ? service.name : null;
                 this.saved = JSON.stringify(this.form);
@@ -401,27 +439,11 @@ export default {
 }
 .pattern .sample {
     font-size: 0.8rem;
-}
-.pattern .sample.preview {
     flex-grow: 1;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     max-height: 4.5rem;
-}
-.pattern .sample.details {
-    background-color: #EEEEEE;
-    overflow: auto;
-    border-radius: 3px;
-}
-.pattern .sample.details.multiline {
-    white-space: pre;
-    max-height: 50vh;
-}
-.pattern .sample >>> mark {
-    background-color: unset;
-    color: black;
-    font-weight: bold;
 }
 .pattern .line {
     flex-grow: 0;
@@ -441,7 +463,11 @@ export default {
     font-size: 0.65rem;
 }
 
-.details .message {
+.entry:deep(tr:hover) {
+    background-color: unset !important;
+}
+
+.message {
     font-family: monospace, monospace;
     font-size: 14px;
     background-color: #EEEEEE;
@@ -450,10 +476,12 @@ export default {
     padding: 8px;
     overflow: auto;
 }
-.details .message.multiline {
+.message.multiline {
     white-space: pre;
 }
-.details:deep(tr:hover) {
-    background-color: unset !important;
+.message:deep(mark) {
+    background-color: unset;
+    color: black;
+    font-weight: bold;
 }
 </style>

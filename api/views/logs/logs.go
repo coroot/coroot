@@ -42,15 +42,15 @@ type Service struct {
 }
 
 type Pattern struct {
-	Severity  model.LogSeverity     `json:"severity"`
-	Sample    string                `json:"sample"`
-	Multiline bool                  `json:"multiline"`
-	Messages  *timeseries.Aggregate `json:"messages"`
-	Sum       uint64                `json:"sum"`
-	Instances *model.Chart          `json:"instances"` // TODO: remove?
-	Hash      []string              `json:"hash"`
+	Severity model.LogSeverity     `json:"severity"`
+	Sample   string                `json:"sample"`
+	Messages *timeseries.Aggregate `json:"messages"`
+	Sum      uint64                `json:"sum"`
+	Chart    *model.Chart          `json:"chart"`
+	Hash     []string              `json:"hash"`
 
-	pattern *logparser.Pattern
+	pattern       *logparser.Pattern
+	sumByInstance map[string]*timeseries.Aggregate
 }
 
 type Entry struct {
@@ -116,10 +116,7 @@ func getChartAndPatterns(v *View, app *model.Application, w *model.World, q Quer
 				if timeseries.IsNaN(events) || events == 0 {
 					continue
 				}
-				if filterByPattern {
-					if !q.hash[hash] {
-						continue
-					}
+				if filterByPattern && q.hash[hash] {
 					if sumByInstance[instance.Name] == nil {
 						sumByInstance[instance.Name] = timeseries.NewAggregate(timeseries.NanSum)
 					}
@@ -139,13 +136,12 @@ func getChartAndPatterns(v *View, app *model.Application, w *model.World, q Quer
 					}
 					if p == nil {
 						p = &Pattern{
-							pattern:   pattern.Pattern,
-							Severity:  severity,
-							Sample:    pattern.Sample,
-							Multiline: pattern.Multiline,
-							Messages:  timeseries.NewAggregate(timeseries.NanSum),
-							Instances: model.NewChart(w.Ctx, "Events by instance").Column(),
-							Hash:      []string{hash},
+							pattern:       pattern.Pattern,
+							Severity:      severity,
+							Sample:        pattern.Sample,
+							Messages:      timeseries.NewAggregate(timeseries.NanSum),
+							Hash:          []string{hash},
+							sumByInstance: map[string]*timeseries.Aggregate{},
 						}
 						patterns[severity][hash] = p
 						v.Patterns = append(v.Patterns, p)
@@ -153,23 +149,32 @@ func getChartAndPatterns(v *View, app *model.Application, w *model.World, q Quer
 				}
 				p.Sum += uint64(events)
 				p.Messages.Add(pattern.Messages)
-				p.Instances.AddSeries(instance.Name, pattern.Messages)
+				if p.sumByInstance[instance.Name] == nil {
+					p.sumByInstance[instance.Name] = timeseries.NewAggregate(timeseries.NanSum)
+				}
+				p.sumByInstance[instance.Name].Add(pattern.Messages)
 			}
 		}
 	}
 
+	for _, p := range v.Patterns {
+		p.Chart = model.NewChart(w.Ctx, "").Column()
+		for name, ts := range p.sumByInstance {
+			p.Chart.AddSeries(name, ts)
+		}
+	}
 	sort.Slice(v.Patterns, func(i, j int) bool {
 		return v.Patterns[i].Sum > v.Patterns[j].Sum
 	})
 
 	if !filterByPattern && len(sumBySeverity) > 0 {
-		v.Chart = model.NewChart(w.Ctx, "").Column().Legend(false)
+		v.Chart = model.NewChart(w.Ctx, "").Column()
 		for s, ts := range sumBySeverity {
 			v.Chart.AddSeries(string(s), ts.Get())
 		}
 	}
 	if filterByPattern && len(sumByInstance) > 0 {
-		v.Chart = model.NewChart(w.Ctx, "").Column().Legend(true)
+		v.Chart = model.NewChart(w.Ctx, "").Column()
 		for i, ts := range sumByInstance {
 			v.Chart.AddSeries(i, ts.Get())
 		}
