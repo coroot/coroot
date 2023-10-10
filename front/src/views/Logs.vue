@@ -16,50 +16,52 @@
         </div>
 
         <v-form :disabled="disabled">
-            <v-select :items="sources" v-model="query.source" @change="setQuery" outlined hide-details dense :menu-props="{offsetY: true}" class="mt-4" />
+            <v-select :items="sources" v-model="query.source" @change="changeSource" outlined hide-details dense :menu-props="{offsetY: true}" class="mt-4" />
 
             <div class="subtitle-1 mt-3">Filter: </div>
-            <div class="d-flex flex-wrap align-center" style="margin-left: -5px; gap: 8px">
-                <v-checkbox v-for="(s, name) in severities" :key="name" :value="name" v-model="query.severity" :label="name" :color="color(s.color)" class="ma-0 text-no-wrap text-capitalize checkbox" dense hide-details />
-                <v-text-field v-model="query.search" @keydown.enter.prevent="runQuery" prepend-inner-icon="mdi-magnify" label="Filter messages" dense hide-details single-line outlined>
-                    <template v-if="query.hash && query.hash.length" #prepend-inner>
-                        <v-chip small label close @click:close="filterByPattern(null)" close-icon="mdi-close" class="mr-2">
-                            pattern: {{query.hash[0].substr(0, 7)}}
-                        </v-chip>
-                    </template>
-                </v-text-field>
-                <v-btn @click="runQuery" :disabled="disabled" color="primary" height="38">Query</v-btn>
+            <div class="d-flex flex-wrap flex-md-nowrap align-center" style="margin-left: -5px; gap: 8px">
+                <v-checkbox v-for="s in severities" :key="s.name" :value="s.name" v-model="query.severity" :label="s.name" :color="s.color" class="ma-0 text-no-wrap text-capitalize checkbox" dense hide-details />
+                <div class="d-flex flex-grow-1" style="gap: 4px">
+                    <v-text-field v-model="query.search" @keydown.enter.prevent="runQuery" label="Filter messages" prepend-inner-icon="mdi-magnify" dense hide-details single-line outlined>
+                        <template v-if="query.hash && query.hash.length" #prepend-inner>
+                            <v-chip small label close @click:close="filterByPattern(null)" close-icon="mdi-close" class="mr-2">
+                                pattern: {{query.hash[0].substr(0, 7)}}
+                            </v-chip>
+                        </template>
+                    </v-text-field>
+                    <v-btn @click="runQuery" :disabled="disabled" color="primary" height="40">Query</v-btn>
+                </div>
             </div>
         </v-form>
 
         <div class="subtitle-1 mt-2">View: </div>
-        <div class="d-flex" style="gap: 12px">
-            <v-btn-toggle v-model="view" @change="setQuery" dense>
-                <v-btn value="list"><v-icon small>mdi-format-list-bulleted</v-icon>List</v-btn>
-                <v-btn value="patterns" @click="filterByPattern(null)"><v-icon small>mdi-creation</v-icon>Patterns</v-btn>
+        <div class="d-flex flex-wrap align-center" style="gap: 12px">
+            <v-btn-toggle v-model="query.view" @change="setQuery" dense>
+                <v-btn v-for="v in views" :value="v.name" @click="v.click" :disabled="v.disabled" height="40" class="text-capitalize">
+                    <v-icon small>{{v.icon}}</v-icon>{{v.name}}
+                </v-btn>
             </v-btn-toggle>
             <v-btn-toggle v-model="order" @change="setQuery" dense>
-                <v-btn value="desc" :disabled="disabled"><v-icon small>mdi-arrow-up-thick</v-icon>Newest first</v-btn>
-                <v-btn value="asc" :disabled="disabled"><v-icon small>mdi-arrow-down-thick</v-icon>Oldest first</v-btn>
+                <v-btn value="desc" :disabled="disabled" height="40"><v-icon small>mdi-arrow-up-thick</v-icon>Newest first</v-btn>
+                <v-btn value="asc" :disabled="disabled" height="40"><v-icon small>mdi-arrow-down-thick</v-icon>Oldest first</v-btn>
             </v-btn-toggle>
-        </div>
-
-        <div class="grey--text mt-5">
-            <v-icon size="20" style="vertical-align: baseline">mdi-lightbulb-on-outline</v-icon>
-            Select a chart area to zoom in
+            <div class="d-flex align-center" style="gap: 4px">
+                Limit:
+                <v-select :items="limits" v-model="query.limit" @change="setQuery" :disabled="disabled" outlined hide-details dense :menu-props="{offsetY: true}" style="width: 12ch" />
+            </div>
         </div>
     </v-card>
 
-    <div class="pt-5" style="position: relative">
+    <div class="pt-5" style="position: relative; min-height: 50vh">
         <v-progress-linear v-if="loading" indeterminate color="green" height="4" style="position: absolute; top: 0" />
 
         <div v-if="!loading && loadingError" class="pa-3 text-center red--text">
             {{loadingError}}
         </div>
         <template v-else>
-            <Chart v-if="chart" :chart="chart" :selection="{}" @select="zoom" />
+            <Chart v-if="chart" :chart="chart" :selection="{}" @select="zoom" class="my-3" />
 
-            <div v-if="view === 'list'" class="mt-5">
+            <div v-if="query.view === 'messages'">
                 <v-simple-table v-if="entries" dense class="entries">
                     <thead>
                     <tr>
@@ -112,7 +114,7 @@
                 </v-dialog>
             </div>
 
-            <div v-if="view === 'patterns'" class="mt-5">
+            <div v-if="query.view === 'patterns'">
                 <div v-if="patterns" class="patterns">
                     <div v-for="p in patterns" class="pattern" @click="pattern = p">
                         <div class="sample" v-html="p.sample" />
@@ -178,14 +180,15 @@ import Chart from "../components/Chart.vue";
 import { palette } from "../utils/colors";
 import Led from "@/components/Led.vue";
 
-const severities = {
-    unknown: {color: 'grey-lighten1'},
-    debug: {color: 'green-lighten1'},
-    info: {color: 'blue-lighten2'},
-    warning: {color: 'orange-lighten1'},
-    error: {color: 'red-darken1'},
-    critical: {color: 'black'},
-};
+const severity = (s) => {
+    s = s.toLowerCase();
+    if (s.startsWith('crit')) return {num: 5, color: 'black'};
+    if (s.startsWith('err')) return {num: 4, color: 'red-darken1'};
+    if (s.startsWith('warn')) return {num: 3, color: 'orange-lighten1'};
+    if (s.startsWith('info')) return {num: 2, color: 'blue-lighten2'};
+    if (s.startsWith('debug')) return {num: 1, color: 'green-lighten1'};
+    return {num: 0, color: 'grey-lighten1'};
+}
 
 export default {
     components: {Led, Chart, Check},
@@ -200,7 +203,6 @@ export default {
             loadingError: '',
             data: {},
             query: {},
-            view: '',
             order: '',
 
             configure: false,
@@ -219,25 +221,58 @@ export default {
 
     computed: {
         sources() {
-            return (this.data.sources || []).map(s => ({
-                text: s.name,
-                value: s.type,
-            }));
+            return (this.data.sources || []).map(s => {
+                return {
+                    value: s,
+                    text: s === 'otel' ? 'OpenTelemetry' : 'Container logs',
+                }
+            });
         },
         services() {
-            return (this.data.services || []).map(a => a.name);
+            return this.data.services || [];
+        },
+        views() {
+            const views = this.data.views || [];
+            const res = [
+                {name: 'messages', icon: 'mdi-format-list-bulleted', click: () => {}},
+                {name: 'patterns', icon: 'mdi-creation', click: () => this.filterByPattern(null)},
+            ];
+            res.forEach(v => {
+                v.disabled = views.indexOf(v.name) < 0;
+            })
+            return res;
         },
         severities() {
-            return severities;
+            if (!this.data.severities) {
+                return [];
+            }
+            const res = this.data.severities.map(s => {
+                const sev = severity(s);
+                return {
+                    name: s,
+                    num: sev.num,
+                    color: palette.get(sev.color),
+                }
+            });
+            res.sort((s1, s2) => s1.num - s2.num);
+            return res;
         },
         chart() {
-            if (!this.data.chart) {
+            const ch = this.data.chart;
+            if (!ch) {
                 return null;
             }
-            this.data.chart.series.forEach(s => {
-                s.color = (severities[s.name] || {}).color;
+            if (ch.flags !== 'severity' || !ch.series) {
+                return ch;
+            }
+            ch.series.forEach(s => {
+                const sev = severity(s.name);
+                s.num = sev.num;
+                s.color = sev.color;
             });
-            return this.data.chart;
+            ch.series.sort((s1, s2) => s1.num - s2.num);
+            ch.sorted = true;
+            return ch;
         },
         entries() {
             if (!this.data.entries) {
@@ -248,7 +283,7 @@ export default {
                 return {
                     severity: e.severity,
                     timestamp: e.timestamp,
-                    color: palette.get(severities[e.severity].color),
+                    color: palette.get(severity(e.severity).color),
                     date: this.$format.date(e.timestamp, '{MMM} {DD} {HH}:{mm}:{ss}'),
                     message: e.message,
                     attributes: e.attributes,
@@ -272,7 +307,7 @@ export default {
                 const newline = p.sample.indexOf('\n');
                 return {
                     severity: p.severity,
-                    color: palette.get(severities[p.severity].color),
+                    color: palette.get(severity(p.severity).color),
                     sample: p.sample,
                     multiline: newline > 0 ? newline : 0,
                     messages: p.messages.map((v) => v === null ? 0 : v),
@@ -283,8 +318,11 @@ export default {
                 };
             });
         },
+        limits() {
+            return [10, 20, 50, 100, 1000];
+        },
         disabled() {
-            return this.loading || this.view !== 'list'
+            return this.loading || this.query.view !== 'messages'
         },
         changed() {
             return !!this.form && this.saved !== JSON.stringify(this.form);
@@ -307,9 +345,6 @@ export default {
     },
 
     methods: {
-        color(c) {
-            return palette.get(c);
-        },
         getQuery() {
             const query = this.$route.query;
             let q = {};
@@ -320,20 +355,21 @@ export default {
             }
             let severity = q.severity || [];
             if (!severity.length) {
-                severity = Object.keys(severities);
+                severity = this.data.severities || [];
             }
             this.query = {
                 source: q.source || '',
+                view: q.view || 'messages',
                 search: q.search || '',
                 hash: q.hash || [],
                 severity,
+                limit: q.limit || 100,
             };
-            this.view = query.view || 'list';
             this.order = query.order || 'desc';
         },
         setQuery() {
-            if (this.view === 'patterns') {
-                this.query.severity = Object.keys(severities);
+            if (this.query.view === 'patterns') {
+                this.query.severity = this.data.severities || [];
                 this.query.search = '';
                 this.query.hash = [];
                 this.order = '';
@@ -352,8 +388,17 @@ export default {
                 this.get();
             }
         },
+        changeSource(s) {
+            this.data.severities = [];
+            this.query.source = s;
+            this.query.severity = [];
+            this.query.search = '';
+            this.query.hash = [];
+            this.setQuery();
+        },
         filterByPattern(p) {
-            this.view = 'list';
+            this.query.view = 'messages';
+            this.pattern = null;
             this.query.hash = p ? p.hash : [];
             this.setQuery();
         },
@@ -365,30 +410,24 @@ export default {
         get() {
             this.loading = true;
             this.loadingError = '';
+            this.data.chart = null;
+            this.data.entries = null;
+            this.data.patterns = null;
             this.$api.getLogs(this.appId, this.$route.query.query, (data, error) => {
                 this.loading = false;
                 const errMsg = 'Failed to load logs';
-                if (error) {
-                    this.loadingError = error;
+                if (error || data.status === 'warning') {
+                    this.loadingError = error || data.message;
                     this.data.status = 'warning';
-                    this.data.message = errMsg;
-                    this.data.logs = null;
-                    this.data.patterns = null;
-                    return;
-                }
-                if (this.data.status === 'warning') {
-                    this.loadingError = this.data.message;
                     this.data.message = errMsg;
                     return;
                 }
                 this.data = data;
-                const service = (this.data.services || []).find(s => s.linked);
-                this.form.service = service ? service.name : null;
+                this.form.service = this.data.service;
                 this.saved = JSON.stringify(this.form);
-                const source = (this.data.sources || []).find((s) => s.selected);
-                if (source) {
-                    this.query.source = source.type;
-                }
+                this.query.source = this.data.source;
+                this.query.view = this.data.view;
+                this.query.severity = this.data.severity;
             })
         },
         save() {

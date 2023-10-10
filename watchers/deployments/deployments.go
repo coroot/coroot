@@ -363,9 +363,9 @@ func calcMetricsSnapshot(app *model.Application, from, to timeseries.Time, step 
 			oomKills.Add(c.OOMKills)
 			for level, msgs := range i.LogMessages {
 				switch level {
-				case model.LogSeverityCritical, model.LogSeverityError:
+				case model.LogLevelCritical, model.LogLevelError:
 					logErrors.Add(msgs.Messages)
-				case model.LogSeverityWarning:
+				case model.LogLevelWarning:
 					logWarnings.Add(msgs.Messages)
 				}
 			}

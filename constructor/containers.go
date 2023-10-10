@@ -349,7 +349,7 @@ func getOrCreateInstanceVolume(instance *model.Instance, m model.MetricValues) *
 }
 
 func logMessage(instance *model.Instance, ls model.Labels, values *timeseries.TimeSeries) {
-	level := model.LogSeverity(ls["level"])
+	level := model.LogLevel(ls["level"])
 	msgs := instance.LogMessages[level]
 	if msgs == nil {
 		msgs = &model.LogMessages{}
@@ -365,7 +365,7 @@ func logMessage(instance *model.Instance, ls model.Labels, values *timeseries.Ti
 		if p == nil {
 			sample := ls["sample"]
 			p = &model.LogPattern{
-				Severity:  level,
+				Level:     level,
 				Sample:    sample,
 				Multiline: strings.Contains(sample, "\n"),
 				Pattern:   logparser.NewPattern(sample),

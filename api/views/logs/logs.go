@@ -12,22 +12,30 @@ import (
 	"k8s.io/klog"
 	"net/url"
 	"sort"
-	"strings"
 )
 
 const (
-	limit = 1000
+	viewMessages = "messages"
+	viewPatterns = "patterns"
+
+	defaultLimit = 100
 )
 
 type View struct {
-	Status   model.Status `json:"status"`
-	Message  string       `json:"message"` // TODO: output if error
-	Sources  []Source     `json:"sources"`
-	Services []Service    `json:"services"`
-	Chart    *model.Chart `json:"chart"`
-	Patterns []*Pattern   `json:"patterns"`
-	Entries  []Entry      `json:"entries"`
-	Limit    int          `json:"limit"`
+	Status     model.Status     `json:"status"`
+	Message    string           `json:"message"`
+	Sources    []tracing.Source `json:"sources"`
+	Source     tracing.Source   `json:"source"`
+	Services   []string         `json:"services"`
+	Service    string           `json:"service"`
+	Views      []string         `json:"views"`
+	View       string           `json:"view"`
+	Severities []string         `json:"severities"`
+	Severity   []string         `json:"severity"`
+	Chart      *model.Chart     `json:"chart"`
+	Entries    []Entry          `json:"entries"`
+	Patterns   []*Pattern       `json:"patterns"`
+	Limit      int              `json:"limit"`
 }
 
 type Source struct {
@@ -36,13 +44,8 @@ type Source struct {
 	Selected bool           `json:"selected"`
 }
 
-type Service struct {
-	Name   string `json:"name"`
-	Linked bool   `json:"linked"`
-}
-
 type Pattern struct {
-	Severity model.LogSeverity     `json:"severity"`
+	Severity string                `json:"severity"`
 	Sample   string                `json:"sample"`
 	Messages *timeseries.Aggregate `json:"messages"`
 	Sum      uint64                `json:"sum"`
@@ -55,18 +58,20 @@ type Pattern struct {
 
 type Entry struct {
 	Timestamp  int64             `json:"timestamp"`
-	Severity   model.LogSeverity `json:"severity"`
+	Severity   string            `json:"severity"`
 	Message    string            `json:"message"`
 	Attributes map[string]string `json:"attributes"`
 }
 
 type Query struct {
-	Source   tracing.Source      `json:"source"`
-	Severity []model.LogSeverity `json:"severity"`
-	Search   string              `json:"search"`
-	Hash     []string            `json:"hash"`
+	Source   tracing.Source `json:"source"`
+	View     string         `json:"view"`
+	Severity []string       `json:"severity"`
+	Search   string         `json:"search"`
+	Hash     []string       `json:"hash"`
+	Limit    int            `json:"limit"`
 
-	severity map[model.LogSeverity]bool
+	severity map[string]bool
 	hash     map[string]bool
 }
 
@@ -78,7 +83,7 @@ func Render(ctx context.Context, clickhouse *tracing.ClickhouseClient, app *mode
 		if err := json.Unmarshal([]byte(qs[0]), &q); err != nil {
 			klog.Warningln(err)
 		}
-		q.severity = map[model.LogSeverity]bool{}
+		q.severity = map[string]bool{}
 		for _, s := range q.Severity {
 			q.severity[s] = true
 		}
@@ -87,40 +92,181 @@ func Render(ctx context.Context, clickhouse *tracing.ClickhouseClient, app *mode
 			q.hash[h] = true
 		}
 	}
+	if q.Limit == 0 {
+		q.Limit = defaultLimit
+	}
 
-	getChartAndPatterns(v, app, w, q)
+	v.View = q.View
+	if v.View == "" {
+		v.View = viewMessages
+	}
+	v.Views = append(v.Views, viewMessages)
 	getLogs(ctx, v, clickhouse, app, appSettings, w, q)
+	if v.Source == tracing.SourceAgent {
+		v.Views = append(v.Views, viewPatterns)
+		if v.View == viewPatterns {
+			getPatterns(v, app, w, q)
+		}
+	}
 
 	return v
 }
 
-func getChartAndPatterns(v *View, app *model.Application, w *model.World, q Query) {
-	sumBySeverity := map[model.LogSeverity]*timeseries.Aggregate{}
-	sumByInstance := map[string]*timeseries.Aggregate{}
-	filterByPattern := len(q.hash) > 0
-	patterns := map[model.LogSeverity]map[string]*Pattern{}
+func getLogs(ctx context.Context, v *View, clickhouse *tracing.ClickhouseClient, app *model.Application, appSettings *db.ApplicationSettings, w *model.World, q Query) {
+	if clickhouse == nil {
+		v.Status = model.UNKNOWN
+		v.Message = "Clickhouse is not configured: %s"
+		return
+	}
+	services, err := clickhouse.GetServiceNamesFromLogs(ctx)
+	if err != nil {
+		klog.Errorln(err)
+		v.Status = model.WARNING
+		v.Message = fmt.Sprintf("Clickhouse error: %s", err)
+		return
+	}
+
+	service := ""
+	if appSettings != nil && appSettings.Logs != nil {
+		service = appSettings.Logs.Service
+	} else {
+		var ss []string
+		for s := range services {
+			ss = append(ss, s)
+		}
+		service = tracing.GuessService(ss, app.Id)
+	}
+	for s := range services {
+		if s == "coroot-node-agent" {
+			v.Sources = append(v.Sources, tracing.SourceAgent)
+		} else {
+			v.Services = append(v.Services, s)
+			if s == service {
+				v.Service = s
+				v.Sources = append(v.Sources, tracing.SourceOtel)
+			}
+		}
+	}
+	sort.Strings(v.Services)
+
+	if len(v.Sources) == 0 {
+		v.Status = model.UNKNOWN
+		v.Message = "No logs found"
+		return
+	}
+
+	v.Source = q.Source
+	if v.Source == "" {
+		if v.Service != "" {
+			v.Source = tracing.SourceOtel
+		} else {
+			v.Source = tracing.SourceAgent
+		}
+	}
+	v.Severity = q.Severity
+
+	wCtx := w.Ctx
+	if wCtx.Step < timeseries.Minute {
+		wCtx.Step = timeseries.Minute
+	}
+
+	var hist map[string]*timeseries.TimeSeries
+	var entries []*tracing.LogEntry
+	switch v.Source {
+	case tracing.SourceOtel:
+		v.Message = fmt.Sprintf("Using OpenTelemetry logs of <i>%s</i>", service)
+		v.Severities = services[v.Service]
+		if len(v.Severity) == 0 {
+			v.Severity = v.Severities
+		}
+		if v.View == viewMessages {
+			if len(q.Hash) == 0 && q.Search == "" {
+				hist, err = clickhouse.GetServiceLogsHistogram(ctx, wCtx, service, v.Severity)
+			}
+			if err == nil {
+				entries, err = clickhouse.GetServiceLogs(ctx, wCtx, service, v.Severity, q.Hash, q.Search, q.Limit)
+			}
+		}
+	case tracing.SourceAgent:
+		v.Message = "Using container logs"
+		v.Severities = services["coroot-node-agent"]
+		var containerIds []string
+		for _, i := range app.Instances {
+			for _, c := range i.Containers {
+				containerIds = append(containerIds, c.Id)
+			}
+		}
+		if len(v.Severity) == 0 {
+			v.Severity = v.Severities
+		}
+		if v.View == viewMessages {
+			if len(q.Hash) == 0 && q.Search == "" {
+				hist, err = clickhouse.GetContainerLogsHistogram(ctx, wCtx, containerIds, v.Severity)
+			}
+			if err == nil {
+				entries, err = clickhouse.GetContainerLogs(ctx, wCtx, containerIds, v.Severity, q.Hash, q.Search, q.Limit)
+			}
+		}
+	}
+	if err != nil {
+		klog.Errorln(err)
+		v.Status = model.WARNING
+		v.Message = fmt.Sprintf("Clickhouse error: %s", err)
+		return
+	}
+
+	v.Status = model.OK
+
+	switch {
+	case len(hist) > 0:
+		v.Chart = model.NewChart(wCtx, "").Column()
+		v.Chart.Flags = "severity"
+		for severity, ts := range hist {
+			v.Chart.AddSeries(severity, ts)
+		}
+	case len(q.Hash) > 0:
+		v.Chart = model.NewChart(wCtx, "").Column()
+		for name, ts := range sumByInstance(app, q) {
+			v.Chart.AddSeries(name, ts)
+		}
+	}
+
+	for _, e := range entries {
+		entry := Entry{
+			Timestamp:  e.Timestamp.UnixMilli(),
+			Severity:   e.Severity,
+			Message:    e.Body,
+			Attributes: map[string]string{},
+		}
+		for name, value := range e.LogAttributes {
+			if name != "" && value != "" {
+				entry.Attributes[name] = value
+			}
+		}
+		for name, value := range e.ResourceAttributes {
+			if name != "" && value != "" {
+				entry.Attributes[name] = value
+			}
+		}
+		v.Entries = append(v.Entries, entry)
+	}
+	if len(v.Entries) >= q.Limit {
+		v.Limit = q.Limit
+	}
+}
+
+func getPatterns(v *View, app *model.Application, w *model.World, q Query) {
+	patterns := map[string]map[string]*Pattern{}
 	for _, instance := range app.Instances {
-		for severity, msgs := range instance.LogMessages {
+		for s, msgs := range instance.LogMessages {
+			severity := string(s)
 			if len(q.severity) > 0 && !q.severity[severity] {
 				continue
 			}
-			if !filterByPattern {
-				if sumBySeverity[severity] == nil {
-					sumBySeverity[severity] = timeseries.NewAggregate(timeseries.NanSum)
-				}
-				sumBySeverity[severity].Add(msgs.Messages)
-			}
-
 			for hash, pattern := range msgs.Patterns {
 				events := pattern.Messages.Reduce(timeseries.NanSum)
 				if timeseries.IsNaN(events) || events == 0 {
 					continue
-				}
-				if filterByPattern && q.hash[hash] {
-					if sumByInstance[instance.Name] == nil {
-						sumByInstance[instance.Name] = timeseries.NewAggregate(timeseries.NanSum)
-					}
-					sumByInstance[instance.Name].Add(pattern.Messages)
 				}
 				if patterns[severity] == nil {
 					patterns[severity] = map[string]*Pattern{}
@@ -157,127 +303,43 @@ func getChartAndPatterns(v *View, app *model.Application, w *model.World, q Quer
 		}
 	}
 
+	bySeverity := map[string]*timeseries.Aggregate{}
 	for _, p := range v.Patterns {
+		if bySeverity[p.Severity] == nil {
+			bySeverity[p.Severity] = timeseries.NewAggregate(timeseries.NanSum)
+		}
+		bySeverity[p.Severity].Add(p.Messages.Get())
 		p.Chart = model.NewChart(w.Ctx, "").Column()
 		for name, ts := range p.sumByInstance {
 			p.Chart.AddSeries(name, ts)
 		}
 	}
-	sort.Slice(v.Patterns, func(i, j int) bool {
-		return v.Patterns[i].Sum > v.Patterns[j].Sum
-	})
-
-	if !filterByPattern && len(sumBySeverity) > 0 {
+	if len(bySeverity) > 0 {
 		v.Chart = model.NewChart(w.Ctx, "").Column()
-		for s, ts := range sumBySeverity {
+		v.Chart.Flags = "severity"
+		for s, ts := range bySeverity {
 			v.Chart.AddSeries(string(s), ts.Get())
 		}
-	}
-	if filterByPattern && len(sumByInstance) > 0 {
-		v.Chart = model.NewChart(w.Ctx, "").Column()
-		for i, ts := range sumByInstance {
-			v.Chart.AddSeries(i, ts.Get())
-		}
+		sort.Slice(v.Patterns, func(i, j int) bool {
+			return v.Patterns[i].Sum > v.Patterns[j].Sum
+		})
 	}
 }
 
-func getLogs(ctx context.Context, v *View, clickhouse *tracing.ClickhouseClient, app *model.Application, appSettings *db.ApplicationSettings, w *model.World, q Query) {
-	if clickhouse == nil {
-		// TODO: v.Message ?
-		return
-	}
-	services, err := clickhouse.GetServiceNamesFromLogs(ctx)
-	if err != nil {
-		klog.Errorln(err)
-		v.Status = model.WARNING
-		v.Message = fmt.Sprintf("Clickhouse error: %s", err)
-		return
-	}
-
-	service := ""
-	if appSettings != nil && appSettings.Logs != nil {
-		service = appSettings.Logs.Service
-	} else {
-		service = tracing.GuessService(services, app.Id)
-	}
-	var serviceFound, agentFound bool
-	for _, s := range services {
-		if s == "coroot-node-agent" {
-			agentFound = true
-		} else {
-			if s == service {
-				serviceFound = true
-			}
-			v.Services = append(v.Services, Service{Name: s, Linked: s == service})
-		}
-	}
-	sort.Slice(v.Services, func(i, j int) bool {
-		return v.Services[i].Name < v.Services[j].Name
-	})
-
-	if serviceFound {
-		if q.Source == "" {
-			q.Source = tracing.SourceOtel
-		}
-		v.Sources = append(v.Sources, Source{Type: tracing.SourceOtel, Name: "OpenTelemetry", Selected: q.Source == tracing.SourceOtel})
-	}
-	if agentFound {
-		if q.Source == "" {
-			q.Source = tracing.SourceAgent
-		}
-		v.Sources = append(v.Sources, Source{Type: tracing.SourceAgent, Name: "Container logs", Selected: q.Source == tracing.SourceAgent})
-	}
-
-	if !serviceFound && !agentFound {
-		v.Status = model.UNKNOWN
-		v.Message = "No logs found"
-		return
-	}
-
-	var entries []*tracing.LogEntry
-	switch q.Source {
-	case tracing.SourceOtel:
-		v.Message = fmt.Sprintf("Using OpenTelemetry logs of <i>%s</i>", service)
-		entries, err = clickhouse.GetServiceLogs(ctx, w.Ctx.From, w.Ctx.To, service, q.Severity, q.Hash, q.Search, limit)
-	case tracing.SourceAgent:
-		v.Message = "Using container logs"
-		var containerIds []string
-		for _, i := range app.Instances {
-			for _, c := range i.Containers {
-				containerIds = append(containerIds, c.Id)
+func sumByInstance(app *model.Application, q Query) map[string]*timeseries.Aggregate {
+	res := map[string]*timeseries.Aggregate{}
+	for _, instance := range app.Instances {
+		for _, msgs := range instance.LogMessages {
+			for hash, pattern := range msgs.Patterns {
+				if !q.hash[hash] {
+					continue
+				}
+				if res[instance.Name] == nil {
+					res[instance.Name] = timeseries.NewAggregate(timeseries.NanSum)
+				}
+				res[instance.Name].Add(pattern.Messages)
 			}
 		}
-		entries, err = clickhouse.GetContainerLogs(ctx, w.Ctx.From, w.Ctx.To, containerIds, q.Severity, q.Hash, q.Search, limit)
 	}
-	if err != nil {
-		klog.Errorln(err)
-		v.Status = model.WARNING
-		v.Message = fmt.Sprintf("Clickhouse error: %s", err)
-		return
-	}
-
-	v.Status = model.OK
-
-	for _, e := range entries {
-		entry := Entry{
-			Timestamp:  e.Timestamp.UnixMilli(),
-			Severity:   model.LogSeverity(strings.ToLower(e.Severity)),
-			Message:    e.Body,
-			Attributes: map[string]string{},
-		}
-		for name, value := range e.LogAttributes {
-			if name != "" && value != "" {
-				entry.Attributes[name] = value
-			}
-		}
-		for name, value := range e.ResourceAttributes {
-			if name != "" && value != "" {
-				entry.Attributes[name] = value
-			}
-		}
-		v.Entries = append(v.Entries, entry)
-	}
-	if len(v.Entries) >= limit {
-		v.Limit = limit
-	}
+	return res
 }
