@@ -154,7 +154,7 @@ func (c *ClickhouseClient) getLogs(ctx context.Context, from, to timeseries.Time
 
 	var qs []string
 	for _, severity := range severities {
-		q := "SELECT Timestamp, SeverityText, Body, ResourceAttributes, LogAttributes"
+		q := "SELECT Timestamp, SeverityText, Body, TraceId, ResourceAttributes, LogAttributes"
 		q += " FROM " + c.config.LogsTable
 		q += " WHERE " + strings.Join(append(filters, fmt.Sprintf("SeverityText = '%s'", severity)), " AND ")
 		q += " ORDER BY toUnixTimestamp(Timestamp) DESC LIMIT " + fmt.Sprint(limit)
@@ -172,7 +172,7 @@ func (c *ClickhouseClient) getLogs(ctx context.Context, from, to timeseries.Time
 	var res []*LogEntry
 	for rows.Next() {
 		var e LogEntry
-		if err = rows.Scan(&e.Timestamp, &e.Severity, &e.Body, &e.ResourceAttributes, &e.LogAttributes); err != nil {
+		if err = rows.Scan(&e.Timestamp, &e.Severity, &e.Body, &e.TraceId, &e.ResourceAttributes, &e.LogAttributes); err != nil {
 			return nil, err
 		}
 		res = append(res, &e)

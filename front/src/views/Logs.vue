@@ -115,6 +115,9 @@
                         <v-btn v-if="entry.attributes['pattern.hash']" color="primary" @click="filterByPattern(entry.attributes['pattern.hash'])" class="mt-4">
                             Show similar messages
                         </v-btn>
+                        <v-btn v-if="entry.attributes['trace.id']" color="primary" :to="{params: {report: 'Tracing'}, query: {query: undefined, trace: 'otel:'+entry.attributes['trace.id']+':-:-:'}}" class="mt-4">
+                            Show the trace
+                        </v-btn>
                     </v-card>
                 </v-dialog>
             </div>

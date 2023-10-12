@@ -269,6 +269,9 @@ func renderEntries(ctx context.Context, v *View, clickhouse *tracing.ClickhouseC
 			Message:    e.Body,
 			Attributes: map[string]string{},
 		}
+		if e.TraceId != "" {
+			entry.Attributes["trace.id"] = e.TraceId
+		}
 		for name, value := range e.LogAttributes {
 			if name != "" && value != "" {
 				entry.Attributes[name] = value

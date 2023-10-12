@@ -37,6 +37,7 @@ type LogEntry struct {
 	Timestamp          time.Time
 	Severity           string
 	Body               string
+	TraceId            string
 	LogAttributes      map[string]string
 	ResourceAttributes map[string]string
 }
