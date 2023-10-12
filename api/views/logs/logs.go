@@ -99,6 +99,14 @@ func Render(ctx context.Context, clickhouse *tracing.ClickhouseClient, app *mode
 		q.Limit = defaultLimit
 	}
 
+	if clickhouse == nil {
+		v.Status = model.UNKNOWN
+		v.Message = "Clickhouse integration is not configured"
+		v.View = viewPatterns
+		getPatterns(v, app, w, q)
+		return v
+	}
+
 	v.View = q.View
 	if v.View == "" {
 		v.View = viewMessages
@@ -111,17 +119,11 @@ func Render(ctx context.Context, clickhouse *tracing.ClickhouseClient, app *mode
 			getPatterns(v, app, w, q)
 		}
 	}
-
 	return v
 }
 
 func getLogs(ctx context.Context, v *View, clickhouse *tracing.ClickhouseClient, app *model.Application, appSettings *db.ApplicationSettings, w *model.World, q Query) {
-	if clickhouse == nil {
-		v.Status = model.UNKNOWN
-		v.Message = "Clickhouse is not configured: %s"
-		return
-	}
-	services, err := clickhouse.GetServiceNamesFromLogs(ctx)
+	services, err := clickhouse.GetServicesFromLogs(ctx)
 	if err != nil {
 		klog.Errorln(err)
 		v.Status = model.WARNING

@@ -109,7 +109,7 @@ func Render(ctx context.Context, clickhouse *tracing.ClickhouseClient, app *mode
 		v.Heatmap.AddSeries("errors", "errors", failed, "", "err")
 	}
 
-	services, err := clickhouse.GetServiceNamesFromTraces(ctx)
+	services, err := clickhouse.GetServicesFromTraces(ctx)
 	if err != nil {
 		klog.Errorln(err)
 		v.Status = model.WARNING

@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-func (c *ClickhouseClient) GetServiceNamesFromTraces(ctx context.Context) ([]string, error) {
+func (c *ClickhouseClient) GetServicesFromTraces(ctx context.Context) ([]string, error) {
 	q := "SELECT DISTINCT ServiceName"
 	q += " FROM " + c.config.TracesTable
 	rows, err := c.conn.Query(ctx, q)

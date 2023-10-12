@@ -277,19 +277,32 @@ func bootstrapClickhouse(database *db.DB, addr, user, password, databaseName, tr
 	if p == nil {
 		return
 	}
-	if p.Settings.Integrations.Clickhouse != nil {
-		return
+	var save bool
+	if cfg := p.Settings.Integrations.Clickhouse; cfg == nil {
+		p.Settings.Integrations.Clickhouse = &db.IntegrationClickhouse{
+			Protocol: "native",
+			Addr:     addr,
+			Auth: utils.BasicAuth{
+				User:     user,
+				Password: password,
+			},
+			Database:    databaseName,
+			TracesTable: tracesTable,
+			LogsTable:   logsTable,
+		}
+		save = true
+	} else {
+		if cfg.TracesTable == "" && tracesTable != "" {
+			cfg.TracesTable = tracesTable
+			save = true
+		}
+		if cfg.LogsTable == "" && logsTable != "" {
+			cfg.LogsTable = logsTable
+			save = true
+		}
 	}
-	p.Settings.Integrations.Clickhouse = &db.IntegrationClickhouse{
-		Protocol: "native",
-		Addr:     addr,
-		Auth: utils.BasicAuth{
-			User:     user,
-			Password: password,
-		},
-		Database:    databaseName,
-		TracesTable: tracesTable,
-		LogsTable:   logsTable,
+	if !save {
+		return
 	}
 	if err := database.SaveProjectIntegration(p, db.IntegrationTypeClickhouse); err != nil {
 		klog.Exitln(err)

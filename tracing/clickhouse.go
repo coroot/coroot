@@ -58,12 +58,6 @@ func NewClickhouseClient(config ClickhouseClientConfig) (*ClickhouseClient, erro
 	default:
 		return nil, fmt.Errorf("unknown protocol: %s", config.Protocol)
 	}
-	if config.TracesTable == "" {
-		return nil, fmt.Errorf("empty traces table name")
-	}
-	if config.LogsTable == "" {
-		return nil, fmt.Errorf("empty traces table name")
-	}
 	if config.DialContext != nil {
 		opts.DialContext = config.DialContext
 	}

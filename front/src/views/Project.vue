@@ -47,7 +47,7 @@
         <IntegrationPyroscope />
     </template>
 
-    <template v-if="tab === 'tracing'">
+    <template v-if="tab === 'clickhouse'">
         <h1 class="text-h5 my-5">
             Clickhouse integration
             <a href="https://coroot.com/docs/coroot-community-edition/tracing" target="_blank">
@@ -55,7 +55,7 @@
             </a>
         </h1>
         <p>
-            Coroot can display OpenTelemetry traces stored in a ClickHouse database
+            Coroot can display OpenTelemetry traces and logs stored in a ClickHouse database
             (<a href="https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/exporter/clickhouseexporter" target="_blank">clickhouse-exporter</a>).
         </p>
         <IntegrationClickhouse />
@@ -113,7 +113,7 @@ const tabs = [
     {id: undefined, name: 'General'},
     {id: 'prometheus', name: 'Prometheus'},
     {id: 'profiling', name: 'Profiling'},
-    {id: 'tracing', name: 'Tracing'},
+    {id: 'clickhouse', name: 'Clickhouse'},
     {id: 'inspections', name: 'Inspections'},
     {id: 'categories', name: 'Categories'},
     {id: 'notifications', name: 'Notifications'},
@@ -126,8 +126,13 @@ export default {
         tab: String,
     },
 
-    components: {
-        IntegrationPrometheus, IntegrationPyroscope, IntegrationClickhouse, ProjectCheckConfigs, ProjectSettings, ProjectStatus, ProjectDelete, ApplicationCategories, Integrations},
+    components: {IntegrationPrometheus, IntegrationPyroscope, IntegrationClickhouse, ProjectCheckConfigs, ProjectSettings, ProjectStatus, ProjectDelete, ApplicationCategories, Integrations},
+
+    mounted() {
+        if (!this.tabs.find(t => t.id === this.tab)) {
+            this.$router.replace({params: {tab: undefined}});
+        }
+    },
 
     computed: {
         tabs() {

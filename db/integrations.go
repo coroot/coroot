@@ -108,6 +108,14 @@ type IntegrationClickhouse struct {
 	LogsTable     string          `json:"logs_table"`
 }
 
+func (c *IntegrationClickhouse) TracingEnabled() bool {
+	return c.TracesTable != ""
+}
+
+func (c *IntegrationClickhouse) LogsEnabled() bool {
+	return c.LogsTable != ""
+}
+
 type IntegrationSlack struct {
 	Token          string `json:"token"`
 	DefaultChannel string `json:"default_channel"`

@@ -323,10 +323,10 @@ func (f *IntegrationFormClickhouse) Get(project *db.Project, masked bool) {
 	if f.Database == "" {
 		f.Database = "default"
 	}
-	if f.TracesTable == "" {
+	if cfg == nil && f.TracesTable == "" {
 		f.TracesTable = "otel_traces"
 	}
-	if f.LogsTable == "" {
+	if cfg == nil && f.LogsTable == "" {
 		f.LogsTable = "otel_logs"
 	}
 	if masked {
@@ -361,12 +361,20 @@ func (f *IntegrationFormClickhouse) Test(ctx context.Context, project *db.Projec
 	if err != nil {
 		return err
 	}
-	err = client.Ping(ctx)
-	if err != nil {
+	if err = client.Ping(ctx); err != nil {
 		return err
 	}
-	_, err = client.GetServiceNamesFromTraces(ctx)
-	return err
+	if f.TracingEnabled() {
+		if _, err = client.GetServicesFromTraces(ctx); err != nil {
+			return err
+		}
+	}
+	if f.LogsEnabled() {
+		if _, err = client.GetServicesFromLogs(ctx); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type IntegrationFormSlack struct {

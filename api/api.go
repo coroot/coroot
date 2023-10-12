@@ -390,11 +390,10 @@ func (api *Api) App(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	auditor.Audit(world, project)
-	if project.Settings.Integrations.Pyroscope != nil {
+	if cfg := project.Settings.Integrations.Pyroscope; cfg != nil {
 		app.AddReport(model.AuditReportProfiling, &model.Widget{Profile: &model.Profile{ApplicationId: app.Id}, Width: "100%"})
 	}
-	// TODO: check for some `tracing.enabled`
-	if project.Settings.Integrations.Clickhouse != nil {
+	if cfg := project.Settings.Integrations.Clickhouse; cfg != nil && cfg.TracingEnabled() {
 		app.AddReport(model.AuditReportTracing, &model.Widget{Tracing: &model.Tracing{ApplicationId: app.Id}, Width: "100%"})
 	}
 	utils.WriteJson(w, views.Application(world, app))
@@ -630,7 +629,7 @@ func (api *Api) Tracing(w http.ResponseWriter, r *http.Request) {
 	}
 	q := r.URL.Query()
 	var clickhouse *tracing.ClickhouseClient
-	if cfg := project.Settings.Integrations.Clickhouse; cfg != nil {
+	if cfg := project.Settings.Integrations.Clickhouse; cfg != nil && cfg.TracingEnabled() {
 		config := tracing.NewClickhouseClientConfig(cfg.Addr, cfg.Auth.User, cfg.Auth.Password)
 		config.Protocol = cfg.Protocol
 		config.Database = cfg.Database
@@ -696,7 +695,7 @@ func (api *Api) Logs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var clickhouse *tracing.ClickhouseClient
-	if cfg := project.Settings.Integrations.Clickhouse; cfg != nil {
+	if cfg := project.Settings.Integrations.Clickhouse; cfg != nil && cfg.LogsEnabled() {
 		config := tracing.NewClickhouseClientConfig(cfg.Addr, cfg.Auth.User, cfg.Auth.Password)
 		config.Protocol = cfg.Protocol
 		config.Database = cfg.Database

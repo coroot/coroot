@@ -7,7 +7,7 @@
             <Led :status="data.status" />
             <template v-if="data.message">
                 <span v-html="data.message" />
-                <span v-if="data.status !== 'warning'">
+                <span v-if="data.status === 'ok'">
                     (<a @click="configure = true">configure</a>)
                 </span>
             </template>
@@ -15,11 +15,11 @@
             <v-progress-circular v-if="loading" indeterminate size="16" width="2" color="green" />
         </div>
 
-        <v-form :disabled="disabled">
+        <v-form v-if="configured" :disabled="disabled">
             <v-select :items="sources" v-model="query.source" @change="changeSource" outlined hide-details dense :menu-props="{offsetY: true}" class="mt-4" />
 
             <div class="subtitle-1 mt-3">Filter: </div>
-            <div class="d-flex flex-wrap flex-md-nowrap align-center" style="margin-left: -5px; gap: 8px">
+            <div class="d-flex flex-wrap flex-md-nowrap align-center" style="gap: 8px">
                 <v-checkbox v-for="s in severities" :key="s.name" :value="s.name" v-model="query.severity" :label="s.name" :color="s.color" class="ma-0 text-no-wrap text-capitalize checkbox" dense hide-details />
                 <div class="d-flex flex-grow-1" style="gap: 4px">
                     <v-text-field v-model="query.search" @keydown.enter.prevent="runQuery" label="Filter messages" prepend-inner-icon="mdi-magnify" dense hide-details single-line outlined>
@@ -32,24 +32,24 @@
                     <v-btn @click="runQuery" :disabled="disabled" color="primary" height="40">Query</v-btn>
                 </div>
             </div>
-        </v-form>
 
-        <div class="subtitle-1 mt-2">View: </div>
-        <div class="d-flex flex-wrap align-center" style="gap: 12px">
-            <v-btn-toggle v-model="query.view" @change="setQuery" dense>
-                <v-btn v-for="v in views" :value="v.name" @click="v.click" :disabled="v.disabled" height="40" class="text-capitalize">
-                    <v-icon small>{{v.icon}}</v-icon>{{v.name}}
-                </v-btn>
-            </v-btn-toggle>
-            <v-btn-toggle v-model="order" @change="setQuery" dense>
-                <v-btn value="desc" :disabled="disabled" height="40"><v-icon small>mdi-arrow-up-thick</v-icon>Newest first</v-btn>
-                <v-btn value="asc" :disabled="disabled" height="40"><v-icon small>mdi-arrow-down-thick</v-icon>Oldest first</v-btn>
-            </v-btn-toggle>
-            <div class="d-flex align-center" style="gap: 4px">
-                Limit:
-                <v-select :items="limits" v-model="query.limit" @change="setQuery" :disabled="disabled" outlined hide-details dense :menu-props="{offsetY: true}" style="width: 12ch" />
+            <div class="subtitle-1 mt-2">View: </div>
+            <div class="d-flex flex-wrap align-center" style="gap: 12px">
+                <v-btn-toggle v-model="query.view" @change="setQuery" dense>
+                    <v-btn v-for="v in views" :value="v.name" @click="v.click" :disabled="v.disabled" height="40" class="text-capitalize">
+                        <v-icon small>{{v.icon}}</v-icon>{{v.name}}
+                    </v-btn>
+                </v-btn-toggle>
+                <v-btn-toggle v-model="order" @change="setQuery" dense>
+                    <v-btn value="desc" :disabled="disabled" height="40"><v-icon small>mdi-arrow-up-thick</v-icon>Newest first</v-btn>
+                    <v-btn value="asc" :disabled="disabled" height="40"><v-icon small>mdi-arrow-down-thick</v-icon>Oldest first</v-btn>
+                </v-btn-toggle>
+                <div class="d-flex align-center" style="gap: 4px">
+                    Limit:
+                    <v-select :items="limits" v-model="query.limit" @change="setQuery" :disabled="disabled" outlined hide-details dense :menu-props="{offsetY: true}" style="width: 12ch" />
+                </div>
             </div>
-        </div>
+        </v-form>
     </v-card>
 
     <div class="pt-5" style="position: relative; min-height: 50vh">
@@ -140,7 +140,7 @@
                         <Chart v-if="pattern.chart" :chart="pattern.chart" />
                         <div class="font-weight-medium my-3">Sample</div>
                         <div class="message" :class="{multiline: pattern.multiline}" v-html="pattern.sample" />
-                        <v-btn color="primary" @click="filterByPattern(pattern)" class="mt-4">Show messages</v-btn>
+                        <v-btn v-if="configured" color="primary" @click="filterByPattern(pattern)" class="mt-4">Show messages</v-btn>
                     </v-card>
                 </v-dialog>
             </div>
@@ -175,10 +175,10 @@
 </template>
 
 <script>
-import Check from "./Check.vue";
+import Led from "../components/Led.vue";
 import Chart from "../components/Chart.vue";
+import Check from "./Check.vue";
 import { palette } from "../utils/colors";
-import Led from "@/components/Led.vue";
 
 const severity = (s) => {
     s = s.toLowerCase();
@@ -220,6 +220,9 @@ export default {
     },
 
     computed: {
+        configured() {
+            return this.data.status !== 'unknown';
+        },
         sources() {
             return (this.data.sources || []).map(s => {
                 return {
@@ -461,6 +464,7 @@ export default {
     width: 4px;
 }
 .checkbox:deep(.v-input--selection-controls__input) {
+    margin-left: -5px;
     margin-right: 0 !important;
 }
 
