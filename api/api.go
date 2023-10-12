@@ -167,7 +167,7 @@ func (api *Api) Status(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	now := timeseries.Now()
-	world, err := api.loadWorld(r.Context(), project, now.Add(-timeseries.Hour), now, 0)
+	world, err := api.loadWorld(r.Context(), project, now.Add(-timeseries.Hour), now)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
@@ -177,7 +177,7 @@ func (api *Api) Status(w http.ResponseWriter, r *http.Request) {
 }
 
 func (api *Api) Overview(w http.ResponseWriter, r *http.Request) {
-	world, project, err := api.loadWorldByRequest(r, 0)
+	world, project, err := api.loadWorldByRequest(r)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
@@ -192,7 +192,7 @@ func (api *Api) Overview(w http.ResponseWriter, r *http.Request) {
 }
 
 func (api *Api) Search(w http.ResponseWriter, r *http.Request) {
-	world, _, err := api.loadWorldByRequest(r, 0)
+	world, _, err := api.loadWorldByRequest(r)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
@@ -374,7 +374,7 @@ func (api *Api) App(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid application id: "+mux.Vars(r)["app"], http.StatusBadRequest)
 		return
 	}
-	world, project, err := api.loadWorldByRequest(r, 0)
+	world, project, err := api.loadWorldByRequest(r)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
@@ -543,7 +543,7 @@ func (api *Api) Profile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	world, project, err := api.loadWorldByRequest(r, 0)
+	world, project, err := api.loadWorldByRequest(r)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
@@ -607,7 +607,7 @@ func (api *Api) Tracing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	world, project, err := api.loadWorldByRequest(r, 0)
+	world, project, err := api.loadWorldByRequest(r)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
@@ -674,7 +674,7 @@ func (api *Api) Logs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	world, project, err := api.loadWorldByRequest(r, tracing.MinLogsHistogramStep)
+	world, project, err := api.loadWorldByRequest(r)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
@@ -715,7 +715,7 @@ func (api *Api) Logs(w http.ResponseWriter, r *http.Request) {
 
 func (api *Api) Node(w http.ResponseWriter, r *http.Request) {
 	nodeName := mux.Vars(r)["node"]
-	world, _, err := api.loadWorldByRequest(r, 0)
+	world, _, err := api.loadWorldByRequest(r)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
@@ -733,7 +733,7 @@ func (api *Api) Node(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJson(w, views.Node(world, node))
 }
 
-func (api *Api) loadWorld(ctx context.Context, project *db.Project, from, to timeseries.Time, minStep timeseries.Duration) (*model.World, error) {
+func (api *Api) loadWorld(ctx context.Context, project *db.Project, from, to timeseries.Time) (*model.World, error) {
 	cacheClient := api.cache.GetCacheClient(project.Id)
 	cacheTo, err := cacheClient.GetTo()
 	if err != nil {
@@ -754,9 +754,6 @@ func (api *Api) loadWorld(ctx context.Context, project *db.Project, from, to tim
 		to = cacheTo
 		from = to.Add(-duration)
 	}
-	if minStep > 0 && step < minStep {
-		step = minStep
-	}
 	step = increaseStepForBigDurations(duration, step)
 
 	t := time.Now()
@@ -766,7 +763,7 @@ func (api *Api) loadWorld(ctx context.Context, project *db.Project, from, to tim
 	return world, err
 }
 
-func (api *Api) loadWorldByRequest(r *http.Request, minStep timeseries.Duration) (*model.World, *db.Project, error) {
+func (api *Api) loadWorldByRequest(r *http.Request) (*model.World, *db.Project, error) {
 	projectId := db.ProjectId(mux.Vars(r)["project"])
 	project, err := api.db.GetProject(projectId)
 	if err != nil {
@@ -794,7 +791,7 @@ func (api *Api) loadWorldByRequest(r *http.Request, minStep timeseries.Duration)
 		}
 	}
 
-	world, err := api.loadWorld(r.Context(), project, from, to, minStep)
+	world, err := api.loadWorld(r.Context(), project, from, to)
 	return world, project, err
 }
 

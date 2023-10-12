@@ -5,17 +5,14 @@ import (
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/coroot/coroot/timeseries"
+	"sort"
 	"strings"
 	"time"
 )
 
-const (
-	MinLogsHistogramStep = timeseries.Minute
-)
-
-func (c *ClickhouseClient) GetServiceNamesFromLogs(ctx context.Context) (map[string][]string, error) {
+func (c *ClickhouseClient) GetServicesFromLogs(ctx context.Context) (map[string][]string, error) {
 	q := "SELECT DISTINCT ServiceName, SeverityText"
-	q += " FROM otel_logs_histogram"
+	q += " FROM " + c.config.LogsTable
 	rows, err := c.conn.Query(ctx, q)
 	if err != nil {
 		return nil, err
@@ -34,70 +31,72 @@ func (c *ClickhouseClient) GetServiceNamesFromLogs(ctx context.Context) (map[str
 	return res, nil
 }
 
-func (c *ClickhouseClient) GetServiceLogsHistogram(ctx context.Context, tsCtx timeseries.Context, service string, severities []string) (map[string]*timeseries.TimeSeries, error) {
-	return c.getLogsHistogram(ctx, tsCtx, severities,
-		`
-			ServiceName = @serviceName
-		`,
-		clickhouse.Named("serviceName", service),
-	)
+func (c *ClickhouseClient) GetServiceLogsHistogram(ctx context.Context, from, to timeseries.Time, step timeseries.Duration, service string, severities []string) (map[string]*timeseries.TimeSeries, error) {
+	return c.getLogsHistogram(ctx, from, to, step, []string{service}, severities, "")
 }
 
-func (c *ClickhouseClient) GetServiceLogs(ctx context.Context, tsCtx timeseries.Context, service string, severities []string, patternHash []string, search string, limit int) ([]*LogEntry, error) {
-	return c.getLogs(ctx, tsCtx, severities, patternHash, search, limit,
-		`
-			ServiceName = @serviceName
-		`,
-		clickhouse.Named("serviceName", service),
-	)
+func (c *ClickhouseClient) GetServiceLogs(ctx context.Context, from, to timeseries.Time, service string, severities []string, patternHash []string, search string, limit int) ([]*LogEntry, error) {
+	return c.getLogs(ctx, from, to, service, severities, patternHash, search, limit, "")
 }
 
-func (c *ClickhouseClient) GetContainerLogsHistogram(ctx context.Context, tsCtx timeseries.Context, containerIds []string, severities []string) (map[string]*timeseries.TimeSeries, error) {
-	return c.getLogsHistogram(ctx, tsCtx, severities,
-		`
-			ServiceName = 'coroot-node-agent' AND
-			ContainerId IN (@containerIds)
-		`,
-		clickhouse.Named("containerIds", containerIds),
-	)
+func (c *ClickhouseClient) GetContainerLogsHistogram(ctx context.Context, from, to timeseries.Time, step timeseries.Duration, containerIds map[string][]string, severities []string) (map[string]*timeseries.TimeSeries, error) {
+	var services []string
+	for service := range containerIds {
+		services = append(services, service)
+	}
+	return c.getLogsHistogram(ctx, from, to, step, services, severities, "")
 }
 
-func (c *ClickhouseClient) GetContainerLogs(ctx context.Context, tsCtx timeseries.Context, containerIds []string, severities []string, patternHashes []string, search string, limit int) ([]*LogEntry, error) {
-	return c.getLogs(ctx, tsCtx, severities, patternHashes, search, limit,
-		`
-			ServiceName = 'coroot-node-agent' AND
-			LogAttributes['container.id'] IN (@containerIds)
-		`,
-		clickhouse.Named("containerIds", containerIds),
-	)
+func (c *ClickhouseClient) GetContainerLogs(ctx context.Context, from, to timeseries.Time, containerIds map[string][]string, severities []string, patternHashes []string, search string, limit int) ([]*LogEntry, error) {
+	byService := map[string][]*LogEntry{}
+	for service, ids := range containerIds {
+		entries, err := c.getLogs(ctx, from, to, service, severities, patternHashes, search, limit,
+			"ResourceAttributes['container.id'] IN (@containerIds)", clickhouse.Named("containerIds", ids),
+		)
+		if err != nil {
+			return nil, err
+		}
+		byService[service] = entries
+	}
+	if len(byService) == 1 {
+		for _, entries := range byService {
+			return entries, nil
+		}
+	}
+	var res []*LogEntry
+	for _, entries := range byService {
+		res = append(res, entries...)
+	}
+	sort.Slice(res, func(i, j int) bool {
+		return res[i].Timestamp.After(res[j].Timestamp)
+	})
+	if len(res) > limit {
+		return res[:limit], nil
+	}
+	return res, nil
 }
 
-func (c *ClickhouseClient) getLogsHistogram(ctx context.Context, tsCtx timeseries.Context, severities []string, filter string, filterArgs ...any) (map[string]*timeseries.TimeSeries, error) {
+func (c *ClickhouseClient) getLogsHistogram(ctx context.Context, from, to timeseries.Time, step timeseries.Duration, services []string, severities []string, filter string, filterArgs ...any) (map[string]*timeseries.TimeSeries, error) {
 	var filters []string
 	var args []any
-
+	filters = append(filters, "ServiceName IN @serviceName")
+	args = append(args, clickhouse.Named("serviceName", services))
 	filters = append(filters, "Timestamp BETWEEN @from AND @to")
 	args = append(args,
-		clickhouse.DateNamed("from", tsCtx.From.ToStandard(), clickhouse.NanoSeconds),
-		clickhouse.DateNamed("to", tsCtx.To.ToStandard(), clickhouse.NanoSeconds),
+		clickhouse.DateNamed("from", from.ToStandard(), clickhouse.NanoSeconds),
+		clickhouse.DateNamed("to", to.ToStandard(), clickhouse.NanoSeconds),
 	)
 	if len(severities) > 0 {
 		filters = append(filters, "SeverityText IN (@severityText)")
-		args = append(args,
-			clickhouse.Named("severityText", severities),
-		)
+		args = append(args, clickhouse.Named("severityText", severities))
 	}
 	if filter != "" {
 		filters = append(filters, filter)
 		args = append(args, filterArgs...)
 	}
 
-	tsField := "Timestamp"
-	if tsCtx.Step > MinLogsHistogramStep {
-		tsField = fmt.Sprintf("toStartOfInterval(Timestamp, INTERVAL %d minute)", tsCtx.Step/timeseries.Minute)
-	}
-	q := fmt.Sprintf("SELECT SeverityText, %s, sum(EventsCount)", tsField)
-	q += " FROM otel_logs_histogram"
+	q := fmt.Sprintf("SELECT SeverityText, toStartOfInterval(Timestamp, INTERVAL %d second), count(1)", step)
+	q += " FROM " + c.config.LogsTable
 	q += " WHERE " + strings.Join(filters, " AND ")
 	q += " GROUP BY 1, 2"
 	rows, err := c.conn.Query(ctx, q, args...)
@@ -114,21 +113,26 @@ func (c *ClickhouseClient) getLogsHistogram(ctx context.Context, tsCtx timeserie
 			return nil, err
 		}
 		if res[sev] == nil {
-			res[sev] = timeseries.New(tsCtx.From, int(tsCtx.To.Sub(tsCtx.From)/tsCtx.Step), tsCtx.Step)
+			res[sev] = timeseries.New(from, int(to.Sub(from)/step), step)
 		}
 		res[sev].Set(timeseries.Time(ts.Unix()), float32(count))
 	}
 	return res, nil
 }
 
-func (c *ClickhouseClient) getLogs(ctx context.Context, tsCtx timeseries.Context, severities []string, patternHashes []string, search string, limit int, filter string, filterArgs ...any) ([]*LogEntry, error) {
+func (c *ClickhouseClient) getLogs(ctx context.Context, from, to timeseries.Time, service string, severities []string, patternHashes []string, search string, limit int, filter string, filterArgs ...any) ([]*LogEntry, error) {
+	if len(severities) == 0 {
+		return nil, nil
+	}
+
 	var filters []string
 	var args []any
-
+	filters = append(filters, "ServiceName = @serviceName")
+	args = append(args, clickhouse.Named("serviceName", service))
 	filters = append(filters, "Timestamp BETWEEN @from AND @to")
 	args = append(args,
-		clickhouse.DateNamed("from", tsCtx.From.ToStandard(), clickhouse.NanoSeconds),
-		clickhouse.DateNamed("to", tsCtx.To.ToStandard(), clickhouse.NanoSeconds),
+		clickhouse.DateNamed("from", from.ToStandard(), clickhouse.NanoSeconds),
+		clickhouse.DateNamed("to", to.ToStandard(), clickhouse.NanoSeconds),
 	)
 	if len(patternHashes) > 0 {
 		filters = append(filters, "LogAttributes['pattern.hash'] IN (@patternHash)")

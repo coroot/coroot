@@ -8,10 +8,13 @@ import (
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/tracing"
+	"github.com/coroot/coroot/utils"
 	"github.com/coroot/logparser"
 	"k8s.io/klog"
 	"net/url"
+	"regexp"
 	"sort"
+	"strings"
 )
 
 const (
@@ -137,7 +140,7 @@ func getLogs(ctx context.Context, v *View, clickhouse *tracing.ClickhouseClient,
 		service = tracing.GuessService(ss, app.Id)
 	}
 	for s := range services {
-		if s == "coroot-node-agent" {
+		if strings.HasPrefix(s, "/") {
 			v.Sources = append(v.Sources, tracing.SourceAgent)
 		} else {
 			v.Services = append(v.Services, s)
@@ -165,11 +168,6 @@ func getLogs(ctx context.Context, v *View, clickhouse *tracing.ClickhouseClient,
 	}
 	v.Severity = q.Severity
 
-	wCtx := w.Ctx
-	if wCtx.Step < timeseries.Minute {
-		wCtx.Step = timeseries.Minute
-	}
-
 	var hist map[string]*timeseries.TimeSeries
 	var entries []*tracing.LogEntry
 	switch v.Source {
@@ -181,30 +179,35 @@ func getLogs(ctx context.Context, v *View, clickhouse *tracing.ClickhouseClient,
 		}
 		if v.View == viewMessages {
 			if len(q.Hash) == 0 && q.Search == "" {
-				hist, err = clickhouse.GetServiceLogsHistogram(ctx, wCtx, service, v.Severity)
+				hist, err = clickhouse.GetServiceLogsHistogram(ctx, w.Ctx.From, w.Ctx.To, w.Ctx.Step, service, v.Severity)
 			}
 			if err == nil {
-				entries, err = clickhouse.GetServiceLogs(ctx, wCtx, service, v.Severity, q.Hash, q.Search, q.Limit)
+				entries, err = clickhouse.GetServiceLogs(ctx, w.Ctx.From, w.Ctx.To, service, v.Severity, q.Hash, q.Search, q.Limit)
 			}
 		}
 	case tracing.SourceAgent:
 		v.Message = "Using container logs"
-		v.Severities = services["coroot-node-agent"]
-		var containerIds []string
+		containerIds := map[string][]string{}
 		for _, i := range app.Instances {
 			for _, c := range i.Containers {
-				containerIds = append(containerIds, c.Id)
+				s := containerIdToServiceName(c.Id)
+				containerIds[s] = append(containerIds[s], c.Id)
 			}
 		}
+		severities := utils.NewStringSet()
+		for s := range containerIds {
+			severities.Add(services[s]...)
+		}
+		v.Severities = severities.Items()
 		if len(v.Severity) == 0 {
 			v.Severity = v.Severities
 		}
 		if v.View == viewMessages {
 			if len(q.Hash) == 0 && q.Search == "" {
-				hist, err = clickhouse.GetContainerLogsHistogram(ctx, wCtx, containerIds, v.Severity)
+				hist, err = clickhouse.GetContainerLogsHistogram(ctx, w.Ctx.From, w.Ctx.To, w.Ctx.Step, containerIds, v.Severity)
 			}
 			if err == nil {
-				entries, err = clickhouse.GetContainerLogs(ctx, wCtx, containerIds, v.Severity, q.Hash, q.Search, q.Limit)
+				entries, err = clickhouse.GetContainerLogs(ctx, w.Ctx.From, w.Ctx.To, containerIds, v.Severity, q.Hash, q.Search, q.Limit)
 			}
 		}
 	}
@@ -219,13 +222,13 @@ func getLogs(ctx context.Context, v *View, clickhouse *tracing.ClickhouseClient,
 
 	switch {
 	case len(hist) > 0:
-		v.Chart = model.NewChart(wCtx, "").Column()
+		v.Chart = model.NewChart(w.Ctx, "").Column()
 		v.Chart.Flags = "severity"
 		for severity, ts := range hist {
 			v.Chart.AddSeries(severity, ts)
 		}
 	case len(q.Hash) > 0:
-		v.Chart = model.NewChart(wCtx, "").Column()
+		v.Chart = model.NewChart(w.Ctx, "").Column()
 		for name, ts := range sumByInstance(app, q) {
 			v.Chart.AddSeries(name, ts)
 		}
@@ -342,4 +345,22 @@ func sumByInstance(app *model.Application, q Query) map[string]*timeseries.Aggre
 		}
 	}
 	return res
+}
+
+var (
+	deploymentPodRegex  = regexp.MustCompile(`(/k8s/[a-z0-9-]+/[a-z0-9-]+)-[0-9a-f]{1,10}-[bcdfghjklmnpqrstvwxz2456789]{5}/.+`)
+	daemonsetPodRegex   = regexp.MustCompile(`(/k8s/[a-z0-9-]+/[a-z0-9-]+)-[bcdfghjklmnpqrstvwxz2456789]{5}/.+`)
+	statefulsetPodRegex = regexp.MustCompile(`(/k8s/[a-z0-9-]+/[a-z0-9-]+)-\d+/.+`)
+)
+
+func containerIdToServiceName(containerId string) string {
+	if !strings.HasPrefix(containerId, "/k8s/") {
+		return containerId
+	}
+	for _, r := range []*regexp.Regexp{deploymentPodRegex, daemonsetPodRegex, statefulsetPodRegex} {
+		if g := r.FindStringSubmatch(containerId); len(g) == 2 {
+			return g[1]
+		}
+	}
+	return containerId
 }
