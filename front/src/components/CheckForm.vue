@@ -23,7 +23,7 @@
             <v-form v-if="form" v-model="valid">
                 <CheckFormSLOAvailability v-if="check.id === 'SLOAvailability'" :form="form" />
                 <CheckFormSLOLatency v-else-if="check.id === 'SLOLatency'" :form="form" />
-                <CheckFormSimple v-else :form="form" :check="check" :appId="appId" />
+                <CheckConfigForm v-else :form="form" :check="check" :appId="appId" />
 
                 <div v-if="check.id.startsWith('SLO')" class="my-3">
                     Alerting:
@@ -52,9 +52,9 @@
 </template>
 
 <script>
-import CheckFormSLOAvailability from "../components/CheckConfigSLOAvailabilityForm";
-import CheckFormSLOLatency from "../components/CheckConfigSLOLatencyForm";
-import CheckFormSimple from "../components/CheckConfigForm";
+import CheckFormSLOAvailability from "./CheckConfigSLOAvailabilityForm.vue";
+import CheckFormSLOLatency from "./CheckConfigSLOLatencyForm.vue";
+import CheckConfigForm from "./CheckConfigForm.vue";
 
 export default {
     props: {
@@ -63,7 +63,7 @@ export default {
         value: Boolean,
     },
 
-    components: {CheckFormSimple, CheckFormSLOAvailability, CheckFormSLOLatency},
+    components: {CheckConfigForm, CheckFormSLOAvailability, CheckFormSLOLatency},
 
     data() {
         return {

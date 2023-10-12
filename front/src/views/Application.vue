@@ -33,7 +33,7 @@
 import AppMap from "../components/AppMap";
 import Dashboard from "../components/Dashboard";
 import NoData from "../components/NoData";
-import Check from "../views/Check";
+import Check from "../components/Check";
 import Led from "../components/Led";
 
 export default {

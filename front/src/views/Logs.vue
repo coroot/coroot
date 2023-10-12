@@ -1,7 +1,9 @@
 <template>
 <div>
     <v-card outlined class="pa-4 mb-2">
-        <Check :appId="appId" :check="check" />
+        <slot name="check">
+            <Check :appId="appId" :check="check" />
+        </slot>
 
         <div class="mt-3">
             <Led :status="data.status" />
@@ -177,7 +179,7 @@
 <script>
 import Led from "../components/Led.vue";
 import Chart from "../components/Chart.vue";
-import Check from "./Check.vue";
+import Check from "../components/Check.vue";
 import { palette } from "../utils/colors";
 
 const severity = (s) => {
