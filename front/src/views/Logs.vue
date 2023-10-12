@@ -101,7 +101,9 @@
                         </div>
 
                         <div class="font-weight-medium my-3">Message</div>
-                        <div class="message" :class="{multiline: entry.multiline}" v-html="entry.message" />
+                        <div class="message" :class="{multiline: entry.multiline}">
+                            {{entry.message}}
+                        </div>
 
                         <div class="font-weight-medium mt-4 mb-2">Attributes</div>
                         <v-simple-table dense>
@@ -125,7 +127,7 @@
             <div v-if="query.view === 'patterns'">
                 <div v-if="patterns" class="patterns">
                     <div v-for="p in patterns" class="pattern" @click="pattern = p">
-                        <div class="sample" v-html="p.sample" />
+                        <div class="sample">{{p.sample}}</div>
                         <div class="line">
                             <v-sparkline :value="p.messages" smooth height="30" fill :color="p.color" padding="4" />
                         </div>
@@ -147,7 +149,9 @@
                         </div>
                         <Chart v-if="pattern.chart" :chart="pattern.chart" />
                         <div class="font-weight-medium my-3">Sample</div>
-                        <div class="message" :class="{multiline: pattern.multiline}" v-html="pattern.sample" />
+                        <div class="message" :class="{multiline: pattern.multiline}">
+                            {{pattern.sample}}
+                        </div>
                         <v-btn v-if="configured" color="primary" @click="filterByPattern(pattern.hash)" class="mt-4">
                             Show messages
                         </v-btn>
@@ -532,10 +536,5 @@ export default {
 }
 .message.multiline {
     white-space: pre;
-}
-.message:deep(mark) {
-    background-color: unset;
-    color: black;
-    font-weight: bold;
 }
 </style>

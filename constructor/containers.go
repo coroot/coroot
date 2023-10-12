@@ -370,35 +370,10 @@ func logMessage(instance *model.Instance, ls model.Labels, values *timeseries.Ti
 				Multiline: strings.Contains(sample, "\n"),
 				Pattern:   logparser.NewPattern(sample),
 			}
-			if p.Multiline {
-				p.Sample = markMultilineMessage(p.Sample)
-			}
 			msgs.Patterns[hash] = p
 		}
 		p.Messages = merge(p.Messages, values, timeseries.NanSum)
 	}
-}
-
-func markMultilineMessage(msg string) string {
-	marked := false
-	lines := strings.Split(msg, "\n")
-
-	for i, l := range lines {
-		if strings.HasPrefix(l, "\tat ") || strings.HasPrefix(l, "\t... ") {
-			if i > 0 {
-				lines[i-1] = "<mark>" + lines[i-1] + "</mark>"
-				marked = true
-				break
-			}
-		}
-	}
-	if !marked && len(lines) > 1 { //python traceback
-		if strings.HasPrefix(lines[len(lines)-2], "    ") {
-			lines[len(lines)-1] = "<mark>" + lines[len(lines)-1] + "</mark>"
-			marked = true
-		}
-	}
-	return strings.Join(lines, "\n")
 }
 
 func updateServiceEndpoints(c *model.Connection, servicesByClusterIP, servicesByActualDestIP map[string]*model.Service) {
