@@ -25,9 +25,9 @@
                 <v-checkbox v-for="s in severities" :key="s.name" :value="s.name" v-model="query.severity" :label="s.name" :color="s.color" class="ma-0 text-no-wrap text-capitalize checkbox" dense hide-details />
                 <div class="d-flex flex-grow-1" style="gap: 4px">
                     <v-text-field v-model="query.search" @keydown.enter.prevent="runQuery" label="Filter messages" prepend-inner-icon="mdi-magnify" dense hide-details single-line outlined>
-                        <template v-if="query.hash && query.hash.length" #prepend-inner>
-                            <v-chip small label close @click:close="filterByPattern(null)" close-icon="mdi-close" class="mr-2">
-                                pattern: {{query.hash[0].substr(0, 7)}}
+                        <template v-if="query.hash" #prepend-inner>
+                            <v-chip small label close @click:close="filterByPattern('')" close-icon="mdi-close" class="mr-2">
+                                pattern: {{query.hash.substr(0, 7)}}
                             </v-chip>
                         </template>
                     </v-text-field>
@@ -112,6 +112,9 @@
                             </tr>
                             </tbody>
                         </v-simple-table>
+                        <v-btn v-if="entry.attributes['pattern.hash']" color="primary" @click="filterByPattern(entry.attributes['pattern.hash'])" class="mt-4">
+                            Show similar messages
+                        </v-btn>
                     </v-card>
                 </v-dialog>
             </div>
@@ -142,7 +145,9 @@
                         <Chart v-if="pattern.chart" :chart="pattern.chart" />
                         <div class="font-weight-medium my-3">Sample</div>
                         <div class="message" :class="{multiline: pattern.multiline}" v-html="pattern.sample" />
-                        <v-btn v-if="configured" color="primary" @click="filterByPattern(pattern)" class="mt-4">Show messages</v-btn>
+                        <v-btn v-if="configured" color="primary" @click="filterByPattern(pattern.hash)" class="mt-4">
+                            Show messages
+                        </v-btn>
                     </v-card>
                 </v-dialog>
             </div>
@@ -240,7 +245,7 @@ export default {
             const views = this.data.views || [];
             const res = [
                 {name: 'messages', icon: 'mdi-format-list-bulleted', click: () => {}},
-                {name: 'patterns', icon: 'mdi-creation', click: () => this.filterByPattern(null)},
+                {name: 'patterns', icon: 'mdi-creation', click: () => this.filterByPattern('')},
             ];
             res.forEach(v => {
                 v.disabled = views.indexOf(v.name) < 0;
@@ -366,7 +371,7 @@ export default {
                 source: q.source || '',
                 view: q.view || 'messages',
                 search: q.search || '',
-                hash: q.hash || [],
+                hash: q.hash || '',
                 severity,
                 limit: q.limit || 100,
             };
@@ -376,7 +381,7 @@ export default {
             if (this.query.view === 'patterns') {
                 this.query.severity = this.data.severities || [];
                 this.query.search = '';
-                this.query.hash = [];
+                this.query.hash = '';
                 this.order = '';
             }
             const query = {
@@ -398,13 +403,14 @@ export default {
             this.query.source = s;
             this.query.severity = [];
             this.query.search = '';
-            this.query.hash = [];
+            this.query.hash = '';
             this.setQuery();
         },
-        filterByPattern(p) {
+        filterByPattern(hash) {
             this.query.view = 'messages';
             this.pattern = null;
-            this.query.hash = p ? p.hash : [];
+            this.query.hash = hash;
+            this.entry = null;
             this.setQuery();
         },
         zoom(s) {
