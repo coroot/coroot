@@ -10,6 +10,8 @@ import (
 	"github.com/coroot/coroot/tracing"
 	"github.com/coroot/coroot/utils"
 	"github.com/coroot/logparser"
+	"golang.org/x/exp/maps"
+	"golang.org/x/exp/slices"
 	"k8s.io/klog"
 	"net/url"
 	"regexp"
@@ -41,12 +43,6 @@ type View struct {
 	Limit      int              `json:"limit"`
 }
 
-type Source struct {
-	Type     tracing.Source `json:"type"`
-	Name     string         `json:"name"`
-	Selected bool           `json:"selected"`
-}
-
 type Pattern struct {
 	Severity string                `json:"severity"`
 	Sample   string                `json:"sample"`
@@ -74,21 +70,15 @@ type Query struct {
 	Search   string         `json:"search"`
 	Hash     string         `json:"hash"`
 	Limit    int            `json:"limit"`
-
-	severities map[string]bool
 }
 
 func Render(ctx context.Context, clickhouse *tracing.ClickhouseClient, app *model.Application, appSettings *db.ApplicationSettings, query url.Values, w *model.World) *View {
 	v := &View{}
 
 	var q Query
-	if qs := query["query"]; len(qs) > 0 {
-		if err := json.Unmarshal([]byte(qs[0]), &q); err != nil {
+	if s := query.Get("query"); s != "" {
+		if err := json.Unmarshal([]byte(s), &q); err != nil {
 			klog.Warningln(err)
-		}
-		q.severities = map[string]bool{}
-		for _, s := range q.Severity {
-			q.severities[s] = true
 		}
 	}
 	if q.Limit <= 0 {
@@ -133,11 +123,7 @@ func renderEntries(ctx context.Context, v *View, clickhouse *tracing.ClickhouseC
 	if appSettings != nil && appSettings.Logs != nil {
 		service = appSettings.Logs.Service
 	} else {
-		var ss []string
-		for s := range services {
-			ss = append(ss, s)
-		}
-		service = tracing.GuessService(ss, app.Id)
+		service = tracing.GuessService(maps.Keys(services), app.Id)
 	}
 	for s := range services {
 		if strings.HasPrefix(s, "/") {
@@ -168,7 +154,7 @@ func renderEntries(ctx context.Context, v *View, clickhouse *tracing.ClickhouseC
 	}
 	v.Severity = q.Severity
 
-	var hist map[string]*timeseries.TimeSeries
+	var histogram map[string]*timeseries.TimeSeries
 	var entries []*tracing.LogEntry
 	switch v.Source {
 	case tracing.SourceOtel:
@@ -179,7 +165,7 @@ func renderEntries(ctx context.Context, v *View, clickhouse *tracing.ClickhouseC
 		}
 		if v.View == viewMessages {
 			if len(q.Hash) == 0 && q.Search == "" {
-				hist, err = clickhouse.GetServiceLogsHistogram(ctx, w.Ctx.From, w.Ctx.To, w.Ctx.Step, service, v.Severity)
+				histogram, err = clickhouse.GetServiceLogsHistogram(ctx, w.Ctx.From, w.Ctx.To, w.Ctx.Step, service, v.Severity)
 			}
 			if err == nil {
 				entries, err = clickhouse.GetServiceLogs(ctx, w.Ctx.From, w.Ctx.To, service, v.Severity, q.Search, q.Limit)
@@ -187,39 +173,29 @@ func renderEntries(ctx context.Context, v *View, clickhouse *tracing.ClickhouseC
 		}
 	case tracing.SourceAgent:
 		v.Message = "Using container logs"
-		containerIds := map[string][]string{}
+		containers := map[string][]string{}
+		severities := utils.NewStringSet()
 		for _, i := range app.Instances {
 			for _, c := range i.Containers {
 				s := containerIdToServiceName(c.Id)
-				containerIds[s] = append(containerIds[s], c.Id)
+				containers[s] = append(containers[s], c.Id)
+				severities.Add(services[s]...)
 			}
 		}
-		severitiesSet := utils.NewStringSet()
-		for s := range containerIds {
-			severitiesSet.Add(services[s]...)
-		}
-		v.Severities = severitiesSet.Items()
+		v.Severities = severities.Items()
 		if len(v.Severity) == 0 {
 			v.Severity = v.Severities
 		}
 		if v.View == viewMessages {
 			if q.Hash == "" && q.Search == "" {
-				hist, err = clickhouse.GetContainerLogsHistogram(ctx, w.Ctx.From, w.Ctx.To, w.Ctx.Step, containerIds, v.Severity)
+				histogram, err = clickhouse.GetContainerLogsHistogram(ctx, w.Ctx.From, w.Ctx.To, w.Ctx.Step, containers, v.Severity)
 			}
 			if err == nil {
 				var hashes []string
 				if q.Hash != "" {
-					hashesSet := utils.NewStringSet()
-					for _, ps := range patterns {
-						for _, p := range ps {
-							if p.similarHashes.Has(q.Hash) {
-								hashesSet.Add(p.similarHashes.Items()...)
-							}
-						}
-					}
-					hashes = hashesSet.Items()
+					hashes = getSimilarHashes(patterns, q.Hash)
 				}
-				entries, err = clickhouse.GetContainerLogs(ctx, w.Ctx.From, w.Ctx.To, containerIds, v.Severity, hashes, q.Search, q.Limit)
+				entries, err = clickhouse.GetContainerLogs(ctx, w.Ctx.From, w.Ctx.To, containers, v.Severity, hashes, q.Search, q.Limit)
 			}
 		}
 	}
@@ -233,27 +209,14 @@ func renderEntries(ctx context.Context, v *View, clickhouse *tracing.ClickhouseC
 	v.Status = model.OK
 
 	switch {
-	case len(hist) > 0:
+	case len(histogram) > 0:
 		v.Chart = model.NewChart(w.Ctx, "").Column()
 		v.Chart.Flags = "severity"
-		for severity, ts := range hist {
+		for severity, ts := range histogram {
 			v.Chart.AddSeries(severity, ts)
 		}
 	case q.Hash != "" && q.Search == "":
-		sumByInstance := map[string]*timeseries.Aggregate{}
-		for _, ps := range patterns {
-			for _, p := range ps {
-				if !p.similarHashes.Has(q.Hash) {
-					continue
-				}
-				for name, ts := range p.sumByInstance {
-					if sumByInstance[name] == nil {
-						sumByInstance[name] = timeseries.NewAggregate(timeseries.NanSum)
-					}
-					sumByInstance[name].Add(ts.Get())
-				}
-			}
-		}
+		sumByInstance := getSumByInstance(patterns, v.Severity, q.Hash)
 		if len(sumByInstance) > 0 {
 			v.Chart = model.NewChart(w.Ctx, "").Column()
 			for name, ts := range sumByInstance {
@@ -269,9 +232,6 @@ func renderEntries(ctx context.Context, v *View, clickhouse *tracing.ClickhouseC
 			Message:    e.Body,
 			Attributes: map[string]string{},
 		}
-		if e.TraceId != "" {
-			entry.Attributes["trace.id"] = e.TraceId
-		}
 		for name, value := range e.LogAttributes {
 			if name != "" && value != "" {
 				entry.Attributes[name] = value
@@ -281,6 +241,9 @@ func renderEntries(ctx context.Context, v *View, clickhouse *tracing.ClickhouseC
 			if name != "" && value != "" {
 				entry.Attributes[name] = value
 			}
+		}
+		if e.TraceId != "" {
+			entry.Attributes["trace.id"] = e.TraceId
 		}
 		v.Entries = append(v.Entries, entry)
 	}
@@ -309,8 +272,8 @@ func renderPatterns(v *View, patterns map[string]map[string]*Pattern, ctx timese
 	if len(bySeverity) > 0 {
 		v.Chart = model.NewChart(ctx, "").Column()
 		v.Chart.Flags = "severity"
-		for s, ts := range bySeverity {
-			v.Chart.AddSeries(string(s), ts.Get())
+		for severity, ts := range bySeverity {
+			v.Chart.AddSeries(severity, ts.Get())
 		}
 	}
 }
@@ -356,6 +319,39 @@ func getPatterns(app *model.Application) map[string]map[string]*Pattern {
 					p.sumByInstance[instance.Name] = timeseries.NewAggregate(timeseries.NanSum)
 				}
 				p.sumByInstance[instance.Name].Add(pattern.Messages)
+			}
+		}
+	}
+	return res
+}
+
+func getSimilarHashes(patterns map[string]map[string]*Pattern, hash string) []string {
+	set := utils.NewStringSet()
+	for _, ps := range patterns {
+		for _, p := range ps {
+			if p.similarHashes.Has(hash) {
+				set.Add(p.similarHashes.Items()...)
+			}
+		}
+	}
+	return set.Items()
+}
+
+func getSumByInstance(patterns map[string]map[string]*Pattern, severities []string, hash string) map[string]*timeseries.Aggregate {
+	res := map[string]*timeseries.Aggregate{}
+	for severity, ps := range patterns {
+		if !slices.Contains(severities, severity) {
+			continue
+		}
+		for _, p := range ps {
+			if !p.similarHashes.Has(hash) {
+				continue
+			}
+			for name, ts := range p.sumByInstance {
+				if res[name] == nil {
+					res[name] = timeseries.NewAggregate(timeseries.NanSum)
+				}
+				res[name].Add(ts.Get())
 			}
 		}
 	}

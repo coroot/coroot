@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/coroot/coroot/timeseries"
+	"golang.org/x/exp/maps"
 	"sort"
 	"strings"
 	"time"
@@ -17,9 +18,7 @@ func (c *ClickhouseClient) GetServicesFromLogs(ctx context.Context) (map[string]
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		_ = rows.Close()
-	}()
+	defer rows.Close()
 	res := map[string][]string{}
 	var app, sev string
 	for rows.Next() {
@@ -39,29 +38,23 @@ func (c *ClickhouseClient) GetServiceLogs(ctx context.Context, from, to timeseri
 	return c.getLogs(ctx, from, to, service, severities, nil, search, limit, "")
 }
 
-func (c *ClickhouseClient) GetContainerLogsHistogram(ctx context.Context, from, to timeseries.Time, step timeseries.Duration, containerIds map[string][]string, severities []string) (map[string]*timeseries.TimeSeries, error) {
-	var services []string
-	for service := range containerIds {
-		services = append(services, service)
-	}
-	return c.getLogsHistogram(ctx, from, to, step, services, severities, "")
+func (c *ClickhouseClient) GetContainerLogsHistogram(ctx context.Context, from, to timeseries.Time, step timeseries.Duration, containers map[string][]string, severities []string) (map[string]*timeseries.TimeSeries, error) {
+	return c.getLogsHistogram(ctx, from, to, step, maps.Keys(containers), severities, "")
 }
 
-func (c *ClickhouseClient) GetContainerLogs(ctx context.Context, from, to timeseries.Time, containerIds map[string][]string, severities []string, hashes []string, search string, limit int) ([]*LogEntry, error) {
+func (c *ClickhouseClient) GetContainerLogs(ctx context.Context, from, to timeseries.Time, containers map[string][]string, severities []string, hashes []string, search string, limit int) ([]*LogEntry, error) {
 	byService := map[string][]*LogEntry{}
-	for service, ids := range containerIds {
+	for service, ids := range containers {
 		entries, err := c.getLogs(ctx, from, to, service, severities, hashes, search, limit,
-			"ResourceAttributes['container.id'] IN (@containerIds)", clickhouse.Named("containerIds", ids),
+			"ResourceAttributes['container.id'] IN (@containerId)", clickhouse.Named("containerId", ids),
 		)
 		if err != nil {
 			return nil, err
 		}
-		byService[service] = entries
-	}
-	if len(byService) == 1 {
-		for _, entries := range byService {
+		if len(containers) == 1 {
 			return entries, nil
 		}
+		byService[service] = entries
 	}
 	var res []*LogEntry
 	for _, entries := range byService {
