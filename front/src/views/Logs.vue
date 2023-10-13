@@ -24,7 +24,7 @@
             <div class="d-flex flex-wrap flex-md-nowrap align-center" style="gap: 8px">
                 <v-checkbox v-for="s in severities" :key="s.name" :value="s.name" v-model="query.severity" :label="s.name" :color="s.color" class="ma-0 text-no-wrap text-capitalize checkbox" dense hide-details />
                 <div class="d-flex flex-grow-1" style="gap: 4px">
-                    <v-text-field v-model="query.search" @keydown.enter.prevent="runQuery" label="Filter messages" prepend-inner-icon="mdi-magnify" dense hide-details single-line outlined>
+                    <v-text-field v-model="query.search" @keydown.enter.prevent="runQuery" label="Filter messages" prepend-inner-icon="mdi-magnify" dense hide-details single-line outlined clearable>
                         <template v-if="query.hash" #prepend-inner>
                             <v-chip small label close @click:close="filterByPattern('')" close-icon="mdi-close" class="mr-2">
                                 pattern: {{query.hash.substr(0, 7)}}
