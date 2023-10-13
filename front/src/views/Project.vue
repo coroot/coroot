@@ -50,9 +50,6 @@
     <template v-if="tab === 'clickhouse'">
         <h1 class="text-h5 my-5">
             Clickhouse integration
-            <a href="https://coroot.com/docs/coroot-community-edition/tracing" target="_blank">
-                <v-icon>mdi-information-outline</v-icon>
-            </a>
         </h1>
         <p>
             Coroot can display OpenTelemetry traces and logs stored in a ClickHouse database

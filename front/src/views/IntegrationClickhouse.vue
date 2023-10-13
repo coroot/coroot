@@ -22,8 +22,18 @@
 
         <div class="d-flex" style="gap: 8px">
             <div>
-                <v-checkbox v-model="traces" label="Use Clickhouse as a datasource for traces" hide-details class="mt-3" />
-                <v-checkbox v-model="logs" label="Use Clickhouse as a datasource for logs" hide-details class="mt-4" />
+                <div class="d-flex align-center">
+                    <v-checkbox v-model="traces" label="Use Clickhouse as a datasource for traces" hide-details class="mt-3" />
+                    <a href="https://coroot.com/docs/coroot-community-edition/tracing" target="_blank" class="mt-3 ml-1">
+                        <v-icon>mdi-information-outline</v-icon>
+                    </a>
+                </div>
+                <div class="d-flex align-center">
+                    <v-checkbox v-model="logs" label="Use Clickhouse as a datasource for logs" hide-details class="mt-5" />
+                    <a href="https://coroot.com/docs/coroot-community-edition/logs" target="_blank" class="mt-5 ml-1">
+                        <v-icon>mdi-information-outline</v-icon>
+                    </a>
+                </div>
             </div>
             <div class="flex-grow-1">
                 <v-text-field v-model="form.traces_table" :disabled="!traces" label="traces table name" prepend-inner-icon="mdi-table" outlined dense hide-details single-line class="mt-2" />
