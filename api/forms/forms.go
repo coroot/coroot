@@ -135,6 +135,14 @@ func (f *ApplicationSettingsTracingForm) Valid() bool {
 	return true
 }
 
+type ApplicationSettingsLogsForm struct {
+	db.ApplicationSettingsLogs
+}
+
+func (f *ApplicationSettingsLogsForm) Valid() bool {
+	return true
+}
+
 type IntegrationsForm struct {
 	BaseUrl string `json:"base_url"`
 }
@@ -315,8 +323,11 @@ func (f *IntegrationFormClickhouse) Get(project *db.Project, masked bool) {
 	if f.Database == "" {
 		f.Database = "default"
 	}
-	if f.TracesTable == "" {
+	if cfg == nil && f.TracesTable == "" {
 		f.TracesTable = "otel_traces"
+	}
+	if cfg == nil && f.LogsTable == "" {
+		f.LogsTable = "otel_logs"
 	}
 	if masked {
 		f.Addr = "<hidden>"
@@ -343,18 +354,27 @@ func (f *IntegrationFormClickhouse) Test(ctx context.Context, project *db.Projec
 	config.Protocol = f.Protocol
 	config.Database = f.Database
 	config.TracesTable = f.TracesTable
+	config.LogsTable = f.LogsTable
 	config.TlsEnable = f.TlsEnable
 	config.TlsSkipVerify = f.TlsSkipVerify
 	client, err := tracing.NewClickhouseClient(config)
 	if err != nil {
 		return err
 	}
-	err = client.Ping(ctx)
-	if err != nil {
+	if err = client.Ping(ctx); err != nil {
 		return err
 	}
-	_, err = client.GetServiceNames(ctx)
-	return err
+	if f.TracingEnabled() {
+		if _, err = client.GetServicesFromTraces(ctx); err != nil {
+			return err
+		}
+	}
+	if f.LogsEnabled() {
+		if _, err = client.GetServicesFromLogs(ctx); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type IntegrationFormSlack struct {

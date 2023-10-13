@@ -2,10 +2,10 @@
 <div>
     <Chart v-if="w.chart" :chart="w.chart" :selection="chartSelection" @select="chartZoom" />
     <ChartGroup v-if="w.chart_group" :title="w.chart_group.title" :charts="w.chart_group.charts" :selection="chartSelection" @select="chartZoom" />
-    <LogPatterns v-if="w.log_patterns" :title="w.log_patterns.title" :patterns="w.log_patterns.patterns" />
     <DependencyMap v-if="w.dependency_map" :nodes="w.dependency_map.nodes" :links="w.dependency_map.links" />
     <Table v-if="w.table" :header="w.table.header" :rows="w.table.rows" />
     <Heatmap v-if="w.heatmap" :heatmap="w.heatmap" :selection="heatmapSelection" @select="heatmapDrillDown" />
+    <Logs v-if="w.logs" :appId="w.logs.application_id" :check="w.logs.check" />
     <Profile v-if="w.profile" :appId="w.profile.application_id" />
     <Tracing v-if="w.tracing" :appId="w.tracing.application_id" />
 </div>
@@ -14,10 +14,10 @@
 <script>
 import Chart from "./Chart";
 import ChartGroup from "./ChartGroup";
-import LogPatterns from "./LogPatterns";
 import DependencyMap from "./DependencyMap";
 import Table from "./Table";
 import Heatmap from "./Heatmap";
+import Logs from "../views/Logs";
 import Profile from "../views/Profile";
 import Tracing from "../views/Tracing";
 
@@ -26,7 +26,7 @@ export default {
         w: Object,
     },
 
-    components: {Chart, ChartGroup, LogPatterns, DependencyMap, Table, Heatmap, Profile, Tracing},
+    components: {Chart, ChartGroup, DependencyMap, Table, Heatmap, Logs, Profile, Tracing},
 
     computed: {
         chartSelection() {

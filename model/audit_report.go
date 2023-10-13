@@ -34,14 +34,20 @@ type AuditReport struct {
 	Status  Status          `json:"status"`
 	Widgets []*Widget       `json:"widgets"`
 	Checks  []*Check        `json:"checks"`
+	Custom  bool            `json:"custom"`
 }
 
 func NewAuditReport(app *Application, ctx timeseries.Context, checkConfigs CheckConfigs, name AuditReportName) *AuditReport {
 	return &AuditReport{app: app, Name: name, ctx: ctx, checkConfigs: checkConfigs}
 }
 
-func (c *AuditReport) GetOrCreateChartGroup(title string) *ChartGroup {
-	for _, w := range c.Widgets {
+func (r *AuditReport) AddWidget(w *Widget) *Widget {
+	r.Widgets = append(r.Widgets, w)
+	return w
+}
+
+func (r *AuditReport) GetOrCreateChartGroup(title string) *ChartGroup {
+	for _, w := range r.Widgets {
 		if cg := w.ChartGroup; cg != nil {
 			if cg.Title == title {
 				return cg
@@ -49,63 +55,63 @@ func (c *AuditReport) GetOrCreateChartGroup(title string) *ChartGroup {
 		}
 	}
 	cg := &ChartGroup{Title: title}
-	c.Widgets = append(c.Widgets, &Widget{ChartGroup: cg})
+	r.Widgets = append(r.Widgets, &Widget{ChartGroup: cg})
 	return cg
 }
 
-func (c *AuditReport) GetOrCreateChartInGroup(title string, chartTitle string) *Chart {
-	return c.GetOrCreateChartGroup(title).GetOrCreateChart(c.ctx, chartTitle)
+func (r *AuditReport) GetOrCreateChartInGroup(title string, chartTitle string) *Chart {
+	return r.GetOrCreateChartGroup(title).GetOrCreateChart(r.ctx, chartTitle)
 }
 
-func (c *AuditReport) GetOrCreateChart(title string) *Chart {
-	for _, w := range c.Widgets {
+func (r *AuditReport) GetOrCreateChart(title string) *Chart {
+	for _, w := range r.Widgets {
 		if ch := w.Chart; ch != nil {
 			if ch.Title == title {
 				return ch
 			}
 		}
 	}
-	ch := NewChart(c.ctx, title)
-	c.Widgets = append(c.Widgets, &Widget{Chart: ch})
+	ch := NewChart(r.ctx, title)
+	r.Widgets = append(r.Widgets, &Widget{Chart: ch})
 	return ch
 }
 
-func (c *AuditReport) GetOrCreateHeatmap(title string) *Heatmap {
-	for _, w := range c.Widgets {
+func (r *AuditReport) GetOrCreateHeatmap(title string) *Heatmap {
+	for _, w := range r.Widgets {
 		if h := w.Heatmap; h != nil {
 			if h.Title == title {
 				return h
 			}
 		}
 	}
-	h := NewHeatmap(c.ctx, title)
-	c.Widgets = append(c.Widgets, &Widget{Heatmap: h, Width: "100%"})
+	h := NewHeatmap(r.ctx, title)
+	r.Widgets = append(r.Widgets, &Widget{Heatmap: h, Width: "100%"})
 	return h
 }
 
-func (c *AuditReport) GetOrCreateDependencyMap() *DependencyMap {
-	for _, w := range c.Widgets {
+func (r *AuditReport) GetOrCreateDependencyMap() *DependencyMap {
+	for _, w := range r.Widgets {
 		if w.DependencyMap != nil {
 			return w.DependencyMap
 		}
 	}
 	dm := &DependencyMap{}
-	c.Widgets = append(c.Widgets, &Widget{DependencyMap: dm, Width: "100%"})
+	r.Widgets = append(r.Widgets, &Widget{DependencyMap: dm, Width: "100%"})
 	return dm
 }
 
-func (c *AuditReport) GetOrCreateTable(header ...string) *Table {
-	for _, w := range c.Widgets {
+func (r *AuditReport) GetOrCreateTable(header ...string) *Table {
+	for _, w := range r.Widgets {
 		if t := w.Table; t != nil {
 			return t
 		}
 	}
 	t := NewTable(header...)
-	c.Widgets = append(c.Widgets, &Widget{Table: t, Width: "100%"})
+	r.Widgets = append(r.Widgets, &Widget{Table: t, Width: "100%"})
 	return t
 }
 
-func (c *AuditReport) CreateCheck(cfg CheckConfig) *Check {
+func (r *AuditReport) CreateCheck(cfg CheckConfig) *Check {
 	ch := &Check{
 		Id:                      cfg.Id,
 		Title:                   cfg.Title,
@@ -119,10 +125,10 @@ func (c *AuditReport) CreateCheck(cfg CheckConfig) *Check {
 	}
 	switch cfg.Id {
 	case Checks.SLOAvailability.Id:
-		availabilityCfg, _ := c.checkConfigs.GetAvailability(c.app.Id)
+		availabilityCfg, _ := r.checkConfigs.GetAvailability(r.app.Id)
 		ch.Threshold = availabilityCfg.ObjectivePercentage
 	case Checks.SLOLatency.Id:
-		latencyCfg, _ := c.checkConfigs.GetLatency(c.app.Id, c.app.Category)
+		latencyCfg, _ := r.checkConfigs.GetLatency(r.app.Id, r.app.Category)
 		ch.Threshold = latencyCfg.ObjectivePercentage
 		ch.ConditionFormatTemplate = strings.Replace(
 			ch.ConditionFormatTemplate,
@@ -131,8 +137,8 @@ func (c *AuditReport) CreateCheck(cfg CheckConfig) *Check {
 			1,
 		)
 	default:
-		ch.Threshold = c.checkConfigs.GetSimple(cfg.Id, c.app.Id).Threshold
+		ch.Threshold = r.checkConfigs.GetSimple(cfg.Id, r.app.Id).Threshold
 	}
-	c.Checks = append(c.Checks, ch)
+	r.Checks = append(r.Checks, ch)
 	return ch
 }

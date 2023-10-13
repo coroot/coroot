@@ -126,6 +126,9 @@ export default {
     },
 
     watch: {
+        '$route.query.profile'() {
+            this.get();
+        },
         'view.profile'(v) {
             if (!v) {
                 this.flamegraph.render(null);

@@ -49,6 +49,7 @@ func main() {
 	bootstrapClickhousePassword := kingpin.Flag("bootstrap-clickhouse-password", "Clickhouse password").Envar("BOOTSTRAP_CLICKHOUSE_PASSWORD").String()
 	bootstrapClickhouseDatabase := kingpin.Flag("bootstrap-clickhouse-database", "Clickhouse database").Envar("BOOTSTRAP_CLICKHOUSE_DATABASE").Default("default").String()
 	bootstrapClickhouseTracesTable := kingpin.Flag("bootstrap-clickhouse-traces-table", "Clickhouse traces table").Envar("BOOTSTRAP_CLICKHOUSE_TRACES_TABLE").Default("otel_traces").String()
+	bootstrapClickhouseLogsTable := kingpin.Flag("bootstrap-clickhouse-logs-table", "Clickhouse logs table").Envar("BOOTSTRAP_CLICKHOUSE_LOGS_TABLE").Default("otel_logs").String()
 
 	kingpin.Version(version)
 	kingpin.Parse()
@@ -69,7 +70,7 @@ func main() {
 
 	bootstrapPrometheus(database, *bootstrapPrometheusUrl, *bootstrapRefreshInterval, *bootstrapPrometheusExtraSelector)
 	bootstrapPyroscope(database, *bootstrapPyroscopeUrl)
-	bootstrapClickhouse(database, *bootstrapClickhouseAddr, *bootstrapClickhouseUser, *bootstrapClickhousePassword, *bootstrapClickhouseDatabase, *bootstrapClickhouseTracesTable)
+	bootstrapClickhouse(database, *bootstrapClickhouseAddr, *bootstrapClickhouseUser, *bootstrapClickhousePassword, *bootstrapClickhouseDatabase, *bootstrapClickhouseTracesTable, *bootstrapClickhouseLogsTable)
 
 	cacheConfig := cache.Config{
 		Path: path.Join(*dataDir, "cache"),
@@ -134,6 +135,7 @@ func main() {
 	r.HandleFunc("/api/project/{project}/app/{app}/check/{check}/config", a.Check).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/project/{project}/app/{app}/profile", a.Profile).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/project/{project}/app/{app}/tracing", a.Tracing).Methods(http.MethodGet, http.MethodPost)
+	r.HandleFunc("/api/project/{project}/app/{app}/logs", a.Logs).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/project/{project}/node/{node}", a.Node).Methods(http.MethodGet)
 	r.PathPrefix("/api/project/{project}/prom").HandlerFunc(a.Prom)
 
@@ -267,26 +269,40 @@ func bootstrapPyroscope(database *db.DB, url string) {
 	}
 }
 
-func bootstrapClickhouse(database *db.DB, addr, user, password, databaseName, tracesTable string) {
-	if addr == "" || user == "" || password == "" || databaseName == "" || tracesTable == "" {
+func bootstrapClickhouse(database *db.DB, addr, user, password, databaseName, tracesTable, logsTable string) {
+	if addr == "" || user == "" || password == "" || databaseName == "" {
 		return
 	}
 	p := getOrCreateDefaultProject(database)
 	if p == nil {
 		return
 	}
-	if p.Settings.Integrations.Clickhouse != nil {
-		return
+	var save bool
+	if cfg := p.Settings.Integrations.Clickhouse; cfg == nil {
+		p.Settings.Integrations.Clickhouse = &db.IntegrationClickhouse{
+			Protocol: "native",
+			Addr:     addr,
+			Auth: utils.BasicAuth{
+				User:     user,
+				Password: password,
+			},
+			Database:    databaseName,
+			TracesTable: tracesTable,
+			LogsTable:   logsTable,
+		}
+		save = true
+	} else {
+		if cfg.TracesTable == "" && tracesTable != "" {
+			cfg.TracesTable = tracesTable
+			save = true
+		}
+		if cfg.LogsTable == "" && logsTable != "" {
+			cfg.LogsTable = logsTable
+			save = true
+		}
 	}
-	p.Settings.Integrations.Clickhouse = &db.IntegrationClickhouse{
-		Protocol: "native",
-		Addr:     addr,
-		Auth: utils.BasicAuth{
-			User:     user,
-			Password: password,
-		},
-		Database:    databaseName,
-		TracesTable: tracesTable,
+	if !save {
+		return
 	}
 	if err := database.SaveProjectIntegration(p, db.IntegrationTypeClickhouse); err != nil {
 		klog.Exitln(err)

@@ -52,7 +52,8 @@ export default class Api {
     }
 
     get(url, args, cb) {
-        const params = {...args, ...this.router.currentRoute.query}
+        const {from, to} = this.router.currentRoute.query;
+        const params = {...args, from, to};
         this.request({method: 'get', url, params}, cb);
     }
 
@@ -158,6 +159,14 @@ export default class Api {
 
     saveTracingSettings(appId, form, cb) {
         this.post(this.projectPath(`app/${appId}/tracing`), form, cb);
+    }
+
+    getLogs(appId, query, cb) {
+        this.get(this.projectPath(`app/${appId}/logs`), {query}, cb);
+    }
+
+    saveLogsSettings(appId, form, cb) {
+        this.post(this.projectPath(`app/${appId}/logs`), form, cb);
     }
 
     getNode(nodeName, cb) {

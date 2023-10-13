@@ -1,14 +1,16 @@
 package tracing
 
 import (
+	"github.com/coroot/coroot/model"
+	"strings"
 	"time"
 )
 
-type Type string
+type Source string
 
 const (
-	TypeOtel     = "otel"
-	TypeOtelEbpf = "otel_ebpf"
+	SourceOtel  = "otel"
+	SourceAgent = "agent"
 )
 
 type Span struct {
@@ -22,11 +24,35 @@ type Span struct {
 	StatusCode    string
 	StatusMessage string
 	Attributes    map[string]string
-	Events        []Event
+	Events        []SpanEvent
 }
 
-type Event struct {
+type SpanEvent struct {
 	Timestamp  time.Time
 	Name       string
 	Attributes map[string]string
+}
+
+type LogEntry struct {
+	Timestamp          time.Time
+	Severity           string
+	Body               string
+	TraceId            string
+	LogAttributes      map[string]string
+	ResourceAttributes map[string]string
+}
+
+func GuessService(services []string, appId model.ApplicationId) string {
+	appName := appId.Name
+	for _, s := range services {
+		if s == appName {
+			return s
+		}
+	}
+	for _, s := range services {
+		if strings.HasSuffix(appName, s) {
+			return s
+		}
+	}
+	return ""
 }

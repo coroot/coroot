@@ -230,7 +230,7 @@ export default {
             }
             const opts = {
                 height: 150,
-                padding: [10, 20, 0, 0],
+                padding: [10, 20, -10, 0],
                 width: this.$refs.uplot.clientWidth,
                 ms: 1,
                 axes: [

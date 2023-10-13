@@ -105,6 +105,15 @@ type IntegrationClickhouse struct {
 	TlsEnable     bool            `json:"tls_enable"`
 	TlsSkipVerify bool            `json:"tls_skip_verify"`
 	TracesTable   string          `json:"traces_table"`
+	LogsTable     string          `json:"logs_table"`
+}
+
+func (c *IntegrationClickhouse) TracingEnabled() bool {
+	return c.TracesTable != ""
+}
+
+func (c *IntegrationClickhouse) LogsEnabled() bool {
+	return c.LogsTable != ""
 }
 
 type IntegrationSlack struct {

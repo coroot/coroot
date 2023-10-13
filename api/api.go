@@ -390,10 +390,10 @@ func (api *Api) App(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	auditor.Audit(world, project)
-	if project.Settings.Integrations.Pyroscope != nil {
+	if cfg := project.Settings.Integrations.Pyroscope; cfg != nil {
 		app.AddReport(model.AuditReportProfiling, &model.Widget{Profile: &model.Profile{ApplicationId: app.Id}, Width: "100%"})
 	}
-	if project.Settings.Integrations.Clickhouse != nil {
+	if cfg := project.Settings.Integrations.Clickhouse; cfg != nil && cfg.TracingEnabled() {
 		app.AddReport(model.AuditReportTracing, &model.Widget{Tracing: &model.Tracing{ApplicationId: app.Id}, Width: "100%"})
 	}
 	utils.WriteJson(w, views.Application(world, app))
@@ -629,11 +629,12 @@ func (api *Api) Tracing(w http.ResponseWriter, r *http.Request) {
 	}
 	q := r.URL.Query()
 	var clickhouse *tracing.ClickhouseClient
-	if cfg := project.Settings.Integrations.Clickhouse; cfg != nil {
+	if cfg := project.Settings.Integrations.Clickhouse; cfg != nil && cfg.TracingEnabled() {
 		config := tracing.NewClickhouseClientConfig(cfg.Addr, cfg.Auth.User, cfg.Auth.Password)
 		config.Protocol = cfg.Protocol
 		config.Database = cfg.Database
 		config.TracesTable = cfg.TracesTable
+		config.LogsTable = cfg.LogsTable
 		config.TlsEnable = cfg.TlsEnable
 		config.TlsSkipVerify = cfg.TlsSkipVerify
 		clickhouse, err = tracing.NewClickhouseClient(config)
@@ -642,6 +643,73 @@ func (api *Api) Tracing(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	utils.WriteJson(w, views.Tracing(r.Context(), clickhouse, app, settings, q, world))
+}
+
+func (api *Api) Logs(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	projectId := db.ProjectId(vars["project"])
+	appId, err := model.NewApplicationIdFromString(vars["app"])
+	if err != nil {
+		klog.Warningln(err)
+		http.Error(w, "invalid application id: "+vars["app"], http.StatusBadRequest)
+		return
+	}
+
+	if r.Method == http.MethodPost {
+		if api.readOnly {
+			return
+		}
+		var form forms.ApplicationSettingsLogsForm
+		if err := forms.ReadAndValidate(r, &form); err != nil {
+			klog.Warningln("bad request:", err)
+			http.Error(w, "invalid data", http.StatusBadRequest)
+			return
+		}
+		if err := api.db.SaveApplicationSetting(projectId, appId, &form.ApplicationSettingsLogs); err != nil {
+			klog.Errorln(err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		return
+	}
+
+	world, project, err := api.loadWorldByRequest(r)
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	if world == nil {
+		return
+	}
+	app := world.GetApplication(appId)
+	if app == nil {
+		klog.Warningln("application not found:", appId)
+		http.Error(w, "Application not found", http.StatusNotFound)
+		return
+	}
+	settings, err := api.db.GetApplicationSettings(project.Id, app.Id)
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	var clickhouse *tracing.ClickhouseClient
+	if cfg := project.Settings.Integrations.Clickhouse; cfg != nil && cfg.LogsEnabled() {
+		config := tracing.NewClickhouseClientConfig(cfg.Addr, cfg.Auth.User, cfg.Auth.Password)
+		config.Protocol = cfg.Protocol
+		config.Database = cfg.Database
+		config.TracesTable = cfg.TracesTable
+		config.LogsTable = cfg.LogsTable
+		config.TlsEnable = cfg.TlsEnable
+		config.TlsSkipVerify = cfg.TlsSkipVerify
+		clickhouse, err = tracing.NewClickhouseClient(config)
+		if err != nil {
+			klog.Warningln(err)
+		}
+	}
+	q := r.URL.Query()
+	utils.WriteJson(w, views.Logs(r.Context(), clickhouse, app, settings, q, world))
 }
 
 func (api *Api) Node(w http.ResponseWriter, r *http.Request) {
@@ -728,9 +796,9 @@ func (api *Api) loadWorldByRequest(r *http.Request) (*model.World, *db.Project, 
 
 func increaseStepForBigDurations(duration, step timeseries.Duration) timeseries.Duration {
 	switch {
-	case duration > 5*24*timeseries.Hour:
+	case duration > 5*timeseries.Day:
 		return maxDuration(step, 60*timeseries.Minute)
-	case duration > 24*timeseries.Hour:
+	case duration > timeseries.Day:
 		return maxDuration(step, 15*timeseries.Minute)
 	case duration > 12*timeseries.Hour:
 		return maxDuration(step, 10*timeseries.Minute)

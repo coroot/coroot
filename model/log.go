@@ -13,10 +13,19 @@ const (
 	LogLevelCritical LogLevel = "critical"
 )
 
+func (s LogLevel) IsError() bool {
+	return s == LogLevelError || s == LogLevelCritical
+}
+
+type LogMessages struct {
+	Messages *timeseries.TimeSeries
+	Patterns map[string]*LogPattern
+}
+
 type LogPattern struct {
 	Pattern   *logparser.Pattern
 	Level     LogLevel
 	Sample    string
 	Multiline bool
-	Sum       *timeseries.TimeSeries
+	Messages  *timeseries.TimeSeries
 }

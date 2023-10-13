@@ -110,7 +110,7 @@ func requestsChart(app *model.Application, report *model.AuditReport, p *db.Proj
 			hm.AddSeries("errors", "errors", failed, "", "err")
 		}
 	}
-	if p.Settings.Integrations.Clickhouse != nil {
+	if cfg := p.Settings.Integrations.Clickhouse; cfg != nil && cfg.TracingEnabled() {
 		hm.DrillDownLink = model.NewRouterLink("tracing").SetParam("report", model.AuditReportTracing)
 	}
 }

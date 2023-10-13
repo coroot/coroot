@@ -54,24 +54,28 @@ const router = new VueRouter({
 
 const api = new Api(router, vuetify, config.base_path);
 
-router.afterEach((to, from) => {
-    if (to.params.projectId !== from.params.projectId || JSON.stringify(to.query) !== JSON.stringify(from.query)) {
-        events.emit('refresh');
-    }
-    const m = to.matched[0];
-    if (m) {
-        let p = m.path;
+router.afterEach((to) => {
+    if (to.matched[0]) {
+        let p = to.matched[0].path;
         if (to.meta.stats && to.meta.stats.param) {
             p = p.replace(':'+to.meta.stats.param, to.params[to.meta.stats.param] || '');
         }
         p = p.replaceAll(':', '$');
-        if (to.query.profile) {
+        if (to.name === 'application' && to.params.report === 'Profiling') {
             const [type, name, mode, fromTs, toTs] = to.query.profile.split(':');
             p += `${type}:${name}:${mode}:${Number(fromTs) || Number(toTs) ? 'ts' : '-'}`;
         }
-        if (to.query.trace) {
+        if (to.name === 'application' && to.params.report === 'Tracing') {
             const [type, id, ts, dur] = to.query.trace.split(':');
             p += `${type}:${id ? 'id' : '-'}:${ts !== '-' ? 'ts' : '-'}:${dur}`;
+        }
+        if (to.name === 'application' && to.params.report === 'Logs') {
+            try {
+                const q = JSON.parse(to.query.query || '{}');
+                p += `${q.source || ''}:${q.view || ''}:${q.severity || ''}:${q.hash ? 'hash' : ''}:${q.search ? 'search' : ''}`;
+            } catch {
+                //
+            }
         }
         api.stats("route-open", {path: p});
     }

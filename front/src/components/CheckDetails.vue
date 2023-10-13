@@ -9,31 +9,21 @@
         <div class="grey--text ml-4">
             <span>Condition: </span>
             <span>{{condition.head}}</span>
-            <a @click="editing = true">{{threshold}}</a>
+            <a @click="$emit('configure')">{{threshold}}</a>
             <span>{{condition.tail}}</span>
         </div>
-
-        <CheckForm :appId="appId" :check="check" v-model="editing"/>
     </div>
 </template>
 
 <script>
-import Led from "../components/Led";
-import CheckForm from "./CheckForm";
+import Led from "./Led.vue";
 
 export default {
     props: {
-        appId: String,
         check: Object,
     },
 
-    components: {CheckForm, Led},
-
-    data() {
-        return {
-            editing: false,
-        }
-    },
+    components: {Led},
 
     computed: {
         condition() {

@@ -19,7 +19,7 @@
             </v-tab>
         </v-tabs>
 
-        <v-card v-if="r && r.checks" outlined class="my-4 pa-4 pb-2">
+        <v-card v-if="r && !r.custom && r.checks" outlined class="my-4 pa-4 pb-2">
             <Check v-for="check in r.checks" :key="check.id" :appId="id" :check="check" class="mb-2" />
         </v-card>
 
@@ -33,7 +33,7 @@
 import AppMap from "../components/AppMap";
 import Dashboard from "../components/Dashboard";
 import NoData from "../components/NoData";
-import Check from "../views/Check";
+import Check from "../components/Check";
 import Led from "../components/Led";
 
 export default {
