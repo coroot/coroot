@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode"
 )
 
 func (c *ClickhouseClient) GetServicesFromLogs(ctx context.Context) (map[string][]string, error) {
@@ -164,7 +165,9 @@ func logFilters(from, to timeseries.Time, services []string, severities []string
 		)
 	}
 	if len(search) > 0 {
-		fields := strings.Fields(search)
+		fields := strings.FieldsFunc(search, func(r rune) bool {
+			return unicode.IsSpace(r) || (r <= unicode.MaxASCII && !unicode.IsNumber(r) && !unicode.IsLetter(r))
+		})
 		if len(fields) > 0 {
 			var ands []string
 			for _, f := range fields {
