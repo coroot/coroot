@@ -110,7 +110,10 @@
                             <tbody>
                             <tr v-for="(v, k) in entry.attributes">
                                 <td>{{k}}</td>
-                                <td><pre>{{v}}</pre></td>
+                                <td>
+                                    <router-link v-if="k === 'host.name'" :to="{name: 'node', params: {name: v}, query: $utils.contextQuery()}">{{v}}</router-link>
+                                    <pre v-else>{{v}}</pre>
+                                </td>
                             </tr>
                             </tbody>
                         </v-simple-table>
