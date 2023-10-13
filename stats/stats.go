@@ -50,6 +50,8 @@ type Stats struct {
 		Pyroscope                 bool                                 `json:"pyroscope"`
 		CloudCosts                bool                                 `json:"cloud_costs"`
 		Clickhouse                bool                                 `json:"clickhouse"`
+		Tracing                   bool                                 `json:"tracing"`
+		Logs                      bool                                 `json:"logs"`
 	} `json:"integration"`
 	Stack struct {
 		Clouds               *utils.StringSet `json:"clouds"`
@@ -265,6 +267,8 @@ func (c *Collector) collect() Stats {
 		}
 		if cfg := p.Settings.Integrations.Clickhouse; cfg != nil && cfg.Addr != "" {
 			stats.Integration.Clickhouse = true
+			stats.Integration.Tracing = cfg.TracingEnabled()
+			stats.Integration.Logs = cfg.LogsEnabled()
 		}
 
 		for category := range p.Settings.ApplicationCategories {

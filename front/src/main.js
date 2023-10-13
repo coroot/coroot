@@ -61,13 +61,21 @@ router.afterEach((to) => {
             p = p.replace(':'+to.meta.stats.param, to.params[to.meta.stats.param] || '');
         }
         p = p.replaceAll(':', '$');
-        if (to.query.profile) {
+        if (to.name === 'application' && to.params.report === 'Profiling') {
             const [type, name, mode, fromTs, toTs] = to.query.profile.split(':');
             p += `${type}:${name}:${mode}:${Number(fromTs) || Number(toTs) ? 'ts' : '-'}`;
         }
-        if (to.query.trace) {
+        if (to.name === 'application' && to.params.report === 'Tracing') {
             const [type, id, ts, dur] = to.query.trace.split(':');
             p += `${type}:${id ? 'id' : '-'}:${ts !== '-' ? 'ts' : '-'}:${dur}`;
+        }
+        if (to.name === 'application' && to.params.report === 'Logs') {
+            try {
+                const q = JSON.parse(to.query.query || '{}');
+                p += `${q.source || ''}:${q.view || ''}:${q.severity || ''}:${q.hash ? 'hash' : ''}:${q.search ? 'search' : ''}`;
+            } catch {
+                //
+            }
         }
         api.stats("route-open", {path: p});
     }
