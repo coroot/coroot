@@ -57,7 +57,7 @@ func (d *ApplicationDeployment) Version() string {
 	if d.Details != nil && len(d.Details.ContainerImages) > 0 {
 		var images []string
 		for _, i := range d.Details.ContainerImages {
-			images = append(images, utils.LastPart(i, "/"))
+			images = append(images, utils.FormatImage(i))
 		}
 		res += ": " + strings.Join(images, ", ")
 	}
