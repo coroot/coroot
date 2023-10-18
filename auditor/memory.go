@@ -33,7 +33,9 @@ func (a *appAuditor) memory(ncs nodeConsumersByNode) {
 			totalRss.Add(c.MemoryRss)
 			instanceRss.Add(c.MemoryRss)
 		}
-		report.GetOrCreateChartInGroup(memoryUsageChartTitle, "total").AddSeries(i.Name, instanceRss).Feature()
+		if cg := report.GetChartGroup(memoryUsageChartTitle); cg != nil && len(cg.Charts) > 1 {
+			cg.GetOrCreateChart(a.w.Ctx, "total").AddSeries(i.Name, instanceRss).Feature()
+		}
 		oomTs := oom.Get()
 		report.GetOrCreateChart("Out of memory events").Column().AddSeries(i.Name, oomTs)
 

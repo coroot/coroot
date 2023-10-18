@@ -40,16 +40,15 @@ func (a *appAuditor) cpu(ncs nodeConsumersByNode) {
 				containerCpuCheck.AddItem("%s@%s", c.Name, i.Name)
 			}
 		}
-		report.GetOrCreateChartInGroup(cpuChartTitle, "total").
-			AddSeries(i.Name, instanceUsage).
-			Feature()
-		report.
-			GetOrCreateChartInGroup("CPU delay <selector>, seconds/second", "total").
-			AddSeries(i.Name, instanceDelay).
-			Feature()
-		report.GetOrCreateChartInGroup("Throttled time <selector>, seconds/second", "total").
-			AddSeries(i.Name, instanceThrottledTime).
-			Feature()
+		if cg := report.GetChartGroup(cpuChartTitle); cg != nil && len(cg.Charts) > 1 {
+			cg.GetOrCreateChart(a.w.Ctx, "total").AddSeries(i.Name, instanceUsage).Feature()
+		}
+		if cg := report.GetChartGroup("CPU delay <selector>, seconds/second"); cg != nil && len(cg.Charts) > 1 {
+			cg.GetOrCreateChart(a.w.Ctx, "total").AddSeries(i.Name, instanceDelay).Feature()
+		}
+		if cg := report.GetChartGroup("Throttled time <selector>, seconds/second"); cg != nil && len(cg.Charts) > 1 {
+			cg.GetOrCreateChart(a.w.Ctx, "total").AddSeries(i.Name, instanceThrottledTime).Feature()
+		}
 
 		if node := i.Node; i.Node != nil {
 			seenRelatedNodes = true

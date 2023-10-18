@@ -47,6 +47,16 @@ func (r *AuditReport) AddWidget(w *Widget) *Widget {
 }
 
 func (r *AuditReport) GetOrCreateChartGroup(title string) *ChartGroup {
+	cg := r.GetChartGroup(title)
+	if cg != nil {
+		return cg
+	}
+	cg = &ChartGroup{Title: title}
+	r.Widgets = append(r.Widgets, &Widget{ChartGroup: cg})
+	return cg
+}
+
+func (r *AuditReport) GetChartGroup(title string) *ChartGroup {
 	for _, w := range r.Widgets {
 		if cg := w.ChartGroup; cg != nil {
 			if cg.Title == title {
@@ -54,9 +64,7 @@ func (r *AuditReport) GetOrCreateChartGroup(title string) *ChartGroup {
 			}
 		}
 	}
-	cg := &ChartGroup{Title: title}
-	r.Widgets = append(r.Widgets, &Widget{ChartGroup: cg})
-	return cg
+	return nil
 }
 
 func (r *AuditReport) GetOrCreateChartInGroup(title string, chartTitle string) *Chart {
