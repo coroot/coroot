@@ -61,22 +61,10 @@ func renderHealth(w *model.World) []*ApplicationStatus {
 						if ch.Status >= model.WARNING {
 							a.Latency.Status = model.CRITICAL
 						}
-						latency := model.Quantile(sli.Histogram, sli.Config.ObjectivePercentage/100).Last()
+						latency := quantile(sli.Histogram, sli.Config.ObjectivePercentage/100)
 						if latency > 0 {
 							a.Latency.Value = utils.FormatLatency(latency)
 						}
-						//tsTotal, tsFast := sli.GetTotalAndFast(false)
-						//total := tsTotal.Reduce(timeseries.NanSum)
-						//if latency > 0 && total > 0 {
-						//	fast := tsFast.Reduce(timeseries.NanSum)
-						//	if timeseries.IsNaN(fast) {
-						//		fast = 0
-						//	}
-						//	if fast*100/total < sli.Config.ObjectivePercentage {
-						//		a.Latency.Status = model.CRITICAL
-						//	}
-						//	a.Latency.Value = utils.FormatLatency(latency)
-						//}
 						break
 					}
 				case model.Checks.InstanceAvailability.Id:
@@ -168,6 +156,31 @@ func calcApplicationStatus(s *ApplicationStatus) {
 			s.Status = p.Status
 		}
 	}
+}
+
+func quantile(histogram []model.HistogramBucket, q float32) float32 {
+	if len(histogram) == 0 {
+		return 0
+	}
+	total := histogram[len(histogram)-1].TimeSeries.Reduce(timeseries.NanSum)
+	if total == 0 {
+		return 0
+	}
+	sumQ := total * q
+	var lePrev, sumPrev float32
+	for _, b := range histogram {
+		sum := b.TimeSeries.Reduce(timeseries.NanSum)
+		if timeseries.IsNaN(sum) || sum < sumQ {
+			lePrev = b.Le
+			sumPrev = sum
+			continue
+		}
+		if timeseries.IsInf(b.Le, 1) {
+			return b.Le
+		}
+		return lePrev + (b.Le-lePrev)*((sumQ-sumPrev)/(sum-sumPrev))
+	}
+	return 0
 }
 
 func formatPercent(v float32) string {
