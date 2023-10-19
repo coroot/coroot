@@ -17,7 +17,7 @@ func (a *appAuditor) instances() {
 
 	availability := report.CreateCheck(model.Checks.InstanceAvailability)
 	restarts := report.CreateCheck(model.Checks.InstanceRestarts)
-
+	instancesChart := report.GetOrCreateChart("Instances").Stacked()
 	for _, i := range a.app.Instances {
 		up.Add(i.UpAndRunning())
 
@@ -106,11 +106,14 @@ func (a *appAuditor) instances() {
 		if *status.Status == model.OK {
 			availability.Inc(1)
 		}
+		instanceRestarts := timeseries.NewAggregate(timeseries.NanSum)
 		for _, c := range i.Containers {
+			instanceRestarts.Add(c.Restarts)
 			if r := c.Restarts.Reduce(timeseries.NanSum); !timeseries.IsNaN(r) {
 				restarts.Inc(int64(r))
 			}
 		}
+		report.GetOrCreateChart("Restarts").Column().AddSeries(i.Name, instanceRestarts)
 		restartsCell := model.NewTableCell()
 		if restarts.Count() > 0 {
 			restartsCell.SetValue(strconv.FormatInt(restarts.Count(), 10))
@@ -154,11 +157,11 @@ func (a *appAuditor) instances() {
 		availability.SetStatus(model.UNKNOWN, "no data")
 		restarts.SetStatus(model.UNKNOWN, "no data")
 	}
-	chart := report.GetOrCreateChart("Instances").Stacked().AddSeries("up", up)
+	instancesChart.AddSeries("up", up)
 	if !a.app.DesiredInstances.IsEmpty() {
-		chart.SetThreshold("desired", a.app.DesiredInstances)
-		chart.Threshold.Color = "red"
-		chart.Threshold.Fill = true
+		instancesChart.SetThreshold("desired", a.app.DesiredInstances)
+		instancesChart.Threshold.Color = "red"
+		instancesChart.Threshold.Fill = true
 	}
 }
 
