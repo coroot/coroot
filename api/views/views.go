@@ -26,7 +26,7 @@ func Status(p *db.Project, cacheStatus *cache.Status, w *model.World) *project.S
 	return project.RenderStatus(p, cacheStatus, w)
 }
 
-func Overview(w *model.World, view string) *overview.View {
+func Overview(w *model.World, view string) *overview.Overview {
 	return overview.Render(w, view)
 }
 

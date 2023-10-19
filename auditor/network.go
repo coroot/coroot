@@ -60,7 +60,11 @@ func (a *appAuditor) network() {
 				summary.status = linkStatus
 			}
 			if u.Rtt != nil {
-				if u.Rtt.Last() > rttCheck.Threshold && linkStatus == model.OK {
+				last := u.Rtt.Last()
+				if last > rttCheck.Value() {
+					rttCheck.SetValue(last)
+				}
+				if last > rttCheck.Threshold && linkStatus == model.OK {
 					linkStatus = model.WARNING
 				}
 				summary.addRtt(u.Rtt)

@@ -18,7 +18,6 @@ func (a *appAuditor) instances() {
 	availability := report.CreateCheck(model.Checks.InstanceAvailability)
 	restarts := report.CreateCheck(model.Checks.InstanceRestarts)
 
-	availableInstances := 0
 	for _, i := range a.app.Instances {
 		up.Add(i.UpAndRunning())
 
@@ -105,18 +104,16 @@ func (a *appAuditor) instances() {
 			}
 		}
 		if *status.Status == model.OK {
-			availableInstances++
+			availability.Inc(1)
 		}
-		restartsCount := int64(0)
 		for _, c := range i.Containers {
 			if r := c.Restarts.Reduce(timeseries.NanSum); !timeseries.IsNaN(r) {
 				restarts.Inc(int64(r))
-				restartsCount += int64(r)
 			}
 		}
 		restartsCell := model.NewTableCell()
-		if restartsCount > 0 {
-			restartsCell.SetValue(strconv.FormatInt(restartsCount, 10))
+		if restarts.Count() > 0 {
+			restartsCell.SetValue(strconv.FormatInt(restarts.Count(), 10))
 		}
 
 		nodeStatus := model.UNKNOWN
@@ -143,7 +140,8 @@ func (a *appAuditor) instances() {
 		desired = float32(len(a.app.Instances))
 	}
 	if desired > 0 {
-		if p := float32(availableInstances) / desired * 100; p < availability.Threshold {
+		availability.SetDesired(int64(desired))
+		if p := float32(availability.Count()) / desired * 100; p < availability.Threshold {
 			if p == 0 {
 				availability.SetStatus(model.WARNING, "no instances available")
 			} else {

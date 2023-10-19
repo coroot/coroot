@@ -24,7 +24,7 @@ type Link struct {
 	Weight float32             `json:"weight"`
 }
 
-func renderApplications(w *model.World) []*Application {
+func renderServiceMap(w *model.World) []*Application {
 	var apps []*Application
 	used := map[model.ApplicationId]bool{}
 	for _, a := range w.Applications {

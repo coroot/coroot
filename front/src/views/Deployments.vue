@@ -65,11 +65,12 @@ import Led from "../components/Led.vue";
 import ApplicationCategories from "../components/ApplicationCategories.vue";
 
 export default {
-    components: {ApplicationCategories, Led},
     props: {
         deployments: Array,
         categoriesTo: Object,
     },
+
+    components: {ApplicationCategories, Led},
 
     data() {
         return {

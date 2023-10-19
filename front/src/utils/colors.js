@@ -66,3 +66,10 @@ class Palette {
 }
 
 export const palette = new Palette();
+
+export const statuses = {
+    critical: 'red lighten-1',
+    warning: 'orange lighten-1',
+    info: 'blue lighten-1',
+    ok: 'green lighten-1',
+};
