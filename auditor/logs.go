@@ -22,10 +22,6 @@ func (a *appAuditor) logs() {
 			if !level.IsError() {
 				continue
 			}
-			count := msgs.Messages.Reduce(timeseries.NanSum)
-			if timeseries.IsNaN(count) || count == 0 {
-				continue
-			}
 			sum.Add(msgs.Messages)
 			for hash, pattern := range msgs.Patterns {
 				if byHash[hash] != nil {
@@ -40,7 +36,9 @@ func (a *appAuditor) logs() {
 				}
 				byHash[hash] = pattern
 				if !found {
-					check.AddItem(hash)
+					if pattern.Messages.Reduce(timeseries.NanSum) > 0 {
+						check.AddItem(hash)
+					}
 				}
 			}
 		}
