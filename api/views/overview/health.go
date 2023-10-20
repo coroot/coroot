@@ -41,6 +41,7 @@ func renderHealth(w *model.World) []*ApplicationStatus {
 			continue
 		}
 		a := &ApplicationStatus{Id: app.Id, Category: app.Category}
+		sloIsViolating := false
 
 		for _, r := range app.Reports {
 			for _, ch := range r.Checks {
@@ -49,6 +50,7 @@ func renderHealth(w *model.World) []*ApplicationStatus {
 					for _, sli := range app.AvailabilitySLIs {
 						if ch.Status >= model.WARNING {
 							a.Errors.Status = model.CRITICAL
+							sloIsViolating = true
 						}
 						failed := sli.FailedRequests.Reduce(timeseries.NanSum)
 						total := sli.TotalRequests.Reduce(timeseries.NanSum)
@@ -61,6 +63,7 @@ func renderHealth(w *model.World) []*ApplicationStatus {
 					for _, sli := range app.LatencySLIs {
 						if ch.Status >= model.WARNING {
 							a.Latency.Status = model.CRITICAL
+							sloIsViolating = true
 						}
 						latency := quantile(sli.Histogram, sli.Config.ObjectivePercentage/100)
 						if latency > 0 {
@@ -79,7 +82,7 @@ func renderHealth(w *model.World) []*ApplicationStatus {
 						a.Restarts.Value = fmt.Sprintf("%d", ch.Count())
 					}
 				case model.Checks.CPUNode.Id:
-					if ch.Status >= model.WARNING && (a.Errors.Status >= model.WARNING || a.Latency.Status >= model.WARNING) {
+					if ch.Status >= model.WARNING && sloIsViolating {
 						a.CPU.Status = model.WARNING
 						a.CPU.Value = "shortage"
 					}
@@ -99,7 +102,12 @@ func renderHealth(w *model.World) []*ApplicationStatus {
 						a.Memory.Value = "leak"
 					}
 				case model.Checks.StorageIO.Id:
-					a.DiskIO.Status = ch.Status
+					if ch.Status != model.UNKNOWN {
+						a.DiskIO.Status = ch.Status
+						if !sloIsViolating {
+							a.DiskIO.Status = model.OK
+						}
+					}
 					if ch.Value() > 0 {
 						a.DiskIO.Value = formatPercent(ch.Value())
 					}
@@ -109,7 +117,12 @@ func renderHealth(w *model.World) []*ApplicationStatus {
 						a.DiskUsage.Value = formatPercent(ch.Value())
 					}
 				case model.Checks.NetworkRTT.Id:
-					a.Network.Status = ch.Status
+					if ch.Status != model.UNKNOWN {
+						a.Network.Status = ch.Status
+						if !sloIsViolating {
+							a.Network.Status = model.OK
+						}
+					}
 					if ch.Value() > 0 {
 						a.Network.Value = utils.FormatLatency(ch.Value())
 					}
@@ -165,8 +178,10 @@ func renderHealth(w *model.World) []*ApplicationStatus {
 					ok++
 				}
 			}
-			if ok < total {
+			if ok < total && sloIsViolating {
 				a.Upstreams.Status = model.WARNING
+			} else {
+				a.Upstreams.Status = model.OK
 			}
 			a.Upstreams.Value = fmt.Sprintf("%d/%d", ok, total)
 		}
