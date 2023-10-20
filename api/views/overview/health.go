@@ -176,7 +176,7 @@ func quantile(histogram []model.HistogramBucket, q float32) float32 {
 			continue
 		}
 		if timeseries.IsInf(b.Le, 1) {
-			return b.Le
+			return lePrev
 		}
 		return lePrev + (b.Le-lePrev)*((sumQ-sumPrev)/(sum-sumPrev))
 	}
