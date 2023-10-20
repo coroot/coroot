@@ -194,6 +194,7 @@ export default {
 }
 .table:deep(td:has(.logs)) {
     width: 120px;
+    min-width: 120px;
     padding: 0 !important;
 }
 .value {

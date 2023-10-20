@@ -32,6 +32,7 @@ func (a *appAuditor) network() {
 
 	rttCheck := report.CreateCheck(model.Checks.NetworkRTT)
 	seenConnections := false
+	dependencyMap := report.GetOrCreateDependencyMap()
 	for _, instance := range a.app.Instances {
 		for _, u := range instance.Upstreams {
 			if u.FailedConnections != nil {
@@ -78,7 +79,7 @@ func (a *appAuditor) network() {
 			if instance.Node != nil && u.RemoteInstance.Node != nil {
 				sn := instance.Node
 				dn := u.RemoteInstance.Node
-				report.GetOrCreateDependencyMap().UpdateLink(
+				dependencyMap.UpdateLink(
 					model.DependencyMapInstance{Id: instance.Name + "@" + instance.NodeName(), Name: instance.Name, Obsolete: instance.IsObsolete()},
 					model.DependencyMapNode{Name: sn.Name.Value(), Provider: sn.CloudProvider.Value(), Region: sn.Region.Value(), AZ: sn.AvailabilityZone.Value()},
 					model.DependencyMapInstance{Id: u.RemoteInstance.Name + "@" + u.RemoteInstance.NodeName(), Name: u.RemoteInstance.Name, Obsolete: u.IsObsolete()},
