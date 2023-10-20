@@ -28,7 +28,11 @@ func (a *appAuditor) storage() {
 					report.GetOrCreateChartInGroup("I/O utilization <selector>, %", v.MountPoint).
 						AddSeries(i.Name, d.IOUtilizationPercent)
 
-					if d.IOUtilizationPercent.Last() > ioCheck.Threshold {
+					ioUtilization := d.IOUtilizationPercent.Last()
+					if ioUtilization > ioCheck.Value() {
+						ioCheck.SetValue(d.IOUtilizationPercent.Last())
+					}
+					if ioUtilization > ioCheck.Threshold {
 						ioCheck.AddItem("%s:%s", i.Name, v.MountPoint)
 					}
 
@@ -46,8 +50,8 @@ func (a *appAuditor) storage() {
 
 					latencyMs := model.NewTableCell().SetUnit("ms").SetValue(utils.FormatFloat(d.Await.Last() * 1000))
 					ioPercent := model.NewTableCell()
-					if last := d.IOUtilizationPercent.Last(); !timeseries.IsNaN(last) {
-						ioPercent.SetValue(fmt.Sprintf("%.0f%%", last))
+					if !timeseries.IsNaN(ioUtilization) {
+						ioPercent.SetValue(fmt.Sprintf("%.0f%%", ioUtilization))
 					}
 					space := model.NewTableCell()
 					capacity := v.CapacityBytes.Last()
@@ -60,6 +64,9 @@ func (a *appAuditor) storage() {
 							humanize.Bytes(uint64(usage)),
 							humanize.Bytes(uint64(capacity))),
 						)
+						if percentage > spaceCheck.Value() {
+							spaceCheck.SetValue(percentage)
+						}
 						if percentage > spaceCheck.Threshold {
 							spaceCheck.AddItem("%s:%s", i.Name, v.MountPoint)
 						}

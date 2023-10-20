@@ -12,16 +12,40 @@ func (a *appAuditor) logs() {
 	report.AddWidget(&model.Widget{Logs: &model.Logs{ApplicationId: a.app.Id, Check: check}, Width: "100%"})
 
 	seenContainers := false
+	sum := timeseries.NewAggregate(timeseries.NanSum)
+	byHash := map[string]*model.LogPattern{}
 	for _, instance := range a.app.Instances {
 		if len(instance.Containers) > 0 {
 			seenContainers = true
 		}
 		for level, msgs := range instance.LogMessages {
-			if level.IsError() {
-				check.Inc(int64(msgs.Messages.Reduce(timeseries.NanSum)))
+			if !level.IsError() {
+				continue
+			}
+			sum.Add(msgs.Messages)
+			for hash, pattern := range msgs.Patterns {
+				if byHash[hash] != nil {
+					continue
+				}
+				var found bool
+				for _, p := range byHash {
+					if p.Pattern.WeakEqual(pattern.Pattern) {
+						found = true
+						break
+					}
+				}
+				byHash[hash] = pattern
+				if !found {
+					if pattern.Messages.Reduce(timeseries.NanSum) > 0 {
+						check.AddItem(hash)
+					}
+				}
 			}
 		}
 	}
+	ts := sum.Get()
+	check.Inc(int64(ts.Reduce(timeseries.NanSum)))
+	check.SetValues(ts)
 	if !seenContainers {
 		check.SetStatus(model.UNKNOWN, "no data")
 	}

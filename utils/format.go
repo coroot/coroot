@@ -56,6 +56,9 @@ func HumanBits(v float32) string {
 }
 
 func FormatLatency(v float32) string {
+	if v < 0.0001 {
+		return "<0.1ms"
+	}
 	if v < 1 {
 		return FormatFloat(v*1000) + "ms"
 	}

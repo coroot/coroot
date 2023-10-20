@@ -1,8 +1,8 @@
 <template>
-    <div v-if="items.length" class="d-flex flex-wrap align-center">
-        <v-checkbox v-for="c in items" :key="c.name" v-model="c.value" :label="c.name" class="my-0 mx-2 text-no-wrap" color="green" hide-details />
+    <div v-if="items.length" class="categories">
+        <v-checkbox v-for="c in items" :key="c.name" v-model="c.value" :label="c.name" :disabled="disabled" class="checkbox" color="primary" hide-details />
 
-        <v-btn v-if="configureTo" ref="configure" :to="configureTo" icon small class="ml-1" style="margin-top: 2px">
+        <v-btn v-if="configureTo" ref="configure" :to="configureTo" icon small>
             <v-icon>mdi-plus</v-icon>
         </v-btn>
         <v-tooltip :activator="$refs.configure" bottom>
@@ -17,6 +17,7 @@ const storageKey = 'application-categories';
 export default {
     props: {
         categories: Array,
+        disabled: Boolean,
         configureTo: {
             type: Object,
             default: () => ({name: 'project_settings', params: {tab: 'categories'}}),
@@ -32,7 +33,7 @@ export default {
     watch: {
         categories: {
             handler() {
-                if (!this.categories.length) {
+                if (!this.categories || !this.categories.length) {
                     return;
                 }
                 const items = this.categories.map(c => ({name: c, value: false}));
@@ -80,5 +81,18 @@ export default {
 </script>
 
 <style scoped>
-
+.categories {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+}
+.checkbox {
+    white-space: nowrap;
+    margin: 0;
+    padding: 0;
+}
+.checkbox:deep(.v-input--selection-controls__input) {
+    margin-right: 2px !important;
+}
 </style>

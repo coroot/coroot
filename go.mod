@@ -28,6 +28,7 @@ require (
 	github.com/slack-go/slack v0.11.3
 	github.com/stretchr/testify v1.8.2
 	github.com/xhit/go-str2duration/v2 v2.0.0
+	golang.org/x/exp v0.0.0-20230129154200-a960b3787bd2
 	golang.org/x/net v0.7.0
 	gonum.org/v1/gonum v0.12.0
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
@@ -69,7 +70,6 @@ require (
 	go.opentelemetry.io/otel/trace v1.14.0 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/goleak v1.2.0 // indirect
-	golang.org/x/exp v0.0.0-20230129154200-a960b3787bd2 // indirect
 	golang.org/x/sys v0.7.0 // indirect
 	golang.org/x/text v0.7.0 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect

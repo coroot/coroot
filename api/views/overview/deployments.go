@@ -26,9 +26,9 @@ type DeploymentSummaryItem struct {
 	Link    *model.RouterLink `json:"link"`
 }
 
-func renderDeployments(w *model.World) []Deployment {
+func renderDeployments(w *model.World) []*Deployment {
 	now := timeseries.Now()
-	var deployments []Deployment
+	var deployments []*Deployment
 	for _, app := range w.Applications {
 		statuses := model.CalcApplicationDeploymentStatuses(app, w.CheckConfigs, now)
 		for _, ds := range statuses {
@@ -36,7 +36,7 @@ func renderDeployments(w *model.World) []Deployment {
 			link := func() *model.RouterLink {
 				return model.NewRouterLink("").SetRoute("application").SetParam("id", app.Id).SetArg("from", from).SetArg("to", to)
 			}
-			d := Deployment{
+			d := &Deployment{
 				Application: Application{Id: app.Id, Category: app.Category},
 				Version:     ds.Deployment.Version(),
 				startedAt:   ds.Deployment.StartedAt,
@@ -45,6 +45,7 @@ func renderDeployments(w *model.World) []Deployment {
 				Link:        link().SetParam("report", model.AuditReportInstances),
 				Age:         utils.FormatDuration(ds.Lifetime, 1),
 			}
+			deployments = append(deployments, d)
 			switch ds.State {
 			case model.ApplicationDeploymentStateSummary:
 				if len(ds.Summary) > 0 {
@@ -71,7 +72,6 @@ func renderDeployments(w *model.World) []Deployment {
 			case model.ApplicationDeploymentStateInProgress, model.ApplicationDeploymentStateCancelled:
 				d.Summary = append(d.Summary, DeploymentSummaryItem{Message: ds.Message})
 			}
-			deployments = append(deployments, d)
 		}
 	}
 

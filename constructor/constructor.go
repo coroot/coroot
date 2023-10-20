@@ -132,15 +132,14 @@ func (c *Constructor) queryCache(ctx context.Context, from, to timeseries.Time, 
 	rawFrom := to.Add(-model.MaxAlertRuleWindow)
 	var rawStep timeseries.Duration
 	loadRawSLIs := !c.options[OptionDoNotLoadRawSLIs]
-	if loadRawSLIs {
-		var err error
-		rawStep, err = c.prom.GetStep(from, to)
-		if err != nil {
-			return nil, err
-		}
-		rawFrom = rawFrom.Truncate(rawStep)
-		rawTo = rawTo.Truncate(rawStep)
+
+	var err error
+	rawStep, err = c.prom.GetStep(from, to)
+	if err != nil {
+		return nil, err
 	}
+	rawFrom = rawFrom.Truncate(rawStep)
+	rawTo = rawTo.Truncate(rawStep)
 
 	from = from.Truncate(step)
 	to = to.Truncate(step)
@@ -157,6 +156,16 @@ func (c *Constructor) queryCache(ctx context.Context, from, to timeseries.Time, 
 			continue
 		}
 		addQuery(n, n, q, false)
+		if n == "container_memory_rss" {
+			name := n + "_for_trend"
+			queries[name] = cacheQuery{
+				query:     q,
+				from:      to.Add(-timeseries.Hour * 4).Truncate(rawStep),
+				to:        to.Truncate(rawStep),
+				step:      rawStep,
+				statsName: name,
+			}
+		}
 	}
 
 	for name := range RecordingRules {

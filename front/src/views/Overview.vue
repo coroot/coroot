@@ -9,13 +9,20 @@
     </v-alert>
 
     <v-tabs height="40" show-arrows slider-size="2" class="mb-3">
-        <v-tab v-for="v in views" :key="v" :to="{params: {view: v === 'applications' ? undefined : v }, query: $utils.contextQuery()}" exact-path>
-            {{ v }}
-        </v-tab>
+        <template v-for="(name, id) in views">
+            <v-tab v-if="name" :to="{params: {view: id === 'health' ? undefined : id}, query: $utils.contextQuery()}" exact-path>
+                {{ name }}
+            </v-tab>
+        </template>
     </v-tabs>
 
     <template v-if="!view">
-        <ServiceMap v-if="applications" :applications="applications" />
+        <Health v-if="health" :applications="health" />
+        <NoData v-else-if="!loading" />
+    </template>
+
+    <template v-else-if="view === 'map'">
+        <ServiceMap v-if="map" :applications="map" />
         <NoData v-else-if="!loading" />
     </template>
 
@@ -41,23 +48,36 @@ import Table from "../components/Table";
 import NoData from "../components/NoData";
 import NodesCosts from "../components/NodesCosts";
 import ApplicationsCosts from "../components/ApplicationsCosts";
-import Deployments from "../components/Deployments.vue";
+import Deployments from "./Deployments.vue";
+import Health from "./Health.vue";
 
 export default {
-    components: {Deployments, NoData, ServiceMap, Table, NodesCosts, ApplicationsCosts},
+    components: {Deployments, NoData, ServiceMap, Table, NodesCosts, ApplicationsCosts, Health},
     props: {
         view: String,
     },
 
     data() {
         return {
-            views: ['applications', 'nodes', 'deployments'],
-            applications: null,
+            health: null,
+            map: null,
             nodes: null,
-            costs: null,
             deployments: null,
+            costs: null,
             loading: false,
             error: '',
+        }
+    },
+
+    computed: {
+        views() {
+            return {
+                health: 'Health',
+                map: 'Service Map',
+                nodes: 'Nodes',
+                deployments: 'Deployments',
+                costs: this.costs ? 'Costs' : '',
+            }
         }
     },
 
@@ -74,20 +94,21 @@ export default {
 
     methods: {
         get() {
-            const view = this.view || 'applications';
+            const view = this.view || 'health';
             this.loading = true;
+            this.error = '';
             this.$api.getOverview(view, (data, error) => {
                 this.loading = false;
                 if (error) {
                     this.error = error;
                     return;
                 }
-                this.views = data.views || this.views;
-                this.applications = data.applications;
+                this.health = data.health;
+                this.map = data.map;
                 this.nodes = data.nodes;
                 this.costs = data.costs;
                 this.deployments = data.deployments;
-                if (!this.views.find(v => v === view)) {
+                if (!this.views[view]) {
                     this.$router.replace({params: {view: undefined}}).catch(err => err);
                 }
             });

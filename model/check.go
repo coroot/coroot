@@ -125,7 +125,7 @@ var Checks = struct {
 	MemoryLeakPercent: CheckConfig{
 		Type:                    CheckTypeValueBased,
 		Title:                   "Memory leak",
-		DefaultThreshold:        5,
+		DefaultThreshold:        10,
 		MessageTemplate:         `memory usage is growing by {{.Value}} %% per hour`,
 		ConditionFormatTemplate: "memory usage is growing by > <threshold> % per hour",
 	},
@@ -313,12 +313,25 @@ type Check struct {
 	messageTemplate string
 	items           *utils.StringSet
 	count           int64
+	desired         int64
 	value           float32
+	values          *timeseries.TimeSeries
 	fired           bool
+}
+
+func (ch *Check) Value() float32 {
+	return ch.value
 }
 
 func (ch *Check) SetValue(v float32) {
 	ch.value = v
+}
+
+func (ch *Check) Values() *timeseries.TimeSeries {
+	return ch.values
+}
+func (ch *Check) SetValues(vs *timeseries.TimeSeries) {
+	ch.values = vs
 }
 
 func (ch *Check) Fire() {
@@ -338,8 +351,24 @@ func (ch *Check) AddItem(format string, a ...any) {
 	ch.items.Add(fmt.Sprintf(format, a...))
 }
 
+func (ch *Check) Count() int64 {
+	return ch.count
+}
+
 func (ch *Check) Inc(amount int64) {
 	ch.count += amount
+}
+
+func (ch *Check) Desired() int64 {
+	return ch.desired
+}
+
+func (ch *Check) SetDesired(desired int64) {
+	ch.desired = desired
+}
+
+func (ch *Check) Items() *utils.StringSet {
+	return ch.items
 }
 
 func (ch *Check) Calc() {

@@ -50,7 +50,7 @@ export default {
 
     methods: {
         calc() {
-            const nodes = this.nodes;
+            const nodes = this.nodes || [];
             let azs = new Map();
             nodes.forEach((n) => {
                 const k = `${n.provider}:${n.pegion}:${n.az}`;
@@ -75,7 +75,7 @@ export default {
             if (rects.size === 0) {
                 return;
             }
-            const links = this.links;
+            const links = this.links || [];
             this.lines = links.map((l) => {
                 const s = rects.get('src-'+l.src_instance);
                 const d = rects.get('dst-'+l.dst_instance);

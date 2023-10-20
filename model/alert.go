@@ -18,7 +18,7 @@ var (
 		{LongWindow: timeseries.Hour, ShortWindow: 5 * timeseries.Minute, BurnRateThreshold: 14.4, Severity: CRITICAL},
 		{LongWindow: 6 * timeseries.Hour, ShortWindow: 30 * timeseries.Minute, BurnRateThreshold: 6, Severity: CRITICAL},
 		{LongWindow: timeseries.Day, ShortWindow: 2 * timeseries.Hour, BurnRateThreshold: 3, Severity: WARNING},
-		{LongWindow: 3 * timeseries.Day, ShortWindow: 6 * timeseries.Hour, BurnRateThreshold: 1, Severity: WARNING},
+		//{LongWindow: 3 * timeseries.Day, ShortWindow: 6 * timeseries.Hour, BurnRateThreshold: 1, Severity: WARNING},
 	}
 	MaxAlertRuleWindow timeseries.Duration
 )
