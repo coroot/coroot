@@ -6,7 +6,7 @@
         </v-col>
         <v-col class="d-flex">
             <v-spacer />
-            <ApplicationCategories :categories="categories" :configureTo="categoriesTo" @change="setSelectedCategories" />
+            <ApplicationCategories :categories="categories" :configureTo="categoriesTo" @change="setSelectedCategories" :disabled="!!search" />
         </v-col>
     </v-row>
 
@@ -88,13 +88,10 @@ export default {
                 return [];
             }
             return this.deployments.filter(d => {
-                if (!this.selectedCategories.has(d.application.category)) {
-                    return false;
+                if (this.search) {
+                    return d.application.id.includes(this.search);
                 }
-                if (this.search && d.application.id.indexOf(this.search) === -1) {
-                    return false;
-                }
-                return true;
+                return this.selectedCategories.has(d.application.category);
             })
         },
     },

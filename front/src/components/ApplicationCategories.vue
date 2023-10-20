@@ -1,6 +1,6 @@
 <template>
     <div v-if="items.length" class="categories">
-        <v-checkbox v-for="c in items" :key="c.name" v-model="c.value" :label="c.name" class="checkbox" color="primary" hide-details />
+        <v-checkbox v-for="c in items" :key="c.name" v-model="c.value" :label="c.name" :disabled="disabled" class="checkbox" color="primary" hide-details />
 
         <v-btn v-if="configureTo" ref="configure" :to="configureTo" icon small>
             <v-icon>mdi-plus</v-icon>
@@ -17,6 +17,7 @@ const storageKey = 'application-categories';
 export default {
     props: {
         categories: Array,
+        disabled: Boolean,
         configureTo: {
             type: Object,
             default: () => ({name: 'project_settings', params: {tab: 'categories'}}),

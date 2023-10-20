@@ -6,7 +6,7 @@
         </v-col>
         <v-col class="d-flex">
             <v-spacer />
-            <ApplicationCategories :categories="categories" :configureTo="categoriesTo" @change="setSelectedCategories" />
+            <ApplicationCategories :categories="categories" :configureTo="categoriesTo" @change="setSelectedCategories" :disabled="!!search" />
         </v-col>
     </v-row>
 
@@ -34,48 +34,48 @@
         ]"
         :footer-props="{itemsPerPageOptions: [10, 20, 50, 100, -1]}"
     >
-        <template #item.application="{item}">
+        <template #item.application="{item: {id, color}}">
             <div class="application">
-                <div class="status lighten-1" :class="item.color" />
+                <div class="status lighten-1" :class="color" />
                 <div class="name">
-                    <router-link :to="{name: 'application', params: {id: item.id}, query: $utils.contextQuery()}">
-                        {{ $utils.appId(item.id).name }}
-                    </router-link>
+                    <router-link :to="link(id, undefined)">{{ $utils.appId(id).name }}</router-link>
                 </div>
             </div>
         </template>
-        <template #item.errors="{item}">
-            <span class="value" :class="item.errors.status">{{item.errors.value || '–'}}</span>
+        <template #item.errors="{item: {id, errors: param}}">
+            <router-link :to="link(id, 'SLO')" class="value" :class="param.status">{{param.value || '–'}}</router-link>
         </template>
-        <template #item.latency="{item}">
-            <span class="value" :class="item.latency.status">{{item.latency.value || '–'}}</span>
+        <template #item.latency="{item: {id, latency: param}}">
+            <router-link :to="link(id, 'SLO')" class="value" :class="param.status">{{param.value || '–'}}</router-link>
         </template>
-        <template #item.instances="{item}">
-            <span class="value" :class="item.instances.status">{{item.instances.value || '–'}}</span>
+        <template #item.instances="{item: {id, instances: param}}">
+            <router-link :to="link(id, 'Instances')" class="value" :class="param.status">{{param.value || '–'}}</router-link>
         </template>
-        <template #item.restarts="{item}">
-            <span class="value" :class="item.restarts.status">{{item.restarts.value || '–'}}</span>
+        <template #item.restarts="{item: {id, restarts: param}}">
+            <router-link :to="link(id, 'Instances')" class="value" :class="param.status">{{param.value || '–'}}</router-link>
         </template>
-        <template #item.cpu="{item}">
-            <span class="value" :class="item.cpu.status">{{item.cpu.value || '–'}}</span>
+        <template #item.cpu="{item: {id, cpu: param}}">
+            <router-link :to="link(id, 'CPU')" class="value" :class="param.status">{{param.value || '–'}}</router-link>
         </template>
-        <template #item.memory="{item}">
-            <span class="value" :class="item.memory.status">{{item.memory.value || '–'}}</span>
+        <template #item.memory="{item: {id, memory: param}}">
+            <router-link :to="link(id, 'Memory')" class="value" :class="param.status">{{param.value || '–'}}</router-link>
         </template>
-        <template #item.disk_io="{item}">
-            <span class="value" :class="item.disk_io.status">{{item.disk_io.value || '–'}}</span>
+        <template #item.disk_io="{item: {id, disk_io: param}}">
+            <router-link :to="link(id, 'Storage')" class="value" :class="param.status">{{param.value || '–'}}</router-link>
         </template>
-        <template #item.disk_usage="{item}">
-            <span class="value" :class="item.disk_usage.status">{{item.disk_usage.value || '–'}}</span>
+        <template #item.disk_usage="{item: {id, disk_usage: param}}">
+            <router-link :to="link(id, 'Storage')" class="value" :class="param.status">{{param.value || '–'}}</router-link>
         </template>
-        <template #item.network="{item}">
-            <span class="value" :class="item.network.status">{{item.network.value || '–'}}</span>
+        <template #item.network="{item: {id, network: param}}">
+            <router-link :to="link(id, 'Network')" class="value" :class="param.status">{{param.value || '–'}}</router-link>
         </template>
-        <template #item.logs="{item}">
-            <div class="logs">
-                <div class="value">{{item.logs.value}}</div>
-                <v-sparkline v-if="item.logs.chart" :value="item.logs.chart.map((v) => v === null ? 0 : v)" fill smooth padding="4" color="blue lighten-4" height="60" class="chart" />
-            </div>
+        <template #item.logs="{item: {id, logs: param}}">
+            <router-link :to="link(id, 'Logs', {query: JSON.stringify({source: 'agent', view: 'patterns'})})">
+                <div class="logs">
+                    <div class="value">{{param.value || '–'}}</div>
+                    <v-sparkline v-if="param.chart" :value="param.chart.map((v) => v === null ? 0 : v)" fill smooth padding="4" color="blue lighten-4" height="30" width="120" />
+                </div>
+            </router-link>
         </template>
     </v-data-table>
 </div>
@@ -123,13 +123,10 @@ export default {
                 return [];
             }
             return this.applications.filter(a => {
-                if (!this.selectedCategories.has(a.category)) {
-                    return false;
+                if (this.search) {
+                    return a.id.includes(this.search);
                 }
-                if (this.search && !a.id.includes(this.search)) {
-                    return false;
-                }
-                return true;
+                return this.selectedCategories.has(a.category);
             }).map(a => {
                 return {
                     ...a,
@@ -142,6 +139,9 @@ export default {
     methods: {
         setSelectedCategories(categories) {
             this.selectedCategories = new Set(categories);
+        },
+        link(id, report, query) {
+            return {name: 'application', params: {id, report}, query: {...query, ...this.$utils.contextQuery()}};
         },
     },
 }
@@ -157,11 +157,8 @@ export default {
 .table:deep(th), .table:deep(td) {
     padding: 4px 8px !important;
 }
-.table:deep(td):first-child {
+.table:deep(td:has(.application)) {
     padding-left: 0 !important;
-}
-.table:deep(td):last-child {
-    padding-right: 0 !important;
 }
 .table .application {
     display: flex;
@@ -185,12 +182,15 @@ export default {
     position: absolute;
     top: 0;
     width: 100%;
+    height: 100%;
     white-space: nowrap;
-    text-align: center;
-    color: rgba(0,0,0,0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
-.table .logs .chart {
-    min-width: 16ch;
+.table:deep(td:has(.logs)) {
+    width: 120px;
+    padding: 0 !important;
 }
 .value {
     color: rgba(0,0,0,0.6);
