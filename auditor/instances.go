@@ -144,12 +144,17 @@ func (a *appAuditor) instances() {
 	}
 	if desired > 0 {
 		availability.SetDesired(int64(desired))
-		if p := float32(availability.Count()) / desired * 100; p < availability.Threshold {
-			if p == 0 {
-				availability.SetStatus(model.WARNING, "no instances available")
-			} else {
-				availability.SetStatus(model.WARNING, "only %.0f%% of the desired instances are currently available", p)
+		available := float32(availability.Count())
+		percentage := available / desired * 100
+		switch {
+		case available == 0:
+			availability.SetStatus(model.WARNING, "no instances available")
+		case a.app.Id.Kind == model.ApplicationKindDaemonSet:
+			if available < desired {
+				availability.SetStatus(model.WARNING, "some instances of the DaemonSet are not available")
 			}
+		case percentage < availability.Threshold:
+			availability.SetStatus(model.WARNING, "only %.0f%% of the desired instances are currently available", percentage)
 		}
 	}
 
