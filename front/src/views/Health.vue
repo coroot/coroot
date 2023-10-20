@@ -10,11 +10,11 @@
         </v-col>
     </v-row>
 
-    <div class="d-flex flex-wrap mb-3" style="gap: 8px">
-        <v-chip v-for="s in statuses" label :color="s.color" dark small class="pl-3 pr-1">
-            <div class="font-weight-bold mr-2 text-uppercase">{{s.name}}</div>
-            <div class="tag darken-3" :class="s.color">{{s.count}}</div>
-        </v-chip>
+    <div class="legend mb-3">
+        <div v-for="s in statuses" class="item">
+            <div class="count lighten-1" :class="s.color">{{s.count}}</div>
+            <div class="label">{{s.name}}</div>
+        </div>
     </div>
 
     <v-data-table dense class="table" mobile-breakpoint="0" :items-per-page="50"
@@ -35,9 +35,9 @@
         :footer-props="{itemsPerPageOptions: [10, 20, 50, 100, -1]}"
     >
         <template #item.application="{item}">
-            <div class="d-flex" style="gap: 4px">
-                <div class="marker" :class="item.color" />
-                <div class="text-no-wrap">
+            <div class="application">
+                <div class="status lighten-1" :class="item.color" />
+                <div class="name">
                     <router-link :to="{name: 'application', params: {id: item.id}, query: $utils.contextQuery()}">
                         {{ $utils.appId(item.id).name }}
                     </router-link>
@@ -72,13 +72,10 @@
             <span class="value" :class="item.network.status">{{item.network.value || '–'}}</span>
         </template>
         <template #item.logs="{item}">
-            <div style="position: relative; height: 100%">
-                <div class="text-center text-no-wrap font-weight-light" style="position: absolute;top:0;width: 100%">{{item.logs.value}}</div>
-                <v-sparkline v-if="item.logs.chart" :value="item.logs.chart.map((v) => v === null ? 0 : v)" fill smooth padding="4" color="blue lighten-4" height="60" style="min-width: 80px" />
+            <div class="logs">
+                <div class="value">{{item.logs.value}}</div>
+                <v-sparkline v-if="item.logs.chart" :value="item.logs.chart.map((v) => v === null ? 0 : v)" fill smooth padding="4" color="blue lighten-4" height="60" class="chart" />
             </div>
-        </template>
-        <template #no-data>
-            No issues detected
         </template>
     </v-data-table>
 </div>
@@ -86,7 +83,13 @@
 
 <script>
 import ApplicationCategories from "../components/ApplicationCategories.vue";
-import {statuses as colors} from "../utils/colors";
+
+const statuses = {
+    critical: {name: 'SLO violation', color: 'red'},
+    warning: {name: 'Warning', color: 'orange'},
+    info: {name: 'Errors in logs', color: 'blue'},
+    ok: {name: 'OK', color: 'green'},
+};
 
 export default {
     props: {
@@ -105,23 +108,15 @@ export default {
 
     computed: {
         categories() {
-            if (!this.applications) {
-                return [];
-            }
             return Array.from(new Set((this.applications || []).map(a => a.category)).values());
         },
         statuses() {
-            const statuses = [
-                {id: 'critical', name: 'SLO violation'},
-                {id: 'warning', name: 'Warning'},
-                {id: 'info', name: 'Errors in logs'},
-                {id: 'ok', name: 'OK'},
-            ];
-            statuses.forEach(s => {
-                s.color = colors[s.id];
-                s.count = this.items.filter(i => i.status === s.id).length;
-            });
-            return statuses;
+            return Object.keys(statuses).map(s => {
+                return {
+                    ...statuses[s],
+                    count: this.items.filter(i => i.status === s).length,
+                }
+            })
         },
         items() {
             if (!this.applications) {
@@ -138,8 +133,8 @@ export default {
             }).map(a => {
                 return {
                     ...a,
-                    color: colors[a.status],
-                };
+                    color: statuses[a.status].color,
+                }
             });
         },
     },
@@ -165,9 +160,37 @@ export default {
 .table:deep(td):first-child {
     padding-left: 0 !important;
 }
-.marker {
+.table:deep(td):last-child {
+    padding-right: 0 !important;
+}
+.table .application {
+    display: flex;
+    gap: 4px;
+}
+.table .application .status {
     height: 20px;
     width: 4px;
+}
+.table .application .name {
+    max-width: 60ch;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.table .logs {
+    position: relative;
+    height: 100%;
+}
+.table .logs .value {
+    position: absolute;
+    top: 0;
+    width: 100%;
+    white-space: nowrap;
+    text-align: center;
+    color: rgba(0,0,0,0.6);
+}
+.table .logs .chart {
+    min-width: 16ch;
 }
 .value {
     color: rgba(0,0,0,0.6);
@@ -177,10 +200,26 @@ export default {
     border-bottom: 2px solid red !important;
     background-color: unset !important;
 }
-.tag {
+.legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    font-weight: 500;
+    font-size: 14px;
+}
+.legend .item {
+    display: flex;
+    gap: 4px;
+}
+.legend .count {
     padding: 0 4px;
     border-radius: 2px;
     height: 18px;
     line-height: 18px;
+    color: rgba(255,255,255,0.8)
+}
+.legend .label {
+    color: rgba(0,0,0,0.6);
 }
 </style>

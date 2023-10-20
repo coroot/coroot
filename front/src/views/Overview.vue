@@ -9,19 +9,21 @@
     </v-alert>
 
     <v-tabs height="40" show-arrows slider-size="2" class="mb-3">
-        <v-tab v-for="v in views" :key="v.name" :to="{params: {view: v.name === 'service map' ? undefined : v.name}, query: $utils.contextQuery()}" exact-path>
-            {{ v.name }}
-            <Badges :badges="v.badges" class="ml-1"/>
-        </v-tab>
+        <template v-for="(name, id) in views">
+            <v-tab v-if="name" :to="{params: {view: id === 'health' ? undefined : id}, query: $utils.contextQuery()}" exact-path>
+                {{ name }}
+            </v-tab>
+        </template>
     </v-tabs>
 
     <template v-if="!view">
-        <ServiceMap v-if="service_map" :applications="service_map" />
+        <Health v-if="health" :applications="health" />
         <NoData v-else-if="!loading" />
     </template>
 
-    <template v-else-if="view === 'health'">
-        <Health :applications="health" />
+    <template v-else-if="view === 'map'">
+        <ServiceMap v-if="map" :applications="map" />
+        <NoData v-else-if="!loading" />
     </template>
 
     <template v-else-if="view === 'nodes'">
@@ -46,26 +48,36 @@ import Table from "../components/Table";
 import NoData from "../components/NoData";
 import NodesCosts from "../components/NodesCosts";
 import ApplicationsCosts from "../components/ApplicationsCosts";
-import Badges from "../components/Badges.vue";
 import Deployments from "./Deployments.vue";
 import Health from "./Health.vue";
 
 export default {
-    components: {Deployments, NoData, ServiceMap, Table, NodesCosts, ApplicationsCosts, Health, Badges},
+    components: {Deployments, NoData, ServiceMap, Table, NodesCosts, ApplicationsCosts, Health},
     props: {
         view: String,
     },
 
     data() {
         return {
-            views: [{name: 'service map'}, {name: 'health'}, {name: 'nodes'}, {name: 'deployments'}],
-            service_map: null,
             health: null,
+            map: null,
             nodes: null,
-            costs: null,
             deployments: null,
+            costs: null,
             loading: false,
             error: '',
+        }
+    },
+
+    computed: {
+        views() {
+            return {
+                health: 'Health',
+                map: 'Service Map',
+                nodes: 'Nodes',
+                deployments: 'Deployments',
+                costs: this.costs ? 'Costs' : '',
+            }
         }
     },
 
@@ -82,7 +94,7 @@ export default {
 
     methods: {
         get() {
-            const view = this.view || 'service map';
+            const view = this.view || 'health';
             this.loading = true;
             this.$api.getOverview(view, (data, error) => {
                 this.loading = false;
@@ -90,13 +102,12 @@ export default {
                     this.error = error;
                     return;
                 }
-                this.views = data.views || this.views;
-                this.service_map = data.service_map;
                 this.health = data.health;
+                this.map = data.map;
                 this.nodes = data.nodes;
                 this.costs = data.costs;
                 this.deployments = data.deployments;
-                if (!this.views.find(v => v.name === view)) {
+                if (!this.views[view]) {
                     this.$router.replace({params: {view: undefined}}).catch(err => err);
                 }
             });
