@@ -12,7 +12,6 @@ func (a *appAuditor) memory(ncs nodeConsumersByNode) {
 
 	oomCheck := report.CreateCheck(model.Checks.MemoryOOM)
 	leakCheck := report.CreateCheck(model.Checks.MemoryLeakPercent)
-	now := timeseries.Now()
 	seenContainers := false
 	limitByContainer := map[string]*timeseries.Aggregate{}
 	memoryUsageChartTitle := "Memory usage (RSS) <selector>, bytes"
@@ -30,7 +29,7 @@ func (a *appAuditor) memory(ncs nodeConsumersByNode) {
 			l.Add(c.MemoryLimit)
 			report.GetOrCreateChartInGroup(memoryUsageChartTitle, "container: "+c.Name).AddSeries(i.Name, c.MemoryRss)
 			oom.Add(c.OOMKills)
-			totalRss.Add(c.MemoryRss)
+			totalRss.Add(c.MemoryRssForTrend)
 			instanceRss.Add(c.MemoryRss)
 		}
 		if cg := report.GetChartGroup(memoryUsageChartTitle); cg != nil && len(cg.Charts) > 1 {
@@ -81,11 +80,14 @@ func (a *appAuditor) memory(ncs nodeConsumersByNode) {
 	case model.ApplicationKindCronJob, model.ApplicationKindJob:
 		leakCheck.SetStatus(model.UNKNOWN, "not checked for Jobs and CronJobs")
 	default:
-		if lr := timeseries.NewLinearRegression(totalRss.Get().Map(timeseries.ZeroToNan)); lr != nil {
-			s := lr.Calc(now.Add(-timeseries.Hour))
-			e := lr.Calc(now)
-			if s > 0 && e > 0 {
-				leakCheck.SetValue((e - s) / s * 100)
+		v := totalRss.Get().Map(timeseries.ZeroToNan)
+		if v.Map(timeseries.Defined).Reduce(timeseries.NanSum) > float32(v.Len())*0.8 { // we require 80% of the data to be present
+			if lr := timeseries.NewLinearRegression(v); lr != nil {
+				s := lr.Calc(a.w.Ctx.To.Add(-timeseries.Hour))
+				e := lr.Calc(a.w.Ctx.To)
+				if s > 0 && e > 0 {
+					leakCheck.SetValue((e - s) / s * 100)
+				}
 			}
 		}
 	}

@@ -33,7 +33,9 @@ type Container struct {
 	CpuDelay      *timeseries.TimeSeries
 	ThrottledTime *timeseries.TimeSeries
 
-	MemoryRss     *timeseries.TimeSeries
+	MemoryRss         *timeseries.TimeSeries
+	MemoryRssForTrend *timeseries.TimeSeries
+
 	MemoryCache   *timeseries.TimeSeries
 	MemoryLimit   *timeseries.TimeSeries
 	MemoryRequest *timeseries.TimeSeries
