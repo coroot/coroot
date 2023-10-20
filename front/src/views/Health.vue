@@ -23,6 +23,7 @@
             {value: 'application', text: 'Application', sortable: false},
             {value: 'errors', text: 'Errors', sortable: false, align: 'end'},
             {value: 'latency', text: 'Latency', sortable: false, align: 'end'},
+            {value: 'upstreams', text: 'Upstreams', sortable: false, align: 'end'},
             {value: 'instances', text: 'Instances', sortable: false, align: 'end'},
             {value: 'restarts', text: 'Restarts', sortable: false, align: 'end'},
             {value: 'cpu', text: 'CPU', sortable: false, align: 'end'},
@@ -46,6 +47,9 @@
             <router-link :to="link(id, 'SLO')" class="value" :class="param.status">{{param.value || '–'}}</router-link>
         </template>
         <template #item.latency="{item: {id, latency: param}}">
+            <router-link :to="link(id, 'SLO')" class="value" :class="param.status">{{param.value || '–'}}</router-link>
+        </template>
+        <template #item.upstreams="{item: {id, upstreams: param}}">
             <router-link :to="link(id, 'SLO')" class="value" :class="param.status">{{param.value || '–'}}</router-link>
         </template>
         <template #item.instances="{item: {id, instances: param}}">

@@ -17,6 +17,7 @@ type ApplicationStatus struct {
 
 	Errors    ApplicationParam `json:"errors"`
 	Latency   ApplicationParam `json:"latency"`
+	Upstreams ApplicationParam `json:"upstreams"`
 	Instances ApplicationParam `json:"instances"`
 	Restarts  ApplicationParam `json:"restarts"`
 	CPU       ApplicationParam `json:"cpu"`
@@ -124,6 +125,52 @@ func renderHealth(w *model.World) []*ApplicationStatus {
 				}
 			}
 		}
+
+		upstreams := map[model.ApplicationId]bool{}
+		for _, i := range app.Instances {
+			for _, u := range i.Upstreams {
+				if u.RemoteInstance == nil || u.IsObsolete() {
+					continue
+				}
+				if _, seen := upstreams[u.RemoteInstance.OwnerId]; seen {
+					continue
+				}
+				upstream := w.GetApplication(u.RemoteInstance.OwnerId)
+				if upstream == nil {
+					continue
+				}
+				if app.Id == upstream.Id {
+					continue
+				}
+				if !app.Category.Monitoring() && upstream.Category.Monitoring() {
+					continue
+				}
+				for _, r := range upstream.Reports {
+					if r.Name != model.AuditReportSLO {
+						continue
+					}
+					for _, ch := range r.Checks {
+						if ch.Status == model.UNKNOWN {
+							continue
+						}
+						upstreams[upstream.Id] = upstreams[upstream.Id] || ch.Status >= model.WARNING
+					}
+				}
+			}
+		}
+		if total := len(upstreams); total > 0 {
+			var ok int
+			for _, failed := range upstreams {
+				if !failed {
+					ok++
+				}
+			}
+			if ok < total {
+				a.Upstreams.Status = model.WARNING
+			}
+			a.Upstreams.Value = fmt.Sprintf("%d/%d", ok, total)
+		}
+
 		calcApplicationStatus(a)
 		if a.Status == model.UNKNOWN {
 			continue

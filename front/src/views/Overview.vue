@@ -96,6 +96,7 @@ export default {
         get() {
             const view = this.view || 'health';
             this.loading = true;
+            this.error = '';
             this.$api.getOverview(view, (data, error) => {
                 this.loading = false;
                 if (error) {
