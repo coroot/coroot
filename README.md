@@ -9,10 +9,10 @@
 
 
 
-## Gain visibility into your system in minutes without any code changes
+## Open-source observability augmented with actionable insights
 
-Coroot is an open-source eBPF-based observability tool that turns telemetry data into actionable insights,
-helping you identify and resolve application issues quickly.
+Collecting metrics, logs, and traces alone doesn't make your applications observable.
+Coroot turns that data into actionable insights for you!
 
 ## Features
 
@@ -27,23 +27,14 @@ helping you identify and resolve application issues quickly.
 </p>
 
 
-### Distributed systems are no longer blackboxes
+### Application Health Summary
 
-* Understand exactly how components are communicating with each other
-* Identifying network issues has never been easier
-
-<p align="center">
-<img width="772" src="https://user-images.githubusercontent.com/194465/235189259-8ab60091-99f1-48ae-b0de-5498f4cfe849.png">
-</p>
-
-### Built-in expertise
-
-* Coroot can automatically identify over 80% of issues
-* If an app is not meeting its Service Level Objectives (SLOs), Coroot will send a single alert that includes the results of all relevant inspections
-* You can easily adjust any inspection for a particular application or an entire project
+* Easily understand the status of your services, even when dealing with hundreds of them
+* Gain insight into application logs without the need to manually inspect each one
+* SLOs (Service Level Objectives) tracking
 
 <p align="center">
-<img width="774" src="https://user-images.githubusercontent.com/194465/235189583-add2b84f-bc61-4df0-b859-0396f4b26101.png">
+<img width="773" src="https://github.com/coroot/coroot/assets/194465/6cef06d4-0dcc-4908-85a3-7ec140bd444f">
 </p>
 
 ### Explore any outlier requests with distributed tracing
@@ -59,12 +50,12 @@ Coroot's eBPF-based instrumentation can capture requests without requiring any c
 
 ### Grasp insights from logs with just a quick glance
 
-* Coroot turns terabytes of logs into just a few dozen metrics by extracting repeated patterns right on the node
-* Works for any type of applications, including Kubernetes, Docker/Containerd, AWS RDS, or non-containerized apps
-* No configuration required
+* Log patterns: out-of-the-box event clustering
+* Seamless logs-to-traces correlation
+* Lightning-fast search based on ClickHouse
 
 <p align="center">
-<img width="773" src="https://user-images.githubusercontent.com/194465/235189912-463e5893-54bb-42c4-924f-50a323e66444.png">
+<img width="777" src="https://github.com/coroot/coroot/assets/194465/14abefdb-4737-4991-9d48-c7efec42fefd">
 </p>
 
 ### Profile any application in 1 click
@@ -75,6 +66,16 @@ Coroot's eBPF-based instrumentation can capture requests without requiring any c
 
 <p align="center">
 <img width="773" src="https://user-images.githubusercontent.com/194465/235190071-21256cbe-6201-4d16-97f3-6565f7256f98.png">
+</p>
+
+### Built-in expertise
+
+* Coroot can automatically identify over 80% of issues
+* If an app is not meeting its Service Level Objectives (SLOs), Coroot will send a single alert that includes the results of all relevant inspections
+* You can easily adjust any inspection for a particular application or an entire project
+
+<p align="center">
+  <img width="778" src="https://github.com/coroot/coroot/assets/194465/3590a492-8895-4cc6-94df-a880656a330a">
 </p>
 
 ### Deployment Tracking
