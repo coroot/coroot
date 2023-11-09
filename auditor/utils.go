@@ -34,10 +34,11 @@ func getNodeConsumers(node *model.Node) *nodeConsumers {
 type nodeConsumersByNode map[string]*nodeConsumers
 
 func (m nodeConsumersByNode) get(node *model.Node) *nodeConsumers {
-	ncs := m[node.Name.Value()]
+	name := node.GetName()
+	ncs := m[name]
 	if ncs == nil {
 		ncs = getNodeConsumers(node)
-		m[node.Name.Value()] = ncs
+		m[name] = ncs
 	}
 	return ncs
 }

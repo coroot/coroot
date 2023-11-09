@@ -46,7 +46,7 @@ func (a *appAuditor) instances() {
 			} else {
 				if a.app.Id.Kind != model.ApplicationKindExternalService {
 					status.SetStatus(model.WARNING, "down (no metrics)")
-					if i.Node != nil && !i.Node.IsUp() {
+					if i.Node.IsDown() {
 						status.SetStatus(model.WARNING, "down (node down)")
 					}
 				}
@@ -83,16 +83,17 @@ func (a *appAuditor) instances() {
 			case "Running":
 				switch {
 				case !i.IsUp():
-					msg := ""
-					if i.Node != nil && !i.Node.IsUp() {
-						msg = "down (node down)"
-					} else {
+					switch {
+					case i.Node.Status() == model.UNKNOWN:
+						status.SetStatus(model.UNKNOWN, "unknown")
+					case i.Node.IsDown():
+						status.SetStatus(model.WARNING, "down (node down)")
+					default:
 						if details := podContainerIssues(i); details != "" {
-							msg = fmt.Sprintf("down (%s)", details)
+							status.SetStatus(model.WARNING, fmt.Sprintf("down (%s)", details))
 						} else {
-							msg = "down (no metrics)"
+							status.SetStatus(model.WARNING, "down (no metrics)")
 						}
-						status.SetStatus(model.WARNING, msg)
 					}
 				case !i.Pod.IsReady():
 					status.SetStatus(model.WARNING, "down (readiness probe failed)")
@@ -119,16 +120,7 @@ func (a *appAuditor) instances() {
 			restartsCell.SetValue(strconv.FormatInt(restarts.Count(), 10))
 		}
 
-		nodeStatus := model.UNKNOWN
-
-		if i.Node != nil {
-			if i.Node.IsUp() {
-				nodeStatus = model.OK
-			} else {
-				nodeStatus = model.WARNING
-			}
-		}
-		node := model.NewTableCell().SetStatus(nodeStatus, i.NodeName())
+		node := model.NewTableCell().SetStatus(i.Node.Status(), i.NodeName())
 		node.Link = model.NewRouterLink(i.NodeName()).SetRoute("node").SetParam("name", i.NodeName())
 		report.GetOrCreateTable("Instance", "Status", "Restarts", "IP", "Node").AddRow(
 			model.NewTableCell(i.Name),
@@ -154,7 +146,7 @@ func (a *appAuditor) instances() {
 				availability.SetStatus(model.WARNING, "some instances of the DaemonSet are not available")
 			}
 		case percentage < availability.Threshold:
-			availability.SetStatus(model.WARNING, "only %.0f%% of the desired instances are currently available", percentage)
+			availability.SetStatus(model.WARNING, "%.0f/%.0f instances are currently available", available, desired)
 		}
 	}
 

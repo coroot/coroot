@@ -6,8 +6,13 @@ import (
 )
 
 func AuditNode(w *model.World, node *model.Node) *model.AuditReport {
-	id := model.NewApplicationId("", model.ApplicationKindNode, node.Name.Value())
-	report := model.NewAuditReport(model.NewApplication(id), w.Ctx, nil, model.AuditReportNode)
+	report := model.NewAuditReport(nil, w.Ctx, nil, model.AuditReportNode)
+
+	if !node.IsAgentInstalled() {
+		return report
+	}
+
+	report.Status = model.OK
 
 	cpuByModeChart(report.GetOrCreateChart("CPU usage, %"), node.CpuUsageByMode)
 
@@ -32,8 +37,10 @@ func AuditNode(w *model.World, node *model.Node) *model.AuditReport {
 
 	report.GetOrCreateChart("Memory consumers, bytes").
 		Stacked().
+		Sorted().
 		SetThreshold("total", node.MemoryTotalBytes).
 		AddMany(ncs.memory, 5, timeseries.Max)
+
 	netLatency(report, w, node)
 
 	for _, i := range node.NetInterfaces {
@@ -71,21 +78,21 @@ func netLatency(report *model.AuditReport, w *model.World, n *model.Node) {
 					continue
 				}
 				var src, dst *model.Node
-				if i.NodeName() == n.Name.Value() {
+				if i.NodeName() == n.GetName() {
 					src = i.Node
 				} else {
 					dst = i.Node
 				}
-				if u.RemoteInstance.NodeName() == n.Name.Value() {
+				if u.RemoteInstance.NodeName() == n.GetName() {
 					src = u.RemoteInstance.Node
 				} else {
 					dst = u.RemoteInstance.Node
 				}
-				if src == nil || dst == nil || src.Name == dst.Name {
+				if src == nil || dst == nil || src.GetName() == dst.GetName() {
 					continue
 				}
 				update(zones, srcAZ+" - "+nodeAZ(dst), u.Rtt)
-				update(nodes, n.Name.Value()+" - "+dst.Name.Value(), u.Rtt)
+				update(nodes, n.GetName()+" - "+dst.GetName(), u.Rtt)
 			}
 		}
 	}

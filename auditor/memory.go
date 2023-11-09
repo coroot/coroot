@@ -42,7 +42,7 @@ func (a *appAuditor) memory(ncs nodeConsumersByNode) {
 			oomCheck.Inc(int64(ooms))
 		}
 		if node := i.Node; node != nil {
-			nodeName := node.Name.Value()
+			nodeName := node.GetName()
 			if relevantNodes[nodeName] == nil {
 				relevantNodes[nodeName] = node
 				report.GetOrCreateChart("Node memory usage (unreclaimable), %").

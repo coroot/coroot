@@ -9,7 +9,13 @@
         {{error}}
     </v-alert>
 
-    <Dashboard v-if="node" :name="name" :widgets="node.widgets" class="mt-3" />
+    <template v-if="node">
+        <div v-if="node.status === 'unknown'" class="text-center">
+            This node is present in the Kubernetes cluster, but it seems that coroot-node-agent is not installed
+            (<a href="https://coroot.com/docs/metric-exporters/node-agent/installation" target="_blank">docs</a>).
+        </div>
+        <Dashboard v-else :name="name" :widgets="node.widgets" class="mt-3" />
+    </template>
     <NoData v-else-if="!loading" />
 </div>
 </template>

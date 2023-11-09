@@ -7,7 +7,6 @@ import (
 	"github.com/coroot/coroot/api/views/configs"
 	"github.com/coroot/coroot/api/views/integrations"
 	"github.com/coroot/coroot/api/views/logs"
-	"github.com/coroot/coroot/api/views/node"
 	"github.com/coroot/coroot/api/views/overview"
 	"github.com/coroot/coroot/api/views/profile"
 	"github.com/coroot/coroot/api/views/project"
@@ -44,10 +43,6 @@ func Tracing(ctx context.Context, clickhouse *tracing.ClickhouseClient, app *mod
 
 func Logs(ctx context.Context, clickhouse *tracing.ClickhouseClient, app *model.Application, appSettings *db.ApplicationSettings, q url.Values, w *model.World) *logs.View {
 	return logs.Render(ctx, clickhouse, app, appSettings, q, w)
-}
-
-func Node(w *model.World, n *model.Node) *model.AuditReport {
-	return node.Render(w, n)
 }
 
 func Search(w *model.World) *search.View {

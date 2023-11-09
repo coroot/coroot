@@ -52,7 +52,7 @@ func (a *appAuditor) cpu(ncs nodeConsumersByNode) {
 
 		if node := i.Node; i.Node != nil {
 			seenRelatedNodes = true
-			nodeName := node.Name.Value()
+			nodeName := node.GetName()
 			if relevantNodes[nodeName] == nil {
 				relevantNodes[nodeName] = i.Node
 				report.GetOrCreateChartInGroup("Node CPU usage <selector>, %", "overview").
@@ -69,7 +69,7 @@ func (a *appAuditor) cpu(ncs nodeConsumersByNode) {
 
 				if i.Node.CpuUsagePercent.Last() > nodeCpuCheck.Threshold {
 					consumersChart.Feature()
-					nodeCpuCheck.AddItem(i.Node.Name.Value())
+					nodeCpuCheck.AddItem(i.NodeName())
 				}
 			}
 		}

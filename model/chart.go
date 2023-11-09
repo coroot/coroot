@@ -272,7 +272,7 @@ func topN(ss []*Series, n int, by timeseries.F) []*Series {
 		}
 	}
 	if otherTs := other.Get(); !otherTs.IsEmpty() {
-		res = append(res, &Series{Name: "other", Data: otherTs})
+		res = append(res, &Series{Name: "other", Data: otherTs, Color: "grey"})
 	}
 	return res
 }

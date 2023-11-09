@@ -19,7 +19,7 @@ func getInstanceAndContainer(w *model.World, node *model.Node, instances map[ins
 	nodeId, nodeName := "", ""
 	if node != nil {
 		nodeId = node.MachineID
-		nodeName = node.Name.Value()
+		nodeName = node.GetName()
 	}
 	if !strings.HasPrefix(containerId, "/") {
 		klog.Warningln("invalid container id:", containerId)
@@ -203,7 +203,7 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues, pjs
 			for l := range instance.TcpListens {
 				if ip := net.ParseIP(l.IP); ip.IsLoopback() {
 					if instance.Node != nil {
-						l.IP = instance.Node.Name.Value()
+						l.IP = instance.NodeName()
 						instancesByListen[l] = instance
 					}
 				} else {
@@ -218,7 +218,7 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues, pjs
 			for _, u := range instance.Upstreams {
 				l := model.Listen{IP: u.ActualRemoteIP, Port: u.ActualRemotePort, Proxied: true}
 				if ip := net.ParseIP(u.ActualRemoteIP); ip.IsLoopback() && instance.Node != nil {
-					l.IP = instance.Node.Name.Value()
+					l.IP = instance.NodeName()
 				}
 				if u.RemoteInstance = instancesByListen[l]; u.RemoteInstance == nil {
 					l.Proxied = false

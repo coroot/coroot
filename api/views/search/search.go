@@ -24,7 +24,7 @@ func Render(w *model.World) *View {
 		res.Applications = append(res.Applications, Application{Id: a.Id})
 	}
 	for _, n := range w.Nodes {
-		res.Nodes = append(res.Nodes, Node{Name: n.Name.Value()})
+		res.Nodes = append(res.Nodes, Node{Name: n.GetName()})
 	}
 	sort.Slice(res.Applications, func(i, j int) bool {
 		return res.Applications[i].Id.Name < res.Applications[j].Id.Name

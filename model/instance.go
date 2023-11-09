@@ -111,7 +111,7 @@ func (instance *Instance) AddUpstreamConnection(actualIP, actualPort, serviceIP,
 
 func (instance *Instance) NodeName() string {
 	if instance.Node != nil {
-		return instance.Node.Name.Value()
+		return instance.Node.GetName()
 	}
 	return ""
 }
