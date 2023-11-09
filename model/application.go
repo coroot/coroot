@@ -63,7 +63,7 @@ func (app *Application) GetInstance(name, node string) *Instance {
 func (app *Application) GetOrCreateInstance(name string, node *Node) *Instance {
 	nodeName := ""
 	if node != nil {
-		nodeName = node.Name.Value()
+		nodeName = node.GetName()
 	}
 	instance := app.GetInstance(name, nodeName)
 	if instance == nil {

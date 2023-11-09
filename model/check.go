@@ -143,7 +143,7 @@ var Checks = struct {
 		DefaultThreshold:        80,
 		Unit:                    CheckUnitPercent,
 		MessageTemplate:         `disk space on {{.Items "volume"}} will be exhausted soon`,
-		ConditionFormatTemplate: "the available space of a volume < <threshold>",
+		ConditionFormatTemplate: "the space usage of a volume > <threshold>",
 	},
 	NetworkRTT: CheckConfig{
 		Type:                    CheckTypeItemBased,

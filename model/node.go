@@ -74,11 +74,41 @@ func NewNode(machineId string) *Node {
 	}
 }
 
-func (node *Node) IsUp() bool {
+func (n *Node) GetName() string {
+	if n.Name.Value() != "" {
+		return n.Name.Value()
+	}
+	return n.K8sName.Value()
+}
+
+func (n *Node) IsAgentInstalled() bool {
+	return n != nil && n.Name.Value() != ""
+}
+
+func (n *Node) IsUp() bool {
+	if n == nil {
+		return false
+	}
 	// currently, we don't collect OS metrics for Elasticache nodes
-	if len(node.Instances) == 1 && node.Instances[0].OwnerId.Kind == ApplicationKindElasticacheCluster {
-		return node.Instances[0].Elasticache.Status.Value() == "available"
+	if len(n.Instances) == 1 && n.Instances[0].OwnerId.Kind == ApplicationKindElasticacheCluster {
+		return n.Instances[0].Elasticache.Status.Value() == "available"
 	}
 
-	return !DataIsMissing(node.CpuUsagePercent)
+	return !DataIsMissing(n.CpuUsagePercent)
+}
+
+func (n *Node) IsDown() bool {
+	return n != nil && n.IsAgentInstalled() && !n.IsUp()
+}
+
+func (n *Node) Status() Status {
+	switch {
+	case n == nil:
+		return UNKNOWN
+	case !n.IsAgentInstalled():
+		return UNKNOWN
+	case n.IsDown():
+		return WARNING
+	}
+	return OK
 }

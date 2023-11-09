@@ -148,7 +148,7 @@ func renderCosts(w *model.World) *Costs {
 		nodeMemoryBytes := n.MemoryTotalBytes.Last()
 
 		nc := &NodeCosts{
-			Name:              n.Name.Value(),
+			Name:              n.GetName(),
 			InstanceLifeCycle: n.InstanceLifeCycle.Value(),
 			Description:       strings.Join(getNodeTags(n), " / "),
 			Price:             n.Price.Total * month,

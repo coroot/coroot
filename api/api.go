@@ -729,7 +729,7 @@ func (api *Api) Node(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Node not found", http.StatusNotFound)
 		return
 	}
-	utils.WriteJson(w, views.Node(world, node))
+	utils.WriteJson(w, auditor.AuditNode(world, node))
 }
 
 func (api *Api) loadWorld(ctx context.Context, project *db.Project, from, to timeseries.Time) (*model.World, error) {
