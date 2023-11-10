@@ -1,7 +1,7 @@
 <template>
     <v-menu :value="!!query" offset-y max-height="50vh">
         <template #activator="{ }">
-            <v-text-field v-model="query" dense outlined hide-details flat placeholder="search for apps and nodes" @focus="open" @blur="close" @keydown.esc="close">
+            <v-text-field v-model="query" dense outlined hide-details flat placeholder="search for apps and nodes" @blur="close" @keydown.esc="close">
                 <template #prepend-inner>
                     <v-icon color="grey">mdi-magnify</v-icon>
                 </template>
@@ -32,8 +32,8 @@
                 <v-list-item v-for="a in results.apps" :key="a.id" :to="{name: 'application', params: {id: a.id}, query: $utils.contextQuery()}">
                     <v-list-item-title class="ml-3">
                         <Led :status="a.status" />
-                        {{$utils.appId(a.id).name}}
-                        <span v-if="$utils.appId(a.id).ns" class="caption">(ns: {{$utils.appId(a.id).ns}})</span>
+                        {{a.name}}
+                        <span v-if="a.ns" class="caption">(ns: {{a.ns}})</span>
                     </v-list-item-title>
                 </v-list-item>
             </template>
@@ -63,7 +63,7 @@ export default {
 
     data() {
         return {
-            items: null,
+            context: this.$api.context,
             query: '',
             loading: false,
             error: '',
@@ -72,39 +72,31 @@ export default {
 
     computed: {
         results() {
-            if (!this.query || !this.items) {
+            const items = this.context.search;
+            if (!this.query || !items) {
                 return {};
             }
             const q = this.query.toLowerCase();
             const match = (s) => s.toLowerCase().includes(q);
-            const apps = (this.items.applications || []).filter((a) => match(a.id));
-            const nodes = (this.items.nodes || []).filter((n) => match(n.name));
+            const apps = (items.applications || []).filter((a) => match(a.id)).map(a => {
+                const id = this.$utils.appId(a.id);
+                return {
+                    id: a.id,
+                    name: id.name,
+                    ns: id.ns,
+                    status: a.status,
+                }
+            });
+            apps.sort((a1, a2) => a1.name.localeCompare(a2.name));
+            const nodes = (items.nodes || []).filter((n) => match(n.name));
+            nodes.sort((n1, n2) => n1.name.localeCompare(n2.name));
             const empty = !apps.length && !nodes.length;
             return {apps, nodes, empty};
         },
 
     },
 
-    mounted() {
-        this.get();
-    },
-
     methods: {
-        get() {
-            this.loading = true;
-            this.error = '';
-            this.$api.search((data, error) => {
-                this.loading = false;
-                if (error) {
-                    this.error = error;
-                    return;
-                }
-                this.items = data;
-            });
-        },
-        open() {
-            this.get();
-        },
         close() {
             setTimeout(() => {
                 this.query = '';

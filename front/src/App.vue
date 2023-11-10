@@ -36,7 +36,7 @@
                 </v-menu>
             </div>
 
-            <div v-if="$vuetify.breakpoint.mdAndUp && project" class="ml-3 flex-grow-1">
+            <div v-if="$vuetify.breakpoint.mdAndUp && project && $route.name !== 'project_settings'" class="ml-3 flex-grow-1">
                 <Search />
             </div>
 
@@ -129,15 +129,13 @@ export default {
     data() {
         return {
             projects: [],
-            status: null,
+            context: this.$api.context,
         }
     },
 
     created() {
         this.$events.watch(this, this.getProjects, 'project-saved', 'project-deleted');
-        this.$events.watch(this, this.getStatus, 'project-saved');
         this.getProjects();
-        this.getStatus();
     },
 
     computed: {
@@ -147,6 +145,9 @@ export default {
                 return null;
             }
             return this.projects.find((p) => p.id === id);
+        },
+        status() {
+            return this.context.status;
         },
     },
 
@@ -160,7 +161,6 @@ export default {
                 this.lastProject(curr.params.projectId);
             }
             this.getProjects();
-            this.getStatus();
         },
     },
 
@@ -185,24 +185,11 @@ export default {
                 }
             });
         },
-        getStatus() {
-            this.status = null;
-            if (!this.$route.params.projectId) {
-                return
-            }
-            this.$api.getStatus((data, error) => {
-                if (error) {
-                    return;
-                }
-                this.status = data;
-            });
-        },
         lastProject(id) {
             return this.$storage.local('last-project', id);
         },
         refresh() {
             this.$events.emit('refresh');
-            this.getStatus();
         },
     },
 }

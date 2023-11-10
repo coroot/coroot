@@ -10,7 +10,7 @@
 
     <v-tabs height="40" show-arrows slider-size="2" class="mb-3">
         <template v-for="(name, id) in views">
-            <v-tab v-if="name" :to="{params: {view: id === 'health' ? undefined : id}, query: $utils.contextQuery()}" exact-path>
+            <v-tab v-if="name" :to="{params: {view: id === 'health' ? undefined : id}, query: $utils.contextQuery()}" exact-path :class="{disabled: loading}">
                 {{ name }}
             </v-tab>
         </template>
@@ -118,4 +118,7 @@ export default {
 </script>
 
 <style scoped>
+.disabled {
+    pointer-events: none;
+}
 </style>
