@@ -20,7 +20,7 @@
                     case 'ok':
                         return 'hsl(141, 71%, 48%)';
                 }
-                return '';
+                return 'white';
             },
         },
     };

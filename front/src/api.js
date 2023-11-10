@@ -10,7 +10,12 @@ export default class Api {
     router = null;
     vuetify = null;
     deviceId = '';
-    basePath = ''
+    basePath = '';
+
+    context = {
+        status: {},
+        search: {},
+    };
 
     constructor(router, vuetify, basePath) {
         this.router = router;
@@ -40,8 +45,12 @@ export default class Api {
 
     request(req, cb) {
         this.axios(req).then((response) => {
+            if (response.data.context) {
+                this.context.status = response.data.context.status;
+                this.context.search = response.data.context.search;
+            }
             try {
-                cb(response.data, '');
+                cb(response.data.data || response.data, '');
             } catch (e) {
                 console.error(e);
             }
@@ -171,10 +180,6 @@ export default class Api {
 
     getNode(nodeName, cb) {
         this.get(this.projectPath(`node/${nodeName}`), {}, cb);
-    }
-
-    search(cb) {
-        this.get(this.projectPath(`search`), {}, cb);
     }
 
     getPrometheusCompleteConfiguration() {
