@@ -21,6 +21,7 @@ type TimeSeries struct {
 	from Time
 	step Duration
 	data []float32
+	last float32
 }
 
 func New(from Time, pointsCount int, step Duration) *TimeSeries {
@@ -36,6 +37,7 @@ func NewWithData(from Time, step Duration, data []float32) *TimeSeries {
 		from: from,
 		step: step,
 		data: data,
+		last: data[len(data)-1],
 	}
 	return ts
 }
@@ -87,8 +89,12 @@ func (ts *TimeSeries) Set(t Time, v float32) {
 		return
 	}
 	idx := int((t - ts.from) / Time(ts.step))
-	if idx < len(ts.data) {
+	l := len(ts.data) - 1
+	if idx <= l {
 		ts.data[idx] = v
+		if idx == l {
+			ts.last = v
+		}
 	}
 }
 
@@ -98,6 +104,7 @@ func (ts *TimeSeries) Fill(from Time, step Duration, data []float32) bool {
 
 	tNext := Time(0)
 	iNext := -1
+	var v float32
 	t := from.Add(-step)
 	for i := range data {
 		t = t.Add(step)
@@ -114,10 +121,15 @@ func (ts *TimeSeries) Fill(from Time, step Duration, data []float32) bool {
 			iNext = int((t - ts.from) / Time(ts.step))
 			tNext = t.Truncate(ts.step)
 		}
-		if iNext < len(ts.data) {
-			if !IsNaN(data[i]) {
-				ts.data[iNext] = data[i]
+		l := len(ts.data) - 1
+		if iNext <= l {
+			v = data[i]
+			if !IsNaN(v) {
+				ts.data[iNext] = v
 				changed = true
+				if iNext == l {
+					ts.last = v
+				}
 			}
 			tNext = tNext.Add(ts.step)
 			iNext++
@@ -147,25 +159,24 @@ func (ts *TimeSeries) Last() float32 {
 	if ts.IsEmpty() {
 		return NaN
 	}
-	return ts.data[len(ts.data)-1]
+	return ts.last
 }
 
-func (ts *TimeSeries) LastN(n int) []float32 {
-	res := make([]float32, n)
-	for i := range res {
-		res[i] = NaN
+func (ts *TimeSeries) TailIsEmpty() bool {
+	if ts.IsEmpty() {
+		return true
 	}
-	if ts.IsEmpty() || n == 0 {
-		return res
+	if !IsNaN(ts.last) {
+		return false
 	}
-	iter := ts.Iter()
-	l := len(iter.data)
-	if i := l - n; i < 0 {
-		copy(res[-i:], iter.data)
-	} else {
-		copy(res, iter.data[i:])
+	l := len(ts.data)
+	if l >= 2 && !IsNaN(ts.data[l-2]) {
+		return false
 	}
-	return res
+	if l >= 3 && !IsNaN(ts.data[l-3]) {
+		return false
+	}
+	return true
 }
 
 func (ts *TimeSeries) Reduce(f F) float32 {
