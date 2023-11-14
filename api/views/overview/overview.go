@@ -1,6 +1,8 @@
 package overview
 
 import (
+	"github.com/coroot/coroot/auditor"
+	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 )
 
@@ -12,7 +14,7 @@ type Overview struct {
 	Costs       *Costs               `json:"costs"`
 }
 
-func Render(w *model.World, view string) *Overview {
+func Render(w *model.World, p *db.Project, view string) *Overview {
 	v := &Overview{}
 
 	for _, n := range w.Nodes {
@@ -24,8 +26,10 @@ func Render(w *model.World, view string) *Overview {
 
 	switch view {
 	case "health":
+		auditor.Audit(w, p)
 		v.Health = renderHealth(w)
 	case "map":
+		auditor.Audit(w, p)
 		v.Map = renderServiceMap(w)
 	case "nodes":
 		v.Nodes = renderNodes(w)

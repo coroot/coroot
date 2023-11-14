@@ -6,13 +6,11 @@ import (
 	"github.com/coroot/coroot/cache"
 	"github.com/coroot/coroot/cloud-pricing"
 	"github.com/coroot/coroot/db"
-	"github.com/coroot/coroot/notifications"
 	"github.com/coroot/coroot/prom"
 	"github.com/coroot/coroot/stats"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
-	"github.com/coroot/coroot/watchers/deployments"
-	"github.com/coroot/coroot/watchers/incidents"
+	"github.com/coroot/coroot/watchers"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"gopkg.in/alecthomas/kingpin.v2"
@@ -40,8 +38,8 @@ func main() {
 	bootstrapPrometheusUrl := kingpin.Flag("bootstrap-prometheus-url", "if set, Coroot will create a project for this Prometheus URL").Envar("BOOTSTRAP_PROMETHEUS_URL").String()
 	bootstrapRefreshInterval := kingpin.Flag("bootstrap-refresh-interval", "refresh interval for the project created upon bootstrap").Envar("BOOTSTRAP_REFRESH_INTERVAL").Duration()
 	bootstrapPrometheusExtraSelector := kingpin.Flag("bootstrap-prometheus-extra-selector", "Prometheus extra selector for the project created upon bootstrap").Envar("BOOTSTRAP_PROMETHEUS_EXTRA_SELECTOR").String()
-	sloCheckInterval := kingpin.Flag("slo-check-interval", "how often to check SLO compliance").Envar("SLO_CHECK_INTERVAL").Default("1m").Duration()
-	deploymentsWatchInterval := kingpin.Flag("deployments-watch-interval", "how often to check new deployments").Envar("DEPLOYMENTS_WATCH_INTERVAL").Default("1m").Duration()
+	doNotCheckSLO := kingpin.Flag("do-not-check-slo", "don't check SLO compliance").Envar("DO_NOT_CHECK_SLO").Bool()
+	doNotCheckForDeployments := kingpin.Flag("do-not-check-for-deployments", "don't check for new deployments").Envar("DO_NOT_CHECK_FOR_DEPLOYMENTS").Bool()
 	doNotCheckForUpdates := kingpin.Flag("do-not-check-for-updates", "don't check for new versions").Envar("DO_NOT_CHECK_FOR_UPDATES").Bool()
 	bootstrapPyroscopeUrl := kingpin.Flag("bootstrap-pyroscope-url", "if set, Coroot will add a Pyroscope integration for the default project").Envar("BOOTSTRAP_PYROSCOPE_URL").String()
 	bootstrapClickhouseAddr := kingpin.Flag("bootstrap-clickhouse-address", "if set, Coroot will add a Clickhouse integration for the default project").Envar("BOOTSTRAP_CLICKHOUSE_ADDRESS").String()
@@ -100,15 +98,7 @@ func main() {
 		statsCollector = stats.NewCollector(instanceUuid, version, database, promCache, pricing)
 	}
 
-	notifier := notifications.NewIncidentNotifier(database)
-
-	if *sloCheckInterval > 0 {
-		incidents.NewWatcher(database, promCache, notifier).Start(*sloCheckInterval)
-	}
-
-	if *deploymentsWatchInterval > 0 {
-		deployments.NewWatcher(database, promCache, pricing).Start(*deploymentsWatchInterval)
-	}
+	watchers.Start(database, promCache, pricing, !*doNotCheckSLO, !*doNotCheckForDeployments)
 
 	a := api.NewApi(promCache, database, pricing, *readOnly)
 

@@ -18,8 +18,8 @@ import (
 	"net/url"
 )
 
-func Overview(w *model.World, view string) *overview.Overview {
-	return overview.Render(w, view)
+func Overview(w *model.World, p *db.Project, view string) *overview.Overview {
+	return overview.Render(w, p, view)
 }
 
 func Application(w *model.World, app *model.Application) *application.View {

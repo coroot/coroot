@@ -1,4 +1,4 @@
-package deployments
+package watchers
 
 import (
 	"fmt"

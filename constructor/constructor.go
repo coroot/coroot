@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	cloud_pricing "github.com/coroot/coroot/cloud-pricing"
+	"github.com/coroot/coroot/cloud-pricing"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/prom"
@@ -68,6 +68,7 @@ func (p *Profile) stage(name string, f func()) {
 }
 
 func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, step timeseries.Duration, prof *Profile) (*model.World, error) {
+	start := time.Now()
 	w := model.NewWorld(from, to, step)
 
 	if prof == nil {
@@ -116,7 +117,7 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 	prof.stage("load_app_incidents", func() { c.loadApplicationIncidents(w) })
 	prof.stage("calc_app_events", func() { calcAppEvents(w) })
 
-	klog.Infof("got %d nodes, %d services, %d applications", len(w.Nodes), len(servicesByClusterIP), len(w.Applications))
+	klog.Infof("%s: got %d nodes, %d apps in %s", c.project.Id, len(w.Nodes), len(w.Applications), time.Since(start).Truncate(time.Millisecond))
 	return w, nil
 }
 

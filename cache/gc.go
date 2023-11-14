@@ -13,7 +13,6 @@ func (c *Cache) gc() {
 		return
 	}
 	for range time.Tick(c.cfg.GC.Interval) {
-		klog.Infoln("starting cache GC")
 		now := time.Now()
 
 		if projects, err := c.db.GetProjectNames(); err != nil {
@@ -78,6 +77,6 @@ func (c *Cache) gc() {
 		}
 
 		c.lock.Unlock()
-		klog.Infof("GC done in %s", time.Since(now))
+		klog.Infof("GC done in %s", time.Since(now).Truncate(time.Millisecond))
 	}
 }

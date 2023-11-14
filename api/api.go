@@ -182,9 +182,7 @@ func (api *Api) Overview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	auditor.Audit(world, project)
-
-	utils.WriteJson(w, withContext(project, cacheStatus, world, views.Overview(world, mux.Vars(r)["view"])))
+	utils.WriteJson(w, withContext(project, cacheStatus, world, views.Overview(world, project, mux.Vars(r)["view"])))
 }
 
 func (api *Api) Configs(w http.ResponseWriter, r *http.Request) {
@@ -749,10 +747,8 @@ func (api *Api) loadWorld(ctx context.Context, project *db.Project, from, to tim
 	}
 	step = increaseStepForBigDurations(duration, step)
 
-	t := time.Now()
 	ctr := constructor.New(api.db, project, cacheClient, api.pricing)
 	world, err := ctr.LoadWorld(ctx, from, to, step, nil)
-	klog.Infof("world loaded in %s", time.Since(t))
 	return world, cacheStatus, err
 }
 

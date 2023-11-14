@@ -74,7 +74,7 @@ func (c *Client) GetStep(from, to timeseries.Time) (timeseries.Duration, error) 
 		}
 	}
 	if step == 0 {
-		step = projData.refreshInterval
+		step = projData.step
 	}
 	return step, nil
 }
@@ -95,7 +95,7 @@ func (c *Client) GetTo() (timeseries.Time, error) {
 	if projData == nil {
 		return 0, fmt.Errorf("unknown project: %s", c.projectId)
 	}
-	step := projData.refreshInterval
+	step := projData.step
 
 	return to.Add(-step), nil
 }
