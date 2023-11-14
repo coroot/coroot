@@ -26,12 +26,3 @@ func (lv *LabelLastValue) Update(ts *timeseries.TimeSeries, value string) {
 func (lv LabelLastValue) MarshalJSON() ([]byte, error) {
 	return json.Marshal(lv.v)
 }
-
-func DataIsMissing(ts *timeseries.TimeSeries) bool {
-	for _, v := range ts.LastN(3) {
-		if !timeseries.IsNaN(v) {
-			return false
-		}
-	}
-	return true
-}

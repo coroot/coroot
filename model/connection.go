@@ -57,7 +57,7 @@ func (c *Connection) Status() Status {
 	status := UNKNOWN
 	if c.IsActual() && !c.Rtt.IsEmpty() {
 		status = OK
-		if DataIsMissing(c.Rtt) {
+		if c.Rtt.TailIsEmpty() {
 			status = CRITICAL
 		}
 	}

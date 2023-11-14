@@ -3,7 +3,9 @@ package auditor
 import (
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
+	"k8s.io/klog"
 	"sort"
+	"time"
 )
 
 type appAuditor struct {
@@ -14,8 +16,8 @@ type appAuditor struct {
 }
 
 func Audit(w *model.World, p *db.Project) {
+	start := time.Now()
 	ncs := nodeConsumersByNode{}
-
 	for _, app := range w.Applications {
 		a := &appAuditor{
 			w:   w,
@@ -56,6 +58,7 @@ func Audit(w *model.World, p *db.Project) {
 			app.Reports = append(app.Reports, r)
 		}
 	}
+	klog.Infof("%s: audited %d apps in %s", p.Id, len(w.Applications), time.Since(start).Truncate(time.Millisecond))
 }
 
 func (a *appAuditor) addReport(name model.AuditReportName) *model.AuditReport {

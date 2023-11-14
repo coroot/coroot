@@ -50,13 +50,15 @@ type Cache struct {
 
 	promClientFactory PrometheusClientFactory
 
+	updates chan db.ProjectId
+
 	pendingCompactions prometheus.Gauge
 	compactedChunks    *prometheus.CounterVec
 }
 
 type projectData struct {
-	refreshInterval timeseries.Duration
-	queries         map[string]*queryData
+	step    timeseries.Duration
+	queries map[string]*queryData
 }
 
 func newProjectData() *projectData {
@@ -88,6 +90,8 @@ func NewCache(cfg Config, database, state *db.DB, promClientFactory PrometheusCl
 
 		promClientFactory: promClientFactory,
 
+		updates: make(chan db.ProjectId),
+
 		pendingCompactions: prometheus.NewGauge(
 			prometheus.GaugeOpts{
 				Name: "coroot_pending_compactions",
@@ -111,6 +115,10 @@ func NewCache(cfg Config, database, state *db.DB, promClientFactory PrometheusCl
 	go cache.gc()
 	go cache.compaction()
 	return cache, nil
+}
+
+func (c *Cache) Updates() <-chan db.ProjectId {
+	return c.updates
 }
 
 func (c *Cache) initCacheIndexFromDir() error {
@@ -148,7 +156,7 @@ func (c *Cache) initCacheIndexFromDir() error {
 				continue
 			}
 			if meta.From > metaFrom {
-				projData.refreshInterval = meta.Step
+				projData.step = meta.Step
 				metaFrom = meta.From
 			}
 			qData, ok := projData.queries[queryId]
@@ -159,7 +167,7 @@ func (c *Cache) initCacheIndexFromDir() error {
 			qData.chunksOnDisk[meta.Path] = meta
 		}
 	}
-	klog.Infof("cache loaded from disk in %s", time.Since(t))
+	klog.Infof("loaded from disk in %s", time.Since(t).Truncate(time.Millisecond))
 	return nil
 }
 

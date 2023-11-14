@@ -1,11 +1,9 @@
-package deployments
+package watchers
 
 import (
 	"context"
 	"fmt"
-	"github.com/coroot/coroot/cache"
 	cloud_pricing "github.com/coroot/coroot/cloud-pricing"
-	"github.com/coroot/coroot/constructor"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/notifications"
@@ -20,62 +18,25 @@ const (
 	sendTimeout = 30 * time.Second
 )
 
-type Watcher struct {
+type Deployments struct {
 	db      *db.DB
-	cache   *cache.Cache
 	pricing *cloud_pricing.Manager
 }
 
-func NewWatcher(db *db.DB, cache *cache.Cache, pricing *cloud_pricing.Manager) *Watcher {
-	return &Watcher{db: db, cache: cache, pricing: pricing}
+func NewDeployments(db *db.DB, pricing *cloud_pricing.Manager) *Deployments {
+	return &Deployments{db: db, pricing: pricing}
 }
 
-func (w *Watcher) Start(interval time.Duration) {
-	go func() {
-		for range time.Tick(interval) {
-			projects, err := w.db.GetProjects()
-			if err != nil {
-				klog.Errorln("failed to get projects:", err)
-				continue
-			}
-			for _, project := range projects {
-				world, cacheTo := w.discoverAndSaveDeployments(project)
-				if world == nil {
-					continue
-				}
-				w.snapshotDeploymentMetrics(project, world.Applications)
-				w.sendNotifications(project, world, cacheTo)
-			}
-		}
-	}()
+func (w *Deployments) Check(project *db.Project, world *model.World) {
+	start := time.Now()
+	apps := w.discoverAndSaveDeployments(project, world)
+	w.snapshotDeploymentMetrics(project, world)
+	w.sendNotifications(project, world)
+	klog.Infof("%s: checked %d apps in %s", project.Id, apps, time.Since(start).Truncate(time.Millisecond))
 }
 
-func (w *Watcher) discoverAndSaveDeployments(project *db.Project) (*model.World, timeseries.Time) {
-	t := time.Now()
+func (w *Deployments) discoverAndSaveDeployments(project *db.Project, world *model.World) int {
 	var apps int
-	defer func() {
-		klog.Infof("%s: checked %d apps in %s", project.Id, apps, time.Since(t).Truncate(time.Millisecond))
-	}()
-
-	cacheClient, cacheTo, err := w.getCacheClient(project)
-	if err != nil {
-		klog.Errorln(err)
-		return nil, cacheTo
-	}
-	to := cacheTo
-	from := to.Add(-timeseries.Hour)
-	step, err := cacheClient.GetStep(from, to)
-	if err != nil {
-		klog.Errorln(err)
-		return nil, cacheTo
-	}
-	ctr := constructor.New(w.db, project, cacheClient, w.pricing)
-	world, err := ctr.LoadWorld(context.Background(), from, to, step, nil)
-	if err != nil {
-		klog.Errorln("failed to load world:", err)
-		return nil, cacheTo
-	}
-
 	for _, app := range world.Applications {
 		if app.Id.Kind != model.ApplicationKindDeployment {
 			continue
@@ -93,7 +54,7 @@ func (w *Watcher) discoverAndSaveDeployments(project *db.Project) (*model.World,
 			if known == nil || known.FinishedAt != d.FinishedAt {
 				if err := w.db.SaveApplicationDeployment(project.Id, d); err != nil {
 					klog.Errorln("failed to save deployment:", err)
-					return nil, cacheTo
+					return apps
 				}
 			}
 			if known == nil {
@@ -102,49 +63,27 @@ func (w *Watcher) discoverAndSaveDeployments(project *db.Project) (*model.World,
 			}
 		}
 	}
-	return world, cacheTo
+	return apps
 }
 
-func (w *Watcher) snapshotDeploymentMetrics(project *db.Project, applications map[model.ApplicationId]*model.Application) {
-	if len(applications) == 0 {
-		return
-	}
-	cacheClient, cacheTo, err := w.getCacheClient(project)
-	if err != nil {
-		klog.Errorln(err)
-		return
-	}
-	ctr := constructor.New(w.db, project, cacheClient, w.pricing)
-	for _, app := range applications {
+func (w *Deployments) snapshotDeploymentMetrics(project *db.Project, world *model.World) {
+	now := world.Ctx.To
+	step := world.Ctx.Step
+	for _, app := range world.Applications {
 		for i, d := range app.Deployments {
 			if d.MetricsSnapshot != nil || d.FinishedAt.IsZero() {
 				continue
 			}
 			from := d.FinishedAt.Add(model.ApplicationDeploymentMetricsSnapshotShift)
 			to := from.Add(model.ApplicationDeploymentMetricsSnapshotWindow)
-			nextOrNow := cacheTo
+			nextOrNow := now
 			if i < len(app.Deployments)-1 {
 				nextOrNow = app.Deployments[i+1].StartedAt
 			}
 			if to.After(nextOrNow) {
 				continue
 			}
-			step, err := cacheClient.GetStep(from, to)
-			if err != nil {
-				klog.Errorln(err)
-				continue
-			}
-			world, err := ctr.LoadWorld(context.Background(), from, to, step, nil)
-			if err != nil {
-				klog.Errorln("failed to load world:", err)
-				continue
-			}
-			a := world.GetApplication(d.ApplicationId)
-			if a == nil {
-				klog.Warningln("unknown application:", d.ApplicationId)
-				continue
-			}
-			d.MetricsSnapshot = calcMetricsSnapshot(a, from, to, step)
+			d.MetricsSnapshot = calcMetricsSnapshot(app, from, to, step)
 			if err := w.db.SaveApplicationDeploymentMetricsSnapshot(project.Id, d); err != nil {
 				klog.Errorln("failed to save metrics snapshot:", err)
 				continue
@@ -153,9 +92,10 @@ func (w *Watcher) snapshotDeploymentMetrics(project *db.Project, applications ma
 	}
 }
 
-func (w *Watcher) sendNotifications(project *db.Project, world *model.World, now timeseries.Time) {
+func (w *Deployments) sendNotifications(project *db.Project, world *model.World) {
 	integrations := project.Settings.Integrations
 	categorySettings := project.Settings.ApplicationCategorySettings
+	now := world.Ctx.To
 	for _, app := range world.Applications {
 		if !categorySettings[app.Category].NotifyOfDeployments {
 			continue
@@ -206,18 +146,6 @@ func (w *Watcher) sendNotifications(project *db.Project, world *model.World, now
 	}
 }
 
-func (w *Watcher) getCacheClient(project *db.Project) (*cache.Client, timeseries.Time, error) {
-	cacheClient := w.cache.GetCacheClient(project.Id)
-	cacheTo, err := cacheClient.GetTo()
-	if err != nil {
-		return nil, 0, err
-	}
-	if cacheTo.IsZero() {
-		return nil, 0, fmt.Errorf("cache is empty")
-	}
-	return cacheClient, cacheTo, nil
-}
-
 func calcDeployments(app *model.Application) []*model.ApplicationDeployment {
 	if app.Id.Kind != model.ApplicationKindDeployment || len(app.Instances) == 0 {
 		return nil
@@ -252,7 +180,7 @@ func calcDeployments(app *model.Application) []*model.ApplicationDeployment {
 		iter := agg.Get().Iter()
 		iters[name] = iter
 	}
-	var rssOverTime []rss
+	var rssOverTime []replicaSets
 	done := false
 	for {
 		names := make([]string, 0, len(lifeSpans))
@@ -275,7 +203,7 @@ func calcDeployments(app *model.Application) []*model.ApplicationDeployment {
 			continue
 		}
 		sort.Strings(names)
-		rssOverTime = append(rssOverTime, rss{time: t, names: names})
+		rssOverTime = append(rssOverTime, replicaSets{time: t, names: names})
 	}
 
 	var deployments []*model.ApplicationDeployment
@@ -339,13 +267,13 @@ func calcDeployments(app *model.Application) []*model.ApplicationDeployment {
 func calcMetricsSnapshot(app *model.Application, from, to timeseries.Time, step timeseries.Duration) *model.MetricsSnapshot {
 	ms := model.MetricsSnapshot{Timestamp: to, Duration: to.Sub(from), Latency: map[string]int64{}}
 	for _, sli := range app.AvailabilitySLIs {
-		ms.Requests = sumR(sli.TotalRequests, step)
-		ms.Errors = sumR(sli.FailedRequests, step)
+		ms.Requests = int64(sumRate(sli.TotalRequests, from, to, step))
+		ms.Errors = int64(sumRate(sli.FailedRequests, from, to, step))
 		break
 	}
 	for _, sli := range app.LatencySLIs {
 		for _, h := range sli.Histogram {
-			ms.Latency[fmt.Sprintf("%.3f", h.Le)] = sumR(h.TimeSeries, step)
+			ms.Latency[fmt.Sprintf("%.3f", h.Le)] = int64(sumRate(h.TimeSeries, from, to, step))
 		}
 		break
 	}
@@ -371,7 +299,7 @@ func calcMetricsSnapshot(app *model.Application, from, to timeseries.Time, step 
 			}
 		}
 	}
-	ms.CPUUsage = sumRF(cpuUsage.Get(), step)
+	ms.CPUUsage = sumRate(cpuUsage.Get(), from, to, step)
 	if totalMem := memUsage.Get(); !totalMem.IsEmpty() {
 		if lr := timeseries.NewLinearRegression(totalMem.Map(timeseries.ZeroToNan)); lr != nil {
 			s := lr.Calc(from.Add(-timeseries.Hour))
@@ -386,34 +314,34 @@ func calcMetricsSnapshot(app *model.Application, from, to timeseries.Time, step 
 			ms.MemoryUsage = int64(s / c)
 		}
 	}
-	ms.OOMKills = sum(oomKills.Get())
-	ms.Restarts = sum(restarts.Get())
-	ms.LogErrors = sum(logErrors.Get())
-	ms.LogWarnings = sum(logWarnings.Get())
+	ms.OOMKills = int64(sum(oomKills.Get(), from, to))
+	ms.Restarts = int64(sum(restarts.Get(), from, to))
+	ms.LogErrors = int64(sum(logErrors.Get(), from, to))
+	ms.LogWarnings = int64(sum(logWarnings.Get(), from, to))
 	return &ms
 }
 
-func sumR(ts *timeseries.TimeSeries, step timeseries.Duration) int64 {
-	return int64(sumRF(ts, step))
-}
-
-func sumRF(ts *timeseries.TimeSeries, step timeseries.Duration) float32 {
-	return sumF(ts) * float32(step/timeseries.Second)
-}
-
-func sum(ts *timeseries.TimeSeries) int64 {
-	return int64(sumF(ts))
-}
-
-func sumF(ts *timeseries.TimeSeries) float32 {
-	v := ts.Reduce(timeseries.NanSum)
-	if timeseries.IsNaN(v) {
+func sum(ts *timeseries.TimeSeries, from, to timeseries.Time) float32 {
+	s := ts.Reduce(func(t timeseries.Time, s float32, v float32) float32 {
+		if timeseries.IsNaN(s) {
+			s = 0
+		}
+		if t.Before(from) || t.After(to) || timeseries.IsNaN(v) {
+			return s
+		}
+		return s + v
+	})
+	if timeseries.IsNaN(s) {
 		return 0
 	}
-	return v
+	return s
 }
 
-type rss struct {
+func sumRate(ts *timeseries.TimeSeries, from, to timeseries.Time, step timeseries.Duration) float32 {
+	return sum(ts, from, to) * float32(step/timeseries.Second)
+}
+
+type replicaSets struct {
 	time  timeseries.Time
 	names []string
 }

@@ -24,11 +24,7 @@ func availability(ctx timeseries.Context, app *model.Application, report *model.
 		return
 	}
 	sli := app.AvailabilitySLIs[0]
-	if sli.TotalRequestsRaw.IsEmpty() {
-		check.SetStatus(model.UNKNOWN, "no data")
-		return
-	}
-	if model.DataIsMissing(sli.TotalRequestsRaw) {
+	if sli.TotalRequestsRaw.TailIsEmpty() {
 		check.SetStatus(model.UNKNOWN, "no data")
 		return
 	}
@@ -58,11 +54,7 @@ func latency(ctx timeseries.Context, app *model.Application, report *model.Audit
 	report.GetOrCreateChart("Latency, seconds").PercentilesFrom(sli.Histogram, 0.25, 0.5, 0.75, 0.95, 0.99)
 
 	totalRaw, fastRaw := sli.GetTotalAndFast(true)
-	if totalRaw.IsEmpty() {
-		check.SetStatus(model.UNKNOWN, "no data")
-		return
-	}
-	if model.DataIsMissing(totalRaw) {
+	if totalRaw.TailIsEmpty() {
 		check.SetStatus(model.UNKNOWN, "no data")
 		return
 	}

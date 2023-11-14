@@ -169,7 +169,7 @@ func (instance *Instance) LifeSpan() *timeseries.TimeSeries {
 
 func (instance *Instance) IsUp() bool {
 	for _, c := range instance.Containers {
-		if !DataIsMissing(c.MemoryRss) {
+		if !c.MemoryRss.TailIsEmpty() {
 			return true
 		}
 	}

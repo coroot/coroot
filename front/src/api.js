@@ -28,7 +28,7 @@ export default class Api {
         this.basePath = basePath;
         this.axios = axios.create({
             baseURL: this.basePath + 'api/',
-            timeout: 30000,
+            timeout: 60000,
             timeoutErrorMessage: timeoutErrorMessage,
         })
     }

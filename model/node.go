@@ -94,7 +94,7 @@ func (n *Node) IsUp() bool {
 		return n.Instances[0].Elasticache.Status.Value() == "available"
 	}
 
-	return !DataIsMissing(n.CpuUsagePercent)
+	return !n.CpuUsagePercent.TailIsEmpty()
 }
 
 func (n *Node) IsDown() bool {

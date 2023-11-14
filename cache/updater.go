@@ -25,8 +25,8 @@ const (
 	QueryConcurrency = 10
 	BackFillInterval = 4 * timeseries.Hour
 
-	defaultRefreshInterval = 15 * timeseries.Second
-	queryTimeout           = 5 * time.Minute
+	minRefreshInterval = timeseries.Minute
+	queryTimeout       = 5 * time.Minute
 )
 
 func (c *Cache) updater() {
@@ -60,14 +60,15 @@ func (c *Cache) updater() {
 }
 
 func (c *Cache) updaterWorker(projects *sync.Map, projectId db.ProjectId, promClient *prom.Client) {
-	refreshInterval, err := getRefreshInterval(promClient)
+	step, err := getScrapeInterval(promClient)
 	if err != nil {
 		klog.Errorln(err)
 	}
+
 	c.lock.Lock()
 	if projData := c.byProject[projectId]; projData == nil {
 		projData = newProjectData()
-		projData.refreshInterval = refreshInterval
+		projData.step = step
 		c.byProject[projectId] = projData
 		projectDir := path.Join(c.cfg.Path, string(projectId))
 		if err := utils.CreateDirectoryIfNotExists(projectDir); err != nil {
@@ -77,9 +78,9 @@ func (c *Cache) updaterWorker(projects *sync.Map, projectId db.ProjectId, promCl
 		}
 	}
 	c.lock.Unlock()
+
 	for {
 		start := time.Now()
-		klog.Infoln("worker iteration for", projectId)
 		p, ok := projects.Load(projectId)
 		if !ok {
 			klog.Infoln("stopping worker for project:", projectId)
@@ -144,29 +145,29 @@ func (c *Cache) updaterWorker(projects *sync.Map, projectId db.ProjectId, promCl
 		}
 
 		if promClient, _ = c.promClientFactory(project); promClient != nil {
-			ri, err := getRefreshInterval(promClient)
+			si, err := getScrapeInterval(promClient)
 			if err != nil {
 				klog.Errorln(err)
-			} else if ri != refreshInterval {
-				refreshInterval = ri
+			} else if si != step {
+				step = si
 				c.lock.Lock()
 				if c.byProject[projectId] == nil {
 					c.lock.Unlock()
 					klog.Warningln("unknown project:", projectId)
 					return
 				}
-				c.byProject[projectId].refreshInterval = refreshInterval
+				c.byProject[projectId].step = step
 				c.lock.Unlock()
 			}
 			wg := sync.WaitGroup{}
 			tasks := make(chan *PrometheusQueryState)
-			now = timeseries.Now()
+			to := now.Add(-step)
 			for i := 0; i < QueryConcurrency; i++ {
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
 					for state := range tasks {
-						c.download(now, promClient, project.Id, refreshInterval, state)
+						c.download(to, promClient, project.Id, step, state)
 					}
 				}()
 			}
@@ -176,15 +177,24 @@ func (c *Cache) updaterWorker(projects *sync.Map, projectId db.ProjectId, promCl
 			close(tasks)
 			wg.Wait()
 
-			c.processRecordingRules(now, project, refreshInterval, states)
+			c.processRecordingRules(to, project, step, states)
+
+			select {
+			case c.updates <- project.Id:
+			default:
+			}
 		}
 		duration := time.Since(start)
-		klog.Infof("worker iteration for %s completed in %s", projectId, duration)
+		klog.Infof("%s: cache updated in %s", projectId, duration.Truncate(time.Millisecond))
+		refreshInterval := step
+		if refreshInterval < minRefreshInterval {
+			refreshInterval = minRefreshInterval
+		}
 		time.Sleep(refreshInterval.ToStandard() - duration)
 	}
 }
 
-func (c *Cache) download(now timeseries.Time, promClient prom.Querier, projectId db.ProjectId, step timeseries.Duration, state *PrometheusQueryState) {
+func (c *Cache) download(to timeseries.Time, promClient *prom.Client, projectId db.ProjectId, step timeseries.Duration, state *PrometheusQueryState) {
 	queryHash, jitter := QueryId(projectId, state.Query)
 	pointsCount := int(chunkSize / step)
 	from := state.LastTs
@@ -197,10 +207,8 @@ func (c *Cache) download(now timeseries.Time, promClient prom.Querier, projectId
 		vs, err := promClient.QueryRange(ctx, state.Query, i.chunkTs, i.toTs, step)
 		cancel()
 		if err != nil {
-			if constructor.RecordingRules[state.Query] == nil {
-				state.LastError = err.Error()
-			}
-			if err := c.saveState(state); err != nil {
+			state.LastError = err.Error()
+			if err = c.saveState(state); err != nil {
 				klog.Errorln("failed to save query state:", err)
 			}
 			return
@@ -277,51 +285,49 @@ func (c *Cache) writeChunk(projectId db.ProjectId, queryHash string, from timese
 	return nil
 }
 
-func (c *Cache) processRecordingRules(now timeseries.Time, project *db.Project, step timeseries.Duration, states map[string]*PrometheusQueryState) {
-	var cacheTo timeseries.Time
+func (c *Cache) processRecordingRules(to timeseries.Time, project *db.Project, step timeseries.Duration, states map[string]*PrometheusQueryState) {
+	var from timeseries.Time
 	for query, state := range states {
-		if constructor.RecordingRules[query] != nil {
+		if constructor.RecordingRules[query] == nil {
 			continue
 		}
-		if cacheTo.IsZero() || cacheTo.After(state.LastTs) {
-			cacheTo = state.LastTs
+		if from.IsZero() || state.LastTs.Before(from) {
+			from = state.LastTs
 		}
 	}
-	if cacheTo.IsZero() {
+	intervals := calcIntervals(from, step, to, 0)
+	if len(intervals) == 0 {
 		return
 	}
 	cacheClient := c.GetCacheClient(project.Id)
-	promClient := &recordingRulesProcessor{db: c.db, project: project, cacheClient: cacheClient, cacheTo: cacheTo}
-	for rr := range constructor.RecordingRules {
-		c.download(now, promClient, project.Id, step, states[rr])
+	pointsCount := int(chunkSize / step)
+	for _, i := range intervals {
+		ctr := constructor.New(c.db, project, cacheClient, nil, constructor.OptionLoadPerConnectionHistograms, constructor.OptionDoNotLoadRawSLIs)
+		world, err := ctr.LoadWorld(context.TODO(), from, to, step, nil)
+		if err != nil {
+			klog.Errorln("failed to load world:", err)
+			return
+		}
+		chunkEnd := i.chunkTs.Add(timeseries.Duration(pointsCount-1) * step)
+		finalized := chunkEnd == i.toTs
+		for name, rule := range constructor.RecordingRules {
+			queryHash := hash(name)
+			mvs := rule(project, world)
+			err = c.writeChunk(project.Id, queryHash, i.chunkTs, pointsCount, step, finalized, mvs)
+			if err != nil {
+				klog.Errorln("failed to save chunk:", err)
+				return
+			}
+			state := states[name]
+			state.LastTs = i.toTs
+			state.LastError = ""
+			err = c.saveState(state)
+			if err != nil {
+				klog.Errorln("failed to save state:", err)
+				return
+			}
+		}
 	}
-}
-
-type recordingRulesProcessor struct {
-	db          *db.DB
-	project     *db.Project
-	cacheClient *Client
-	cacheTo     timeseries.Time
-}
-
-func (p *recordingRulesProcessor) QueryRange(ctx context.Context, query string, from, to timeseries.Time, step timeseries.Duration) ([]model.MetricValues, error) {
-	recordingRule := constructor.RecordingRules[query]
-	if recordingRule == nil {
-		return nil, fmt.Errorf("unknown recording rule: %s", query)
-	}
-	if p.cacheTo.Before(to) {
-		return nil, fmt.Errorf("cache is outdated")
-	}
-	ctr := constructor.New(p.db, p.project, p.cacheClient, nil, constructor.OptionLoadPerConnectionHistograms, constructor.OptionDoNotLoadRawSLIs)
-	world, err := ctr.LoadWorld(ctx, from, to, step, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load world: %w", err)
-	}
-	return recordingRule(p.project, world), nil
-}
-
-func (p *recordingRulesProcessor) GetStep(from, to timeseries.Time) (timeseries.Duration, error) {
-	return p.cacheClient.GetStep(from, to)
 }
 
 type interval struct {
@@ -340,7 +346,7 @@ func (i interval) String() string {
 func calcIntervals(lastSavedTime timeseries.Time, scrapeInterval timeseries.Duration, now timeseries.Time, jitter timeseries.Duration) []interval {
 	to := now.Truncate(scrapeInterval)
 	from := lastSavedTime.Add(scrapeInterval)
-	if to < from {
+	if to <= from {
 		return nil
 	}
 	from = from.Truncate(scrapeInterval)
@@ -359,11 +365,11 @@ func calcIntervals(lastSavedTime timeseries.Time, scrapeInterval timeseries.Dura
 	return res
 }
 
-func getRefreshInterval(promClient *prom.Client) (timeseries.Duration, error) {
+func getScrapeInterval(promClient *prom.Client) (timeseries.Duration, error) {
 	step, _ := promClient.GetStep(0, 0)
 	if step == 0 {
 		klog.Warningln("step is zero")
-		step = defaultRefreshInterval
+		step = minRefreshInterval
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), queryTimeout)
 	defer cancel()
