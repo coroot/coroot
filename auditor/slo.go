@@ -29,16 +29,40 @@ func availability(ctx timeseries.Context, app *model.Application, report *model.
 		return
 	}
 
-	report.GetOrCreateChart("Errors, per second").
-		AddSeries("errors", sli.FailedRequests.Map(timeseries.NanToZero), "black").Stacked()
-
-	failedRaw := sli.FailedRequestsRaw
-	if failedRaw.IsEmpty() {
-		failedRaw = sli.TotalRequestsRaw.WithNewValue(0)
-	} else {
-		failedRaw = failedRaw.Map(timeseries.NanToZero)
+	if ch := report.GetOrCreateChart("Errors, per second"); ch != nil {
+		ch.AddSeries("errors", sli.FailedRequests.Map(timeseries.NanToZero), "black").Stacked()
 	}
-	if br := model.CheckBurnRates(ctx.To, failedRaw, sli.TotalRequestsRaw, sli.Config.ObjectivePercentage); br.Severity > model.UNKNOWN {
+
+	totalF := func(from timeseries.Time) float32 {
+		iter := sli.TotalRequestsRaw.IterFrom(from)
+		var sum float32
+		for iter.Next() {
+			_, v := iter.Value()
+			if timeseries.IsNaN(v) {
+				continue
+			}
+			sum += v
+		}
+		return sum
+	}
+	failedF := func(from timeseries.Time) float32 {
+		return 0
+	}
+	if !sli.FailedRequestsRaw.IsEmpty() {
+		failedF = func(from timeseries.Time) float32 {
+			iter := sli.FailedRequestsRaw.IterFrom(from)
+			var sum float32
+			for iter.Next() {
+				_, v := iter.Value()
+				if timeseries.IsNaN(v) {
+					continue
+				}
+				sum += v
+			}
+			return sum
+		}
+	}
+	if br := calcBurnRates(ctx.To, failedF, totalF, sli.Config.ObjectivePercentage); br.Severity > model.UNKNOWN {
 		check.SetStatus(br.Severity, br.FormatSLOStatus())
 	}
 }
@@ -51,7 +75,9 @@ func latency(ctx timeseries.Context, app *model.Application, report *model.Audit
 	}
 	sli := app.LatencySLIs[0]
 
-	report.GetOrCreateChart("Latency, seconds").PercentilesFrom(sli.Histogram, 0.25, 0.5, 0.75, 0.95, 0.99)
+	if ch := report.GetOrCreateChart("Latency, seconds"); ch != nil {
+		ch.PercentilesFrom(sli.Histogram, 0.25, 0.5, 0.75, 0.95, 0.99)
+	}
 
 	totalRaw, fastRaw := sli.GetTotalAndFast(true)
 	if totalRaw.TailIsEmpty() {
@@ -59,19 +85,79 @@ func latency(ctx timeseries.Context, app *model.Application, report *model.Audit
 		return
 	}
 
-	if fastRaw.IsEmpty() {
-		fastRaw = totalRaw.WithNewValue(0)
-	} else {
-		fastRaw = fastRaw.Map(timeseries.NanToZero)
+	totalF := func(from timeseries.Time) float32 {
+		iter := totalRaw.IterFrom(from)
+		var sum float32
+		for iter.Next() {
+			_, v := iter.Value()
+			if timeseries.IsNaN(v) {
+				continue
+			}
+			sum += v
+		}
+		return sum
 	}
-	slowRaw := timeseries.Sub(totalRaw, fastRaw)
-	if br := model.CheckBurnRates(ctx.To, slowRaw, totalRaw, sli.Config.ObjectivePercentage); br.Severity > model.UNKNOWN {
+	slowF := totalF
+	if !fastRaw.IsEmpty() {
+		slowF = func(from timeseries.Time) float32 {
+			totalIter := totalRaw.IterFrom(from)
+			fastIter := fastRaw.IterFrom(from)
+			var sum float32
+			for totalIter.Next() && fastIter.Next() {
+				_, total := totalIter.Value()
+				if timeseries.IsNaN(total) {
+					continue
+				}
+				_, fast := fastIter.Value()
+				if timeseries.IsNaN(fast) {
+					sum += total
+				} else {
+					sum += total - fast
+				}
+			}
+			return sum
+		}
+	}
+	if br := calcBurnRates(ctx.To, slowF, totalF, sli.Config.ObjectivePercentage); br.Severity > model.UNKNOWN {
 		check.SetStatus(br.Severity, br.FormatSLOStatus())
 	}
 }
 
+func calcBurnRates(now timeseries.Time, badSum, totalSum func(from timeseries.Time) float32, objectivePercentage float32) model.BurnRate {
+	objective := 1 - objectivePercentage/100
+	first := model.BurnRate{}
+	for _, r := range model.AlertRules {
+		from := now.Add(-r.LongWindow)
+		br := badSum(from) / totalSum(from) / objective
+		if timeseries.IsNaN(br) {
+			br = 0
+		}
+		if first.Window == 0 {
+			first.Window = r.LongWindow
+			first.Value = br
+		}
+		if br < r.BurnRateThreshold {
+			continue
+		}
+		from = now.Add(-r.ShortWindow)
+		br = badSum(from) / totalSum(from) / objective
+		if timeseries.IsNaN(br) {
+			br = 0
+		}
+		if br < r.BurnRateThreshold {
+			continue
+		}
+		return model.BurnRate{Value: br, Window: r.LongWindow, Severity: r.Severity}
+	}
+	first.Severity = model.OK
+	return first
+}
+
 func requestsChart(app *model.Application, report *model.AuditReport, p *db.Project) {
 	hm := report.GetOrCreateHeatmap("Latency & Errors heatmap, requests per second")
+	if hm == nil {
+		return
+	}
 	ch := report.
 		GetOrCreateChart(fmt.Sprintf("Requests to the <var>%s</var> app, per second", app.Id.Name)).
 		Sorted().
@@ -114,6 +200,10 @@ type clientRequestsSummary struct {
 }
 
 func clientRequests(app *model.Application, report *model.AuditReport) {
+	table := report.GetOrCreateTable("Client", "", "Requests", "Latency", "Errors")
+	if table == nil {
+		return
+	}
 	clients := map[model.ApplicationId]*clientRequestsSummary{}
 	for id, connections := range app.GetClientsConnections() {
 		clients[id] = &clientRequestsSummary{connections: connections, protocols: utils.NewStringSet()}
@@ -126,7 +216,6 @@ func clientRequests(app *model.Application, report *model.AuditReport) {
 	if len(clients) == 0 {
 		return
 	}
-	t := report.GetOrCreateTable("Client", "", "Requests", "Latency", "Errors")
 	var rpsTotal float32
 	for _, s := range clients {
 		s.rps = model.GetConnectionsRequestsSum(s.connections)
@@ -156,6 +245,6 @@ func clientRequests(app *model.Application, report *model.AuditReport) {
 			errors.SetValue(utils.FormatFloat(last))
 		}
 
-		t.AddRow(client, chart, requests, latency, errors)
+		table.AddRow(client, chart, requests, latency, errors)
 	}
 }

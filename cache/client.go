@@ -29,8 +29,8 @@ func (c *Client) QueryRange(ctx context.Context, query string, from, to timeseri
 	if projData == nil {
 		return nil, fmt.Errorf("unknown project: %s", c.projectId)
 	}
-	queryHash := hash(query)
-	qData := projData.queries[queryHash]
+	hash := queryHash(query)
+	qData := projData.queries[hash]
 	if qData == nil {
 		return nil, fmt.Errorf("%w: %s", constructor.ErrUnknownQuery, query)
 	}

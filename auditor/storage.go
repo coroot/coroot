@@ -10,8 +10,16 @@ import (
 
 func (a *appAuditor) storage() {
 	report := a.addReport(model.AuditReportStorage)
+
 	ioCheck := report.CreateCheck(model.Checks.StorageIO)
 	spaceCheck := report.CreateCheck(model.Checks.StorageSpace)
+
+	ioLatencyChart := report.GetOrCreateChartGroup("I/O latency <selector>, seconds")
+	ioUtilizationChart := report.GetOrCreateChartGroup("I/O utilization <selector>, %")
+	iopsChart := report.GetOrCreateChartGroup("IOPS <selector>")
+	bandwidthChart := report.GetOrCreateChartGroup("Bandwidth <selector>, bytes/second")
+	spaceChart := report.GetOrCreateChartGroup("Disk space <selector>, bytes")
+
 	seenVolumes := false
 	for _, i := range a.app.Instances {
 		for _, v := range i.Volumes {
@@ -22,12 +30,12 @@ func (a *appAuditor) storage() {
 				}
 				seenVolumes = true
 				if d := i.Node.Disks[v.Device.Value()]; d != nil {
-					report.GetOrCreateChartInGroup("I/O latency <selector>, seconds", v.MountPoint).
-						AddSeries(i.Name, d.Await)
-
-					report.GetOrCreateChartInGroup("I/O utilization <selector>, %", v.MountPoint).
-						AddSeries(i.Name, d.IOUtilizationPercent)
-
+					if ioLatencyChart != nil {
+						ioLatencyChart.GetOrCreateChart(v.MountPoint).AddSeries(i.Name, d.Await)
+					}
+					if ioUtilizationChart != nil {
+						ioUtilizationChart.GetOrCreateChart(v.MountPoint).AddSeries(i.Name, d.IOUtilizationPercent)
+					}
 					ioUtilization := d.IOUtilizationPercent.Last()
 					if ioUtilization > ioCheck.Value() {
 						ioCheck.SetValue(d.IOUtilizationPercent.Last())
@@ -35,18 +43,16 @@ func (a *appAuditor) storage() {
 					if ioUtilization > ioCheck.Threshold {
 						ioCheck.AddItem("%s:%s", i.Name, v.MountPoint)
 					}
-
-					report.GetOrCreateChartInGroup("IOPS <selector>", fullName).
-						Stacked().
-						Sorted().
-						AddSeries("read", d.ReadOps, "blue").
-						AddSeries("write", d.WriteOps, "amber")
-
-					report.GetOrCreateChartInGroup("Bandwidth <selector>, bytes/second", fullName).
-						Stacked().
-						Sorted().
-						AddSeries("read", d.ReadBytes, "blue").
-						AddSeries("written", d.WrittenBytes, "amber")
+					if iopsChart != nil {
+						iopsChart.GetOrCreateChart(fullName).Stacked().Sorted().
+							AddSeries("read", d.ReadOps, "blue").
+							AddSeries("write", d.WriteOps, "amber")
+					}
+					if bandwidthChart != nil {
+						bandwidthChart.GetOrCreateChart(fullName).Stacked().Sorted().
+							AddSeries("read", d.ReadBytes, "blue").
+							AddSeries("written", d.WrittenBytes, "amber")
+					}
 
 					latencyMs := model.NewTableCell().SetUnit("ms").SetValue(utils.FormatFloat(d.Await.Last() * 1000))
 					ioPercent := model.NewTableCell()
@@ -79,10 +85,11 @@ func (a *appAuditor) storage() {
 						model.NewTableCell(v.Device.Value()).AddTag(v.Name.Value()),
 					)
 				}
-				report.GetOrCreateChartInGroup("Disk space <selector>, bytes", fullName).
-					Stacked().
-					AddSeries("used", v.UsedBytes).
-					SetThreshold("total", v.CapacityBytes)
+				if spaceChart != nil {
+					spaceChart.GetOrCreateChart(fullName).Stacked().
+						AddSeries("used", v.UsedBytes).
+						SetThreshold("total", v.CapacityBytes)
+				}
 			}
 		}
 	}

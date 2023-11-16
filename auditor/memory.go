@@ -12,48 +12,60 @@ func (a *appAuditor) memory(ncs nodeConsumersByNode) {
 
 	oomCheck := report.CreateCheck(model.Checks.MemoryOOM)
 	leakCheck := report.CreateCheck(model.Checks.MemoryLeakPercent)
+
+	usageChart := report.GetOrCreateChartGroup("Memory usage (RSS) <selector>, bytes")
+	oomChart := report.GetOrCreateChart("Out of memory events").Column()
+	nodesChart := report.GetOrCreateChart("Node memory usage (unreclaimable), %")
+	consumersChart := report.GetOrCreateChartGroup("Memory consumers <selector>, bytes")
+
 	seenContainers := false
 	limitByContainer := map[string]*timeseries.Aggregate{}
-	memoryUsageChartTitle := "Memory usage (RSS) <selector>, bytes"
 	totalRss := timeseries.NewAggregate(timeseries.NanSum)
 	for _, i := range a.app.Instances {
 		oom := timeseries.NewAggregate(timeseries.NanSum)
 		instanceRss := timeseries.NewAggregate(timeseries.NanSum)
 		for _, c := range i.Containers {
 			seenContainers = true
-			l := limitByContainer[c.Name]
-			if l == nil {
-				l = timeseries.NewAggregate(timeseries.Max)
-				limitByContainer[c.Name] = l
+			if limitByContainer[c.Name] == nil {
+				limitByContainer[c.Name] = timeseries.NewAggregate(timeseries.Max)
 			}
-			l.Add(c.MemoryLimit)
-			report.GetOrCreateChartInGroup(memoryUsageChartTitle, "container: "+c.Name).AddSeries(i.Name, c.MemoryRss)
+			limitByContainer[c.Name].Add(c.MemoryLimit)
+			if usageChart != nil {
+				usageChart.GetOrCreateChart("container: "+c.Name).AddSeries(i.Name, c.MemoryRss)
+			}
 			oom.Add(c.OOMKills)
 			totalRss.Add(c.MemoryRssForTrend)
 			instanceRss.Add(c.MemoryRss)
 		}
-		if cg := report.GetChartGroup(memoryUsageChartTitle); cg != nil && len(cg.Charts) > 1 {
-			cg.GetOrCreateChart(a.w.Ctx, "total").AddSeries(i.Name, instanceRss).Feature()
+		if usageChart != nil && len(usageChart.Charts) > 1 {
+			usageChart.GetOrCreateChart("total").AddSeries(i.Name, instanceRss).Feature()
 		}
-		oomTs := oom.Get()
-		report.GetOrCreateChart("Out of memory events").Column().AddSeries(i.Name, oomTs)
 
+		oomTs := oom.Get()
+		if oomChart != nil {
+			oomChart.AddSeries(i.Name, oomTs)
+		}
 		if ooms := oomTs.Reduce(timeseries.NanSum); ooms > 0 {
 			oomCheck.Inc(int64(ooms))
 		}
+
 		if node := i.Node; node != nil {
 			nodeName := node.GetName()
-			if relevantNodes[nodeName] == nil {
-				relevantNodes[nodeName] = node
-				report.GetOrCreateChart("Node memory usage (unreclaimable), %").
-					AddSeries(
-						nodeName,
-						timeseries.Aggregate2(
-							node.MemoryAvailableBytes, node.MemoryTotalBytes,
-							func(avail, total float32) float32 { return (total - avail) / total * 100 },
-						),
-					)
-				report.GetOrCreateChartInGroup("Memory consumers <selector>, bytes", nodeName).
+			if relevantNodes[nodeName] != nil {
+				continue
+			}
+			relevantNodes[nodeName] = node
+			if nodesChart != nil {
+				nodesChart.AddSeries(
+					nodeName,
+					timeseries.Aggregate2(
+						node.MemoryAvailableBytes, node.MemoryTotalBytes,
+						func(avail, total float32) float32 { return (total - avail) / total * 100 },
+					),
+				)
+			}
+			if consumersChart != nil {
+				consumersChart.GetOrCreateChart(nodeName).
 					Stacked().
 					SetThreshold("total", node.MemoryTotalBytes).
 					AddMany(ncs.get(node).memory, 5, timeseries.Max)
@@ -61,12 +73,14 @@ func (a *appAuditor) memory(ncs nodeConsumersByNode) {
 		}
 	}
 
-	for container, limit := range limitByContainer {
-		report.GetOrCreateChartInGroup(memoryUsageChartTitle, "container: "+container).SetThreshold("limit", limit.Get())
+	if usageChart != nil {
+		for container, limit := range limitByContainer {
+			usageChart.GetOrCreateChart("container: "+container).SetThreshold("limit", limit.Get())
+		}
 	}
 
-	if a.p.Settings.Integrations.Pyroscope != nil {
-		for _, ch := range report.GetOrCreateChartGroup(memoryUsageChartTitle).Charts {
+	if a.p.Settings.Integrations.Pyroscope != nil && usageChart != nil {
+		for _, ch := range usageChart.Charts {
 			ch.DrillDownLink = model.NewRouterLink("profile").SetParam("report", model.AuditReportProfiling).SetArg("profile", profiling.TypeMemory)
 		}
 	}
@@ -80,8 +94,8 @@ func (a *appAuditor) memory(ncs nodeConsumersByNode) {
 	case model.ApplicationKindCronJob, model.ApplicationKindJob:
 		leakCheck.SetStatus(model.UNKNOWN, "not checked for Jobs and CronJobs")
 	default:
-		v := totalRss.Get().Map(timeseries.ZeroToNan)
-		if v.Map(timeseries.Defined).Reduce(timeseries.NanSum) > float32(v.Len())*0.8 { // we require 80% of the data to be present
+		v := totalRss.Get().MapInPlace(timeseries.ZeroToNan)
+		if v.Reduce(timeseries.NanCount) > float32(v.Len())*0.8 { // we require 80% of the data to be present
 			if lr := timeseries.NewLinearRegression(v); lr != nil {
 				s := lr.Calc(a.w.Ctx.To.Add(-timeseries.Hour))
 				e := lr.Calc(a.w.Ctx.To)

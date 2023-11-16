@@ -22,7 +22,7 @@ func NewIncidents(db *db.DB) *Incidents {
 func (w *Incidents) Check(project *db.Project, world *model.World) {
 	start := time.Now()
 
-	auditor.Audit(world, project)
+	auditor.Audit(world, project, nil)
 
 	var apps int
 	for _, app := range world.Applications {

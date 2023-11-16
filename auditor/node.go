@@ -6,7 +6,7 @@ import (
 )
 
 func AuditNode(w *model.World, node *model.Node) *model.AuditReport {
-	report := model.NewAuditReport(nil, w.Ctx, nil, model.AuditReportNode)
+	report := model.NewAuditReport(nil, w.Ctx, nil, model.AuditReportNode, true)
 
 	if !node.IsAgentInstalled() {
 		return report

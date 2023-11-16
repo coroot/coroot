@@ -1,7 +1,6 @@
 package timeseries
 
 type Iterator struct {
-	from Time
 	step Duration
 	data []float32
 	idx  int

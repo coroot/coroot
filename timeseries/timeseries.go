@@ -143,11 +143,27 @@ func (ts *TimeSeries) Iter() *Iterator {
 		return &Iterator{data: nil}
 	}
 	return &Iterator{
-		from: ts.from,
 		step: ts.step,
 		data: ts.data,
 		idx:  -1,
 		t:    ts.from.Add(-ts.step),
+	}
+}
+
+func (ts *TimeSeries) IterFrom(from Time) *Iterator {
+	if ts.IsEmpty() || from.Before(ts.from) {
+		return &Iterator{data: nil}
+	}
+	to := ts.from.Add(ts.step * Duration(len(ts.data)-1))
+	if from.After(to) {
+		return &Iterator{data: nil}
+	}
+	from = from.Truncate(ts.step)
+	return &Iterator{
+		step: ts.step,
+		data: ts.data,
+		idx:  int(from.Sub(ts.from)/ts.step) - 1,
+		t:    from.Add(-ts.step),
 	}
 }
 
@@ -206,6 +222,19 @@ func (ts *TimeSeries) Map(f func(t Time, v float32) float32) *TimeSeries {
 		i++
 	}
 	return NewWithData(ts.from, ts.step, data)
+}
+
+func (ts *TimeSeries) MapInPlace(f func(t Time, v float32) float32) *TimeSeries {
+	if ts.IsEmpty() {
+		return nil
+	}
+
+	t := ts.from
+	for i, v := range ts.data {
+		ts.data[i] = f(t, v)
+		t = t.Add(ts.step)
+	}
+	return ts
 }
 
 func (ts *TimeSeries) WithNewValue(newValue float32) *TimeSeries {

@@ -324,7 +324,7 @@ func (c *Collector) collect() Stats {
 		loadTime = append(loadTime, time.Since(t))
 
 		t = time.Now()
-		auditor.Audit(w, p)
+		auditor.Audit(w, p, nil)
 		auditTime = append(auditTime, time.Since(t))
 
 		stats.Integration.NodeAgent = stats.Integration.NodeAgent || w.IntegrationStatus.NodeAgent.Installed

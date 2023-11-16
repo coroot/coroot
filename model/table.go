@@ -18,6 +18,9 @@ func NewTable(header ...string) *Table {
 }
 
 func (t *Table) AddRow(cells ...*TableCell) *TableRow {
+	if t == nil {
+		return nil
+	}
 	r := &TableRow{Cells: cells}
 	t.Rows = append(t.Rows, r)
 	t.SortRows()
@@ -25,6 +28,9 @@ func (t *Table) AddRow(cells ...*TableCell) *TableRow {
 }
 
 func (t *Table) SortRows() {
+	if t == nil {
+		return
+	}
 	if t.sorted {
 		return
 	}
@@ -34,6 +40,9 @@ func (t *Table) SortRows() {
 }
 
 func (t *Table) SetSorted(s bool) *Table {
+	if t == nil {
+		return nil
+	}
 	t.sorted = s
 	return t
 }
@@ -44,6 +53,9 @@ type TableRow struct {
 }
 
 func (r *TableRow) SetId(id string) *TableRow {
+	if r == nil {
+		return nil
+	}
 	r.Id = id
 	return r
 }
@@ -87,37 +99,58 @@ func NewTableCell(values ...string) *TableCell {
 }
 
 func (c *TableCell) SetStatus(status Status, msg string) *TableCell {
+	if c == nil {
+		return nil
+	}
 	c.Status = &status
 	c.Value = msg
 	return c
 }
 
 func (c *TableCell) UpdateStatus(status Status) *TableCell {
+	if c == nil {
+		return nil
+	}
 	c.Status = &status
 	return c
 }
 
 func (c *TableCell) SetValue(value string) *TableCell {
+	if c == nil {
+		return nil
+	}
 	c.Value = value
 	return c
 }
 
 func (c *TableCell) SetShortValue(value string) *TableCell {
+	if c == nil {
+		return nil
+	}
 	c.ShortValue = value
 	return c
 }
 
 func (c *TableCell) SetIcon(name, color string) *TableCell {
+	if c == nil {
+		return nil
+	}
 	c.Icon = &Icon{Name: name, Color: color}
 	return c
 }
 
 func (c *TableCell) SetUnit(unit string) *TableCell {
+	if c == nil {
+		return nil
+	}
 	c.Unit = unit
 	return c
 }
 
 func (c *TableCell) AddTag(format string, a ...any) *TableCell {
+	if c == nil {
+		return nil
+	}
 	if format == "" {
 		return c
 	}
@@ -130,16 +163,25 @@ func (c *TableCell) AddTag(format string, a ...any) *TableCell {
 }
 
 func (c *TableCell) SetProgress(percent int, color string) *TableCell {
+	if c == nil {
+		return nil
+	}
 	c.Progress = &Progress{Percent: percent, Color: color}
 	return c
 }
 
 func (c *TableCell) SetChart(ts *timeseries.TimeSeries) *TableCell {
+	if c == nil {
+		return nil
+	}
 	c.Chart = ts
 	return c
 }
 
 func (c *TableCell) SetStub(format string, a ...any) *TableCell {
+	if c == nil {
+		return nil
+	}
 	c.Value = fmt.Sprintf(format, a...)
 	c.IsStub = true
 	return c

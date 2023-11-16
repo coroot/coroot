@@ -1,7 +1,6 @@
 package cache
 
 import (
-	"crypto/md5"
 	"database/sql"
 	"fmt"
 	"github.com/coroot/coroot/cache/chunk"
@@ -9,7 +8,6 @@ import (
 	"github.com/coroot/coroot/prom"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/prometheus/client_golang/prometheus"
-	"hash/fnv"
 	"io/ioutil"
 	"k8s.io/klog"
 	"path"
@@ -169,21 +167,4 @@ func (c *Cache) initCacheIndexFromDir() error {
 	}
 	klog.Infof("loaded from disk in %s", time.Since(t).Truncate(time.Millisecond))
 	return nil
-}
-
-func hash(query string) string {
-	return fmt.Sprintf(`%x`, md5.Sum([]byte(query)))
-}
-
-func chunkJitter(projectId db.ProjectId, queryHash string) timeseries.Duration {
-	queryKey := fmt.Sprintf("%s-%s", projectId, queryHash)
-	h := fnv.New32a()
-	_, _ = h.Write([]byte(queryKey))
-	return timeseries.Duration(h.Sum32()%uint32(chunkSize/timeseries.Minute)) * timeseries.Minute
-}
-
-func QueryId(projectId db.ProjectId, query string) (string, timeseries.Duration) {
-	queryHash := hash(query)
-	jitter := chunkJitter(projectId, queryHash)
-	return queryHash, jitter
 }

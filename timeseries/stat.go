@@ -13,11 +13,10 @@ func NewLinearRegression(ts *TimeSeries) *LinearRegression {
 		return nil
 	}
 	lr := &LinearRegression{}
-	var (
-		x, y []float64
-		t    Time
-		v    float32
-	)
+	x := make([]float64, 0, ts.Len())
+	y := make([]float64, 0, ts.Len())
+	var t Time
+	var v float32
 	iter := ts.Iter()
 	for iter.Next() {
 		t, v = iter.Value()

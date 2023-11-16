@@ -83,84 +83,125 @@ func NewChart(ctx timeseries.Context, title string) *Chart {
 	return &Chart{Ctx: ctx, Title: title}
 }
 
-func (chart *Chart) IsEmpty() bool {
-	return chart.Series.IsEmpty() && (chart.Threshold == nil || chart.Threshold.Data.IsEmpty())
+func (ch *Chart) IsEmpty() bool {
+	if ch == nil {
+		return true
+	}
+	return ch.Series.IsEmpty() && (ch.Threshold == nil || ch.Threshold.Data.IsEmpty())
 }
 
-func (chart *Chart) Stacked() *Chart {
-	chart.IsStacked = true
-	return chart
+func (ch *Chart) Stacked() *Chart {
+	if ch == nil {
+		return nil
+	}
+	ch.IsStacked = true
+	return ch
 }
 
-func (chart *Chart) Sorted() *Chart {
-	chart.IsSorted = true
-	return chart
+func (ch *Chart) Sorted() *Chart {
+	if ch == nil {
+		return nil
+	}
+	ch.IsSorted = true
+	return ch
 }
 
-func (chart *Chart) Column() *Chart {
-	chart.IsColumn = true
-	chart.IsStacked = true
-	return chart
+func (ch *Chart) Column() *Chart {
+	if ch == nil {
+		return nil
+	}
+	ch.IsColumn = true
+	ch.IsStacked = true
+	return ch
 }
 
-func (chart *Chart) Legend(on bool) *Chart {
-	chart.HideLegend = !on
-	return chart
+func (ch *Chart) Legend(on bool) *Chart {
+	if ch == nil {
+		return nil
+	}
+	ch.HideLegend = !on
+	return ch
 }
 
-func (chart *Chart) ShiftColors() *Chart {
-	chart.ColorShift = 1
-	return chart
+func (ch *Chart) ShiftColors() *Chart {
+	if ch == nil {
+		return nil
+	}
+	ch.ColorShift = 1
+	return ch
 }
 
-func (chart *Chart) AddAnnotation(annotations ...Annotation) *Chart {
-	chart.Annotations = append(chart.Annotations, annotations...)
-	return chart
+func (ch *Chart) AddAnnotation(annotations ...Annotation) *Chart {
+	if ch == nil {
+		return nil
+	}
+	ch.Annotations = append(ch.Annotations, annotations...)
+	return ch
 }
 
-func (chart *Chart) AddSeries(name string, data SeriesData, color ...string) *Chart {
+func (ch *Chart) AddSeries(name string, data SeriesData, color ...string) *Chart {
+	if ch == nil {
+		return nil
+	}
 	if data.IsEmpty() {
-		return chart
+		return ch
 	}
 	s := &Series{Name: name, Data: data}
 	if len(color) > 0 {
 		s.Color = color[0]
 	}
-	chart.Series.series = append(chart.Series.series, s)
-	return chart
+	ch.Series.series = append(ch.Series.series, s)
+	return ch
 }
 
-func (chart *Chart) AddMany(series map[string]SeriesData, topN int, topF timeseries.F) *Chart {
+func (ch *Chart) AddMany(series map[string]SeriesData, topN int, topF timeseries.F) *Chart {
+	if ch == nil {
+		return nil
+	}
 	for name, data := range series {
-		chart.AddSeries(name, data)
+		ch.AddSeries(name, data)
 	}
-	chart.Series.topN = topN
-	chart.Series.topF = topF
-	return chart
+	ch.Series.topN = topN
+	ch.Series.topF = topF
+	return ch
 }
 
-func (chart *Chart) PercentilesFrom(histogram []HistogramBucket, percentiles ...float32) *Chart {
-	chart.Series.histogram = histogram
-	chart.Series.percentiles = percentiles
-	return chart
+func (ch *Chart) PercentilesFrom(histogram []HistogramBucket, percentiles ...float32) *Chart {
+	if ch == nil {
+		return nil
+	}
+	ch.Series.histogram = histogram
+	ch.Series.percentiles = percentiles
+	return ch
 }
 
-func (chart *Chart) SetThreshold(name string, data SeriesData) *Chart {
+func (ch *Chart) SetThreshold(name string, data SeriesData) *Chart {
+	if ch == nil {
+		return nil
+	}
 	if data.IsEmpty() {
-		return chart
+		return ch
 	}
-	chart.Threshold = &Series{Name: name, Color: "black", Data: data}
-	return chart
+	ch.Threshold = &Series{Name: name, Color: "black", Data: data}
+	return ch
 }
 
-func (chart *Chart) Feature() *Chart {
-	chart.Featured = true
-	return chart
+func (ch *Chart) Feature() *Chart {
+	if ch == nil {
+		return nil
+	}
+	ch.Featured = true
+	return ch
 }
 
 type ChartGroup struct {
+	ctx    timeseries.Context
 	Title  string   `json:"title"`
 	Charts []*Chart `json:"charts"`
+}
+
+func NewChartGroup(ctx timeseries.Context, title string) *ChartGroup {
+	return &ChartGroup{ctx: ctx, Title: title}
 }
 
 func (cg *ChartGroup) MarshalJSON() ([]byte, error) {
@@ -174,13 +215,16 @@ func (cg *ChartGroup) MarshalJSON() ([]byte, error) {
 	})
 }
 
-func (cg *ChartGroup) GetOrCreateChart(ctx timeseries.Context, title string) *Chart {
+func (cg *ChartGroup) GetOrCreateChart(title string) *Chart {
+	if cg == nil {
+		return nil
+	}
 	for _, ch := range cg.Charts {
 		if ch.Title == title {
 			return ch
 		}
 	}
-	ch := NewChart(ctx, title)
+	ch := NewChart(cg.ctx, title)
 	cg.Charts = append(cg.Charts, ch)
 	return ch
 }
@@ -201,6 +245,9 @@ func NewHeatmap(ctx timeseries.Context, title string) *Heatmap {
 }
 
 func (hm *Heatmap) AddSeries(name, title string, data SeriesData, threshold string, value string) *Heatmap {
+	if hm == nil {
+		return nil
+	}
 	if data.IsEmpty() {
 		return hm
 	}
@@ -210,11 +257,17 @@ func (hm *Heatmap) AddSeries(name, title string, data SeriesData, threshold stri
 }
 
 func (hm *Heatmap) AddAnnotation(annotations ...Annotation) *Heatmap {
+	if hm == nil {
+		return nil
+	}
 	hm.Annotations = append(hm.Annotations, annotations...)
 	return hm
 }
 
 func (hm *Heatmap) IsEmpty() bool {
+	if hm == nil {
+		return true
+	}
 	return hm.Series.IsEmpty()
 }
 
