@@ -10,11 +10,14 @@ func (a *appAuditor) deployments() {
 	if len(a.app.Deployments) == 0 {
 		return
 	}
+
 	report := a.addReport(model.AuditReportDeployments)
-	deploymentStatusCheck := report.CreateCheck(model.Checks.DeploymentStatus)
+
+	statusCheck := report.CreateCheck(model.Checks.DeploymentStatus)
+
+	table := report.GetOrCreateTable("Deployment", "Deployed", "Summary").SetSorted(true)
 
 	now := timeseries.Now()
-	table := report.GetOrCreateTable("Deployment", "Deployed", "Summary").SetSorted(true)
 	statuses := model.CalcApplicationDeploymentStatuses(a.app, a.w.CheckConfigs, now)
 	for i := len(statuses) - 1; i >= 0; i-- {
 		ds := statuses[i]
@@ -39,7 +42,7 @@ func (a *appAuditor) deployments() {
 				summary.SetStub("Not enough data due to the lifetime < %s", utils.FormatDuration(model.ApplicationDeploymentMinLifetime, 1))
 			}
 		case model.ApplicationDeploymentStateStuck:
-			deploymentStatusCheck.SetValue(float32(now.Sub(ds.Deployment.StartedAt)))
+			statusCheck.SetValue(float32(now.Sub(ds.Deployment.StartedAt)))
 			summary.DeploymentSummaries = append(summary.DeploymentSummaries, model.ApplicationDeploymentSummary{
 				Report:  model.AuditReportInstances,
 				Ok:      false,

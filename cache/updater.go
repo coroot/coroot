@@ -195,10 +195,9 @@ func (c *Cache) updaterWorker(projects *sync.Map, projectId db.ProjectId, promCl
 }
 
 func (c *Cache) download(to timeseries.Time, promClient *prom.Client, projectId db.ProjectId, step timeseries.Duration, state *PrometheusQueryState) {
-	queryHash, jitter := QueryId(projectId, state.Query)
+	hash, jitter := QueryId(projectId, state.Query)
 	pointsCount := int(chunkSize / step)
 	from := state.LastTs
-	to := now.Add(-step)
 	if to.Sub(from) > BackFillInterval {
 		from = to.Add(-BackFillInterval)
 	}
@@ -218,7 +217,7 @@ func (c *Cache) download(to timeseries.Time, promClient *prom.Client, projectId 
 		}
 		chunkEnd := i.chunkTs.Add(timeseries.Duration(pointsCount-1) * step)
 		finalized := chunkEnd == i.toTs
-		err = c.writeChunk(projectId, queryHash, i.chunkTs, pointsCount, step, finalized, vs)
+		err = c.writeChunk(projectId, hash, i.chunkTs, pointsCount, step, finalized, vs)
 		if err != nil {
 			klog.Errorln("failed to save chunk:", err)
 			return
@@ -295,7 +294,11 @@ func (c *Cache) processRecordingRules(to timeseries.Time, project *db.Project, s
 			from = state.LastTs
 		}
 	}
-	intervals := calcIntervals(from, step, to, 0)
+	if to.Sub(from) > BackFillInterval {
+		from = to.Add(-BackFillInterval)
+	}
+	jitter := chunkJitter(project.Id, "")
+	intervals := calcIntervals(from, step, to, jitter)
 	if len(intervals) == 0 {
 		return
 	}
@@ -303,7 +306,7 @@ func (c *Cache) processRecordingRules(to timeseries.Time, project *db.Project, s
 	pointsCount := int(chunkSize / step)
 	for _, i := range intervals {
 		ctr := constructor.New(c.db, project, cacheClient, nil, constructor.OptionLoadPerConnectionHistograms, constructor.OptionDoNotLoadRawSLIs)
-		world, err := ctr.LoadWorld(context.TODO(), from, to, step, nil)
+		world, err := ctr.LoadWorld(context.TODO(), i.chunkTs, i.toTs, step, nil)
 		if err != nil {
 			klog.Errorln("failed to load world:", err)
 			return
@@ -311,9 +314,9 @@ func (c *Cache) processRecordingRules(to timeseries.Time, project *db.Project, s
 		chunkEnd := i.chunkTs.Add(timeseries.Duration(pointsCount-1) * step)
 		finalized := chunkEnd == i.toTs
 		for name, rule := range constructor.RecordingRules {
-			queryHash := hash(name)
+			hash := queryHash(name)
 			mvs := rule(project, world)
-			err = c.writeChunk(project.Id, queryHash, i.chunkTs, pointsCount, step, finalized, mvs)
+			err = c.writeChunk(project.Id, hash, i.chunkTs, pointsCount, step, finalized, mvs)
 			if err != nil {
 				klog.Errorln("failed to save chunk:", err)
 				return

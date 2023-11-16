@@ -97,9 +97,9 @@ func (c *Cache) compaction() {
 			if projData == nil {
 				continue
 			}
-			for queryHash, qData := range projData.queries {
+			for hash, qData := range projData.queries {
 				for _, cfg := range cfg.Compactors {
-					tasks = append(tasks, calcCompactionTasks(cfg, projectID, queryHash, qData.chunksOnDisk)...)
+					tasks = append(tasks, calcCompactionTasks(cfg, projectID, hash, qData.chunksOnDisk)...)
 				}
 			}
 		}

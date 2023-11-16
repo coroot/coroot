@@ -29,6 +29,7 @@ type AuditReport struct {
 	app          *Application
 	ctx          timeseries.Context
 	checkConfigs CheckConfigs
+	detailed     bool
 
 	Name    AuditReportName `json:"name"`
 	Status  Status          `json:"status"`
@@ -37,8 +38,8 @@ type AuditReport struct {
 	Custom  bool            `json:"custom"`
 }
 
-func NewAuditReport(app *Application, ctx timeseries.Context, checkConfigs CheckConfigs, name AuditReportName) *AuditReport {
-	return &AuditReport{app: app, Name: name, ctx: ctx, checkConfigs: checkConfigs}
+func NewAuditReport(app *Application, ctx timeseries.Context, checkConfigs CheckConfigs, name AuditReportName, detailed bool) *AuditReport {
+	return &AuditReport{app: app, Name: name, ctx: ctx, checkConfigs: checkConfigs, detailed: detailed}
 }
 
 func (r *AuditReport) AddWidget(w *Widget) *Widget {
@@ -47,16 +48,9 @@ func (r *AuditReport) AddWidget(w *Widget) *Widget {
 }
 
 func (r *AuditReport) GetOrCreateChartGroup(title string) *ChartGroup {
-	cg := r.GetChartGroup(title)
-	if cg != nil {
-		return cg
+	if !r.detailed {
+		return nil
 	}
-	cg = &ChartGroup{Title: title}
-	r.Widgets = append(r.Widgets, &Widget{ChartGroup: cg})
-	return cg
-}
-
-func (r *AuditReport) GetChartGroup(title string) *ChartGroup {
 	for _, w := range r.Widgets {
 		if cg := w.ChartGroup; cg != nil {
 			if cg.Title == title {
@@ -64,14 +58,22 @@ func (r *AuditReport) GetChartGroup(title string) *ChartGroup {
 			}
 		}
 	}
-	return nil
+	cg := NewChartGroup(r.ctx, title)
+	r.Widgets = append(r.Widgets, &Widget{ChartGroup: cg})
+	return cg
 }
 
 func (r *AuditReport) GetOrCreateChartInGroup(title string, chartTitle string) *Chart {
-	return r.GetOrCreateChartGroup(title).GetOrCreateChart(r.ctx, chartTitle)
+	if !r.detailed {
+		return nil
+	}
+	return r.GetOrCreateChartGroup(title).GetOrCreateChart(chartTitle)
 }
 
 func (r *AuditReport) GetOrCreateChart(title string) *Chart {
+	if !r.detailed {
+		return nil
+	}
 	for _, w := range r.Widgets {
 		if ch := w.Chart; ch != nil {
 			if ch.Title == title {
@@ -85,6 +87,9 @@ func (r *AuditReport) GetOrCreateChart(title string) *Chart {
 }
 
 func (r *AuditReport) GetOrCreateHeatmap(title string) *Heatmap {
+	if !r.detailed {
+		return nil
+	}
 	for _, w := range r.Widgets {
 		if h := w.Heatmap; h != nil {
 			if h.Title == title {
@@ -98,6 +103,9 @@ func (r *AuditReport) GetOrCreateHeatmap(title string) *Heatmap {
 }
 
 func (r *AuditReport) GetOrCreateDependencyMap() *DependencyMap {
+	if !r.detailed {
+		return nil
+	}
 	for _, w := range r.Widgets {
 		if w.DependencyMap != nil {
 			return w.DependencyMap
@@ -109,6 +117,9 @@ func (r *AuditReport) GetOrCreateDependencyMap() *DependencyMap {
 }
 
 func (r *AuditReport) GetOrCreateTable(header ...string) *Table {
+	if !r.detailed {
+		return nil
+	}
 	for _, w := range r.Widgets {
 		if t := w.Table; t != nil {
 			return t

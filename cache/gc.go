@@ -41,10 +41,10 @@ func (c *Cache) gc() {
 				continue
 			}
 			toDeleteInProject := map[string][]string{}
-			for queryHash, qData := range projData.queries {
+			for hash, qData := range projData.queries {
 				for path, chunk := range qData.chunksOnDisk {
 					if chunk.To() < minTs {
-						toDeleteInProject[queryHash] = append(toDeleteInProject[queryHash], path)
+						toDeleteInProject[hash] = append(toDeleteInProject[hash], path)
 					}
 				}
 			}
@@ -60,8 +60,8 @@ func (c *Cache) gc() {
 			if projData == nil {
 				continue
 			}
-			for queryHash, chunks := range toDeleteInProject {
-				qData := projData.queries[queryHash]
+			for hash, chunks := range toDeleteInProject {
+				qData := projData.queries[hash]
 				for _, path := range chunks {
 					klog.Infoln("deleting obsolete chunk:", path)
 					if err := os.Remove(path); err != nil {
@@ -71,7 +71,7 @@ func (c *Cache) gc() {
 					}
 				}
 				if len(qData.chunksOnDisk) == 0 {
-					delete(projData.queries, queryHash)
+					delete(projData.queries, hash)
 				}
 			}
 		}

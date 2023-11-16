@@ -8,78 +8,94 @@ import (
 
 func (a *appAuditor) cpu(ncs nodeConsumersByNode) {
 	report := a.addReport(model.AuditReportCPU)
-	relevantNodes := map[string]*model.Node{}
+
 	nodeCpuCheck := report.CreateCheck(model.Checks.CPUNode)
 	containerCpuCheck := report.CreateCheck(model.Checks.CPUContainer)
-	seenContainers, seenRelatedNodes := false, false
-	limitByContainer := map[string]*timeseries.Aggregate{}
-	cpuChartTitle := "CPU usage <selector>, cores"
 
+	usageChart := report.GetOrCreateChartGroup("CPU usage <selector>, cores")
+	delayChart := report.GetOrCreateChartGroup("CPU delay <selector>, seconds/second")
+	throttlingChart := report.GetOrCreateChartGroup("Throttled time <selector>, seconds/second")
+	nodesChart := report.GetOrCreateChartGroup("Node CPU usage <selector>, %")
+	consumersChart := report.GetOrCreateChartGroup("CPU consumers on <selector>, cores")
+
+	seenContainers, seenRelatedNodes := false, false
+	relevantNodes := map[string]*model.Node{}
+	limitByContainer := map[string]*timeseries.Aggregate{}
 	for _, i := range a.app.Instances {
 		instanceDelay := timeseries.NewAggregate(timeseries.NanSum)
 		instanceThrottledTime := timeseries.NewAggregate(timeseries.NanSum)
 		instanceUsage := timeseries.NewAggregate(timeseries.NanSum)
 		for _, c := range i.Containers {
 			seenContainers = true
-			l := limitByContainer[c.Name]
-			if l == nil {
-				l = timeseries.NewAggregate(timeseries.Max)
-				limitByContainer[c.Name] = l
+			if limitByContainer[c.Name] == nil {
+				limitByContainer[c.Name] = timeseries.NewAggregate(timeseries.Max)
 			}
-			l.Add(c.CpuLimit)
+			limitByContainer[c.Name].Add(c.CpuLimit)
 			instanceDelay.Add(c.CpuDelay)
 			instanceThrottledTime.Add(c.ThrottledTime)
 			instanceUsage.Add(c.CpuUsage)
-			usageChart := report.GetOrCreateChartInGroup(cpuChartTitle, "container: "+c.Name).AddSeries(i.Name, c.CpuUsage)
-			report.GetOrCreateChartInGroup("CPU delay <selector>, seconds/second", "container: "+c.Name).AddSeries(i.Name, c.CpuDelay)
-			report.GetOrCreateChartInGroup("Throttled time <selector>, seconds/second", "container: "+c.Name).AddSeries(i.Name, c.ThrottledTime)
-
+			title := "container: " + c.Name
+			if usageChart != nil {
+				usageChart.GetOrCreateChart(title).AddSeries(i.Name, c.CpuUsage)
+			}
+			if delayChart != nil {
+				delayChart.GetOrCreateChart(title).AddSeries(i.Name, c.CpuDelay)
+			}
+			if throttlingChart != nil {
+				throttlingChart.GetOrCreateChart(title).AddSeries(i.Name, c.ThrottledTime)
+			}
 			usage := c.CpuUsage.Last() / c.CpuLimit.Last() * 100
 			if usage > containerCpuCheck.Threshold {
-				usageChart.Feature()
+				usageChart.GetOrCreateChart(title).Feature()
 				containerCpuCheck.AddItem("%s@%s", c.Name, i.Name)
 			}
 		}
-		if cg := report.GetChartGroup(cpuChartTitle); cg != nil && len(cg.Charts) > 1 {
-			cg.GetOrCreateChart(a.w.Ctx, "total").AddSeries(i.Name, instanceUsage).Feature()
+		if usageChart != nil && len(usageChart.Charts) > 1 {
+			usageChart.GetOrCreateChart("total").AddSeries(i.Name, instanceUsage).Feature()
 		}
-		if cg := report.GetChartGroup("CPU delay <selector>, seconds/second"); cg != nil && len(cg.Charts) > 1 {
-			cg.GetOrCreateChart(a.w.Ctx, "total").AddSeries(i.Name, instanceDelay).Feature()
+		if delayChart != nil && len(delayChart.Charts) > 1 {
+			delayChart.GetOrCreateChart("total").AddSeries(i.Name, instanceDelay).Feature()
 		}
-		if cg := report.GetChartGroup("Throttled time <selector>, seconds/second"); cg != nil && len(cg.Charts) > 1 {
-			cg.GetOrCreateChart(a.w.Ctx, "total").AddSeries(i.Name, instanceThrottledTime).Feature()
+		if throttlingChart != nil && len(throttlingChart.Charts) > 1 {
+			throttlingChart.GetOrCreateChart("total").AddSeries(i.Name, instanceThrottledTime).Feature()
 		}
 
 		if node := i.Node; i.Node != nil {
 			seenRelatedNodes = true
 			nodeName := node.GetName()
-			if relevantNodes[nodeName] == nil {
-				relevantNodes[nodeName] = i.Node
-				report.GetOrCreateChartInGroup("Node CPU usage <selector>, %", "overview").
+			if relevantNodes[nodeName] != nil {
+				continue
+			}
+			relevantNodes[nodeName] = i.Node
+			if nodesChart != nil {
+				nodesChart.GetOrCreateChart("overview").
 					AddSeries(nodeName, i.Node.CpuUsagePercent).
 					Feature()
-
-				cpuByModeChart(report.GetOrCreateChartInGroup("Node CPU usage <selector>, %", nodeName), node.CpuUsageByMode)
-
-				consumersChart := report.GetOrCreateChartInGroup("CPU consumers on <selector>, cores", nodeName).
+				cpuByModeChart(nodesChart.GetOrCreateChart(nodeName), node.CpuUsageByMode)
+			}
+			if consumersChart != nil {
+				consumersChart.GetOrCreateChart(nodeName).
 					Stacked().
 					Sorted().
 					SetThreshold("total", node.CpuCapacity).
 					AddMany(ncs.get(node).cpu, 5, timeseries.Max)
+			}
 
-				if i.Node.CpuUsagePercent.Last() > nodeCpuCheck.Threshold {
-					consumersChart.Feature()
-					nodeCpuCheck.AddItem(i.NodeName())
-				}
+			if i.Node.CpuUsagePercent.Last() > nodeCpuCheck.Threshold {
+				consumersChart.GetOrCreateChart(nodeName).Feature()
+				nodeCpuCheck.AddItem(i.NodeName())
 			}
 		}
 	}
-	for container, limit := range limitByContainer {
-		report.GetOrCreateChartInGroup(cpuChartTitle, "container: "+container).SetThreshold("limit", limit)
+
+	if usageChart != nil {
+		for container, limit := range limitByContainer {
+			usageChart.GetOrCreateChart("container: "+container).SetThreshold("limit", limit.Get())
+		}
 	}
 
-	if a.p.Settings.Integrations.Pyroscope != nil {
-		for _, ch := range report.GetOrCreateChartGroup(cpuChartTitle).Charts {
+	if a.p.Settings.Integrations.Pyroscope != nil && usageChart != nil {
+		for _, ch := range usageChart.Charts {
 			ch.DrillDownLink = model.NewRouterLink("profile").SetParam("report", model.AuditReportProfiling).SetArg("profile", profiling.TypeCPU)
 		}
 	}

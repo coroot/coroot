@@ -7,32 +7,22 @@ import (
 )
 
 type netSummary struct {
-	status          model.Status
-	retransmissions *timeseries.Aggregate
-	rttSum          *timeseries.Aggregate
-	rttCount        *timeseries.Aggregate
-}
-
-func newNetSummary() *netSummary {
-	return &netSummary{
-		retransmissions: timeseries.NewAggregate(timeseries.NanSum),
-		rttSum:          timeseries.NewAggregate(timeseries.NanSum),
-		rttCount:        timeseries.NewAggregate(timeseries.NanSum),
-	}
-}
-
-func (s *netSummary) addRtt(rtt *timeseries.TimeSeries) {
-	s.rttSum.Add(rtt)
-	s.rttCount.Add(rtt.Map(timeseries.Defined))
+	retransmissions []*timeseries.TimeSeries
+	rtts            []*timeseries.TimeSeries
 }
 
 func (a *appAuditor) network() {
 	report := a.addReport(model.AuditReportNetwork)
-	upstreams := map[model.ApplicationId]*netSummary{}
 
 	rttCheck := report.CreateCheck(model.Checks.NetworkRTT)
-	seenConnections := false
+
 	dependencyMap := report.GetOrCreateDependencyMap()
+	failedConnectionsChart := report.GetOrCreateChart("Failed TCP connections, per second")
+	rttChart := report.GetOrCreateChart("Network round-trip time, seconds")
+	retransmissionsChart := report.GetOrCreateChart("TCP retransmissions, segments/second")
+
+	seenConnections := false
+	upstreams := map[model.ApplicationId]*netSummary{}
 	for _, instance := range a.app.Instances {
 		for _, u := range instance.Upstreams {
 			if u.FailedConnections != nil {
@@ -40,7 +30,9 @@ func (a *appAuditor) network() {
 				if u.Service != nil {
 					dest += " (" + u.Service.Name + ")"
 				}
-				report.GetOrCreateChart("Failed TCP connections, per second").AddSeries("→"+dest, u.FailedConnections)
+				if failedConnectionsChart != nil {
+					failedConnectionsChart.AddSeries("→"+dest, u.FailedConnections)
+				}
 			}
 
 			if u.RemoteInstance == nil {
@@ -53,30 +45,27 @@ func (a *appAuditor) network() {
 			seenConnections = true
 			summary := upstreams[upstreamApp.Id]
 			if summary == nil {
-				summary = newNetSummary()
+				summary = &netSummary{}
 				upstreams[upstreamApp.Id] = summary
 			}
-			linkStatus := u.Status()
-			if linkStatus > summary.status {
-				summary.status = linkStatus
-			}
 			if u.Rtt != nil {
-				last := u.Rtt.Last()
-				if last > rttCheck.Value() {
+				if last := u.Rtt.Last(); last > rttCheck.Value() {
 					rttCheck.SetValue(last)
 				}
-				if last > rttCheck.Threshold && linkStatus == model.OK {
-					linkStatus = model.WARNING
+				summary.rtts = append(summary.rtts, u.Rtt)
+			}
+			if !u.Retransmissions.IsEmpty() {
+				summary.retransmissions = append(summary.retransmissions, u.Retransmissions)
+			}
+
+			if instance.Node != nil && u.RemoteInstance.Node != nil && dependencyMap != nil {
+				linkStatus := model.UNKNOWN
+				if !instance.IsObsolete() && !u.IsObsolete() {
+					linkStatus = u.Status()
+					if linkStatus == model.OK && !u.Rtt.IsEmpty() && u.Rtt.Last() > rttCheck.Threshold {
+						linkStatus = model.WARNING
+					}
 				}
-				summary.addRtt(u.Rtt)
-			}
-			if u.Retransmissions != nil {
-				summary.retransmissions.Add(u.Retransmissions)
-			}
-			if instance.IsObsolete() || u.IsObsolete() {
-				linkStatus = model.UNKNOWN
-			}
-			if instance.Node != nil && u.RemoteInstance.Node != nil {
 				sn := instance.Node
 				dn := u.RemoteInstance.Node
 				dependencyMap.UpdateLink(
@@ -90,12 +79,27 @@ func (a *appAuditor) network() {
 		}
 	}
 	for appId, summary := range upstreams {
-		avg := timeseries.Div(summary.rttSum.Get(), summary.rttCount.Get())
-		if avg.Last() > rttCheck.Threshold {
+		var sum, count float32
+		for _, rtt := range summary.rtts {
+			last := rtt.Last()
+			if !timeseries.IsNaN(last) {
+				sum += last
+				count += 1
+			}
+		}
+		if sum > 0 && count > 0 && sum/count > rttCheck.Threshold {
 			rttCheck.AddItem(appId.Name)
 		}
-		report.GetOrCreateChart("Network round-trip time, seconds").AddSeries("→"+appId.Name, avg)
-		report.GetOrCreateChart("TCP retransmissions, segments/second").AddSeries("→"+appId.Name, summary.retransmissions)
+		if rttChart != nil {
+			sum := timeseries.NewAggregate(timeseries.NanSum).Add(summary.rtts...).Get()
+			count := sum.Map(timeseries.Defined)
+			avg := timeseries.Div(sum, count)
+			rttChart.AddSeries("→"+appId.Name, avg)
+		}
+		if retransmissionsChart != nil {
+			sum := timeseries.NewAggregate(timeseries.NanSum).Add(summary.retransmissions...).Get()
+			retransmissionsChart.AddSeries("→"+appId.Name, sum)
+		}
 	}
 	if !seenConnections {
 		rttCheck.SetStatus(model.UNKNOWN, "no data")

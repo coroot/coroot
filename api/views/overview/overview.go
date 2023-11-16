@@ -26,10 +26,10 @@ func Render(w *model.World, p *db.Project, view string) *Overview {
 
 	switch view {
 	case "health":
-		auditor.Audit(w, p)
+		auditor.Audit(w, p, nil)
 		v.Health = renderHealth(w)
 	case "map":
-		auditor.Audit(w, p)
+		auditor.Audit(w, p, nil)
 		v.Map = renderServiceMap(w)
 	case "nodes":
 		v.Nodes = renderNodes(w)

@@ -26,6 +26,16 @@ func NanSum(t Time, sum, v float32) float32 {
 	return sum
 }
 
+func NanCount(t Time, count, v float32) float32 {
+	if IsNaN(count) {
+		count = 0
+	}
+	if !IsNaN(v) {
+		count += 1
+	}
+	return count
+}
+
 func Max(t Time, max, v float32) float32 {
 	if IsNaN(max) {
 		return v

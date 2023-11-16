@@ -13,13 +13,17 @@ import (
 func (a *appAuditor) instances() {
 	report := a.addReport(model.AuditReportInstances)
 
-	up := timeseries.NewAggregate(timeseries.NanSum)
+	availabilityCheck := report.CreateCheck(model.Checks.InstanceAvailability)
+	restartsCheck := report.CreateCheck(model.Checks.InstanceRestarts)
 
-	availability := report.CreateCheck(model.Checks.InstanceAvailability)
-	restarts := report.CreateCheck(model.Checks.InstanceRestarts)
 	instancesChart := report.GetOrCreateChart("Instances").Stacked()
+	restartsChart := report.GetOrCreateChart("Restarts").Column()
+
+	up := timeseries.NewAggregate(timeseries.NanSum)
 	for _, i := range a.app.Instances {
-		up.Add(i.UpAndRunning())
+		if instancesChart != nil {
+			up.Add(i.UpAndRunning())
+		}
 
 		status := model.NewTableCell().SetStatus(model.UNKNOWN, "unknown")
 		if i.Rds != nil {
@@ -105,23 +109,26 @@ func (a *appAuditor) instances() {
 			}
 		}
 		if *status.Status == model.OK {
-			availability.Inc(1)
+			availabilityCheck.Inc(1)
 		}
 		instanceRestarts := timeseries.NewAggregate(timeseries.NanSum)
 		for _, c := range i.Containers {
 			instanceRestarts.Add(c.Restarts)
 			if r := c.Restarts.Reduce(timeseries.NanSum); !timeseries.IsNaN(r) {
-				restarts.Inc(int64(r))
+				restartsCheck.Inc(int64(r))
 			}
 		}
-		report.GetOrCreateChart("Restarts").Column().AddSeries(i.Name, instanceRestarts)
+		if restartsChart != nil {
+			restartsChart.AddSeries(i.Name, instanceRestarts)
+		}
 		restartsCell := model.NewTableCell()
-		if restarts.Count() > 0 {
-			restartsCell.SetValue(strconv.FormatInt(restarts.Count(), 10))
+		if restartsCheck.Count() > 0 {
+			restartsCell.SetValue(strconv.FormatInt(restartsCheck.Count(), 10))
 		}
 
 		node := model.NewTableCell().SetStatus(i.Node.Status(), i.NodeName())
 		node.Link = model.NewRouterLink(i.NodeName()).SetRoute("node").SetParam("name", i.NodeName())
+
 		report.GetOrCreateTable("Instance", "Status", "Restarts", "IP", "Node").AddRow(
 			model.NewTableCell(i.Name),
 			status,
@@ -135,30 +142,33 @@ func (a *appAuditor) instances() {
 		desired = float32(len(a.app.Instances))
 	}
 	if desired > 0 {
-		availability.SetDesired(int64(desired))
-		available := float32(availability.Count())
+		availabilityCheck.SetDesired(int64(desired))
+		available := float32(availabilityCheck.Count())
 		percentage := available / desired * 100
 		switch {
 		case available == 0:
-			availability.SetStatus(model.WARNING, "no instances available")
+			availabilityCheck.SetStatus(model.WARNING, "no instances available")
 		case a.app.Id.Kind == model.ApplicationKindDaemonSet:
 			if available < desired {
-				availability.SetStatus(model.WARNING, "some instances of the DaemonSet are not available")
+				availabilityCheck.SetStatus(model.WARNING, "some instances of the DaemonSet are not available")
 			}
-		case percentage < availability.Threshold:
-			availability.SetStatus(model.WARNING, "%.0f/%.0f instances are currently available", available, desired)
+		case percentage < availabilityCheck.Threshold:
+			availabilityCheck.SetStatus(model.WARNING, "%.0f/%.0f instances are currently available", available, desired)
 		}
 	}
 
 	if a.app.Id.Kind == model.ApplicationKindExternalService {
-		availability.SetStatus(model.UNKNOWN, "no data")
-		restarts.SetStatus(model.UNKNOWN, "no data")
+		availabilityCheck.SetStatus(model.UNKNOWN, "no data")
+		restartsCheck.SetStatus(model.UNKNOWN, "no data")
 	}
-	instancesChart.AddSeries("up", up)
-	if !a.app.DesiredInstances.IsEmpty() {
-		instancesChart.SetThreshold("desired", a.app.DesiredInstances)
-		instancesChart.Threshold.Color = "red"
-		instancesChart.Threshold.Fill = true
+
+	if instancesChart != nil {
+		instancesChart.AddSeries("up", up)
+		if !a.app.DesiredInstances.IsEmpty() {
+			instancesChart.SetThreshold("desired", a.app.DesiredInstances)
+			instancesChart.Threshold.Color = "red"
+			instancesChart.Threshold.Fill = true
+		}
 	}
 }
 

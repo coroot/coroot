@@ -9,20 +9,22 @@ import (
 )
 
 type appAuditor struct {
-	w       *model.World
-	p       *db.Project
-	app     *model.Application
-	reports []*model.AuditReport
+	w        *model.World
+	p        *db.Project
+	app      *model.Application
+	reports  []*model.AuditReport
+	detailed bool
 }
 
-func Audit(w *model.World, p *db.Project) {
+func Audit(w *model.World, p *db.Project, generateDetailedReportFor *model.Application) {
 	start := time.Now()
 	ncs := nodeConsumersByNode{}
 	for _, app := range w.Applications {
 		a := &appAuditor{
-			w:   w,
-			p:   p,
-			app: app,
+			w:        w,
+			p:        p,
+			app:      app,
+			detailed: app == generateDetailedReportFor,
 		}
 		a.slo()
 		a.instances()
@@ -62,7 +64,7 @@ func Audit(w *model.World, p *db.Project) {
 }
 
 func (a *appAuditor) addReport(name model.AuditReportName) *model.AuditReport {
-	r := model.NewAuditReport(a.app, a.w.Ctx, a.w.CheckConfigs, name)
+	r := model.NewAuditReport(a.app, a.w.Ctx, a.w.CheckConfigs, name, a.detailed)
 	a.reports = append(a.reports, r)
 	return r
 }

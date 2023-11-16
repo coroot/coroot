@@ -9,61 +9,75 @@ func (a *appAuditor) redis() {
 	if !a.app.IsRedis() {
 		return
 	}
+
 	report := a.addReport(model.AuditReportRedis)
 
-	availability := report.CreateCheck(model.Checks.RedisAvailability)
-	latency := report.CreateCheck(model.Checks.RedisLatency)
+	availabilityCheck := report.CreateCheck(model.Checks.RedisAvailability)
+	latencyCheck := report.CreateCheck(model.Checks.RedisLatency)
+
+	table := report.GetOrCreateTable("Instance", "Role", "Status")
+	latencyChart := report.GetOrCreateChart("Redis latency, seconds")
+	queriesChart := report.GetOrCreateChartGroup("Redis queries on <selector>, per seconds")
+
 	for _, i := range a.app.Instances {
 		if i.Redis == nil {
 			continue
 		}
-		total := timeseries.NewAggregate(timeseries.NanSum)
-		calls := timeseries.NewAggregate(timeseries.NanSum)
+
+		obsolete := i.IsObsolete()
+
+		if !obsolete && !i.Redis.IsUp() {
+			availabilityCheck.AddItem(i.Name)
+		}
+
+		var total float32
+		var calls float32
 		for cmd, t := range i.Redis.CallsTime {
 			if c, ok := i.Redis.Calls[cmd]; ok {
-				total.Add(t)
-				calls.Add(c)
+				total = timeseries.NanSum(0, total, t.Last())
+				calls = timeseries.NanSum(0, calls, c.Last())
 			}
 		}
-		avg := timeseries.Div(total.Get(), calls.Get())
-		report.
-			GetOrCreateChart("Redis latency, seconds").
-			AddSeries(i.Name, avg)
-
-		if i.IsObsolete() {
-			continue
+		if !obsolete && total > 0 && calls > 0 && total/calls > latencyCheck.Threshold {
+			latencyCheck.AddItem(i.Name)
 		}
 
-		status := model.NewTableCell().SetStatus(model.OK, "up")
-		if !i.Redis.IsUp() {
-			availability.AddItem(i.Name)
-			status.SetStatus(model.WARNING, "down (no metrics)")
-		}
-		roleCell := model.NewTableCell(i.Redis.Role.Value())
-		switch i.Redis.Role.Value() {
-		case "master":
-			roleCell.SetIcon("mdi-database-edit-outline", "rgba(0,0,0,0.87)")
-		case "slave":
-			roleCell.SetIcon("mdi-database-import-outline", "grey")
+		if !obsolete && table != nil {
+			name := model.NewTableCell(i.Name).AddTag("version: %s", i.Redis.Version.Value())
+			role := model.NewTableCell(i.Redis.Role.Value())
+			switch i.Redis.Role.Value() {
+			case "master":
+				role.SetIcon("mdi-database-edit-outline", "rgba(0,0,0,0.87)")
+			case "slave":
+				role.SetIcon("mdi-database-import-outline", "grey")
+			}
+			status := model.NewTableCell().SetStatus(model.OK, "up")
+			if !i.Redis.IsUp() {
+				status.SetStatus(model.WARNING, "down (no metrics)")
+			}
+			table.AddRow(name, role, status)
 		}
 
-		byCmd := map[string]model.SeriesData{}
-		for cmd, ts := range i.Redis.Calls {
-			byCmd[cmd] = ts
+		if latencyChart != nil {
+			total := timeseries.NewAggregate(timeseries.NanSum)
+			calls := timeseries.NewAggregate(timeseries.NanSum)
+			for cmd, t := range i.Redis.CallsTime {
+				if c, ok := i.Redis.Calls[cmd]; ok {
+					total.Add(t)
+					calls.Add(c)
+				}
+			}
+			avg := timeseries.Div(total.Get(), calls.Get())
+			latencyChart.AddSeries(i.Name, avg)
 		}
-		report.
-			GetOrCreateChartInGroup("Redis queries on <selector>, per seconds", i.Name).
-			Stacked().
-			Sorted().
-			AddMany(byCmd, 5, timeseries.NanSum)
 
-		if avg.Last() > latency.Threshold {
-			latency.AddItem(i.Name)
+		if queriesChart != nil {
+			byCmd := map[string]model.SeriesData{}
+			for cmd, ts := range i.Redis.Calls {
+				byCmd[cmd] = ts
+			}
+			queriesChart.GetOrCreateChart(i.Name).Stacked().Sorted().
+				AddMany(byCmd, 5, timeseries.NanSum)
 		}
-		report.GetOrCreateTable("Instance", "Role", "Status").AddRow(
-			model.NewTableCell(i.Name).AddTag("version: %s", i.Redis.Version.Value()),
-			roleCell,
-			status,
-		)
 	}
 }

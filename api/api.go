@@ -371,7 +371,7 @@ func (api *Api) App(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Application not found", http.StatusNotFound)
 		return
 	}
-	auditor.Audit(world, project)
+	auditor.Audit(world, project, app)
 	if cfg := project.Settings.Integrations.Pyroscope; cfg != nil {
 		app.AddReport(model.AuditReportProfiling, &model.Widget{Profile: &model.Profile{ApplicationId: app.Id}, Width: "100%"})
 	}
@@ -721,23 +721,23 @@ func (api *Api) Node(w http.ResponseWriter, r *http.Request) {
 func (api *Api) loadWorld(ctx context.Context, project *db.Project, from, to timeseries.Time) (*model.World, *cache.Status, error) {
 	cacheClient := api.cache.GetCacheClient(project.Id)
 
-	cacheTo, err := cacheClient.GetTo()
+	cacheStatus, err := cacheClient.GetStatus()
 	if err != nil {
 		return nil, nil, err
 	}
 
+	cacheTo, err := cacheClient.GetTo()
+	if err != nil {
+		return nil, cacheStatus, err
+	}
+
 	if cacheTo.IsZero() || cacheTo.Before(from) {
-		return nil, nil, nil
+		return nil, cacheStatus, nil
 	}
 
 	step, err := cacheClient.GetStep(from, to)
 	if err != nil {
-		return nil, nil, err
-	}
-
-	cacheStatus, err := cacheClient.GetStatus()
-	if err != nil {
-		return nil, nil, err
+		return nil, cacheStatus, err
 	}
 
 	duration := to.Sub(from)
