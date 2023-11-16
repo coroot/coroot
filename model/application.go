@@ -85,7 +85,11 @@ func (app *Application) Labels() Labels {
 	case ApplicationKindElasticacheCluster:
 		res["db"] = fmt.Sprintf(`%s (EC)`, app.Instances[0].Elasticache.Engine.Value())
 	case ApplicationKindUnknown, ApplicationKindDockerSwarmService:
-		res["instances"] = strconv.Itoa(len(app.Instances))
+		if app.Id.Namespace != "_" {
+			res["ns"] = app.Id.Namespace
+		} else {
+			res["instances"] = strconv.Itoa(len(app.Instances))
+		}
 	case ApplicationKindExternalService:
 		eps := utils.NewStringSet()
 		for _, instance := range app.Instances {

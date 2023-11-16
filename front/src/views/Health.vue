@@ -35,11 +35,12 @@
         ]"
         :footer-props="{itemsPerPageOptions: [10, 20, 50, 100, -1]}"
     >
-        <template #item.application="{item: {id, color}}">
+        <template #item.application="{item: {id, name, ns, color}}">
             <div class="application">
                 <div class="status lighten-1" :class="color" />
                 <div class="name">
-                    <router-link :to="link(id, undefined)">{{ $utils.appId(id).name }}</router-link>
+                    <router-link :to="link(id, undefined)">{{ name }}</router-link>
+                    <span v-if="ns" class="caption grey--text"> (ns:{{ns}})</span>
                 </div>
             </div>
         </template>
@@ -126,14 +127,28 @@ export default {
             if (!this.applications) {
                 return [];
             }
-            return this.applications.filter(a => {
+
+            const applications = this.applications.filter(a => {
                 if (this.search) {
                     return a.id.includes(this.search);
                 }
                 return this.selectedCategories.has(a.category);
-            }).map(a => {
+            });
+            const names = {};
+            applications.forEach(a => {
+                const id = this.$utils.appId(a.id);
+                a.name = id.name;
+                a.ns = id.ns;
+                if (names[id.name]) {
+                    names[id.name]++;
+                } else {
+                    names[id.name] = 1;
+                }
+            });
+            return applications.map(a => {
                 return {
                     ...a,
+                    ns: names[a.name] > 1 ? a.ns : '',
                     color: statuses[a.status].color,
                 }
             });
