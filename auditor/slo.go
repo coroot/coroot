@@ -205,8 +205,10 @@ func clientRequests(app *model.Application, report *model.AuditReport) {
 		return
 	}
 	clients := map[model.ApplicationId]*clientRequestsSummary{}
+	clientsByName := map[string]int{}
 	for id, connections := range app.GetClientsConnections() {
 		clients[id] = &clientRequestsSummary{connections: connections, protocols: utils.NewStringSet()}
+		clientsByName[id.Name]++
 		for _, c := range connections {
 			for protocol := range c.RequestsCount {
 				clients[id].protocols.Add(string(protocol))
@@ -225,6 +227,9 @@ func clientRequests(app *model.Application, report *model.AuditReport) {
 	}
 	for id, s := range clients {
 		client := model.NewTableCell(id.Name)
+		if clientsByName[id.Name] > 1 {
+			client.Value += " (ns: " + id.Namespace + ")"
+		}
 		client.Link = model.NewRouterLink(id.Name).SetRoute("application").SetParam("id", id)
 		client.SetUnit(strings.Join(s.protocols.Items(), ", "))
 
