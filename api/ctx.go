@@ -89,6 +89,10 @@ func renderStatus(p *db.Project, cacheStatus *cache.Status, w *model.World) Stat
 
 	res.Prometheus.Status = model.OK
 	res.Prometheus.Message = "ok"
+	refreshInterval := p.Prometheus.RefreshInterval
+	if refreshInterval < cache.MinRefreshInterval {
+		refreshInterval = cache.MinRefreshInterval
+	}
 	switch {
 	case p.Prometheus.Url == "":
 		res.Prometheus.Status = model.WARNING
@@ -99,13 +103,11 @@ func renderStatus(p *db.Project, cacheStatus *cache.Status, w *model.World) Stat
 		res.Prometheus.Message = "An error has been occurred while querying Prometheus"
 		res.Prometheus.Error = cacheStatus.Error
 		res.Prometheus.Action = "configure"
-	case cacheStatus != nil && cacheStatus.LagMax > 5*p.Prometheus.RefreshInterval:
+	case cacheStatus != nil && cacheStatus.LagMax > 5*refreshInterval:
 		msg := fmt.Sprintf("Prometheus cache is %s behind.", utils.FormatDuration(cacheStatus.LagAvg, 1))
+		res.Prometheus.Status = model.WARNING
 		if w == nil {
-			res.Prometheus.Status = model.WARNING
 			msg += " Please wait until synchronization is complete."
-		} else {
-			res.Prometheus.Status = model.INFO
 		}
 		res.Prometheus.Message = msg
 		res.Prometheus.Action = "wait"

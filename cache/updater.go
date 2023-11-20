@@ -22,10 +22,9 @@ import (
 )
 
 const (
-	QueryConcurrency = 10
-	BackFillInterval = 4 * timeseries.Hour
-
-	minRefreshInterval = timeseries.Minute
+	QueryConcurrency   = 10
+	BackFillInterval   = 4 * timeseries.Hour
+	MinRefreshInterval = timeseries.Minute
 	queryTimeout       = 5 * time.Minute
 )
 
@@ -187,8 +186,8 @@ func (c *Cache) updaterWorker(projects *sync.Map, projectId db.ProjectId, promCl
 		duration := time.Since(start)
 		klog.Infof("%s: cache updated in %s", projectId, duration.Truncate(time.Millisecond))
 		refreshInterval := step
-		if refreshInterval < minRefreshInterval {
-			refreshInterval = minRefreshInterval
+		if refreshInterval < MinRefreshInterval {
+			refreshInterval = MinRefreshInterval
 		}
 		time.Sleep(refreshInterval.ToStandard() - duration)
 	}
@@ -372,7 +371,7 @@ func getScrapeInterval(promClient *prom.Client) (timeseries.Duration, error) {
 	step, _ := promClient.GetStep(0, 0)
 	if step == 0 {
 		klog.Warningln("step is zero")
-		step = minRefreshInterval
+		step = MinRefreshInterval
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), queryTimeout)
 	defer cancel()

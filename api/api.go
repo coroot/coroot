@@ -181,8 +181,8 @@ func (api *Api) Overview(w http.ResponseWriter, r *http.Request) {
 		utils.WriteJson(w, withContext(project, cacheStatus, world, nil))
 		return
 	}
-
-	utils.WriteJson(w, withContext(project, cacheStatus, world, views.Overview(world, project, mux.Vars(r)["view"])))
+	auditor.Audit(world, project, nil)
+	utils.WriteJson(w, withContext(project, cacheStatus, world, views.Overview(world, mux.Vars(r)["view"])))
 }
 
 func (api *Api) Configs(w http.ResponseWriter, r *http.Request) {
@@ -558,6 +558,7 @@ func (api *Api) Profile(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	q := r.URL.Query()
+	auditor.Audit(world, project, nil)
 	utils.WriteJson(w, withContext(project, cacheStatus, world, views.Profile(r.Context(), pyroscope, app, settings, q, world.Ctx)))
 }
 
@@ -626,6 +627,7 @@ func (api *Api) Tracing(w http.ResponseWriter, r *http.Request) {
 			klog.Warningln(err)
 		}
 	}
+	auditor.Audit(world, project, nil)
 	utils.WriteJson(w, withContext(project, cacheStatus, world, views.Tracing(r.Context(), clickhouse, app, settings, q, world)))
 }
 
@@ -693,6 +695,7 @@ func (api *Api) Logs(w http.ResponseWriter, r *http.Request) {
 			klog.Warningln(err)
 		}
 	}
+	auditor.Audit(world, project, nil)
 	q := r.URL.Query()
 	utils.WriteJson(w, withContext(project, cacheStatus, world, views.Logs(r.Context(), clickhouse, app, settings, q, world)))
 }
@@ -715,6 +718,7 @@ func (api *Api) Node(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Node not found", http.StatusNotFound)
 		return
 	}
+	auditor.Audit(world, project, nil)
 	utils.WriteJson(w, withContext(project, cacheStatus, world, auditor.AuditNode(world, node)))
 }
 
