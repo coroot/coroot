@@ -1,14 +1,6 @@
 <template>
 <div>
-    <v-row class="my-4">
-        <v-col cols="12" sm="3">
-            <v-text-field v-model="search" dense hide-details clearable prepend-inner-icon="mdi-magnify" label="Search" single-line outlined class="search" />
-        </v-col>
-        <v-col class="d-flex">
-            <v-spacer />
-            <ApplicationCategories :categories="categories" :configureTo="categoriesTo" @change="setSelectedCategories" :disabled="!!search" />
-        </v-col>
-    </v-row>
+    <ApplicationFilter :applications="applications" :configureTo="categoriesTo" @filter="setFilter" class="my-4" />
 
     <div class="legend mb-3">
         <div v-for="s in statuses" class="item">
@@ -87,7 +79,7 @@
 </template>
 
 <script>
-import ApplicationCategories from "../components/ApplicationCategories.vue";
+import ApplicationFilter from "../components/ApplicationFilter.vue";
 
 const statuses = {
     critical: {name: 'SLO violation', color: 'red'},
@@ -102,12 +94,11 @@ export default {
         categoriesTo: Object,
     },
 
-    components: {ApplicationCategories},
+    components: {ApplicationFilter},
 
     data() {
         return {
-            selectedCategories: new Set(),
-            search: '',
+            filter: new Set(),
         };
     },
 
@@ -129,10 +120,7 @@ export default {
             }
 
             const applications = this.applications.filter(a => {
-                if (this.search) {
-                    return a.id.includes(this.search);
-                }
-                return this.selectedCategories.has(a.category);
+                return this.filter.has(a.id);
             });
             const names = {};
             applications.forEach(a => {
@@ -156,8 +144,8 @@ export default {
     },
 
     methods: {
-        setSelectedCategories(categories) {
-            this.selectedCategories = new Set(categories);
+        setFilter(filter) {
+            this.filter = filter;
         },
         link(id, report, query) {
             return {name: 'application', params: {id, report}, query: {...query, ...this.$utils.contextQuery()}};
