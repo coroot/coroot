@@ -1,9 +1,11 @@
 <template>
     <div>
-        <div class="d-flex mb-3">
-            <v-spacer v-if="$vuetify.breakpoint.mdAndUp"></v-spacer>
-            <ApplicationCategories :categories="categories" :configureTo="categoriesTo" @change="setSelectedCategories" />
+        <ApplicationFilter :applications="applications" :autoSelectNamespaceThreshold="maxApplications" :configureTo="categoriesTo" @filter="setFilter" class="my-4" />
+
+        <div v-if="tooManyApplications" class="text-center red--text mt-5">
+            Too many applications ({{tooManyApplications}}) to render. Please choose a different category or namespace.
         </div>
+
         <div class="applications" v-on-resize="calc" @scroll="calc">
             <div v-for="apps in levels" class="level" style="z-index: 1" :style="{rowGap: 200 / apps.length + 'px', maxWidth: 100 / levels.length + '%' }">
                 <div v-for="a in apps" style="text-align: center">
@@ -39,9 +41,12 @@
 <script>
 import Labels from "./Labels";
 import AppHealth from "./AppHealth";
-import ApplicationCategories from "./ApplicationCategories.vue";
+import ApplicationFilter from "./ApplicationFilter.vue";
 
 function findBackLinks(index, a, discovered, finished, found) {
+    if (!a) {
+        return
+    }
     discovered.add(a.id);
     for (const u of a.upstreams) {
         if (discovered.has(u.id)) {
@@ -57,6 +62,9 @@ function findBackLinks(index, a, discovered, finished, found) {
 }
 
 function calcLevel(index, a, level, backLinks) {
+    if (!a) {
+        return
+    }
     if (a.level === undefined || level > a.level) {
         a.level = level;
     }
@@ -75,14 +83,15 @@ export default {
         categoriesTo: Object,
     },
 
-    components: {ApplicationCategories, AppHealth, Labels},
+    components: {ApplicationFilter, AppHealth, Labels},
 
     data() {
         return {
             levels: [],
             arrows: [],
             hi: null,
-            selectedCategories: new Set(),
+            filter: new Set(),
+            tooManyApplications: 0,
         };
     },
 
@@ -102,16 +111,17 @@ export default {
         },
     },
     computed : {
-        categories() {
-            return Array.from(new Set((this.applications || []).map(a => a.category)).values());
+        maxApplications() {
+            return 1000;
         },
         hideLabels() {
             return this.levels.some((l) => l.length >= 15);
         },
     },
     methods: {
-        setSelectedCategories(categories) {
-            this.selectedCategories = new Set(categories);
+        setFilter(filter) {
+            this.filter = filter;
+            this.calc();
         },
         calc() {
             let applications = Array.from(this.applications || []);
@@ -119,8 +129,15 @@ export default {
             applications.forEach((a) => {
                 index.set(a.id, a);
             });
-            const filter = (a) => index.get(a.id) && this.selectedCategories.has(index.get(a.id).category);
+            this.tooManyApplications = 0;
+            const filter = (a) => index.get(a.id) && this.filter.has(a.id);
             applications = applications.filter(filter);
+            if (applications.length > this.maxApplications) {
+                this.tooManyApplications = applications.length;
+                this.levels = [];
+                this.arrows = [];
+                return;
+            }
             applications.forEach((a) => {
                 a.name = this.$utils.appId(a.id).name;
                 a.level = 0;

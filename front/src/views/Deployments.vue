@@ -1,14 +1,6 @@
 <template>
 <div>
-    <v-row class="my-4">
-        <v-col cols="12" sm="3">
-            <v-text-field v-model="search" dense hide-details clearable prepend-inner-icon="mdi-magnify" label="Search" single-line outlined class="search" />
-        </v-col>
-        <v-col class="d-flex">
-            <v-spacer />
-            <ApplicationCategories :categories="categories" :configureTo="categoriesTo" @change="setSelectedCategories" :disabled="!!search" />
-        </v-col>
-    </v-row>
+    <ApplicationFilter :applications="applications" :configureTo="categoriesTo" @filter="setFilter" class="my-4" />
 
     <v-data-table dense class="table" mobile-breakpoint="0" :items-per-page="20"
         :items="items"
@@ -62,7 +54,7 @@
 
 <script>
 import Led from "../components/Led.vue";
-import ApplicationCategories from "../components/ApplicationCategories.vue";
+import ApplicationFilter from "../components/ApplicationFilter.vue";
 
 export default {
     props: {
@@ -70,35 +62,38 @@ export default {
         categoriesTo: Object,
     },
 
-    components: {ApplicationCategories, Led},
+    components: {ApplicationFilter, Led},
 
     data() {
         return {
-            selectedCategories: new Set(),
-            search: '',
+            filter: new Set(),
         };
     },
 
     computed: {
-        categories() {
-            return Array.from(new Set((this.deployments || []).map(d => d.application.category)).values());
+        applications() {
+            if (!this.deployments) {
+                return [];
+            }
+            const applications = {};
+            this.deployments.forEach(d => {
+                applications[d.application.id] = d.application.category;
+            })
+            return Object.keys(applications).map(id => ({id, category: applications[id]}));
         },
         items() {
             if (!this.deployments) {
                 return [];
             }
             return this.deployments.filter(d => {
-                if (this.search) {
-                    return d.application.id.includes(this.search);
-                }
-                return this.selectedCategories.has(d.application.category);
+                return this.filter.has(d.application.id);
             })
         },
     },
 
     methods: {
-        setSelectedCategories(categories) {
-            this.selectedCategories = new Set(categories);
+        setFilter(filter) {
+            this.filter = filter;
         },
     },
 }
