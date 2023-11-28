@@ -16,10 +16,13 @@ const (
 	TypeMemory = "Memory"
 	TypeOther  = "Other"
 
-	SpyEbpf Spy = "ebpfspy"
+	SpyEbpf  Spy = "ebpfspy"
+	SpyAgent Spy = "coroot-node-agent"
 
 	ViewSingle View = "single"
 	ViewDiff   View = "diff"
+
+	PyroscopeSelfProfilingApp = "pyroscope.server"
 )
 
 type ProfileMeta struct {
@@ -33,16 +36,19 @@ type Profile flamebearer.FlamebearerProfileV1
 
 type Metadata []appmetadata.ApplicationMetadata
 
-func (md Metadata) GetApplications() map[string][]ProfileMeta {
-	res := map[string][]ProfileMeta{}
+func (md Metadata) GetApplications() map[string][]*ProfileMeta {
+	res := map[string][]*ProfileMeta{}
 	for _, a := range md {
 		i := strings.LastIndexByte(a.FQName, '.')
 		if i < 0 || i >= len(a.FQName) {
 			continue
 		}
 		app, name := a.FQName[:i], a.FQName[i+1:]
-		p := ProfileMeta{Name: name, Query: a.FQName, Spy: Spy(a.SpyName)}
-		if p.Spy == SpyEbpf {
+		p := &ProfileMeta{Name: name, Query: a.FQName, Spy: Spy(a.SpyName)}
+		if p.Spy == SpyEbpf || app == PyroscopeSelfProfilingApp {
+			continue
+		}
+		if p.Spy == SpyAgent {
 			app = ""
 			p.Name = "ebpf"
 		}

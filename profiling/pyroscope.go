@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	metadataTimeout = 5 * time.Second
+	metadataTimeout = 10 * time.Second
 	profileTimeout  = 30 * time.Second
 )
 

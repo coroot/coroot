@@ -31,13 +31,15 @@ func Render(configs model.CheckConfigs) *View {
 
 	v.addReport(model.AuditReportSLO, cs.SLOAvailability, cs.SLOLatency)
 	v.addReport(model.AuditReportInstances, cs.InstanceAvailability, cs.InstanceRestarts)
+	v.addReport(model.AuditReportDeployments, cs.DeploymentStatus)
 	v.addReport(model.AuditReportCPU, cs.CPUNode, cs.CPUContainer)
-	v.addReport(model.AuditReportMemory, cs.MemoryOOM)
+	v.addReport(model.AuditReportMemory, cs.MemoryOOM, cs.MemoryLeakPercent)
 	v.addReport(model.AuditReportStorage, cs.StorageIO, cs.StorageSpace)
 	v.addReport(model.AuditReportNetwork, cs.NetworkRTT)
 	v.addReport(model.AuditReportLogs, cs.LogErrors)
-	v.addReport(model.AuditReportPostgres, cs.PostgresAvailability, cs.PostgresLatency, cs.PostgresErrors)
+	v.addReport(model.AuditReportPostgres, cs.PostgresAvailability, cs.PostgresLatency, cs.PostgresErrors, cs.PostgresReplicationLag, cs.PostgresConnections)
 	v.addReport(model.AuditReportRedis, cs.RedisAvailability, cs.RedisLatency)
+	v.addReport(model.AuditReportJvm, cs.JvmAvailability, cs.JvmSafepointTime)
 
 	return v
 }

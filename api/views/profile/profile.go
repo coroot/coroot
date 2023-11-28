@@ -74,29 +74,13 @@ func Render(ctx context.Context, pyroscope *profiling.PyroscopeClient, app *mode
 		return v.Applications[i].Name < v.Applications[j].Name
 	})
 
-	pods := getPods(app)
-	profiles := apps[pyroscopeApplication]
+	appProfiles := apps[pyroscopeApplication]
 	if disabled {
-		profiles = nil
+		appProfiles = nil
 	}
 	ebpfProfiles := apps[""]
-	if len(pods) == 0 {
-		ebpfProfiles = nil
-	}
-	switch {
-	case len(profiles) > 0:
-		v.Status = model.OK
-		v.Message = fmt.Sprintf("Using profiles of <i>%s@pyroscope</i>", pyroscopeApplication)
-	case len(ebpfProfiles) > 0:
-		v.Status = model.OK
-		v.Message = "Using data gathered by the eBPF profiler"
-	default:
-		v.Status = model.UNKNOWN
-		v.Message = "No profiles found"
-		return v
-	}
 
-	profiles = append(profiles, ebpfProfiles...)
+	profiles := append(appProfiles, ebpfProfiles...)
 	sort.Slice(profiles, func(i, j int) bool {
 		pi, pj := profiles[i], profiles[j]
 		if pi.Type == pj.Type {
@@ -105,19 +89,24 @@ func Render(ctx context.Context, pyroscope *profiling.PyroscopeClient, app *mode
 		return pi.Type < pj.Type
 	})
 
-	profile, matched := match(profiles, profiling.Type(typ), name)
+	profile := match(profiles, profiling.Type(typ), name)
 	for _, p := range profiles {
 		v.Profiles = append(v.Profiles, Meta{Type: p.Type, Name: p.Name, Selected: p == profile})
 	}
-	if !matched {
+	switch {
+	case profile == nil:
+		v.Status = model.UNKNOWN
+		v.Message = "No profiles found"
 		return v
+	case profile.Spy == profiling.SpyAgent:
+		v.Status = model.OK
+		v.Message = "Using data gathered by the eBPF profiler"
+	default:
+		v.Status = model.OK
+		v.Message = fmt.Sprintf("Using profiles of <i>%s@pyroscope</i>", pyroscopeApplication)
 	}
 
-	query := profile.Query
-	if profile.Spy == profiling.SpyEbpf {
-		query += fmt.Sprintf(`{namespace="%s", pod=~"(%s)"}`, app.Id.Namespace, strings.Join(pods, "|"))
-	}
-	v.Profile, err = pyroscope.Profile(ctx, profiling.View(view), query, from, to)
+	v.Profile, err = pyroscope.Profile(ctx, profiling.View(view), getQuery(app, profile), from, to)
 	if err != nil {
 		klog.Errorln(err)
 		v.Status = model.WARNING
@@ -136,8 +125,8 @@ func Render(ctx context.Context, pyroscope *profiling.PyroscopeClient, app *mode
 	return v
 }
 
-func match(profiles []profiling.ProfileMeta, typ profiling.Type, name string) (profiling.ProfileMeta, bool) {
-	var matched []profiling.ProfileMeta
+func match(profiles []*profiling.ProfileMeta, typ profiling.Type, name string) *profiling.ProfileMeta {
+	var matched []*profiling.ProfileMeta
 	switch {
 	case typ != "" && name != "":
 		for _, p := range profiles {
@@ -156,27 +145,38 @@ func match(profiles []profiling.ProfileMeta, typ profiling.Type, name string) (p
 	}
 
 	if len(matched) == 0 {
-		return profiling.ProfileMeta{}, false
+		return nil
 	}
 
 	for _, f := range featured {
 		for _, p := range matched {
 			if p.Type == f.typ && p.Name == f.name {
-				return p, true
+				return p
 			}
 		}
 	}
-	return matched[0], true
+	return matched[0]
 }
 
-func getPods(app *model.Application) []string {
-	pods := make([]string, 0, len(app.Instances))
+func getQuery(app *model.Application, profile *profiling.ProfileMeta) string {
+	query := profile.Query
+	if profile.Spy != profiling.SpyAgent {
+		return query
+	}
+	services := utils.NewStringSet()
+	containers := utils.NewStringSet()
 	for _, i := range app.Instances {
-		if i.Pod != nil {
-			pods = append(pods, i.Name)
+		for _, c := range i.Containers {
+			services.Add(model.ContainerIdToServiceName(c.Id))
+			containers.Add(c.Id)
 		}
 	}
-	return pods
+	query += fmt.Sprintf(
+		`{service_name=~"(%s)", container_id=~"(%s)"}`,
+		strings.Join(services.Items(), "|"),
+		strings.Join(containers.Items(), "|"),
+	)
+	return query
 }
 
 func getCharts(app *model.Application, ctx timeseries.Context) (*model.Chart, *model.Chart) {

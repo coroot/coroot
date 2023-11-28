@@ -13,7 +13,6 @@ import (
 	"golang.org/x/exp/maps"
 	"k8s.io/klog"
 	"net/url"
-	"regexp"
 	"sort"
 	"strings"
 )
@@ -174,7 +173,7 @@ func renderEntries(ctx context.Context, v *View, clickhouse *tracing.ClickhouseC
 		severities := utils.NewStringSet()
 		for _, i := range app.Instances {
 			for _, c := range i.Containers {
-				s := containerIdToServiceName(c.Id)
+				s := model.ContainerIdToServiceName(c.Id)
 				containers[s] = append(containers[s], c.Id)
 				severities.Add(services[s]...)
 			}
@@ -321,22 +320,4 @@ func getSimilarHashes(patterns map[string]map[string]*Pattern, hash string) []st
 		}
 	}
 	return set.Items()
-}
-
-var (
-	deploymentPodRegex  = regexp.MustCompile(`(/k8s/[a-z0-9-]+/[a-z0-9-]+)-[0-9a-f]{1,10}-[bcdfghjklmnpqrstvwxz2456789]{5}/.+`)
-	daemonsetPodRegex   = regexp.MustCompile(`(/k8s/[a-z0-9-]+/[a-z0-9-]+)-[bcdfghjklmnpqrstvwxz2456789]{5}/.+`)
-	statefulsetPodRegex = regexp.MustCompile(`(/k8s/[a-z0-9-]+/[a-z0-9-]+)-\d+/.+`)
-)
-
-func containerIdToServiceName(containerId string) string {
-	if !strings.HasPrefix(containerId, "/k8s/") {
-		return containerId
-	}
-	for _, r := range []*regexp.Regexp{deploymentPodRegex, daemonsetPodRegex, statefulsetPodRegex} {
-		if g := r.FindStringSubmatch(containerId); len(g) == 2 {
-			return g[1]
-		}
-	}
-	return containerId
 }
