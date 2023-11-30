@@ -27,11 +27,12 @@
                          :class="{hi: highlighted.instances.has(i.id)}"
                          @mouseenter="focus('instance', i.id)" @mouseleave="unfocus"
                     >
-                        <span class="name">
-                            {{i.id}}
+                        <div class="d-flex align-center" style="gap: 2px">
+                            <span class="name" :title="i.id">{{i.id}}</span>
                             <v-icon v-if="i.labels && i.labels['role'] === 'primary'" small color="rgba(0,0,0,0.87)">mdi-database-edit-outline</v-icon>
                             <v-icon v-if="i.labels && i.labels['role'] === 'replica'" small color="grey">mdi-database-import-outline</v-icon>
-                        </span>
+                            <v-icon v-if="i.labels && i.labels['proxy']" small color="grey">mdi-swap-horizontal</v-icon>
+                        </div>
                         <Labels :labels="i.labels" class="d-none d-sm-block" />
                     </div>
                 </div>
@@ -293,6 +294,11 @@ export default {
     overflow: hidden;
     text-overflow: ellipsis;
 }
+
+.instance .name {
+    direction: rtl;
+}
+
 .hi {
     border: 1px solid rgba(0,0,0,0.87);
     background-color: #cbe9fc;

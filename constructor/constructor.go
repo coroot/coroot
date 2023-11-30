@@ -299,6 +299,9 @@ func enrichInstances(w *model.World, metrics map[string][]model.MetricValues, rd
 			case strings.HasPrefix(queryName, "redis_"):
 				instance := findInstance(instancesByPod, instancesByListen, rdsInstancesById, ecInstanceById, m.Labels, model.ApplicationTypeRedis, model.ApplicationTypeKeyDB)
 				redis(instance, queryName, m)
+			case strings.HasPrefix(queryName, "mongodb_"):
+				instance := findInstance(instancesByPod, instancesByListen, rdsInstancesById, ecInstanceById, m.Labels, model.ApplicationTypeMongodb, model.ApplicationTypeMongos)
+				mongodb(instance, queryName, m)
 			}
 		}
 	}

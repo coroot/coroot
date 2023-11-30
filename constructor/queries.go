@@ -157,6 +157,10 @@ var QUERIES = map[string]string{
 	"container_jvm_gc_time_seconds":             `rate(container_jvm_gc_time_seconds[$RANGE])`,
 	"container_jvm_safepoint_sync_time_seconds": `rate(container_jvm_safepoint_sync_time_seconds[$RANGE])`,
 	"container_jvm_safepoint_time_seconds":      `rate(container_jvm_safepoint_time_seconds[$RANGE])`,
+
+	"mongodb_up":                     `mongodb_up`,
+	"mongodb_members_self":           `mongodb_members_self`,
+	"mongodb_rs_optimes_lastApplied": `timestamp(mongodb_rs_optimes_lastAppliedWallTime) - mongodb_rs_optimes_lastAppliedWallTime/1000`,
 }
 
 var RecordingRules = map[string]func(p *db.Project, w *model.World) []model.MetricValues{

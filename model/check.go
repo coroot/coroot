@@ -72,6 +72,8 @@ var Checks = struct {
 	InstanceRestarts       CheckConfig
 	RedisAvailability      CheckConfig
 	RedisLatency           CheckConfig
+	MongodbAvailability    CheckConfig
+	MongodbReplicationLag  CheckConfig
 	PostgresAvailability   CheckConfig
 	PostgresLatency        CheckConfig
 	PostgresErrors         CheckConfig
@@ -190,6 +192,21 @@ var Checks = struct {
 		Unit:                    CheckUnitSecond,
 		MessageTemplate:         `{{.ItemsWithToBe "redis instance"}} performing slowly`,
 		ConditionFormatTemplate: "the average command execution time of a redis instance > <threshold>",
+	},
+	MongodbAvailability: CheckConfig{
+		Type:                    CheckTypeItemBased,
+		Title:                   "Mongodb availability",
+		DefaultThreshold:        0,
+		MessageTemplate:         `{{.ItemsWithToBe "mongodb instance"}} unavailable`,
+		ConditionFormatTemplate: "the number of unavailable mongodb instances > <threshold>",
+	},
+	MongodbReplicationLag: CheckConfig{
+		Type:                    CheckTypeItemBased,
+		Title:                   "Mongodb replication lag",
+		DefaultThreshold:        30,
+		MessageTemplate:         `{{.ItemsWithToBe "mongodb replica"}} far behind the primary`,
+		ConditionFormatTemplate: "replication lag > <threshold>",
+		Unit:                    CheckUnitSecond,
 	},
 	PostgresAvailability: CheckConfig{
 		Type:                    CheckTypeItemBased,

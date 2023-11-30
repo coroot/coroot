@@ -51,6 +51,7 @@ type Instance struct {
 
 	Postgres *Postgres
 	Redis    *Redis
+	Mongodb  *Mongodb
 }
 
 func NewInstance(name string, owner ApplicationId) *Instance {
