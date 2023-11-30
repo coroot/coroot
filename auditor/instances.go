@@ -112,18 +112,20 @@ func (a *appAuditor) instances() {
 			availabilityCheck.Inc(1)
 		}
 		instanceRestarts := timeseries.NewAggregate(timeseries.NanSum)
+		var instanceRestartsTotal int64
 		for _, c := range i.Containers {
 			instanceRestarts.Add(c.Restarts)
 			if r := c.Restarts.Reduce(timeseries.NanSum); !timeseries.IsNaN(r) {
 				restartsCheck.Inc(int64(r))
+				instanceRestartsTotal += int64(r)
 			}
 		}
 		if restartsChart != nil {
 			restartsChart.AddSeries(i.Name, instanceRestarts)
 		}
 		restartsCell := model.NewTableCell()
-		if restartsCheck.Count() > 0 {
-			restartsCell.SetValue(strconv.FormatInt(restartsCheck.Count(), 10))
+		if instanceRestartsTotal > 0 {
+			restartsCell.SetValue(strconv.FormatInt(instanceRestartsTotal, 10))
 		}
 
 		node := model.NewTableCell().SetStatus(i.Node.Status(), i.NodeName())
