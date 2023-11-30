@@ -234,6 +234,7 @@ func (ts *TimeSeries) MapInPlace(f func(t Time, v float32) float32) *TimeSeries 
 		ts.data[i] = f(t, v)
 		t = t.Add(ts.step)
 	}
+	ts.last = ts.data[len(ts.data)-1]
 	return ts
 }
 
