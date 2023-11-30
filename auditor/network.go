@@ -23,16 +23,29 @@ func (a *appAuditor) network() {
 
 	seenConnections := false
 	upstreams := map[model.ApplicationId]*netSummary{}
+
+	failedConnectionByDest := map[string]*timeseries.Aggregate{}
+
 	for _, instance := range a.app.Instances {
 		for _, u := range instance.Upstreams {
-			if u.FailedConnections != nil {
+			if failedConnectionsChart != nil && u.FailedConnections != nil {
 				dest := net.JoinHostPort(u.ServiceRemoteIP, u.ServiceRemotePort)
 				if u.Service != nil {
 					dest += " (" + u.Service.Name + ")"
 				}
-				if failedConnectionsChart != nil {
-					failedConnectionsChart.AddSeries("→"+dest, u.FailedConnections)
+				if u.RemoteInstance != nil {
+					if u.RemoteInstance.OwnerId == a.app.Id {
+						dest = u.RemoteInstance.Name
+					} else {
+						dest = u.RemoteInstance.OwnerId.Name
+					}
 				}
+				v := failedConnectionByDest[dest]
+				if v == nil {
+					v = timeseries.NewAggregate(timeseries.NanSum)
+					failedConnectionByDest[dest] = v
+				}
+				v.Add(u.FailedConnections)
 			}
 
 			if u.RemoteInstance == nil {
@@ -78,6 +91,12 @@ func (a *appAuditor) network() {
 			}
 		}
 	}
+	if failedConnectionsChart != nil {
+		for dest, v := range failedConnectionByDest {
+			failedConnectionsChart.AddSeries("→"+dest, v)
+		}
+	}
+
 	for appId, summary := range upstreams {
 		var sum, count float32
 		for _, rtt := range summary.rtts {
