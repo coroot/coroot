@@ -50,7 +50,7 @@ func (app *Application) GetInstance(name, node string) *Instance {
 		}
 		switch app.Id.Kind {
 		case ApplicationKindStatefulSet:
-			if i.NodeName() == node {
+			if node == "" || i.NodeName() == "" || i.NodeName() == node {
 				return i
 			}
 		default:

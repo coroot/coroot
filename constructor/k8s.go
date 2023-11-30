@@ -103,7 +103,9 @@ func podInfo(w *model.World, metrics []model.MetricValues) map[string]*model.Ins
 		instance := pods[uid]
 		if instance == nil {
 			instance = w.GetOrCreateApplication(appId).GetOrCreateInstance(pod, node)
-			instance.Pod = &model.Pod{}
+			if instance.Pod == nil {
+				instance.Pod = &model.Pod{}
+			}
 			if model.ApplicationKind(ownerKind) == model.ApplicationKindReplicaSet {
 				instance.Pod.ReplicaSet = ownerName
 			}
