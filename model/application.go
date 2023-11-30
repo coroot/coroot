@@ -222,11 +222,13 @@ func (app *Application) InstrumentationStatus() map[ApplicationType]bool {
 			case ApplicationTypeRedis, ApplicationTypeKeyDB:
 				t = ApplicationTypeRedis
 				instanceInstrumented = i.Redis != nil
+			case ApplicationTypeMongodb, ApplicationTypeMongos:
+				t = ApplicationTypeMongodb
+				instanceInstrumented = i.Mongodb != nil
 			default:
 				continue
 			}
-			appInstrumented, visited := res[t]
-			res[t] = (appInstrumented || !visited) && instanceInstrumented
+			res[t] = res[t] || instanceInstrumented
 		}
 	}
 	return res
