@@ -43,7 +43,7 @@ func (c *Connection) IsActual() bool {
 	if !c.RemoteInstance.IsListenActive(c.ActualRemoteIP, c.ActualRemotePort) {
 		return false
 	}
-	return (c.SuccessfulConnections.Last() > 0) || (c.Active.Last() > 0)
+	return (c.SuccessfulConnections.Last() > 0) || (c.Active.Last() > 0) || c.FailedConnections.Last() > 0
 }
 
 func (c *Connection) IsObsolete() bool {
@@ -54,12 +54,12 @@ func (c *Connection) IsObsolete() bool {
 }
 
 func (c *Connection) Status() Status {
-	status := UNKNOWN
-	if c.IsActual() && !c.Rtt.IsEmpty() {
-		status = OK
-		if c.Rtt.TailIsEmpty() {
-			status = CRITICAL
-		}
+	if !c.IsActual() {
+		return UNKNOWN
+	}
+	status := OK
+	if !c.Rtt.IsEmpty() && c.Rtt.TailIsEmpty() {
+		status = CRITICAL
 	}
 	return status
 }

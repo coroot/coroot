@@ -28,7 +28,7 @@ func (a *appAuditor) network() {
 
 	for _, instance := range a.app.Instances {
 		for _, u := range instance.Upstreams {
-			if failedConnectionsChart != nil && u.FailedConnections != nil {
+			if failedConnectionsChart != nil && !u.FailedConnections.IsEmpty() {
 				dest := net.JoinHostPort(u.ServiceRemoteIP, u.ServiceRemotePort)
 				if u.Service != nil {
 					dest += " (" + u.Service.Name + ")"
@@ -61,7 +61,7 @@ func (a *appAuditor) network() {
 				summary = &netSummary{}
 				upstreams[upstreamApp.Id] = summary
 			}
-			if u.Rtt != nil {
+			if !u.Rtt.IsEmpty() {
 				if last := u.Rtt.Last(); last > rttCheck.Value() {
 					rttCheck.SetValue(last)
 				}
@@ -71,21 +71,35 @@ func (a *appAuditor) network() {
 				summary.retransmissions = append(summary.retransmissions, u.Retransmissions)
 			}
 
-			if instance.Node != nil && u.RemoteInstance.Node != nil && dependencyMap != nil {
+			if dependencyMap != nil && instance.Node != nil {
 				linkStatus := model.UNKNOWN
 				if !instance.IsObsolete() && !u.IsObsolete() {
 					linkStatus = u.Status()
-					if linkStatus == model.OK && !u.Rtt.IsEmpty() && u.Rtt.Last() > rttCheck.Threshold {
-						linkStatus = model.WARNING
+					if linkStatus == model.OK {
+						if u.Rtt.Last() > rttCheck.Threshold || u.FailedConnections.Last() > 0 {
+							linkStatus = model.WARNING
+						}
 					}
 				}
+				dnName := "~unknown"
+				var dnCloud, dnRegion, dnAz string
+
+				if u.RemoteInstance.Node != nil {
+					dnName = u.RemoteInstance.Node.GetName()
+					dnCloud = u.RemoteInstance.Node.CloudProvider.Value()
+					dnRegion = u.RemoteInstance.Node.Region.Value()
+					dnAz = u.RemoteInstance.Node.AvailabilityZone.Value()
+				}
+				dInstanceName := u.RemoteInstance.Name
+				if u.RemoteInstance.OwnerId.Kind == model.ApplicationKindExternalService && u.Service != nil {
+					dInstanceName += " (" + u.Service.Name + ")"
+				}
 				sn := instance.Node
-				dn := u.RemoteInstance.Node
 				dependencyMap.UpdateLink(
 					model.DependencyMapInstance{Id: instance.Name + "@" + instance.NodeName(), Name: instance.Name, Obsolete: instance.IsObsolete()},
 					model.DependencyMapNode{Name: sn.GetName(), Provider: sn.CloudProvider.Value(), Region: sn.Region.Value(), AZ: sn.AvailabilityZone.Value()},
-					model.DependencyMapInstance{Id: u.RemoteInstance.Name + "@" + u.RemoteInstance.NodeName(), Name: u.RemoteInstance.Name, Obsolete: u.IsObsolete()},
-					model.DependencyMapNode{Name: dn.GetName(), Provider: dn.CloudProvider.Value(), Region: dn.Region.Value(), AZ: dn.AvailabilityZone.Value()},
+					model.DependencyMapInstance{Id: u.RemoteInstance.Name + "@" + u.RemoteInstance.NodeName(), Name: dInstanceName, Obsolete: u.IsObsolete()},
+					model.DependencyMapNode{Name: dnName, Provider: dnCloud, Region: dnRegion, AZ: dnAz},
 					linkStatus,
 				)
 			}
