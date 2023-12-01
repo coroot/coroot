@@ -7,6 +7,10 @@ import (
 
 type Protocol string
 
+const (
+	ProtocolMongodb = "mongo"
+)
+
 type Connection struct {
 	ActualRemotePort string
 	ActualRemoteIP   string
@@ -68,10 +72,13 @@ func IsRequestStatusFailed(status string) bool {
 	return status == "failed" || strings.HasPrefix(status, "5")
 }
 
-func GetConnectionsRequestsSum(connections []*Connection) *timeseries.TimeSeries {
+func GetConnectionsRequestsSum(connections []*Connection, protocolFilter func(protocol Protocol) bool) *timeseries.TimeSeries {
 	sum := timeseries.NewAggregate(timeseries.NanSum)
 	for _, c := range connections {
-		for _, byStatus := range c.RequestsCount {
+		for protocol, byStatus := range c.RequestsCount {
+			if protocolFilter != nil && !protocolFilter(protocol) {
+				continue
+			}
 			for _, ts := range byStatus {
 				sum.Add(ts)
 			}
@@ -80,10 +87,13 @@ func GetConnectionsRequestsSum(connections []*Connection) *timeseries.TimeSeries
 	return sum.Get()
 }
 
-func GetConnectionsErrorsSum(connections []*Connection) *timeseries.TimeSeries {
+func GetConnectionsErrorsSum(connections []*Connection, protocolFilter func(protocol Protocol) bool) *timeseries.TimeSeries {
 	sum := timeseries.NewAggregate(timeseries.NanSum)
 	for _, c := range connections {
-		for _, byStatus := range c.RequestsCount {
+		for protocol, byStatus := range c.RequestsCount {
+			if protocolFilter != nil && !protocolFilter(protocol) {
+				continue
+			}
 			for status, ts := range byStatus {
 				if !IsRequestStatusFailed(status) {
 					continue
@@ -95,11 +105,14 @@ func GetConnectionsErrorsSum(connections []*Connection) *timeseries.TimeSeries {
 	return sum.Get()
 }
 
-func GetConnectionsRequestsLatency(connections []*Connection) *timeseries.TimeSeries {
+func GetConnectionsRequestsLatency(connections []*Connection, protocolFilter func(protocol Protocol) bool) *timeseries.TimeSeries {
 	time := timeseries.NewAggregate(timeseries.NanSum)
 	count := timeseries.NewAggregate(timeseries.NanSum)
 	for _, c := range connections {
 		for protocol, latency := range c.RequestsLatency {
+			if protocolFilter != nil && !protocolFilter(protocol) {
+				continue
+			}
 			if len(c.RequestsCount[protocol]) == 0 {
 				continue
 			}

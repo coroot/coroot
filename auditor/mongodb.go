@@ -85,11 +85,15 @@ func (a *appAuditor) mongodb() {
 			if !i.Mongodb.IsUp() {
 				status.SetStatus(model.WARNING, "down (no metrics)")
 			}
-			qps := model.GetConnectionsRequestsSum(connectionsByInstance[i.Name])
+
+			protocolFilter := func(protocol model.Protocol) bool {
+				return protocol == model.ProtocolMongodb
+			}
+			qps := model.GetConnectionsRequestsSum(connectionsByInstance[i.Name], protocolFilter)
 			if qpsChart != nil {
 				qpsChart.AddSeries(i.Name, qps)
 			}
-			latency := model.GetConnectionsRequestsLatency(connectionsByInstance[i.Name])
+			latency := model.GetConnectionsRequestsLatency(connectionsByInstance[i.Name], protocolFilter)
 			if latencyChart != nil {
 				latencyChart.AddSeries(i.Name, latency)
 			}
