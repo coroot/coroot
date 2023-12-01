@@ -69,8 +69,8 @@ func renderServiceMap(w *model.World) []*Application {
 
 		for id, s := range upstreams {
 			l := Link{Id: id, Status: s.status}
-			requests := model.GetConnectionsRequestsSum(s.connections).Last()
-			latency := model.GetConnectionsRequestsLatency(s.connections).Last()
+			requests := model.GetConnectionsRequestsSum(s.connections, nil).Last()
+			latency := model.GetConnectionsRequestsLatency(s.connections, nil).Last()
 			if !timeseries.IsNaN(requests) {
 				l.Weight = requests
 				l.Stats = append(l.Stats, utils.FormatFloat(requests)+" rps")

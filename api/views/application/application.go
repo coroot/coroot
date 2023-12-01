@@ -228,8 +228,8 @@ func (i *Instance) addInternalLink(id string, status model.Status) {
 }
 
 func (l *ApplicationLink) calcStats() {
-	requests := model.GetConnectionsRequestsSum(l.connections).Last()
-	latency := model.GetConnectionsRequestsLatency(l.connections).Last()
+	requests := model.GetConnectionsRequestsSum(l.connections, nil).Last()
+	latency := model.GetConnectionsRequestsLatency(l.connections, nil).Last()
 	if !timeseries.IsNaN(requests) {
 		l.Weight = requests
 		l.Stats = append(l.Stats, utils.FormatFloat(requests)+" rps")

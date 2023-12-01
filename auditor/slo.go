@@ -220,7 +220,7 @@ func clientRequests(app *model.Application, report *model.AuditReport) {
 	}
 	var rpsTotal float32
 	for _, s := range clients {
-		s.rps = model.GetConnectionsRequestsSum(s.connections)
+		s.rps = model.GetConnectionsRequestsSum(s.connections, nil)
 		if last := s.rps.Last(); !timeseries.IsNaN(last) {
 			rpsTotal += last
 		}
@@ -241,12 +241,12 @@ func clientRequests(app *model.Application, report *model.AuditReport) {
 		}
 
 		latency := model.NewTableCell().SetUnit("ms")
-		if last := model.GetConnectionsRequestsLatency(s.connections).Last(); last > 0 {
+		if last := model.GetConnectionsRequestsLatency(s.connections, nil).Last(); last > 0 {
 			latency.SetValue(utils.FormatFloat(last * 1000))
 		}
 
 		errors := model.NewTableCell().SetUnit("/s")
-		if last := model.GetConnectionsErrorsSum(s.connections).Last(); last > 0 {
+		if last := model.GetConnectionsErrorsSum(s.connections, nil).Last(); last > 0 {
 			errors.SetValue(utils.FormatFloat(last))
 		}
 
