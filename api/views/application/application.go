@@ -74,9 +74,16 @@ func Render(world *model.World, app *model.Application) *View {
 		if role := instance.ClusterRoleLast(); role != model.ClusterRoleNone {
 			i.Labels["role"] = role.String()
 		} else if instance.ApplicationTypes()[model.ApplicationTypePgbouncer] {
-			i.Labels["pooler"] = "pgbouncer"
+			i.Labels["proxy"] = "pgbouncer"
 		}
-
+		if instance.Mongodb != nil {
+			if v := instance.Mongodb.ReplicaSet.Value(); v != "" {
+				i.Labels["rs"] = v
+			}
+		}
+		if instance.ApplicationTypes()[model.ApplicationTypeMongos] {
+			i.Labels["proxy"] = "mongos"
+		}
 		for _, connection := range instance.Upstreams {
 			if connection.RemoteInstance == nil {
 				continue

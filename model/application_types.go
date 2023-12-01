@@ -13,6 +13,7 @@ const (
 	ApplicationTypeRedis         ApplicationType = "redis"
 	ApplicationTypeKeyDB         ApplicationType = "keydb"
 	ApplicationTypeMongodb       ApplicationType = "mongodb"
+	ApplicationTypeMongos        ApplicationType = "mongos"
 	ApplicationTypeRabbitmq      ApplicationType = "rabbitmq"
 	ApplicationTypeKafka         ApplicationType = "kafka"
 	ApplicationTypeZookeeper     ApplicationType = "zookeeper"

@@ -79,11 +79,20 @@ func calcClusterSwitchovers(app *model.Application) []*model.ApplicationEvent {
 		}
 		return accumulator
 	}
-	primaryNum := timeseries.NewAggregate(f)
+	primaryBySubcluster := map[string]*timeseries.Aggregate{}
 	for i, instance := range app.Instances {
+		subcluster := ""
+		if instance.Mongodb != nil {
+			subcluster = instance.Mongodb.ReplicaSet.Value()
+		}
 		names[i] = instance.Name
 		if role := instance.ClusterRole(); role != nil {
 			num := float32(i)
+			primaryNum := primaryBySubcluster[subcluster]
+			if primaryNum == nil {
+				primaryNum = timeseries.NewAggregate(f)
+				primaryBySubcluster[subcluster] = primaryNum
+			}
 			primaryNum.Add(role.Map(func(t timeseries.Time, v float32) float32 {
 				if v == float32(model.ClusterRolePrimary) {
 					return num
@@ -92,34 +101,35 @@ func calcClusterSwitchovers(app *model.Application) []*model.ApplicationEvent {
 			}))
 		}
 	}
-	primaryNumTs := primaryNum.Get()
-	if primaryNumTs.IsEmpty() {
-		return nil
-	}
-
 	var events []*model.ApplicationEvent
-	var event *model.ApplicationEvent
-	iter := primaryNumTs.Iter()
-	prev := float32(-1)
-	for iter.Next() {
-		t, curr := iter.Value()
-		if prev == -1 {
-			if !timeseries.IsNaN(curr) {
-				prev = curr
-			}
+	for _, primaryNum := range primaryBySubcluster {
+		primaryNumTs := primaryNum.Get()
+		if primaryNumTs.IsEmpty() {
 			continue
 		}
-		if curr != prev && event == nil {
-			event = &model.ApplicationEvent{Start: t, Details: names[int(prev)] + " &rarr; ", Type: model.ApplicationEventTypeSwitchover}
-		}
-		if curr != prev && event != nil && !timeseries.IsNaN(curr) && curr >= 0 {
-			event.End = t
-			event.Details += names[int(curr)]
-			events = append(events, event)
-			event = nil
-		}
-		if !timeseries.IsNaN(curr) && curr >= 0 {
-			prev = curr
+		var event *model.ApplicationEvent
+		iter := primaryNumTs.Iter()
+		prev := float32(-1)
+		for iter.Next() {
+			t, curr := iter.Value()
+			if prev == -1 {
+				if !timeseries.IsNaN(curr) {
+					prev = curr
+				}
+				continue
+			}
+			if curr != prev && event == nil {
+				event = &model.ApplicationEvent{Start: t, Details: names[int(prev)] + " &rarr; ", Type: model.ApplicationEventTypeSwitchover}
+			}
+			if curr != prev && event != nil && !timeseries.IsNaN(curr) && curr >= 0 {
+				event.End = t
+				event.Details += names[int(curr)]
+				events = append(events, event)
+				event = nil
+			}
+			if !timeseries.IsNaN(curr) && curr >= 0 {
+				prev = curr
+			}
 		}
 	}
 	return events

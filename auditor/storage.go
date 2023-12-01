@@ -82,7 +82,7 @@ func (a *appAuditor) storage() {
 						latencyMs,
 						ioPercent,
 						space,
-						model.NewTableCell(v.Device.Value()).AddTag(v.Name.Value()),
+						model.NewTableCell(v.Device.Value()).SetUnit(v.Name.Value()),
 					)
 				}
 				if spaceChart != nil {

@@ -131,6 +131,15 @@ func (app *Application) IsRedis() bool {
 	return false
 }
 
+func (app *Application) IsMongodb() bool {
+	for _, i := range app.Instances {
+		if i.Mongodb != nil {
+			return true
+		}
+	}
+	return false
+}
+
 func (app *Application) IsPostgres() bool {
 	for _, i := range app.Instances {
 		if i.Postgres != nil {
@@ -213,11 +222,13 @@ func (app *Application) InstrumentationStatus() map[ApplicationType]bool {
 			case ApplicationTypeRedis, ApplicationTypeKeyDB:
 				t = ApplicationTypeRedis
 				instanceInstrumented = i.Redis != nil
+			case ApplicationTypeMongodb, ApplicationTypeMongos:
+				t = ApplicationTypeMongodb
+				instanceInstrumented = i.Mongodb != nil
 			default:
 				continue
 			}
-			appInstrumented, visited := res[t]
-			res[t] = (appInstrumented || !visited) && instanceInstrumented
+			res[t] = res[t] || instanceInstrumented
 		}
 	}
 	return res

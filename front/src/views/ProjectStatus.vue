@@ -109,6 +109,7 @@ export default {
             const instructions = {
                 'postgres': {exporter: 'pg-agent'},
                 'redis': {exporter: 'redis-exporter'},
+                'mongodb': {exporter: 'mongodb-exporter'},
                 'aws-rds': {exporter: 'aws-agent', description: 'It appears that AWS RDS is being used in this project. Please ensure that <a href="https://coroot.com/docs/metric-exporters/aws-agent/installation">aws-agent</a> is installed.'},
                 'aws-elasticache': {exporter: 'aws-agent', description: 'It appears that AWS ElastiCache is being used in this project. Please ensure that <a href="https://coroot.com/docs/metric-exporters/aws-agent/installation">aws-agent</a> is installed.'},
             };
