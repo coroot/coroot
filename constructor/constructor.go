@@ -103,11 +103,13 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 	// order is important
 	prof.stage("load_job_statuses", func() { loadPromJobStatuses(metrics, pjs) })
 	prof.stage("load_nodes", func() { c.loadNodes(w, metrics, nodesByMachineId) })
+	prof.stage("load_fargate_nodes", func() { c.loadFargateNodes(metrics, nodesByMachineId) })
 	prof.stage("load_k8s_metadata", func() { loadKubernetesMetadata(w, metrics, servicesByClusterIP) })
 	prof.stage("load_rds_metadata", func() { loadRdsMetadata(w, metrics, pjs, rdsInstancesById) })
 	prof.stage("load_elasticache_metadata", func() { loadElasticacheMetadata(w, metrics, pjs, ecInstancesById) })
 	prof.stage("load_rds", func() { c.loadRds(w, metrics, pjs, rdsInstancesById) })
 	prof.stage("load_elasticache", func() { c.loadElasticache(w, metrics, pjs, ecInstancesById) })
+	prof.stage("load_fargate_containers", func() { loadFargateContainers(w, metrics, pjs) })
 	prof.stage("load_containers", func() { loadContainers(w, metrics, pjs, nodesByMachineId, servicesByClusterIP) })
 	prof.stage("enrich_instances", func() { enrichInstances(w, metrics, rdsInstancesById, ecInstancesById) })
 	prof.stage("join_db_cluster", func() { joinDBClusterComponents(w) })
@@ -157,7 +159,7 @@ func (c *Constructor) queryCache(ctx context.Context, from, to timeseries.Time, 
 			continue
 		}
 		addQuery(n, n, q, false)
-		if n == "container_memory_rss" {
+		if n == "container_memory_rss" || n == "fargate_container_memory_rss" {
 			name := n + "_for_trend"
 			queries[name] = cacheQuery{
 				query:     q,

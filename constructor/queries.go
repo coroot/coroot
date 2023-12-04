@@ -41,6 +41,17 @@ var QUERIES = map[string]string{
 	"node_net_rx_bytes":           `rate(node_net_received_bytes_total[$RANGE])`,
 	"node_net_tx_bytes":           `rate(node_net_transmitted_bytes_total[$RANGE])`,
 
+	"fargate_node_machine_cpu_cores":    `machine_cpu_cores{eks_amazonaws_com_compute_type="fargate"}`,
+	"fargate_node_machine_memory_bytes": `machine_memory_bytes{eks_amazonaws_com_compute_type="fargate"}`,
+
+	"fargate_container_spec_memory_limit_bytes":   `container_spec_memory_limit_bytes{eks_amazonaws_com_compute_type="fargate"}`,
+	"fargate_container_spec_cpu_limit_cores":      `container_spec_cpu_quota{eks_amazonaws_com_compute_type="fargate"}/container_spec_cpu_period{eks_amazonaws_com_compute_type="fargate"}`,
+	"fargate_container_oom_events_total":          `container_oom_events_total{eks_amazonaws_com_compute_type="fargate"}`,
+	"fargate_container_memory_rss":                `container_memory_rss{eks_amazonaws_com_compute_type="fargate"}`,
+	"fargate_container_memory_cache":              `container_memory_cache{eks_amazonaws_com_compute_type="fargate"}`,
+	"fargate_container_cpu_usage_seconds":         `rate(container_cpu_usage_seconds_total{eks_amazonaws_com_compute_type="fargate"}[$RANGE])`,
+	"fargate_container_cpu_cfs_throttled_seconds": `rate(container_cpu_cfs_throttled_seconds_total{eks_amazonaws_com_compute_type="fargate"}[$RANGE])`,
+
 	"kube_node_info":    `kube_node_info`,
 	"kube_service_info": `kube_service_info`,
 

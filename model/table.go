@@ -84,6 +84,7 @@ type TableCell struct {
 	NetInterfaces []NetInterface         `json:"net_interfaces"`
 	Chart         *timeseries.TimeSeries `json:"chart"`
 	IsStub        bool                   `json:"is_stub"`
+	MaxWidth      int                    `json:"max_width"`
 
 	DeploymentSummaries []ApplicationDeploymentSummary `json:"deployment_summaries"`
 }
@@ -184,6 +185,14 @@ func (c *TableCell) SetStub(format string, a ...any) *TableCell {
 	}
 	c.Value = fmt.Sprintf(format, a...)
 	c.IsStub = true
+	return c
+}
+
+func (c *TableCell) SetMaxWidth(w int) *TableCell {
+	if c == nil {
+		return nil
+	}
+	c.MaxWidth = w
 	return c
 }
 

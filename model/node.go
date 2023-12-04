@@ -57,7 +57,8 @@ type Node struct {
 	InstanceType      LabelLastValue
 	InstanceLifeCycle LabelLastValue
 
-	Price *NodePrice
+	Fargate bool
+	Price   *NodePrice
 }
 
 type NodePrice struct {
@@ -94,7 +95,7 @@ func (n *Node) IsUp() bool {
 		return n.Instances[0].Elasticache.Status.Value() == "available"
 	}
 
-	return !n.CpuUsagePercent.TailIsEmpty()
+	return !n.MemoryTotalBytes.TailIsEmpty()
 }
 
 func (n *Node) IsDown() bool {

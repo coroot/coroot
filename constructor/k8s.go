@@ -118,7 +118,8 @@ func podInfo(w *model.World, metrics []model.MetricValues) map[string]*model.Ins
 
 		podIp := m.Labels["pod_ip"]
 		hostIp := m.Labels["host_ip"]
-		if podIp != "" && podIp != hostIp {
+
+		if podIp != "" && (podIp != hostIp || (node != nil && node.Fargate)) {
 			if ip := net.ParseIP(podIp); ip != nil {
 				isActive := m.Values.Last() == 1
 				instance.TcpListens[model.Listen{IP: podIp, Port: "0", Proxied: false}] = isActive
