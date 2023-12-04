@@ -41,18 +41,16 @@
                     </router-link>
                 </div>
 
-                <div v-else class="d-flex">
-                    <div>
+                <div v-else>
+                    <div class="d-flex">
                         <v-icon v-if="c.icon" :color="c.icon.color" small class="mr-1">{{c.icon.name}}</v-icon>
                         <Led v-if="c.status && c.value" :status="c.status" />
-                    </div>
-                    <div>
-                        <router-link v-if="c.value && c.link" :to="{...{query: $route.query}, ...c.link}">{{c.value}}</router-link>
-                        <span v-else :class="{'grey--text': c.is_stub}">{{(smallScreen && c.short_value ? c.short_value : c.value) || '&mdash;'}}</span>
+                        <router-link v-if="c.value && c.link" :to="{...{query: $route.query}, ...c.link}" :class="{'truncated': !!c.max_width}" :style="{'max-width': c.max_width || undefined}">{{c.value}}</router-link>
+                        <span v-else :class="{'grey--text': c.is_stub, 'truncated': !!c.max_width}" :style="{'max-width': c.max_width || undefined}">{{(smallScreen && c.short_value ? c.short_value : c.value) || '&mdash;'}}</span>
                         <span v-if="c.unit && c.value" class="caption grey--text ml-1">{{c.unit}}</span>
-                        <div v-if="c.tags && !smallScreen">
-                            <span v-for="t in c.tags" class="tag">{{t}}</span>
-                        </div>
+                    </div>
+                    <div v-if="c.tags && !smallScreen">
+                        <span v-for="t in c.tags" class="tag">{{t}}</span>
                     </div>
                 </div>
             </td>
@@ -90,5 +88,12 @@ export default {
 }
 .tag:not(:last-child):after {
     content: " / ";
+}
+.truncated {
+    max-width: 30ch;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
 }
 </style>

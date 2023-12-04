@@ -20,7 +20,7 @@ func renderNodes(w *model.World) *model.Table {
 			continue
 		}
 
-		node := model.NewTableCell(name)
+		node := model.NewTableCell(name).SetMaxWidth(30)
 		node.Link = model.NewRouterLink(name).SetRoute("node").SetParam("name", name)
 		for _, t := range getNodeTags(n) {
 			node.AddTag(t)
@@ -81,7 +81,7 @@ func renderNodes(w *model.World) *model.Table {
 		table.AddRow(
 			node,
 			status,
-			model.NewTableCell(az).SetUnit("("+strings.ToLower(n.CloudProvider.Value())+")"),
+			model.NewTableCell(az).SetMaxWidth(20).SetUnit("("+strings.ToLower(n.CloudProvider.Value())+")"),
 			model.NewTableCell(ips.Items()...),
 			cpuPercent,
 			memoryPercent,
