@@ -15,7 +15,7 @@ func (a *appAuditor) redis() {
 	availabilityCheck := report.CreateCheck(model.Checks.RedisAvailability)
 	latencyCheck := report.CreateCheck(model.Checks.RedisLatency)
 
-	table := report.GetOrCreateTable("Instance", "Role", "Status")
+	table := report.GetOrCreateTable("Instance", "Role", "Status", "Version")
 	latencyChart := report.GetOrCreateChart("Redis latency, seconds")
 	queriesChart := report.GetOrCreateChartGroup("Redis queries on <selector>, per seconds")
 
@@ -43,19 +43,19 @@ func (a *appAuditor) redis() {
 		}
 
 		if !obsolete && table != nil {
-			name := model.NewTableCell(i.Name).AddTag("version: %s", i.Redis.Version.Value())
+			name := model.NewTableCell(i.Name)
 			role := model.NewTableCell(i.Redis.Role.Value())
 			switch i.Redis.Role.Value() {
-			case "master":
+			case "primary":
 				role.SetIcon("mdi-database-edit-outline", "rgba(0,0,0,0.87)")
-			case "slave":
+			case "replica":
 				role.SetIcon("mdi-database-import-outline", "grey")
 			}
 			status := model.NewTableCell().SetStatus(model.OK, "up")
 			if !i.Redis.IsUp() {
 				status.SetStatus(model.WARNING, "down (no metrics)")
 			}
-			table.AddRow(name, role, status)
+			table.AddRow(name, role, status, model.NewTableCell(i.Redis.Version.Value()))
 		}
 
 		if latencyChart != nil {
