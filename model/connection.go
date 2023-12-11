@@ -31,7 +31,8 @@ type Connection struct {
 	RequestsLatency   map[Protocol]*timeseries.TimeSeries
 	RequestsHistogram map[Protocol]map[float32]*timeseries.TimeSeries // by le
 
-	Service *Service
+	Service           *Service
+	RemoteApplication *Application
 
 	ServiceRemoteIP   string
 	ServiceRemotePort string
@@ -41,13 +42,18 @@ func (c *Connection) IsActual() bool {
 	if c.IsObsolete() {
 		return false
 	}
-	if c.RemoteInstance == nil {
-		return false
-	}
-	if !c.RemoteInstance.IsListenActive(c.ActualRemoteIP, c.ActualRemotePort) {
-		return false
-	}
 	return (c.SuccessfulConnections.Last() > 0) || (c.Active.Last() > 0) || c.FailedConnections.Last() > 0
+}
+
+func (c *Connection) IsEmpty() bool {
+	switch {
+	case c.Active.Reduce(timeseries.NanSum) > 0:
+	case c.SuccessfulConnections.Reduce(timeseries.NanSum) > 0:
+	case c.FailedConnections.Reduce(timeseries.NanSum) > 0:
+	default:
+		return true
+	}
+	return false
 }
 
 func (c *Connection) IsObsolete() bool {
@@ -62,7 +68,10 @@ func (c *Connection) Status() Status {
 		return UNKNOWN
 	}
 	status := OK
-	if !c.Rtt.IsEmpty() && c.Rtt.TailIsEmpty() {
+	switch {
+	case !c.Rtt.IsEmpty() && c.Rtt.TailIsEmpty():
+		status = CRITICAL
+	case c.FailedConnections.Last() > 0:
 		status = CRITICAL
 	}
 	return status

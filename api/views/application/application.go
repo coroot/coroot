@@ -85,18 +85,24 @@ func Render(world *model.World, app *model.Application) *View {
 			i.Labels["proxy"] = "mongos"
 		}
 		for _, connection := range instance.Upstreams {
-			if connection.RemoteInstance == nil {
+			if connection.RemoteApplication == nil {
 				continue
 			}
-			if connection.RemoteInstance.OwnerId != app.Id {
-				deps[connection.RemoteInstance.OwnerId] = true
-				i.addDependency(connection.RemoteInstance.OwnerId, connection.Status(), "to", connection)
-			} else if connection.RemoteInstance.Name != instance.Name {
+			if connection.RemoteApplication.Id != app.Id {
+				deps[connection.RemoteApplication.Id] = true
+				i.addDependency(connection.RemoteApplication.Id, connection.Status(), "to", connection)
+			} else if connection.RemoteInstance != nil && connection.RemoteInstance.Name != instance.Name {
 				i.addInternalLink(connection.RemoteInstance.Name, connection.Status())
 			}
 		}
 		for _, connection := range app.Downstreams {
-			if connection.Instance.OwnerId != app.Id && connection.RemoteInstance != nil && connection.RemoteInstance.Name == instance.Name {
+			if connection.Instance.OwnerId != app.Id {
+				switch {
+				case connection.RemoteInstance != nil && connection.RemoteInstance.Name == instance.Name:
+				case connection.RemoteInstance == nil:
+				default:
+					continue
+				}
 				i.addClient(connection.Instance.OwnerId, connection.Status(), "to", connection)
 			}
 		}

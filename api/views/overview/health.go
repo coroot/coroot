@@ -142,14 +142,11 @@ func renderHealth(w *model.World) []*ApplicationStatus {
 		upstreams := map[model.ApplicationId]bool{}
 		for _, i := range app.Instances {
 			for _, u := range i.Upstreams {
-				if u.RemoteInstance == nil || u.IsObsolete() {
+				upstream := u.RemoteApplication
+				if upstream == nil || u.IsObsolete() {
 					continue
 				}
-				if _, seen := upstreams[u.RemoteInstance.OwnerId]; seen {
-					continue
-				}
-				upstream := w.GetApplication(u.RemoteInstance.OwnerId)
-				if upstream == nil {
+				if _, seen := upstreams[u.RemoteApplication.Id]; seen {
 					continue
 				}
 				if app.Id == upstream.Id {
