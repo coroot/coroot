@@ -48,16 +48,16 @@ func renderServiceMap(w *model.World) []*Application {
 				continue
 			}
 			for _, u := range i.Upstreams {
-				if u.IsObsolete() || u.RemoteInstance == nil || u.RemoteInstance.OwnerId == app.Id {
+				if u.IsObsolete() || u.RemoteApplication == nil || u.RemoteApplication == a {
 					continue
 				}
 				status := u.Status()
-				s := upstreams[u.RemoteInstance.OwnerId]
+				s := upstreams[u.RemoteApplication.Id]
 				if status >= s.status {
 					s.status = status
 				}
 				s.connections = append(s.connections, u)
-				upstreams[u.RemoteInstance.OwnerId] = s
+				upstreams[u.RemoteApplication.Id] = s
 			}
 		}
 		for _, d := range a.Downstreams {

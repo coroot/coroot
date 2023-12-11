@@ -313,14 +313,14 @@ svg {
     overflow: visible;
 }
 .arrow {
-    stroke-width: 1;
-    stroke-opacity: 0.7;
+    stroke-width: 1.5;
+    stroke-opacity: 0.8;
 }
 .arrow.hi {
     stroke-opacity: 1;
 }
 .arrow.lo {
-    stroke-opacity: 0.1;
+    stroke-opacity: 0.3;
 }
 .arrow.ok {
     stroke: green;
@@ -334,7 +334,6 @@ svg {
 .arrow.critical {
     stroke: red;
     stroke-dasharray: 4;
-    stroke-width: 2;
     fill: red;
 }
 .arrow.unknown {

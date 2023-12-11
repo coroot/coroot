@@ -33,11 +33,11 @@ func (a *appAuditor) network() {
 				if u.Service != nil {
 					dest += " (" + u.Service.Name + ")"
 				}
-				if u.RemoteInstance != nil {
-					if u.RemoteInstance.OwnerId == a.app.Id {
+				if u.RemoteApplication != nil {
+					if u.RemoteInstance != nil && u.RemoteApplication == a.app {
 						dest = u.RemoteInstance.Name
 					} else {
-						dest = u.RemoteInstance.OwnerId.Name
+						dest = u.RemoteApplication.Id.Name
 					}
 				}
 				v := failedConnectionByDest[dest]
@@ -48,10 +48,7 @@ func (a *appAuditor) network() {
 				v.Add(u.FailedConnections)
 			}
 
-			if u.RemoteInstance == nil {
-				continue
-			}
-			upstreamApp := a.w.GetApplication(u.RemoteInstance.OwnerId)
+			upstreamApp := u.RemoteApplication
 			if upstreamApp == nil {
 				continue
 			}
@@ -71,7 +68,7 @@ func (a *appAuditor) network() {
 				summary.retransmissions = append(summary.retransmissions, u.Retransmissions)
 			}
 
-			if dependencyMap != nil && instance.Node != nil {
+			if dependencyMap != nil && instance.Node != nil && !u.IsEmpty() {
 				linkStatus := model.UNKNOWN
 				if !instance.IsObsolete() && !u.IsObsolete() {
 					linkStatus = u.Status()
@@ -82,23 +79,29 @@ func (a *appAuditor) network() {
 					}
 				}
 				dnName := "~unknown"
-				var dnCloud, dnRegion, dnAz string
+				var dnCloud, dnRegion, dnAz, dInstanceName, dInstanceId string
 
-				if u.RemoteInstance.Node != nil {
-					dnName = u.RemoteInstance.Node.GetName()
-					dnCloud = u.RemoteInstance.Node.CloudProvider.Value()
-					dnRegion = u.RemoteInstance.Node.Region.Value()
-					dnAz = u.RemoteInstance.Node.AvailabilityZone.Value()
-				}
-				dInstanceName := u.RemoteInstance.Name
-				if u.RemoteInstance.OwnerId.Kind == model.ApplicationKindExternalService && u.Service != nil {
-					dInstanceName += " (" + u.Service.Name + ")"
+				if u.RemoteInstance != nil {
+					dInstanceId = u.RemoteInstance.Name + "@" + u.RemoteInstance.NodeName()
+					if u.RemoteInstance.Node != nil {
+						dnName = u.RemoteInstance.Node.GetName()
+						dnCloud = u.RemoteInstance.Node.CloudProvider.Value()
+						dnRegion = u.RemoteInstance.Node.Region.Value()
+						dnAz = u.RemoteInstance.Node.AvailabilityZone.Value()
+					}
+					dInstanceName = u.RemoteInstance.Name
+					if u.RemoteInstance.OwnerId.Kind == model.ApplicationKindExternalService && u.Service != nil {
+						dInstanceName += " (" + u.Service.Name + ")"
+					}
+				} else {
+					dInstanceName = u.RemoteApplication.Id.Name + " (service)"
+					dInstanceId = dInstanceName
 				}
 				sn := instance.Node
 				dependencyMap.UpdateLink(
 					model.DependencyMapInstance{Id: instance.Name + "@" + instance.NodeName(), Name: instance.Name, Obsolete: instance.IsObsolete()},
 					model.DependencyMapNode{Name: sn.GetName(), Provider: sn.CloudProvider.Value(), Region: sn.Region.Value(), AZ: sn.AvailabilityZone.Value()},
-					model.DependencyMapInstance{Id: u.RemoteInstance.Name + "@" + u.RemoteInstance.NodeName(), Name: dInstanceName, Obsolete: u.IsObsolete()},
+					model.DependencyMapInstance{Id: dInstanceId, Name: dInstanceName, Obsolete: u.IsObsolete()},
 					model.DependencyMapNode{Name: dnName, Provider: dnCloud, Region: dnRegion, AZ: dnAz},
 					linkStatus,
 				)

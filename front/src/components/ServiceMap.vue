@@ -26,7 +26,7 @@
 
                 <template v-for="a in arrows">
                     <path v-if="a.dd" :d="a.dd" class="arrow" :class="a.status" />
-                    <path :d="a.d" class="arrow" :class="a.status" :stroke-opacity="a.hi ? 1 : 0.3" marker-end="url(#arrow)"/>
+                    <path :d="a.d" class="arrow" :class="a.status" :stroke-opacity="a.hi ? 1 : 0.7" marker-end="url(#arrow)"/>
                 </template>
             </svg>
             <template v-for="a in arrows">
@@ -313,12 +313,13 @@ svg {
 .arrow.warning {
     stroke: #FF8F00;
     stroke-dasharray: 4;
+    stroke-width: 1.5;
     fill: #FF8F00;
 }
 .arrow.critical {
     stroke: red;
     stroke-dasharray: 4;
-    stroke-width: 2;
+    stroke-width: 1.5;
     fill: red;
 }
 

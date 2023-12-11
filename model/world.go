@@ -19,10 +19,16 @@ type World struct {
 
 	CheckConfigs CheckConfigs
 
-	Nodes        []*Node
-	Applications map[ApplicationId]*Application
+	Nodes           []*Node
+	Applications    map[ApplicationId]*Application
+	appsByNsAndName map[nsAndName]*Application
 
 	IntegrationStatus IntegrationStatus
+}
+
+type nsAndName struct {
+	ns   string
+	name string
 }
 
 func NewWorld(from, to timeseries.Time, step timeseries.Duration) *World {
@@ -34,6 +40,16 @@ func NewWorld(from, to timeseries.Time, step timeseries.Duration) *World {
 
 func (w *World) GetApplication(id ApplicationId) *Application {
 	return w.Applications[id]
+}
+
+func (w *World) GetApplicationByNsAndName(ns, name string) *Application {
+	if w.appsByNsAndName == nil {
+		w.appsByNsAndName = map[nsAndName]*Application{}
+		for id, app := range w.Applications {
+			w.appsByNsAndName[nsAndName{ns: id.Namespace, name: id.Name}] = app
+		}
+	}
+	return w.appsByNsAndName[nsAndName{ns: ns, name: name}]
 }
 
 func (w *World) GetOrCreateApplication(id ApplicationId) *Application {
