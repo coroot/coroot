@@ -11,7 +11,6 @@ import (
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 	promModel "github.com/prometheus/common/model"
-	"io/ioutil"
 	"k8s.io/klog"
 	"math"
 	"os"
@@ -253,7 +252,7 @@ func (c *Cache) writeChunk(projectId db.ProjectId, queryHash string, from timese
 	if dir == "" {
 		dir = "."
 	}
-	f, err := ioutil.TempFile(dir, file)
+	f, err := os.CreateTemp(dir, file)
 	if err != nil {
 		return err
 	}

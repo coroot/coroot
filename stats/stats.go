@@ -15,7 +15,7 @@ import (
 	"github.com/coroot/coroot/utils"
 	"github.com/prometheus/procfs"
 	"github.com/pyroscope-io/godeltaprof"
-	"io/ioutil"
+	"io"
 	"k8s.io/klog"
 	"net/http"
 	"runtime/pprof"
@@ -128,7 +128,7 @@ func NewCollector(instanceUuid, version string, db *db.DB, cache *cache.Cache, p
 		heapProfiler: godeltaprof.NewHeapProfiler(),
 	}
 
-	if err := c.heapProfiler.Profile(ioutil.Discard); err != nil {
+	if err := c.heapProfiler.Profile(io.Discard); err != nil {
 		klog.Warningln(err)
 	}
 

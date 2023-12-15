@@ -8,7 +8,7 @@ import (
 	"github.com/coroot/coroot/prom"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/prometheus/client_golang/prometheus"
-	"io/ioutil"
+	"os"
 	"k8s.io/klog"
 	"path"
 	"strings"
@@ -121,7 +121,7 @@ func (c *Cache) Updates() <-chan db.ProjectId {
 
 func (c *Cache) initCacheIndexFromDir() error {
 	t := time.Now()
-	files, err := ioutil.ReadDir(c.cfg.Path)
+	files, err := os.ReadDir(c.cfg.Path)
 	if err != nil {
 		return err
 	}
@@ -131,7 +131,7 @@ func (c *Cache) initCacheIndexFromDir() error {
 		}
 		projectId := f.Name()
 		projectDir := path.Join(c.cfg.Path, projectId)
-		projFiles, err := ioutil.ReadDir(projectDir)
+		projFiles, err := os.ReadDir(projectDir)
 		if err != nil {
 			return err
 		}
