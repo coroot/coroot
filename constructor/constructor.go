@@ -339,6 +339,9 @@ func joinDBClusterComponents(w *model.World) {
 				instance.ClusterComponent = app
 			}
 			cluster.Instances = append(cluster.Instances, app.Instances...)
+			for _, d := range app.Downstreams {
+				d.RemoteApplication = cluster
+			}
 			cluster.Downstreams = append(cluster.Downstreams, app.Downstreams...)
 			delete(w.Applications, id)
 		}
