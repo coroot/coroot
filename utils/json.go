@@ -3,7 +3,7 @@ package utils
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"k8s.io/klog"
 	"net/http"
 )
@@ -19,7 +19,7 @@ func WriteJson(w http.ResponseWriter, v any) {
 }
 
 func ReadJson(r *http.Request, dest any) error {
-	if body, err := ioutil.ReadAll(r.Body); err != nil {
+	if body, err := io.ReadAll(r.Body); err != nil {
 		return fmt.Errorf(`failed to read body: %w`, err)
 	} else if err := json.Unmarshal(body, dest); err != nil {
 		return fmt.Errorf("failed to unmarshal body: %w", err)
