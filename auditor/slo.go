@@ -189,7 +189,9 @@ func requestsChart(app *model.Application, report *model.AuditReport, p *db.Proj
 		}
 	}
 	if cfg := p.Settings.Integrations.Clickhouse; cfg != nil && cfg.TracingEnabled() {
-		hm.DrillDownLink = model.NewRouterLink("tracing").SetParam("report", model.AuditReportTracing)
+		hm.DrillDownLink = model.NewRouterLink("tracing", "application").
+			SetParam("id", app.Id).
+			SetParam("report", model.AuditReportTracing)
 	}
 }
 
@@ -230,7 +232,7 @@ func clientRequests(app *model.Application, report *model.AuditReport) {
 		if clientsByName[id.Name] > 1 {
 			client.Value += " (ns: " + id.Namespace + ")"
 		}
-		client.Link = model.NewRouterLink(id.Name).SetRoute("application").SetParam("id", id)
+		client.Link = model.NewRouterLink(id.Name, "application").SetParam("id", id)
 		client.SetUnit(strings.Join(s.protocols.Items(), ", "))
 
 		chart := model.NewTableCell().SetChart(s.rps)

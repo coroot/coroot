@@ -21,7 +21,7 @@ func renderNodes(w *model.World) *model.Table {
 		}
 
 		node := model.NewTableCell(name).SetMaxWidth(30)
-		node.Link = model.NewRouterLink(name).SetRoute("node").SetParam("name", name)
+		node.Link = model.NewRouterLink(name, "node").SetParam("name", name)
 		for _, t := range getNodeTags(n) {
 			node.AddTag(t)
 		}

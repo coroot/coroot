@@ -36,13 +36,8 @@ type RouterLink struct {
 	Hash   string         `json:"hash,omitempty"`
 }
 
-func NewRouterLink(title string) *RouterLink {
-	return &RouterLink{Title: title}
-}
-
-func (l *RouterLink) SetRoute(v string) *RouterLink {
-	l.Route = v
-	return l
+func NewRouterLink(title string, route string) *RouterLink {
+	return &RouterLink{Title: title, Route: route}
 }
 
 func (l *RouterLink) SetParam(k string, v any) *RouterLink {
