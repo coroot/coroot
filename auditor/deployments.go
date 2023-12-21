@@ -23,7 +23,10 @@ func (a *appAuditor) deployments() {
 		ds := statuses[i]
 		version := model.NewTableCell().SetStatus(ds.Status, ds.Deployment.Version()).AddTag("age: %s", utils.FormatDuration(ds.Lifetime, 1))
 		from, to := ds.Deployment.StartedAt.Add(-30*timeseries.Minute), ds.Deployment.StartedAt.Add(30*timeseries.Minute)
-		version.Link = model.NewRouterLink(ds.Deployment.Version()).SetParam("report", model.AuditReportInstances).SetArg("from", from).SetArg("to", to)
+		version.Link = model.NewRouterLink(ds.Deployment.Version(), "application").
+			SetParam("report", model.AuditReportInstances).
+			SetArg("from", from).SetArg("to", to).
+			SetParam("id", a.app.Id)
 		deployed := model.NewTableCell(utils.FormatDuration(now.Sub(ds.Deployment.StartedAt), 1) + " ago")
 
 		summary := model.NewTableCell()

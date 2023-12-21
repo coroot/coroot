@@ -96,7 +96,10 @@ func (a *appAuditor) cpu(ncs nodeConsumersByNode) {
 
 	if a.p.Settings.Integrations.Pyroscope != nil && usageChart != nil {
 		for _, ch := range usageChart.Charts {
-			ch.DrillDownLink = model.NewRouterLink("profile").SetParam("report", model.AuditReportProfiling).SetArg("profile", profiling.TypeCPU)
+			ch.DrillDownLink = model.NewRouterLink("profile", "application").
+				SetParam("id", a.app.Id).
+				SetParam("report", model.AuditReportProfiling).
+				SetArg("profile", profiling.TypeCPU)
 		}
 	}
 

@@ -81,7 +81,10 @@ func (a *appAuditor) memory(ncs nodeConsumersByNode) {
 
 	if a.p.Settings.Integrations.Pyroscope != nil && usageChart != nil {
 		for _, ch := range usageChart.Charts {
-			ch.DrillDownLink = model.NewRouterLink("profile").SetParam("report", model.AuditReportProfiling).SetArg("profile", profiling.TypeMemory)
+			ch.DrillDownLink = model.NewRouterLink("profile", "application").
+				SetParam("id", a.app.Id).
+				SetParam("report", model.AuditReportProfiling).
+				SetArg("profile", profiling.TypeMemory)
 		}
 	}
 

@@ -34,7 +34,7 @@ func renderDeployments(w *model.World) []*Deployment {
 		for _, ds := range statuses {
 			from, to := ds.Deployment.StartedAt.Add(-30*timeseries.Minute), ds.Deployment.StartedAt.Add(30*timeseries.Minute)
 			link := func() *model.RouterLink {
-				return model.NewRouterLink("").SetRoute("application").SetParam("id", app.Id).SetArg("from", from).SetArg("to", to)
+				return model.NewRouterLink("", "application").SetParam("id", app.Id).SetArg("from", from).SetArg("to", to)
 			}
 			d := &Deployment{
 				Application: Application{Id: app.Id, Category: app.Category},
