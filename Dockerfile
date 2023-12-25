@@ -1,8 +1,7 @@
 FROM golang:1.18-buster AS backend-builder
 RUN apt update && apt install -y liblz4-dev
 WORKDIR /tmp/src
-COPY go.mod .
-COPY go.sum .
+COPY go.mod go.sum .
 RUN go mod download
 COPY . .
 ARG VERSION=unknown
@@ -18,8 +17,8 @@ COPY ./front .
 RUN npx vue-cli-service build --dest=static src/main.js
 
 
-FROM debian:buster
-RUN apt update && apt install -y ca-certificates && apt clean
+FROM alpine:3.19
+RUN apk add --no-cache ca-certificates
 
 WORKDIR /opt/coroot
 COPY --from=backend-builder /go/bin/coroot /opt/coroot/coroot
