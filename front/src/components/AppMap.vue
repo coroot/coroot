@@ -9,7 +9,7 @@
                     <router-link :to="{name: 'application', params: {id: app.id}, query: $utils.contextQuery()}" class="name">
                         <AppHealth :app="app"/>
                     </router-link>
-                    <Labels v-if="!hideLabels(map.clients)" :labels="app.labels" class="d-none d-sm-block ml-4" />
+                    <Labels v-if="!hideLabels(map.clients)" :labels="app.labels" class="d-none d-sm-block label" />
                 </div>
             </div>
         </div>
@@ -20,7 +20,7 @@
                     <span class="name">
                         <AppHealth :app="map.application"/>
                     </span>
-                    <Labels :labels="map.application.labels" class="d-none d-sm-block ml-4" />
+                    <Labels :labels="map.application.labels" class="d-none d-sm-block label" />
                 </div>
                 <div v-if="map.instances && map.instances.length" class="instances">
                     <div v-for="i in map.instances" class="instance" :ref="'instance:'+i.id"
@@ -48,7 +48,7 @@
                     <router-link :to="{name: 'application', params: {id: app.id}, query: $utils.contextQuery()}" class="name">
                         <AppHealth :app="app"/>
                     </router-link>
-                    <Labels v-if="!hideLabels(map.dependencies)" :labels="app.labels" class="d-none d-sm-block ml-4" />
+                    <Labels v-if="!hideLabels(map.dependencies)" :labels="app.labels" class="d-none d-sm-block label" />
                 </div>
             </div>
         </div>
@@ -293,6 +293,10 @@ export default {
     max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.label {
+    margin-left: 14px;
 }
 
 .instance .name {

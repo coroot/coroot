@@ -13,7 +13,7 @@
                         <router-link :to="{name: 'application', params: {id: a.id}, query: $utils.contextQuery()}" class="name">
                             <AppHealth :app="a"/>
                         </router-link>
-                        <Labels v-if="!hideLabels" :labels="a.labels" class="d-none d-sm-block ml-4" />
+                        <Labels v-if="!hideLabels" :labels="a.labels" class="d-none d-sm-block label" />
                     </span>
                 </div>
             </div>
@@ -297,6 +297,11 @@ export default {
     overflow: hidden;
     text-overflow: ellipsis;
 }
+
+.label {
+    margin-left: 14px;
+}
+
 svg {
     position: absolute;
     top: 0;

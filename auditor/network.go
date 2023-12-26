@@ -138,6 +138,6 @@ func (a *appAuditor) network() {
 		}
 	}
 	if !seenConnections {
-		rttCheck.SetStatus(model.UNKNOWN, "no data")
+		a.delReport(model.AuditReportNetwork)
 	}
 }

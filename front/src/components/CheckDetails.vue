@@ -6,7 +6,7 @@
             {{check.message}}
         </template>
         <template v-else>ok</template>
-        <div class="grey--text ml-4">
+        <div class="grey--text condition">
             <span>Condition: </span>
             <span>{{condition.head}}</span>
             <a @click="$emit('configure')">{{threshold}}</a>
@@ -50,4 +50,7 @@ export default {
 </script>
 
 <style scoped>
+.condition {
+    margin-left: 14px;
+}
 </style>

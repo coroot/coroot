@@ -28,7 +28,7 @@
 
 <style scoped>
 .wrapper {
-    padding-right: 6px;
+    padding-right: 4px;
 }
 .wrapper.absolute {
     position: absolute;
