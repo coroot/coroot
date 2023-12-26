@@ -64,7 +64,7 @@
             <router-link :to="link(id, 'Storage')" class="value" :class="param.status">{{param.value || '–'}}</router-link>
         </template>
         <template #item.network="{item: {id, network: param}}">
-            <router-link :to="link(id, 'Network')" class="value" :class="param.status">{{param.value || '–'}}</router-link>
+            <router-link :to="link(id, 'Net')" class="value" :class="param.status">{{param.value || '–'}}</router-link>
         </template>
         <template #item.logs="{item: {id, logs: param}}">
             <router-link :to="link(id, 'Logs', {query: JSON.stringify({source: 'agent', view: 'patterns'})})">

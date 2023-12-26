@@ -94,7 +94,6 @@ func (a *appAuditor) storage() {
 		}
 	}
 	if !seenVolumes {
-		ioCheck.SetStatus(model.UNKNOWN, "no volumes found")
-		spaceCheck.SetStatus(model.UNKNOWN, "no volumes found")
+		a.delReport(model.AuditReportStorage)
 	}
 }

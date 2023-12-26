@@ -70,6 +70,15 @@ func (a *appAuditor) addReport(name model.AuditReportName) *model.AuditReport {
 	return r
 }
 
+func (a *appAuditor) delReport(name model.AuditReportName) {
+	for i, r := range a.reports {
+		if r.Name == name {
+			a.reports = append(a.reports[:i], a.reports[i+1:]...)
+			return
+		}
+	}
+}
+
 func (a *appAuditor) enrichWidgets(widgets []*model.Widget, events []*model.ApplicationEvent) []*model.Widget {
 	annotations := model.EventsToAnnotations(events, a.w.Ctx)
 	var res []*model.Widget
