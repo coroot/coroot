@@ -172,6 +172,17 @@ var QUERIES = map[string]string{
 	"mongodb_up":                     `mongodb_up`,
 	"mongodb_members_self":           `mongodb_members_self`,
 	"mongodb_rs_optimes_lastApplied": `timestamp(mongodb_rs_optimes_lastAppliedWallTime) - mongodb_rs_optimes_lastAppliedWallTime/1000`,
+
+	"container_dotnet_info":                              `container_dotnet_info`,
+	"container_dotnet_memory_allocated_bytes_total":      `rate(container_dotnet_memory_allocated_bytes_total[$RANGE])`,
+	"container_dotnet_exceptions_total":                  `rate(container_dotnet_exceptions_total[$RANGE])`,
+	"container_dotnet_memory_heap_size_bytes":            `container_dotnet_memory_heap_size_bytes`,
+	"container_dotnet_gc_count_total":                    `rate(container_dotnet_gc_count_total[$RANGE])`,
+	"container_dotnet_heap_fragmentation_percent":        `container_dotnet_heap_fragmentation_percent`,
+	"container_dotnet_monitor_lock_contentions_total":    `rate(container_dotnet_monitor_lock_contentions_total[$RANGE])`,
+	"container_dotnet_thread_pool_completed_items_total": `rate(container_dotnet_thread_pool_completed_items_total[$RANGE])`,
+	"container_dotnet_thread_pool_queue_length":          `container_dotnet_thread_pool_queue_length`,
+	"container_dotnet_thread_pool_size":                  `container_dotnet_thread_pool_size`,
 }
 
 var RecordingRules = map[string]func(p *db.Project, w *model.World) []model.MetricValues{

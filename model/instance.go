@@ -33,7 +33,8 @@ type Instance struct {
 	Rds         *Rds
 	Elasticache *Elasticache
 
-	Jvms map[string]*Jvm
+	Jvms   map[string]*Jvm
+	DotNet map[string]*DotNet
 
 	Volumes []*Volume
 
