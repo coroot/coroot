@@ -194,6 +194,11 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues, pjs
 			case "container_jvm_info", "container_jvm_heap_size_bytes", "container_jvm_heap_used_bytes",
 				"container_jvm_gc_time_seconds", "container_jvm_safepoint_sync_time_seconds", "container_jvm_safepoint_time_seconds":
 				jvm(instance, queryName, m)
+			case "container_dotnet_info", "container_dotnet_memory_allocated_bytes_total", "container_dotnet_exceptions_total",
+				"container_dotnet_memory_heap_size_bytes", "container_dotnet_gc_count_total", "container_dotnet_heap_fragmentation_percent",
+				"container_dotnet_monitor_lock_contentions_total", "container_dotnet_thread_pool_completed_items_total",
+				"container_dotnet_thread_pool_queue_length", "container_dotnet_thread_pool_size":
+				dotnet(instance, queryName, m)
 			}
 		}
 	}

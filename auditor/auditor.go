@@ -36,6 +36,7 @@ func Audit(w *model.World, p *db.Project, generateDetailedReportFor *model.Appli
 		a.redis()
 		a.mongodb()
 		a.jvm()
+		a.dotnet()
 		a.logs()
 		a.deployments()
 

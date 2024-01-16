@@ -82,6 +82,7 @@ var Checks = struct {
 	LogErrors              CheckConfig
 	JvmAvailability        CheckConfig
 	JvmSafepointTime       CheckConfig
+	DotNetAvailability     CheckConfig
 }{
 	index: map[CheckId]*CheckConfig{},
 
@@ -267,6 +268,13 @@ var Checks = struct {
 		MessageTemplate:         `high safepoint time on {{.Items "JVM instance"}}`,
 		ConditionFormatTemplate: "the time application have been stopped for safepoint operations > <threshold>",
 		Unit:                    CheckUnitSecond,
+	},
+	DotNetAvailability: CheckConfig{
+		Type:                    CheckTypeItemBased,
+		Title:                   ".NET runtime availability",
+		DefaultThreshold:        0,
+		MessageTemplate:         `{{.ItemsWithToBe ".NET instance"}} unavailable`,
+		ConditionFormatTemplate: "the number of unavailable .NET instances > <threshold>",
 	},
 }
 

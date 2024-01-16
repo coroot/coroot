@@ -20,6 +20,7 @@ const (
 	AuditReportRedis       AuditReportName = "Redis"
 	AuditReportMongodb     AuditReportName = "Mongodb"
 	AuditReportJvm         AuditReportName = "JVM"
+	AuditReportDotNet      AuditReportName = ".NET"
 	AuditReportNode        AuditReportName = "Node"
 	AuditReportDeployments AuditReportName = "Deployments"
 	AuditReportProfiling   AuditReportName = "Profiling"
