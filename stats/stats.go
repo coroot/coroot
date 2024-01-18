@@ -313,7 +313,7 @@ func (c *Collector) collect() Stats {
 			klog.Errorln(err)
 			continue
 		}
-		ctr := constructor.New(c.db, p, cacheClient, c.pricing, constructor.OptionLoadPerConnectionHistograms)
+		ctr := constructor.New(c.db, p, cacheClient, c.pricing)
 		w, err := ctr.LoadWorld(context.Background(), from, to, step, &stats.Performance.Constructor)
 		if err != nil {
 			klog.Errorln("failed to load world:", err)
