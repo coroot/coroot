@@ -1,11 +1,11 @@
-package trace
+package tracing
 
 import (
 	"context"
 	"fmt"
+	"github.com/coroot/coroot/clickhouse"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
-	"github.com/coroot/coroot/tracing"
 	"github.com/coroot/coroot/utils"
 	"k8s.io/klog"
 	"net/url"
@@ -30,9 +30,9 @@ type View struct {
 }
 
 type Source struct {
-	Type     tracing.Source `json:"type"`
-	Name     string         `json:"name"`
-	Selected bool           `json:"selected"`
+	Type     model.TraceSource `json:"type"`
+	Name     string            `json:"name"`
+	Selected bool              `json:"selected"`
 }
 
 type Service struct {
@@ -71,13 +71,13 @@ type Event struct {
 	Attributes map[string]string `json:"attributes"`
 }
 
-func Render(ctx context.Context, clickhouse *tracing.ClickhouseClient, app *model.Application, appSettings *db.ApplicationSettings, q url.Values, w *model.World) *View {
-	if clickhouse == nil {
+func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, appSettings *db.ApplicationSettings, q url.Values, w *model.World) *View {
+	if ch == nil {
 		return nil
 	}
 
 	parts := strings.Split(q.Get("trace")+"::::", ":")
-	source, traceId, tsRange, durRange := tracing.Source(parts[0]), parts[1], parts[2], parts[3]
+	source, traceId, tsRange, durRange := model.TraceSource(parts[0]), parts[1], parts[2], parts[3]
 	parts = strings.Split(tsRange+"-", "-")
 	tsFrom := utils.ParseTime(w.Ctx.To, parts[0], w.Ctx.From)
 	tsTo := utils.ParseTime(w.Ctx.To, parts[1], w.Ctx.To)
@@ -109,7 +109,7 @@ func Render(ctx context.Context, clickhouse *tracing.ClickhouseClient, app *mode
 		v.Heatmap.AddSeries("errors", "errors", failed, "", "err")
 	}
 
-	services, err := clickhouse.GetServicesFromTraces(ctx)
+	services, err := ch.GetServicesFromTraces(ctx)
 	if err != nil {
 		klog.Errorln(err)
 		v.Status = model.WARNING
@@ -120,7 +120,7 @@ func Render(ctx context.Context, clickhouse *tracing.ClickhouseClient, app *mode
 	if appSettings != nil && appSettings.Tracing != nil {
 		service = appSettings.Tracing.Service
 	} else {
-		service = tracing.GuessService(services, app.Id)
+		service = model.GuessService(services, app.Id)
 	}
 	var serviceFound, ebpfSpansFound bool
 	for _, s := range services {
@@ -138,10 +138,10 @@ func Render(ctx context.Context, clickhouse *tracing.ClickhouseClient, app *mode
 	})
 
 	if serviceFound {
-		v.Sources = append(v.Sources, Source{Type: tracing.SourceOtel, Name: "OpenTelemetry"})
+		v.Sources = append(v.Sources, Source{Type: model.TraceSourceOtel, Name: "OpenTelemetry"})
 	}
 	if ebpfSpansFound {
-		v.Sources = append(v.Sources, Source{Type: tracing.SourceAgent, Name: "OpenTelemetry (eBPF)"})
+		v.Sources = append(v.Sources, Source{Type: model.TraceSourceAgent, Name: "OpenTelemetry (eBPF)"})
 	}
 
 	if !serviceFound && !ebpfSpansFound {
@@ -150,14 +150,14 @@ func Render(ctx context.Context, clickhouse *tracing.ClickhouseClient, app *mode
 		return v
 	}
 
-	var spans []*tracing.Span
+	var spans []*model.TraceSpan
 	if traceId != "" {
-		spans, err = clickhouse.GetSpansByTraceId(ctx, traceId)
+		spans, err = ch.GetSpansByTraceId(ctx, traceId)
 	} else {
 		switch {
 
-		case (source == "" || source == tracing.SourceOtel) && serviceFound:
-			source = tracing.SourceOtel
+		case (source == "" || source == model.TraceSourceOtel) && serviceFound:
+			source = model.TraceSourceOtel
 			var monitoringPodIps []string
 			for _, a := range w.Applications {
 				if a.Category.Monitoring() {
@@ -170,10 +170,10 @@ func Render(ctx context.Context, clickhouse *tracing.ClickhouseClient, app *mode
 					}
 				}
 			}
-			spans, err = clickhouse.GetSpansByServiceName(ctx, service, monitoringPodIps, tsFrom, tsTo, durFrom, durTo, errors, limit)
+			spans, err = ch.GetSpansByServiceName(ctx, service, monitoringPodIps, tsFrom, tsTo, durFrom, durTo, errors, limit)
 
-		case (source == "" || source == tracing.SourceAgent) && ebpfSpansFound:
-			source = tracing.SourceAgent
+		case (source == "" || source == model.TraceSourceAgent) && ebpfSpansFound:
+			source = model.TraceSourceAgent
 			var listens []model.Listen
 			for _, i := range app.Instances {
 				for l := range i.TcpListens {
@@ -190,7 +190,7 @@ func Render(ctx context.Context, clickhouse *tracing.ClickhouseClient, app *mode
 					}
 				}
 			}
-			spans, err = clickhouse.GetInboundSpans(ctx, listens, monitoringContainerIds, tsFrom, tsTo, durFrom, durTo, errors, limit)
+			spans, err = ch.GetInboundSpans(ctx, listens, monitoringContainerIds, tsFrom, tsTo, durFrom, durTo, errors, limit)
 		}
 
 		if len(spans) == limit {
@@ -198,9 +198,9 @@ func Render(ctx context.Context, clickhouse *tracing.ClickhouseClient, app *mode
 		}
 	}
 	switch source {
-	case tracing.SourceOtel:
+	case model.TraceSourceOtel:
 		v.Message = fmt.Sprintf("Using traces of <i>%s</i>", service)
-	case tracing.SourceAgent:
+	case model.TraceSourceAgent:
 		v.Message = "Using data gathered by the eBPF tracer"
 	}
 	for i := range v.Sources {
@@ -216,7 +216,7 @@ func Render(ctx context.Context, clickhouse *tracing.ClickhouseClient, app *mode
 
 	clients := map[spanKey]string{}
 	if traceId == "" {
-		clients = getClients(ctx, clickhouse, source, spans, w)
+		clients = getClients(ctx, ch, source, spans, w)
 	}
 
 	v.Status = model.OK
@@ -247,17 +247,17 @@ func Render(ctx context.Context, clickhouse *tracing.ClickhouseClient, app *mode
 	return v
 }
 
-func getService(typ tracing.Source, s *tracing.Span, app *model.Application) string {
+func getService(typ model.TraceSource, s *model.TraceSpan, app *model.Application) string {
 	switch typ {
-	case tracing.SourceOtel:
+	case model.TraceSourceOtel:
 		return s.ServiceName
-	case tracing.SourceAgent:
+	case model.TraceSourceAgent:
 		return app.Id.Name
 	}
 	return ""
 }
 
-func getStatus(s *tracing.Span) Status {
+func getStatus(s *model.TraceSpan) Status {
 	res := Status{Message: "OK"}
 	if s.StatusCode == "STATUS_CODE_ERROR" {
 		res.Error = true
@@ -272,7 +272,7 @@ func getStatus(s *tracing.Span) Status {
 	return res
 }
 
-func getDetails(s *tracing.Span) Details {
+func getDetails(s *model.TraceSpan) Details {
 	var res Details
 	switch {
 	case s.Attributes["http.url"] != "":
@@ -296,11 +296,11 @@ type spanKey struct {
 	traceId, spanId string
 }
 
-func getClients(ctx context.Context, cl *tracing.ClickhouseClient, typ tracing.Source, spans []*tracing.Span, w *model.World) map[spanKey]string {
+func getClients(ctx context.Context, ch *clickhouse.Client, typ model.TraceSource, spans []*model.TraceSpan, w *model.World) map[spanKey]string {
 	res := map[spanKey]string{}
 	switch typ {
-	case tracing.SourceOtel:
-		parentSpans, err := cl.GetParentSpans(ctx, spans)
+	case model.TraceSourceOtel:
+		parentSpans, err := ch.GetParentSpans(ctx, spans)
 		if err != nil {
 			klog.Errorln(err)
 			return nil
@@ -331,7 +331,7 @@ func getClients(ctx context.Context, cl *tracing.ClickhouseClient, typ tracing.S
 				res[k] = addr
 			}
 		}
-	case tracing.SourceAgent:
+	case model.TraceSourceAgent:
 		appByContainerId := map[string]string{}
 		for _, app := range w.Applications {
 			for _, i := range app.Instances {

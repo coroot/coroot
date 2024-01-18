@@ -6,7 +6,7 @@
     <Table v-if="w.table" :header="w.table.header" :rows="w.table.rows" />
     <Heatmap v-if="w.heatmap" :heatmap="w.heatmap" :selection="heatmapSelection" @select="heatmapDrillDown" />
     <Logs v-if="w.logs" :appId="w.logs.application_id" :check="w.logs.check" />
-    <Profile v-if="w.profile" :appId="w.profile.application_id" />
+    <Profiling v-if="w.profiling" :appId="w.profiling.application_id" />
     <Tracing v-if="w.tracing" :appId="w.tracing.application_id" />
 </div>
 </template>
@@ -18,7 +18,7 @@ import DependencyMap from "./DependencyMap";
 import Table from "./Table";
 import Heatmap from "./Heatmap";
 import Logs from "../views/Logs";
-import Profile from "../views/Profile";
+import Profiling from "../views/Profiling";
 import Tracing from "../views/Tracing";
 
 export default {
@@ -26,7 +26,7 @@ export default {
         w: Object,
     },
 
-    components: {Chart, ChartGroup, DependencyMap, Table, Heatmap, Logs, Profile, Tracing},
+    components: {Chart, ChartGroup, DependencyMap, Table, Heatmap, Logs, Profiling, Tracing},
 
     computed: {
         chartSelection() {

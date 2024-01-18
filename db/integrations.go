@@ -10,7 +10,6 @@ type IntegrationType string
 
 const (
 	IntegrationTypePrometheus IntegrationType = "prometheus"
-	IntegrationTypePyroscope  IntegrationType = "pyroscope"
 	IntegrationTypeClickhouse IntegrationType = "clickhouse"
 	IntegrationTypeSlack      IntegrationType = "slack"
 	IntegrationTypePagerduty  IntegrationType = "pagerduty"
@@ -26,7 +25,6 @@ type Integrations struct {
 	Teams     *IntegrationTeams     `json:"teams,omitempty"`
 	Opsgenie  *IntegrationOpsgenie  `json:"opsgenie,omitempty"`
 
-	Pyroscope  *IntegrationPyroscope  `json:"pyroscope,omitempty"`
 	Clickhouse *IntegrationClickhouse `json:"clickhouse,omitempty"`
 }
 
@@ -90,22 +88,16 @@ type IntegrationsPrometheus struct {
 	CustomHeaders   []utils.Header      `json:"custom_headers"`
 }
 
-type IntegrationPyroscope struct {
-	Url           string           `json:"url"`
-	TlsSkipVerify bool             `json:"tls_skip_verify"`
-	BasicAuth     *utils.BasicAuth `json:"basic_auth,omitempty"`
-	ApiKey        string           `json:"api_key"`
-}
-
 type IntegrationClickhouse struct {
-	Protocol      string          `json:"protocol"`
-	Addr          string          `json:"addr"`
-	Auth          utils.BasicAuth `json:"auth"`
-	Database      string          `json:"database"`
-	TlsEnable     bool            `json:"tls_enable"`
-	TlsSkipVerify bool            `json:"tls_skip_verify"`
-	TracesTable   string          `json:"traces_table"`
-	LogsTable     string          `json:"logs_table"`
+	Protocol          string          `json:"protocol"`
+	Addr              string          `json:"addr"`
+	Auth              utils.BasicAuth `json:"auth"`
+	Database          string          `json:"database"`
+	TlsEnable         bool            `json:"tls_enable"`
+	TlsSkipVerify     bool            `json:"tls_skip_verify"`
+	TracesTable       string          `json:"traces_table"`
+	LogsTable         string          `json:"logs_table"`
+	ProfilingDisabled bool            `json:"profiling_disabled"`
 }
 
 func (c *IntegrationClickhouse) TracingEnabled() bool {
@@ -114,6 +106,10 @@ func (c *IntegrationClickhouse) TracingEnabled() bool {
 
 func (c *IntegrationClickhouse) LogsEnabled() bool {
 	return c.LogsTable != ""
+}
+
+func (c *IntegrationClickhouse) ProfilingEnabled() bool {
+	return !c.ProfilingDisabled
 }
 
 type IntegrationSlack struct {

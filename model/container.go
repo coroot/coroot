@@ -72,3 +72,23 @@ func ContainerIdToServiceName(containerId string) string {
 	}
 	return containerId
 }
+
+func GuessService(services []string, appId ApplicationId) string {
+	for _, s := range services {
+		if s == appId.Name {
+			return s
+		}
+	}
+	for _, s := range services {
+		parts := strings.Split(s, "/")
+		switch {
+		case len(parts) == 4 && parts[1] == "k8s" && parts[2] == appId.Namespace && parts[3] == appId.Name:
+		case len(parts) == 3 && parts[1] == "system.slice" && parts[2] == appId.Name+".service":
+		case strings.HasSuffix(s, appId.Name):
+		default:
+			continue
+		}
+		return s
+	}
+	return ""
+}

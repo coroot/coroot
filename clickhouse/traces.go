@@ -1,4 +1,4 @@
-package tracing
+package clickhouse
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-func (c *ClickhouseClient) GetServicesFromTraces(ctx context.Context) ([]string, error) {
+func (c *Client) GetServicesFromTraces(ctx context.Context) ([]string, error) {
 	q := "SELECT DISTINCT ServiceName"
 	q += " FROM " + c.config.TracesTable
 	rows, err := c.conn.Query(ctx, q)
@@ -32,7 +32,7 @@ func (c *ClickhouseClient) GetServicesFromTraces(ctx context.Context) ([]string,
 	return res, nil
 }
 
-func (c *ClickhouseClient) GetSpansByServiceName(ctx context.Context, name string, ignoredPeerAddrs []string, tsFrom, tsTo timeseries.Time, durFrom, durTo time.Duration, errors bool, limit int) ([]*Span, error) {
+func (c *Client) GetSpansByServiceName(ctx context.Context, name string, ignoredPeerAddrs []string, tsFrom, tsTo timeseries.Time, durFrom, durTo time.Duration, errors bool, limit int) ([]*model.TraceSpan, error) {
 	return c.getSpans(ctx, tsFrom, tsTo, durFrom, durTo, errors, "", "", limit,
 		`
 			ServiceName = @name AND 
@@ -44,7 +44,7 @@ func (c *ClickhouseClient) GetSpansByServiceName(ctx context.Context, name strin
 	)
 }
 
-func (c *ClickhouseClient) GetInboundSpans(ctx context.Context, listens []model.Listen, ignoredContainerIds []string, tsFrom, tsTo timeseries.Time, durFrom, durTo time.Duration, errors bool, limit int) ([]*Span, error) {
+func (c *Client) GetInboundSpans(ctx context.Context, listens []model.Listen, ignoredContainerIds []string, tsFrom, tsTo timeseries.Time, durFrom, durTo time.Duration, errors bool, limit int) ([]*model.TraceSpan, error) {
 	if len(listens) == 0 {
 		return nil, nil
 	}
@@ -70,7 +70,7 @@ func (c *ClickhouseClient) GetInboundSpans(ctx context.Context, listens []model.
 	)
 }
 
-func (c *ClickhouseClient) GetParentSpans(ctx context.Context, spans []*Span) ([]*Span, error) {
+func (c *Client) GetParentSpans(ctx context.Context, spans []*model.TraceSpan) ([]*model.TraceSpan, error) {
 	traceIds := utils.NewStringSet()
 	var ids []clickhouse.GroupSet
 	for _, s := range spans {
@@ -91,7 +91,7 @@ func (c *ClickhouseClient) GetParentSpans(ctx context.Context, spans []*Span) ([
 	)
 }
 
-func (c *ClickhouseClient) GetSpansByTraceId(ctx context.Context, traceId string) ([]*Span, error) {
+func (c *Client) GetSpansByTraceId(ctx context.Context, traceId string) ([]*model.TraceSpan, error) {
 	return c.getSpans(ctx, 0, 0, 0, 0, false,
 		"(SELECT min(Start) FROM otel_traces_trace_id_ts WHERE TraceId = @traceId) as start, (SELECT max(End) + 1 FROM otel_traces_trace_id_ts WHERE TraceId = @traceId) as end",
 		"Timestamp", 0,
@@ -100,7 +100,7 @@ func (c *ClickhouseClient) GetSpansByTraceId(ctx context.Context, traceId string
 	)
 }
 
-func (c *ClickhouseClient) getSpans(ctx context.Context, tsFrom, tsTo timeseries.Time, durFrom, durTo time.Duration, errors bool, with string, orderBy string, limit int, filter string, filterArgs ...any) ([]*Span, error) {
+func (c *Client) getSpans(ctx context.Context, tsFrom, tsTo timeseries.Time, durFrom, durTo time.Duration, errors bool, with string, orderBy string, limit int, filter string, filterArgs ...any) ([]*model.TraceSpan, error) {
 	var filters []string
 	var args []any
 
@@ -161,9 +161,9 @@ func (c *ClickhouseClient) getSpans(ctx context.Context, tsFrom, tsTo timeseries
 	defer func() {
 		_ = rows.Close()
 	}()
-	var res []*Span
+	var res []*model.TraceSpan
 	for rows.Next() {
-		var s Span
+		var s model.TraceSpan
 		var eventsTimestamp []time.Time
 		var eventsName []string
 		var eventsAttributes []map[string]string
@@ -174,7 +174,7 @@ func (c *ClickhouseClient) getSpans(ctx context.Context, tsFrom, tsTo timeseries
 		}
 		l := len(eventsTimestamp)
 		if l > 0 && l == len(eventsName) && l == len(eventsAttributes) {
-			s.Events = make([]SpanEvent, l, l)
+			s.Events = make([]model.TraceSpanEvent, l, l)
 			for i := range eventsTimestamp {
 				s.Events[i].Timestamp = eventsTimestamp[i]
 				s.Events[i].Name = eventsName[i]

@@ -10,7 +10,7 @@
                 </span>
             </template>
             <span v-else-if="loading">Loading...</span>
-            <v-progress-circular v-if="loading" indeterminate size="16" width="2" color="green" />
+            <v-progress-circular v-if="loading" indeterminate size="16" width="2" color="green" class="ml-1" />
         </div>
         <v-select v-if="view.sources" :value="source" :items="sources" @change="changeSource" outlined hide-details dense :menu-props="{offsetY: true}" class="mt-4" />
         <div class="grey--text my-3">

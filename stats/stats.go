@@ -47,11 +47,11 @@ type Stats struct {
 		InspectionOverrides       map[model.CheckId]InspectionOverride `json:"inspection_overrides"`
 		ApplicationCategories     int                                  `json:"application_categories"`
 		AlertingIntegrations      *utils.StringSet                     `json:"alerting_integrations"`
-		Pyroscope                 bool                                 `json:"pyroscope"`
 		CloudCosts                bool                                 `json:"cloud_costs"`
 		Clickhouse                bool                                 `json:"clickhouse"`
 		Tracing                   bool                                 `json:"tracing"`
 		Logs                      bool                                 `json:"logs"`
+		Profiles                  bool                                 `json:"profiles"`
 	} `json:"integration"`
 	Stack struct {
 		Clouds               *utils.StringSet `json:"clouds"`
@@ -262,13 +262,11 @@ func (c *Collector) collect() Stats {
 		if stats.Integration.PrometheusRefreshInterval == 0 || int(p.Prometheus.RefreshInterval) < stats.Integration.PrometheusRefreshInterval {
 			stats.Integration.PrometheusRefreshInterval = int(p.Prometheus.RefreshInterval)
 		}
-		if cfg := p.Settings.Integrations.Pyroscope; cfg != nil && cfg.Url != "" {
-			stats.Integration.Pyroscope = true
-		}
 		if cfg := p.Settings.Integrations.Clickhouse; cfg != nil && cfg.Addr != "" {
 			stats.Integration.Clickhouse = true
 			stats.Integration.Tracing = cfg.TracingEnabled()
 			stats.Integration.Logs = cfg.LogsEnabled()
+			stats.Integration.Profiles = cfg.ProfilingEnabled()
 		}
 
 		for category := range p.Settings.ApplicationCategories {

@@ -302,13 +302,12 @@ export default {
             control.style.left = cl + 'px';
         },
         setSelectionMode(m) {
-            const s = {mode: m, from: this.selection.from, to: this.selection.to};
+            let {from, to} = this.selection;
             if (!m) {
-                s.mode = this.selection.mode;
-                s.from = 0;
-                s.to = 0;
+                from = 0;
+                to = 0;
             }
-            this.emitSelection(s);
+            this.emitSelection({mode: m, from, to});
         },
         emitSelection(s) {
             const selection = {...this.selection, ...s};

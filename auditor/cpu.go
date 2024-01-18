@@ -2,7 +2,6 @@ package auditor
 
 import (
 	"github.com/coroot/coroot/model"
-	"github.com/coroot/coroot/profiling"
 	"github.com/coroot/coroot/timeseries"
 )
 
@@ -94,12 +93,12 @@ func (a *appAuditor) cpu(ncs nodeConsumersByNode) {
 		}
 	}
 
-	if a.p.Settings.Integrations.Pyroscope != nil && usageChart != nil {
+	if cfg := a.p.Settings.Integrations.Clickhouse; cfg != nil && cfg.ProfilingEnabled() && usageChart != nil {
 		for _, ch := range usageChart.Charts {
 			ch.DrillDownLink = model.NewRouterLink("profile", "application").
 				SetParam("id", a.app.Id).
 				SetParam("report", model.AuditReportProfiling).
-				SetArg("profile", profiling.TypeCPU)
+				SetArg("query", model.ProfileCategoryCPU)
 		}
 	}
 

@@ -34,6 +34,12 @@
                         <v-icon>mdi-information-outline</v-icon>
                     </a>
                 </div>
+                <div class="d-flex align-center">
+                    <v-checkbox v-model="profiles" label="Use Clickhouse as a datasource for profiles" hide-details class="mt-5" />
+                    <a href="https://coroot.com/docs/coroot-community-edition/profiling" target="_blank" class="mt-5 ml-1">
+                        <v-icon>mdi-information-outline</v-icon>
+                    </a>
+                </div>
             </div>
             <div class="flex-grow-1">
                 <v-text-field v-model="form.traces_table" :disabled="!traces" label="traces table name" prepend-inner-icon="mdi-table" outlined dense hide-details single-line class="mt-2" />
@@ -41,7 +47,7 @@
             </div>
         </div>
 
-        <v-checkbox v-model="form.tls_enable" label="Enable TLS" hide-details class="my-2" />
+        <v-checkbox v-model="form.tls_enable" label="Enable TLS" hide-details class="my-3" />
         <v-checkbox v-model="form.tls_skip_verify" :disabled="!form.tls_enable" label="Skip TLS verify" hide-details class="my-2" />
 
         <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
@@ -70,6 +76,7 @@ export default {
 
             traces: true,
             logs: true,
+            profiles: true,
         };
     },
 
@@ -90,6 +97,9 @@ export default {
         logs(v) {
             this.form.logs_table = v ? 'otel_logs' : '';
         },
+        profiles(v) {
+            this.form.profiling_disabled = !v;
+        },
     },
 
     methods: {
@@ -106,6 +116,7 @@ export default {
                 this.saved = JSON.parse(JSON.stringify(this.form));
                 this.traces = !!this.form.traces_table;
                 this.logs = !!this.form.logs_table;
+                this.profiles = !this.form.profiling_disabled;
             });
         },
         save() {

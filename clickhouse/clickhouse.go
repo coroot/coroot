@@ -1,4 +1,4 @@
-package tracing
+package clickhouse
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-type ClickhouseClientConfig struct {
+type ClientConfig struct {
 	Protocol      string
 	Address       string
 	TlsEnable     bool
@@ -22,8 +22,8 @@ type ClickhouseClientConfig struct {
 	DialContext   func(ctx context.Context, addr string) (net.Conn, error)
 }
 
-func NewClickhouseClientConfig(address, user, password string) ClickhouseClientConfig {
-	return ClickhouseClientConfig{
+func NewClientConfig(address, user, password string) ClientConfig {
+	return ClientConfig{
 		Protocol:    "native",
 		Address:     address,
 		User:        user,
@@ -34,12 +34,12 @@ func NewClickhouseClientConfig(address, user, password string) ClickhouseClientC
 	}
 }
 
-type ClickhouseClient struct {
-	config ClickhouseClientConfig
+type Client struct {
+	config ClientConfig
 	conn   clickhouse.Conn
 }
 
-func NewClickhouseClient(config ClickhouseClientConfig) (*ClickhouseClient, error) {
+func NewClient(config ClientConfig) (*Client, error) {
 	opts := &clickhouse.Options{
 		Addr: []string{config.Address},
 		Auth: clickhouse.Auth{
@@ -49,6 +49,10 @@ func NewClickhouseClient(config ClickhouseClientConfig) (*ClickhouseClient, erro
 		},
 		Compression: &clickhouse.Compression{Method: clickhouse.CompressionLZ4},
 		DialTimeout: 10 * time.Second,
+		//Debug:       true,
+		//Debugf: func(format string, v ...interface{}) {
+		//	klog.Infof(format, v...)
+		//},
 	}
 	switch config.Protocol {
 	case "native":
@@ -70,9 +74,9 @@ func NewClickhouseClient(config ClickhouseClientConfig) (*ClickhouseClient, erro
 	if err != nil {
 		return nil, err
 	}
-	return &ClickhouseClient{config: config, conn: conn}, nil
+	return &Client{config: config, conn: conn}, nil
 }
 
-func (c *ClickhouseClient) Ping(ctx context.Context) error {
+func (c *Client) Ping(ctx context.Context) error {
 	return c.conn.Ping(ctx)
 }

@@ -8,7 +8,7 @@ import (
 )
 
 type ApplicationSettings struct {
-	Pyroscope *ApplicationSettingsPyroscope `json:"pyroscope,omitempty"`
+	Profiling *ApplicationSettingsProfiling `json:"profiling,omitempty"`
 	Tracing   *ApplicationSettingsTracing   `json:"tracing,omitempty"`
 	Logs      *ApplicationSettingsLogs      `json:"logs,omitempty"`
 }
@@ -23,8 +23,8 @@ func (s *ApplicationSettings) Migrate(m *Migrator) error {
 	)`)
 }
 
-type ApplicationSettingsPyroscope struct {
-	Application string `json:"application"`
+type ApplicationSettingsProfiling struct {
+	Service string `json:"service"`
 }
 
 type ApplicationSettingsTracing struct {
@@ -62,8 +62,8 @@ func (db *DB) SaveApplicationSetting(projectId ProjectId, appId model.Applicatio
 		as = &ApplicationSettings{}
 	}
 	switch v := s.(type) {
-	case *ApplicationSettingsPyroscope:
-		as.Pyroscope = v
+	case *ApplicationSettingsProfiling:
+		as.Profiling = v
 	case *ApplicationSettingsTracing:
 		as.Tracing = v
 	case *ApplicationSettingsLogs:

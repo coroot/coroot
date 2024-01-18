@@ -37,16 +37,6 @@
         <IntegrationPrometheus :projectId="projectId" />
     </template>
 
-    <template v-if="tab === 'profiling'">
-        <h1 class="text-h5 my-5">
-            Pyroscope integration
-            <a href="https://coroot.com/docs/coroot-community-edition/profiling/pyroscope" target="_blank">
-                <v-icon>mdi-information-outline</v-icon>
-            </a>
-        </h1>
-        <IntegrationPyroscope />
-    </template>
-
     <template v-if="tab === 'clickhouse'">
         <h1 class="text-h5 my-5">
             Clickhouse integration
@@ -103,13 +93,11 @@ import ProjectCheckConfigs from "./ProjectCheckConfigs.vue";
 import ApplicationCategories from "./ApplicationCategories.vue";
 import Integrations from "./Integrations.vue";
 import IntegrationPrometheus from "./IntegrationPrometheus.vue";
-import IntegrationPyroscope from "./IntegrationPyroscope.vue";
 import IntegrationClickhouse from "./IntegrationClickhouse.vue";
 
 const tabs = [
     {id: undefined, name: 'General'},
     {id: 'prometheus', name: 'Prometheus'},
-    {id: 'profiling', name: 'Profiling'},
     {id: 'clickhouse', name: 'Clickhouse'},
     {id: 'inspections', name: 'Inspections'},
     {id: 'categories', name: 'Categories'},
@@ -123,7 +111,7 @@ export default {
         tab: String,
     },
 
-    components: {IntegrationPrometheus, IntegrationPyroscope, IntegrationClickhouse, ProjectCheckConfigs, ProjectSettings, ProjectStatus, ProjectDelete, ApplicationCategories, Integrations},
+    components: {IntegrationPrometheus, IntegrationClickhouse, ProjectCheckConfigs, ProjectSettings, ProjectStatus, ProjectDelete, ApplicationCategories, Integrations},
 
     mounted() {
         if (!this.tabs.find(t => t.id === this.tab)) {

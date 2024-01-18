@@ -23,12 +23,11 @@ require (
 	github.com/prometheus/procfs v0.8.0
 	github.com/prometheus/prometheus v0.42.0
 	github.com/pyroscope-io/godeltaprof v0.1.0
-	github.com/pyroscope-io/pyroscope v0.37.1
 	github.com/sirupsen/logrus v1.8.1
 	github.com/slack-go/slack v0.11.3
 	github.com/stretchr/testify v1.8.2
 	github.com/xhit/go-str2duration/v2 v2.0.0
-	golang.org/x/exp v0.0.0-20230129154200-a960b3787bd2
+	golang.org/x/exp v0.0.0-20230213192124-5e25df0256eb
 	golang.org/x/net v0.7.0
 	gonum.org/v1/gonum v0.12.0
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
@@ -65,7 +64,6 @@ require (
 	github.com/prometheus/client_model v0.3.0 // indirect
 	github.com/segmentio/asm v1.2.0 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
-	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	go.opentelemetry.io/otel v1.14.0 // indirect
 	go.opentelemetry.io/otel/trace v1.14.0 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
