@@ -5,15 +5,15 @@
             <Led :status="view.status" />
             <template v-if="view.message">
                 <span v-html="view.message" />
-                <span v-if="view.status !== 'warning'">
+                <span v-if="view.status !== 'warning' && view.services && view.services.length">
                     (<a @click="configure = true">configure</a>)
                 </span>
             </template>
             <span v-else>Loading...</span>
-            <v-progress-circular v-if="loading" indeterminate size="16" width="2" color="green" />
+            <v-progress-circular v-if="loading" indeterminate size="16" width="2" color="green" class="ml-1" />
         </div>
-        <v-select v-if="view.profiles" :value="profile" :items="profiles" @change="setProfile" outlined hide-details dense :menu-props="{offsetY: true}" class="mt-4" />
-        <div class="grey--text mt-3">
+        <v-select v-if="view.profiles" :value="query.type" :items="profiles" @change="changeType" outlined hide-details dense :menu-props="{offsetY: true}" class="mt-4" />
+        <div v-if="view.chart" class="grey--text mt-3">
             <v-icon size="20" style="vertical-align: baseline">mdi-lightbulb-on-outline</v-icon>
             Select a chart area to zoom in or compare with the previous period
         </div>
@@ -26,22 +26,22 @@
         <div v-else-if="loadingError" class="pa-3 text-center red--text">
             {{loadingError}}
         </div>
-        <div ref="flamegraph" class="pt-0"></div>
+        <FlameGraph v-if="view.profile" :profile="view.profile" class="pt-2"/>
     </div>
 
     <v-dialog v-model="configure" max-width="800">
         <v-card class="pa-5">
             <div class="d-flex align-center font-weight-medium mb-4">
-                Link "{{ $utils.appId(appId).name }}" with a Pyroscope application
+                Link "{{ $utils.appId(appId).name }}" with an application
                 <v-spacer />
                 <v-btn icon @click="configure = false"><v-icon>mdi-close</v-icon></v-btn>
             </div>
 
-            <div class="subtitle-1">Choose a corresponding Pyroscope application:</div>
-            <v-select v-model="form.application" :items="applications" outlined dense hide-details :menu-props="{offsetY: true}" clearable />
+            <div class="subtitle-1">Choose a corresponding application:</div>
+            <v-select v-model="form.service" :items="services" outlined dense hide-details :menu-props="{offsetY: true}" clearable />
 
             <div class="grey--text my-4">
-                To configure an application to send profiles to Pyroscope follow the <a href="https://coroot.com/docs/coroot-community-edition/profiling/pyroscope" target="_blank">documentation</a>.
+                To configure an application to send profiles follow the <a href="https://coroot.com/docs/coroot-community-edition/profiling" target="_blank">documentation</a>.
             </div>
 
             <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text class="my-3">
@@ -58,19 +58,16 @@
 </template>
 
 <script>
-import '@pyroscope/flamegraph/dist/index.css';
-import {FlamegraphRenderer} from '@pyroscope/flamegraph';
 import Chart from "../components/Chart.vue";
 import Led from "../components/Led.vue";
-import React from "react";
-import ReactDom from "react-dom/client";
+import FlameGraph from "../components/FlameGraph.vue";
 
 export default {
     props: {
         appId: String,
     },
 
-    components: {Chart, Led},
+    components: {Chart, Led, FlameGraph},
 
     data() {
         return {
@@ -78,37 +75,35 @@ export default {
             loadingError: '',
 
             view: {},
+            selection: {mode: 'diff'},
 
             configure: false,
             form: {
-                application: null,
+                service: null,
             },
             saved: '',
             saving: false,
             error: '',
             message: '',
-
-            flamegraph: null,
         }
     },
 
     computed: {
         profiles() {
             return (this.view.profiles || []).map(p => ({
-                text: p.type + (p.name ? ` (${p.name})` : ''),
-                value: {type: p.type, name: p.name},
+                text: p.name || p.type,
+                value: p.type,
             }));
         },
-        profile() {
-            const p = this.getProfile();
-            return {type: p.type, name: p.name};
+        query() {
+            try {
+                return JSON.parse(this.$route.query.query || '');
+            } catch {
+                return {type: '', from: 0, to: 0, mode: ''}
+            }
         },
-        selection() {
-            const p = this.getProfile();
-            return {mode: p.mode, from: p.from, to: p.to};
-        },
-        applications() {
-            return (this.view.applications || []).map(a => a.name);
+        services() {
+            return (this.view.services || []).map(a => a.name);
         },
         changed() {
             return !!this.form && this.saved !== JSON.stringify(this.form);
@@ -116,57 +111,29 @@ export default {
     },
 
     mounted() {
-        this.flamegraph = ReactDom.createRoot(this.$refs.flamegraph);
         this.get();
         this.$events.watch(this, this.get, 'refresh');
     },
 
-    beforeDestroy() {
-        this.flamegraph.unmount();
-    },
-
-    watch: {
-        '$route.query.profile'() {
+    methods: {
+        changeType(t) {
+            this.setQuery({type: t});
             this.get();
         },
-        'view.profile'(v) {
-            if (!v) {
-                this.flamegraph.render(null);
-                return;
-            }
-            this.flamegraph.render(React.createElement(FlamegraphRenderer, {
-                profile: v,
-                onlyDisplay: 'flamegraph',
-                colorMode: 'light',
-            }));
-        }
-    },
-
-    methods: {
-        setSelection(e) {
-            this.setProfile({mode: e.selection.mode || 'diff', from: e.selection.from, to: e.selection.to}, e.ctx);
+        setSelection(s) {
+            const {mode, from, to} = s.selection;
+            this.selection = {mode: mode || 'diff', from, to};
+            this.setQuery({mode, from, to}, s.ctx);
+            this.get();
         },
-        getProfile() {
-            const parts = (this.$route.query.profile || '').split(':');
-            return {
-                type: parts[0] || '',
-                name: parts[1] || '',
-                mode: parts[2] || '',
-                from: Number(parts[3]) || 0,
-                to: Number(parts[4]) || 0,
-            };
-        },
-        setProfile(p, ctx) {
-            p = {...this.getProfile(), ...p};
-            const profile = `${p.type}:${p.name}:${p.mode}:${p.from}:${p.to}`;
-            if (this.$route.query.profile !== profile) {
-                this.$router.replace({query: {...this.$route.query, ...ctx, profile}}).catch(err => err);
-            }
+        setQuery(q, ctx) {
+            const query = JSON.stringify({...this.query, ...q});
+            this.$router.replace({query: {...this.$route.query, ...ctx, query}}).catch(err => err);
         },
         get() {
             this.loading = true;
             this.loadingError = '';
-            this.$api.getProfile(this.appId, this.$route.query.profile, (data, error) => {
+            this.$api.getProfile(this.appId, this.$route.query.query, (data, error) => {
                 this.loading = false;
                 const errMsg = 'Failed to load profile';
                 if (error) {
@@ -178,12 +145,11 @@ export default {
                     return;
                 }
                 this.view = data;
-                const application = (this.view.applications || []).find((a) => a.linked);
-                this.form.application = application ? application.name : null;
+                const service = (this.view.services || []).find(s => s.linked);
+                this.form.service = service ? service.name : null;
                 this.saved = JSON.stringify(this.form);
-                const profile = (this.view.profiles || []).find((p) => p.selected);
-                if (profile) {
-                    this.setProfile({type: profile.type, name: profile.name});
+                if (this.view.profile.type) {
+                    this.setQuery({type: this.view.profile.type});
                 }
             });
         },
@@ -210,10 +176,4 @@ export default {
 </script>
 
 <style scoped>
-* >>> [role=heading] {
-    color: var(--ps-neutral-2);
-}
-* >>> [data-testid=flamegraph-view] {
-    margin-right: 0;
-}
 </style>

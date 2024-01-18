@@ -14,7 +14,7 @@
                 </span>
             </template>
             <span v-else-if="loading">Loading...</span>
-            <v-progress-circular v-if="loading" indeterminate size="16" width="2" color="green" />
+            <v-progress-circular v-if="loading" indeterminate size="16" width="2" color="green" class="ml-1" />
         </div>
 
         <v-form v-if="configured" :disabled="disabled">

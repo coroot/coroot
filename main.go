@@ -41,7 +41,6 @@ func main() {
 	doNotCheckSLO := kingpin.Flag("do-not-check-slo", "don't check SLO compliance").Envar("DO_NOT_CHECK_SLO").Bool()
 	doNotCheckForDeployments := kingpin.Flag("do-not-check-for-deployments", "don't check for new deployments").Envar("DO_NOT_CHECK_FOR_DEPLOYMENTS").Bool()
 	doNotCheckForUpdates := kingpin.Flag("do-not-check-for-updates", "don't check for new versions").Envar("DO_NOT_CHECK_FOR_UPDATES").Bool()
-	bootstrapPyroscopeUrl := kingpin.Flag("bootstrap-pyroscope-url", "if set, Coroot will add a Pyroscope integration for the default project").Envar("BOOTSTRAP_PYROSCOPE_URL").String()
 	bootstrapClickhouseAddr := kingpin.Flag("bootstrap-clickhouse-address", "if set, Coroot will add a Clickhouse integration for the default project").Envar("BOOTSTRAP_CLICKHOUSE_ADDRESS").String()
 	bootstrapClickhouseUser := kingpin.Flag("bootstrap-clickhouse-user", "Clickhouse user").Envar("BOOTSTRAP_CLICKHOUSE_USER").Default("default").String()
 	bootstrapClickhousePassword := kingpin.Flag("bootstrap-clickhouse-password", "Clickhouse password").Envar("BOOTSTRAP_CLICKHOUSE_PASSWORD").String()
@@ -67,7 +66,6 @@ func main() {
 	}
 
 	bootstrapPrometheus(database, *bootstrapPrometheusUrl, *bootstrapRefreshInterval, *bootstrapPrometheusExtraSelector)
-	bootstrapPyroscope(database, *bootstrapPyroscopeUrl)
 	bootstrapClickhouse(database, *bootstrapClickhouseAddr, *bootstrapClickhouseUser, *bootstrapClickhousePassword, *bootstrapClickhouseDatabase, *bootstrapClickhouseTracesTable, *bootstrapClickhouseLogsTable)
 
 	cacheConfig := cache.Config{
@@ -237,23 +235,6 @@ func bootstrapPrometheus(database *db.DB, url string, refreshInterval time.Durat
 		ExtraSelector:   extraSelector,
 	}
 	if err := database.SaveProjectIntegration(p, db.IntegrationTypePrometheus); err != nil {
-		klog.Exitln(err)
-	}
-}
-
-func bootstrapPyroscope(database *db.DB, url string) {
-	if url == "" {
-		return
-	}
-	p := getOrCreateDefaultProject(database)
-	if p == nil {
-		return
-	}
-	if p.Settings.Integrations.Pyroscope != nil {
-		return
-	}
-	p.Settings.Integrations.Pyroscope = &db.IntegrationPyroscope{Url: url}
-	if err := database.SaveProjectIntegration(p, db.IntegrationTypePyroscope); err != nil {
 		klog.Exitln(err)
 	}
 }

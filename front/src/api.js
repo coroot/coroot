@@ -154,8 +154,8 @@ export default class Api {
         this.post(this.projectPath(`app/${appId}/check/${checkId}/config`), form, cb);
     }
 
-    getProfile(appId, profile, cb) {
-        this.get(this.projectPath(`app/${appId}/profile`), {profile}, cb);
+    getProfile(appId, query, cb) {
+        this.get(this.projectPath(`app/${appId}/profile`), {query}, cb);
     }
 
     saveProfileSettings(appId, form, cb) {

@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/coroot/coroot/clickhouse"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
-	"github.com/coroot/coroot/tracing"
 	"github.com/coroot/coroot/utils"
 	"github.com/coroot/logparser"
 	"golang.org/x/exp/maps"
@@ -25,20 +25,20 @@ const (
 )
 
 type View struct {
-	Status     model.Status     `json:"status"`
-	Message    string           `json:"message"`
-	Sources    []tracing.Source `json:"sources"`
-	Source     tracing.Source   `json:"source"`
-	Services   []string         `json:"services"`
-	Service    string           `json:"service"`
-	Views      []string         `json:"views"`
-	View       string           `json:"view"`
-	Severities []string         `json:"severities"`
-	Severity   []string         `json:"severity"`
-	Chart      *model.Chart     `json:"chart"`
-	Entries    []Entry          `json:"entries"`
-	Patterns   []*Pattern       `json:"patterns"`
-	Limit      int              `json:"limit"`
+	Status     model.Status      `json:"status"`
+	Message    string            `json:"message"`
+	Sources    []model.LogSource `json:"sources"`
+	Source     model.LogSource   `json:"source"`
+	Services   []string          `json:"services"`
+	Service    string            `json:"service"`
+	Views      []string          `json:"views"`
+	View       string            `json:"view"`
+	Severities []string          `json:"severities"`
+	Severity   []string          `json:"severity"`
+	Chart      *model.Chart      `json:"chart"`
+	Entries    []Entry           `json:"entries"`
+	Patterns   []*Pattern        `json:"patterns"`
+	Limit      int               `json:"limit"`
 }
 
 type Pattern struct {
@@ -62,15 +62,15 @@ type Entry struct {
 }
 
 type Query struct {
-	Source   tracing.Source `json:"source"`
-	View     string         `json:"view"`
-	Severity []string       `json:"severity"`
-	Search   string         `json:"search"`
-	Hash     string         `json:"hash"`
-	Limit    int            `json:"limit"`
+	Source   model.LogSource `json:"source"`
+	View     string          `json:"view"`
+	Severity []string        `json:"severity"`
+	Search   string          `json:"search"`
+	Hash     string          `json:"hash"`
+	Limit    int             `json:"limit"`
 }
 
-func Render(ctx context.Context, clickhouse *tracing.ClickhouseClient, app *model.Application, appSettings *db.ApplicationSettings, query url.Values, w *model.World) *View {
+func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, appSettings *db.ApplicationSettings, query url.Values, w *model.World) *View {
 	v := &View{}
 
 	var q Query
@@ -85,7 +85,7 @@ func Render(ctx context.Context, clickhouse *tracing.ClickhouseClient, app *mode
 
 	patterns := getPatterns(app)
 
-	if clickhouse == nil {
+	if ch == nil {
 		v.Status = model.UNKNOWN
 		v.Message = "Clickhouse integration is not configured"
 		v.View = viewPatterns
@@ -98,8 +98,8 @@ func Render(ctx context.Context, clickhouse *tracing.ClickhouseClient, app *mode
 		v.View = viewMessages
 	}
 	v.Views = append(v.Views, viewMessages)
-	renderEntries(ctx, v, clickhouse, app, appSettings, w, q, patterns)
-	if v.Source == tracing.SourceAgent {
+	renderEntries(ctx, v, ch, app, appSettings, w, q, patterns)
+	if v.Source == model.LogSourceAgent {
 		v.Views = append(v.Views, viewPatterns)
 		if v.View == viewPatterns {
 			renderPatterns(v, patterns, w.Ctx)
@@ -108,8 +108,8 @@ func Render(ctx context.Context, clickhouse *tracing.ClickhouseClient, app *mode
 	return v
 }
 
-func renderEntries(ctx context.Context, v *View, clickhouse *tracing.ClickhouseClient, app *model.Application, appSettings *db.ApplicationSettings, w *model.World, q Query, patterns map[string]map[string]*Pattern) {
-	services, err := clickhouse.GetServicesFromLogs(ctx)
+func renderEntries(ctx context.Context, v *View, ch *clickhouse.Client, app *model.Application, appSettings *db.ApplicationSettings, w *model.World, q Query, patterns map[string]map[string]*Pattern) {
+	services, err := ch.GetServicesFromLogs(ctx)
 	if err != nil {
 		klog.Errorln(err)
 		v.Status = model.WARNING
@@ -121,16 +121,16 @@ func renderEntries(ctx context.Context, v *View, clickhouse *tracing.ClickhouseC
 	if appSettings != nil && appSettings.Logs != nil {
 		service = appSettings.Logs.Service
 	} else {
-		service = tracing.GuessService(maps.Keys(services), app.Id)
+		service = model.GuessService(maps.Keys(services), app.Id)
 	}
 	for s := range services {
 		if strings.HasPrefix(s, "/") {
-			v.Sources = append(v.Sources, tracing.SourceAgent)
+			v.Sources = append(v.Sources, model.LogSourceAgent)
 		} else {
 			v.Services = append(v.Services, s)
 			if s == service {
 				v.Service = s
-				v.Sources = append(v.Sources, tracing.SourceOtel)
+				v.Sources = append(v.Sources, model.LogSourceOtel)
 			}
 		}
 	}
@@ -145,29 +145,29 @@ func renderEntries(ctx context.Context, v *View, clickhouse *tracing.ClickhouseC
 	v.Source = q.Source
 	if v.Source == "" {
 		if v.Service != "" {
-			v.Source = tracing.SourceOtel
+			v.Source = model.LogSourceOtel
 		} else {
-			v.Source = tracing.SourceAgent
+			v.Source = model.LogSourceAgent
 		}
 	}
 	v.Severity = q.Severity
 
 	var histogram map[string]*timeseries.TimeSeries
-	var entries []*tracing.LogEntry
+	var entries []*model.LogEntry
 	switch v.Source {
-	case tracing.SourceOtel:
+	case model.LogSourceOtel:
 		v.Message = fmt.Sprintf("Using OpenTelemetry logs of <i>%s</i>", service)
 		v.Severities = services[v.Service]
 		if len(v.Severity) == 0 {
 			v.Severity = v.Severities
 		}
 		if v.View == viewMessages {
-			histogram, err = clickhouse.GetServiceLogsHistogram(ctx, w.Ctx.From, w.Ctx.To, w.Ctx.Step, service, v.Severity, q.Search)
+			histogram, err = ch.GetServiceLogsHistogram(ctx, w.Ctx.From, w.Ctx.To, w.Ctx.Step, service, v.Severity, q.Search)
 			if err == nil {
-				entries, err = clickhouse.GetServiceLogs(ctx, w.Ctx.From, w.Ctx.To, service, v.Severity, q.Search, q.Limit)
+				entries, err = ch.GetServiceLogs(ctx, w.Ctx.From, w.Ctx.To, service, v.Severity, q.Search, q.Limit)
 			}
 		}
-	case tracing.SourceAgent:
+	case model.LogSourceAgent:
 		v.Message = "Using container logs"
 		containers := map[string][]string{}
 		severities := utils.NewStringSet()
@@ -187,9 +187,9 @@ func renderEntries(ctx context.Context, v *View, clickhouse *tracing.ClickhouseC
 			if q.Hash != "" {
 				hashes = getSimilarHashes(patterns, q.Hash)
 			}
-			histogram, err = clickhouse.GetContainerLogsHistogram(ctx, w.Ctx.From, w.Ctx.To, w.Ctx.Step, containers, v.Severity, hashes, q.Search)
+			histogram, err = ch.GetContainerLogsHistogram(ctx, w.Ctx.From, w.Ctx.To, w.Ctx.Step, containers, v.Severity, hashes, q.Search)
 			if err == nil {
-				entries, err = clickhouse.GetContainerLogs(ctx, w.Ctx.From, w.Ctx.To, containers, v.Severity, hashes, q.Search, q.Limit)
+				entries, err = ch.GetContainerLogs(ctx, w.Ctx.From, w.Ctx.To, containers, v.Severity, hashes, q.Search, q.Limit)
 			}
 		}
 	}

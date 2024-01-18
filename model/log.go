@@ -3,6 +3,7 @@ package model
 import (
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/logparser"
+	"time"
 )
 
 type LogLevel string
@@ -17,6 +18,13 @@ func (s LogLevel) IsError() bool {
 	return s == LogLevelError || s == LogLevelCritical
 }
 
+type LogSource string
+
+const (
+	LogSourceOtel  LogSource = "otel"
+	LogSourceAgent LogSource = "agent"
+)
+
 type LogMessages struct {
 	Messages *timeseries.TimeSeries
 	Patterns map[string]*LogPattern
@@ -28,4 +36,13 @@ type LogPattern struct {
 	Sample    string
 	Multiline bool
 	Messages  *timeseries.TimeSeries
+}
+
+type LogEntry struct {
+	Timestamp          time.Time
+	Severity           string
+	Body               string
+	TraceId            string
+	LogAttributes      map[string]string
+	ResourceAttributes map[string]string
 }

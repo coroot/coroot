@@ -7,14 +7,13 @@ import (
 	"github.com/coroot/coroot/api/views"
 	"github.com/coroot/coroot/auditor"
 	"github.com/coroot/coroot/cache"
+	"github.com/coroot/coroot/clickhouse"
 	cloud_pricing "github.com/coroot/coroot/cloud-pricing"
 	"github.com/coroot/coroot/constructor"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
-	"github.com/coroot/coroot/profiling"
 	"github.com/coroot/coroot/prom"
 	"github.com/coroot/coroot/timeseries"
-	"github.com/coroot/coroot/tracing"
 	"github.com/coroot/coroot/utils"
 	"github.com/gorilla/mux"
 	"k8s.io/klog"
@@ -372,8 +371,8 @@ func (api *Api) App(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	auditor.Audit(world, project, app)
-	if cfg := project.Settings.Integrations.Pyroscope; cfg != nil {
-		app.AddReport(model.AuditReportProfiling, &model.Widget{Profile: &model.Profile{ApplicationId: app.Id}, Width: "100%"})
+	if cfg := project.Settings.Integrations.Clickhouse; cfg != nil && cfg.ProfilingEnabled() {
+		app.AddReport(model.AuditReportProfiling, &model.Widget{Profiling: &model.Profiling{ApplicationId: app.Id}, Width: "100%"})
 	}
 	if cfg := project.Settings.Integrations.Clickhouse; cfg != nil && cfg.TracingEnabled() {
 		app.AddReport(model.AuditReportTracing, &model.Widget{Tracing: &model.Tracing{ApplicationId: app.Id}, Width: "100%"})
@@ -509,14 +508,14 @@ func (api *Api) Profile(w http.ResponseWriter, r *http.Request) {
 		if api.readOnly {
 			return
 		}
-		var form forms.ApplicationSettingsPyroscopeForm
+		var form forms.ApplicationSettingsProfilingForm
 		if err := forms.ReadAndValidate(r, &form); err != nil {
 			klog.Warningln("bad request:", err)
 			http.Error(w, "invalid data", http.StatusBadRequest)
 			return
 		}
 		klog.Infoln(form)
-		if err := api.db.SaveApplicationSetting(projectId, appId, &form.ApplicationSettingsPyroscope); err != nil {
+		if err := api.db.SaveApplicationSetting(projectId, appId, &form.ApplicationSettingsProfiling); err != nil {
 			klog.Errorln(err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
@@ -546,20 +545,23 @@ func (api *Api) Profile(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
-	var pyroscope *profiling.PyroscopeClient
-	if cfg := project.Settings.Integrations.Pyroscope; cfg != nil {
-		config := profiling.NewPyroscopeClientConfig(cfg.Url)
-		config.ApiKey = cfg.ApiKey
-		config.BasicAuth = cfg.BasicAuth
+	var ch *clickhouse.Client
+	if cfg := project.Settings.Integrations.Clickhouse; cfg != nil && cfg.ProfilingEnabled() {
+		config := clickhouse.NewClientConfig(cfg.Addr, cfg.Auth.User, cfg.Auth.Password)
+		config.Protocol = cfg.Protocol
+		config.Database = cfg.Database
+		config.TracesTable = cfg.TracesTable
+		config.LogsTable = cfg.LogsTable
+		config.TlsEnable = cfg.TlsEnable
 		config.TlsSkipVerify = cfg.TlsSkipVerify
-		pyroscope, err = profiling.NewPyroscopeClient(config)
+		ch, err = clickhouse.NewClient(config)
 		if err != nil {
 			klog.Warningln(err)
 		}
 	}
 	q := r.URL.Query()
 	auditor.Audit(world, project, nil)
-	utils.WriteJson(w, withContext(project, cacheStatus, world, views.Profile(r.Context(), pyroscope, app, settings, q, world.Ctx)))
+	utils.WriteJson(w, withContext(project, cacheStatus, world, views.Profiling(r.Context(), ch, app, settings, q, world.Ctx)))
 }
 
 func (api *Api) Tracing(w http.ResponseWriter, r *http.Request) {
@@ -613,22 +615,22 @@ func (api *Api) Tracing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	q := r.URL.Query()
-	var clickhouse *tracing.ClickhouseClient
+	var ch *clickhouse.Client
 	if cfg := project.Settings.Integrations.Clickhouse; cfg != nil && cfg.TracingEnabled() {
-		config := tracing.NewClickhouseClientConfig(cfg.Addr, cfg.Auth.User, cfg.Auth.Password)
+		config := clickhouse.NewClientConfig(cfg.Addr, cfg.Auth.User, cfg.Auth.Password)
 		config.Protocol = cfg.Protocol
 		config.Database = cfg.Database
 		config.TracesTable = cfg.TracesTable
 		config.LogsTable = cfg.LogsTable
 		config.TlsEnable = cfg.TlsEnable
 		config.TlsSkipVerify = cfg.TlsSkipVerify
-		clickhouse, err = tracing.NewClickhouseClient(config)
+		ch, err = clickhouse.NewClient(config)
 		if err != nil {
 			klog.Warningln(err)
 		}
 	}
 	auditor.Audit(world, project, nil)
-	utils.WriteJson(w, withContext(project, cacheStatus, world, views.Tracing(r.Context(), clickhouse, app, settings, q, world)))
+	utils.WriteJson(w, withContext(project, cacheStatus, world, views.Tracing(r.Context(), ch, app, settings, q, world)))
 }
 
 func (api *Api) Logs(w http.ResponseWriter, r *http.Request) {
@@ -681,23 +683,23 @@ func (api *Api) Logs(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
-	var clickhouse *tracing.ClickhouseClient
+	var ch *clickhouse.Client
 	if cfg := project.Settings.Integrations.Clickhouse; cfg != nil && cfg.LogsEnabled() {
-		config := tracing.NewClickhouseClientConfig(cfg.Addr, cfg.Auth.User, cfg.Auth.Password)
+		config := clickhouse.NewClientConfig(cfg.Addr, cfg.Auth.User, cfg.Auth.Password)
 		config.Protocol = cfg.Protocol
 		config.Database = cfg.Database
 		config.TracesTable = cfg.TracesTable
 		config.LogsTable = cfg.LogsTable
 		config.TlsEnable = cfg.TlsEnable
 		config.TlsSkipVerify = cfg.TlsSkipVerify
-		clickhouse, err = tracing.NewClickhouseClient(config)
+		ch, err = clickhouse.NewClient(config)
 		if err != nil {
 			klog.Warningln(err)
 		}
 	}
 	auditor.Audit(world, project, nil)
 	q := r.URL.Query()
-	utils.WriteJson(w, withContext(project, cacheStatus, world, views.Logs(r.Context(), clickhouse, app, settings, q, world)))
+	utils.WriteJson(w, withContext(project, cacheStatus, world, views.Logs(r.Context(), ch, app, settings, q, world)))
 }
 
 func (api *Api) Node(w http.ResponseWriter, r *http.Request) {

@@ -7,9 +7,9 @@ type Widget struct {
 	DependencyMap *DependencyMap `json:"dependency_map,omitempty"`
 	Heatmap       *Heatmap       `json:"heatmap,omitempty"`
 
-	Logs    *Logs    `json:"logs,omitempty"`
-	Profile *Profile `json:"profile,omitempty"`
-	Tracing *Tracing `json:"tracing,omitempty"`
+	Logs      *Logs      `json:"logs,omitempty"`
+	Profiling *Profiling `json:"profiling,omitempty"`
+	Tracing   *Tracing   `json:"tracing,omitempty"`
 
 	Width string `json:"width,omitempty"`
 }
@@ -66,7 +66,7 @@ type Logs struct {
 	Check         *Check        `json:"check"`
 }
 
-type Profile struct {
+type Profiling struct {
 	ApplicationId ApplicationId `json:"application_id"`
 }
 

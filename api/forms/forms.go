@@ -3,12 +3,11 @@ package forms
 import (
 	"context"
 	"errors"
+	"github.com/coroot/coroot/clickhouse"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/notifications"
-	"github.com/coroot/coroot/profiling"
 	"github.com/coroot/coroot/prom"
-	"github.com/coroot/coroot/tracing"
 	"github.com/coroot/coroot/utils"
 	"net"
 	"net/http"
@@ -119,11 +118,11 @@ func (f *ApplicationCategoryForm) Valid() bool {
 	return true
 }
 
-type ApplicationSettingsPyroscopeForm struct {
-	db.ApplicationSettingsPyroscope
+type ApplicationSettingsProfilingForm struct {
+	db.ApplicationSettingsProfiling
 }
 
-func (f *ApplicationSettingsPyroscopeForm) Valid() bool {
+func (f *ApplicationSettingsProfilingForm) Valid() bool {
 	return true
 }
 
@@ -166,8 +165,6 @@ func NewIntegrationForm(t db.IntegrationType) IntegrationForm {
 	switch t {
 	case db.IntegrationTypePrometheus:
 		return &IntegrationFormPrometheus{}
-	case db.IntegrationTypePyroscope:
-		return &IntegrationFormPyroscope{}
 	case db.IntegrationTypeClickhouse:
 		return &IntegrationFormClickhouse{}
 	case db.IntegrationTypeSlack:
@@ -246,61 +243,6 @@ func (f *IntegrationFormPrometheus) Test(ctx context.Context, project *db.Projec
 	return nil
 }
 
-type IntegrationFormPyroscope struct {
-	db.IntegrationPyroscope
-}
-
-func (f *IntegrationFormPyroscope) Valid() bool {
-	if _, err := url.Parse(f.Url); err != nil {
-		return false
-	}
-	return true
-}
-
-func (f *IntegrationFormPyroscope) Get(project *db.Project, masked bool) {
-	cfg := project.Settings.Integrations.Pyroscope
-	if cfg == nil {
-		return
-	}
-	f.IntegrationPyroscope = *cfg
-	if masked {
-		f.Url = "http://<hidden>"
-		if f.ApiKey != "" {
-			f.ApiKey = "<api_key>"
-		}
-		if f.BasicAuth != nil {
-			f.BasicAuth.User = "<user>"
-			f.BasicAuth.Password = "<password>"
-		}
-	}
-}
-
-func (f *IntegrationFormPyroscope) Update(ctx context.Context, project *db.Project, clear bool) error {
-	cfg := &f.IntegrationPyroscope
-	if clear {
-		cfg = nil
-	} else {
-		if err := f.Test(ctx, project); err != nil {
-			return err
-		}
-	}
-	project.Settings.Integrations.Pyroscope = cfg
-	return nil
-}
-
-func (f *IntegrationFormPyroscope) Test(ctx context.Context, project *db.Project) error {
-	config := profiling.NewPyroscopeClientConfig(f.Url)
-	config.ApiKey = f.ApiKey
-	config.BasicAuth = f.BasicAuth
-	config.TlsSkipVerify = f.TlsSkipVerify
-	client, err := profiling.NewPyroscopeClient(config)
-	if err != nil {
-		return err
-	}
-	_, err = client.Metadata(ctx)
-	return err
-}
-
 type IntegrationFormClickhouse struct {
 	db.IntegrationClickhouse
 }
@@ -350,14 +292,14 @@ func (f *IntegrationFormClickhouse) Update(ctx context.Context, project *db.Proj
 }
 
 func (f *IntegrationFormClickhouse) Test(ctx context.Context, project *db.Project) error {
-	config := tracing.NewClickhouseClientConfig(f.Addr, f.Auth.User, f.Auth.Password)
+	config := clickhouse.NewClientConfig(f.Addr, f.Auth.User, f.Auth.Password)
 	config.Protocol = f.Protocol
 	config.Database = f.Database
 	config.TracesTable = f.TracesTable
 	config.LogsTable = f.LogsTable
 	config.TlsEnable = f.TlsEnable
 	config.TlsSkipVerify = f.TlsSkipVerify
-	client, err := tracing.NewClickhouseClient(config)
+	client, err := clickhouse.NewClient(config)
 	if err != nil {
 		return err
 	}

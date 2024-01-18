@@ -1,9 +1,10 @@
-package tracing
+package clickhouse
 
 import (
 	"context"
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 	"golang.org/x/exp/maps"
@@ -13,7 +14,7 @@ import (
 	"unicode"
 )
 
-func (c *ClickhouseClient) GetServicesFromLogs(ctx context.Context) (map[string][]string, error) {
+func (c *Client) GetServicesFromLogs(ctx context.Context) (map[string][]string, error) {
 	q := "SELECT DISTINCT ServiceName, SeverityText"
 	q += " FROM " + c.config.LogsTable
 	rows, err := c.conn.Query(ctx, q)
@@ -32,24 +33,24 @@ func (c *ClickhouseClient) GetServicesFromLogs(ctx context.Context) (map[string]
 	return res, nil
 }
 
-func (c *ClickhouseClient) GetServiceLogsHistogram(ctx context.Context, from, to timeseries.Time, step timeseries.Duration, service string, severities []string, search string) (map[string]*timeseries.TimeSeries, error) {
+func (c *Client) GetServiceLogsHistogram(ctx context.Context, from, to timeseries.Time, step timeseries.Duration, service string, severities []string, search string) (map[string]*timeseries.TimeSeries, error) {
 	filters, args := logFilters(from, to, []string{service}, severities, nil, search)
 	return c.getLogsHistogram(ctx, filters, args, from, to, step)
 }
 
-func (c *ClickhouseClient) GetServiceLogs(ctx context.Context, from, to timeseries.Time, service string, severities []string, search string, limit int) ([]*LogEntry, error) {
+func (c *Client) GetServiceLogs(ctx context.Context, from, to timeseries.Time, service string, severities []string, search string, limit int) ([]*model.LogEntry, error) {
 	filters, args := logFilters(from, to, []string{service}, severities, nil, search)
 	return c.getLogs(ctx, filters, args, severities, limit)
 }
 
-func (c *ClickhouseClient) GetContainerLogsHistogram(ctx context.Context, from, to timeseries.Time, step timeseries.Duration, containers map[string][]string, severities []string, hashes []string, search string) (map[string]*timeseries.TimeSeries, error) {
+func (c *Client) GetContainerLogsHistogram(ctx context.Context, from, to timeseries.Time, step timeseries.Duration, containers map[string][]string, severities []string, hashes []string, search string) (map[string]*timeseries.TimeSeries, error) {
 	services := maps.Keys(containers)
 	filters, args := logFilters(from, to, services, severities, hashes, search)
 	return c.getLogsHistogram(ctx, filters, args, from, to, step)
 }
 
-func (c *ClickhouseClient) GetContainerLogs(ctx context.Context, from, to timeseries.Time, containers map[string][]string, severities []string, hashes []string, search string, limit int) ([]*LogEntry, error) {
-	byService := map[string][]*LogEntry{}
+func (c *Client) GetContainerLogs(ctx context.Context, from, to timeseries.Time, containers map[string][]string, severities []string, hashes []string, search string, limit int) ([]*model.LogEntry, error) {
+	byService := map[string][]*model.LogEntry{}
 	for service, ids := range containers {
 		filters, args := logFilters(from, to, []string{service}, nil, hashes, search)
 		filters = append(filters, "ResourceAttributes['container.id'] IN (@containerId)")
@@ -63,7 +64,7 @@ func (c *ClickhouseClient) GetContainerLogs(ctx context.Context, from, to timese
 		}
 		byService[service] = entries
 	}
-	var res []*LogEntry
+	var res []*model.LogEntry
 	for _, entries := range byService {
 		res = append(res, entries...)
 	}
@@ -76,7 +77,7 @@ func (c *ClickhouseClient) GetContainerLogs(ctx context.Context, from, to timese
 	return res, nil
 }
 
-func (c *ClickhouseClient) getLogsHistogram(ctx context.Context, filters []string, args []any, from, to timeseries.Time, step timeseries.Duration) (map[string]*timeseries.TimeSeries, error) {
+func (c *Client) getLogsHistogram(ctx context.Context, filters []string, args []any, from, to timeseries.Time, step timeseries.Duration) (map[string]*timeseries.TimeSeries, error) {
 	q := fmt.Sprintf("SELECT SeverityText, toStartOfInterval(Timestamp, INTERVAL %d second), count(1)", step)
 	q += " FROM " + c.config.LogsTable
 	q += " WHERE " + strings.Join(filters, " AND ")
@@ -102,7 +103,7 @@ func (c *ClickhouseClient) getLogsHistogram(ctx context.Context, filters []strin
 	return res, nil
 }
 
-func (c *ClickhouseClient) getLogs(ctx context.Context, filters []string, args []any, severities []string, limit int) ([]*LogEntry, error) {
+func (c *Client) getLogs(ctx context.Context, filters []string, args []any, severities []string, limit int) ([]*model.LogEntry, error) {
 	if len(severities) == 0 {
 		return nil, nil
 	}
@@ -124,9 +125,9 @@ func (c *ClickhouseClient) getLogs(ctx context.Context, filters []string, args [
 		return nil, err
 	}
 	defer rows.Close()
-	var res []*LogEntry
+	var res []*model.LogEntry
 	for rows.Next() {
-		var e LogEntry
+		var e model.LogEntry
 		if err = rows.Scan(&e.Timestamp, &e.Severity, &e.Body, &e.TraceId, &e.ResourceAttributes, &e.LogAttributes); err != nil {
 			return nil, err
 		}
