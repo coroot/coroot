@@ -33,7 +33,7 @@ SELECT
 FROM profiling_stacks
 WHERE 
     ServiceName IN (@service) AND 
-    LastSeen BETWEEN @from AND @to
+    LastSeen > @from
 GROUP BY Hash
 `
 	qProfiles = `
