@@ -113,6 +113,8 @@ export default {
     mounted() {
         this.get();
         this.$events.watch(this, this.get, 'refresh');
+        const {mode, from, to} = this.query;
+        this.selection = {mode: mode || 'diff', from, to};
     },
 
     methods: {
