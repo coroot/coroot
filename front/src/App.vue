@@ -88,7 +88,7 @@
 
             <div @click="toggleDarkMode" class="ml-3">
                 <v-btn plain outlined height="40" class="px-2">
-                    <v-icon :color="isDarkMode ? 'hsl(210, 10%, 30%)' : 'hsl(48, 100%, 67%)'">
+                    <v-icon :color="isDarkMode ? 'hsl(203, 65%, 35%)' : 'hsl(48, 100%, 67%)'">
                         {{ isDarkMode ? 'mdi-weather-night' : 'mdi-weather-sunny' }}
                     </v-icon>
                 </v-btn>
@@ -229,7 +229,7 @@ export default {
 }
 .menu >>> .v-btn:hover {
     border-color: #ffffff;
-    color: #0e152b;
+    color: var(--highlight-color);
 }
 .project-name {
     max-width: 15ch;

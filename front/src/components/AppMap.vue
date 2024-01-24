@@ -305,7 +305,7 @@ export default {
 
 .hi {
     border: 1px solid rgba(0,0,0,0.87);
-    background-color: #cbe9fc;
+    background-color: var(--highlight-color);
 }
 svg {
     position: absolute;
@@ -358,7 +358,8 @@ svg {
     position: absolute;
     font-size: 12px;
     line-height: 12px;
-    background-color: #EEEEEE;
+    background-color: var(--background-color);
+    border: solid 1px var(--text-color);
     padding: 2px;
     border-radius: 2px;
 }

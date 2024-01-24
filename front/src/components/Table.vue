@@ -80,7 +80,7 @@ export default {
 
 <style scoped>
 .hi {
-    background-color: #cbe9fc;
+    background-color: var(--highlight-color);
 }
 .tag {
     font-size: 0.75rem;

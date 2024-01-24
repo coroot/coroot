@@ -496,7 +496,7 @@ export default {
     border-radius: 2px;
 }
 .pattern:hover {
-    background-color: #E0E0E0;
+    background-color: var(--highlight-color);
 }
 .pattern .sample {
     font-size: 0.8rem;
