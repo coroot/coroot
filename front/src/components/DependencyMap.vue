@@ -110,11 +110,11 @@ export default {
     .node {
         padding: 4px;
         border: 1px solid #BDBDBD;
-        background-color: #FAFAFA;
+        background-color: var(--background-color);
         border-radius: 3px;
         white-space: nowrap;
         margin: 8px 8px;
-    }
+    }   
     .node-title {
         padding: 4px;
         max-width: 90%;
@@ -134,13 +134,13 @@ export default {
         margin-left: auto;
     }
     .node.warning {
-        background-color: #F9EEEE;
+        background-color: var(--background-color);
     }
     .instance {
         padding: 4px;
         border: 1px solid #BDBDBD;
         border-radius: 3px;
-        background-color: white;
+        background-color: var(--background-color);
         font-size: 0.75rem;
         margin: 8px;
         max-width: 80%;

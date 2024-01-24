@@ -63,7 +63,7 @@ function fmtVal(v, unit, digits) {
     if (digits === undefined) {
         digits = fmtDigits(v)
     }
-    return v.toFixed(digits)+unit;
+    return v.toFixed(digits) + unit;
 }
 
 export default {
@@ -73,7 +73,7 @@ export default {
         loading: Boolean,
     },
 
-    components: {ChartTooltip, ChartAnnotations, ChartIncidents},
+    components: { ChartTooltip, ChartAnnotations, ChartIncidents },
 
     data() {
         return {
@@ -203,6 +203,10 @@ export default {
                 axes: [
                     {
                         space: 80,
+                        stroke: '#363636',
+                        grid: {
+                            stroke: '#52515133',
+                        },
                         font,
                         values: [
                             [60000, "{HH}:{mm}", null, null, "{MMM} {DD}", null, null, null, 0],
@@ -210,8 +214,12 @@ export default {
                         ],
                     },
                     {
+                        grid: {
+                            stroke: '#52515133',
+                        },
                         scale: 'y',
                         font,
+                        stroke: '#363636',
                         gap: 0,
                         size: 60,
                         splits: [0, ...c.series.map((_, i) => i+1)],
@@ -361,7 +369,7 @@ export default {
 
 .threshold {
     position: absolute;
-    background-color: white;
+    background-color: #ff9100;
     border-top: 1px dashed black;
     pointer-events: none;
 }

@@ -491,7 +491,7 @@ export default {
     align-items: flex-end;
     margin-bottom: 8px;
     cursor: pointer;
-    background-color: #EEEEEE;
+    background-color: var(--background-color);
     padding: 4px 8px;
     border-radius: 2px;
 }
@@ -531,7 +531,7 @@ export default {
 .message {
     font-family: monospace, monospace;
     font-size: 14px;
-    background-color: #EEEEEE;
+    background-color: var(--highlight-color);
     border-radius: 3px;
     max-height: 50vh;
     padding: 8px;

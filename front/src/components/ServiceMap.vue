@@ -83,7 +83,7 @@ export default {
         categoriesTo: Object,
     },
 
-    components: {ApplicationFilter, AppHealth, Labels},
+    components: { ApplicationFilter, AppHealth, Labels },
 
     data() {
         return {
@@ -110,7 +110,7 @@ export default {
             this.calc();
         },
     },
-    computed : {
+    computed: {
         maxApplications() {
             return 1000;
         },
@@ -280,7 +280,7 @@ export default {
     border-radius: 3px;
     white-space: nowrap;
     padding: 4px 8px;
-    background-color: white;
+    background-color: var(--background-color);
     display: inline-flex;
     flex-direction: column;
     line-height: 1.1;
@@ -288,7 +288,7 @@ export default {
 }
 .app.selected {
     border: 1px solid rgba(0,0,0,0.87);
-    background-color: #cbe9fc;
+    background-color: var(--highlight-color);
 }
 .name {
     white-space: nowrap;
@@ -337,9 +337,10 @@ svg {
     position: absolute;
     font-size: 12px;
     line-height: 12px;
-    background-color: #EEEEEE;
+    background-color: var(--background-color);
     padding: 2px;
     border-radius: 2px;
     text-align: right;
+    border: solid 1px var(--text-color);
 }
 </style>

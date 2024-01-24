@@ -88,9 +88,9 @@ export default {
     display: none;
     position: absolute;
     z-index: 2;
-    background-color: white;
+    background-color: var(--background-color);
     padding: 8px;
-    border: 1px solid rgba(0,0,0,0.2);
+    border: 1px solid var(--text-color);
     border-radius: 4px;
     pointer-events: none;
     font-size: 12px;

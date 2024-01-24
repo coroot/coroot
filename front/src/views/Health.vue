@@ -201,7 +201,7 @@ export default {
     padding: 0 !important;
 }
 .value {
-    color: rgba(0,0,0,0.6);
+    color: var(--alt-color);
 }
 .value.critical, .value.warning {
     color: inherit;
@@ -228,6 +228,6 @@ export default {
     color: rgba(255,255,255,0.8)
 }
 .legend .label {
-    color: rgba(0,0,0,0.6);
+    color: var(--text-color)
 }
 </style>

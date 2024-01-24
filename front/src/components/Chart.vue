@@ -234,12 +234,17 @@ export default {
                 width: this.$refs.uplot.clientWidth,
                 ms: 1,
                 axes: [
-                    {space: 80, font, values: [
+                    {
+                        stroke: '#363636',
+                        grid: {
+                            stroke: '#52515133',
+                        },
+                        space: 80, font, values: [
                             [60000, "{HH}:{mm}", null, null, "{MMM} {DD}", null, null, null, 0],
                             [1000, "{HH}:{mm}:{ss}", null, null, "{MMM} {DD}", null, null, null, 0],
                         ],
                     },
-                    {space: 20, font, size: 60, values: (u, splits) => splits.map(v => fmtVal(Math.max(...splits), c.unit)(v))},
+                    {stroke: '#363636', grid: { stroke: '#52515133', }, space: 20, font, size: 60, values: (u, splits) => splits.map(v => fmtVal(Math.max(...splits), c.unit)(v))},
                 ],
                 series: [{}, ...series],
                 cursor: {
@@ -395,19 +400,20 @@ export default {
     position: absolute;
     height: 100%;
     top: 0;
-    border: 1px dashed rgba(0,0,0,0.4);
+    border: 1px dashed rgba(0, 0, 0, 0.4);
     border-right: none;
     border-bottom: none;
-    color: rgba(0,0,0,0.87);
+    color: rgba(0, 0, 0, 0.87);
 }
 .selection-current {
     position: absolute;
     height: 100%;
     top: 0;
-    border: 1px solid rgba(0,0,0,0.4);
+    border: 1px solid rgba(0, 0, 0, 0.4);
     border-bottom: none;
-    color: rgba(0,0,0,0.87);
+    color: rgba(0, 0, 0, 0.87);
 }
+
 .selection-title {
     position: absolute;
     top: -16px;

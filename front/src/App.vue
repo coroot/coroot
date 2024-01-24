@@ -1,9 +1,17 @@
 <template>
-<v-app>
-    <CheckForUpdates v-if="$coroot.check_for_updates" :currentVersion="$coroot.version" :instanceUuid="$coroot.uuid" />
+    <div class="vue-body" :style="{
+        '--background-color': isDarkMode ? '#131826' : '#FFFFFF',
+        '--text-color': isDarkMode ? '#F5F5F5' : '#333',
+        '--highlight-color': isDarkMode ? '#284c64' : '#cbe9fc',
+        '--alt-color': isDarkMode ? '#4c505ed1' : '#00000099',
 
-    <v-app-bar app flat dark color="#080d1b" class="menu">
-        <v-container class="py-0 fill-height flex-nowrap">
+    }">
+        <v-app :dark="isDarkMode">
+            <CheckForUpdates v-if="$coroot.check_for_updates" :currentVersion="$coroot.version"
+                :instanceUuid="$coroot.uuid" />
+
+            <v-app-bar app flat dark color="#080d1b" class="menu">
+                <v-container class="py-0 fill-height flex-nowrap">
             <router-link :to="project ? {name: 'overview', query: $utils.contextQuery()} : {name: 'index'}">
                 <img :src="`${$coroot.base_path}static/logo.svg`" height="38" style="vertical-align: middle;">
             </router-link>
@@ -77,10 +85,18 @@
                     <Led v-if="status" :status="status.status !== 'ok' ? 'warning' : 'ok'" absolute />
                 </v-btn>
             </div>
+
+            <div @click="toggleDarkMode" class="ml-3">
+                <v-btn plain outlined height="40" class="px-2">
+                    <v-icon :color="isDarkMode ? 'hsl(210, 10%, 30%)' : 'hsl(48, 100%, 67%)'">
+                        {{ isDarkMode ? 'mdi-weather-night' : 'mdi-weather-sunny' }}
+                    </v-icon>
+                </v-btn>
+            </div>
         </v-container>
     </v-app-bar>
 
-    <v-main>
+    <v-main class="main" :dark="isDarkMode">
         <v-container style="padding-bottom: 128px">
             <v-alert v-if="status && status.status === 'warning' && $route.name !== 'project_settings'" color="red" elevation="2" border="left" class="mt-4" colored-border>
                 <div class="d-sm-flex align-center">
@@ -115,6 +131,7 @@
         </v-container>
     </v-main>
 </v-app>
+</div>
 </template>
 
 <script>
@@ -130,12 +147,17 @@ export default {
         return {
             projects: [],
             context: this.$api.context,
+            isDarkMode: false,
         }
     },
 
     created() {
         this.$events.watch(this, this.getProjects, 'project-saved', 'project-deleted');
         this.getProjects();
+        const storedDarkMode = localStorage.getItem('darkMode');
+        this.isDarkMode = storedDarkMode === 'true';
+        this.$vuetify.theme.dark = this.isDarkMode;
+
     },
 
     computed: {
@@ -191,6 +213,11 @@ export default {
         refresh() {
             this.$events.emit('refresh');
         },
+        toggleDarkMode() {
+            this.isDarkMode = !this.isDarkMode;
+            this.$vuetify.theme.dark = this.isDarkMode;
+            localStorage.setItem('darkMode', this.isDarkMode);
+        },
     },
 }
 </script>
@@ -198,10 +225,11 @@ export default {
 <style scoped>
 .menu >>> .v-btn {
     min-width: unset !important;
-    border-color: rgba(255,255,255,0.2);
+    border-color: #ffffff33;
 }
 .menu >>> .v-btn:hover {
-    border-color: rgba(255,255,255,1);
+    border-color: #ffffff;
+    color: #0e152b;
 }
 .project-name {
     max-width: 15ch;
@@ -228,14 +256,24 @@ a {
 
 *::-webkit-scrollbar-track {
     -webkit-box-shadow: inset 0 0 6px rgba(0,0,0,0.3);
-    background-color: #F5F5F5;
+    background-color: var(--background-color);
 }
 *::-webkit-scrollbar {
     width: 5px;
     height: 5px;
-    background-color: #F5F5F5;
+    background-color: var(--background-color);
 }
 *::-webkit-scrollbar-thumb {
-    background-color: #757575;
+    background-color: #525151;
+}
+
+main {
+    background-color: var(--background-color);
+    color: var(--text-color);
+}
+
+.vuetify {
+    background-color: var(--background-color);
+    color: var(--text-color);
 }
 </style>
