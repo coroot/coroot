@@ -12,6 +12,7 @@ require (
 	github.com/dustin/go-humanize v1.0.1
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
+	github.com/grafana/pyroscope-go/godeltaprof v0.1.6
 	github.com/hako/durafmt v0.0.0-20210608085754-5c1018a4e16b
 	github.com/lib/pq v1.10.7
 	github.com/matoous/go-nanoid v1.5.0
@@ -22,7 +23,6 @@ require (
 	github.com/prometheus/common v0.39.0
 	github.com/prometheus/procfs v0.8.0
 	github.com/prometheus/prometheus v0.42.0
-	github.com/pyroscope-io/godeltaprof v0.1.0
 	github.com/sirupsen/logrus v1.8.1
 	github.com/slack-go/slack v0.11.3
 	github.com/stretchr/testify v1.8.2
@@ -55,7 +55,7 @@ require (
 	github.com/grafana/regexp v0.0.0-20221122212121-6b5c0a4cb7fd // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.1 // indirect
-	github.com/klauspost/compress v1.16.4 // indirect
+	github.com/klauspost/compress v1.17.3 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
 	github.com/paulmach/orb v0.9.0 // indirect
 	github.com/pierrec/lz4/v4 v4.1.17 // indirect

@@ -5,6 +5,13 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"io"
+	"net/http"
+	"runtime/pprof"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/coroot/coroot/auditor"
 	"github.com/coroot/coroot/cache"
 	cloud_pricing "github.com/coroot/coroot/cloud-pricing"
@@ -13,15 +20,9 @@ import (
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
+	"github.com/grafana/pyroscope-go/godeltaprof"
 	"github.com/prometheus/procfs"
-	"github.com/pyroscope-io/godeltaprof"
-	"io"
 	"k8s.io/klog"
-	"net/http"
-	"runtime/pprof"
-	"strings"
-	"sync"
-	"time"
 )
 
 const (
