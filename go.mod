@@ -23,7 +23,6 @@ require (
 	github.com/prometheus/common v0.39.0
 	github.com/prometheus/procfs v0.8.0
 	github.com/prometheus/prometheus v0.42.0
-	github.com/pyroscope-io/godeltaprof v0.1.0
 	github.com/sirupsen/logrus v1.8.1
 	github.com/slack-go/slack v0.11.3
 	github.com/stretchr/testify v1.8.2
