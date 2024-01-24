@@ -21,4 +21,4 @@ jobs:
 #          go install golang.org/x/tools/cmd/goimports@latest
 #          files=$(goimports -l .); if [[ -n "$files" ]]; then echo -e "::error::go imports failed\n$files"; exit 1; fi
       - name: go test
-        run: go test ./... || echo -e "::error::go tests failed"
+        run: go test ./... || (echo -e "::error::go tests failed" && exit 1)
