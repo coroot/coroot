@@ -15,7 +15,7 @@ jobs:
       - name: go version
         run: go version
       - name: go fmt
-        run: files=$(gofmt -l .); if [[ -n "$files" ]]; then echo "Failed on:"; echo $files; exit 1; fi
+        run: files=$(gofmt -l .); if [[ -n "$files" ]]; then echo "::error::$files"; exit 1; fi
       - name: go import
         run: goimports -l .
       - name: go test
