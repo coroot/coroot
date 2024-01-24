@@ -17,7 +17,7 @@ func CreateDirectoryIfNotExists(path string) error {
 	if !os.IsNotExist(err) {
 		return err
 	}
-	klog.Infof("creating dir %s", path)
+	klog.Infof("creating dir", path)
 	if err := os.Mkdir(path, 0755); err != nil {
 		return fmt.Errorf("failed to create dir %s: %w", path, err)
 	}

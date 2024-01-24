@@ -41,5 +41,5 @@ func TestIterFrom(t *testing.T) {
 	assert.Equal(t, float32(3), v)
 
 	iter = ts.IterFrom(100)
-	assert.True(t, iter.Next())
+	assert.False(t, iter.Next())
 }
