@@ -78,6 +78,5 @@ func (c *Cache) gc() {
 
 		c.lock.Unlock()
 		klog.Infof("GC done in", time.Since(now).Truncate(time.Millisecond))
-		c.lock
 	}
 }
