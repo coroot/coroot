@@ -2,6 +2,7 @@ package clickhouse
 
 import (
 	"context"
+
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"

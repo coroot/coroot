@@ -4,6 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
+	"sort"
+	"strings"
+
 	"github.com/coroot/coroot/clickhouse"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
@@ -11,9 +15,6 @@ import (
 	"github.com/coroot/coroot/utils"
 	"golang.org/x/exp/maps"
 	"k8s.io/klog"
-	"net/url"
-	"sort"
-	"strings"
 )
 
 type View struct {

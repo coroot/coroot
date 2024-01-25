@@ -2,11 +2,12 @@ package utils
 
 import (
 	"fmt"
+	"math"
+	"strings"
+
 	"github.com/coroot/coroot/timeseries"
 	"github.com/dustin/go-humanize"
 	"github.com/hako/durafmt"
-	"math"
-	"strings"
 )
 
 var (

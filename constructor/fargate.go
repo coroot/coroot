@@ -2,9 +2,10 @@ package constructor
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
-	"strings"
 )
 
 func (c *Constructor) loadFargateNodes(metrics map[string][]model.MetricValues, nodesByMachineId map[string]*model.Node) {

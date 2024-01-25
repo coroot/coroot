@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+
 	"github.com/coroot/coroot/timeseries"
 	"github.com/dustin/go-humanize/english"
 )

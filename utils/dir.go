@@ -2,8 +2,9 @@ package utils
 
 import (
 	"fmt"
-	"k8s.io/klog"
 	"os"
+
+	"k8s.io/klog"
 )
 
 func CreateDirectoryIfNotExists(path string) error {

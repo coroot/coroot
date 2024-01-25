@@ -3,6 +3,9 @@ package watchers
 import (
 	"context"
 	"fmt"
+	"sort"
+	"time"
+
 	cloud_pricing "github.com/coroot/coroot/cloud-pricing"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
@@ -10,8 +13,6 @@ import (
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 	"k8s.io/klog"
-	"sort"
-	"time"
 )
 
 const (

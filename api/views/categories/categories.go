@@ -1,10 +1,11 @@
 package categories
 
 import (
-	"github.com/coroot/coroot/db"
-	"github.com/coroot/coroot/model"
 	"sort"
 	"strings"
+
+	"github.com/coroot/coroot/db"
+	"github.com/coroot/coroot/model"
 )
 
 type View struct {

@@ -3,16 +3,17 @@ package tracing
 import (
 	"context"
 	"fmt"
-	"github.com/coroot/coroot/clickhouse"
-	"github.com/coroot/coroot/db"
-	"github.com/coroot/coroot/model"
-	"github.com/coroot/coroot/utils"
-	"k8s.io/klog"
 	"net/url"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/coroot/coroot/clickhouse"
+	"github.com/coroot/coroot/db"
+	"github.com/coroot/coroot/model"
+	"github.com/coroot/coroot/utils"
+	"k8s.io/klog"
 )
 
 const (

@@ -1,9 +1,10 @@
 package constructor
 
 import (
+	"sort"
+
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
-	"sort"
 )
 
 func calcAppEvents(w *model.World) {

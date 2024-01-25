@@ -2,6 +2,8 @@ package views
 
 import (
 	"context"
+	"net/url"
+
 	"github.com/coroot/coroot/api/views/application"
 	"github.com/coroot/coroot/api/views/categories"
 	"github.com/coroot/coroot/api/views/configs"
@@ -14,7 +16,6 @@ import (
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
-	"net/url"
 )
 
 func Overview(w *model.World, view string) *overview.Overview {

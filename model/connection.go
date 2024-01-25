@@ -1,8 +1,9 @@
 package model
 
 import (
-	"github.com/coroot/coroot/timeseries"
 	"strings"
+
+	"github.com/coroot/coroot/timeseries"
 )
 
 type Protocol string

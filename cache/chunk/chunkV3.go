@@ -2,10 +2,11 @@ package chunk
 
 import (
 	"encoding/binary"
-	"github.com/DataDog/golz4"
+	"io"
+
+	lz4 "github.com/DataDog/golz4"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
-	"io"
 )
 
 func readV3(reader io.Reader, header *header, from timeseries.Time, pointsCount int, step timeseries.Duration, dest map[uint64]model.MetricValues) error {

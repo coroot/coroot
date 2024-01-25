@@ -3,11 +3,12 @@ package cache
 import (
 	"database/sql"
 	"errors"
+	"os"
+	"path"
+
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/timeseries"
 	_ "github.com/mattn/go-sqlite3"
-	"os"
-	"path"
 )
 
 type PrometheusQueryState struct {

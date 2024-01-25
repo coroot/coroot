@@ -1,13 +1,14 @@
 package utils
 
 import (
+	"net/url"
+	"strconv"
+	"strings"
+
 	"github.com/coroot/coroot/timeseries"
 	"github.com/xhit/go-str2duration/v2"
 	"golang.org/x/net/http/httpguts"
 	"k8s.io/klog"
-	"net/url"
-	"strconv"
-	"strings"
 )
 
 type Header struct {

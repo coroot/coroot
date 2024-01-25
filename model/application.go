@@ -2,10 +2,11 @@ package model
 
 import (
 	"fmt"
-	"github.com/coroot/coroot/timeseries"
-	"github.com/coroot/coroot/utils"
 	"strconv"
 	"strings"
+
+	"github.com/coroot/coroot/timeseries"
+	"github.com/coroot/coroot/utils"
 )
 
 type Application struct {

@@ -1,13 +1,14 @@
 package overview
 
 import (
+	"sort"
+	"strconv"
+	"strings"
+
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 	"k8s.io/klog"
-	"sort"
-	"strconv"
-	"strings"
 )
 
 func renderNodes(w *model.World) *model.Table {

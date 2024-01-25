@@ -3,11 +3,12 @@ package notifications
 import (
 	"context"
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/slack-go/slack"
-	"strings"
-	"time"
 )
 
 type Slack struct {

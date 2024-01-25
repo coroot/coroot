@@ -2,6 +2,7 @@ package auditor
 
 import (
 	"fmt"
+
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"

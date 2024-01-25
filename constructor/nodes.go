@@ -1,10 +1,11 @@
 package constructor
 
 import (
-	"github.com/coroot/coroot/model"
-	"github.com/coroot/coroot/timeseries"
 	"strconv"
 	"strings"
+
+	"github.com/coroot/coroot/model"
+	"github.com/coroot/coroot/timeseries"
 )
 
 func initNodesList(w *model.World, metrics map[string][]model.MetricValues, nodesByMachineID map[string]*model.Node) {

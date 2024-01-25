@@ -3,9 +3,10 @@ package model
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/coroot/coroot/timeseries"
 	"sort"
 	"strings"
+
+	"github.com/coroot/coroot/timeseries"
 )
 
 type Annotation struct {

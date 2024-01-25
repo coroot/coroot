@@ -2,13 +2,14 @@ package watchers
 
 import (
 	"context"
+	"sync"
+
 	"github.com/coroot/coroot/cache"
-	"github.com/coroot/coroot/cloud-pricing"
+	cloud_pricing "github.com/coroot/coroot/cloud-pricing"
 	"github.com/coroot/coroot/constructor"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/timeseries"
 	"k8s.io/klog"
-	"sync"
 )
 
 func Start(db *db.DB, cache *cache.Cache, pricing *cloud_pricing.Manager, checkIncidents, checkDeployments bool) {

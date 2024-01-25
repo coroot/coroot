@@ -1,8 +1,9 @@
 package model
 
 import (
-	"github.com/coroot/coroot/timeseries"
 	"strconv"
+
+	"github.com/coroot/coroot/timeseries"
 )
 
 type ApplicationEventType int

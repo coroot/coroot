@@ -1,8 +1,9 @@
 package cache
 
 import (
-	"github.com/coroot/coroot/timeseries"
 	"time"
+
+	"github.com/coroot/coroot/timeseries"
 )
 
 type Config struct {

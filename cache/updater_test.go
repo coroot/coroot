@@ -2,10 +2,11 @@ package cache
 
 import (
 	"fmt"
-	"github.com/coroot/coroot/timeseries"
-	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
+
+	"github.com/coroot/coroot/timeseries"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestCacheUpdater_calcIntervals(t *testing.T) {

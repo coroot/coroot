@@ -2,9 +2,17 @@ package main
 
 import (
 	"bytes"
+	"net/http"
+	_ "net/http/pprof"
+	"os"
+	"path"
+	"strings"
+	"text/template"
+	"time"
+
 	"github.com/coroot/coroot/api"
 	"github.com/coroot/coroot/cache"
-	"github.com/coroot/coroot/cloud-pricing"
+	cloud_pricing "github.com/coroot/coroot/cloud-pricing"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/prom"
 	"github.com/coroot/coroot/stats"
@@ -15,13 +23,6 @@ import (
 	"github.com/gorilla/mux"
 	"gopkg.in/alecthomas/kingpin.v2"
 	"k8s.io/klog"
-	"net/http"
-	_ "net/http/pprof"
-	"os"
-	"path"
-	"strings"
-	"text/template"
-	"time"
 )
 
 var version = "unknown"

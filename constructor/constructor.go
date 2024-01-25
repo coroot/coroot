@@ -4,16 +4,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/coroot/coroot/cloud-pricing"
+	"net"
+	"strings"
+	"sync"
+	"time"
+
+	cloud_pricing "github.com/coroot/coroot/cloud-pricing"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/prom"
 	"github.com/coroot/coroot/timeseries"
 	"k8s.io/klog"
-	"net"
-	"strings"
-	"sync"
-	"time"
 )
 
 var (

@@ -4,9 +4,10 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/ClickHouse/clickhouse-go/v2"
 	"net"
 	"time"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
 )
 
 type ClientConfig struct {

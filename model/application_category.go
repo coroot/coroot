@@ -2,8 +2,9 @@ package model
 
 import (
 	"fmt"
-	"github.com/coroot/coroot/utils"
 	"sort"
+
+	"github.com/coroot/coroot/utils"
 )
 
 type ApplicationCategory string

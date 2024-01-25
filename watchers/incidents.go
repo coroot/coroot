@@ -1,13 +1,14 @@
 package watchers
 
 import (
+	"time"
+
 	"github.com/coroot/coroot/auditor"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/notifications"
 	"github.com/coroot/coroot/timeseries"
 	"k8s.io/klog"
-	"time"
 )
 
 type Incidents struct {

@@ -6,17 +6,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/coroot/coroot/model"
-	"github.com/coroot/coroot/timeseries"
-	"github.com/coroot/coroot/utils"
 	"io"
-	"k8s.io/klog"
 	"net/http"
 	"os"
 	"path"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/coroot/coroot/model"
+	"github.com/coroot/coroot/timeseries"
+	"github.com/coroot/coroot/utils"
+	"k8s.io/klog"
 )
 
 const (

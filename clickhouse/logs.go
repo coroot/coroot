@@ -3,15 +3,16 @@ package clickhouse
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strings"
+	"time"
+	"unicode"
+
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 	"golang.org/x/exp/maps"
-	"sort"
-	"strings"
-	"time"
-	"unicode"
 )
 
 func (c *Client) GetServicesFromLogs(ctx context.Context) (map[string][]string, error) {
