@@ -1,6 +1,6 @@
 module github.com/coroot/coroot
 
-go 1.18
+go 1.21
 
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.8.3
@@ -28,7 +28,7 @@ require (
 	github.com/stretchr/testify v1.8.2
 	github.com/xhit/go-str2duration/v2 v2.0.0
 	golang.org/x/exp v0.0.0-20230213192124-5e25df0256eb
-	golang.org/x/net v0.7.0
+	golang.org/x/net v0.20.0
 	gonum.org/v1/gonum v0.12.0
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
 	k8s.io/klog v1.0.0
@@ -68,8 +68,8 @@ require (
 	go.opentelemetry.io/otel/trace v1.14.0 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/goleak v1.2.0 // indirect
-	golang.org/x/sys v0.7.0 // indirect
-	golang.org/x/text v0.7.0 // indirect
+	golang.org/x/sys v0.16.0 // indirect
+	golang.org/x/text v0.14.0 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
