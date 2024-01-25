@@ -1,4 +1,4 @@
-FROM golang:1.18-buster AS backend-builder
+FROM golang:1.21-bullseye AS backend-builder
 RUN apt update && apt install -y liblz4-dev
 WORKDIR /tmp/src
 COPY go.mod .
@@ -10,7 +10,7 @@ RUN go test ./...
 RUN go install -mod=readonly -ldflags "-X main.version=$VERSION" .
 
 
-FROM node:18-buster AS frontend-builder
+FROM node:21-bullseye AS frontend-builder
 WORKDIR /tmp/src
 COPY ./front/package*.json ./
 RUN npm install
@@ -18,7 +18,7 @@ COPY ./front .
 RUN npx vue-cli-service build --dest=static src/main.js
 
 
-FROM debian:buster
+FROM debian:bullseye
 RUN apt update && apt install -y ca-certificates && apt clean
 
 WORKDIR /opt/coroot
