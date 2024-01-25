@@ -1,0 +1,39 @@
+name: Continuous Integration
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  GO:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+      - name: gofmt -l .
+        run: files=$(gofmt -l .); if [[ -n "$files" ]]; then echo "$files"; exit 1; fi
+      - name: goimports -l .
+        run: |
+          go install golang.org/x/tools/cmd/goimports@latest
+          files=$(goimports -l .); if [[ -n "$files" ]]; then echo "$files"; exit 1; fi
+      - run: go vet ./...
+      - run: go test ./...
+      - run: go build .
+  UI:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./front/
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 21
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run fmt
+      - run: npm run prod

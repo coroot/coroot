@@ -6,23 +6,22 @@ COPY go.sum .
 RUN go mod download
 COPY . .
 ARG VERSION=unknown
-RUN go test ./...
-RUN go install -mod=readonly -ldflags "-X main.version=$VERSION" .
+RUN go build -mod=readonly -ldflags "-X main.version=$VERSION" -o coroot .
 
 
 FROM node:21-bullseye AS frontend-builder
-WORKDIR /tmp/src
+WORKDIR /tmp/src/front
 COPY ./front/package*.json ./
-RUN npm install
+RUN npm ci
 COPY ./front .
-RUN npx vue-cli-service build --dest=static src/main.js
+RUN npm run prod
 
 
 FROM debian:bullseye
 RUN apt update && apt install -y ca-certificates && apt clean
 
 WORKDIR /opt/coroot
-COPY --from=backend-builder /go/bin/coroot /opt/coroot/coroot
+COPY --from=backend-builder /tmp/src/coroot /opt/coroot/coroot
 COPY --from=frontend-builder /tmp/src/static /opt/coroot/static
 
 VOLUME /data
