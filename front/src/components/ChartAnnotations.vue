@@ -2,10 +2,10 @@
     <div class="annotations">
         <div v-for="i in items" class="annotation" :style="i.style">
             <v-tooltip bottom>
-                <template #activator="{on}">
-                    <v-icon v-on="on" small>{{i.icon}}</v-icon>
+                <template #activator="{ on }">
+                    <v-icon v-on="on" small>{{ i.icon }}</v-icon>
                 </template>
-                <div v-html="i.msg" class="text-center"/>
+                <div v-html="i.msg" class="text-center" />
             </v-tooltip>
             <div class="line"></div>
         </div>
@@ -40,7 +40,7 @@ export default {
             });
         },
     },
-}
+};
 </script>
 
 <style scoped>
@@ -54,7 +54,7 @@ export default {
 }
 .line {
     flex-grow: 1;
-    border-left: 0.08rem dashed rgba(0,0,0,0.5);
+    border-left: 0.08rem dashed rgba(0, 0, 0, 0.5);
     margin-left: -0.04rem;
     pointer-events: none;
 }

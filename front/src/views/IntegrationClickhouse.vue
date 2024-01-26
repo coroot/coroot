@@ -1,6 +1,5 @@
 <template>
     <v-form v-if="form" v-model="valid" ref="form" style="max-width: 800px">
-
         <div class="subtitle-1">Protocol</div>
         <v-radio-group v-model="form.protocol" row dense class="mt-0">
             <v-radio label="Native" value="native"></v-radio>
@@ -9,12 +8,31 @@
 
         <div class="subtitle-1">Clickhouse address</div>
         <div class="caption"></div>
-        <v-text-field outlined dense v-model="form.addr" :rules="[$validators.isAddr]" placeholder="clickhouse:9000" hide-details="auto" class="flex-grow-1" clearable single-line />
+        <v-text-field
+            outlined
+            dense
+            v-model="form.addr"
+            :rules="[$validators.isAddr]"
+            placeholder="clickhouse:9000"
+            hide-details="auto"
+            class="flex-grow-1"
+            clearable
+            single-line
+        />
 
         <div class="subtitle-1 mt-3">Credentials</div>
         <div class="d-flex gap">
             <v-text-field v-model="form.auth.user" :rules="[$validators.notEmpty]" label="username" outlined dense hide-details single-line />
-            <v-text-field v-model="form.auth.password" :rules="[$validators.notEmpty]" label="password" type="password" outlined dense hide-details single-line />
+            <v-text-field
+                v-model="form.auth.password"
+                :rules="[$validators.notEmpty]"
+                label="password"
+                type="password"
+                outlined
+                dense
+                hide-details
+                single-line
+            />
         </div>
 
         <div class="subtitle-1 mt-3">Database</div>
@@ -42,8 +60,28 @@
                 </div>
             </div>
             <div class="flex-grow-1">
-                <v-text-field v-model="form.traces_table" :disabled="!traces" label="traces table name" prepend-inner-icon="mdi-table" outlined dense hide-details single-line class="mt-2" />
-                <v-text-field v-model="form.logs_table" :disabled="!logs" label="logs table name" prepend-inner-icon="mdi-table" outlined dense hide-details single-line class="mt-2" />
+                <v-text-field
+                    v-model="form.traces_table"
+                    :disabled="!traces"
+                    label="traces table name"
+                    prepend-inner-icon="mdi-table"
+                    outlined
+                    dense
+                    hide-details
+                    single-line
+                    class="mt-2"
+                />
+                <v-text-field
+                    v-model="form.logs_table"
+                    :disabled="!logs"
+                    label="logs table name"
+                    prepend-inner-icon="mdi-table"
+                    outlined
+                    dense
+                    hide-details
+                    single-line
+                    class="mt-2"
+                />
             </div>
         </div>
 
@@ -51,10 +89,10 @@
         <v-checkbox v-model="form.tls_skip_verify" :disabled="!form.tls_enable" label="Skip TLS verify" hide-details class="my-2" />
 
         <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
-            {{error}}
+            {{ error }}
         </v-alert>
         <v-alert v-if="message" color="green" outlined text>
-            {{message}}
+            {{ message }}
         </v-alert>
         <div class="mt-3">
             <v-btn v-if="saved.addr && !form.addr" block color="error" @click="del" :loading="loading">Delete</v-btn>
@@ -151,8 +189,8 @@ export default {
                 this.get();
             });
         },
-    }
-}
+    },
+};
 </script>
 
 <style scoped>

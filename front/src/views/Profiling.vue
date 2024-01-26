@@ -1,73 +1,83 @@
 <template>
-<div>
-    <v-card outlined class="my-4 pa-4">
-        <div>
-            <Led :status="view.status" />
-            <template v-if="view.message">
-                <span v-html="view.message" />
-                <span v-if="view.status !== 'warning' && view.services && view.services.length">
-                    (<a @click="configure = true">configure</a>)
-                </span>
-            </template>
-            <span v-else>Loading...</span>
-            <v-progress-circular v-if="loading" indeterminate size="16" width="2" color="green" class="ml-1" />
-        </div>
-        <v-select v-if="view.profiles" :value="query.type" :items="profiles" @change="changeType" outlined hide-details dense :menu-props="{offsetY: true}" class="mt-4" />
-        <div v-if="view.chart" class="grey--text mt-3">
-            <v-icon size="20" style="vertical-align: baseline">mdi-lightbulb-on-outline</v-icon>
-            Select a chart area to zoom in or compare with the previous period
-        </div>
-    </v-card>
-
-    <Chart v-if="view.chart" :chart="view.chart" class="my-5" :selection="selection" @select="setSelection" :loading="loading" />
-
-    <div style="position: relative; min-height: 100vh">
-        <v-progress-linear v-if="loading" indeterminate color="green" height="4" style="position: absolute"/>
-        <div v-else-if="loadingError" class="pa-3 text-center red--text">
-            {{loadingError}}
-        </div>
-        <FlameGraph v-if="view.profile" :profile="view.profile" class="pt-2"/>
-    </div>
-
-    <v-dialog v-model="configure" max-width="800">
-        <v-card class="pa-5">
-            <div class="d-flex align-center font-weight-medium mb-4">
-                Link "{{ $utils.appId(appId).name }}" with an application
-                <v-spacer />
-                <v-btn icon @click="configure = false"><v-icon>mdi-close</v-icon></v-btn>
+    <div>
+        <v-card outlined class="my-4 pa-4">
+            <div>
+                <Led :status="view.status" />
+                <template v-if="view.message">
+                    <span v-html="view.message" />
+                    <span v-if="view.status !== 'warning' && view.services && view.services.length">
+                        (<a @click="configure = true">configure</a>)
+                    </span>
+                </template>
+                <span v-else>Loading...</span>
+                <v-progress-circular v-if="loading" indeterminate size="16" width="2" color="green" class="ml-1" />
             </div>
-
-            <div class="subtitle-1">Choose a corresponding application:</div>
-            <v-select v-model="form.service" :items="services" outlined dense hide-details :menu-props="{offsetY: true}" clearable />
-
-            <div class="grey--text my-4">
-                To configure an application to send profiles follow the <a href="https://coroot.com/docs/coroot-community-edition/profiling" target="_blank">documentation</a>.
+            <v-select
+                v-if="view.profiles"
+                :value="query.type"
+                :items="profiles"
+                @change="changeType"
+                outlined
+                hide-details
+                dense
+                :menu-props="{ offsetY: true }"
+                class="mt-4"
+            />
+            <div v-if="view.chart" class="grey--text mt-3">
+                <v-icon size="20" style="vertical-align: baseline">mdi-lightbulb-on-outline</v-icon>
+                Select a chart area to zoom in or compare with the previous period
             </div>
-
-            <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text class="my-3">
-                {{error}}
-            </v-alert>
-            <v-alert v-if="message" color="green" outlined text class="my-3">
-                {{message}}
-            </v-alert>
-            <v-btn block color="primary" @click="save" :loading="saving" :disabled="!changed" class="mt-5">Save</v-btn>
         </v-card>
-    </v-dialog>
 
-</div>
+        <Chart v-if="view.chart" :chart="view.chart" class="my-5" :selection="selection" @select="setSelection" :loading="loading" />
+
+        <div style="position: relative; min-height: 100vh">
+            <v-progress-linear v-if="loading" indeterminate color="green" height="4" style="position: absolute" />
+            <div v-else-if="loadingError" class="pa-3 text-center red--text">
+                {{ loadingError }}
+            </div>
+            <FlameGraph v-if="view.profile" :profile="view.profile" class="pt-2" />
+        </div>
+
+        <v-dialog v-model="configure" max-width="800">
+            <v-card class="pa-5">
+                <div class="d-flex align-center font-weight-medium mb-4">
+                    Link "{{ $utils.appId(appId).name }}" with an application
+                    <v-spacer />
+                    <v-btn icon @click="configure = false"><v-icon>mdi-close</v-icon></v-btn>
+                </div>
+
+                <div class="subtitle-1">Choose a corresponding application:</div>
+                <v-select v-model="form.service" :items="services" outlined dense hide-details :menu-props="{ offsetY: true }" clearable />
+
+                <div class="grey--text my-4">
+                    To configure an application to send profiles follow the
+                    <a href="https://coroot.com/docs/coroot-community-edition/profiling" target="_blank">documentation</a>.
+                </div>
+
+                <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text class="my-3">
+                    {{ error }}
+                </v-alert>
+                <v-alert v-if="message" color="green" outlined text class="my-3">
+                    {{ message }}
+                </v-alert>
+                <v-btn block color="primary" @click="save" :loading="saving" :disabled="!changed" class="mt-5">Save</v-btn>
+            </v-card>
+        </v-dialog>
+    </div>
 </template>
 
 <script>
-import Chart from "../components/Chart.vue";
-import Led from "../components/Led.vue";
-import FlameGraph from "../components/FlameGraph.vue";
+import Chart from '../components/Chart.vue';
+import Led from '../components/Led.vue';
+import FlameGraph from '../components/FlameGraph.vue';
 
 export default {
     props: {
         appId: String,
     },
 
-    components: {Chart, Led, FlameGraph},
+    components: { Chart, Led, FlameGraph },
 
     data() {
         return {
@@ -75,7 +85,7 @@ export default {
             loadingError: '',
 
             view: {},
-            selection: {mode: 'diff'},
+            selection: { mode: 'diff' },
 
             configure: false,
             form: {
@@ -85,12 +95,12 @@ export default {
             saving: false,
             error: '',
             message: '',
-        }
+        };
     },
 
     computed: {
         profiles() {
-            return (this.view.profiles || []).map(p => ({
+            return (this.view.profiles || []).map((p) => ({
                 text: p.name || p.type,
                 value: p.type,
             }));
@@ -99,11 +109,11 @@ export default {
             try {
                 return JSON.parse(this.$route.query.query || '');
             } catch {
-                return {type: '', from: 0, to: 0, mode: ''}
+                return { type: '', from: 0, to: 0, mode: '' };
             }
         },
         services() {
-            return (this.view.services || []).map(a => a.name);
+            return (this.view.services || []).map((a) => a.name);
         },
         changed() {
             return !!this.form && this.saved !== JSON.stringify(this.form);
@@ -113,24 +123,24 @@ export default {
     mounted() {
         this.get();
         this.$events.watch(this, this.get, 'refresh');
-        const {mode, from, to} = this.query;
-        this.selection = {mode: mode || 'diff', from, to};
+        const { mode, from, to } = this.query;
+        this.selection = { mode: mode || 'diff', from, to };
     },
 
     methods: {
         changeType(t) {
-            this.setQuery({type: t});
+            this.setQuery({ type: t });
             this.get();
         },
         setSelection(s) {
-            const {mode, from, to} = s.selection;
-            this.selection = {mode: mode || 'diff', from, to};
-            this.setQuery({mode, from, to}, s.ctx);
+            const { mode, from, to } = s.selection;
+            this.selection = { mode: mode || 'diff', from, to };
+            this.setQuery({ mode, from, to }, s.ctx);
             this.get();
         },
         setQuery(q, ctx) {
-            const query = JSON.stringify({...this.query, ...q});
-            this.$router.replace({query: {...this.$route.query, ...ctx, query}}).catch(err => err);
+            const query = JSON.stringify({ ...this.query, ...q });
+            this.$router.replace({ query: { ...this.$route.query, ...ctx, query } }).catch((err) => err);
         },
         get() {
             this.loading = true;
@@ -147,11 +157,11 @@ export default {
                     return;
                 }
                 this.view = data;
-                const service = (this.view.services || []).find(s => s.linked);
+                const service = (this.view.services || []).find((s) => s.linked);
                 this.form.service = service ? service.name : null;
                 this.saved = JSON.stringify(this.form);
                 if (this.view.profile.type) {
-                    this.setQuery({type: this.view.profile.type});
+                    this.setQuery({ type: this.view.profile.type });
                 }
             });
         },
@@ -177,5 +187,4 @@ export default {
 };
 </script>
 
-<style scoped>
-</style>
+<style scoped></style>

@@ -15,7 +15,7 @@ export default {
     computed: {
         style() {
             if (!this.incidents.length || !this.bbox) {
-                return {display: 'none'};
+                return { display: 'none' };
             }
             const height = 3;
             const b = this.bbox;
@@ -34,19 +34,19 @@ export default {
             const ctx = this.ctx;
             const b = this.bbox;
             const norm = (x) => (x - ctx.from) / (ctx.to - ctx.from);
-            return this.incidents.map(i => {
-                const x1 = Math.max(0, b.width * norm(i.x1 - ctx.step/2));
-                const x2 = Math.min(b.width, b.width * norm(i.x2 + ctx.step/2));
+            return this.incidents.map((i) => {
+                const x1 = Math.max(0, b.width * norm(i.x1 - ctx.step / 2));
+                const x2 = Math.min(b.width, b.width * norm(i.x2 + ctx.step / 2));
                 return {
                     style: {
                         left: x1 + 'px',
-                        width: x2-x1 + 'px',
+                        width: x2 - x1 + 'px',
                     },
-                }
-            })
+                };
+            });
         },
     },
-}
+};
 </script>
 
 <style scoped>

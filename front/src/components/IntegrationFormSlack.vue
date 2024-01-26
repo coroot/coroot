@@ -2,7 +2,7 @@
     <div>
         <div class="subtitle-1">Slack app</div>
         <div class="caption">
-            Click the button below to create your Slack App using the Coroot configuration. <br>
+            Click the button below to create your Slack App using the Coroot configuration. <br />
             Once created, click <b>Install to workspace</b> to authorize it.
         </div>
         <v-btn :href="href" target="_blank" color="primary" class="mt-3 mb-5">
@@ -16,16 +16,12 @@
         </div>
 
         <div class="subtitle-1">Slack Bot User OAuth Token</div>
-        <div class="caption">
-            Click on <b>OAuth and Permissions</b> in the sidebar, copy the <b>Bot User OAuth Token</b> and paste it here.
-        </div>
+        <div class="caption">Click on <b>OAuth and Permissions</b> in the sidebar, copy the <b>Bot User OAuth Token</b> and paste it here.</div>
         <!-- eslint-disable-next-line vue/no-mutating-props -->
-        <v-text-field v-model="form.token" outlined dense :rules="[$validators.notEmpty]"/>
+        <v-text-field v-model="form.token" outlined dense :rules="[$validators.notEmpty]" />
 
         <div class="subtitle-1">Slack channel name</div>
-        <div class="caption">
-            Open Slack, create a public channel and enter its name below.
-        </div>
+        <div class="caption">Open Slack, create a public channel and enter its name below.</div>
         <!-- eslint-disable-next-line vue/no-mutating-props -->
         <v-text-field v-model="form.default_channel" outlined dense :rules="[$validators.notEmpty]">
             <template #prepend-inner><span class="grey--text mt-1">#</span></template>
@@ -33,7 +29,7 @@
 
         <div class="subtitle-1">Notify of</div>
         <!-- eslint-disable-next-line vue/no-mutating-props -->
-        <v-checkbox v-model="form.incidents" label="Incidents" dense hide-details/>
+        <v-checkbox v-model="form.incidents" label="Incidents" dense hide-details />
         <!-- eslint-disable-next-line vue/no-mutating-props -->
         <v-checkbox v-model="form.deployments" label="Deployments" dense hide-details />
     </div>
@@ -53,7 +49,7 @@ oauth_config:
       - channels:read
       - chat:write
       - chat:write.public
-`
+`;
 
 export default {
     props: {
@@ -64,9 +60,7 @@ export default {
             return 'https://api.slack.com/apps?new_app=1&manifest_yaml=' + encodeURIComponent(manifest);
         },
     },
-}
+};
 </script>
 
-<style scoped>
-
-</style>
+<style scoped></style>

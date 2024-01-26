@@ -1,31 +1,27 @@
 <template>
     <div style="max-width: 800px">
         <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
-            {{error}}
+            {{ error }}
         </v-alert>
         <div v-if="status">
             <div class="text-truncate">
                 <Led :status="status.prometheus.status" />
                 <span class="font-weight-medium">prometheus</span>:
                 <span v-if="status.prometheus.error">
-                    {{status.prometheus.error}}
+                    {{ status.prometheus.error }}
                 </span>
                 <span v-else>
-                    {{status.prometheus.message}}
+                    {{ status.prometheus.message }}
                 </span>
-                <router-link v-if="status.prometheus.action === 'configure'" :to="{params: {tab: 'prometheus'}}">configure</router-link>
+                <router-link v-if="status.prometheus.action === 'configure'" :to="{ params: { tab: 'prometheus' } }">configure</router-link>
             </div>
 
             <div class="d-flex align-center mt-2">
                 <Led :status="status.node_agent.status" />
                 <span class="font-weight-medium">coroot-node-agent</span>:
-                <template v-if="status.node_agent.status === 'unknown'">
-                    unknown
-                </template>
+                <template v-if="status.node_agent.status === 'unknown'"> unknown </template>
                 <template v-else>
-                    <template v-if="status.node_agent.nodes">
-                        {{$pluralize('node', status.node_agent.nodes, true)}} found
-                    </template>
+                    <template v-if="status.node_agent.nodes"> {{ $pluralize('node', status.node_agent.nodes, true) }} found </template>
                     <template v-else>
                         <template v-if="loading">checking...</template>
                         <template v-else>no agent installed</template>
@@ -39,7 +35,7 @@
                 <Led :status="status.kube_state_metrics.status" />
                 <span class="font-weight-medium">kube-state-metrics</span>:
                 <template v-if="status.kube_state_metrics.status === 'ok'">
-                    {{$pluralize('application', status.kube_state_metrics.applications, true)}} found
+                    {{ $pluralize('application', status.kube_state_metrics.applications, true) }} found
                 </template>
                 <template v-else>
                     <template v-if="loading">checking...</template>
@@ -49,33 +45,35 @@
                 (<a href="https://coroot.com/docs/metric-exporters/kube-state-metrics" target="_blank">docs</a>)
             </div>
 
-            <div v-for="ex in exporters" :key="ex.type" class="mt-2" :class="{muted: ex.muted}">
+            <div v-for="ex in exporters" :key="ex.type" class="mt-2" :class="{ muted: ex.muted }">
                 <Led :status="ex.status" />
-                <span class="font-weight-medium">{{ex.type}}</span>
+                <span class="font-weight-medium">{{ ex.type }}</span>
                 <v-btn x-small color="primary" depressed class="ml-1" @click="save(!ex.muted, ex.type)" :loading="saving">
                     <v-tooltip bottom>
-                        <template #activator="{on}">
-                            <v-icon v-on="on" small>mdi-volume-{{ex.muted ? 'high' : 'off'}}</v-icon>
+                        <template #activator="{ on }">
+                            <v-icon v-on="on" small>mdi-volume-{{ ex.muted ? 'high' : 'off' }}</v-icon>
                         </template>
-                        {{ex.muted ? 'unmute' : 'mute'}}
+                        {{ ex.muted ? 'unmute' : 'mute' }}
                     </v-tooltip>
                 </v-btn>
                 (<a :href="`https://coroot.com/docs/metric-exporters/${ex.instruction.exporter}`" target="_blank">docs</a>)
                 <div class="ml-5">
-                    <span v-if="ex.instruction.description" v-html="ex.instruction.description"/>
+                    <span v-if="ex.instruction.description" v-html="ex.instruction.description" />
                     <template v-else>
-                        <span class="text-capitalize">{{ex.type}}</span> metrics have been received from
-                        {{ex.instrumentedApps}} of {{$pluralize('application', ex.totalApps, true)}}.
+                        <span class="text-capitalize">{{ ex.type }}</span> metrics have been received from {{ ex.instrumentedApps }} of
+                        {{ $pluralize('application', ex.totalApps, true) }}.
                         <template v-if="ex.instrumentedApps < ex.totalApps">
-                            Get <span class="font-weight-medium">{{ex.instruction.exporter}} </span>
-                            <a :href="`https://coroot.com/docs/metric-exporters/${ex.instruction.exporter}/installation`" target="_blank">installed</a>
+                            Get <span class="font-weight-medium">{{ ex.instruction.exporter }} </span>
+                            <a :href="`https://coroot.com/docs/metric-exporters/${ex.instruction.exporter}/installation`" target="_blank"
+                                >installed</a
+                            >
                             for every following application:
                         </template>
                     </template>
                 </div>
                 <div v-for="(ok, id) in ex.applications" :key="id" class="ml-5">
                     <Led :status="ok ? 'ok' : 'warning'" />
-                    <router-link :to="{name: 'application', params: {id}}">{{$utils.appId(id).name}}</router-link>
+                    <router-link :to="{ name: 'application', params: { id } }">{{ $utils.appId(id).name }}</router-link>
                 </div>
             </div>
         </div>
@@ -83,14 +81,14 @@
 </template>
 
 <script>
-import Led from "../components/Led.vue";
+import Led from '../components/Led.vue';
 
 export default {
     props: {
         projectId: String,
     },
 
-    components: {Led},
+    components: { Led },
 
     data() {
         return {
@@ -98,7 +96,7 @@ export default {
             error: null,
             loading: false,
             saving: false,
-        }
+        };
     },
 
     computed: {
@@ -107,17 +105,25 @@ export default {
                 return [];
             }
             const instructions = {
-                'postgres': {exporter: 'pg-agent'},
-                'redis': {exporter: 'redis-exporter'},
-                'mongodb': {exporter: 'mongodb-exporter'},
-                'aws-rds': {exporter: 'aws-agent', description: 'It appears that AWS RDS is being used in this project. Please ensure that <a href="https://coroot.com/docs/metric-exporters/aws-agent/installation">aws-agent</a> is installed.'},
-                'aws-elasticache': {exporter: 'aws-agent', description: 'It appears that AWS ElastiCache is being used in this project. Please ensure that <a href="https://coroot.com/docs/metric-exporters/aws-agent/installation">aws-agent</a> is installed.'},
+                postgres: { exporter: 'pg-agent' },
+                redis: { exporter: 'redis-exporter' },
+                mongodb: { exporter: 'mongodb-exporter' },
+                'aws-rds': {
+                    exporter: 'aws-agent',
+                    description:
+                        'It appears that AWS RDS is being used in this project. Please ensure that <a href="https://coroot.com/docs/metric-exporters/aws-agent/installation">aws-agent</a> is installed.',
+                },
+                'aws-elasticache': {
+                    exporter: 'aws-agent',
+                    description:
+                        'It appears that AWS ElastiCache is being used in this project. Please ensure that <a href="https://coroot.com/docs/metric-exporters/aws-agent/installation">aws-agent</a> is installed.',
+                },
             };
             const res = [];
             for (const type in this.status.application_exporters) {
                 const ex = this.status.application_exporters[type];
                 const totalApps = Object.keys(ex.applications).length;
-                const instrumentedApps = Object.values(ex.applications).filter(ok => ok).length;
+                const instrumentedApps = Object.values(ex.applications).filter((ok) => ok).length;
                 const instruction = instructions[type] || {};
                 res.push({
                     ...ex,
@@ -128,7 +134,7 @@ export default {
                 });
             }
             return res;
-        }
+        },
     },
 
     mounted() {
@@ -139,7 +145,7 @@ export default {
         projectId() {
             this.status = null;
             this.get();
-        }
+        },
     },
 
     methods: {
@@ -162,22 +168,22 @@ export default {
                     this.error = this.status.error;
                     this.status = null;
                 }
-            })
+            });
         },
         save(mute, type) {
             this.saving = true;
             this.error = '';
-            this.$api.setStatus(mute ? {mute: type} : {unmute: type}, (data, error) => {
+            this.$api.setStatus(mute ? { mute: type } : { unmute: type }, (data, error) => {
                 this.saving = false;
                 if (error) {
                     this.error = error;
                 }
                 this.$events.emit('project-saved');
                 this.get();
-            })
+            });
         },
     },
-}
+};
 </script>
 
 <style scoped>

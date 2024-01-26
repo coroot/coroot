@@ -11,24 +11,21 @@
 
         <div class="subtitle-1">Integration Key</div>
         <!-- eslint-disable-next-line vue/no-mutating-props -->
-        <v-text-field v-model="form.integration_key" outlined dense :rules="[$validators.notEmpty]"/>
+        <v-text-field v-model="form.integration_key" outlined dense :rules="[$validators.notEmpty]" />
 
         <div class="subtitle-1">Notify of</div>
         <!-- eslint-disable-next-line vue/no-mutating-props -->
-        <v-checkbox v-model="form.incidents" label="Incidents" dense hide-details/>
+        <v-checkbox v-model="form.incidents" label="Incidents" dense hide-details />
         <v-checkbox :value="false" disabled label="Deployments (unavailable for Pagerduty integrations)" dense hide-details />
     </div>
 </template>
 
 <script>
-
 export default {
     props: {
         form: Object,
     },
-}
+};
 </script>
 
-<style scoped>
-
-</style>
+<style scoped></style>

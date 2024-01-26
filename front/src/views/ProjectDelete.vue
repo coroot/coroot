@@ -19,19 +19,19 @@
                     <v-spacer />
                     <v-btn icon @click="dialog = false"><v-icon>mdi-close</v-icon></v-btn>
                 </div>
-                <p>This action cannot be undone. This will permanently delete the <b>{{project.name}}</b> project.</p>
-                <p>Please type <b>{{project.name}}</b> to confirm</p>
+                <p>
+                    This action cannot be undone. This will permanently delete the <b>{{ project.name }}</b> project.
+                </p>
+                <p>
+                    Please type <b>{{ project.name }}</b> to confirm
+                </p>
                 <v-text-field v-model="confirmation" outlined dense></v-text-field>
                 <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
-                    {{error}}
+                    {{ error }}
                 </v-alert>
                 <v-btn block color="red" outlined :disabled="confirmation !== project.name" @click="del">
-                    <template v-if="$vuetify.breakpoint.mdAndUp">
-                        I understand the consequences, delete this project
-                    </template>
-                    <template v-else>
-                        Delete this project
-                    </template>
+                    <template v-if="$vuetify.breakpoint.mdAndUp"> I understand the consequences, delete this project </template>
+                    <template v-else> Delete this project </template>
                 </v-btn>
             </v-card>
         </v-dialog>
@@ -63,7 +63,7 @@ export default {
             this.project = null;
             this.confirmation = '';
             this.dialog && this.get();
-        }
+        },
     },
 
     methods: {
@@ -77,7 +77,7 @@ export default {
                     return;
                 }
                 this.project = data;
-            })
+            });
         },
         del() {
             this.error = '';
@@ -87,13 +87,11 @@ export default {
                     return;
                 }
                 this.$events.emit('project-deleted');
-                this.$router.push({name: 'index'});
-            })
+                this.$router.push({ name: 'index' });
+            });
         },
     },
-}
+};
 </script>
 
-<style scoped>
-
-</style>
+<style scoped></style>

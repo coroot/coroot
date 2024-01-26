@@ -5,18 +5,18 @@
         <div>
             <div class="legend">
                 <div v-for="i in legend" class="item" :class="i.type">
-                    {{i.value}}
+                    {{ i.value }}
                 </div>
             </div>
         </div>
 
-        <div ref="uplot" v-on-resize="redraw" class="chart" :class="{loading: loading}">
+        <div ref="uplot" v-on-resize="redraw" class="chart" :class="{ loading: loading }">
             <div class="threshold" style="z-index: 1" :style="threshold.style">
                 <v-tooltip left>
-                    <template #activator="{on}">
+                    <template #activator="{ on }">
                         <v-icon v-on="on" small class="icon">mdi-target</v-icon>
                     </template>
-                    <div v-html="threshold.content" class="text-center"/>
+                    <div v-html="threshold.content" class="text-center" />
                 </v-tooltip>
             </div>
             <ChartAnnotations :ctx="config.ctx" :bbox="bbox" :annotations="annotations" />
@@ -24,15 +24,15 @@
         </div>
 
         <ChartTooltip ref="tooltip" v-model="idx" :ctx="config.ctx" :incidents="incidents" class="tooltip">
-            <div v-for="i in tooltip" class="item" :class="{threshold: !!i.threshold}">
+            <div v-for="i in tooltip" class="item" :class="{ threshold: !!i.threshold }">
                 <span v-if="!!i.threshold" class="details">
-                    <span class="above">{{i.threshold.above}}</span>
-                    <br>
-                    <span class="below">{{i.threshold.below}}</span>
+                    <span class="above">{{ i.threshold.above }}</span>
+                    <br />
+                    <span class="below">{{ i.threshold.below }}</span>
                 </span>
-                <div class="label" :style="{width: i.width+'ch'}">{{i.label}}</div>
+                <div class="label" :style="{ width: i.width + 'ch' }">{{ i.label }}</div>
                 <div class="value">
-                    <div class="bar" :style="{width: i.bar+'%'}">{{i.value}}</div>
+                    <div class="bar" :style="{ width: i.bar + '%' }">{{ i.value }}</div>
                 </div>
             </div>
         </ChartTooltip>
@@ -40,18 +40,18 @@
 </template>
 
 <script>
-import uPlot from "uplot";
-import ChartTooltip from "./ChartTooltip";
-import ChartAnnotations from "./ChartAnnotations";
-import ChartIncidents from "./ChartIncidents";
+import uPlot from 'uplot';
+import ChartTooltip from './ChartTooltip';
+import ChartAnnotations from './ChartAnnotations';
+import ChartIncidents from './ChartIncidents';
 
-const font = '12px Roboto, sans-serif'
+const font = '12px Roboto, sans-serif';
 
 function fmtDigits(...v) {
-    const min = Math.min(...v.filter(v => !!v));
+    const min = Math.min(...v.filter((v) => !!v));
     const p = Math.floor(Math.log(min) / Math.log(10));
     if (p >= 0) {
-        return 0
+        return 0;
     }
     return -p;
 }
@@ -61,9 +61,9 @@ function fmtVal(v, unit, digits) {
         return '-';
     }
     if (digits === undefined) {
-        digits = fmtDigits(v)
+        digits = fmtDigits(v);
     }
-    return v.toFixed(digits)+unit;
+    return v.toFixed(digits) + unit;
 }
 
 export default {
@@ -73,7 +73,7 @@ export default {
         loading: Boolean,
     },
 
-    components: {ChartTooltip, ChartAnnotations, ChartIncidents},
+    components: { ChartTooltip, ChartAnnotations, ChartIncidents },
 
     data() {
         return {
@@ -102,9 +102,9 @@ export default {
         config() {
             const c = JSON.parse(JSON.stringify(this.heatmap));
             c.series = (c.series || []).filter((s) => s.data != null);
-            c.ctx.data = Array.from({length: (c.ctx.to - c.ctx.from) / c.ctx.step + 1}, (_, i) => c.ctx.from + (i * c.ctx.step));
-            c.ctx.min = Math.min(...c.series.map(s => Math.min(...s.data.filter(v => !!v))));
-            c.ctx.max = Math.max(...c.series.map(s => Math.max(...s.data)));
+            c.ctx.data = Array.from({ length: (c.ctx.to - c.ctx.from) / c.ctx.step + 1 }, (_, i) => c.ctx.from + i * c.ctx.step);
+            c.ctx.min = Math.min(...c.series.map((s) => Math.min(...s.data.filter((v) => !!v))));
+            c.ctx.max = Math.max(...c.series.map((s) => Math.max(...s.data)));
             return c;
         },
         legend() {
@@ -112,24 +112,24 @@ export default {
             if (!c) {
                 return [];
             }
-            const {min, max} = c.ctx;
+            const { min, max } = c.ctx;
             if (min === Infinity) {
                 return [];
             }
-            const avg = (min + max)/2;
+            const avg = (min + max) / 2;
             return [
-                {type: 'min', value: fmtVal(min, '/s')},
-                {type: 'avg', value: fmtVal(avg, '/s')},
-                {type: 'max', value: fmtVal(max, '/s')},
-            ]
+                { type: 'min', value: fmtVal(min, '/s') },
+                { type: 'avg', value: fmtVal(avg, '/s') },
+                { type: 'max', value: fmtVal(max, '/s') },
+            ];
         },
         threshold() {
-            const none = {style: {display: 'none'}};
+            const none = { style: { display: 'none' } };
             const c = this.config;
             if (!this.ch || !c) {
                 return none;
             }
-            const idx = c.series.findIndex(s => !!s.threshold);
+            const idx = c.series.findIndex((s) => !!s.threshold);
             if (idx === -1) {
                 return none;
             }
@@ -142,14 +142,14 @@ export default {
                     top: b.top + b.height - h * (idx + 1) - 1 + 'px',
                     left: b.left + 'px',
                     width: b.width + 5 + 'px',
-                }
+                },
             };
         },
         annotations() {
-            return (this.config.annotations || []).filter(a => a.name !== 'incident').map((a) => ({msg: a.name, x: a.x1, icon: a.icon}));
+            return (this.config.annotations || []).filter((a) => a.name !== 'incident').map((a) => ({ msg: a.name, x: a.x1, icon: a.icon }));
         },
         incidents() {
-            return (this.config.annotations || []).filter(a => a.name === 'incident').map((a) => ({x1: a.x1, x2: a.x2}));
+            return (this.config.annotations || []).filter((a) => a.name === 'incident').map((a) => ({ x1: a.x1, x2: a.x2 }));
         },
         tooltip() {
             const c = this.config;
@@ -157,31 +157,33 @@ export default {
                 return [];
             }
             const idx = this.idx;
-            const max = Math.max(...c.series.map(s => s.data[idx]));
+            const max = Math.max(...c.series.map((s) => s.data[idx]));
             let threshold = null;
-            const thresholdIdx = c.series.findIndex(s => !!s.threshold);
+            const thresholdIdx = c.series.findIndex((s) => !!s.threshold);
             if (thresholdIdx > -1) {
-                let below = c.series.filter((_, i) => i <= thresholdIdx).reduce((sum, s) => sum+s.data[idx], 0);
-                let above = c.series.filter((_, i) => i > thresholdIdx).reduce((sum, s) => sum+s.data[idx], 0);
+                let below = c.series.filter((_, i) => i <= thresholdIdx).reduce((sum, s) => sum + s.data[idx], 0);
+                let above = c.series.filter((_, i) => i > thresholdIdx).reduce((sum, s) => sum + s.data[idx], 0);
                 const total = below + above;
-                below = below * 100 / total;
-                above = above * 100 / total;
-                const digits = fmtDigits(below, above)
+                below = (below * 100) / total;
+                above = (above * 100) / total;
+                const digits = fmtDigits(below, above);
                 threshold = {
                     below: fmtVal(below, '%', digits),
                     above: fmtVal(above, '%', digits),
-                }
+                };
             }
-            const width = Math.max(...c.series.map(s => s.title.length));
-            return c.series.map((s, i) => {
-                return {
-                    label: s.title,
-                    value: fmtVal(s.data[idx], '/s'),
-                    bar: s.data[idx] ? Math.trunc(s.data[idx]*100/max) : 0,
-                    threshold: i === thresholdIdx && threshold,
-                    width,
-                }
-            }).reverse();
+            const width = Math.max(...c.series.map((s) => s.title.length));
+            return c.series
+                .map((s, i) => {
+                    return {
+                        label: s.title,
+                        value: fmtVal(s.data[idx], '/s'),
+                        bar: s.data[idx] ? Math.trunc((s.data[idx] * 100) / max) : 0,
+                        threshold: i === thresholdIdx && threshold,
+                        width,
+                    };
+                })
+                .reverse();
         },
     },
 
@@ -205,8 +207,8 @@ export default {
                         space: 80,
                         font,
                         values: [
-                            [60000, "{HH}:{mm}", null, null, "{MMM} {DD}", null, null, null, 0],
-                            [1000, "{HH}:{mm}:{ss}", null, null, "{MMM} {DD}", null, null, null, 0],
+                            [60000, '{HH}:{mm}', null, null, '{MMM} {DD}', null, null, null, 0],
+                            [1000, '{HH}:{mm}:{ss}', null, null, '{MMM} {DD}', null, null, null, 0],
                         ],
                     },
                     {
@@ -214,33 +216,33 @@ export default {
                         font,
                         gap: 0,
                         size: 60,
-                        splits: [0, ...c.series.map((_, i) => i+1)],
-                        values: ['0', ...c.series.map(s => s.name)],
+                        splits: [0, ...c.series.map((_, i) => i + 1)],
+                        values: ['0', ...c.series.map((s) => s.name)],
                     },
                 ],
-                series: [{}, ...c.series.map(() => ({paths: hm, alpha: 0}))],
+                series: [{}, ...c.series.map(() => ({ paths: hm, alpha: 0 }))],
                 cursor: {
-                    points: {show: false},
+                    points: { show: false },
                     y: !!this.selection,
-                    drag: {setScale: false, x: !!this.selection, y: !!this.selection},
+                    drag: { setScale: false, x: !!this.selection, y: !!this.selection },
                     bind: {
                         dblclick: () => () => null, // avoid some strange collapse of the y-axis
                     },
                     lock: true,
                 },
-                legend: {show: false},
-                plugins: [
-                    this.$refs.tooltip.plugin(),
-                    this.selectionPlugin(),
-                ],
+                legend: { show: false },
+                plugins: [this.$refs.tooltip.plugin(), this.selectionPlugin()],
             };
 
             if (this.ch) {
                 this.ch.destroy();
             }
-            this.ch = new uPlot(opts, [c.ctx.data, ...c.series.map(s => s.data)], this.$refs.uplot);
+            this.ch = new uPlot(opts, [c.ctx.data, ...c.series.map((s) => s.data)], this.$refs.uplot);
             this.ch.root.style.font = font;
-            this.bbox = Object.entries(this.ch.bbox).reduce((o, e) => {o[e[0]]=e[1]/devicePixelRatio; return o}, {});
+            this.bbox = Object.entries(this.ch.bbox).reduce((o, e) => {
+                o[e[0]] = e[1] / devicePixelRatio;
+                return o;
+            }, {});
         },
         heatmapPaths() {
             const c = this.config;
@@ -251,23 +253,27 @@ export default {
                 const ys = u.data[seriesIdx];
                 const h = u.bbox.height / c.series.length;
                 const w = u.bbox.width / xs.length;
-                const y = u.bbox.height + u.bbox.top - seriesIdx*h;
-                const x = u.bbox.left - w/2 + margin/2;
-                uPlot.orient(u, seriesIdx, (series, dataX, dataY, scaleX, scaleY, valToPosX, valToPosY, xOff, yOff, xDim, yDim, moveTo, lineTo, rect) => {
-                    u.ctx.save();
-                    xs.forEach((_, i) => {
-                        if (!ys[i]) {
-                            return
-                        }
-                        const p = new Path2D();
-                        rect(p, x+i*w+w/2, y, w-margin, h-margin);
-                        const b = ys[i]/norm;
-                        u.ctx.fillStyle = 'hsl(200 100% ' + (75-Math.trunc(b*50)) + '%)';
-                        u.ctx.fill(p);
-                    })
-                    u.ctx.restore();
-                })
-            }
+                const y = u.bbox.height + u.bbox.top - seriesIdx * h;
+                const x = u.bbox.left - w / 2 + margin / 2;
+                uPlot.orient(
+                    u,
+                    seriesIdx,
+                    (series, dataX, dataY, scaleX, scaleY, valToPosX, valToPosY, xOff, yOff, xDim, yDim, moveTo, lineTo, rect) => {
+                        u.ctx.save();
+                        xs.forEach((_, i) => {
+                            if (!ys[i]) {
+                                return;
+                            }
+                            const p = new Path2D();
+                            rect(p, x + i * w + w / 2, y, w - margin, h - margin);
+                            const b = ys[i] / norm;
+                            u.ctx.fillStyle = 'hsl(200 100% ' + (75 - Math.trunc(b * 50)) + '%)';
+                            u.ctx.fill(p);
+                        });
+                        u.ctx.restore();
+                    },
+                );
+            };
         },
         selectionPlugin() {
             if (!this.selection) {
@@ -275,27 +281,29 @@ export default {
             }
             const emitSelection = (s) => {
                 this.$emit('select', s);
-            }
+            };
             const init = (u) => {
-                u.over.addEventListener("click", () => {
-                    u.setSelect({width: 0, height: 0}, false);
+                u.over.addEventListener('click', () => {
+                    u.setSelect({ width: 0, height: 0 }, false);
                     emitSelection({});
                 });
-            }
+            };
             const ready = (u) => {
                 const c = this.config;
                 const sel = this.selection;
                 if (!sel.x1 && !sel.x2 && !sel.y1 && !sel.y2) {
                     return;
                 }
-                const opts = {left: 0, width: 0, top: 0, height: 0};
+                const opts = { left: 0, width: 0, top: 0, height: 0 };
                 opts.left = Math.max(u.valToPos(sel.x1 || c.ctx.from, 'x'), 0);
-                opts.width = Math.min(u.valToPos(sel.x2 || c.ctx.to, 'x') - opts.left, u.bbox.width/devicePixelRatio);
-                opts.top = (sel.y2 === '' ? 0 : u.valToPos(c.series.findIndex(s => s.value === sel.y2) + 1, 'y')) + 1;
-                opts.height = (sel.y1 === '' ? u.bbox.height/devicePixelRatio : u.valToPos(c.series.findIndex(s => s.value === sel.y1)+1, 'y')) - opts.top;
+                opts.width = Math.min(u.valToPos(sel.x2 || c.ctx.to, 'x') - opts.left, u.bbox.width / devicePixelRatio);
+                opts.top = (sel.y2 === '' ? 0 : u.valToPos(c.series.findIndex((s) => s.value === sel.y2) + 1, 'y')) + 1;
+                opts.height =
+                    (sel.y1 === '' ? u.bbox.height / devicePixelRatio : u.valToPos(c.series.findIndex((s) => s.value === sel.y1) + 1, 'y')) -
+                    opts.top;
                 this.select = opts;
                 u.setSelect(opts, false);
-            }
+            };
             const setSelect = (u) => {
                 const c = this.config;
                 const s = u.select;
@@ -305,18 +313,18 @@ export default {
                 }
                 const x1 = Math.trunc(u.posToVal(s.left, 'x'));
                 const x2 = Math.trunc(u.posToVal(s.left + s.width, 'x'));
-                let y1 = Math.trunc(u.posToVal(s.top+s.height, 'y'));
+                let y1 = Math.trunc(u.posToVal(s.top + s.height, 'y'));
                 let y2 = Math.trunc(u.posToVal(s.top, 'y'));
-                y1 = y1 <= 0 ? '' : c.series[y1-1].value;
+                y1 = y1 <= 0 ? '' : c.series[y1 - 1].value;
                 const l = c.series.length;
-                y2 = y2 >= l ? c.series[l-1].value : c.series[y2].value;
-                emitSelection({x1, x2, y1, y2});
-            }
+                y2 = y2 >= l ? c.series[l - 1].value : c.series[y2].value;
+                emitSelection({ x1, x2, y1, y2 });
+            };
 
-            return {hooks: {init, ready, setSelect}}
+            return { hooks: { init, ready, setSelect } };
         },
     },
-}
+};
 </script>
 
 <style scoped>
@@ -324,8 +332,8 @@ export default {
     position: relative;
 }
 .chart:deep(.u-select) {
-    border: 1px dashed #FFEB3B;
-    background-color: #FFEB3B80;
+    border: 1px dashed #ffeb3b;
+    background-color: #ffeb3b80;
 }
 
 .title {

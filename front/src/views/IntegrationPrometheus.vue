@@ -1,10 +1,17 @@
 <template>
     <v-form v-model="valid" ref="form" style="max-width: 800px">
         <div class="subtitle-1">Prometheus URL</div>
-        <div class="caption">
-            Coroot works on top of the telemetry data stored in your Prometheus server.
-        </div>
-        <v-text-field outlined dense v-model="form.url" :rules="[$validators.notEmpty, $validators.isUrl]" placeholder="https://prom.example.com:9090" hide-details="auto" class="flex-grow-1" single-line />
+        <div class="caption">Coroot works on top of the telemetry data stored in your Prometheus server.</div>
+        <v-text-field
+            outlined
+            dense
+            v-model="form.url"
+            :rules="[$validators.notEmpty, $validators.isUrl]"
+            placeholder="https://prom.example.com:9090"
+            hide-details="auto"
+            class="flex-grow-1"
+            single-line
+        />
         <v-checkbox v-model="form.tls_skip_verify" :disabled="!form.url.startsWith('https')" label="Skip TLS verify" hide-details class="my-2" />
 
         <v-checkbox v-model="basic_auth" label="HTTP basic auth" class="my-2" hide-details />
@@ -22,27 +29,28 @@
                     <v-icon small>mdi-trash-can-outline</v-icon>
                 </v-btn>
             </div>
-            <v-btn color="primary" @click="form.custom_headers.push({key: '', value: ''})">Add header</v-btn>
+            <v-btn color="primary" @click="form.custom_headers.push({ key: '', value: '' })">Add header</v-btn>
         </template>
 
         <div class="subtitle-1 mt-3">Refresh interval</div>
         <div class="caption">
-            How often Coroot retrieves telemetry data from a Prometheus.
-            The value must be greater than the <a href="https://prometheus.io/docs/prometheus/latest/configuration/configuration/" target="_blank" rel="noopener noreferrer"><var>scrape_interval</var></a> of the Prometheus server.
+            How often Coroot retrieves telemetry data from a Prometheus. The value must be greater than the
+            <a href="https://prometheus.io/docs/prometheus/latest/configuration/configuration/" target="_blank" rel="noopener noreferrer"
+                ><var>scrape_interval</var></a
+            >
+            of the Prometheus server.
         </div>
-        <v-select v-model="form.refresh_interval" :items="refreshIntervals" outlined dense :menu-props="{offsetY: true}" />
+        <v-select v-model="form.refresh_interval" :items="refreshIntervals" outlined dense :menu-props="{ offsetY: true }" />
 
         <div class="subtitle-1">Extra selector</div>
-        <div class="caption">
-            An additional metric selector that will be added to every Prometheus query (e.g. <var>{cluster="us-west-1"}</var>)
-        </div>
+        <div class="caption">An additional metric selector that will be added to every Prometheus query (e.g. <var>{cluster="us-west-1"}</var>)</div>
         <v-text-field outlined dense v-model="form.extra_selector" :rules="[$validators.isPrometheusSelector]" single-line />
 
         <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
-            {{error}}
+            {{ error }}
         </v-alert>
         <v-alert v-if="message" color="green" outlined text>
-            {{message}}
+            {{ message }}
         </v-alert>
         <v-btn block color="primary" @click="save" :disabled="!valid" :loading="loading">Save</v-btn>
     </v-form>
@@ -50,11 +58,11 @@
 
 <script>
 const refreshIntervals = [
-    {value: 5000, text: '5 seconds'},
-    {value: 10000, text: '10 seconds'},
-    {value: 15000, text: '15 seconds'},
-    {value: 30000, text: '30 seconds'},
-    {value: 60000, text: '60 seconds'},
+    { value: 5000, text: '5 seconds' },
+    { value: 10000, text: '10 seconds' },
+    { value: 15000, text: '15 seconds' },
+    { value: 30000, text: '30 seconds' },
+    { value: 60000, text: '60 seconds' },
 ];
 
 export default {
@@ -91,9 +99,9 @@ export default {
         },
         custom_headers(v) {
             if (v && !this.form.custom_headers.length) {
-                this.form.custom_headers.push({key: '', value: ''});
+                this.form.custom_headers.push({ key: '', value: '' });
             }
-        }
+        },
     },
 
     computed: {
@@ -114,7 +122,7 @@ export default {
                 }
                 this.form = Object.assign({}, this.form, data);
                 if (!this.form.basic_auth) {
-                    this.form.basic_auth = {user: '', password: ''};
+                    this.form.basic_auth = { user: '', password: '' };
                     this.basic_auth = false;
                 } else {
                     this.basic_auth = true;
@@ -151,7 +159,7 @@ export default {
             });
         },
     },
-}
+};
 </script>
 
 <style scoped>

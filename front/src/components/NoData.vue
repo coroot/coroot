@@ -1,13 +1,9 @@
 <template>
-    <div class="pa-3 text-center grey--text">
-        No data is available yet
-    </div>
+    <div class="pa-3 text-center grey--text">No data is available yet</div>
 </template>
 
 <script>
-export default {
-}
+export default {};
 </script>
 
-<style scoped>
-</style>
+<style scoped></style>

@@ -1,40 +1,40 @@
 <template>
     <div>
         <Led :status="check.status" />
-        <span>{{check.title}}: </span>
+        <span>{{ check.title }}: </span>
         <template v-if="check.message">
-            {{check.message}}
+            {{ check.message }}
         </template>
         <template v-else>ok</template>
         <div class="grey--text condition">
             <span>Condition: </span>
-            <span>{{condition.head}}</span>
-            <a @click="$emit('configure')">{{threshold}}</a>
-            <span>{{condition.tail}}</span>
+            <span>{{ condition.head }}</span>
+            <a @click="$emit('configure')">{{ threshold }}</a>
+            <span>{{ condition.tail }}</span>
         </div>
     </div>
 </template>
 
 <script>
-import Led from "./Led.vue";
+import Led from './Led.vue';
 
 export default {
     props: {
         check: Object,
     },
 
-    components: {Led},
+    components: { Led },
 
     computed: {
         condition() {
             const parts = this.check.condition_format_template.split('<threshold>', 2);
             if (parts.length === 0) {
-                return {head: '', tail: ''};
+                return { head: '', tail: '' };
             }
             if (parts.length === 1) {
-                return {head: parts[0], tail: ''};
+                return { head: parts[0], tail: '' };
             }
-            return {head: parts[0], tail: parts[1]};
+            return { head: parts[0], tail: parts[1] };
         },
         threshold() {
             switch (this.check.unit) {
@@ -46,7 +46,7 @@ export default {
             return this.check.threshold;
         },
     },
-}
+};
 </script>
 
 <style scoped>

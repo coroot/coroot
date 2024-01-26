@@ -1,6 +1,6 @@
-import axios from "axios";
-import * as storage from "@/utils/storage";
-import {v4} from 'uuid';
+import axios from 'axios';
+import * as storage from '@/utils/storage';
+import { v4 } from 'uuid';
 
 const defaultErrorMessage = 'Something went wrong, please try again later.';
 const timeoutErrorMessage = 'Request timed out.';
@@ -30,7 +30,7 @@ export default class Api {
             baseURL: this.basePath + 'api/',
             timeout: 60000,
             timeoutErrorMessage: timeoutErrorMessage,
-        })
+        });
     }
 
     stats(type, data) {
@@ -39,43 +39,45 @@ export default class Api {
             type,
             device_id: this.deviceId,
             device_size: this.vuetify.breakpoint.name,
-        }
+        };
         navigator.sendBeacon(this.basePath + 'stats', JSON.stringify(event));
     }
 
     request(req, cb) {
-        this.axios(req).then((response) => {
-            if (response.data.context) {
-                this.context.status = response.data.context.status;
-                this.context.search = response.data.context.search;
-            }
-            try {
-                cb(response.data.data || response.data, '');
-            } catch (e) {
-                console.error(e);
-            }
-        }).catch((error) => {
-            const err = error.response && error.response.data && error.response.data.trim() || error.message || defaultErrorMessage;
-            cb(null, err);
-        })
+        this.axios(req)
+            .then((response) => {
+                if (response.data.context) {
+                    this.context.status = response.data.context.status;
+                    this.context.search = response.data.context.search;
+                }
+                try {
+                    cb(response.data.data || response.data, '');
+                } catch (e) {
+                    console.error(e);
+                }
+            })
+            .catch((error) => {
+                const err = (error.response && error.response.data && error.response.data.trim()) || error.message || defaultErrorMessage;
+                cb(null, err);
+            });
     }
 
     get(url, args, cb) {
-        const {from, to} = this.router.currentRoute.query;
-        const params = {...args, from, to};
-        this.request({method: 'get', url, params}, cb);
+        const { from, to } = this.router.currentRoute.query;
+        const params = { ...args, from, to };
+        this.request({ method: 'get', url, params }, cb);
     }
 
     put(url, data, cb) {
-        this.request({method: 'put', url, data}, cb);
+        this.request({ method: 'put', url, data }, cb);
     }
 
     post(url, data, cb) {
-        this.request({method: 'post', url, data}, cb);
+        this.request({ method: 'post', url, data }, cb);
     }
 
     del(url, cb) {
-        this.request({method: 'delete', url}, cb);
+        this.request({ method: 'delete', url }, cb);
     }
 
     getProjects(cb) {
@@ -124,11 +126,11 @@ export default class Api {
     }
 
     getIntegrations(type, cb) {
-        this.get(this.projectPath(`integrations${type ? '/'+type : ''}`), {}, cb);
+        this.get(this.projectPath(`integrations${type ? '/' + type : ''}`), {}, cb);
     }
 
     saveIntegrations(type, action, form, cb) {
-        const path = this.projectPath(`integrations${type ? '/'+type : ''}`);
+        const path = this.projectPath(`integrations${type ? '/' + type : ''}`);
         switch (action) {
             case 'save':
                 this.put(path, form, cb);
@@ -138,7 +140,7 @@ export default class Api {
                 return;
             case 'test':
                 this.post(path, form, cb);
-                return
+                return;
         }
     }
 
@@ -155,7 +157,7 @@ export default class Api {
     }
 
     getProfile(appId, query, cb) {
-        this.get(this.projectPath(`app/${appId}/profile`), {query}, cb);
+        this.get(this.projectPath(`app/${appId}/profile`), { query }, cb);
     }
 
     saveProfileSettings(appId, form, cb) {
@@ -163,7 +165,7 @@ export default class Api {
     }
 
     getTracing(appId, trace, cb) {
-        this.get(this.projectPath(`app/${appId}/tracing`), {trace}, cb);
+        this.get(this.projectPath(`app/${appId}/tracing`), { trace }, cb);
     }
 
     saveTracingSettings(appId, form, cb) {
@@ -171,7 +173,7 @@ export default class Api {
     }
 
     getLogs(appId, query, cb) {
-        this.get(this.projectPath(`app/${appId}/logs`), {query}, cb);
+        this.get(this.projectPath(`app/${appId}/logs`), { query }, cb);
     }
 
     saveLogsSettings(appId, form, cb) {
@@ -187,6 +189,6 @@ export default class Api {
             remote: {
                 apiPrefix: this.basePath + 'api/' + this.projectPath('prom') + '/api/v1',
             },
-        }
+        };
     }
 }
