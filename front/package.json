@@ -17,7 +17,7 @@
     "@juggle/resize-observer": "^3.4.0",
     "@lezer/common": "^1.0.1",
     "@prometheus-io/codemirror-promql": "^0.39.0-rc.0",
-    "axios": "^0.27.2",
+    "axios": "^1.6.0",
     "color-convert": "^2.0.1",
     "core-js": "^3.8.3",
     "highlight.js": "^11.7.0",
