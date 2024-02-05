@@ -14,7 +14,7 @@ WORKDIR /tmp/src/front
 COPY ./front/package*.json ./
 RUN npm ci
 COPY ./front .
-RUN npm run prod
+RUN npm run build-prod
 
 
 FROM debian:bullseye

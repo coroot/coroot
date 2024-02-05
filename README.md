@@ -121,6 +121,9 @@ A live demo of Coroot is available at [community-demo.coroot.com](https://commun
 * Twitter: [@coroot_com](https://twitter.com/coroot_com)
 
 
+## Contributing
+To start contributing, check out our [Contributing Guide](https://github.com/prometheus/prometheus/blob/main/CONTRIBUTING.md).
+
 ## License
 
 Coroot is licensed under the [Apache License, Version 2.0](https://github.com/coroot/coroot/blob/main/LICENSE).

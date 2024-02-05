@@ -30,7 +30,7 @@ var version = "unknown"
 func main() {
 	listen := kingpin.Flag("listen", "listen address - ip:port or :port").Envar("LISTEN").Default("0.0.0.0:8080").String()
 	urlBasePath := kingpin.Flag("url-base-path", "the base URL to run Coroot at a sub-path, e.g. /coroot/").Envar("URL_BASE_PATH").Default("/").String()
-	dataDir := kingpin.Flag("data-dir", `path to the data directory`).Envar("DATA_DIR").Default("/data").String()
+	dataDir := kingpin.Flag("data-dir", `path to the data directory`).Envar("DATA_DIR").Default("./data").String()
 	cacheTTL := kingpin.Flag("cache-ttl", "cache TTL").Envar("CACHE_TTL").Default("720h").Duration()
 	cacheGcInterval := kingpin.Flag("cache-gc-interval", "cache GC interval").Envar("CACHE_GC_INTERVAL").Default("10m").Duration()
 	pgConnString := kingpin.Flag("pg-connection-string", "Postgres connection string (sqlite is used if not set)").Envar("PG_CONNECTION_STRING").String()

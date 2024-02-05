@@ -2,10 +2,11 @@
   "name": "@coroot/coroot",
   "version": "0.1.0",
   "scripts": {
-    "dev": "vue-cli-service build --dest=../static --watch",
-    "prod": "vue-cli-service build --dest=../static src/main.js",
+    "build-dev": "vue-cli-service build --dest=../static --watch",
+    "build-prod": "vue-cli-service build --dest=../static src/main.js",
     "lint": "vue-cli-service lint",
-    "fmt": "prettier src --check"
+    "fmt": "prettier src --write",
+    "fmt-check": "prettier src --check"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.3.0",

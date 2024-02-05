@@ -22,7 +22,7 @@ jobs:
           files=$(goimports -l .); if [[ -n "$files" ]]; then echo "$files"; exit 1; fi
       - run: go vet ./...
       - run: go test ./...
-      - run: go build .
+      - run: go build -mod=readonly .
   UI:
     runs-on: ubuntu-latest
     defaults:
@@ -35,5 +35,5 @@ jobs:
           node-version: 21
       - run: npm ci
       - run: npm run lint
-      - run: npm run fmt
-      - run: npm run prod
+      - run: npm run fmt-check
+      - run: npm run build-prod
