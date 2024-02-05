@@ -3,17 +3,18 @@ package cache
 import (
 	"database/sql"
 	"fmt"
+	"os"
+	"path"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/coroot/coroot/cache/chunk"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/prom"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/prometheus/client_golang/prometheus"
-	"os"
 	"k8s.io/klog"
-	"path"
-	"strings"
-	"sync"
-	"time"
 )
 
 const (

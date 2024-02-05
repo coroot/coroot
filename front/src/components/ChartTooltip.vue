@@ -1,10 +1,9 @@
 <template>
     <div ref="tooltip" class="tooltip">
-        <div class="time">{{time}}</div>
+        <div class="time">{{ time }}</div>
         <slot></slot>
         <div v-if="incident" class="incident">
-            <span class="label">incident</span>:
-            {{incident.from}} - {{incident.to || 'in progress'}} ({{incident.dur}})
+            <span class="label">incident</span>: {{ incident.from }} - {{ incident.to || 'in progress' }} ({{ incident.dur }})
         </div>
     </div>
 </template>
@@ -22,7 +21,7 @@ export default {
         return {
             idx: null,
             mousedown: false,
-        }
+        };
     },
     computed: {
         ts() {
@@ -42,8 +41,8 @@ export default {
             return {
                 from: this.$format.date(incident.x1, fmt),
                 to: incident.x2 < this.ctx.to && this.$format.date(incident.x2, fmt),
-                dur: this.$format.duration((incident.x2-incident.x1 + this.ctx.step), precision),
-            }
+                dur: this.$format.duration(incident.x2 - incident.x1 + this.ctx.step, precision),
+            };
         },
     },
     methods: {
@@ -51,18 +50,18 @@ export default {
             const init = (u) => {
                 const t = this.$refs.tooltip;
                 u.over.appendChild(t);
-                u.over.addEventListener("mouseleave", () => {
+                u.over.addEventListener('mouseleave', () => {
                     t.style.display = 'none';
                     this.mousedown = false;
                 });
-                u.over.addEventListener("mousedown", () => {
+                u.over.addEventListener('mousedown', () => {
                     t.style.display = 'none';
                     this.mousedown = true;
                 });
-                u.over.addEventListener("mouseup", () => {
+                u.over.addEventListener('mouseup', () => {
                     this.mousedown = false;
                 });
-            }
+            };
             const setCursor = (u) => {
                 const { left, top, idx } = u.cursor;
                 if (idx === null) {
@@ -71,16 +70,16 @@ export default {
                 this.idx = idx;
                 this.$emit('input', idx);
                 const t = this.$refs.tooltip;
-                const l = left - (left >= u.over.clientWidth/2 ? t.clientWidth + 5 : -5);
-                t.style.transform = "translate(" + l + "px, " + top + "px)";
+                const l = left - (left >= u.over.clientWidth / 2 ? t.clientWidth + 5 : -5);
+                t.style.transform = 'translate(' + l + 'px, ' + top + 'px)';
                 if (!this.mousedown) {
                     t.style.display = 'block';
                 }
-            }
-            return {hooks: {init, setCursor}}
+            };
+            return { hooks: { init, setCursor } };
         },
     },
-}
+};
 </script>
 
 <style scoped>
@@ -90,7 +89,7 @@ export default {
     z-index: 2;
     background-color: white;
     padding: 8px;
-    border: 1px solid rgba(0,0,0,0.2);
+    border: 1px solid rgba(0, 0, 0, 0.2);
     border-radius: 4px;
     pointer-events: none;
     font-size: 12px;

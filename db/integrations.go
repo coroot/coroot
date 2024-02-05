@@ -2,6 +2,7 @@ package db
 
 import (
 	"fmt"
+
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 )

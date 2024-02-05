@@ -1,10 +1,11 @@
 package overview
 
 import (
-	"github.com/coroot/coroot/model"
-	"github.com/coroot/coroot/timeseries"
 	"sort"
 	"strings"
+
+	"github.com/coroot/coroot/model"
+	"github.com/coroot/coroot/timeseries"
 )
 
 const (

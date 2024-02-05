@@ -1,37 +1,57 @@
 <template>
     <div>
-        <ApplicationFilter :applications="applications" :autoSelectNamespaceThreshold="maxApplications" :configureTo="categoriesTo" @filter="setFilter" class="my-4" />
+        <ApplicationFilter
+            :applications="applications"
+            :autoSelectNamespaceThreshold="maxApplications"
+            :configureTo="categoriesTo"
+            @filter="setFilter"
+            class="my-4"
+        />
 
         <div v-if="tooManyApplications" class="text-center red--text mt-5">
-            Too many applications ({{tooManyApplications}}) to render. Please choose a different category or namespace.
+            Too many applications ({{ tooManyApplications }}) to render. Please choose a different category or namespace.
         </div>
 
         <div class="applications" v-on-resize="calc" @scroll="calc">
-            <div v-for="apps in levels" class="level" style="z-index: 1" :style="{rowGap: 200 / apps.length + 'px', maxWidth: 100 / levels.length + '%' }">
+            <div
+                v-for="apps in levels"
+                class="level"
+                style="z-index: 1"
+                :style="{ rowGap: 200 / apps.length + 'px', maxWidth: 100 / levels.length + '%' }"
+            >
                 <div v-for="a in apps" style="text-align: center">
-                    <span :ref="a.id" class="app" :class="{selected: a.hi(hi)}" @mouseenter="hi = a.id" @mouseleave="hi = null">
-                        <router-link :to="{name: 'application', params: {id: a.id}, query: $utils.contextQuery()}" class="name">
-                            <AppHealth :app="a"/>
+                    <span :ref="a.id" class="app" :class="{ selected: a.hi(hi) }" @mouseenter="hi = a.id" @mouseleave="hi = null">
+                        <router-link :to="{ name: 'application', params: { id: a.id }, query: $utils.contextQuery() }" class="name">
+                            <AppHealth :app="a" />
                         </router-link>
                         <Labels v-if="!hideLabels" :labels="a.labels" class="d-none d-sm-block label" />
                     </span>
                 </div>
             </div>
-            <svg :style="{zIndex: hi ? 2 : 0}">
+            <svg :style="{ zIndex: hi ? 2 : 0 }">
                 <defs>
-                    <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" :markerWidth="10" :markerHeight="10" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+                    <marker
+                        id="arrow"
+                        viewBox="0 0 10 10"
+                        refX="10"
+                        refY="5"
+                        :markerWidth="10"
+                        :markerHeight="10"
+                        markerUnits="userSpaceOnUse"
+                        orient="auto-start-reverse"
+                    >
                         <path d="M 0 3 L 10 5 L 0 7 z" />
                     </marker>
                 </defs>
 
                 <template v-for="a in arrows">
                     <path v-if="a.dd" :d="a.dd" class="arrow" :class="a.status" />
-                    <path :d="a.d" class="arrow" :class="a.status" :stroke-opacity="a.hi ? 1 : 0.7" marker-end="url(#arrow)"/>
+                    <path :d="a.d" class="arrow" :class="a.status" :stroke-opacity="a.hi ? 1 : 0.7" marker-end="url(#arrow)" />
                 </template>
             </svg>
             <template v-for="a in arrows">
-                <div v-if="a.stats && a.hi" class="stats" :style="{top: a.stats.y+'px', left: a.stats.x+'px', zIndex: 3}">
-                    <div v-for="i in a.stats.items">{{i}}</div>
+                <div v-if="a.stats && a.hi" class="stats" :style="{ top: a.stats.y + 'px', left: a.stats.x + 'px', zIndex: 3 }">
+                    <div v-for="i in a.stats.items">{{ i }}</div>
                 </div>
             </template>
         </div>
@@ -39,13 +59,13 @@
 </template>
 
 <script>
-import Labels from "./Labels";
-import AppHealth from "./AppHealth";
-import ApplicationFilter from "./ApplicationFilter.vue";
+import Labels from './Labels';
+import AppHealth from './AppHealth';
+import ApplicationFilter from './ApplicationFilter.vue';
 
 function findBackLinks(index, a, discovered, finished, found) {
     if (!a) {
-        return
+        return;
     }
     discovered.add(a.id);
     for (const u of a.upstreams) {
@@ -63,7 +83,7 @@ function findBackLinks(index, a, discovered, finished, found) {
 
 function calcLevel(index, a, level, backLinks) {
     if (!a) {
-        return
+        return;
     }
     if (a.level === undefined || level > a.level) {
         a.level = level;
@@ -83,7 +103,7 @@ export default {
         categoriesTo: Object,
     },
 
-    components: {ApplicationFilter, AppHealth, Labels},
+    components: { ApplicationFilter, AppHealth, Labels },
 
     data() {
         return {
@@ -110,7 +130,7 @@ export default {
             this.calc();
         },
     },
-    computed : {
+    computed: {
         maxApplications() {
             return 1000;
         },
@@ -164,7 +184,7 @@ export default {
                 findBackLinks(index, a, new Set(), new Set(), backLinks);
             });
             applications.forEach((a) => {
-                a.downstreams = a.downstreams.filter((d) => !backLinks.has(d.id+'->'+a.id))
+                a.downstreams = a.downstreams.filter((d) => !backLinks.has(d.id + '->' + a.id));
             });
 
             const roots = applications.filter((a) => a.downstreams.length === 0);
@@ -173,7 +193,7 @@ export default {
             });
 
             const depth = Math.max(...applications.map((a) => a.level));
-            const levels = Array.from({length: depth+1}, () => []);
+            const levels = Array.from({ length: depth + 1 }, () => []);
             applications.forEach((a) => {
                 let l = a.level;
                 if (a.upstreams.length === 0 && a.downstreams.length === 0) {
@@ -197,7 +217,7 @@ export default {
                 if (!el) {
                     return null;
                 }
-                return {top: el.offsetTop, left: el.offsetLeft, width: el.offsetWidth, height: el.offsetHeight};
+                return { top: el.offsetTop, left: el.offsetLeft, width: el.offsetWidth, height: el.offsetHeight };
             };
             const arrows = [];
             applications.forEach((app) => {
@@ -208,15 +228,15 @@ export default {
                         status: u.status,
                         w: u.weight || 0,
                     };
-                    const s = getRect(a.src)
-                    const d = getRect(a.dst)
+                    const s = getRect(a.src);
+                    const d = getRect(a.dst);
                     if (!s || !d) {
                         return;
                     }
                     arrows.push(a);
 
                     a.x1 = s.left + s.width;
-                    a.y1 = s.top  + s.height / 2;
+                    a.y1 = s.top + s.height / 2;
                     a.x2 = d.left;
                     a.y2 = d.top + d.height / 2;
                     if (a.x1 > a.x2) {
@@ -226,33 +246,33 @@ export default {
                     a.d = `M${a.x1},${a.y1} L${a.x2},${a.y2}`;
 
                     if (u.stats && u.stats.length) {
-                        a.stats = {x: (a.x2+a.x1)/2-20, y: (a.y2+a.y1)/2-(u.stats.length*12)/2, items: u.stats};
+                        a.stats = { x: (a.x2 + a.x1) / 2 - 20, y: (a.y2 + a.y1) / 2 - (u.stats.length * 12) / 2, items: u.stats };
                     }
                 });
             });
             this.arrows = arrows;
         },
         highlightArrows(hiApp) {
-            this.arrows.forEach(a => {
+            this.arrows.forEach((a) => {
                 a.hi = hiApp && (a.src === hiApp || a.dst === hiApp);
                 a.dd = '';
-            })
+            });
             if (!hiApp) {
                 return;
             }
-            const hiArrows = this.arrows.filter(a => a.hi);
+            const hiArrows = this.arrows.filter((a) => a.hi);
             const maxW = Math.max(...hiArrows.map((a) => a.w));
             if (!maxW) {
                 return;
             }
-            hiArrows.forEach(a => {
+            hiArrows.forEach((a) => {
                 if (!a.w) {
                     return;
                 }
-                const w = 3 * a.w / maxW;
-                const r = w/2 + ((a.y2 - a.y1)**2 + (a.x2 - a.x1)**2)/(8*w);
+                const w = (3 * a.w) / maxW;
+                const r = w / 2 + ((a.y2 - a.y1) ** 2 + (a.x2 - a.x1) ** 2) / (8 * w);
                 a.dd = `M${a.x1},${a.y1} A${r},${r} 0,0,0 ${a.x2},${a.y2} A${r},${r} 0,0,0 ${a.x1},${a.y1}`;
-            })
+            });
         },
     },
 };
@@ -276,7 +296,7 @@ export default {
 }
 .app {
     max-width: 100%;
-    border: 1px solid #BDBDBD;
+    border: 1px solid #bdbdbd;
     border-radius: 3px;
     white-space: nowrap;
     padding: 4px 8px;
@@ -287,7 +307,7 @@ export default {
     text-align: left;
 }
 .app.selected {
-    border: 1px solid rgba(0,0,0,0.87);
+    border: 1px solid rgba(0, 0, 0, 0.87);
     background-color: #cbe9fc;
 }
 .name {
@@ -316,10 +336,10 @@ svg {
     fill: green;
 }
 .arrow.warning {
-    stroke: #FF8F00;
+    stroke: #ff8f00;
     stroke-dasharray: 4;
     stroke-width: 1.5;
-    fill: #FF8F00;
+    fill: #ff8f00;
 }
 .arrow.critical {
     stroke: red;
@@ -337,7 +357,7 @@ svg {
     position: absolute;
     font-size: 12px;
     line-height: 12px;
-    background-color: #EEEEEE;
+    background-color: #eeeeee;
     padding: 2px;
     border-radius: 2px;
     text-align: right;

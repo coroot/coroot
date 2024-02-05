@@ -1,9 +1,10 @@
 package constructor
 
 import (
+	"strings"
+
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
-	"strings"
 )
 
 func loadRdsMetadata(w *model.World, metrics map[string][]model.MetricValues, pjs promJobStatuses, rdsInstancesById map[string]*model.Instance) {

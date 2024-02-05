@@ -1,72 +1,70 @@
 <template>
-<div>
-    <v-form>
-        <div class="subtitle-1">Base url</div>
-        <div class="caption">
-            This URL is used for things like creating links in alerts.
-        </div>
+    <div>
+        <v-form>
+            <div class="subtitle-1">Base url</div>
+            <div class="caption">This URL is used for things like creating links in alerts.</div>
 
-        <div class="d-flex">
-            <v-text-field v-model="form.base_url" :rules="[$validators.isUrl]" outlined dense />
-            <v-btn @click="save" color="primary" :loading="saving" class="ml-2" height="38">Save</v-btn>
-        </div>
-        <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
-            {{error}}
-        </v-alert>
-        <v-alert v-if="message" color="green" outlined text>
-            {{message}}
-        </v-alert>
-    </v-form>
+            <div class="d-flex">
+                <v-text-field v-model="form.base_url" :rules="[$validators.isUrl]" outlined dense />
+                <v-btn @click="save" color="primary" :loading="saving" class="ml-2" height="38">Save</v-btn>
+            </div>
+            <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
+                {{ error }}
+            </v-alert>
+            <v-alert v-if="message" color="green" outlined text>
+                {{ message }}
+            </v-alert>
+        </v-form>
 
-    <v-simple-table>
-        <thead>
-        <tr>
-            <th>Type</th>
-            <th>Notify of incidents</th>
-            <th>Notify of deployments</th>
-            <th>Actions</th>
-        </tr>
-        </thead>
-        <tbody>
-        <tr v-for="i in integrations">
-            <td>
-                {{i.title}}
-                <div class="caption">{{i.details}}</div>
-            </td>
-            <td>
-                <v-icon v-if="i.configured" small :color="i.incidents ? 'green' : ''">
-                    {{i.incidents ? 'mdi-check' : 'mdi-minus'}}
-                </v-icon>
-            </td>
-            <td>
-                <v-icon v-if="i.configured" small :color="i.deployments ? 'green' : ''">
-                    {{i.deployments ? 'mdi-check' : 'mdi-minus'}}
-                </v-icon>
-            </td>
-            <td>
-                <v-btn v-if="!i.configured" small @click="open(i, 'new')" color="primary">Configure</v-btn>
-                <div v-else class="d-flex">
-                    <v-btn icon small @click="open(i, 'edit')"><v-icon small>mdi-pencil</v-icon></v-btn>
-                    <v-btn icon small @click="open(i, 'del')"><v-icon small>mdi-trash-can-outline</v-icon></v-btn>
-                </div>
-            </td>
-        </tr>
-        </tbody>
-    </v-simple-table>
+        <v-simple-table>
+            <thead>
+                <tr>
+                    <th>Type</th>
+                    <th>Notify of incidents</th>
+                    <th>Notify of deployments</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr v-for="i in integrations">
+                    <td>
+                        {{ i.title }}
+                        <div class="caption">{{ i.details }}</div>
+                    </td>
+                    <td>
+                        <v-icon v-if="i.configured" small :color="i.incidents ? 'green' : ''">
+                            {{ i.incidents ? 'mdi-check' : 'mdi-minus' }}
+                        </v-icon>
+                    </td>
+                    <td>
+                        <v-icon v-if="i.configured" small :color="i.deployments ? 'green' : ''">
+                            {{ i.deployments ? 'mdi-check' : 'mdi-minus' }}
+                        </v-icon>
+                    </td>
+                    <td>
+                        <v-btn v-if="!i.configured" small @click="open(i, 'new')" color="primary">Configure</v-btn>
+                        <div v-else class="d-flex">
+                            <v-btn icon small @click="open(i, 'edit')"><v-icon small>mdi-pencil</v-icon></v-btn>
+                            <v-btn icon small @click="open(i, 'del')"><v-icon small>mdi-trash-can-outline</v-icon></v-btn>
+                        </div>
+                    </td>
+                </tr>
+            </tbody>
+        </v-simple-table>
 
-    <IntegrationForm v-if="action" v-model="action" :type="integration.type" :title="integration.title" />
-</div>
+        <IntegrationForm v-if="action" v-model="action" :type="integration.type" :title="integration.title" />
+    </div>
 </template>
 
 <script>
-import IntegrationForm from "./IntegrationForm.vue";
+import IntegrationForm from './IntegrationForm.vue';
 
 export default {
     props: {
         projectId: String,
     },
 
-    components: {IntegrationForm},
+    components: { IntegrationForm },
 
     data() {
         return {
@@ -91,7 +89,7 @@ export default {
     watch: {
         projectId() {
             this.get();
-        }
+        },
     },
 
     methods: {
@@ -102,7 +100,7 @@ export default {
         get() {
             this.loading = true;
             this.error = '';
-            this.$api.getIntegrations('',(data, error) => {
+            this.$api.getIntegrations('', (data, error) => {
                 this.loading = false;
                 if (error) {
                     this.error = error;
@@ -134,9 +132,7 @@ export default {
             });
         },
     },
-}
+};
 </script>
 
-<style scoped>
-
-</style>
+<style scoped></style>

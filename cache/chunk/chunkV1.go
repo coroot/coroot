@@ -3,11 +3,12 @@ package chunk
 import (
 	"bytes"
 	"encoding/binary"
+	"io"
+
 	"github.com/buger/jsonparser"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/pierrec/lz4"
-	"io"
 )
 
 func readV1(reader io.Reader, chunkSize int, header *header, from timeseries.Time, pointsCount int, step timeseries.Duration, dest map[uint64]model.MetricValues) error {

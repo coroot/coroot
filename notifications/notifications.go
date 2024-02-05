@@ -3,10 +3,11 @@ package notifications
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
-	"time"
 )
 
 const (

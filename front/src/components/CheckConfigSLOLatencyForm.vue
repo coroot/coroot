@@ -1,11 +1,22 @@
 <template>
     <div>
         Metrics:
-        <v-select v-model="config.custom" :items="[{value: false, text: 'inbound requests (built-in)'}, {value: true, text: 'custom'}]" outlined dense :menu-props="{offsetY: true}" hide-details class="mb-3"/>
+        <v-select
+            v-model="config.custom"
+            :items="[
+                { value: false, text: 'inbound requests (built-in)' },
+                { value: true, text: 'custom' },
+            ]"
+            outlined
+            dense
+            :menu-props="{ offsetY: true }"
+            hide-details
+            class="mb-3"
+        />
 
         <template v-if="config.custom">
             Histogram query:
-            <MetricSelector v-model="config.histogram_query" :rules="[$validators.notEmpty]" wrap="sum by(le)( rate( <input> [..]) )" class="mb-3"/>
+            <MetricSelector v-model="config.histogram_query" :rules="[$validators.notEmpty]" wrap="sum by(le)( rate( <input> [..]) )" class="mb-3" />
         </template>
 
         Objective:
@@ -14,29 +25,38 @@
                 <template #append><span class="grey--text">%</span></template>
             </v-text-field>
             of requests should be served faster than
-            <v-select v-model.number="config.objective_bucket" :items="buckets" :rules="[$validators.notEmpty]" outlined dense hide-details :menu-props="{offsetY: true}" class="input select" />
+            <v-select
+                v-model.number="config.objective_bucket"
+                :items="buckets"
+                :rules="[$validators.notEmpty]"
+                outlined
+                dense
+                hide-details
+                :menu-props="{ offsetY: true }"
+                class="input select"
+            />
         </div>
     </div>
 </template>
 
 <script>
-import MetricSelector from "./MetricSelector";
+import MetricSelector from './MetricSelector';
 
 const buckets = [
-    {value: 0.005, text: '5ms'},
-    {value: 0.01, text: '10ms'},
-    {value: 0.025, text: '25ms'},
-    {value: 0.05, text: '50ms'},
-    {value: 0.1, text: '100ms'},
-    {value: 0.25, text: '250ms'},
-    {value: 0.5, text: '500ms'},
-    {value: 1, text: '1s'},
-    {value: 2.5, text: '2.5s'},
-    {value: 5, text: '5s'},
-    {value: 10, text: '10s'},
+    { value: 0.005, text: '5ms' },
+    { value: 0.01, text: '10ms' },
+    { value: 0.025, text: '25ms' },
+    { value: 0.05, text: '50ms' },
+    { value: 0.1, text: '100ms' },
+    { value: 0.25, text: '250ms' },
+    { value: 0.5, text: '500ms' },
+    { value: 1, text: '1s' },
+    { value: 2.5, text: '2.5s' },
+    { value: 5, text: '5s' },
+    { value: 10, text: '10s' },
 ];
 export default {
-    components: {MetricSelector},
+    components: { MetricSelector },
     props: {
         form: Object,
     },
@@ -48,7 +68,7 @@ export default {
             return buckets;
         },
     },
-}
+};
 </script>
 
 <style scoped>

@@ -4,8 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"k8s.io/klog"
 	"net/http"
+
+	"k8s.io/klog"
 )
 
 func WriteJson(w http.ResponseWriter, v any) {

@@ -3,11 +3,12 @@ package notifications
 import (
 	"context"
 	"fmt"
-	"github.com/atc0005/go-teams-notify/v2"
+	"strings"
+
+	goteamsnotify "github.com/atc0005/go-teams-notify/v2"
 	"github.com/atc0005/go-teams-notify/v2/messagecard"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
-	"strings"
 )
 
 type Teams struct {

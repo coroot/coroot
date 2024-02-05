@@ -1,12 +1,13 @@
 package constructor
 
 import (
-	"github.com/coroot/coroot/model"
-	"github.com/coroot/coroot/timeseries"
-	"k8s.io/klog"
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/coroot/coroot/model"
+	"github.com/coroot/coroot/timeseries"
+	"k8s.io/klog"
 )
 
 func (c *Constructor) loadSLIs(w *model.World, metrics map[string][]model.MetricValues) {

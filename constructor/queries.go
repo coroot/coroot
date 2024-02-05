@@ -2,6 +2,7 @@ package constructor
 
 import (
 	"fmt"
+
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"

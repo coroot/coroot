@@ -20,7 +20,7 @@ const colors = [
 ];
 
 function hash(str) {
-    return str.split("").reduce((a, b) => (a << 5) - a + b.charCodeAt(0), 0) >>> 0;
+    return str.split('').reduce((a, b) => (a << 5) - a + b.charCodeAt(0), 0) >>> 0;
 }
 
 class Palette {
@@ -44,7 +44,7 @@ class Palette {
         this.byName.set('white', vc.shades.white);
 
         this.byIndex = [vc.cyan, vc.orange, vc.purple, vc.lime, vc.blueGrey].map((c) => c.darken1);
-        this.byIndex2 = names.filter(n=> n !== 'grey').map(n => index.get(n).lighten1);
+        this.byIndex2 = names.filter((n) => n !== 'grey').map((n) => index.get(n).lighten1);
     }
 
     get(color, index) {

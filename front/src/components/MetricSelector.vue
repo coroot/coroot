@@ -1,27 +1,35 @@
 <template>
     <v-input :value="value" :rules="rules" dense hide-details @click="focus">
         <div class="d-flex align-center wrapper">
-            <div v-if="wrapped && wrapped.prefix" class="grey--text">{{wrapped.prefix}}</div>
+            <div v-if="wrapped && wrapped.prefix" class="grey--text">{{ wrapped.prefix }}</div>
             <div ref="cm" class="overflow-hidden" />
-            <div v-if="wrapped && wrapped.suffix" class="grey--text">{{wrapped.suffix}}</div>
+            <div v-if="wrapped && wrapped.suffix" class="grey--text">{{ wrapped.suffix }}</div>
         </div>
     </v-input>
 </template>
 
 <script>
-import {PromQLExtension} from "@prometheus-io/codemirror-promql";
-import * as terms from "@prometheus-io/codemirror-promql/dist/esm/complete/promql.terms"
-import {EditorState} from "@codemirror/state";
-import {EditorView} from "@codemirror/view";
-import {keymap} from "@codemirror/view";
-import { closeBrackets, autocompletion, closeBracketsKeymap, completionKeymap } from "@codemirror/autocomplete";
+import { PromQLExtension } from '@prometheus-io/codemirror-promql';
+import * as terms from '@prometheus-io/codemirror-promql/dist/esm/complete/promql.terms';
+import { EditorState } from '@codemirror/state';
+import { EditorView } from '@codemirror/view';
+import { keymap } from '@codemirror/view';
+import { closeBrackets, autocompletion, closeBracketsKeymap, completionKeymap } from '@codemirror/autocomplete';
 
-const ts = [terms.atModifierTerms, terms.binOpModifierTerms, terms.functionIdentifierTerms, terms.aggregateOpTerms, terms.aggregateOpModifierTerms, terms.numberTerms, terms.snippets];
+const ts = [
+    terms.atModifierTerms,
+    terms.binOpModifierTerms,
+    terms.functionIdentifierTerms,
+    terms.aggregateOpTerms,
+    terms.aggregateOpModifierTerms,
+    terms.numberTerms,
+    terms.snippets,
+];
 ts.forEach((t) => {
-    while(t.length > 0) {
+    while (t.length > 0) {
         t.pop();
     }
-})
+});
 
 const theme = EditorView.theme({
     '&.cm-editor': {
@@ -52,15 +60,7 @@ const theme = EditorView.theme({
     },
 });
 
-const extensions = [
-    closeBrackets(),
-    autocompletion(),
-    keymap.of([
-        ...closeBracketsKeymap,
-        ...completionKeymap,
-    ]),
-    theme,
-];
+const extensions = [closeBrackets(), autocompletion(), keymap.of([...closeBracketsKeymap, ...completionKeymap]), theme];
 
 export default {
     props: {
@@ -74,7 +74,7 @@ export default {
     watch: {
         value() {
             if (this.value !== this.view.state.doc.toString()) {
-                this.view.dispatch({changes: {from: 0, to: this.view.state.doc.length, insert: this.value}});
+                this.view.dispatch({ changes: { from: 0, to: this.view.state.doc.length, insert: this.value } });
             }
         },
     },
@@ -88,7 +88,7 @@ export default {
             if (parts.length === 0) {
                 return null;
             }
-            return {prefix: parts[0], suffix: parts[1]};
+            return { prefix: parts[0], suffix: parts[1] };
         },
     },
 
@@ -118,15 +118,15 @@ export default {
     methods: {
         focus() {
             this.view && this.view.focus();
-        }
+        },
     },
-}
+};
 </script>
 
 <style scoped>
 .wrapper {
     width: 100%;
-    border: 1px solid rgba(0,0,0,0.38);
+    border: 1px solid rgba(0, 0, 0, 0.38);
     border-radius: 4px;
     padding: 0 8px;
 }

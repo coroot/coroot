@@ -1,40 +1,40 @@
 <template>
-<div>
-    <h1 class="text-h5 my-5">
-        <router-link :to="{name: 'overview', query: $utils.contextQuery()}">Applications</router-link> / {{$utils.appId(id).name}}
-        <v-progress-linear v-if="loading" indeterminate color="green" />
-    </h1>
+    <div>
+        <h1 class="text-h5 my-5">
+            <router-link :to="{ name: 'overview', query: $utils.contextQuery() }">Applications</router-link> / {{ $utils.appId(id).name }}
+            <v-progress-linear v-if="loading" indeterminate color="green" />
+        </h1>
 
-    <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
-        {{error}}
-    </v-alert>
+        <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
+            {{ error }}
+        </v-alert>
 
-    <div v-if="app">
-        <AppMap v-if="app.app_map" :map="app.app_map" class="my-5" />
+        <div v-if="app">
+            <AppMap v-if="app.app_map" :map="app.app_map" class="my-5" />
 
-        <v-tabs v-if="app.reports && app.reports.length" height="40" show-arrows slider-size="2">
-            <v-tab v-for="r in app.reports" :key="r.name" :to="{params: {report: r.name}, query: $utils.contextQuery()}" exact-path>
-                <Led v-if="r && r.checks" :status="r.status" />
-                {{r.name}}
-            </v-tab>
-        </v-tabs>
+            <v-tabs v-if="app.reports && app.reports.length" height="40" show-arrows slider-size="2">
+                <v-tab v-for="r in app.reports" :key="r.name" :to="{ params: { report: r.name }, query: $utils.contextQuery() }" exact-path>
+                    <Led v-if="r && r.checks" :status="r.status" />
+                    {{ r.name }}
+                </v-tab>
+            </v-tabs>
 
-        <v-card v-if="r && !r.custom && r.checks" outlined class="my-4 pa-4 pb-2">
-            <Check v-for="check in r.checks" :key="check.id" :appId="id" :check="check" class="mb-2" />
-        </v-card>
+            <v-card v-if="r && !r.custom && r.checks" outlined class="my-4 pa-4 pb-2">
+                <Check v-for="check in r.checks" :key="check.id" :appId="id" :check="check" class="mb-2" />
+            </v-card>
 
-        <Dashboard v-if="r" :name="r.name" :widgets="r.widgets" />
+            <Dashboard v-if="r" :name="r.name" :widgets="r.widgets" />
+        </div>
+        <NoData v-else-if="!loading" />
     </div>
-    <NoData v-else-if="!loading" />
-</div>
 </template>
 
 <script>
-import AppMap from "../components/AppMap";
-import Dashboard from "../components/Dashboard";
-import NoData from "../components/NoData";
-import Check from "../components/Check";
-import Led from "../components/Led";
+import AppMap from '../components/AppMap';
+import Dashboard from '../components/Dashboard';
+import NoData from '../components/NoData';
+import Check from '../components/Check';
+import Led from '../components/Led';
 
 export default {
     props: {
@@ -42,7 +42,7 @@ export default {
         report: String,
     },
 
-    components: {AppMap, Dashboard, NoData, Check, Led},
+    components: { AppMap, Dashboard, NoData, Check, Led },
 
     data() {
         return {
@@ -50,7 +50,7 @@ export default {
             loading: false,
             error: '',
             r: null,
-        }
+        };
     },
 
     mounted() {
@@ -87,17 +87,17 @@ export default {
                 return;
             }
             if (!this.report) {
-                if (this.app.reports.length > 1 && this.app.reports[0].name === 'SLO' &&  this.app.reports[0].status === 'unknown' ) {
+                if (this.app.reports.length > 1 && this.app.reports[0].name === 'SLO' && this.app.reports[0].status === 'unknown') {
                     this.r = this.app.reports[1];
                 } else {
                     this.r = this.app.reports[0];
                 }
-                this.$router.replace({params: {report: this.r.name}, query: this.$utils.contextQuery()}).catch(err => err);
+                this.$router.replace({ params: { report: this.r.name }, query: this.$utils.contextQuery() }).catch((err) => err);
                 return;
             }
             const r = this.app.reports.find((r) => r.name === this.report);
             if (!r) {
-                this.$router.replace({params: {report: null}, query: this.$utils.contextQuery()}).catch(err => err);
+                this.$router.replace({ params: { report: null }, query: this.$utils.contextQuery() }).catch((err) => err);
                 return;
             }
             this.r = r;

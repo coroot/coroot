@@ -14,9 +14,7 @@
                         </div>
                     </v-overlay>
                 </template>
-                <template v-else>
-                    Adjust the threshold for the "{{ check.title }}" inspection
-                </template>
+                <template v-else> Adjust the threshold for the "{{ check.title }}" inspection </template>
                 <v-spacer />
                 <v-btn icon @click="emitValue(false)"><v-icon>mdi-close</v-icon></v-btn>
             </div>
@@ -30,20 +28,22 @@
                     <div>
                         <ul v-if="integrations && Object.keys(integrations).length">
                             <li v-for="(details, type) in integrations">
-                                <span>{{type}}</span>
-                                <span v-if="details" class="grey--text"> ({{details}})</span>
+                                <span>{{ type }}</span>
+                                <span v-if="details" class="grey--text"> ({{ details }})</span>
                             </li>
                         </ul>
                         <div v-else class="grey--text">No notification integrations configured.</div>
-                        <v-btn color="primary" small :to="{name: 'project_settings', params:{tab: 'notifications'}}" class="mt-1">Configure integrations</v-btn>
+                        <v-btn color="primary" small :to="{ name: 'project_settings', params: { tab: 'notifications' } }" class="mt-1"
+                            >Configure integrations</v-btn
+                        >
                     </div>
                 </div>
 
                 <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text class="my-3">
-                    {{error}}
+                    {{ error }}
                 </v-alert>
                 <v-alert v-if="message" color="green" outlined text class="my-3">
-                    {{message}}
+                    {{ message }}
                 </v-alert>
                 <v-btn block color="primary" @click="save" :disabled="!(valid && changed)" :loading="saving" class="mt-5">Save</v-btn>
             </v-form>
@@ -52,9 +52,9 @@
 </template>
 
 <script>
-import CheckFormSLOAvailability from "./CheckConfigSLOAvailabilityForm.vue";
-import CheckFormSLOLatency from "./CheckConfigSLOLatencyForm.vue";
-import CheckConfigForm from "./CheckConfigForm.vue";
+import CheckFormSLOAvailability from './CheckConfigSLOAvailabilityForm.vue';
+import CheckFormSLOLatency from './CheckConfigSLOLatencyForm.vue';
+import CheckConfigForm from './CheckConfigForm.vue';
 
 export default {
     props: {
@@ -63,7 +63,7 @@ export default {
         value: Boolean,
     },
 
-    components: {CheckConfigForm, CheckFormSLOAvailability, CheckFormSLOLatency},
+    components: { CheckConfigForm, CheckFormSLOAvailability, CheckFormSLOLatency },
 
     data() {
         return {
@@ -77,7 +77,7 @@ export default {
             valid: false,
             deleting: false,
             confirmation: false,
-        }
+        };
     },
 
     watch: {
@@ -86,7 +86,7 @@ export default {
                 this.form = null;
                 this.get();
             }
-        }
+        },
     },
 
     computed: {
@@ -108,7 +108,7 @@ export default {
                 this.form = data.form;
                 this.integrations = data.integrations;
                 this.saved = JSON.stringify(this.form);
-            })
+            });
         },
         save() {
             this.saving = true;
@@ -132,7 +132,7 @@ export default {
             this.confirmation = false;
             this.deleting = true;
             this.error = '';
-            this.$api.saveCheckConfig(this.appId, this.check.id, {configs: null}, (data, error) => {
+            this.$api.saveCheckConfig(this.appId, this.check.id, { configs: null }, (data, error) => {
                 this.deleting = false;
                 if (error) {
                     this.error = error;
@@ -146,8 +146,7 @@ export default {
             this.$emit('input', v);
         },
     },
-}
+};
 </script>
 
-<style scoped>
-</style>
+<style scoped></style>

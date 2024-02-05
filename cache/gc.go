@@ -1,11 +1,12 @@
 package cache
 
 import (
+	"os"
+	"time"
+
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/timeseries"
 	"k8s.io/klog"
-	"os"
-	"time"
 )
 
 func (c *Cache) gc() {

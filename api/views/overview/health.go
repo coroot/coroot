@@ -2,12 +2,13 @@ package overview
 
 import (
 	"fmt"
+	"reflect"
+	"sort"
+
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 	"github.com/dustin/go-humanize/english"
-	"reflect"
-	"sort"
 )
 
 type ApplicationStatus struct {

@@ -2,11 +2,12 @@ package constructor
 
 import (
 	"fmt"
+	"net"
+	"strings"
+
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"k8s.io/klog"
-	"net"
-	"strings"
 )
 
 func loadKubernetesMetadata(w *model.World, metrics map[string][]model.MetricValues, servicesByClusterIP map[string]*model.Service) {

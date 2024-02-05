@@ -4,9 +4,10 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"strings"
+
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/utils"
-	"strings"
 )
 
 const (

@@ -1,9 +1,10 @@
 package auditor
 
 import (
+	"net"
+
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
-	"net"
 )
 
 type netSummary struct {

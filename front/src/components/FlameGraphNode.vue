@@ -1,48 +1,53 @@
 <template>
-<div v-if="show" :style="{width}">
-    <div ref="name" @mouseenter="details=true" @mouseleave="details=false" @click="emit()">
-        <div class="name" :class="{dimmed: zoom && zoomed}" :style="{backgroundColor: color}">
-            {{node.name}}
-            <template v-if="!!diff">
-                <template v-if="rates.diff">
-                    ({{format(rates.diff, '%', true)}})
+    <div v-if="show" :style="{ width }">
+        <div ref="name" @mouseenter="details = true" @mouseleave="details = false" @click="emit()">
+            <div class="name" :class="{ dimmed: zoom && zoomed }" :style="{ backgroundColor: color }">
+                {{ node.name }}
+                <template v-if="!!diff">
+                    <template v-if="rates.diff"> ({{ format(rates.diff, '%', true) }}) </template>
                 </template>
-            </template>
-            <template v-else>
-                ({{format(node.total, unit)}}, {{format(rates.root, '%')}})
-            </template>
+                <template v-else> ({{ format(node.total, unit) }}, {{ format(rates.root, '%') }}) </template>
+            </div>
         </div>
-    </div>
 
-    <div class="children">
-        <FlameGraphNode
-            v-for="n in node.children" :node="n" :parent="node" :root="root"
-            :zoom="zoomed ? zoomed === n.name : undefined" @zoom="emit(n)"
-            :search="search" :diff="diff" :unit="unit"
-        />
-    </div>
+        <div class="children">
+            <FlameGraphNode
+                v-for="n in node.children"
+                :node="n"
+                :parent="node"
+                :root="root"
+                :zoom="zoomed ? zoomed === n.name : undefined"
+                @zoom="emit(n)"
+                :search="search"
+                :diff="diff"
+                :unit="unit"
+            />
+        </div>
 
-    <v-tooltip v-if="details" :value="true" :activator="$refs.name" bottom transition="none" content-class="details">
-        <v-card class="pa-2">
-            <div class="font-weight-medium mb-1">{{node.name}}</div>
-            <template v-if="!!diff">
-                <div>baseline: {{format(rates.base, '%')}} of total</div>
-                <div>
-                    comparison: {{format(rates.comp, '%')}} of total
-                    (<span :style="{color: rates.diff > 0 ? 'red' : 'green'}" class="font-weight-medium">{{format(rates.diff, '%', true)}}</span>)
-                </div>
-            </template>
-            <template v-else>
-                <div>total: {{format(node.total, unit)}} ({{format(rates.root, '%')}})</div>
-                <div>self: {{format(node.self, unit)}}</div>
-            </template>
-        </v-card>
-    </v-tooltip>
-</div>
+        <v-tooltip v-if="details" :value="true" :activator="$refs.name" bottom transition="none" content-class="details">
+            <v-card class="pa-2">
+                <div class="font-weight-medium mb-1">{{ node.name }}</div>
+                <template v-if="!!diff">
+                    <div>baseline: {{ format(rates.base, '%') }} of total</div>
+                    <div>
+                        comparison: {{ format(rates.comp, '%') }} of total (<span
+                            :style="{ color: rates.diff > 0 ? 'red' : 'green' }"
+                            class="font-weight-medium"
+                            >{{ format(rates.diff, '%', true) }}</span
+                        >)
+                    </div>
+                </template>
+                <template v-else>
+                    <div>total: {{ format(node.total, unit) }} ({{ format(rates.root, '%') }})</div>
+                    <div>self: {{ format(node.self, unit) }}</div>
+                </template>
+            </v-card>
+        </v-tooltip>
+    </div>
 </template>
 
 <script>
-import { palette } from "../utils/colors";
+import { palette } from '../utils/colors';
 
 export default {
     name: 'FlameGraphNode',
@@ -61,16 +66,16 @@ export default {
         return {
             details: false,
             zoomed: '',
-        }
+        };
     },
 
     computed: {
         rates() {
             const r = {
-                root: this.node.total / this.root.total * 100,
-                parent: this.node.total / this.parent.total * 100,
-                base: (this.node.total-this.node.comp) / (this.root.total-this.root.comp) * 100,
-                comp: this.node.comp/this.root.comp * 100,
+                root: (this.node.total / this.root.total) * 100,
+                parent: (this.node.total / this.parent.total) * 100,
+                base: ((this.node.total - this.node.comp) / (this.root.total - this.root.comp)) * 100,
+                comp: (this.node.comp / this.root.comp) * 100,
             };
             r.diff = r.comp - r.base;
             return r;
@@ -125,7 +130,7 @@ export default {
             if (unit === '%') {
                 let d = 2;
                 if (va > 1) {
-                    d = 1
+                    d = 1;
                 }
                 if (va > 10) {
                     d = 0;
@@ -181,9 +186,9 @@ export default {
                 unit = 'G';
             }
             return s + v.toFixed(1) + ' ' + unit;
-        }
+        },
     },
-}
+};
 </script>
 
 <style scoped>
@@ -193,7 +198,7 @@ export default {
     white-space: nowrap;
     overflow: hidden;
     text-indent: 4px;
-    border: 0.2px solid rgba(255,255,255,0.5);
+    border: 0.2px solid rgba(255, 255, 255, 0.5);
     padding: 2px 0;
 }
 .name:hover {

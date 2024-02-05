@@ -1,13 +1,17 @@
 <template>
     <div v-on-resize="calcArrows" class="map">
-        <div class="column" :style="{rowGap: columnRowGap(map.clients)}">
-            <div v-for="app in map.clients" class="client" :ref="app.id"
-                 :class="{hi: highlighted.clients.has(app.id)}"
-                 @mouseenter="focus('client', app.id)" @mouseleave="unfocus"
+        <div class="column" :style="{ rowGap: columnRowGap(map.clients) }">
+            <div
+                v-for="app in map.clients"
+                class="client"
+                :ref="app.id"
+                :class="{ hi: highlighted.clients.has(app.id) }"
+                @mouseenter="focus('client', app.id)"
+                @mouseleave="unfocus"
             >
                 <div>
-                    <router-link :to="{name: 'application', params: {id: app.id}, query: $utils.contextQuery()}" class="name">
-                        <AppHealth :app="app"/>
+                    <router-link :to="{ name: 'application', params: { id: app.id }, query: $utils.contextQuery() }" class="name">
+                        <AppHealth :app="app" />
                     </router-link>
                     <Labels v-if="!hideLabels(map.clients)" :labels="app.labels" class="d-none d-sm-block label" />
                 </div>
@@ -18,18 +22,24 @@
             <div v-if="map.application" class="app" :ref="map.application.id">
                 <div>
                     <span class="name">
-                        <AppHealth :app="map.application"/>
+                        <AppHealth :app="map.application" />
                     </span>
                     <Labels :labels="map.application.labels" class="d-none d-sm-block label" />
                 </div>
                 <div v-if="map.instances && map.instances.length" class="instances">
-                    <div v-for="i in map.instances" class="instance" :ref="'instance:'+i.id"
-                         :class="{hi: highlighted.instances.has(i.id)}"
-                         @mouseenter="focus('instance', i.id)" @mouseleave="unfocus"
+                    <div
+                        v-for="i in map.instances"
+                        class="instance"
+                        :ref="'instance:' + i.id"
+                        :class="{ hi: highlighted.instances.has(i.id) }"
+                        @mouseenter="focus('instance', i.id)"
+                        @mouseleave="unfocus"
                     >
                         <div class="d-flex align-center" style="gap: 2px">
-                            <span class="name" :title="i.id">{{i.id}}</span>
-                            <v-icon v-if="i.labels && i.labels['role'] === 'primary'" small color="rgba(0,0,0,0.87)">mdi-database-edit-outline</v-icon>
+                            <span class="name" :title="i.id">{{ i.id }}</span>
+                            <v-icon v-if="i.labels && i.labels['role'] === 'primary'" small color="rgba(0,0,0,0.87)"
+                                >mdi-database-edit-outline</v-icon
+                            >
                             <v-icon v-if="i.labels && i.labels['role'] === 'replica'" small color="grey">mdi-database-import-outline</v-icon>
                             <v-icon v-if="i.labels && i.labels['proxy']" small color="grey">mdi-swap-horizontal</v-icon>
                         </div>
@@ -39,14 +49,18 @@
             </div>
         </div>
 
-        <div class="column" :style="{rowGap: columnRowGap(map.dependencies)}">
-            <div v-for="app in map.dependencies" class="dependency" :ref="app.id"
-                 :class="{hi: highlighted.dependencies.has(app.id)}"
-                 @mouseenter="focus('dependency', app.id)" @mouseleave="unfocus"
+        <div class="column" :style="{ rowGap: columnRowGap(map.dependencies) }">
+            <div
+                v-for="app in map.dependencies"
+                class="dependency"
+                :ref="app.id"
+                :class="{ hi: highlighted.dependencies.has(app.id) }"
+                @mouseenter="focus('dependency', app.id)"
+                @mouseleave="unfocus"
             >
                 <div>
-                    <router-link :to="{name: 'application', params: {id: app.id}, query: $utils.contextQuery()}" class="name">
-                        <AppHealth :app="app"/>
+                    <router-link :to="{ name: 'application', params: { id: app.id }, query: $utils.contextQuery() }" class="name">
+                        <AppHealth :app="app" />
                     </router-link>
                     <Labels v-if="!hideLabels(map.dependencies)" :labels="app.labels" class="d-none d-sm-block label" />
                 </div>
@@ -55,22 +69,41 @@
 
         <svg>
             <defs>
-                <marker :id="m" v-for="m in ['marker', 'markerhi', 'markerlo']"
-                        viewBox="0 0 10 10" refX="10" refY="5" markerWidth="10" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto-start-reverse"
+                <marker
+                    :id="m"
+                    v-for="m in ['marker', 'markerhi', 'markerlo']"
+                    viewBox="0 0 10 10"
+                    refX="10"
+                    refY="5"
+                    markerWidth="10"
+                    markerHeight="10"
+                    markerUnits="userSpaceOnUse"
+                    orient="auto-start-reverse"
                 >
                     <path d="M 0 3 L 10 5 L 0 7 z" />
                 </marker>
             </defs>
             <template v-for="a in arrows">
-                <path v-if="a.dd && a.hi(focused)==='hi' && a.w(arrows, focused)" :d="a.dd(arrows, focused)" class="arrow" :class="a.status" stroke="none" />
-                <path :d="a.d" class="arrow" :class="[a.status, a.hi(focused)]" fill-opacity="0"
-                      :marker-start="a.markerStart ? `url(#marker${a.hi(focused)})` : ''" :marker-end="a.markerEnd ? `url(#marker${a.hi(focused)})`: ''"
+                <path
+                    v-if="a.dd && a.hi(focused) === 'hi' && a.w(arrows, focused)"
+                    :d="a.dd(arrows, focused)"
+                    class="arrow"
+                    :class="a.status"
+                    stroke="none"
+                />
+                <path
+                    :d="a.d"
+                    class="arrow"
+                    :class="[a.status, a.hi(focused)]"
+                    fill-opacity="0"
+                    :marker-start="a.markerStart ? `url(#marker${a.hi(focused)})` : ''"
+                    :marker-end="a.markerEnd ? `url(#marker${a.hi(focused)})` : ''"
                 />
             </template>
         </svg>
         <template v-for="a in arrows">
-            <div v-if="a.stats && a.hi(focused)==='hi'" class="stats" :style="{top: a.stats.y+'px', left: a.stats.x+'px'}">
-                <div v-for="i in a.stats.items">{{i}}</div>
+            <div v-if="a.stats && a.hi(focused) === 'hi'" class="stats" :style="{ top: a.stats.y + 'px', left: a.stats.x + 'px' }">
+                <div v-for="i in a.stats.items">{{ i }}</div>
             </div>
         </template>
     </div>
@@ -78,14 +111,14 @@
 
 <script>
 import Labels from './Labels';
-import AppHealth from "./AppHealth";
+import AppHealth from './AppHealth';
 
 export default {
     props: {
         map: Object,
     },
 
-    components: {Labels, AppHealth},
+    components: { Labels, AppHealth },
 
     data() {
         return {
@@ -125,14 +158,14 @@ export default {
                 (instance.dependencies || []).forEach((a) => {
                     res.dependencies.add(a.id);
                 });
-                (instance.internal_links || []).forEach(l => {
+                (instance.internal_links || []).forEach((l) => {
                     res.instances.add(l.id);
                 });
                 instances.forEach((i) => {
-                    if (i.internal_links && i.internal_links.find(l => l.id === this.focused.instance)) {
+                    if (i.internal_links && i.internal_links.find((l) => l.id === this.focused.instance)) {
                         res.instances.add(i.id);
                     }
-                })
+                });
             }
             if (this.focused.client) {
                 res.clients.add(this.focused.client);
@@ -140,7 +173,7 @@ export default {
                     if (i.clients && i.clients.find((a) => a.id === this.focused.client)) {
                         res.instances.add(i.id);
                     }
-                })
+                });
             }
             if (this.focused.dependency) {
                 res.dependencies.add(this.focused.dependency);
@@ -148,7 +181,7 @@ export default {
                     if (i.dependencies && i.dependencies.find((a) => a.id === this.focused.dependency)) {
                         res.instances.add(i.id);
                     }
-                })
+                });
             }
             return res;
         },
@@ -156,24 +189,24 @@ export default {
             const links = [];
             (this.map.instances || []).forEach((i) => {
                 const me = (focused) => focused.instance && focused.instance === i.id;
-                const lo = (focused) => Object.keys(focused).length ? 'lo': '';
+                const lo = (focused) => (Object.keys(focused).length ? 'lo' : '');
                 (i.clients || []).forEach((a) => {
                     const from = a.id;
-                    const to = 'instance:'+i.id;
-                    const hi = (focused) => (me(focused) || focused.client && focused.client === from) ? 'hi' : lo(focused);
-                    links.push({from, to, status: a.status, stats: a.stats, weight: a.weight, direction: a.direction, hi});
+                    const to = 'instance:' + i.id;
+                    const hi = (focused) => (me(focused) || (focused.client && focused.client === from) ? 'hi' : lo(focused));
+                    links.push({ from, to, status: a.status, stats: a.stats, weight: a.weight, direction: a.direction, hi });
                 });
                 (i.dependencies || []).forEach((a) => {
-                    const from = 'instance:'+i.id;
+                    const from = 'instance:' + i.id;
                     const to = a.id;
-                    const hi = (focused) => (me(focused) || focused.dependency && focused.dependency === to) ? 'hi' : lo(focused);
-                    links.push({from, to, status: a.status, stats: a.stats, weight: a.weight, direction: a.direction, hi});
+                    const hi = (focused) => (me(focused) || (focused.dependency && focused.dependency === to) ? 'hi' : lo(focused));
+                    links.push({ from, to, status: a.status, stats: a.stats, weight: a.weight, direction: a.direction, hi });
                 });
                 (i.internal_links || []).forEach((l) => {
-                    const from = 'instance:'+i.id;
-                    const to = 'instance:'+l.id;
-                    const hi = (focused) => (me(focused) || focused.instance && focused.instance === l.id) ? 'hi' : lo(focused);
-                    links.push({from, to, status: l.status, direction: l.direction, hi, internal: true});
+                    const from = 'instance:' + i.id;
+                    const to = 'instance:' + l.id;
+                    const hi = (focused) => (me(focused) || (focused.instance && focused.instance === l.id) ? 'hi' : lo(focused));
+                    links.push({ from, to, status: l.status, direction: l.direction, hi, internal: true });
                 });
             });
             return links;
@@ -202,7 +235,7 @@ export default {
             if (!el) {
                 return null;
             }
-            return {top: el.offsetTop, left: el.offsetLeft, width: el.offsetWidth, height: el.offsetHeight};
+            return { top: el.offsetTop, left: el.offsetLeft, width: el.offsetWidth, height: el.offsetHeight };
         },
         calcArrows() {
             const arrows = [];
@@ -236,11 +269,12 @@ export default {
                     const x2 = dst.left;
                     const y2 = dst.top + dst.height / 2;
                     a.d = `M${x1},${y1} L${x2},${y2}`;
-                    a.w = (as, hi) => 3 * a._w / Math.max(...as.filter((a) => a.hi(hi) === 'hi').map((a) => a._w));
-                    a.r = (as, hi) => a.w(as, hi)/2 + ((y2 - y1)**2 + (x2 - x1)**2)/(8*a.w(as, hi));
-                    a.dd = (as, hi) => `M${x1},${y1} A${a.r(as, hi)},${a.r(as, hi)} 0,0,0 ${x2},${y2} A${a.r(as, hi)},${a.r(as, hi)} 0,0,0 ${x1},${y1}`;
+                    a.w = (as, hi) => (3 * a._w) / Math.max(...as.filter((a) => a.hi(hi) === 'hi').map((a) => a._w));
+                    a.r = (as, hi) => a.w(as, hi) / 2 + ((y2 - y1) ** 2 + (x2 - x1) ** 2) / (8 * a.w(as, hi));
+                    a.dd = (as, hi) =>
+                        `M${x1},${y1} A${a.r(as, hi)},${a.r(as, hi)} 0,0,0 ${x2},${y2} A${a.r(as, hi)},${a.r(as, hi)} 0,0,0 ${x1},${y1}`;
                     if (l.stats && l.stats.length) {
-                        a.stats = {x: (x2+x1)/2-20, y: (y2+y1)/2-(l.stats.length*12)/2, items: l.stats}
+                        a.stats = { x: (x2 + x1) / 2 - 20, y: (y2 + y1) / 2 - (l.stats.length * 12) / 2, items: l.stats };
                     }
                 }
             });
@@ -267,10 +301,12 @@ export default {
     row-gap: 16px;
     align-self: center;
 }
-.app, .client, .dependency {
+.app,
+.client,
+.dependency {
     max-width: 300px;
     border-radius: 3px;
-    border: 1px solid #BDBDBD;
+    border: 1px solid #bdbdbd;
     white-space: nowrap;
     padding: 4px 8px;
 }
@@ -282,7 +318,7 @@ export default {
 }
 .instance {
     border-radius: 3px;
-    border: 1px solid #BDBDBD;
+    border: 1px solid #bdbdbd;
     white-space: nowrap;
     padding: 4px 8px;
     max-width: 12rem;
@@ -304,7 +340,7 @@ export default {
 }
 
 .hi {
-    border: 1px solid rgba(0,0,0,0.87);
+    border: 1px solid rgba(0, 0, 0, 0.87);
     background-color: #cbe9fc;
 }
 svg {
@@ -331,9 +367,9 @@ svg {
     fill: green;
 }
 .arrow.warning {
-    stroke: #FF8F00;
+    stroke: #ff8f00;
     stroke-dasharray: 4;
-    fill: #FF8F00;
+    fill: #ff8f00;
 }
 .arrow.critical {
     stroke: red;
@@ -352,13 +388,13 @@ svg {
     fill-opacity: 0.1;
 }
 #markerhi path {
-    fill-opacity: 1.0;
+    fill-opacity: 1;
 }
 .stats {
     position: absolute;
     font-size: 12px;
     line-height: 12px;
-    background-color: #EEEEEE;
+    background-color: #eeeeee;
     padding: 2px;
     border-radius: 2px;
 }

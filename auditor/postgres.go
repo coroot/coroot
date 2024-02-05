@@ -2,10 +2,11 @@ package auditor
 
 import (
 	"fmt"
+	"regexp"
+
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
-	"regexp"
 )
 
 const pgActiveLockedState = "active (locked)"

@@ -3,10 +3,11 @@ package cache
 import (
 	"crypto/md5"
 	"fmt"
+	"hash/fnv"
+
 	"github.com/coroot/coroot/constructor"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/timeseries"
-	"hash/fnv"
 )
 
 var (

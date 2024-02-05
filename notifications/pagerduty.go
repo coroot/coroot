@@ -3,10 +3,11 @@ package notifications
 import (
 	"context"
 	"fmt"
+	"strings"
+
 	"github.com/PagerDuty/go-pagerduty"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
-	"strings"
 )
 
 type Pagerduty struct {

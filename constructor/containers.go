@@ -2,13 +2,14 @@ package constructor
 
 import (
 	"fmt"
+	"net"
+	"strconv"
+	"strings"
+
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/logparser"
 	"k8s.io/klog"
-	"net"
-	"strconv"
-	"strings"
 )
 
 type instanceId struct {

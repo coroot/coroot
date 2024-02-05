@@ -5,12 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"path"
+
 	"github.com/lib/pq"
 	_ "github.com/lib/pq"
 	"github.com/mattn/go-sqlite3"
 	_ "github.com/mattn/go-sqlite3"
 	"k8s.io/klog"
-	"path"
 )
 
 type Type string

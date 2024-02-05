@@ -6,14 +6,6 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"github.com/buger/jsonparser"
-	"github.com/coroot/coroot/model"
-	"github.com/coroot/coroot/timeseries"
-	"github.com/coroot/coroot/utils"
-	"github.com/gorilla/mux"
-	promModel "github.com/prometheus/common/model"
-	"github.com/prometheus/prometheus/promql/parser"
-	"k8s.io/klog"
 	"net"
 	"net/http"
 	"net/url"
@@ -23,6 +15,15 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/buger/jsonparser"
+	"github.com/coroot/coroot/model"
+	"github.com/coroot/coroot/timeseries"
+	"github.com/coroot/coroot/utils"
+	"github.com/gorilla/mux"
+	promModel "github.com/prometheus/common/model"
+	"github.com/prometheus/prometheus/promql/parser"
+	"k8s.io/klog"
 )
 
 var (

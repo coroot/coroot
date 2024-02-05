@@ -2,6 +2,7 @@ package prom
 
 import (
 	"context"
+
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 )

@@ -1,11 +1,17 @@
 <template>
     <div class="d-flex flex-wrap">
-        <Widget v-for="(w, i) in widgets" :key="name+':'+i" :w="w" class="my-5" :style="{width: $vuetify.breakpoint.mdAndUp ? (w.width || '50%') : '100%'}" />
+        <Widget
+            v-for="(w, i) in widgets"
+            :key="name + ':' + i"
+            :w="w"
+            class="my-5"
+            :style="{ width: $vuetify.breakpoint.mdAndUp ? w.width || '50%' : '100%' }"
+        />
     </div>
 </template>
 
 <script>
-import Widget from "./Widget";
+import Widget from './Widget';
 
 export default {
     props: {
@@ -13,10 +19,8 @@ export default {
         widgets: Array,
     },
 
-    components: {Widget},
-}
+    components: { Widget },
+};
 </script>
 
-<style scoped>
-
-</style>
+<style scoped></style>

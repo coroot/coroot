@@ -2,11 +2,12 @@ package auditor
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
-	"strings"
 )
 
 func (a *appAuditor) slo() {

@@ -1,9 +1,10 @@
 package constructor
 
 import (
+	"strings"
+
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
-	"strings"
 )
 
 func mongodb(instance *model.Instance, queryName string, m model.MetricValues) {

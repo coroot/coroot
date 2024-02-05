@@ -10,7 +10,7 @@ export default class Utils {
     stateToUri(s) {
         const j = JSON.stringify(s);
         const hash = j === emptyJson ? undefined : '#' + encodeURIComponent(j);
-        this.router.replace({hash}).catch(err => err);
+        this.router.replace({ hash }).catch((err) => err);
     }
 
     stateFromUri() {
@@ -21,7 +21,7 @@ export default class Utils {
         try {
             return JSON.parse(j);
         } catch {
-            this.router.replace({hash: undefined});
+            this.router.replace({ hash: undefined });
             return {};
         }
     }
@@ -31,8 +31,8 @@ export default class Utils {
         return {
             ns: parts[0] !== '_' ? parts[0] : '',
             kind: parts[1],
-            name: parts[3] ? parts[2] + ':'+parts[3] : parts[2],
-        }
+            name: parts[3] ? parts[2] + ':' + parts[3] : parts[2],
+        };
     }
 
     contextQuery() {
@@ -40,7 +40,7 @@ export default class Utils {
         if (!r) {
             return {};
         }
-        const {from, to} = r.query || {};
-        return {from, to};
+        const { from, to } = r.query || {};
+        return { from, to };
     }
 }

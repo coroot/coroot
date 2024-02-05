@@ -1,10 +1,11 @@
 package application
 
 import (
+	"sort"
+
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
-	"sort"
 )
 
 type View struct {

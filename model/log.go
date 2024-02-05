@@ -1,9 +1,10 @@
 package model
 
 import (
+	"time"
+
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/logparser"
-	"time"
 )
 
 type LogLevel string

@@ -1,11 +1,11 @@
 <template>
     <Chart :chart="chart" :selection="selection" @select="select">
         <template v-slot:title>
-            <span>{{splitTitle.head}}</span>
+            <span>{{ splitTitle.head }}</span>
             <v-menu offset-y>
                 <template #activator="{ on, attrs }">
                     <v-btn v-bind="attrs" v-on="on" text outlined x-small class="selector">
-                        <span style="max-width: 90%; overflow: hidden; text-overflow: ellipsis">{{selected}}</span>
+                        <span style="max-width: 90%; overflow: hidden; text-overflow: ellipsis">{{ selected }}</span>
                         <v-icon small class="ml-1">mdi-menu-down</v-icon>
                     </v-btn>
                 </template>
@@ -17,7 +17,7 @@
                     </v-list-item-group>
                 </v-list>
             </v-menu>
-            <span>{{splitTitle.tail}}</span>
+            <span>{{ splitTitle.tail }}</span>
         </template>
     </Chart>
 </template>
@@ -32,7 +32,7 @@ export default {
         selection: Object,
     },
 
-    components: {Chart},
+    components: { Chart },
 
     data() {
         const charts = this.sort();
@@ -44,9 +44,9 @@ export default {
 
     computed: {
         chart() {
-            let chart = this.sorted.find(ch => ch.title === this.selected);
+            let chart = this.sorted.find((ch) => ch.title === this.selected);
             if (chart) return chart;
-            chart = this.sorted.find(ch => ch.featured);
+            chart = this.sorted.find((ch) => ch.featured);
             if (chart) return chart;
             return this.sorted[0];
         },
@@ -56,12 +56,12 @@ export default {
         splitTitle() {
             const parts = this.title.split('<selector>', 2);
             if (parts.length === 0) {
-                return {head: '', tail: ''};
+                return { head: '', tail: '' };
             }
             if (parts.length === 1) {
-                return {head: parts[0], tail: ''};
+                return { head: parts[0], tail: '' };
             }
-            return {head: parts[0], tail: parts[1]};
+            return { head: parts[0], tail: parts[1] };
         },
     },
 
@@ -73,8 +73,8 @@ export default {
         },
         select(s) {
             this.$emit('select', s);
-        }
-    }
+        },
+    },
 };
 </script>
 

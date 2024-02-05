@@ -2,8 +2,9 @@ package model
 
 import (
 	"fmt"
-	"github.com/coroot/coroot/timeseries"
 	"sort"
+
+	"github.com/coroot/coroot/timeseries"
 )
 
 type Table struct {

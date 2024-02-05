@@ -1,13 +1,14 @@
 package chunk
 
 import (
+	"os"
+	"path"
+	"testing"
+
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"os"
-	"path"
-	"testing"
 )
 
 func TestChunk(t *testing.T) {

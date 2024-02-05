@@ -3,7 +3,7 @@
         <v-card class="pa-5">
             <div class="d-flex align-center font-weight-medium mb-4">
                 <div>
-                    Configure {{title}} integration
+                    Configure {{ title }} integration
                     <a :href="`https://coroot.com/docs/coroot-community-edition/alerting/${type}`" target="_blank">
                         <v-icon>mdi-information-outline</v-icon>
                     </a>
@@ -19,10 +19,10 @@
                 <IntegrationFormOpsgenie v-if="type === 'opsgenie'" :form="form" />
 
                 <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text class="my-4">
-                    {{error}}
+                    {{ error }}
                 </v-alert>
                 <v-alert v-if="message" color="green" outlined text class="my-4">
-                    {{message}}
+                    {{ message }}
                 </v-alert>
                 <div class="d-flex align-center">
                     <v-spacer />
@@ -38,10 +38,10 @@
 </template>
 
 <script>
-import IntegrationFormSlack from "../components/IntegrationFormSlack.vue";
-import IntegrationFormTeams from "../components/IntegrationFormTeams.vue";
-import IntegrationFormPagerduty from "../components/IntegrationFormPagerduty.vue";
-import IntegrationFormOpsgenie from "../components/IntegrationFormOpsgenie.vue";
+import IntegrationFormSlack from '../components/IntegrationFormSlack.vue';
+import IntegrationFormTeams from '../components/IntegrationFormTeams.vue';
+import IntegrationFormPagerduty from '../components/IntegrationFormPagerduty.vue';
+import IntegrationFormOpsgenie from '../components/IntegrationFormOpsgenie.vue';
 
 export default {
     props: {
@@ -50,7 +50,7 @@ export default {
         title: String,
     },
 
-    components: {IntegrationFormSlack, IntegrationFormTeams, IntegrationFormPagerduty, IntegrationFormOpsgenie},
+    components: { IntegrationFormSlack, IntegrationFormTeams, IntegrationFormPagerduty, IntegrationFormOpsgenie },
 
     data() {
         return {
@@ -139,9 +139,7 @@ export default {
             });
         },
     },
-}
+};
 </script>
 
-<style scoped>
-
-</style>
+<style scoped></style>

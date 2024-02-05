@@ -1,9 +1,10 @@
 package model
 
 import (
+	"strings"
+
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
-	"strings"
 )
 
 type AuditReportName string

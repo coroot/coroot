@@ -3,6 +3,13 @@ package cache
 import (
 	"context"
 	"fmt"
+	"math"
+	"os"
+	"path"
+	"path/filepath"
+	"sync"
+	"time"
+
 	"github.com/coroot/coroot/cache/chunk"
 	"github.com/coroot/coroot/constructor"
 	"github.com/coroot/coroot/db"
@@ -12,12 +19,6 @@ import (
 	"github.com/coroot/coroot/utils"
 	promModel "github.com/prometheus/common/model"
 	"k8s.io/klog"
-	"math"
-	"os"
-	"path"
-	"path/filepath"
-	"sync"
-	"time"
 )
 
 const (

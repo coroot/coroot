@@ -3,13 +3,14 @@ package notifications
 import (
 	"context"
 	"fmt"
+	"io"
+	"strings"
+
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/opsgenie/opsgenie-go-sdk-v2/alert"
 	"github.com/opsgenie/opsgenie-go-sdk-v2/client"
 	"github.com/sirupsen/logrus"
-	"io"
-	"strings"
 )
 
 type Opsgenie struct {

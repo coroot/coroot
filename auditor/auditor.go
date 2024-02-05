@@ -1,11 +1,12 @@
 package auditor
 
 import (
+	"sort"
+	"time"
+
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"k8s.io/klog"
-	"sort"
-	"time"
 )
 
 type appAuditor struct {

@@ -1,9 +1,10 @@
 package model
 
 import (
-	"github.com/coroot/coroot/timeseries"
 	"regexp"
 	"strings"
+
+	"github.com/coroot/coroot/timeseries"
 )
 
 type ContainerStatus string

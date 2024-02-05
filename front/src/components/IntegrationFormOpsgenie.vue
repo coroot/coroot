@@ -14,27 +14,24 @@
         <div class="subtitle-1">API Key</div>
         <div class="d-flex">
             <!-- eslint-disable-next-line vue/no-mutating-props -->
-            <v-text-field v-model="form.api_key" outlined dense :rules="[$validators.notEmpty]"/>
+            <v-text-field v-model="form.api_key" outlined dense :rules="[$validators.notEmpty]" />
             <!-- eslint-disable-next-line vue/no-mutating-props -->
-            <v-checkbox v-model="form.eu_instance" label="EU instance of Opsgenie" dense hide-details class="ml-3"/>
+            <v-checkbox v-model="form.eu_instance" label="EU instance of Opsgenie" dense hide-details class="ml-3" />
         </div>
 
         <div class="subtitle-1">Notify of</div>
         <!-- eslint-disable-next-line vue/no-mutating-props -->
-        <v-checkbox v-model="form.incidents" label="Incidents" dense hide-details/>
+        <v-checkbox v-model="form.incidents" label="Incidents" dense hide-details />
         <v-checkbox :value="false" disabled label="Deployments (unavailable for Opsgenie integrations)" dense hide-details />
     </div>
 </template>
 
 <script>
-
 export default {
     props: {
         form: Object,
     },
-}
+};
 </script>
 
-<style scoped>
-
-</style>
+<style scoped></style>

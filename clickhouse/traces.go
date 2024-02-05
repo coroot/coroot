@@ -3,12 +3,13 @@ package clickhouse
 import (
 	"context"
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
-	"strings"
-	"time"
 )
 
 func (c *Client) GetServicesFromTraces(ctx context.Context) ([]string, error) {
