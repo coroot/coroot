@@ -122,7 +122,7 @@ A live demo of Coroot is available at [community-demo.coroot.com](https://commun
 
 
 ## Contributing
-To start contributing, check out our [Contributing Guide](https://github.com/prometheus/prometheus/blob/main/CONTRIBUTING.md).
+To start contributing, check out our [Contributing Guide](https://github.com/coroot/coroot/blob/main/CONTRIBUTING.md).
 
 ## License
 
