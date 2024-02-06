@@ -50,7 +50,7 @@ func (r *AuditReport) AddWidget(w *Widget) *Widget {
 	return w
 }
 
-func (r *AuditReport) GetOrCreateChartGroup(title string) *ChartGroup {
+func (r *AuditReport) GetOrCreateChartGroup(title string, doc *DocLink) *ChartGroup {
 	if !r.detailed {
 		return nil
 	}
@@ -62,18 +62,18 @@ func (r *AuditReport) GetOrCreateChartGroup(title string) *ChartGroup {
 		}
 	}
 	cg := NewChartGroup(r.ctx, title)
-	r.Widgets = append(r.Widgets, &Widget{ChartGroup: cg})
+	r.Widgets = append(r.Widgets, &Widget{ChartGroup: cg, DocLink: doc})
 	return cg
 }
 
-func (r *AuditReport) GetOrCreateChartInGroup(title string, chartTitle string) *Chart {
+func (r *AuditReport) GetOrCreateChartInGroup(title string, chartTitle string, doc *DocLink) *Chart {
 	if !r.detailed {
 		return nil
 	}
-	return r.GetOrCreateChartGroup(title).GetOrCreateChart(chartTitle)
+	return r.GetOrCreateChartGroup(title, doc).GetOrCreateChart(chartTitle)
 }
 
-func (r *AuditReport) GetOrCreateChart(title string) *Chart {
+func (r *AuditReport) GetOrCreateChart(title string, doc *DocLink) *Chart {
 	if !r.detailed {
 		return nil
 	}
@@ -85,7 +85,7 @@ func (r *AuditReport) GetOrCreateChart(title string) *Chart {
 		}
 	}
 	ch := NewChart(r.ctx, title)
-	r.Widgets = append(r.Widgets, &Widget{Chart: ch})
+	r.Widgets = append(r.Widgets, &Widget{Chart: ch, DocLink: doc})
 	return ch
 }
 

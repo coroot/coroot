@@ -30,7 +30,7 @@ func availability(ctx timeseries.Context, app *model.Application, report *model.
 		return
 	}
 
-	if ch := report.GetOrCreateChart("Errors, per second"); ch != nil {
+	if ch := report.GetOrCreateChart("Errors, per second", nil); ch != nil {
 		ch.AddSeries("errors", sli.FailedRequests.Map(timeseries.NanToZero), "black").Stacked()
 	}
 
@@ -76,7 +76,7 @@ func latency(ctx timeseries.Context, app *model.Application, report *model.Audit
 	}
 	sli := app.LatencySLIs[0]
 
-	if ch := report.GetOrCreateChart("Latency, seconds"); ch != nil {
+	if ch := report.GetOrCreateChart("Latency, seconds", nil); ch != nil {
 		ch.PercentilesFrom(sli.Histogram, 0.25, 0.5, 0.75, 0.95, 0.99)
 	}
 
@@ -160,7 +160,7 @@ func requestsChart(app *model.Application, report *model.AuditReport, p *db.Proj
 		return
 	}
 	ch := report.
-		GetOrCreateChart(fmt.Sprintf("Requests to the <var>%s</var> app, per second", app.Id.Name)).
+		GetOrCreateChart(fmt.Sprintf("Requests to the <var>%s</var> app, per second", app.Id.Name), nil).
 		Sorted().
 		Stacked()
 	if len(app.LatencySLIs) > 0 {

@@ -17,9 +17,9 @@ func (a *appAuditor) mongodb() {
 	replicationLagCheck := report.CreateCheck(model.Checks.MongodbReplicationLag)
 
 	table := report.GetOrCreateTable("Instance", "Status", "ReplicaSet", "State", "Queries", "Latency", "Replication lag")
-	qpsChart := report.GetOrCreateChart("Queries, per second")
-	latencyChart := report.GetOrCreateChart("Latency, seconds")
-	replicationLagChart := report.GetOrCreateChart("Replication lag, seconds")
+	qpsChart := report.GetOrCreateChart("Queries, per second", nil)
+	latencyChart := report.GetOrCreateChart("Latency, seconds", nil)
+	replicationLagChart := report.GetOrCreateChart("Replication lag, seconds", nil)
 
 	connectionsByInstance := map[string][]*model.Connection{}
 	if table != nil {

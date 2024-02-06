@@ -15,15 +15,42 @@ func (a *appAuditor) dotnet() {
 	availabilityCheck := report.CreateCheck(model.Checks.DotNetAvailability)
 
 	table := report.GetOrCreateTable("Instance", "Status", "Runtime version")
-	heapChart := report.GetOrCreateChartGroup("Heap size <selector>, bytes")
-	gcChart := report.GetOrCreateChartGroup("GC <selector>, collections/second")
-	allocationChart := report.GetOrCreateChart("Memory allocation rate, bytes/second")
-	exceptionsChart := report.GetOrCreateChart("Exceptions, per second")
-	heapFragmentationChart := report.GetOrCreateChart("Heap fragmentation, %")
-	threadPoolQueueChart := report.GetOrCreateChart("Thread pool queue size, items")
-	threadPoolSizeChart := report.GetOrCreateChart("Thread pool size, threads")
-	threadPoolCompletedItemsChart := report.GetOrCreateChart("Thread pool completed work items, per second")
-	monitorLockContentions := report.GetOrCreateChart("Monitor's lock contentions, per second")
+	heapChart := report.GetOrCreateChartGroup(
+		"Heap size <selector>, bytes",
+		model.NewDocLink("inspections", "dotnet", "heap"),
+	)
+	gcChart := report.GetOrCreateChartGroup(
+		"GC <selector>, collections/second",
+		model.NewDocLink("inspections", "dotnet", "gc"),
+	)
+	allocationChart := report.GetOrCreateChart(
+		"Memory allocation rate, bytes/second",
+		model.NewDocLink("inspections", "dotnet", "allocations"),
+	)
+	exceptionsChart := report.GetOrCreateChart(
+		"Exceptions, per second",
+		model.NewDocLink("inspections", "dotnet", "exceptions"),
+	)
+	heapFragmentationChart := report.GetOrCreateChart(
+		"Heap fragmentation, %",
+		model.NewDocLink("inspections", "dotnet", "fragmentation"),
+	)
+	threadPoolQueueChart := report.GetOrCreateChart(
+		"Thread pool queue size, items",
+		model.NewDocLink("inspections", "dotnet", "thread_pool_length"),
+	)
+	threadPoolSizeChart := report.GetOrCreateChart(
+		"Thread pool size, threads",
+		model.NewDocLink("inspections", "dotnet", "thread_pool_size"),
+	)
+	threadPoolCompletedItemsChart := report.GetOrCreateChart(
+		"Thread pool completed work items, per second",
+		model.NewDocLink("inspections", "dotnet", "thread_pool_completed"),
+	)
+	monitorLockContentions := report.GetOrCreateChart(
+		"Monitor's lock contentions, per second",
+		model.NewDocLink("inspections", "dotnet", "monitor_lock"),
+	)
 
 	for _, i := range a.app.Instances {
 		obsolete := i.IsObsolete()

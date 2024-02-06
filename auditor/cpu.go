@@ -11,11 +11,26 @@ func (a *appAuditor) cpu(ncs nodeConsumersByNode) {
 	nodeCpuCheck := report.CreateCheck(model.Checks.CPUNode)
 	containerCpuCheck := report.CreateCheck(model.Checks.CPUContainer)
 
-	usageChart := report.GetOrCreateChartGroup("CPU usage <selector>, cores")
-	delayChart := report.GetOrCreateChartGroup("CPU delay <selector>, seconds/second")
-	throttlingChart := report.GetOrCreateChartGroup("Throttled time <selector>, seconds/second")
-	nodesChart := report.GetOrCreateChartGroup("Node CPU usage <selector>, %")
-	consumersChart := report.GetOrCreateChartGroup("CPU consumers on <selector>, cores")
+	usageChart := report.GetOrCreateChartGroup(
+		"CPU usage <selector>, cores",
+		model.NewDocLink("inspections", "cpu", "usage"),
+	)
+	delayChart := report.GetOrCreateChartGroup(
+		"CPU delay <selector>, seconds/second",
+		model.NewDocLink("inspections", "cpu", "delay"),
+	)
+	throttlingChart := report.GetOrCreateChartGroup(
+		"Throttled time <selector>, seconds/second",
+		model.NewDocLink("inspections", "cpu", "throttled_time"),
+	)
+	nodesChart := report.GetOrCreateChartGroup(
+		"Node CPU usage <selector>, %",
+		model.NewDocLink("inspections", "cpu", "node_usage"),
+	)
+	consumersChart := report.GetOrCreateChartGroup(
+		"CPU consumers on <selector>, cores",
+		model.NewDocLink("inspections", "cpu", "consumers"),
+	)
 
 	seenContainers, seenRelatedNodes := false, false
 	relevantNodes := map[string]*model.Node{}

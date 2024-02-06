@@ -17,8 +17,8 @@ func (a *appAuditor) instances() {
 	availabilityCheck := report.CreateCheck(model.Checks.InstanceAvailability)
 	restartsCheck := report.CreateCheck(model.Checks.InstanceRestarts)
 
-	instancesChart := report.GetOrCreateChart("Instances").Stacked()
-	restartsChart := report.GetOrCreateChart("Restarts").Column()
+	instancesChart := report.GetOrCreateChart("Instances", nil).Stacked()
+	restartsChart := report.GetOrCreateChart("Restarts", nil).Column()
 
 	up := timeseries.NewAggregate(timeseries.NanSum)
 	for _, i := range a.app.Instances {

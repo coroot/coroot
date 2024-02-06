@@ -12,10 +12,22 @@ func (a *appAuditor) memory(ncs nodeConsumersByNode) {
 	oomCheck := report.CreateCheck(model.Checks.MemoryOOM)
 	leakCheck := report.CreateCheck(model.Checks.MemoryLeakPercent)
 
-	usageChart := report.GetOrCreateChartGroup("Memory usage (RSS) <selector>, bytes")
-	oomChart := report.GetOrCreateChart("Out of memory events").Column()
-	nodesChart := report.GetOrCreateChart("Node memory usage (unreclaimable), %")
-	consumersChart := report.GetOrCreateChartGroup("Memory consumers <selector>, bytes")
+	usageChart := report.GetOrCreateChartGroup(
+		"Memory usage (RSS) <selector>, bytes",
+		model.NewDocLink("inspections", "memory", "usage"),
+	)
+	oomChart := report.GetOrCreateChart(
+		"Out of memory events",
+		model.NewDocLink("inspections", "memory", "oom"),
+	).Column()
+	nodesChart := report.GetOrCreateChart(
+		"Node memory usage (unreclaimable), %",
+		model.NewDocLink("inspections", "memory", "node_usage"),
+	)
+	consumersChart := report.GetOrCreateChartGroup(
+		"Memory consumers <selector>, bytes",
+		model.NewDocLink("inspections", "memory", "consumers"),
+	)
 
 	seenContainers := false
 	limitByContainer := map[string]*timeseries.Aggregate{}

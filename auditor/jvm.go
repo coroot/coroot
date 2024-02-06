@@ -15,9 +15,9 @@ func (a *appAuditor) jvm() {
 	safepointCheck := report.CreateCheck(model.Checks.JvmSafepointTime)
 
 	table := report.GetOrCreateTable("Instance", "Status", "Java version")
-	heapChart := report.GetOrCreateChartGroup("Heap size <selector>, bytes")
-	gcChart := report.GetOrCreateChartGroup("GC time <selector>, seconds/second")
-	safepointChart := report.GetOrCreateChart("Safepoint time, seconds/second")
+	heapChart := report.GetOrCreateChartGroup("Heap size <selector>, bytes", nil)
+	gcChart := report.GetOrCreateChartGroup("GC time <selector>, seconds/second", nil)
+	safepointChart := report.GetOrCreateChart("Safepoint time, seconds/second", nil)
 
 	for _, i := range a.app.Instances {
 		obsolete := i.IsObsolete()
