@@ -39,7 +39,7 @@ Open http://127.0.0.1:8080 in your browser.
 
 ### Goland
 Enable the following "Actions on Save" for automatic formatting:
-![image](https://github.com/coroot/coroot/assets/199054/9c5e62e9-7bdf-47e0-97b2-2ea56c9b620d)
+![image](https://github.com/coroot/coroot/assets/199054/ca32b935-1bf6-42d6-ad5a-dccfc04aa673)
 
 ### VS Code
 _TODO_...
