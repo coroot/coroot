@@ -1,6 +1,12 @@
 <template>
     <div>
-        <h2 class="text-h6 font-weight-regular">Nodes</h2>
+        <h2 class="text-h6 font-weight-regular">
+            Nodes
+            <a href="https://coroot.com/docs/coroot-community-edition/costs/overview#nodes" target="_blank">
+                <v-icon>mdi-information-outline</v-icon>
+            </a>
+        </h2>
+
         <v-data-table
             :items="nodes"
             sort-by="idle_costs"
