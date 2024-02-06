@@ -47,21 +47,21 @@ func (a *appAuditor) postgres() {
 			continue
 		}
 		report.
-			GetOrCreateChartInGroup("Postgres query latency <selector>, seconds", "overview").
+			GetOrCreateChartInGroup("Postgres query latency <selector>, seconds", "overview", nil).
 			Feature().
 			AddSeries(i.Name, i.Postgres.Avg)
 		if i.Postgres.Avg.Last() > latencyCheck.Threshold {
 			latencyCheck.AddItem(i.Name)
 		}
 		report.
-			GetOrCreateChartInGroup("Postgres query latency <selector>, seconds", i.Name).
+			GetOrCreateChartInGroup("Postgres query latency <selector>, seconds", i.Name, nil).
 			AddSeries("avg", i.Postgres.Avg).
 			AddSeries("p50", i.Postgres.P50).
 			AddSeries("p95", i.Postgres.P95).
 			AddSeries("p99", i.Postgres.P99)
 
 		qps := sumQueries(i.Postgres.QueriesByDB)
-		report.GetOrCreateChart("Queries per second").AddSeries(i.Name, qps)
+		report.GetOrCreateChart("Queries per second", nil).AddSeries(i.Name, qps)
 
 		errorsTotal := timeseries.NewAggregate(timeseries.NanSum)
 		errorsByPattern := map[string]model.SeriesData{}
@@ -83,19 +83,19 @@ func (a *appAuditor) postgres() {
 		pgQueries(report, i)
 
 		report.
-			GetOrCreateChartInGroup("Errors <selector>", "overview").
+			GetOrCreateChartInGroup("Errors <selector>", "overview", nil).
 			Column().
 			Feature().
 			AddSeries(i.Name, errors)
 		report.
-			GetOrCreateChartInGroup("Errors <selector>", i.Name).
+			GetOrCreateChartInGroup("Errors <selector>", i.Name, nil).
 			Column().
 			AddMany(errorsByPattern, 5, timeseries.NanSum)
 		pgConnections(report, i, connectionsCheck)
 		pgLocks(report, i)
 		primaryLsnTs := primaryLsn.Get()
 		lag := pgReplicationLag(primaryLsnTs, i.Postgres.WalReplayLsn)
-		report.GetOrCreateChart("Replication lag, bytes").AddSeries(i.Name, lag)
+		report.GetOrCreateChart("Replication lag, bytes", nil).AddSeries(i.Name, lag)
 
 		if i.IsObsolete() {
 			continue
@@ -223,7 +223,7 @@ func pgConnections(report *model.AuditReport, instance *model.Instance, connecti
 	}
 
 	chart := report.
-		GetOrCreateChartInGroup("Postgres connections <selector>", instance.Name).
+		GetOrCreateChartInGroup("Postgres connections <selector>", instance.Name, nil).
 		Stacked().
 		SetThreshold("max_connections", instance.Postgres.Settings["max_connections"].Samples)
 
@@ -243,11 +243,11 @@ func pgConnections(report *model.AuditReport, instance *model.Instance, connecti
 		}
 	}
 	report.
-		GetOrCreateChartInGroup("Idle transactions on <selector>", instance.Name).
+		GetOrCreateChartInGroup("Idle transactions on <selector>", instance.Name, nil).
 		Stacked().
 		AddMany(idleInTransaction, 5, timeseries.NanSum)
 	report.
-		GetOrCreateChartInGroup("Locked queries on <selector>", instance.Name).
+		GetOrCreateChartInGroup("Locked queries on <selector>", instance.Name, nil).
 		Stacked().
 		AddMany(locked, 5, timeseries.NanSum)
 }
@@ -258,7 +258,7 @@ func pgLocks(report *model.AuditReport, instance *model.Instance) {
 		blockingQueries[k.Query] = v
 	}
 	report.
-		GetOrCreateChartInGroup("Blocking queries by the number of awaiting queries on <selector>", instance.Name).
+		GetOrCreateChartInGroup("Blocking queries by the number of awaiting queries on <selector>", instance.Name, nil).
 		Stacked().
 		AddMany(blockingQueries, 5, timeseries.NanSum).
 		ShiftColors()
@@ -273,12 +273,12 @@ func pgQueries(report *model.AuditReport, instance *model.Instance) {
 		ioTime[q] = stat.IoTime
 	}
 	report.
-		GetOrCreateChartInGroup("Queries by total time on <selector>, query seconds/second", instance.Name).
+		GetOrCreateChartInGroup("Queries by total time on <selector>, query seconds/second", instance.Name, nil).
 		Stacked().
 		Sorted().
 		AddMany(totalTime, 5, timeseries.NanSum)
 	report.
-		GetOrCreateChartInGroup("Queries by I/O time on <selector>, query seconds/second", instance.Name).
+		GetOrCreateChartInGroup("Queries by I/O time on <selector>, query seconds/second", instance.Name, nil).
 		Stacked().
 		Sorted().
 		AddMany(ioTime, 5, timeseries.NanSum)

@@ -18,9 +18,9 @@ func (a *appAuditor) network() {
 	rttCheck := report.CreateCheck(model.Checks.NetworkRTT)
 
 	dependencyMap := report.GetOrCreateDependencyMap()
-	failedConnectionsChart := report.GetOrCreateChart("Failed TCP connections, per second")
-	rttChart := report.GetOrCreateChart("Network round-trip time, seconds")
-	retransmissionsChart := report.GetOrCreateChart("TCP retransmissions, segments/second")
+	failedConnectionsChart := report.GetOrCreateChart("Failed TCP connections, per second", nil)
+	rttChart := report.GetOrCreateChart("Network round-trip time, seconds", nil)
+	retransmissionsChart := report.GetOrCreateChart("TCP retransmissions, segments/second", nil)
 
 	seenConnections := false
 	upstreams := map[model.ApplicationId]*netSummary{}

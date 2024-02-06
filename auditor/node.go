@@ -14,10 +14,13 @@ func AuditNode(w *model.World, node *model.Node) *model.AuditReport {
 
 	report.Status = model.OK
 
-	cpuByModeChart(report.GetOrCreateChart("CPU usage, %"), node.CpuUsageByMode)
+	cpuByModeChart(
+		report.GetOrCreateChart("CPU usage, %", model.NewDocLink("inspections", "cpu", "node_usage")),
+		node.CpuUsageByMode,
+	)
 
 	ncs := getNodeConsumers(node)
-	report.GetOrCreateChart("CPU consumers, cores").
+	report.GetOrCreateChart("CPU consumers, cores", model.NewDocLink("inspections", "cpu", "consumers")).
 		Stacked().
 		Sorted().
 		SetThreshold("total", node.CpuCapacity).
@@ -28,14 +31,14 @@ func AuditNode(w *model.World, node *model.Node) *model.AuditReport {
 		timeseries.Sum(node.MemoryCachedBytes, node.MemoryFreeBytes),
 	)
 	report.
-		GetOrCreateChart("Memory usage, bytes").
+		GetOrCreateChart("Memory usage, bytes", nil).
 		Stacked().
 		Sorted().
 		AddSeries("free", node.MemoryFreeBytes, "light-blue").
 		AddSeries("cache", node.MemoryCachedBytes, "amber").
 		AddSeries("used", used, "red")
 
-	report.GetOrCreateChart("Memory consumers, bytes").
+	report.GetOrCreateChart("Memory consumers, bytes", model.NewDocLink("inspections", "memory", "consumers")).
 		Stacked().
 		Sorted().
 		SetThreshold("total", node.MemoryTotalBytes).
@@ -45,7 +48,7 @@ func AuditNode(w *model.World, node *model.Node) *model.AuditReport {
 
 	for _, i := range node.NetInterfaces {
 		report.
-			GetOrCreateChartInGroup("Network bandwidth <selector>, bits/second", i.Name).
+			GetOrCreateChartInGroup("Network bandwidth <selector>, bits/second", i.Name, nil).
 			AddSeries("in", i.RxBytes.Map(func(t timeseries.Time, v float32) float32 { return v * 8 }), "green").
 			AddSeries("out", i.TxBytes.Map(func(t timeseries.Time, v float32) float32 { return v * 8 }), "blue")
 	}
@@ -100,11 +103,11 @@ func netLatency(report *model.AuditReport, w *model.World, n *model.Node) {
 		return
 	}
 
-	azChart := report.GetOrCreateChartInGroup("Network RTT between <selector>, seconds", "availability zones")
+	azChart := report.GetOrCreateChartInGroup("Network RTT between <selector>, seconds", "availability zones", nil)
 	for name, avg := range zones {
 		azChart.AddSeries(name, avg.get())
 	}
-	nodesChart := report.GetOrCreateChartInGroup("Network RTT between <selector>, seconds", "nodes")
+	nodesChart := report.GetOrCreateChartInGroup("Network RTT between <selector>, seconds", "nodes", nil)
 	for name, avg := range nodes {
 		nodesChart.AddSeries(name, avg.get())
 	}

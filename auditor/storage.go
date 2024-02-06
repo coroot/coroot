@@ -15,11 +15,11 @@ func (a *appAuditor) storage() {
 	ioCheck := report.CreateCheck(model.Checks.StorageIO)
 	spaceCheck := report.CreateCheck(model.Checks.StorageSpace)
 
-	ioLatencyChart := report.GetOrCreateChartGroup("I/O latency <selector>, seconds")
-	ioUtilizationChart := report.GetOrCreateChartGroup("I/O utilization <selector>, %")
-	iopsChart := report.GetOrCreateChartGroup("IOPS <selector>")
-	bandwidthChart := report.GetOrCreateChartGroup("Bandwidth <selector>, bytes/second")
-	spaceChart := report.GetOrCreateChartGroup("Disk space <selector>, bytes")
+	ioLatencyChart := report.GetOrCreateChartGroup("I/O latency <selector>, seconds", nil)
+	ioUtilizationChart := report.GetOrCreateChartGroup("I/O utilization <selector>, %", nil)
+	iopsChart := report.GetOrCreateChartGroup("IOPS <selector>", nil)
+	bandwidthChart := report.GetOrCreateChartGroup("Bandwidth <selector>, bytes/second", nil)
+	spaceChart := report.GetOrCreateChartGroup("Disk space <selector>, bytes", nil)
 
 	seenVolumes := false
 	for _, i := range a.app.Instances {

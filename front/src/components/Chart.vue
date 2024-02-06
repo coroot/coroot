@@ -4,6 +4,7 @@
             <slot name="title">
                 <span v-html="config.title"></span>
             </slot>
+            <a v-if="doc" :href="doc" target="_blank" class="ml-1"><v-icon small>mdi-information-outline</v-icon></a>
 
             <v-btn v-if="link" :to="link" x-small color="primary" class="ml-3">
                 {{ link.title }}
@@ -91,6 +92,7 @@ export default {
         chart: Object,
         selection: Object,
         loading: Boolean,
+        doc: String,
     },
 
     components: { ChartTooltip, ChartAnnotations, ChartIncidents },

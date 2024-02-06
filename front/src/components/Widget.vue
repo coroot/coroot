@@ -1,7 +1,14 @@
 <template>
     <div>
-        <Chart v-if="w.chart" :chart="w.chart" :selection="{}" @select="chartZoom" />
-        <ChartGroup v-if="w.chart_group" :title="w.chart_group.title" :charts="w.chart_group.charts" :selection="{}" @select="chartZoom" />
+        <Chart v-if="w.chart" :chart="w.chart" :selection="{}" @select="chartZoom" :doc="doc_link" />
+        <ChartGroup
+            v-if="w.chart_group"
+            :title="w.chart_group.title"
+            :charts="w.chart_group.charts"
+            :selection="{}"
+            @select="chartZoom"
+            :doc="doc_link"
+        />
         <DependencyMap v-if="w.dependency_map" :nodes="w.dependency_map.nodes" :links="w.dependency_map.links" />
         <Table v-if="w.table" :header="w.table.header" :rows="w.table.rows" />
         <Heatmap v-if="w.heatmap" :heatmap="w.heatmap" :selection="heatmapSelection" @select="heatmapDrillDown" />
@@ -32,6 +39,13 @@ export default {
         heatmapSelection() {
             const hm = this.w.heatmap;
             return hm && hm.drill_down_link ? {} : null;
+        },
+        doc_link() {
+            const l = this.w.doc_link;
+            if (!l) {
+                return null;
+            }
+            return `https://coroot.com/docs/coroot-community-edition/${l.group}/${l.item}${l.hash ? '#' + l.hash : ''}`;
         },
     },
 

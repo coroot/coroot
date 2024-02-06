@@ -18,6 +18,7 @@
                 </v-list>
             </v-menu>
             <span>{{ splitTitle.tail }}</span>
+            <a v-if="doc" :href="doc" target="_blank" class="ml-1"><v-icon small>mdi-information-outline</v-icon></a>
         </template>
     </Chart>
 </template>
@@ -30,6 +31,7 @@ export default {
         title: String,
         charts: Array,
         selection: Object,
+        doc: String,
     },
 
     components: { Chart },

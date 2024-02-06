@@ -11,7 +11,8 @@ type Widget struct {
 	Profiling *Profiling `json:"profiling,omitempty"`
 	Tracing   *Tracing   `json:"tracing,omitempty"`
 
-	Width string `json:"width,omitempty"`
+	Width   string   `json:"width,omitempty"`
+	DocLink *DocLink `json:"doc_link,omitempty"`
 }
 
 func (w *Widget) AddAnnotation(annotations ...Annotation) {
@@ -25,6 +26,20 @@ func (w *Widget) AddAnnotation(annotations ...Annotation) {
 	}
 	if w.Heatmap != nil {
 		w.Heatmap.AddAnnotation(annotations...)
+	}
+}
+
+type DocLink struct {
+	Group string `json:"group"`
+	Item  string `json:"item"`
+	Hash  string `json:"hash"`
+}
+
+func NewDocLink(group, item, hash string) *DocLink {
+	return &DocLink{
+		Group: group,
+		Item:  item,
+		Hash:  hash,
 	}
 }
 
