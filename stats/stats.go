@@ -71,6 +71,7 @@ type Stats struct {
 		WorldLoadTimeAvg  float32                    `json:"world_load_time_avg"`
 		AuditTimeAvg      float32                    `json:"audit_time_avg"`
 		UsersByScreenSize map[string]int             `json:"users_by_screen_size"`
+		UsersByTheme      map[string]int             `json:"users_by_theme"`
 		Users             *utils.StringSet           `json:"users"`
 		PageViews         map[string]int             `json:"page_views"`
 		SentNotifications map[db.IntegrationType]int `json:"sent_notifications"`
@@ -103,6 +104,7 @@ type Collector struct {
 	instanceVersion string
 
 	usersByScreenSize map[string]*utils.StringSet
+	usersByTheme      map[string]*utils.StringSet
 	pageViews         map[string]int
 	lock              sync.Mutex
 
@@ -124,6 +126,7 @@ func NewCollector(instanceUuid, version string, db *db.DB, cache *cache.Cache, p
 		instanceVersion: version,
 
 		usersByScreenSize: map[string]*utils.StringSet{},
+		usersByTheme:      map[string]*utils.StringSet{},
 		pageViews:         map[string]int{},
 
 		heapProfiler: godeltaprof.NewHeapProfiler(),
@@ -151,6 +154,7 @@ type Event struct {
 	DeviceId   string `json:"device_id"`
 	DeviceSize string `json:"device_size"`
 	Path       string `json:"path"`
+	Theme      string `json:"theme"`
 }
 
 func (c *Collector) RegisterRequest(r *http.Request) {
@@ -175,6 +179,10 @@ func (c *Collector) RegisterRequest(r *http.Request) {
 		c.usersByScreenSize[e.DeviceSize] = utils.NewStringSet()
 	}
 	c.usersByScreenSize[e.DeviceSize].Add(e.DeviceId)
+	if c.usersByTheme[e.Theme] == nil {
+		c.usersByTheme[e.Theme] = utils.NewStringSet()
+	}
+	c.usersByTheme[e.Theme].Add(e.Theme)
 }
 
 func (c *Collector) send() {
@@ -229,6 +237,12 @@ func (c *Collector) collect() Stats {
 		stats.UX.Users.Add(us.Items()...)
 	}
 	c.usersByScreenSize = map[string]*utils.StringSet{}
+
+	stats.UX.UsersByTheme = map[string]int{}
+	for theme, us := range c.usersByTheme {
+		stats.UX.UsersByTheme[theme] = us.Len()
+	}
+	c.usersByTheme = map[string]*utils.StringSet{}
 
 	stats.Performance.CPUUsage = c.cpuUsage
 	stats.Performance.MemoryUsage = c.memUsage
