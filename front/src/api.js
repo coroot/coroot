@@ -39,6 +39,7 @@ export default class Api {
             type,
             device_id: this.deviceId,
             device_size: this.vuetify.breakpoint.name,
+            theme: storage.local('theme') || '',
         };
         navigator.sendBeacon(this.basePath + 'stats', JSON.stringify(event));
     }

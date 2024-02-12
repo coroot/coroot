@@ -1,5 +1,5 @@
 <template>
-    <v-menu close-on-content-click offset-y>
+    <v-menu close-on-content-click offset-y attach=".v-app-bar">
         <template #activator="{ on, attrs }">
             <v-btn v-on="on" plain outlined height="40" class="px-2">
                 <v-icon>mdi-clock-outline</v-icon>

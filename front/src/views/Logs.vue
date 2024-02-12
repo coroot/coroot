@@ -528,6 +528,7 @@ export default {
 .marker {
     height: 20px;
     width: 4px;
+    filter: brightness(var(--brightness));
 }
 .checkbox:deep(.v-input--selection-controls__input) {
     margin-left: -5px;
@@ -539,12 +540,10 @@ export default {
     align-items: flex-end;
     margin-bottom: 8px;
     cursor: pointer;
-    background-color: #eeeeee;
+    background-color: var(--background-color-hi);
     padding: 4px 8px;
     border-radius: 2px;
-}
-.pattern:hover {
-    background-color: #e0e0e0;
+    filter: brightness(var(--brightness));
 }
 .pattern .sample {
     font-size: 0.8rem;
@@ -579,7 +578,8 @@ export default {
 .message {
     font-family: monospace, monospace;
     font-size: 14px;
-    background-color: #eeeeee;
+    background-color: var(--background-color-hi);
+    filter: brightness(var(--brightness));
     border-radius: 3px;
     max-height: 50vh;
     padding: 8px;

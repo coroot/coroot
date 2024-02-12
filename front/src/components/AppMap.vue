@@ -69,19 +69,24 @@
 
         <svg>
             <defs>
-                <marker
-                    :id="m"
-                    v-for="m in ['marker', 'markerhi', 'markerlo']"
-                    viewBox="0 0 10 10"
-                    refX="10"
-                    refY="5"
-                    markerWidth="10"
-                    markerHeight="10"
-                    markerUnits="userSpaceOnUse"
-                    orient="auto-start-reverse"
-                >
-                    <path d="M 0 3 L 10 5 L 0 7 z" />
-                </marker>
+                <template v-for="s in ['unknown', 'ok', 'warning', 'critical']">
+                    <template v-for="m in ['', 'hi', 'lo']">
+                        <marker
+                            :id="`marker-${s}-${m}`"
+                            class="marker"
+                            :class="`${s} ${m}`"
+                            viewBox="0 0 10 10"
+                            refX="10"
+                            refY="5"
+                            markerWidth="10"
+                            markerHeight="10"
+                            markerUnits="userSpaceOnUse"
+                            orient="auto-start-reverse"
+                        >
+                            <path d="M 0 3 L 10 5 L 0 7 z" />
+                        </marker>
+                    </template>
+                </template>
             </defs>
             <template v-for="a in arrows">
                 <path
@@ -96,8 +101,8 @@
                     class="arrow"
                     :class="[a.status, a.hi(focused)]"
                     fill-opacity="0"
-                    :marker-start="a.markerStart ? `url(#marker${a.hi(focused)})` : ''"
-                    :marker-end="a.markerEnd ? `url(#marker${a.hi(focused)})` : ''"
+                    :marker-start="a.markerStart ? `url(#marker-${a.status}-${a.hi(focused)})` : ''"
+                    :marker-end="a.markerEnd ? `url(#marker-${a.status}-${a.hi(focused)})` : ''"
                 />
             </template>
         </svg>
@@ -340,8 +345,8 @@ export default {
 }
 
 .hi {
-    border: 1px solid rgba(0, 0, 0, 0.87);
-    background-color: #cbe9fc;
+    border: 1px solid var(--text-color);
+    background-color: var(--background-color-hi);
 }
 svg {
     position: absolute;
@@ -362,39 +367,53 @@ svg {
 .arrow.lo {
     stroke-opacity: 0.3;
 }
+.arrow.unknown {
+    fill: var(--status-unknown);
+    stroke: var(--status-unknown);
+    stroke-dasharray: 4;
+}
 .arrow.ok {
-    stroke: green;
-    fill: green;
+    fill: var(--status-ok);
+    stroke: var(--status-ok);
 }
 .arrow.warning {
-    stroke: #ff8f00;
+    fill: var(--status-warning);
+    stroke: var(--status-warning);
     stroke-dasharray: 4;
-    fill: #ff8f00;
 }
 .arrow.critical {
-    stroke: red;
+    fill: var(--status-critical);
+    stroke: var(--status-critical);
     stroke-dasharray: 4;
-    fill: red;
 }
-.arrow.unknown {
-    stroke: lightgray;
-    stroke-dasharray: 4;
-    fill: lightgray;
+
+.marker {
+    fill-opacity: 0.5;
 }
-#marker path {
-    fill-opacity: 0.3;
-}
-#markerlo path {
+.marker.lo {
     fill-opacity: 0.1;
 }
-#markerhi path {
+.marker.hi {
     fill-opacity: 1;
 }
+.marker.unknown {
+    fill: var(--status-unknown);
+}
+.marker.ok {
+    fill: var(--status-ok);
+}
+.marker.warning {
+    fill: var(--status-warning);
+}
+.marker.critical {
+    fill: var(--status-critical);
+}
+
 .stats {
     position: absolute;
     font-size: 12px;
     line-height: 12px;
-    background-color: #eeeeee;
+    background-color: var(--background-color-hi);
     padding: 2px;
     border-radius: 2px;
 }

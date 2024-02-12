@@ -30,23 +30,27 @@
             </div>
             <svg :style="{ zIndex: hi ? 2 : 0 }">
                 <defs>
-                    <marker
-                        id="arrow"
-                        viewBox="0 0 10 10"
-                        refX="10"
-                        refY="5"
-                        :markerWidth="10"
-                        :markerHeight="10"
-                        markerUnits="userSpaceOnUse"
-                        orient="auto-start-reverse"
-                    >
-                        <path d="M 0 3 L 10 5 L 0 7 z" />
-                    </marker>
+                    <template v-for="s in ['unknown', 'ok', 'warning', 'critical']">
+                        <marker
+                            :id="`marker-${s}`"
+                            class="marker"
+                            :class="s"
+                            viewBox="0 0 10 10"
+                            refX="10"
+                            refY="5"
+                            :markerWidth="10"
+                            :markerHeight="10"
+                            markerUnits="userSpaceOnUse"
+                            orient="auto-start-reverse"
+                        >
+                            <path d="M 0 3 L 10 5 L 0 7 z" />
+                        </marker>
+                    </template>
                 </defs>
 
                 <template v-for="a in arrows">
                     <path v-if="a.dd" :d="a.dd" class="arrow" :class="a.status" />
-                    <path :d="a.d" class="arrow" :class="a.status" :stroke-opacity="a.hi ? 1 : 0.7" marker-end="url(#arrow)" />
+                    <path :d="a.d" class="arrow" :class="a.status" :stroke-opacity="a.hi ? 1 : 0.7" :marker-end="`url(#marker-${a.status})`" />
                 </template>
             </svg>
             <template v-for="a in arrows">
@@ -300,15 +304,15 @@ export default {
     border-radius: 3px;
     white-space: nowrap;
     padding: 4px 8px;
-    background-color: white;
+    background-color: var(--background-color);
     display: inline-flex;
     flex-direction: column;
     line-height: 1.1;
     text-align: left;
 }
 .app.selected {
-    border: 1px solid rgba(0, 0, 0, 0.87);
-    background-color: #cbe9fc;
+    border: 1px solid var(--text-color);
+    background-color: var(--background-color-hi);
 }
 .name {
     white-space: nowrap;
@@ -331,33 +335,45 @@ svg {
     pointer-events: none; /* to allow interactions with html below */
     overflow: visible;
 }
+.arrow.unknown {
+    fill: var(--status-unknown);
+    stroke: var(--status-unknown);
+    stroke-dasharray: 4;
+}
 .arrow.ok {
-    stroke: green;
-    fill: green;
+    fill: var(--status-ok);
+    stroke: var(--status-ok);
 }
 .arrow.warning {
-    stroke: #ff8f00;
+    fill: var(--status-warning);
+    stroke: var(--status-warning);
     stroke-dasharray: 4;
     stroke-width: 1.5;
-    fill: #ff8f00;
 }
 .arrow.critical {
-    stroke: red;
+    fill: var(--status-critical);
+    stroke: var(--status-critical);
     stroke-dasharray: 4;
     stroke-width: 1.5;
-    fill: red;
+}
+.marker.unknown {
+    fill: var(--status-unknown);
+}
+.marker.ok {
+    fill: var(--status-ok);
+}
+.marker.warning {
+    fill: var(--status-warning);
+}
+.marker.critical {
+    fill: var(--status-critical);
 }
 
-.arrow.unknown {
-    stroke: gray;
-    stroke-dasharray: 4;
-    fill: gray;
-}
 .stats {
     position: absolute;
     font-size: 12px;
     line-height: 12px;
-    background-color: #eeeeee;
+    background-color: var(--background-color-hi);
     padding: 2px;
     border-radius: 2px;
     text-align: right;

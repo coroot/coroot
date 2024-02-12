@@ -1,5 +1,5 @@
 <template>
-    <v-menu :value="!!query" offset-y max-height="50vh">
+    <v-menu :value="!!query" offset-y max-height="50vh" attach=".v-app-bar">
         <template #activator="{}">
             <v-text-field v-model="query" dense outlined hide-details flat placeholder="search for apps and nodes" @blur="close" @keydown.esc="close">
                 <template #prepend-inner>
@@ -7,7 +7,7 @@
                 </template>
             </v-text-field>
         </template>
-        <v-list dark color="#080d1b">
+        <v-list dark>
             <template v-if="error">
                 <v-list-item>
                     <v-list-item-title class="ml-3">

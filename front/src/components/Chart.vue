@@ -123,9 +123,20 @@ export default {
             },
             deep: true,
         },
+        theme() {
+            this.redraw();
+        },
     },
 
     computed: {
+        theme() {
+            const dark = this.$vuetify.theme.dark;
+            return {
+                dark,
+                text: dark ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0,0,0,0.87)',
+                grid: dark ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0,0,0,0.07)',
+            };
+        },
         config() {
             const c = JSON.parse(JSON.stringify(this.chart));
             c.series = (c.series || []).filter((s) => s.data != null);
@@ -155,6 +166,9 @@ export default {
 
             c.series.forEach((s, i) => {
                 s.stacked = s.stacked !== undefined ? s.stacked : c.stacked;
+                if (s.color === 'black' && this.theme.dark) {
+                    s.color = 'white';
+                }
                 if (colors[s.color] && colors[s.color].length > 1) {
                     const c = palette.get(s.color, 0);
                     const hsl = convert.hex.hsl(c);
@@ -248,12 +262,23 @@ export default {
                     {
                         space: 80,
                         font,
+                        stroke: this.theme.text,
+                        grid: { stroke: this.theme.grid },
+                        ticks: { stroke: this.theme.grid },
                         values: [
                             [60000, '{HH}:{mm}', null, null, '{MMM} {DD}', null, null, null, 0],
                             [1000, '{HH}:{mm}:{ss}', null, null, '{MMM} {DD}', null, null, null, 0],
                         ],
                     },
-                    { space: 20, font, size: 60, values: (u, splits) => splits.map((v) => fmtVal(Math.max(...splits), c.unit)(v)) },
+                    {
+                        space: 20,
+                        font,
+                        size: 60,
+                        stroke: this.theme.text,
+                        grid: { stroke: this.theme.grid },
+                        ticks: { stroke: this.theme.grid },
+                        values: (u, splits) => splits.map((v) => fmtVal(Math.max(...splits), c.unit)(v)),
+                    },
                 ],
                 series: [{}, ...series],
                 cursor: {
@@ -409,7 +434,7 @@ export default {
     position: absolute;
     height: 100%;
     top: 0;
-    border: 1px dashed rgba(0, 0, 0, 0.4);
+    border: 1px dashed var(--text-color);
     border-right: none;
     border-bottom: none;
     color: rgba(0, 0, 0, 0.87);
@@ -418,7 +443,7 @@ export default {
     position: absolute;
     height: 100%;
     top: 0;
-    border: 1px solid rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--text-color);
     border-bottom: none;
     color: rgba(0, 0, 0, 0.87);
 }
@@ -426,6 +451,7 @@ export default {
     position: absolute;
     top: -16px;
     font-style: italic;
+    color: var(--text-color);
 }
 .selection-left .selection-title {
     right: 4px;
