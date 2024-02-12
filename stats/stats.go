@@ -182,7 +182,7 @@ func (c *Collector) RegisterRequest(r *http.Request) {
 	if c.usersByTheme[e.Theme] == nil {
 		c.usersByTheme[e.Theme] = utils.NewStringSet()
 	}
-	c.usersByTheme[e.Theme].Add(e.Theme)
+	c.usersByTheme[e.Theme].Add(e.DeviceId)
 }
 
 func (c *Collector) send() {
