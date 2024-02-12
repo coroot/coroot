@@ -10,7 +10,7 @@
                 <td v-for="c in r.cells" class="py-1">
                     <v-progress-linear
                         v-if="c.progress"
-                        :background-color="c.progress.color + ' lighten-4'"
+                        :background-color="c.progress.color + ' lighten-3'"
                         height="16"
                         :color="c.progress.color + ' lighten-1'"
                         :value="c.progress.percent"

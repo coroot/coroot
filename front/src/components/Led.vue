@@ -20,7 +20,7 @@ export default {
                 case 'ok':
                     return 'hsl(141, 71%, 48%)';
             }
-            return 'white';
+            return 'rgba(255,255,255,75%)';
         },
     },
 };

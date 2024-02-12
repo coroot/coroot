@@ -2,14 +2,14 @@
     <v-app>
         <CheckForUpdates v-if="$coroot.check_for_updates" :currentVersion="$coroot.version" :instanceUuid="$coroot.uuid" />
 
-        <v-app-bar app flat dark color="#080d1b" class="menu">
+        <v-app-bar app flat dark class="menu">
             <v-container class="py-0 fill-height flex-nowrap">
                 <router-link :to="project ? { name: 'overview', query: $utils.contextQuery() } : { name: 'index' }">
-                    <img :src="`${$coroot.base_path}static/logo.svg`" height="38" style="vertical-align: middle" />
+                    <img :src="`${$coroot.base_path}static/logo.svg`" height="38" class="logo" alt=":~#" />
                 </router-link>
 
                 <div v-if="$route.name !== 'welcome'">
-                    <v-menu dark offset-y tile>
+                    <v-menu dark offset-y tile attach=".v-app-bar">
                         <template #activator="{ on, attrs }">
                             <v-btn v-on="on" plain outlined class="ml-3 px-2" height="40">
                                 <v-icon small class="mr-2">mdi-hexagon-multiple</v-icon>
@@ -23,7 +23,7 @@
                                 </template>
                             </v-btn>
                         </template>
-                        <v-list dense color="#080d1b">
+                        <v-list dense>
                             <v-list-item v-for="p in projects" :key="p.name" :to="{ name: 'overview', params: { projectId: p.id } }">
                                 {{ p.name }}
                             </v-list-item>
@@ -39,13 +39,13 @@
                 <v-spacer />
 
                 <div v-if="$vuetify.breakpoint.smAndUp" class="ml-3">
-                    <v-menu dark offset-y tile>
+                    <v-menu dark offset-y tile attach=".v-app-bar">
                         <template #activator="{ on }">
                             <v-btn v-on="on" plain outlined height="40" class="px-2">
                                 <v-icon>mdi-help-circle-outline</v-icon>
                             </v-btn>
                         </template>
-                        <v-list dense color="#080d1b">
+                        <v-list dense>
                             <v-list-item href="https://coroot.com/docs/coroot-community-edition" target="_blank">Documentation</v-list-item>
                             <v-list-item href="https://github.com/coroot/coroot" target="_blank">
                                 <v-icon small class="mr-1">mdi-github</v-icon>GitHub
@@ -70,12 +70,26 @@
                     <TimePicker :small="$vuetify.breakpoint.xsOnly" />
                 </div>
 
-                <div v-if="project" class="ml-3">
-                    <v-btn :to="{ name: 'project_settings' }" plain outlined height="40" class="px-2">
-                        <v-icon>mdi-cog</v-icon>
-                        <Led v-if="status" :status="status.status !== 'ok' ? 'warning' : 'ok'" absolute />
-                    </v-btn>
-                </div>
+                <v-btn v-if="project" :to="{ name: 'project_settings' }" plain outlined height="40" class="ml-3 px-2">
+                    <v-icon>mdi-cog</v-icon>
+                    <Led v-if="status" :status="status.status !== 'ok' ? 'warning' : 'ok'" absolute />
+                </v-btn>
+
+                <v-menu dark offset-y tile left attach=".v-app-bar">
+                    <template #activator="{ on }">
+                        <v-btn v-on="on" plain outlined height="40" class="ml-1 px-2">
+                            <v-icon>{{ themes[theme] }}</v-icon>
+                        </v-btn>
+                    </template>
+                    <v-list dense>
+                        <v-list-item-group v-model="theme">
+                            <v-list-item v-for="(icon, name) in themes" @click="setTheme(name)" :value="name">
+                                <v-icon small class="mr-1">{{ icon }}</v-icon>
+                                {{ name }}
+                            </v-list-item>
+                        </v-list-item-group>
+                    </v-list>
+                </v-menu>
             </v-container>
         </v-app-bar>
 
@@ -137,12 +151,14 @@ export default {
         return {
             projects: [],
             context: this.$api.context,
+            theme: this.$storage.local('theme') || 'auto',
         };
     },
 
     created() {
         this.$events.watch(this, this.getProjects, 'project-saved', 'project-deleted');
         this.getProjects();
+        this.setTheme();
     },
 
     computed: {
@@ -155,6 +171,13 @@ export default {
         },
         status() {
             return this.context.status;
+        },
+        themes() {
+            return {
+                light: 'mdi-weather-sunny',
+                dark: 'mdi-weather-night',
+                auto: 'mdi-theme-light-dark',
+            };
         },
     },
 
@@ -198,11 +221,34 @@ export default {
         refresh() {
             this.$events.emit('refresh');
         },
+        setTheme(theme) {
+            const matchMedia = window.matchMedia('(prefers-color-scheme: dark)');
+            if (theme) {
+                this.theme = theme;
+                this.$storage.local('theme', this.theme);
+            } else {
+                matchMedia.addEventListener('change', (e) => {
+                    const theme = this.$storage.local('theme') || 'auto';
+                    if (theme === 'auto') {
+                        this.$vuetify.theme.dark = e.matches;
+                    }
+                });
+            }
+            this.theme = this.$storage.local('theme') || 'auto';
+            if (this.theme === 'auto') {
+                this.$vuetify.theme.dark = matchMedia.matches;
+            } else {
+                this.$vuetify.theme.dark = this.theme === 'dark';
+            }
+        },
     },
 };
 </script>
 
 <style scoped>
+.menu .logo {
+    vertical-align: middle;
+}
 .menu >>> .v-btn {
     min-width: unset !important;
     border-color: rgba(255, 255, 255, 0.2);
@@ -218,6 +264,60 @@ export default {
 </style>
 
 <style>
+:root {
+    --text-light: rgba(0, 0, 0, 0.87);
+    --text-light-dimmed: rgba(0, 0, 0, 0.5);
+    --text-dark: rgba(255, 255, 255, 0.87);
+    --text-dark-dimmed: rgba(255, 255, 255, 0.5);
+    --background-light: white;
+    --background-light-hi: #eeeeee;
+    --background-dark: #121212;
+    --background-dark-hi: #616161;
+    --brightness-dimmed: 80%;
+
+    --status-unknown: gray;
+    --status-ok: green;
+    --status-warning: #ff8f00;
+    --status-critical: red;
+}
+.v-application {
+    --text-color: var(--text-light);
+    --text-color-dimmed: var(--text-light-dimmed);
+    --background-color: var(--background-light);
+    --background-color-hi: var(--background-light-hi);
+    --brightness: 100%;
+}
+.v-application.theme--dark {
+    --text-color: var(--text-dark);
+    --text-color-dimmed: var(--text-dark-dimmed);
+    --background-color: var(--background-dark);
+    --background-color-hi: var(--background-dark-hi);
+    --brightness: var(--brightness-dimmed);
+}
+.v-application.theme--dark .logo {
+    filter: brightness(var(--brightness-dimmed));
+}
+.v-application .v-app-bar,
+.v-application .v-app-bar .v-list {
+    color: var(--text-dark) !important;
+    background-color: var(--background-dark) !important;
+}
+.v-application {
+    color: var(--text-color) !important;
+}
+.v-application .v-tabs > .v-tabs-bar,
+.v-application .v-data-table,
+.v-application .v-list,
+.v-application .v-card {
+    color: var(--text-color) !important;
+    background-color: var(--background-color) !important;
+}
+.v-application .v-icon,
+.v-application .v-btn,
+.v-application .v-chip {
+    filter: brightness(var(--brightness)) !important;
+}
+
 a {
     text-decoration: none !important;
 }

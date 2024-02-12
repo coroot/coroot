@@ -96,9 +96,19 @@ export default {
         config() {
             this.$nextTick(this.redraw);
         },
+        theme() {
+            this.redraw();
+        },
     },
 
     computed: {
+        theme() {
+            const dark = this.$vuetify.theme.dark;
+            return {
+                text: dark ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0,0,0,0.87)',
+                grid: dark ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0,0,0,0.07)',
+            };
+        },
         config() {
             const c = JSON.parse(JSON.stringify(this.heatmap));
             c.series = (c.series || []).filter((s) => s.data != null);
@@ -206,6 +216,9 @@ export default {
                     {
                         space: 80,
                         font,
+                        stroke: this.theme.text,
+                        grid: { stroke: this.theme.grid },
+                        ticks: { stroke: this.theme.grid },
                         values: [
                             [60000, '{HH}:{mm}', null, null, '{MMM} {DD}', null, null, null, 0],
                             [1000, '{HH}:{mm}:{ss}', null, null, '{MMM} {DD}', null, null, null, 0],
@@ -216,6 +229,9 @@ export default {
                         font,
                         gap: 0,
                         size: 60,
+                        stroke: this.theme.text,
+                        grid: { stroke: this.theme.grid },
+                        ticks: { stroke: this.theme.grid },
                         splits: [0, ...c.series.map((_, i) => i + 1)],
                         values: ['0', ...c.series.map((s) => s.name)],
                     },
@@ -369,8 +385,8 @@ export default {
 
 .threshold {
     position: absolute;
-    background-color: white;
-    border-top: 1px dashed black;
+    background-color: var(--background-color);
+    border-top: 1px dashed var(--text-color);
     pointer-events: none;
 }
 .threshold .icon {
@@ -388,7 +404,7 @@ export default {
     position: relative;
 }
 .tooltip .item.threshold {
-    border-top: 1px dashed black;
+    border-top: 1px dashed var(--text-color);
 }
 .tooltip .item .label {
     text-align: right;

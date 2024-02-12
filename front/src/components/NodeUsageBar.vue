@@ -88,5 +88,6 @@ export default {
     display: flex;
     height: 16px;
     background-color: rgba(0, 0, 0, 0.1);
+    filter: brightness(var(--brightness));
 }
 </style>

@@ -126,7 +126,6 @@ export default {
 .node {
     padding: 4px;
     border: 1px solid #bdbdbd;
-    background-color: #fafafa;
     border-radius: 3px;
     white-space: nowrap;
     margin: 8px 8px;
@@ -150,13 +149,13 @@ export default {
     margin-left: auto;
 }
 .node.warning {
-    background-color: #f9eeee;
+    background-color: var(--background-color-hi) !important;
+    border-color: var(--background-color-hi) !important;
 }
 .instance {
     padding: 4px;
     border: 1px solid #bdbdbd;
     border-radius: 3px;
-    background-color: white;
     font-size: 0.75rem;
     margin: 8px;
     max-width: 80%;
@@ -164,7 +163,7 @@ export default {
     text-overflow: ellipsis;
 }
 .instance.obsolete {
-    color: rgba(0, 0, 0, 0.5);
+    color: var(--text-color-dimmed);
 }
 svg {
     position: absolute;
@@ -175,21 +174,21 @@ svg {
     pointer-events: none; /* to allow interactions with html below */
 }
 line.ok {
-    stroke: green;
+    stroke: var(--status-ok);
     stroke-width: 1;
 }
 line.warning {
-    stroke: #ff8f00;
+    stroke: var(--status-warning);
     stroke-width: 2;
     stroke-dasharray: 4;
 }
 line.critical {
-    stroke: red;
+    stroke: var(--status-critical);
     stroke-width: 2;
     stroke-dasharray: 4;
 }
 line.unknown {
-    stroke: lightgray;
+    stroke: var(--status-unknown);
     stroke-width: 1;
     stroke-dasharray: 4;
 }

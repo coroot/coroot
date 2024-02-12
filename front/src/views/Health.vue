@@ -71,20 +71,18 @@
                 <router-link :to="link(id, 'Net')" class="value" :class="param.status">{{ param.value || '–' }}</router-link>
             </template>
             <template #item.logs="{ item: { id, logs: param } }">
-                <router-link :to="link(id, 'Logs', { query: JSON.stringify({ source: 'agent', view: 'patterns' }) })">
-                    <div class="logs">
-                        <div class="value">{{ param.value || '–' }}</div>
-                        <v-sparkline
-                            v-if="param.chart"
-                            :value="param.chart.map((v) => (v === null ? 0 : v))"
-                            fill
-                            smooth
-                            padding="4"
-                            color="blue lighten-4"
-                            height="30"
-                            width="120"
-                        />
-                    </div>
+                <router-link :to="link(id, 'Logs', { query: JSON.stringify({ source: 'agent', view: 'patterns' }) })" class="logs">
+                    <div class="value">{{ param.value || '–' }}</div>
+                    <v-sparkline
+                        v-if="param.chart"
+                        :value="param.chart.map((v) => (v === null ? 0 : v))"
+                        fill
+                        smooth
+                        padding="4"
+                        :color="`blue ${$vuetify.theme.dark ? '' : 'lighten-4'}`"
+                        height="30"
+                        width="120"
+                    />
                 </router-link>
             </template>
         </v-data-table>
@@ -196,8 +194,10 @@ export default {
     text-overflow: ellipsis;
 }
 .table .logs {
+    display: block;
     position: relative;
     height: 100%;
+    color: inherit;
 }
 .table .logs .value {
     position: absolute;
@@ -215,11 +215,12 @@ export default {
     padding: 0 !important;
 }
 .value {
-    color: rgba(0, 0, 0, 0.6);
+    color: inherit;
+    opacity: 60%;
 }
 .value.critical,
 .value.warning {
-    color: inherit;
+    opacity: 100%;
     border-bottom: 2px solid red !important;
     background-color: unset !important;
 }
@@ -243,6 +244,6 @@ export default {
     color: rgba(255, 255, 255, 0.8);
 }
 .legend .label {
-    color: rgba(0, 0, 0, 0.6);
+    opacity: 60%;
 }
 </style>

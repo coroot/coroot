@@ -87,12 +87,13 @@ export default {
     display: none;
     position: absolute;
     z-index: 2;
-    background-color: white;
+    background-color: var(--background-color);
     padding: 8px;
     border: 1px solid rgba(0, 0, 0, 0.2);
     border-radius: 4px;
     pointer-events: none;
     font-size: 12px;
+    opacity: 90%;
 }
 .tooltip .time {
     text-align: center;

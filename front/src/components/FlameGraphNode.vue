@@ -200,12 +200,14 @@ export default {
     text-indent: 4px;
     border: 0.2px solid rgba(255, 255, 255, 0.5);
     padding: 2px 0;
+    color: var(--text-light);
+    filter: brightness(var(--brightness));
 }
 .name:hover {
-    filter: brightness(120%);
+    filter: brightness(calc(var(--brightness) + 20%));
 }
 .name.dimmed {
-    filter: opacity(50%);
+    filter: brightness(calc(var(--brightness) - 30%));
 }
 .children {
     display: flex;
