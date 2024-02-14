@@ -413,6 +413,11 @@ export default {
     position: relative;
 }
 
+.chart:deep(.u-select) {
+    background-color: var(--text-color);
+    opacity: 0.12;
+}
+
 .title {
     font-size: 14px !important;
     font-weight: normal !important;
@@ -434,7 +439,7 @@ export default {
     position: absolute;
     height: 100%;
     top: 0;
-    border: 1px dashed var(--text-color);
+    border: 1px dashed var(--text-color-dimmed);
     border-right: none;
     border-bottom: none;
     color: rgba(0, 0, 0, 0.87);
@@ -443,7 +448,7 @@ export default {
     position: absolute;
     height: 100%;
     top: 0;
-    border: 1px solid var(--text-color);
+    border: 1px solid var(--text-color-dimmed);
     border-bottom: none;
     color: rgba(0, 0, 0, 0.87);
 }

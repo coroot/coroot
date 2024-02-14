@@ -86,6 +86,7 @@ export default {
     display: inline;
     max-width: 30%;
     padding: 0 4px !important;
+    border-color: var(--border-color) !important;
 }
 .item {
     font-size: 14px !important;

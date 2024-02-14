@@ -164,11 +164,11 @@ export default {
 }
 .ticks {
     display: flex;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    border-bottom: 1px solid var(--border-color);
 }
 .tick {
     height: 100%;
-    border-left: 1px solid rgba(0, 0, 0, 0.1);
+    border-left: 1px solid var(--border-color);
     padding-left: 2px;
 }
 </style>

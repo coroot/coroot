@@ -1,0 +1,88 @@
+:root {
+    --text-light: rgba(0, 0, 0, 0.87);
+    --text-light-dimmed: rgba(0, 0, 0, 0.5);
+    --text-dark: rgba(255, 255, 255, 0.87);
+    --text-dark-dimmed: rgba(255, 255, 255, 0.5);
+    --background-light: white;
+    --background-light-hi: #eeeeee;
+    --background-dark: #121212;
+    --background-dark-hi: #616161;
+    --brightness-dimmed: 80%;
+    --border-light: rgba(0, 0, 0, 0.2);
+    --border-dark: rgba(255, 255, 255, 0.2);
+
+    --status-unknown: gray;
+    --status-ok: green;
+    --status-warning: #ff8f00;
+    --status-critical: red;
+}
+.v-application {
+    --text-color: var(--text-light);
+    --text-color-dimmed: var(--text-light-dimmed);
+    --background-color: var(--background-light);
+    --background-color-hi: var(--background-light-hi);
+    --brightness: 100%;
+    --border-color: var(--border-light);
+}
+.v-application.theme--dark {
+    --text-color: var(--text-dark);
+    --text-color-dimmed: var(--text-dark-dimmed);
+    --background-color: var(--background-dark);
+    --background-color-hi: var(--background-dark-hi);
+    --brightness: var(--brightness-dimmed);
+    --border-color: var(--border-dark);
+}
+.v-application.theme--dark .logo {
+    filter: brightness(var(--brightness-dimmed));
+}
+.v-application .v-app-bar,
+.v-application .v-app-bar .v-list {
+    color: var(--text-dark) !important;
+    background-color: var(--background-dark) !important;
+}
+.v-application .v-footer {
+    background-color: var(--background-color);
+}
+.v-application {
+    color: var(--text-color) !important;
+}
+.v-application .v-tabs > .v-tabs-bar,
+.v-application .v-data-table,
+.v-application .v-list,
+.v-application .v-card {
+    color: var(--text-color) !important;
+    background-color: var(--background-color) !important;
+}
+.v-application .v-icon,
+.v-application .v-btn,
+.v-application .v-chip {
+    filter: brightness(var(--brightness)) !important;
+}
+
+a {
+    text-decoration: none !important;
+}
+.v-btn {
+    text-transform: none !important;
+    font-weight: normal !important;
+    letter-spacing: inherit !important;
+    font-size: inherit !important;
+}
+/* don't want smaller and bold items in dense lists, e.g. <v-select dense /> */
+.v-list--dense .v-list-item .v-list-item__title {
+    font-size: inherit;
+    font-weight: inherit;
+}
+
+*::-webkit-scrollbar-track {
+    -webkit-box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.3);
+    background-color: #f5f5f5;
+}
+*::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+    background-color: #f5f5f5;
+}
+*::-webkit-scrollbar-thumb {
+    background-color: #757575;
+}
