@@ -43,6 +43,7 @@ var BuiltinCategoryPatterns = map[ApplicationCategory][]string{
 		"*/systemd*",
 		"*/containerd",
 		"*/docker*",
+		"*/*chaos-*",
 	},
 	ApplicationCategoryMonitoring: {
 		"monitoring/*",
