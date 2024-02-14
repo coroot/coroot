@@ -146,7 +146,7 @@ export default {
 }
 .span:hover,
 .span:hover ~ .child {
-    background-color: rgba(0, 0, 0, 0.05);
+    background-color: var(--background-color-hi);
 }
 .nameColumn {
     display: flex;
@@ -186,7 +186,7 @@ export default {
     position: absolute;
     width: 1px;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.1);
+    background-color: var(--border-color);
 }
 .bar {
     height: 12px;

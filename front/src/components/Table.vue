@@ -101,9 +101,6 @@ export default {
 </script>
 
 <style scoped>
-.hi {
-    background-color: #cbe9fc;
-}
 .tag {
     font-size: 0.75rem;
     color: #9e9e9e;

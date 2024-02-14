@@ -75,21 +75,9 @@
                     <Led v-if="status" :status="status.status !== 'ok' ? 'warning' : 'ok'" absolute />
                 </v-btn>
 
-                <v-menu dark offset-y tile left attach=".v-app-bar">
-                    <template #activator="{ on }">
-                        <v-btn v-on="on" plain outlined height="40" class="ml-1 px-2">
-                            <v-icon>{{ themes[theme] }}</v-icon>
-                        </v-btn>
-                    </template>
-                    <v-list dense>
-                        <v-list-item-group v-model="theme">
-                            <v-list-item v-for="(icon, name) in themes" @click="setTheme(name)" :value="name">
-                                <v-icon small class="mr-1">{{ icon }}</v-icon>
-                                {{ name }}
-                            </v-list-item>
-                        </v-list-item-group>
-                    </v-list>
-                </v-menu>
+                <div class="ml-1">
+                    <ThemeSelector />
+                </div>
             </v-container>
         </v-app-bar>
 
@@ -143,22 +131,22 @@ import TimePicker from './components/TimePicker.vue';
 import Search from './views/Search.vue';
 import Led from './components/Led.vue';
 import CheckForUpdates from './components/CheckForUpdates.vue';
+import ThemeSelector from './components/ThemeSelector.vue';
+import './app.css';
 
 export default {
-    components: { Search, TimePicker, Led, CheckForUpdates },
+    components: { Search, TimePicker, Led, CheckForUpdates, ThemeSelector },
 
     data() {
         return {
             projects: [],
             context: this.$api.context,
-            theme: this.$storage.local('theme') || 'auto',
         };
     },
 
     created() {
         this.$events.watch(this, this.getProjects, 'project-saved', 'project-deleted');
         this.getProjects();
-        this.setTheme();
     },
 
     computed: {
@@ -171,13 +159,6 @@ export default {
         },
         status() {
             return this.context.status;
-        },
-        themes() {
-            return {
-                light: 'mdi-weather-sunny',
-                dark: 'mdi-weather-night',
-                auto: 'mdi-theme-light-dark',
-            };
         },
     },
 
@@ -221,26 +202,6 @@ export default {
         refresh() {
             this.$events.emit('refresh');
         },
-        setTheme(theme) {
-            const matchMedia = window.matchMedia('(prefers-color-scheme: dark)');
-            if (theme) {
-                this.theme = theme;
-                this.$storage.local('theme', this.theme);
-            } else {
-                matchMedia.addEventListener('change', (e) => {
-                    const theme = this.$storage.local('theme') || 'auto';
-                    if (theme === 'auto') {
-                        this.$vuetify.theme.dark = e.matches;
-                    }
-                });
-            }
-            this.theme = this.$storage.local('theme') || 'auto';
-            if (this.theme === 'auto') {
-                this.$vuetify.theme.dark = matchMedia.matches;
-            } else {
-                this.$vuetify.theme.dark = this.theme === 'dark';
-            }
-        },
     },
 };
 </script>
@@ -260,89 +221,5 @@ export default {
     max-width: 15ch;
     overflow: hidden;
     text-overflow: ellipsis;
-}
-</style>
-
-<style>
-:root {
-    --text-light: rgba(0, 0, 0, 0.87);
-    --text-light-dimmed: rgba(0, 0, 0, 0.5);
-    --text-dark: rgba(255, 255, 255, 0.87);
-    --text-dark-dimmed: rgba(255, 255, 255, 0.5);
-    --background-light: white;
-    --background-light-hi: #eeeeee;
-    --background-dark: #121212;
-    --background-dark-hi: #616161;
-    --brightness-dimmed: 80%;
-
-    --status-unknown: gray;
-    --status-ok: green;
-    --status-warning: #ff8f00;
-    --status-critical: red;
-}
-.v-application {
-    --text-color: var(--text-light);
-    --text-color-dimmed: var(--text-light-dimmed);
-    --background-color: var(--background-light);
-    --background-color-hi: var(--background-light-hi);
-    --brightness: 100%;
-}
-.v-application.theme--dark {
-    --text-color: var(--text-dark);
-    --text-color-dimmed: var(--text-dark-dimmed);
-    --background-color: var(--background-dark);
-    --background-color-hi: var(--background-dark-hi);
-    --brightness: var(--brightness-dimmed);
-}
-.v-application.theme--dark .logo {
-    filter: brightness(var(--brightness-dimmed));
-}
-.v-application .v-app-bar,
-.v-application .v-app-bar .v-list {
-    color: var(--text-dark) !important;
-    background-color: var(--background-dark) !important;
-}
-.v-application {
-    color: var(--text-color) !important;
-}
-.v-application .v-tabs > .v-tabs-bar,
-.v-application .v-data-table,
-.v-application .v-list,
-.v-application .v-card {
-    color: var(--text-color) !important;
-    background-color: var(--background-color) !important;
-}
-.v-application .v-icon,
-.v-application .v-btn,
-.v-application .v-chip {
-    filter: brightness(var(--brightness)) !important;
-}
-
-a {
-    text-decoration: none !important;
-}
-.v-btn {
-    text-transform: none !important;
-    font-weight: normal !important;
-    letter-spacing: inherit !important;
-    font-size: inherit !important;
-}
-/* don't want smaller and bold items in dense lists, e.g. <v-select dense /> */
-.v-list--dense .v-list-item .v-list-item__title {
-    font-size: inherit;
-    font-weight: inherit;
-}
-
-*::-webkit-scrollbar-track {
-    -webkit-box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.3);
-    background-color: #f5f5f5;
-}
-*::-webkit-scrollbar {
-    width: 5px;
-    height: 5px;
-    background-color: #f5f5f5;
-}
-*::-webkit-scrollbar-thumb {
-    background-color: #757575;
 }
 </style>
