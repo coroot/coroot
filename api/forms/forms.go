@@ -176,6 +176,8 @@ func NewIntegrationForm(t db.IntegrationType) IntegrationForm {
 		return &IntegrationFormPagerduty{}
 	case db.IntegrationTypeOpsgenie:
 		return &IntegrationFormOpsgenie{}
+	case db.IntegrationTypeWebHook:
+		return &IntegrationFormWebHook{}
 	}
 	return nil
 }
@@ -479,4 +481,53 @@ func testNotification(project *db.Project) *db.IncidentNotification {
 			},
 		},
 	}
+}
+
+type IntegrationFormWebHook struct {
+	db.IntegrationWebHook
+}
+
+func (f *IntegrationFormWebHook) Valid() bool {
+	return f.WebHookUrl != "" || f.CorrectJSON != "" || f.IncidentTemplate != ""
+}
+
+func (f *IntegrationFormWebHook) Get(project *db.Project, masked bool) {
+	cfg := project.Settings.Integrations.WebHook
+	if cfg == nil {
+		f.WebHookUrl = "https://api.telegram.org/bot123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11/sendMessage"
+		f.CorrectJSON = `{"ok": true}`
+		f.IncidentTemplate = `{
+		"text":
+			"{{if .StatusOK}}
+				*{{.App.Name}}* incident resolved
+			{{else}} 
+				{{.Status}} *{{.App.Name}}* is not meeting its SLOs
+			{{end}}
+			{{range .Reports}}
+				• *{{.Name}}* / {{.Check}}: {{.Message}}
+			{{end}}
+			{{.URL}}",
+		"parse_mode": "Markdown",
+		"chat_id": "354339153"
+		}`
+		f.Incidents = true
+		return
+	}
+	f.IntegrationWebHook = *cfg
+	if masked {
+		f.WebHookUrl = "<webhook_url>"
+	}
+}
+
+func (f *IntegrationFormWebHook) Update(ctx context.Context, project *db.Project, clear bool) error {
+	cfg := &f.IntegrationWebHook
+	if clear {
+		cfg = nil
+	}
+	project.Settings.Integrations.WebHook = cfg
+	return nil
+}
+
+func (f *IntegrationFormWebHook) Test(ctx context.Context, project *db.Project) error {
+	return notifications.NewWebHook(f.WebHookUrl, f.CorrectJSON, f.IncidentTemplate).SendIncident(ctx, project.Settings.Integrations.BaseUrl, testNotification(project))
 }

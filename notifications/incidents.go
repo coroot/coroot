@@ -109,7 +109,7 @@ func (n *IncidentNotifier) enqueue(project *db.Project, app *model.Application, 
 		Status:        incident.Severity,
 	}
 	switch destination {
-	case db.IntegrationTypeSlack, db.IntegrationTypeTeams:
+	case db.IntegrationTypeSlack, db.IntegrationTypeTeams, db.IntegrationTypeWebHook:
 		if incident.Resolved() {
 			n.onResolve("", notification, incidentDetails(app, incident))
 		} else {

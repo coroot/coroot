@@ -17,6 +17,7 @@
                 <IntegrationFormTeams v-if="type === 'teams'" :form="form" />
                 <IntegrationFormPagerduty v-if="type === 'pagerduty'" :form="form" />
                 <IntegrationFormOpsgenie v-if="type === 'opsgenie'" :form="form" />
+                <IntegrationFormWebHook v-if="type === 'webhook'" :form="form" />
 
                 <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text class="my-4">
                     {{ error }}
@@ -42,6 +43,7 @@ import IntegrationFormSlack from '../components/IntegrationFormSlack.vue';
 import IntegrationFormTeams from '../components/IntegrationFormTeams.vue';
 import IntegrationFormPagerduty from '../components/IntegrationFormPagerduty.vue';
 import IntegrationFormOpsgenie from '../components/IntegrationFormOpsgenie.vue';
+import IntegrationFormWebHook from '../components/IntegrationFormWebHook.vue';
 
 export default {
     props: {
@@ -50,7 +52,7 @@ export default {
         title: String,
     },
 
-    components: { IntegrationFormSlack, IntegrationFormTeams, IntegrationFormPagerduty, IntegrationFormOpsgenie },
+    components: { IntegrationFormSlack, IntegrationFormTeams, IntegrationFormPagerduty, IntegrationFormOpsgenie, IntegrationFormWebHook },
 
     data() {
         return {

@@ -16,6 +16,7 @@ const (
 	IntegrationTypePagerduty  IntegrationType = "pagerduty"
 	IntegrationTypeTeams      IntegrationType = "teams"
 	IntegrationTypeOpsgenie   IntegrationType = "opsgenie"
+	IntegrationTypeWebHook    IntegrationType = "webhook"
 )
 
 type Integrations struct {
@@ -25,6 +26,7 @@ type Integrations struct {
 	Pagerduty *IntegrationPagerduty `json:"pagerduty,omitempty"`
 	Teams     *IntegrationTeams     `json:"teams,omitempty"`
 	Opsgenie  *IntegrationOpsgenie  `json:"opsgenie,omitempty"`
+	WebHook   *IntegrationWebHook   `json:"webhook,omitempty"`
 
 	Clickhouse *IntegrationClickhouse `json:"clickhouse,omitempty"`
 }
@@ -74,6 +76,13 @@ func (integrations Integrations) GetInfo() []IntegrationInfo {
 			region = "EU"
 		}
 		i.Details = fmt.Sprintf("region: %s", region)
+	}
+	res = append(res, i)
+
+	i = IntegrationInfo{Type: IntegrationTypeWebHook, Title: "WebHok"}
+	if cfg := integrations.WebHook; cfg != nil {
+		i.Configured = true
+		i.Incidents = cfg.Incidents
 	}
 	res = append(res, i)
 
@@ -136,6 +145,13 @@ type IntegrationOpsgenie struct {
 	ApiKey     string `json:"api_key"`
 	EUInstance bool   `json:"eu_instance"`
 	Incidents  bool   `json:"incidents"`
+}
+
+type IntegrationWebHook struct {
+	WebHookUrl       string `json:"webhook_url"`
+	CorrectJSON      string `json:"correct_json"`
+	IncidentTemplate string `json:"incident_template"`
+	Incidents        bool   `json:"incidents"`
 }
 
 func (db *DB) SaveIntegrationsBaseUrl(id ProjectId, baseUrl string) error {
