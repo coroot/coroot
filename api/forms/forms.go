@@ -488,29 +488,39 @@ type IntegrationFormWebHook struct {
 }
 
 func (f *IntegrationFormWebHook) Valid() bool {
-	return f.WebHookUrl != "" || f.CorrectJSON != "" || f.IncidentTemplate != ""
+	return f.WebHookUrl != "" || f.CorrectResponse != "" || f.IncidentTemplate != ""
 }
 
 func (f *IntegrationFormWebHook) Get(project *db.Project, masked bool) {
 	cfg := project.Settings.Integrations.WebHook
 	if cfg == nil {
 		f.WebHookUrl = "https://api.telegram.org/bot123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11/sendMessage"
-		f.CorrectJSON = `{"ok": true}`
+		f.CorrectResponse = `{"ok": true}`
+		f.IsJsonResponse = true
 		f.IncidentTemplate = `{
-		"text":
-			"{{if .StatusOK}}
-				*{{.App.Name}}* incident resolved
-			{{else}} 
-				{{.Status}} *{{.App.Name}}* is not meeting its SLOs
-			{{end}}
-			{{range .Reports}}
+			"text":"
+			{{- if .StatusOK -}}
+				*{{.App.Name}}:{{.App.Namespace}}* incident resolved
+			{{- else -}} 
+				{{.Status}} *{{.App.Name}}:{{.App.Namespace}}* is not meeting its SLOs
+			{{- end }}
+			{{- range .Reports }}
 				• *{{.Name}}* / {{.Check}}: {{.Message}}
-			{{end}}
-			{{.URL}}",
-		"parse_mode": "Markdown",
-		"chat_id": "354339153"
-		}`
+			{{- end }}
+			{{.URL}}"
+			}`
 		f.Incidents = true
+		f.DeploymentTemplate = `{
+			"text":"
+			{{.Title}}
+			{{.Status}}
+			{{- range .Summury }}
+			• *{{ . }}
+			{{- end }}
+			{{.URL}}
+			"
+		}`
+		f.Deployments = true
 		return
 	}
 	f.IntegrationWebHook = *cfg
@@ -529,5 +539,5 @@ func (f *IntegrationFormWebHook) Update(ctx context.Context, project *db.Project
 }
 
 func (f *IntegrationFormWebHook) Test(ctx context.Context, project *db.Project) error {
-	return notifications.NewWebHook(f.WebHookUrl, f.CorrectJSON, f.IncidentTemplate).SendIncident(ctx, project.Settings.Integrations.BaseUrl, testNotification(project))
+	return notifications.NewWebHook(f.WebHookUrl, f.CorrectResponse, f.IsJsonResponse, f.IncidentTemplate, f.DeploymentTemplate).SendIncident(ctx, project.Settings.Integrations.BaseUrl, testNotification(project))
 }

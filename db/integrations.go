@@ -83,6 +83,7 @@ func (integrations Integrations) GetInfo() []IntegrationInfo {
 	if cfg := integrations.WebHook; cfg != nil {
 		i.Configured = true
 		i.Incidents = cfg.Incidents
+		i.Deployments = cfg.Deployments
 	}
 	res = append(res, i)
 
@@ -148,10 +149,13 @@ type IntegrationOpsgenie struct {
 }
 
 type IntegrationWebHook struct {
-	WebHookUrl       string `json:"webhook_url"`
-	CorrectJSON      string `json:"correct_json"`
-	IncidentTemplate string `json:"incident_template"`
-	Incidents        bool   `json:"incidents"`
+	WebHookUrl         string `json:"webhook_url"`
+	CorrectResponse    string `json:"correct_response"`
+	IsJsonResponse     bool   `json:"is_json_response"`
+	IncidentTemplate   string `json:"incident_template"`
+	Incidents          bool   `json:"incidents"`
+	DeploymentTemplate string `json:"deployment_template"`
+	Deployments        bool   `json:"deployments"`
 }
 
 func (db *DB) SaveIntegrationsBaseUrl(id ProjectId, baseUrl string) error {
