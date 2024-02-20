@@ -10,6 +10,8 @@ import (
 	"github.com/coroot/coroot/utils"
 )
 
+type sumFromFunc func(from timeseries.Time) float32
+
 func (a *appAuditor) slo() {
 	report := a.addReport(model.AuditReportSLO)
 	requestsChart(a.app, report, a.p)
@@ -34,18 +36,7 @@ func availability(ctx timeseries.Context, app *model.Application, report *model.
 		ch.AddSeries("errors", sli.FailedRequests.Map(timeseries.NanToZero), "black").Stacked()
 	}
 
-	totalF := func(from timeseries.Time) float32 {
-		iter := sli.TotalRequestsRaw.IterFrom(from)
-		var sum float32
-		for iter.Next() {
-			_, v := iter.Value()
-			if timeseries.IsNaN(v) {
-				continue
-			}
-			sum += v
-		}
-		return sum
-	}
+	totalF := totalSum(sli.TotalRequestsRaw)
 	failedF := func(from timeseries.Time) float32 {
 		return 0
 	}
@@ -86,18 +77,7 @@ func latency(ctx timeseries.Context, app *model.Application, report *model.Audit
 		return
 	}
 
-	totalF := func(from timeseries.Time) float32 {
-		iter := totalRaw.IterFrom(from)
-		var sum float32
-		for iter.Next() {
-			_, v := iter.Value()
-			if timeseries.IsNaN(v) {
-				continue
-			}
-			sum += v
-		}
-		return sum
-	}
+	totalF := totalSum(totalRaw)
 	slowF := totalF
 	if !fastRaw.IsEmpty() {
 		slowF = func(from timeseries.Time) float32 {
@@ -124,7 +104,28 @@ func latency(ctx timeseries.Context, app *model.Application, report *model.Audit
 	}
 }
 
-func calcBurnRates(now timeseries.Time, badSum, totalSum func(from timeseries.Time) float32, objectivePercentage float32) model.BurnRate {
+func totalSum(ts *timeseries.TimeSeries) sumFromFunc {
+	return func(from timeseries.Time) float32 {
+		iter := ts.IterFrom(from)
+		var sum float32
+		var count, countDefined int
+		for iter.Next() {
+			_, v := iter.Value()
+			count++
+			if timeseries.IsNaN(v) {
+				continue
+			}
+			sum += v
+			countDefined++
+		}
+		if float32(countDefined)/float32(count) < 0.5 {
+			return timeseries.NaN
+		}
+		return sum
+	}
+}
+
+func calcBurnRates(now timeseries.Time, badSum, totalSum sumFromFunc, objectivePercentage float32) model.BurnRate {
 	objective := 1 - objectivePercentage/100
 	first := model.BurnRate{}
 	for _, r := range model.AlertRules {
