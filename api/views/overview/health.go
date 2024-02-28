@@ -127,6 +127,16 @@ func renderHealth(w *model.World) []*ApplicationStatus {
 					if ch.Value() > 0 {
 						a.Network.Value = utils.FormatLatency(ch.Value())
 					}
+				case model.Checks.NetworkConnectivity.Id:
+					if ch.Status >= model.WARNING {
+						a.Network.Status = ch.Status
+						a.Network.Value = "packet loss"
+					}
+				case model.Checks.NetworkTCPConnections.Id:
+					if ch.Status >= model.WARNING {
+						a.Network.Status = ch.Status
+						a.Network.Value = "failed conns"
+					}
 				case model.Checks.LogErrors.Id:
 					if items := ch.Items(); items != nil && items.Len() > 0 {
 						count := items.Len()

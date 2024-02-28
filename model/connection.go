@@ -64,15 +64,26 @@ func (c *Connection) IsObsolete() bool {
 	return (c.RemoteInstance != nil && c.RemoteInstance.IsObsolete()) || (c.Instance != nil && c.Instance.IsObsolete())
 }
 
+func (c *Connection) HasConnectivityIssues() bool {
+	if !c.IsActual() {
+		return false
+	}
+	return !c.Rtt.IsEmpty() && c.Rtt.TailIsEmpty()
+}
+
+func (c *Connection) HasFailedConnectionAttempts() bool {
+	if !c.IsActual() {
+		return false
+	}
+	return c.FailedConnections.Last() > 0
+}
+
 func (c *Connection) Status() Status {
 	if !c.IsActual() {
 		return UNKNOWN
 	}
 	status := OK
-	switch {
-	case !c.Rtt.IsEmpty() && c.Rtt.TailIsEmpty():
-		status = CRITICAL
-	case c.FailedConnections.Last() > 0:
+	if c.HasConnectivityIssues() || c.HasFailedConnectionAttempts() {
 		status = CRITICAL
 	}
 	return status

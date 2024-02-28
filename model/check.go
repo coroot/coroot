@@ -68,6 +68,8 @@ var Checks = struct {
 	StorageSpace           CheckConfig
 	StorageIO              CheckConfig
 	NetworkRTT             CheckConfig
+	NetworkConnectivity    CheckConfig
+	NetworkTCPConnections  CheckConfig
 	InstanceAvailability   CheckConfig
 	DeploymentStatus       CheckConfig
 	InstanceRestarts       CheckConfig
@@ -156,6 +158,20 @@ var Checks = struct {
 		Unit:                    CheckUnitSecond,
 		MessageTemplate:         `high network latency to {{.Items "upstream service"}}`,
 		ConditionFormatTemplate: "the RTT to an upstream service > <threshold>",
+	},
+	NetworkConnectivity: CheckConfig{
+		Type:                    CheckTypeItemBased,
+		Title:                   "Network connectivity",
+		DefaultThreshold:        0,
+		MessageTemplate:         `no connectivity with {{.Items "upstream service"}}`,
+		ConditionFormatTemplate: "the number of unavailable upstream services > <threshold>",
+	},
+	NetworkTCPConnections: CheckConfig{
+		Type:                    CheckTypeItemBased,
+		Title:                   "TCP connections",
+		DefaultThreshold:        0,
+		MessageTemplate:         `failed to connect to {{.Items "upstream service"}}`,
+		ConditionFormatTemplate: "the number of upstream services to which the app failed to connect > <threshold>",
 	},
 	InstanceAvailability: CheckConfig{
 		Type:                    CheckTypeManual,
