@@ -12,17 +12,18 @@ const (
 )
 
 type TraceSpan struct {
-	Timestamp     time.Time
-	Name          string
-	TraceId       string
-	SpanId        string
-	ParentSpanId  string
-	ServiceName   string
-	Duration      time.Duration
-	StatusCode    string
-	StatusMessage string
-	Attributes    map[string]string
-	Events        []TraceSpanEvent
+	Timestamp          time.Time
+	Name               string
+	TraceId            string
+	SpanId             string
+	ParentSpanId       string
+	ServiceName        string
+	Duration           time.Duration
+	StatusCode         string
+	StatusMessage      string
+	ResourceAttributes map[string]string
+	SpanAttributes     map[string]string
+	Events             []TraceSpanEvent
 }
 
 type TraceSpanEvent struct {

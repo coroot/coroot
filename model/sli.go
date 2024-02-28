@@ -62,11 +62,12 @@ func HistogramSeries(buckets []HistogramBucket, objectiveBucket, objectivePercen
 			h.Data = timeseries.Sub(b.TimeSeries, buckets[i-1].TimeSeries)
 		}
 		h.Color = "green"
-		if objectiveBucket > 0 && to > objectiveBucket {
-			h.Color = "red"
-		} else {
-			h.Color = "green"
-			thresholdIdx = i
+		if objectiveBucket > 0 && objectivePercentage > 0 {
+			if to > objectiveBucket {
+				h.Color = "red"
+			} else {
+				thresholdIdx = i
+			}
 		}
 		h.Value = fmt.Sprint(to)
 		switch {
