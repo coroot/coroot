@@ -79,7 +79,7 @@ func (integrations Integrations) GetInfo() []IntegrationInfo {
 	}
 	res = append(res, i)
 
-	i = IntegrationInfo{Type: IntegrationTypeWebHook, Title: "WebHok"}
+	i = IntegrationInfo{Type: IntegrationTypeWebHook, Title: "WebHook"}
 	if cfg := integrations.WebHook; cfg != nil {
 		i.Configured = true
 		i.Incidents = cfg.Incidents
