@@ -494,32 +494,12 @@ func (f *IntegrationFormWebHook) Valid() bool {
 func (f *IntegrationFormWebHook) Get(project *db.Project, masked bool) {
 	cfg := project.Settings.Integrations.WebHook
 	if cfg == nil {
-		f.WebHookUrl = "https://api.telegram.org/bot123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11/sendMessage"
-		f.CorrectResponse = `{"ok": true}`
-		f.IsJsonResponse = true
-		f.IncidentTemplate = `{
-			"text":"
-			{{- if .StatusOK -}}
-				*{{.App.Name}}:{{.App.Namespace}}* incident resolved
-			{{- else -}} 
-				{{.Status}} *{{.App.Name}}:{{.App.Namespace}}* is not meeting its SLOs
-			{{- end }}
-			{{- range .Reports }}
-				• *{{.Name}}* / {{.Check}}: {{.Message}}
-			{{- end }}
-			{{.URL}}"
-			}`
+		f.WebHookUrl = ""
+		f.CorrectResponse = ``
+		f.IsJsonResponse = false
+		f.IncidentTemplate = ``
 		f.Incidents = true
-		f.DeploymentTemplate = `{
-			"text":"
-			{{.Title}}
-			{{.Status}}
-			{{- range .Summury }}
-			• *{{ . }}
-			{{- end }}
-			{{.URL}}
-			"
-		}`
+		f.DeploymentTemplate = ``
 		f.Deployments = true
 		return
 	}
