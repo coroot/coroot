@@ -25,21 +25,17 @@ type WebHook struct {
 }
 
 type IncidentTemplateValues struct {
-	StatusOK       bool
-	StatusINFO     bool
-	StatusWARNING  bool
-	StatusCRITICAL bool
-	Status         string
-	App            model.ApplicationId
-	Reports        []db.IncidentNotificationDetailsReport
-	URL            string
-	Timestamp      timeseries.Time
+	Status    string
+	App       model.ApplicationId
+	Reports   []db.IncidentNotificationDetailsReport
+	URL       string
+	Timestamp timeseries.Time
 }
 
 type DeploymentTemplateValues struct {
 	Status  string
 	Title   string
-	Summury []string
+	Summary []string
 	URL     string
 }
 
@@ -54,36 +50,29 @@ func NewWebHook(webhookUrl string, correctResponse string, isJsonResponse bool, 
 }
 
 func (t *WebHook) SendIncident(ctx context.Context, baseUrl string, n *db.IncidentNotification) error {
-	// Parse template
 	tmpl, err := template.New("incidentTemplate").Parse(t.incidentTemplate)
 	if err != nil {
 		return fmt.Errorf("WebHookIntegration: cant parse incidentTemplate: %s", err)
 	}
-	// Fill template
+
 	var data bytes.Buffer
 	err = tmpl.Execute(&data, IncidentTemplateValues{
-		StatusOK:       n.Status == model.OK,
-		StatusINFO:     n.Status == model.INFO,
-		StatusWARNING:  n.Status == model.WARNING,
-		StatusCRITICAL: n.Status == model.CRITICAL,
-		Status:         strings.ToUpper(fmt.Sprint(n.Status)),
-		App:            n.ApplicationId,
-		Reports:        n.Details.Reports,
-		URL:            incidentUrl(baseUrl, n),
-		Timestamp:      n.Timestamp,
+		Status:    strings.ToUpper(fmt.Sprint(n.Status)),
+		App:       n.ApplicationId,
+		Reports:   n.Details.Reports,
+		URL:       incidentUrl(baseUrl, n),
+		Timestamp: n.Timestamp,
 	})
 	if err != nil {
 		return fmt.Errorf("WebHookIntegration: cant fill incidentTemplate: %s", err)
 	}
 
-	// Send
 	resp, err := http.Post(t.webhookUrl, "application/json", &data)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
 
-	// Validate response
 	return t.validateResponse(resp)
 }
 
@@ -124,7 +113,7 @@ func (t *WebHook) SendDeployment(ctx context.Context, project *db.Project, ds mo
 	err = tmpl.Execute(&data, DeploymentTemplateValues{
 		Status:  status,
 		Title:   title,
-		Summury: summary,
+		Summary: summary,
 		URL:     deploymentUrl(project.Settings.Integrations.BaseUrl, project.Id, d),
 	})
 	if err != nil {
