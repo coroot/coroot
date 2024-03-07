@@ -77,7 +77,6 @@ func (t *WebHook) SendIncident(ctx context.Context, baseUrl string, n *db.Incide
 }
 
 func (t *WebHook) SendDeployment(ctx context.Context, project *db.Project, ds model.ApplicationDeploymentStatus) error {
-	// Parse template
 	tmpl, err := template.New("deploymentTemplate").Parse(t.deploymentTemplate)
 	if err != nil {
 		return fmt.Errorf("WebHookIntegration: cant parse deploymentTemplate: %s", err)
@@ -108,7 +107,6 @@ func (t *WebHook) SendDeployment(ctx context.Context, project *db.Project, ds mo
 		}
 	}
 
-	// Fill template
 	var data bytes.Buffer
 	err = tmpl.Execute(&data, DeploymentTemplateValues{
 		Status:  status,
@@ -120,14 +118,12 @@ func (t *WebHook) SendDeployment(ctx context.Context, project *db.Project, ds mo
 		return fmt.Errorf("WebHookIntegration: cant fill deploymentTemplate: %s", err)
 	}
 
-	// Send
 	resp, err := http.Post(t.webhookUrl, "application/json", &data)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
 
-	// Validate response
 	return t.validateResponse(resp)
 }
 
@@ -143,21 +139,18 @@ func (t *WebHook) validateResponse(resp *http.Response) error {
 		return nil
 	}
 
-	// Unpack correct_response in map[string]interface{}
 	var correctData map[string]interface{}
 	err := json.Unmarshal([]byte(t.correctResponse), &correctData)
 	if err != nil {
 		return fmt.Errorf("WebHookIntegration: invalid correctResponse: %s", err)
 	}
 
-	// Unpack resp_json in map[string]interface{}
 	var respData map[string]interface{}
 	err = json.NewDecoder(resp.Body).Decode(&respData)
 	if err != nil {
 		return fmt.Errorf("WebHookIntegration: invalid response from endpoint: %s", err)
 	}
 
-	// Check all fields(and values) from correct_response in resp_json
 	for key, value := range correctData {
 		respValue, ok := respData[key]
 		if !ok {
