@@ -87,7 +87,7 @@ export default {
     display: none;
     position: absolute;
     z-index: 2;
-    background-color: var(--background-color);
+    background-color: var(--tooltip-color);
     padding: 8px;
     border: 1px solid rgba(0, 0, 0, 0.2);
     border-radius: 4px;

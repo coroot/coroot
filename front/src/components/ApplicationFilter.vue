@@ -62,10 +62,14 @@
                 hide-details
             />
 
-            <v-btn v-if="configureTo" ref="configure" :to="configureTo" icon x-small>
-                <v-icon>mdi-plus</v-icon>
-            </v-btn>
-            <v-tooltip :activator="$refs.configure" bottom> configure categories </v-tooltip>
+            <v-tooltip bottom>
+                <template #activator="{ on }">
+                    <v-btn v-if="configureTo" :to="configureTo" v-on="on" icon x-small>
+                        <v-icon>mdi-plus</v-icon>
+                    </v-btn>
+                </template>
+                <v-card class="px-2">configure categories</v-card>
+            </v-tooltip>
         </div>
     </div>
 </template>

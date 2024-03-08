@@ -18,20 +18,16 @@ type ClientConfig struct {
 	User          string
 	Password      string
 	Database      string
-	TracesTable   string
-	LogsTable     string
 	DialContext   func(ctx context.Context, addr string) (net.Conn, error)
 }
 
 func NewClientConfig(address, user, password string) ClientConfig {
 	return ClientConfig{
-		Protocol:    "native",
-		Address:     address,
-		User:        user,
-		Password:    password,
-		Database:    "default",
-		TracesTable: "otel_traces",
-		LogsTable:   "otel_logs",
+		Protocol: "native",
+		Address:  address,
+		User:     user,
+		Password: password,
+		Database: "default",
 	}
 }
 

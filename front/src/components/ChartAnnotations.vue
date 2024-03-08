@@ -5,7 +5,7 @@
                 <template #activator="{ on }">
                     <v-icon v-on="on" small>{{ i.icon }}</v-icon>
                 </template>
-                <div v-html="i.msg" class="text-center" />
+                <v-card v-html="i.msg" class="pa-2 text-center" />
             </v-tooltip>
             <div class="line"></div>
         </div>

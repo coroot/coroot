@@ -4,6 +4,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/coroot/coroot/timeseries"
 	"github.com/xhit/go-str2duration/v2"
@@ -61,4 +62,16 @@ func ParseTime(now timeseries.Time, val string, def timeseries.Time) timeseries.
 		return def
 	}
 	return timeseries.Time(ms / 1000)
+}
+
+func ParseHeatmapDuration(s string) time.Duration {
+	if s == "" || s == "inf" || s == "err" {
+		return 0
+	}
+	v, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		klog.Warningln(err)
+		return 0
+	}
+	return time.Duration(v * float64(time.Second))
 }

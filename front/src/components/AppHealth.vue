@@ -6,10 +6,12 @@
                 <span>{{ $utils.appId(app.id).name }}</span>
             </span>
         </template>
-        <div v-for="i in app.indicators">
-            <Led :status="i.status" />
-            <span>{{ i.message }}</span>
-        </div>
+        <v-card class="pa-2">
+            <div v-for="i in app.indicators">
+                <Led :status="i.status" />
+                <span>{{ i.message }}</span>
+            </div>
+        </v-card>
     </v-tooltip>
 </template>
 

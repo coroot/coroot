@@ -215,8 +215,6 @@ export default {
     justify-content: flex-end;
 }
 .details {
-    opacity: 1;
-    padding: 0;
     font-size: 12px;
 }
 </style>

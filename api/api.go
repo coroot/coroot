@@ -181,8 +181,15 @@ func (api *Api) Overview(w http.ResponseWriter, r *http.Request) {
 		utils.WriteJson(w, withContext(project, cacheStatus, world, nil))
 		return
 	}
+	var ch *clickhouse.Client
+	if cfg := project.Settings.Integrations.Clickhouse; cfg != nil && cfg.TracingEnabled() {
+		ch, err = GetClickhouseClient(cfg)
+		if err != nil {
+			klog.Warningln(err)
+		}
+	}
 	auditor.Audit(world, project, nil)
-	utils.WriteJson(w, withContext(project, cacheStatus, world, views.Overview(world, mux.Vars(r)["view"])))
+	utils.WriteJson(w, withContext(project, cacheStatus, world, views.Overview(r.Context(), ch, world, mux.Vars(r)["view"], r.URL.Query().Get("query"))))
 }
 
 func (api *Api) Configs(w http.ResponseWriter, r *http.Request) {
@@ -322,6 +329,21 @@ func (api *Api) Integration(w http.ResponseWriter, r *http.Request) {
 		klog.Errorln("failed to save:", err)
 		http.Error(w, "", http.StatusInternalServerError)
 		return
+	}
+
+	if cfg := project.Settings.Integrations.Clickhouse; cfg != nil {
+		ch, err := GetClickhouseClient(cfg)
+		if err != nil {
+			klog.Errorln("clickhouse error:", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		err = ch.Migrate(r.Context())
+		if err != nil {
+			klog.Errorln("clickhouse error:", err)
+			http.Error(w, "Clickhouse error: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 }
 
@@ -548,14 +570,7 @@ func (api *Api) Profile(w http.ResponseWriter, r *http.Request) {
 	}
 	var ch *clickhouse.Client
 	if cfg := project.Settings.Integrations.Clickhouse; cfg != nil && cfg.ProfilingEnabled() {
-		config := clickhouse.NewClientConfig(cfg.Addr, cfg.Auth.User, cfg.Auth.Password)
-		config.Protocol = cfg.Protocol
-		config.Database = cfg.Database
-		config.TracesTable = cfg.TracesTable
-		config.LogsTable = cfg.LogsTable
-		config.TlsEnable = cfg.TlsEnable
-		config.TlsSkipVerify = cfg.TlsSkipVerify
-		ch, err = clickhouse.NewClient(config)
+		ch, err = GetClickhouseClient(cfg)
 		if err != nil {
 			klog.Warningln(err)
 		}
@@ -618,14 +633,7 @@ func (api *Api) Tracing(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	var ch *clickhouse.Client
 	if cfg := project.Settings.Integrations.Clickhouse; cfg != nil && cfg.TracingEnabled() {
-		config := clickhouse.NewClientConfig(cfg.Addr, cfg.Auth.User, cfg.Auth.Password)
-		config.Protocol = cfg.Protocol
-		config.Database = cfg.Database
-		config.TracesTable = cfg.TracesTable
-		config.LogsTable = cfg.LogsTable
-		config.TlsEnable = cfg.TlsEnable
-		config.TlsSkipVerify = cfg.TlsSkipVerify
-		ch, err = clickhouse.NewClient(config)
+		ch, err = GetClickhouseClient(cfg)
 		if err != nil {
 			klog.Warningln(err)
 		}
@@ -686,14 +694,7 @@ func (api *Api) Logs(w http.ResponseWriter, r *http.Request) {
 	}
 	var ch *clickhouse.Client
 	if cfg := project.Settings.Integrations.Clickhouse; cfg != nil && cfg.LogsEnabled() {
-		config := clickhouse.NewClientConfig(cfg.Addr, cfg.Auth.User, cfg.Auth.Password)
-		config.Protocol = cfg.Protocol
-		config.Database = cfg.Database
-		config.TracesTable = cfg.TracesTable
-		config.LogsTable = cfg.LogsTable
-		config.TlsEnable = cfg.TlsEnable
-		config.TlsSkipVerify = cfg.TlsSkipVerify
-		ch, err = clickhouse.NewClient(config)
+		ch, err = GetClickhouseClient(cfg)
 		if err != nil {
 			klog.Warningln(err)
 		}
@@ -812,4 +813,13 @@ func maxDuration(d1, d2 timeseries.Duration) timeseries.Duration {
 		return d1
 	}
 	return d2
+}
+
+func GetClickhouseClient(cfg *db.IntegrationClickhouse) (*clickhouse.Client, error) {
+	config := clickhouse.NewClientConfig(cfg.Addr, cfg.Auth.User, cfg.Auth.Password)
+	config.Protocol = cfg.Protocol
+	config.Database = cfg.Database
+	config.TlsEnable = cfg.TlsEnable
+	config.TlsSkipVerify = cfg.TlsSkipVerify
+	return clickhouse.NewClient(config)
 }

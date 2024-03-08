@@ -53,7 +53,7 @@
                         <template #activator="{ on }">
                             <v-icon v-on="on" small>mdi-volume-{{ ex.muted ? 'high' : 'off' }}</v-icon>
                         </template>
-                        {{ ex.muted ? 'unmute' : 'mute' }}
+                        <v-card class="px-2">{{ ex.muted ? 'unmute' : 'mute' }}</v-card>
                     </v-tooltip>
                 </v-btn>
                 (<a :href="`https://coroot.com/docs/metric-exporters/${ex.instruction.exporter}`" target="_blank">docs</a>)

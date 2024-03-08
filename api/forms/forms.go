@@ -296,8 +296,6 @@ func (f *IntegrationFormClickhouse) Test(ctx context.Context, project *db.Projec
 	config := clickhouse.NewClientConfig(f.Addr, f.Auth.User, f.Auth.Password)
 	config.Protocol = f.Protocol
 	config.Database = f.Database
-	config.TracesTable = f.TracesTable
-	config.LogsTable = f.LogsTable
 	config.TlsEnable = f.TlsEnable
 	config.TlsSkipVerify = f.TlsSkipVerify
 	client, err := clickhouse.NewClient(config)
@@ -306,16 +304,6 @@ func (f *IntegrationFormClickhouse) Test(ctx context.Context, project *db.Projec
 	}
 	if err = client.Ping(ctx); err != nil {
 		return err
-	}
-	if f.TracingEnabled() {
-		if _, err = client.GetServicesFromTraces(ctx); err != nil {
-			return err
-		}
-	}
-	if f.LogsEnabled() {
-		if _, err = client.GetServicesFromLogs(ctx); err != nil {
-			return err
-		}
 	}
 	return nil
 }

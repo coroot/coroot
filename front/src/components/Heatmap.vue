@@ -16,7 +16,7 @@
                     <template #activator="{ on }">
                         <v-icon v-on="on" small class="icon">mdi-target</v-icon>
                     </template>
-                    <div v-html="threshold.content" class="text-center" />
+                    <v-card v-html="threshold.content" class="pa-2 text-center" />
                 </v-tooltip>
             </div>
             <ChartAnnotations :ctx="config.ctx" :bbox="bbox" :annotations="annotations" />

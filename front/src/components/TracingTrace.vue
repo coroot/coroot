@@ -16,7 +16,7 @@
             <div class="name" :style="{ minWidth: split + '%' }">
                 Service & Operation
                 <v-spacer />
-                <a @click="full = !full" class="caption px-1">
+                <a v-if="span" @click="full = !full" class="caption px-1">
                     {{ full ? 'show sub-trace' : 'show full trace' }}
                 </a>
             </div>

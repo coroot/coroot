@@ -5,10 +5,8 @@ import (
 	"fmt"
 	"net/url"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"golang.org/x/exp/maps"
 
@@ -45,34 +43,18 @@ type Service struct {
 }
 
 type Span struct {
-	Service    string            `json:"service"`
-	TraceId    string            `json:"trace_id"`
-	Id         string            `json:"id"`
-	ParentId   string            `json:"parent_id"`
-	Name       string            `json:"name"`
-	Timestamp  int64             `json:"timestamp"`
-	Duration   float64           `json:"duration"`
-	Client     string            `json:"client"`
-	Status     Status            `json:"status"`
-	Details    Details           `json:"details"`
-	Attributes map[string]string `json:"attributes"`
-	Events     []Event           `json:"events"`
-}
-
-type Status struct {
-	Error   bool   `json:"error"`
-	Message string `json:"message"`
-}
-
-type Details struct {
-	Text string `json:"text"`
-	Lang string `json:"lang"`
-}
-
-type Event struct {
-	Name       string            `json:"name"`
-	Timestamp  int64             `json:"timestamp"`
-	Attributes map[string]string `json:"attributes"`
+	Service    string                 `json:"service"`
+	TraceId    string                 `json:"trace_id"`
+	Id         string                 `json:"id"`
+	ParentId   string                 `json:"parent_id"`
+	Name       string                 `json:"name"`
+	Timestamp  int64                  `json:"timestamp"`
+	Duration   float64                `json:"duration"`
+	Client     string                 `json:"client"`
+	Status     model.TraceSpanStatus  `json:"status"`
+	Details    model.TraceSpanDetails `json:"details"`
+	Attributes map[string]string      `json:"attributes"`
+	Events     []model.TraceSpanEvent `json:"events"`
 }
 
 func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, appSettings *db.ApplicationSettings, q url.Values, w *model.World) *View {
@@ -87,8 +69,8 @@ func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, 
 	tsTo := utils.ParseTime(w.Ctx.To, parts[1], w.Ctx.To)
 	parts = strings.Split(durRange+"-", "-")
 	durFromStr, durToStr := parts[0], parts[1]
-	durFrom := parseDuration(durFromStr)
-	durTo := parseDuration(durToStr)
+	durFrom := utils.ParseHeatmapDuration(durFromStr)
+	durTo := utils.ParseHeatmapDuration(durToStr)
 	errors := durFromStr == "inf" || durToStr == "err"
 
 	v := &View{}
@@ -245,24 +227,17 @@ func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, 
 			Name:       s.Name,
 			Timestamp:  s.Timestamp.UnixMilli(),
 			Duration:   s.Duration.Seconds() * 1000,
-			Status:     getStatus(s),
+			Status:     s.Status(),
 			Attributes: map[string]string{},
 			Client:     clients[spanKey{traceId: s.TraceId, spanId: s.SpanId}],
-			Details:    getDetails(s),
+			Details:    s.Details(),
+			Events:     s.Events,
 		}
 		for name, value := range s.ResourceAttributes {
 			ss.Attributes[name] = value
 		}
 		for name, value := range s.SpanAttributes {
 			ss.Attributes[name] = value
-		}
-		for _, e := range s.Events {
-			ee := Event{
-				Name:       e.Name,
-				Timestamp:  e.Timestamp.UnixMilli(),
-				Attributes: e.Attributes,
-			}
-			ss.Events = append(ss.Events, ee)
 		}
 		v.Spans = append(v.Spans, ss)
 	}
@@ -277,41 +252,6 @@ func getService(typ model.TraceSource, s *model.TraceSpan, app *model.Applicatio
 		return app.Id.Name
 	}
 	return ""
-}
-
-func getStatus(s *model.TraceSpan) Status {
-	res := Status{Message: "OK"}
-	if s.StatusCode == "STATUS_CODE_ERROR" {
-		res.Error = true
-		res.Message = "ERROR"
-		if s.StatusMessage != "" {
-			res.Message = s.StatusMessage
-		}
-	}
-	if c := s.SpanAttributes["http.status_code"]; c != "" {
-		res.Message = "HTTP-" + c
-	}
-	return res
-}
-
-func getDetails(s *model.TraceSpan) Details {
-	var res Details
-	switch {
-	case s.SpanAttributes["http.url"] != "":
-		res.Text = s.SpanAttributes["http.url"]
-	case s.SpanAttributes["db.system"] == "mongodb":
-		res.Text = s.SpanAttributes["db.statement"]
-		res.Lang = "json"
-	case s.SpanAttributes["db.system"] == "redis":
-		res.Text = s.SpanAttributes["db.statement"]
-	case s.SpanAttributes["db.statement"] != "":
-		res.Text = s.SpanAttributes["db.statement"]
-		res.Lang = "sql"
-	case s.SpanAttributes["db.memcached.item"] != "":
-		res.Text = fmt.Sprintf(`%s "%s"`, s.SpanAttributes["db.operation"], s.SpanAttributes["db.memcached.item"])
-		res.Lang = "bash"
-	}
-	return res
 }
 
 type spanKey struct {
@@ -401,16 +341,4 @@ func getMonitoringPodIps(w *model.World) []string {
 		}
 	}
 	return res
-}
-
-func parseDuration(s string) time.Duration {
-	if s == "" || s == "inf" || s == "err" {
-		return 0
-	}
-	v, err := strconv.ParseFloat(s, 64)
-	if err != nil {
-		klog.Warningln(err)
-		return 0
-	}
-	return time.Duration(v * float64(time.Second))
 }

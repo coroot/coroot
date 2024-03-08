@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -9,6 +10,8 @@ import (
 	"strings"
 	"text/template"
 	"time"
+
+	"github.com/jpillora/backoff"
 
 	"github.com/coroot/coroot/api"
 	"github.com/coroot/coroot/cache"
@@ -68,6 +71,7 @@ func main() {
 
 	bootstrapPrometheus(database, *bootstrapPrometheusUrl, *bootstrapRefreshInterval, *bootstrapPrometheusExtraSelector)
 	bootstrapClickhouse(database, *bootstrapClickhouseAddr, *bootstrapClickhouseUser, *bootstrapClickhousePassword, *bootstrapClickhouseDatabase, *bootstrapClickhouseTracesTable, *bootstrapClickhouseLogsTable)
+	migrateClickhouse(database)
 
 	cacheConfig := cache.Config{
 		Path: path.Join(*dataDir, "cache"),
@@ -277,5 +281,34 @@ func bootstrapClickhouse(database *db.DB, addr, user, password, databaseName, tr
 	}
 	if err := database.SaveProjectIntegration(p, db.IntegrationTypeClickhouse); err != nil {
 		klog.Exitln(err)
+	}
+}
+
+func migrateClickhouse(database *db.DB) {
+	projects, err := database.GetProjects()
+	if err != nil {
+		klog.Exitln(err)
+	}
+	for _, p := range projects {
+		if p.Settings.Integrations.Clickhouse == nil {
+			continue
+		}
+		go func(cfg *db.IntegrationClickhouse) {
+			b := backoff.Backoff{Factor: 2, Min: time.Minute, Max: 10 * time.Minute}
+			for {
+				ch, err := api.GetClickhouseClient(cfg)
+				if err == nil {
+					ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+					err = ch.Migrate(ctx)
+					cancel()
+					if err == nil {
+						return
+					}
+				}
+				d := b.Duration()
+				klog.Errorf("failed to create clickhouse tables, next attempt in %s: %s", d.String(), err)
+				time.Sleep(d)
+			}
+		}(p.Settings.Integrations.Clickhouse)
 	}
 }

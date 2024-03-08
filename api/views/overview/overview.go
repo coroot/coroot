@@ -1,6 +1,9 @@
 package overview
 
 import (
+	"context"
+
+	"github.com/coroot/coroot/clickhouse"
 	"github.com/coroot/coroot/model"
 )
 
@@ -9,10 +12,11 @@ type Overview struct {
 	Map         []*Application       `json:"map"`
 	Nodes       *model.Table         `json:"nodes"`
 	Deployments []*Deployment        `json:"deployments"`
+	Traces      *Traces              `json:"traces"`
 	Costs       *Costs               `json:"costs"`
 }
 
-func Render(w *model.World, view string) *Overview {
+func Render(ctx context.Context, ch *clickhouse.Client, w *model.World, view, query string) *Overview {
 	v := &Overview{}
 
 	for _, n := range w.Nodes {
@@ -31,6 +35,8 @@ func Render(w *model.World, view string) *Overview {
 		v.Nodes = renderNodes(w)
 	case "deployments":
 		v.Deployments = renderDeployments(w)
+	case "traces":
+		v.Traces = renderTraces(ctx, ch, w, query)
 	case "costs":
 		v.Costs = renderCosts(w)
 	}
