@@ -144,9 +144,6 @@ export default {
 
     methods: {
         setQuery(q, from, to) {
-            const hm = this.view.heatmap;
-            const rq = this.$route.query;
-            const heatmap = hm && rq.from && rq.to && hm.ctx.from === rq.from && hm.ctx.to === rq.to;
             const query = q ? JSON.stringify(q) : undefined;
             return { query: { query, from, to } };
         },
