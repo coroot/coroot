@@ -44,6 +44,7 @@ var BuiltinCategoryPatterns = map[ApplicationCategory][]string{
 		"*/containerd",
 		"*/docker*",
 		"*/*chaos-*",
+		"istio-system/*",
 	},
 	ApplicationCategoryMonitoring: {
 		"monitoring/*",
