@@ -78,13 +78,26 @@ func (s *TraceSpan) Details() TraceSpanDetails {
 	return res
 }
 
-type TraceSpanStatsAttr struct {
+type TraceSpanAttrStats struct {
 	Name   string                     `json:"name"`
-	Values []*TraceSpanStatsAttrValue `json:"values"`
+	Values []*TraceSpanAttrStatsValue `json:"values"`
 }
 
-type TraceSpanStatsAttrValue struct {
+type TraceSpanAttrStatsValue struct {
 	Name      string  `json:"name"`
 	Selection float32 `json:"selection"`
 	Baseline  float32 `json:"baseline"`
+}
+
+type TraceSpanSummary struct {
+	Stats   []TraceSpanStats `json:"stats"`
+	Overall TraceSpanStats   `json:"overall"`
+}
+
+type TraceSpanStats struct {
+	ServiceName       string    `json:"service_name"`
+	SpanName          string    `json:"span_name"`
+	Total             float32   `json:"total"`
+	Failed            float32   `json:"failed"`
+	DurationQuantiles []float32 `json:"duration_quantiles"`
 }

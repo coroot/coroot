@@ -2,6 +2,7 @@ package clickhouse
 
 import (
 	"context"
+	"math"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 )
@@ -11,8 +12,18 @@ const (
 )
 
 func (c *Client) Migrate(ctx context.Context) error {
+	var buckets []uint64
+	for _, b := range histogramBuckets {
+		if !math.IsInf(b, 0) {
+			buckets = append(buckets, uint64(b*1000000))
+		}
+	}
+	args := []any{
+		clickhouse.Named("ttl_days", ttlDays),
+		clickhouse.Named("histogram_buckets", buckets),
+	}
 	for _, t := range tables {
-		err := c.conn.Exec(ctx, t, clickhouse.Named("ttl_days", ttlDays))
+		err := c.conn.Exec(ctx, t, args...)
 		if err != nil {
 			return err
 		}
@@ -109,6 +120,7 @@ GROUP BY TraceId`,
 		`
 CREATE TABLE IF NOT EXISTS otel_traces_attributes(
     ServiceName LowCardinality(String) CODEC(ZSTD(1)),
+    SpanName LowCardinality(String) CODEC(ZSTD(1)),
     Timestamp DateTime CODEC(Delta(4), ZSTD(1)),
     Duration UInt64 CODEC(ZSTD(1)),
     StatusCode LowCardinality(String) CODEC(ZSTD(1)),
@@ -118,25 +130,37 @@ CREATE TABLE IF NOT EXISTS otel_traces_attributes(
 ) ENGINE MergeTree()
 TTL toDateTime(Timestamp) + toIntervalDay(@ttl_days)
 PARTITION BY toDate(Timestamp)
-ORDER BY (ServiceName, toUnixTimestamp(Timestamp), Duration)`,
+ORDER BY (ServiceName, SpanName, toUnixTimestamp(Timestamp), Duration)`,
 
 		`
 CREATE MATERIALIZED VIEW IF NOT EXISTS otel_traces_attributes_mv TO otel_traces_attributes AS
-WITH t AS (
+WITH r AS (
     SELECT
-        ServiceName AS ServiceName,
-        toStartOfMinute(Timestamp) AS Timestamp,
-        roundDown(toUInt64(Duration), [0, 5000000, 10000000, 25000000, 50000000, 100000000, 250000000, 500000000, 1000000000, 2500000000, 5000000000, 10000000000]) AS Duration,
-        StatusCode AS StatusCode,
+        TraceId,
+        any(ServiceName) AS ServiceName,
+        any(SpanName) AS SpanName,
+        any(Timestamp) as Timestamp,
+        any(Duration) as Duration,
+        any(StatusCode) as StatusCode
+    FROM otel_traces
+    WHERE ParentSpanId = ''
+    GROUP BY TraceId
+), t AS (
+    SELECT
+        r.ServiceName AS ServiceName,
+        r.SpanName AS SpanName,
+        toStartOfMinute(r.Timestamp) AS Timestamp,
+        roundDown(toUInt64(r.Duration), @histogram_buckets) AS Duration,
+        r.StatusCode AS StatusCode,
         arrayJoin(arrayConcat(
             [('span.name', SpanName), ('status.code', StatusCode), ('status.message', StatusMessage)],
             arrayMap((k, v) -> (k, v), mapKeys(ResourceAttributes), mapValues(ResourceAttributes)),
             arrayMap((k, v) -> (k, v), mapKeys(SpanAttributes), mapValues(SpanAttributes))
         )) AS Attribute,
         count(1) AS Count
-    FROM otel_traces
-    GROUP BY 1, 2, 3, 4, 5
+    FROM otel_traces JOIN r USING(TraceId)
+    GROUP BY 1, 2, 3, 4, 5, 6
 )
-SELECT ServiceName, Timestamp, Duration, StatusCode, tupleElement(Attribute, 1) AS Name, tupleElement(Attribute, 2) AS Value, Count FROM t`,
+SELECT ServiceName, SpanName, Timestamp, Duration, StatusCode, tupleElement(Attribute, 1) AS Name, tupleElement(Attribute, 2) AS Value, Count FROM t`,
 	}
 )

@@ -25,11 +25,13 @@ const (
 )
 
 type Traces struct {
-	Message string                     `json:"message"`
-	Heatmap *model.Heatmap             `json:"heatmap"`
-	Spans   []Span                     `json:"spans"`
-	Limit   int                        `json:"limit"`
-	Stats   []model.TraceSpanStatsAttr `json:"stats"`
+	Message   string                     `json:"message"`
+	Error     string                     `json:"error"`
+	Heatmap   *model.Heatmap             `json:"heatmap"`
+	Spans     []Span                     `json:"spans"`
+	Limit     int                        `json:"limit"`
+	Summary   *model.TraceSpanSummary    `json:"summary"`
+	AttrStats []model.TraceSpanAttrStats `json:"attr_stats"`
 }
 
 type Span struct {
@@ -40,7 +42,6 @@ type Span struct {
 	Name       string                 `json:"name"`
 	Timestamp  int64                  `json:"timestamp"`
 	Duration   float64                `json:"duration"`
-	Client     string                 `json:"client"`
 	Status     model.TraceSpanStatus  `json:"status"`
 	Details    model.TraceSpanDetails `json:"details"`
 	Attributes map[string]string      `json:"attributes"`
@@ -49,11 +50,15 @@ type Span struct {
 
 type Query struct {
 	View    string          `json:"view"`
-	TraceId string          `json:"trace_id"`
 	TsFrom  timeseries.Time `json:"ts_from"`
 	TsTo    timeseries.Time `json:"ts_to"`
 	DurFrom string          `json:"dur_from"`
 	DurTo   string          `json:"dur_to"`
+
+	TraceId     string `json:"trace_id"`
+	ServiceName string `json:"service_name"`
+	SpanName    string `json:"span_name"`
+	IncludeAux  bool   `json:"include_aux"`
 
 	durFrom time.Duration
 	durTo   time.Duration
@@ -64,18 +69,25 @@ func renderTraces(ctx context.Context, ch *clickhouse.Client, w *model.World, qu
 	res := &Traces{}
 
 	if ch == nil {
-		res.Message = "Clickhouse integration is not configured"
+		res.Message = "no_clickhouse"
 		return res
 	}
 
 	q := parseQuery(query, w.Ctx)
 
-	ignoredPeerAddrs := getMonitoringAndControlPlanePodIps(w)
+	sq := clickhouse.SpanQuery{
+		Ctx:         w.Ctx,
+		ServiceName: q.ServiceName,
+		SpanName:    q.SpanName,
+	}
+	if !q.IncludeAux {
+		sq.ExcludePeerAddrs = getMonitoringAndControlPlanePodIps(w)
+	}
 
-	histogram, err := ch.GetRootSpansHistogram(ctx, ignoredPeerAddrs, w.Ctx.From, w.Ctx.To, w.Ctx.Step)
+	histogram, err := ch.GetRootSpansHistogram(ctx, sq)
 	if err != nil {
 		klog.Errorln(err)
-		res.Message = fmt.Sprintf("Clickhouse error: %s", err)
+		res.Error = fmt.Sprintf("Clickhouse error: %s", err)
 		return res
 	}
 	if len(histogram) > 1 {
@@ -84,28 +96,40 @@ func renderTraces(ctx context.Context, ch *clickhouse.Client, w *model.World, qu
 			res.Heatmap.AddSeries(h.Name, h.Title, h.Data, h.Threshold, h.Value)
 		}
 		res.Heatmap.AddSeries("errors", "errors", histogram[0].TimeSeries, "", "err")
+	} else {
+		res.Message = "not_found"
+		return res
 	}
+
+	sq.TsFrom = q.TsFrom
+	if sq.TsFrom == 0 {
+		sq.TsFrom = sq.Ctx.From
+	}
+	sq.TsTo = q.TsTo
+	if sq.TsTo == 0 {
+		sq.TsTo = sq.Ctx.To
+	}
+	sq.DurFrom = q.durFrom
+	sq.DurTo = q.durTo
+	sq.Errors = q.errors
+	sq.Limit = spansLimit
 
 	var spans []*model.TraceSpan
 	switch {
 	case q.TraceId != "":
 		spans, err = ch.GetSpansByTraceId(ctx, q.TraceId)
-	case q.View == "investigation" && (q.TsFrom != 0 && q.TsTo != 0):
-		res.Stats, err = ch.GetSpanAttrsStat(ctx, w.Ctx.From, w.Ctx.To, q.TsFrom, q.TsTo, q.durFrom, q.durTo, q.errors, attrValuesLimit)
+	case q.View == "traces":
+		spans, err = ch.GetRootSpans(ctx, sq)
+	case q.View == "investigation":
+		sq.Limit = attrValuesLimit
+		res.AttrStats, err = ch.GetSpanAttrStats(ctx, sq)
 	default:
-		from, to := q.TsFrom, q.TsTo
-		if from == 0 {
-			from = w.Ctx.From
-		}
-		if to == 0 {
-			to = w.Ctx.To
-		}
-		spans, err = ch.GetRootSpans(ctx, ignoredPeerAddrs, from, to, q.durFrom, q.durTo, q.errors, spansLimit)
+		res.Summary, err = ch.GetRootSpansSummary(ctx, sq)
 	}
 
 	if err != nil {
 		klog.Errorln(err)
-		res.Message = fmt.Sprintf("Clickhouse error: %s", err)
+		res.Error = fmt.Sprintf("Clickhouse error: %s", err)
 		return res
 	}
 

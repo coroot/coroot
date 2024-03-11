@@ -134,7 +134,12 @@ func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, 
 		go func() {
 			defer wg.Done()
 			var e error
-			histogram, e = ch.GetSpansByServiceNameHistogram(ctx, service, ignoredPeerAddrs, w.Ctx.From, w.Ctx.To, w.Ctx.Step)
+			sq := clickhouse.SpanQuery{
+				Ctx:              w.Ctx,
+				ServiceName:      service,
+				ExcludePeerAddrs: ignoredPeerAddrs,
+			}
+			histogram, e = ch.GetSpansByServiceNameHistogram(ctx, sq)
 			if e != nil {
 				err = e
 			}
@@ -143,7 +148,18 @@ func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, 
 		go func() {
 			defer wg.Done()
 			var e error
-			spans, e = ch.GetSpansByServiceName(ctx, service, ignoredPeerAddrs, tsFrom, tsTo, durFrom, durTo, errors, limit)
+			sq := clickhouse.SpanQuery{
+				Ctx:              w.Ctx,
+				TsFrom:           tsFrom,
+				TsTo:             tsTo,
+				DurFrom:          durFrom,
+				DurTo:            durTo,
+				Errors:           errors,
+				Limit:            limit,
+				ServiceName:      service,
+				ExcludePeerAddrs: ignoredPeerAddrs,
+			}
+			spans, e = ch.GetSpansByServiceName(ctx, sq)
 			if e != nil {
 				err = e
 				return
@@ -165,7 +181,10 @@ func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, 
 		go func() {
 			defer wg.Done()
 			var e error
-			histogram, e = ch.GetInboundSpansHistogram(ctx, maps.Keys(appClients), listens, w.Ctx.From, w.Ctx.To, w.Ctx.Step)
+			sq := clickhouse.SpanQuery{
+				Ctx: w.Ctx,
+			}
+			histogram, e = ch.GetInboundSpansHistogram(ctx, sq, maps.Keys(appClients), listens)
 			if e != nil {
 				err = e
 			}
@@ -173,7 +192,16 @@ func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, 
 		go func() {
 			defer wg.Done()
 			var e error
-			spans, e = ch.GetInboundSpans(ctx, maps.Keys(appClients), listens, tsFrom, tsTo, durFrom, durTo, errors, limit)
+			sq := clickhouse.SpanQuery{
+				Ctx:     w.Ctx,
+				TsFrom:  tsFrom,
+				TsTo:    tsTo,
+				DurFrom: durFrom,
+				DurTo:   durTo,
+				Errors:  errors,
+				Limit:   limit,
+			}
+			spans, e = ch.GetInboundSpans(ctx, sq, maps.Keys(appClients), listens)
 			if e != nil {
 				err = e
 			}
