@@ -412,16 +412,22 @@ func (c *Client) getSpanAttrStats(ctx context.Context, q SpanQuery) ([]model.Tra
 	query := fmt.Sprintf(`
 WITH a AS (
     SELECT
-		Source, Name, Value,
+        arrayJoin(arrayConcat(
+            [('SpanName', 'SpanName', SpanName), ('StatusCode', 'StatusCode', StatusCode), ('StatusMessage', 'StatusMessage', StatusMessage)],
+            arrayMap((k, v) -> ('ResourceAttributes', k, v), mapKeys(ResourceAttributes), mapValues(ResourceAttributes)),
+            arrayMap((k, v) -> ('SpanAttributes', k, v), mapKeys(SpanAttributes), mapValues(SpanAttributes))
+        )) AS attribute,
         %s AS selection,
-        sum(Count) AS count
-    FROM otel_traces_attributes
+        count(*) AS count
+    FROM otel_traces
     WHERE
         %s
-    GROUP BY 1, 2, 3, 4
+    GROUP BY 1, 2
 ), s AS (
     SELECT
-		Source, Name, Value,
+		tupleElement(attribute, 1) AS Source,
+		tupleElement(attribute, 2) AS Name,
+		tupleElement(attribute, 3) AS Value,
         sum(if(a.selection, count, 0)) AS selection,
         sum(if(a.selection, 0, count)) AS baseline,
         sum(selection) OVER (PARTITION BY Name) AS selection_total,
@@ -457,7 +463,7 @@ SELECT Source, Name, Value, selection, baseline FROM t WHERE top <= @top`,
 		if err = rows.Scan(&attr.source, &attr.name, &value, &selection, &baseline); err != nil {
 			return nil, err
 		}
-		diff := math.Abs(selection - baseline)
+		diff := selection - baseline
 		if diff > maxDiff[attr] {
 			maxDiff[attr] = diff
 		}

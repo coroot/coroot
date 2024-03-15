@@ -116,52 +116,5 @@ SELECT
 FROM otel_traces
 WHERE TraceId!=''
 GROUP BY TraceId`,
-
-		`
-CREATE TABLE IF NOT EXISTS otel_traces_attributes(
-    ServiceName LowCardinality(String) CODEC(ZSTD(1)),
-    SpanName LowCardinality(String) CODEC(ZSTD(1)),
-    Timestamp DateTime CODEC(Delta(4), ZSTD(1)),
-    Duration UInt64 CODEC(ZSTD(1)),
-    StatusCode LowCardinality(String) CODEC(ZSTD(1)),
-    Source LowCardinality(String) CODEC(ZSTD(1)),
-    Name LowCardinality(String) CODEC(ZSTD(1)),
-    Value String CODEC(ZSTD(1)),
-    Count UInt64 CODEC(ZSTD(1))
-) ENGINE MergeTree()
-TTL toDateTime(Timestamp) + toIntervalDay(@ttl_days)
-PARTITION BY toDate(Timestamp)
-ORDER BY (ServiceName, SpanName, toUnixTimestamp(Timestamp), Duration)`,
-
-		`
-CREATE MATERIALIZED VIEW IF NOT EXISTS otel_traces_attributes_mv TO otel_traces_attributes AS
-WITH r AS (
-    SELECT
-        TraceId,
-        any(ServiceName) AS ServiceName,
-        any(SpanName) AS SpanName,
-        any(Timestamp) as Timestamp,
-        any(Duration) as Duration,
-        any(StatusCode) as StatusCode
-    FROM otel_traces
-    WHERE ParentSpanId = ''
-    GROUP BY TraceId
-), t AS (
-    SELECT
-        r.ServiceName AS ServiceName,
-        r.SpanName AS SpanName,
-        toStartOfMinute(r.Timestamp) AS Timestamp,
-        roundDown(toUInt64(r.Duration), @histogram_buckets) AS Duration,
-        r.StatusCode AS StatusCode,
-        arrayJoin(arrayConcat(
-            [('SpanName', 'SpanName', SpanName), ('StatusCode', 'StatusCode', StatusCode), ('StatusMessage', 'StatusMessage', StatusMessage)],
-            arrayMap((k, v) -> ('ResourceAttributes', k, v), mapKeys(ResourceAttributes), mapValues(ResourceAttributes)),
-            arrayMap((k, v) -> ('SpanAttributes', k, v), mapKeys(SpanAttributes), mapValues(SpanAttributes))
-        )) AS Attribute,
-        count(1) AS Count
-    FROM otel_traces JOIN r USING(TraceId)
-    GROUP BY 1, 2, 3, 4, 5, 6
-)
-SELECT ServiceName, SpanName, Timestamp, Duration, StatusCode, tupleElement(Attribute, 1) AS Source, tupleElement(Attribute, 2) AS Name, tupleElement(Attribute, 3) AS Value, Count FROM t`,
 	}
 )
