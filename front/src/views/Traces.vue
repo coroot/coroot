@@ -19,21 +19,28 @@
             <Heatmap v-if="view.heatmap" :heatmap="view.heatmap" :selection="selection" @select="setSelection" :loading="loading" />
 
             <v-card outlined class="query px-4 py-2 mb-4">
-                <div v-if="query.service_name || query.span_name" class="mt-2 d-flex align-center flex-wrap" style="gap: 8px">
-                    <div>Where:</div>
-                    <v-chip v-if="query.service_name" @click:close="push(filterTraces(undefined, query.span_name))" label close color="primary">
-                        Root Service Name = {{ query.service_name }}
-                    </v-chip>
-                    <v-chip v-if="query.span_name" @click:close="push(filterTraces(query.service_name, undefined))" label close color="primary">
-                        Root Span Name = {{ query.span_name }}
-                    </v-chip>
+                <div v-if="query.service_name || query.span_name || query.attribute" class="mt-2 d-flex align-center">
+                    <div class="mr-2">Where:</div>
+                    <div class="d-flex flex-wrap" style="gap: 8px">
+                        <v-chip v-if="query.service_name" @click:close="push(filterTraces(undefined, query.span_name))" label close color="primary">
+                            <div class="where-arg">Root Service Name = {{ query.service_name }}</div>
+                        </v-chip>
+                        <v-chip v-if="query.span_name" @click:close="push(filterTraces(query.service_name, undefined))" label close color="primary">
+                            <div class="where-arg">Root Span Name = {{ query.span_name }}</div>
+                        </v-chip>
+                        <v-chip v-if="query.attribute" @click:close="push(filterTracesByAttr(undefined))" label close color="primary">
+                            <div class="where-arg">{{ query.attribute.name }} = {{ query.attribute.value }}</div>
+                        </v-chip>
+                    </div>
                 </div>
                 <div class="d-flex align-center">
                     <div><div class="marker selection"></div></div>
                     <div>
                         Selection:
                         <template v-if="query.dur_to">
-                            time <var> {{ format(query.ts_from, 'ts') }}</var> — <var> {{ format(query.ts_to, 'ts') }}</var>
+                            <template v-if="query.ts_from && query.ts_to">
+                                time <var> {{ format(query.ts_from, 'ts') }}</var> — <var> {{ format(query.ts_to, 'ts') }}</var>
+                            </template>
                             <template v-if="query.dur_from !== 'inf' || query.dur_to === 'err'">
                                 where (
                                 <template v-if="query.dur_from !== 'inf'">
@@ -46,12 +53,12 @@
                             </template>
                         </template>
                         <span v-else class="grey--text">
-                            <template v-if="query.view === 'investigation'">select a chart area to explore trace attributes</template>
+                            <template v-if="query.view === 'attributes'">select a chart area to explore trace attributes</template>
                             <template v-else>select a chart area to see traces for a specific time range, duration, or status</template>
                         </span>
                     </div>
                 </div>
-                <div v-if="query.view === 'investigation'" class="d-flex align-center">
+                <div v-if="query.view === 'attributes'" class="d-flex align-center">
                     <div><div class="marker baseline"></div></div>
                     Baseline: all other events within the time window
                 </div>
@@ -66,7 +73,7 @@
             </v-card>
 
             <v-tabs height="32" hide-slider>
-                <v-tab v-for="v in ['overview', 'traces', 'investigation']" :to="openView(v)" class="view" :class="{ active: query.view === v }">
+                <v-tab v-for="v in ['overview', 'traces', 'attributes']" :to="openView(v)" class="view" :class="{ active: query.view === v }">
                     {{ v }}
                 </v-tab>
             </v-tabs>
@@ -213,9 +220,9 @@
                 </div>
             </div>
 
-            <div v-else-if="query.view === 'investigation'">
-                <div class="grey--text mt-2 mb-3">
-                    <v-icon small class="mb-1">mdi-information-outline</v-icon>
+            <div v-else-if="query.view === 'attributes'">
+                <div class="d-flex grey--text mt-2 mb-3">
+                    <v-icon small class="mr-1">mdi-information-outline</v-icon>
                     This section shows how the attributes of traces in the selected area differ from those of other traces.
                 </div>
                 <v-progress-linear v-if="loading" indeterminate height="4" class="mb-1" />
@@ -224,21 +231,33 @@
                         <div class="name">{{ attr.name }}</div>
                         <v-tooltip v-for="v in attr.values" bottom transition="none" attach=".attr-stats" content-class="attr-value-details">
                             <template #activator="{ on }">
-                                <div class="value" v-on="on">
-                                    <div class="name">
-                                        {{ v.name }}
+                                <router-link :to="filterTracesByAttr(attr, v.name)">
+                                    <div class="value" v-on="on">
+                                        <div class="name">
+                                            {{ v.name }}
+                                        </div>
+                                        <div class="bars">
+                                            <div class="bar baseline" :style="{ width: v.baseline * 100 + '%' }"></div>
+                                            <div class="bar selection" :style="{ width: v.selection * 100 + '%' }"></div>
+                                        </div>
                                     </div>
-                                    <div class="bars">
-                                        <div class="bar baseline" :style="{ width: v.baseline * 100 + '%' }"></div>
-                                        <div class="bar selection" :style="{ width: v.selection * 100 + '%' }"></div>
-                                    </div>
-                                </div>
+                                </router-link>
                             </template>
                             <v-card class="pa-2">
                                 <div>Value:</div>
                                 <div class="font-weight-medium mb-1">{{ v.name }}</div>
-                                <div class="baseline"><span class="marker" />Baseline: {{ (v.baseline * 100).toFixed(1) }}%</div>
-                                <div class="selection"><span class="marker" />Selection: {{ (v.selection * 100).toFixed(1) }}%</div>
+                                <div class="baseline">
+                                    <span class="marker" />
+                                    Baseline: {{ v.baseline ? format(v.baseline, '%') + '%' : '—' }}
+                                </div>
+                                <div class="selection">
+                                    <span class="marker" />
+                                    Selection: {{ v.selection ? format(v.selection, '%') + '%' : '—' }}
+                                </div>
+                                <div class="d-flex grey--text mt-2">
+                                    <v-icon x-small class="mr-1">mdi-information-outline</v-icon>
+                                    Click to view traces containing this attribute
+                                </div>
                             </v-card>
                         </v-tooltip>
                     </div>
@@ -282,12 +301,6 @@ export default {
     },
 
     computed: {
-        views() {
-            return {
-                traces: true,
-                investigation: this.query.ts_from && this.query.ts_to,
-            };
-        },
         query() {
             let q = {};
             try {
@@ -331,11 +344,24 @@ export default {
                 q.view = 'traces';
             }
             if (errors) {
-                const { from, to } = this.view.heatmap.ctx;
-                q.ts_from = from;
-                q.ts_to = to;
                 q.dur_from = 'inf';
                 q.dur_to = 'err';
+            }
+            return this.setQuery(q, from, to);
+        },
+        filterTracesByAttr(attr, value) {
+            const { from, to } = this.$route.query;
+            const q = { ...this.query };
+            if (attr) {
+                q.view = 'traces';
+                const { source, name } = attr;
+                q.attribute = { source, name, value };
+                // q.ts_from = undefined;
+                // q.ts_to = undefined;
+                // q.dur_from = undefined;
+                // q.dur_to = undefined;
+            } else {
+                q.attribute = undefined;
             }
             return this.setQuery(q, from, to);
         },
@@ -355,6 +381,7 @@ export default {
                 q.ts_to = undefined;
                 q.dur_from = undefined;
                 q.dur_to = undefined;
+                q.attribute = undefined;
             }
             return this.setQuery(q, from, to);
         },
@@ -467,6 +494,12 @@ export default {
 }
 .query .marker.selection {
     background-color: var(--selection-color);
+}
+.query .where-arg {
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 .query:deep(.v-chip) {
     height: 26px;

@@ -55,10 +55,11 @@ type Query struct {
 	DurFrom string          `json:"dur_from"`
 	DurTo   string          `json:"dur_to"`
 
-	TraceId     string `json:"trace_id"`
-	ServiceName string `json:"service_name"`
-	SpanName    string `json:"span_name"`
-	IncludeAux  bool   `json:"include_aux"`
+	TraceId     string               `json:"trace_id"`
+	ServiceName string               `json:"service_name"`
+	SpanName    string               `json:"span_name"`
+	Attribute   *model.TraceSpanAttr `json:"attribute"`
+	IncludeAux  bool                 `json:"include_aux"`
 
 	durFrom time.Duration
 	durTo   time.Duration
@@ -79,6 +80,7 @@ func renderTraces(ctx context.Context, ch *clickhouse.Client, w *model.World, qu
 		Ctx:         w.Ctx,
 		ServiceName: q.ServiceName,
 		SpanName:    q.SpanName,
+		Attribute:   q.Attribute,
 	}
 	if !q.IncludeAux {
 		sq.ExcludePeerAddrs = getMonitoringAndControlPlanePodIps(w)
@@ -120,7 +122,7 @@ func renderTraces(ctx context.Context, ch *clickhouse.Client, w *model.World, qu
 		spans, err = ch.GetSpansByTraceId(ctx, q.TraceId)
 	case q.View == "traces":
 		spans, err = ch.GetRootSpans(ctx, sq)
-	case q.View == "investigation":
+	case q.View == "attributes":
 		sq.Limit = attrValuesLimit
 		res.AttrStats, err = ch.GetSpanAttrStats(ctx, sq)
 	default:

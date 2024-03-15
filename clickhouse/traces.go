@@ -26,26 +26,6 @@ func init() {
 	}
 }
 
-type SpanQuery struct {
-	Ctx timeseries.Context
-
-	TsFrom  timeseries.Time
-	TsTo    timeseries.Time
-	DurFrom time.Duration
-	DurTo   time.Duration
-	Errors  bool
-
-	Limit int
-
-	ServiceName      string
-	SpanName         string
-	ExcludePeerAddrs []string
-}
-
-func (q *SpanQuery) IsSelectionDefined() bool {
-	return q.TsFrom > q.Ctx.From || q.TsTo < q.Ctx.To || q.DurFrom > 0 || q.DurTo > 0 || q.Errors
-}
-
 func (c *Client) GetServicesFromTraces(ctx context.Context) ([]string, error) {
 	q := "SELECT DISTINCT ServiceName FROM otel_traces"
 	rows, err := c.conn.Query(ctx, q)
@@ -67,18 +47,18 @@ func (c *Client) GetServicesFromTraces(ctx context.Context) ([]string, error) {
 }
 
 func (c *Client) GetRootSpansHistogram(ctx context.Context, q SpanQuery) ([]model.HistogramBucket, error) {
-	filter, filterArgs := rootSpansFilter(q)
-	return c.getSpansHistogram(ctx, q.Ctx.From, q.Ctx.To, q.Ctx.Step, filter, filterArgs)
+	filter, filterArgs := q.RootSpansFilter()
+	return c.getSpansHistogram(ctx, q, filter, filterArgs)
 }
 
 func (c *Client) GetRootSpans(ctx context.Context, q SpanQuery) ([]*model.TraceSpan, error) {
-	filter, filterArgs := rootSpansFilter(q)
-	return c.getSpans(ctx, q.TsFrom, q.TsTo, q.DurFrom, q.DurTo, q.Errors, "", "Duration DESC", q.Limit, filter, filterArgs)
+	filter, filterArgs := q.RootSpansFilter()
+	return c.getSpans(ctx, q, "", "Timestamp DESC", filter, filterArgs)
 }
 
 func (c *Client) GetRootSpansSummary(ctx context.Context, q SpanQuery) (*model.TraceSpanSummary, error) {
-	filter, filterArgs := rootSpansFilter(q)
-	return c.getSpansSummary(ctx, q.TsFrom, q.TsTo, q.DurFrom, q.DurTo, q.Errors, filter, filterArgs)
+	filter, filterArgs := q.RootSpansFilter()
+	return c.getSpansSummary(ctx, q, filter, filterArgs)
 }
 
 func (c *Client) GetSpanAttrStats(ctx context.Context, q SpanQuery) ([]model.TraceSpanAttrStats, error) {
@@ -86,13 +66,13 @@ func (c *Client) GetSpanAttrStats(ctx context.Context, q SpanQuery) ([]model.Tra
 }
 
 func (c *Client) GetSpansByServiceNameHistogram(ctx context.Context, q SpanQuery) ([]model.HistogramBucket, error) {
-	filter, filterArgs := spansByServiceNameFilter(q)
-	return c.getSpansHistogram(ctx, q.Ctx.From, q.Ctx.To, q.Ctx.Step, filter, filterArgs)
+	filter, filterArgs := q.SpansByServiceNameFilter()
+	return c.getSpansHistogram(ctx, q, filter, filterArgs)
 }
 
 func (c *Client) GetSpansByServiceName(ctx context.Context, q SpanQuery) ([]*model.TraceSpan, error) {
-	filter, filterArgs := spansByServiceNameFilter(q)
-	return c.getSpans(ctx, q.TsFrom, q.TsTo, q.DurFrom, q.DurTo, q.Errors, "", "Timestamp DESC", q.Limit, filter, filterArgs)
+	filter, filterArgs := q.SpansByServiceNameFilter()
+	return c.getSpans(ctx, q, "", "Timestamp DESC", filter, filterArgs)
 }
 
 func (c *Client) GetInboundSpansHistogram(ctx context.Context, q SpanQuery, clients []string, listens []model.Listen) ([]model.HistogramBucket, error) {
@@ -100,7 +80,7 @@ func (c *Client) GetInboundSpansHistogram(ctx context.Context, q SpanQuery, clie
 		return nil, nil
 	}
 	filter, filterArgs := inboundSpansFilter(clients, listens)
-	return c.getSpansHistogram(ctx, q.Ctx.From, q.Ctx.To, q.Ctx.Step, filter, filterArgs)
+	return c.getSpansHistogram(ctx, q, filter, filterArgs)
 }
 
 func (c *Client) GetInboundSpans(ctx context.Context, q SpanQuery, clients []string, listens []model.Listen) ([]*model.TraceSpan, error) {
@@ -108,7 +88,7 @@ func (c *Client) GetInboundSpans(ctx context.Context, q SpanQuery, clients []str
 		return nil, nil
 	}
 	filter, filterArgs := inboundSpansFilter(clients, listens)
-	return c.getSpans(ctx, q.TsFrom, q.TsTo, q.DurFrom, q.DurTo, q.Errors, "", "Timestamp DESC", q.Limit, filter, filterArgs)
+	return c.getSpans(ctx, q, "", "Timestamp DESC", filter, filterArgs)
 }
 
 func (c *Client) GetParentSpans(ctx context.Context, spans []*model.TraceSpan) ([]*model.TraceSpan, error) {
@@ -123,9 +103,10 @@ func (c *Client) GetParentSpans(ctx context.Context, spans []*model.TraceSpan) (
 	if len(ids) == 0 {
 		return nil, nil
 	}
-	return c.getSpans(ctx, 0, 0, 0, 0, false,
+	var q SpanQuery
+	return c.getSpans(ctx, q,
 		"@traceIds as traceIds, (SELECT min(Start) FROM otel_traces_trace_id_ts WHERE TraceId IN (traceIds)) as start, (SELECT max(End) + 1 FROM otel_traces_trace_id_ts WHERE TraceId IN (traceIds)) as end",
-		"", 0,
+		"",
 		[]string{"Timestamp BETWEEN start AND end", "TraceId IN (traceIds)", "(TraceId, SpanId) IN (@ids)"},
 		[]any{
 			clickhouse.Named("traceIds", maps.Keys(traceIds)),
@@ -135,9 +116,10 @@ func (c *Client) GetParentSpans(ctx context.Context, spans []*model.TraceSpan) (
 }
 
 func (c *Client) GetSpansByTraceId(ctx context.Context, traceId string) ([]*model.TraceSpan, error) {
-	return c.getSpans(ctx, 0, 0, 0, 0, false,
+	var q SpanQuery
+	return c.getSpans(ctx, q,
 		"(SELECT min(Start) FROM otel_traces_trace_id_ts WHERE TraceId = @traceId) as start, (SELECT max(End) + 1 FROM otel_traces_trace_id_ts WHERE TraceId = @traceId) as end",
-		"Timestamp", 0,
+		"Timestamp",
 		[]string{"TraceId = @traceId", "Timestamp BETWEEN start AND end"},
 		[]any{
 			clickhouse.Named("traceId", traceId),
@@ -145,13 +127,13 @@ func (c *Client) GetSpansByTraceId(ctx context.Context, traceId string) ([]*mode
 	)
 }
 
-func (c *Client) getSpansHistogram(ctx context.Context, from, to timeseries.Time, step timeseries.Duration, filters []string, filterArgs []any) ([]model.HistogramBucket, error) {
-	to = to.Add(step)
+func (c *Client) getSpansHistogram(ctx context.Context, q SpanQuery, filters []string, filterArgs []any) ([]model.HistogramBucket, error) {
+	step := q.Ctx.Step
+	from := q.Ctx.From
+	to := q.Ctx.To.Add(step)
 
-	q := "SELECT toStartOfInterval(Timestamp, INTERVAL @step second), roundDown(Duration/1000000, @buckets), count(1), count(if(StatusCode = 'STATUS_CODE_ERROR', 1, NULL))"
-	filters = append(filters,
-		"Timestamp BETWEEN @from AND @to",
-	)
+	tsFilter := "Timestamp BETWEEN @from AND @to"
+	filters = append(filters, tsFilter)
 	filterArgs = append(filterArgs,
 		clickhouse.Named("step", step),
 		clickhouse.Named("buckets", histogramBuckets[:len(histogramBuckets)-1]),
@@ -159,11 +141,37 @@ func (c *Client) getSpansHistogram(ctx context.Context, from, to timeseries.Time
 		clickhouse.DateNamed("to", to.ToStandard(), clickhouse.NanoSeconds),
 	)
 
-	q += " FROM otel_traces"
-	q += " WHERE " + strings.Join(filters, " AND ")
-	q += " GROUP BY 1, 2"
+	var with string
+	var join string
 
-	rows, err := c.conn.Query(ctx, q, filterArgs...)
+	if q.Attribute != nil {
+		attrFilter, attrFilterArgs := q.SpansByAttributeFilter()
+		filterArgs = append(filterArgs, attrFilterArgs...)
+		with = "t AS ("
+		with += "SELECT DISTINCT TraceId"
+		with += " FROM otel_traces"
+		with += " WHERE " + strings.Join([]string{tsFilter, attrFilter}, " AND ")
+		with += ")"
+		join = "t USING(TraceId)"
+	}
+
+	var query string
+
+	if with != "" {
+		query += "WITH " + with
+	}
+
+	query += "SELECT toStartOfInterval(Timestamp, INTERVAL @step second), roundDown(Duration/1000000, @buckets), count(1), count(if(StatusCode = 'STATUS_CODE_ERROR', 1, NULL))"
+	query += " FROM otel_traces"
+
+	if join != "" {
+		query += " JOIN " + join
+	}
+
+	query += " WHERE " + strings.Join(filters, " AND ")
+	query += " GROUP BY 1, 2"
+
+	rows, err := c.conn.Query(ctx, query, filterArgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -214,27 +222,27 @@ func (c *Client) getSpansHistogram(ctx context.Context, from, to timeseries.Time
 	return res, nil
 }
 
-func (c *Client) getSpansSummary(ctx context.Context, tsFrom, tsTo timeseries.Time, durFrom, durTo time.Duration, errors bool, filters []string, filterArgs []any) (*model.TraceSpanSummary, error) {
+func (c *Client) getSpansSummary(ctx context.Context, q SpanQuery, filters []string, filterArgs []any) (*model.TraceSpanSummary, error) {
 	filters = append(filters,
 		"Timestamp BETWEEN @tsFrom AND @tsTo",
 	)
 	filterArgs = append(filterArgs,
-		clickhouse.DateNamed("tsFrom", tsFrom.ToStandard(), clickhouse.NanoSeconds),
-		clickhouse.DateNamed("tsTo", tsTo.ToStandard(), clickhouse.NanoSeconds),
+		clickhouse.DateNamed("tsFrom", q.TsFrom.ToStandard(), clickhouse.NanoSeconds),
+		clickhouse.DateNamed("tsTo", q.TsTo.ToStandard(), clickhouse.NanoSeconds),
 		clickhouse.Named("buckets", histogramBuckets[:len(histogramBuckets)-1]),
 	)
-	durFilter, durFilterArgs := durationFilter(durFrom, durTo, errors)
+	durFilter, durFilterArgs := q.DurationFilter()
 	if durFilter != "" {
 		filters = append(filters, durFilter)
 		filterArgs = append(filterArgs, durFilterArgs...)
 	}
 
-	q := "SELECT ServiceName, SpanName, roundDown(Duration/1000000, @buckets), count(1), count(if(StatusCode = 'STATUS_CODE_ERROR', 1, NULL))"
-	q += " FROM otel_traces"
-	q += " WHERE " + strings.Join(filters, " AND ")
-	q += " GROUP BY 1, 2, 3"
+	query := "SELECT ServiceName, SpanName, roundDown(Duration/1000000, @buckets), count(1), count(if(StatusCode = 'STATUS_CODE_ERROR', 1, NULL))"
+	query += " FROM otel_traces"
+	query += " WHERE " + strings.Join(filters, " AND ")
+	query += " GROUP BY 1, 2, 3"
 
-	rows, err := c.conn.Query(ctx, q, filterArgs...)
+	rows, err := c.conn.Query(ctx, query, filterArgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -264,7 +272,7 @@ func (c *Client) getSpansSummary(ctx context.Context, tsFrom, tsTo timeseries.Ti
 	}
 
 	res := &model.TraceSpanSummary{}
-	duration := tsTo.Sub(tsFrom)
+	duration := q.TsTo.Sub(q.TsFrom)
 	quantiles := []float32{0.5, 0.95, 0.99}
 	totalHist := map[float32]float32{}
 	for k := range totalByKey {
@@ -292,41 +300,58 @@ func (c *Client) getSpansSummary(ctx context.Context, tsFrom, tsTo timeseries.Ti
 	return res, nil
 }
 
-func (c *Client) getSpans(ctx context.Context, tsFrom, tsTo timeseries.Time, durFrom, durTo time.Duration, errors bool, with string, orderBy string, limit int, filters []string, filterArgs []any) ([]*model.TraceSpan, error) {
-	if !tsFrom.IsZero() && !tsTo.IsZero() {
-		filters = append(filters, "Timestamp BETWEEN @tsFrom AND @tsTo")
-		filterArgs = append(filterArgs,
-			clickhouse.DateNamed("tsFrom", tsFrom.ToStandard(), clickhouse.NanoSeconds),
-			clickhouse.DateNamed("tsTo", tsTo.ToStandard(), clickhouse.NanoSeconds),
-		)
+func (c *Client) getSpans(ctx context.Context, q SpanQuery, with string, orderBy string, filters []string, filterArgs []any) ([]*model.TraceSpan, error) {
+	tsFilter := "Timestamp BETWEEN @tsFrom AND @tsTo"
+	tsFilterArgs := []any{
+		clickhouse.DateNamed("tsFrom", q.TsFrom.ToStandard(), clickhouse.NanoSeconds),
+		clickhouse.DateNamed("tsTo", q.TsTo.ToStandard(), clickhouse.NanoSeconds),
 	}
-	durFilter, durFilterArgs := durationFilter(durFrom, durTo, errors)
+	if !q.TsFrom.IsZero() && !q.TsTo.IsZero() {
+		filters = append(filters, tsFilter)
+		filterArgs = append(filterArgs, tsFilterArgs...)
+	}
+	durFilter, durFilterArgs := q.DurationFilter()
 	if durFilter != "" {
 		filters = append(filters, durFilter)
 		filterArgs = append(filterArgs, durFilterArgs...)
 	}
 
-	q := ""
-	if with != "" {
-		q += "WITH " + with
-	}
-	q += " SELECT Timestamp, TraceId, SpanId, ParentSpanId, SpanName, ServiceName, Duration, StatusCode, StatusMessage, ResourceAttributes, SpanAttributes, Events.Timestamp, Events.Name, Events.Attributes"
-	q += " FROM otel_traces"
-	q += " WHERE " + strings.Join(filters, " AND ")
-	if orderBy != "" {
-		q += " ORDER BY " + orderBy
-	}
-	if limit > 0 {
-		q += " LIMIT " + fmt.Sprint(limit)
+	var join string
+
+	if q.Attribute != nil {
+		attrFilter, attrFilterArgs := q.SpansByAttributeFilter()
+		filterArgs = append(filterArgs, attrFilterArgs...)
+		with = "t AS ("
+		with += "SELECT DISTINCT TraceId"
+		with += " FROM otel_traces"
+		with += " WHERE " + strings.Join([]string{tsFilter, attrFilter}, " AND ")
+		with += ")"
+		join = "t USING(TraceId)"
 	}
 
-	rows, err := c.conn.Query(ctx, q, filterArgs...)
+	query := ""
+	if with != "" {
+		query += "WITH " + with
+	}
+	query += " SELECT Timestamp, TraceId, SpanId, ParentSpanId, SpanName, ServiceName, Duration, StatusCode, StatusMessage, ResourceAttributes, SpanAttributes, Events.Timestamp, Events.Name, Events.Attributes"
+	query += " FROM otel_traces"
+	if join != "" {
+		query += " JOIN " + join
+	}
+	query += " WHERE " + strings.Join(filters, " AND ")
+	if orderBy != "" {
+		query += " ORDER BY " + orderBy
+	}
+	if q.Limit > 0 {
+		query += " LIMIT " + fmt.Sprint(q.Limit)
+	}
+
+	rows, err := c.conn.Query(ctx, query, filterArgs...)
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		_ = rows.Close()
-	}()
+	defer rows.Close()
+
 	var res []*model.TraceSpan
 	for rows.Next() {
 		var s model.TraceSpan
@@ -370,7 +395,7 @@ func (c *Client) getSpanAttrStats(ctx context.Context, q SpanQuery) ([]model.Tra
 	isInSelection := "false"
 	if q.IsSelectionDefined() {
 		isInSelection = "Timestamp BETWEEN @tsFrom AND @tsTo"
-		durFilter, durFilterArgs := durationFilter(q.DurFrom, q.DurTo, q.Errors)
+		durFilter, durFilterArgs := q.DurationFilter()
 		if durFilter != "" {
 			isInSelection += " AND " + durFilter
 			args = append(args, durFilterArgs...)
@@ -387,34 +412,31 @@ func (c *Client) getSpanAttrStats(ctx context.Context, q SpanQuery) ([]model.Tra
 	query := fmt.Sprintf(`
 WITH a AS (
     SELECT
-        Name,
-        Value,
+		Source, Name, Value,
         %s AS selection,
         sum(Count) AS count
     FROM otel_traces_attributes
     WHERE
         %s
-    GROUP BY 1, 2, 3
+    GROUP BY 1, 2, 3, 4
 ), s AS (
     SELECT
-        Name,
-        Value,
+		Source, Name, Value,
         sum(if(a.selection, count, 0)) AS selection,
         sum(if(a.selection, 0, count)) AS baseline,
         sum(selection) OVER (PARTITION BY Name) AS selection_total,
         sum(baseline) OVER (PARTITION BY Name) AS baseline_total
     FROM a
-    GROUP BY 1, 2
+    GROUP BY 1, 2, 3
 ), t AS (
     SELECT
-        Name,
-        Value,
+		Source, Name, Value,
         if(selection_total=0, 0, selection / selection_total) AS selection,
         if(baseline_total=0, 0, baseline / baseline_total) AS baseline,
         row_number() OVER (PARTITION BY Name ORDER BY selection+baseline DESC) AS top
     FROM s
 )
-SELECT Name, Value, selection, baseline FROM t WHERE top <= @top`,
+SELECT Source, Name, Value, selection, baseline FROM t WHERE top <= @top`,
 		isInSelection, strings.Join(filters, " AND "),
 	)
 
@@ -424,36 +446,89 @@ SELECT Name, Value, selection, baseline FROM t WHERE top <= @top`,
 	}
 	defer rows.Close()
 
-	var name, value string
+	type Attr struct{ source, name string }
+
+	var attr Attr
+	var value string
 	var selection, baseline float64
-	byName := map[string][]*model.TraceSpanAttrStatsValue{}
-	maxDiffByName := map[string]float64{}
+	attrs := map[Attr][]*model.TraceSpanAttrStatsValue{}
+	maxDiff := map[Attr]float64{}
 	for rows.Next() {
-		if err = rows.Scan(&name, &value, &selection, &baseline); err != nil {
+		if err = rows.Scan(&attr.source, &attr.name, &value, &selection, &baseline); err != nil {
 			return nil, err
 		}
-		diff := selection - baseline
-		if diff > maxDiffByName[name] {
-			maxDiffByName[name] = diff
+		diff := math.Abs(selection - baseline)
+		if diff > maxDiff[attr] {
+			maxDiff[attr] = diff
 		}
-		byName[name] = append(byName[name], &model.TraceSpanAttrStatsValue{
+		attrs[attr] = append(attrs[attr], &model.TraceSpanAttrStatsValue{
 			Name:      value,
 			Selection: float32(selection),
 			Baseline:  float32(baseline),
 		})
 	}
 	var res []model.TraceSpanAttrStats
-	for n, vs := range byName {
-		res = append(res, model.TraceSpanAttrStats{Name: n, Values: vs})
+	for a, vs := range attrs {
+		res = append(res, model.TraceSpanAttrStats{Source: a.source, Name: a.name, Values: vs})
 	}
 	sort.Slice(res, func(i, j int) bool {
-		return maxDiffByName[res[i].Name] > maxDiffByName[res[j].Name]
+		ri, rj := res[i], res[j]
+		return maxDiff[Attr{source: ri.Source, name: ri.Name}] > maxDiff[Attr{source: rj.Source, name: rj.Name}]
 	})
 
 	return res, nil
 }
 
-func rootSpansFilter(q SpanQuery) ([]string, []any) {
+type SpanQuery struct {
+	Ctx timeseries.Context
+
+	TsFrom  timeseries.Time
+	TsTo    timeseries.Time
+	DurFrom time.Duration
+	DurTo   time.Duration
+	Errors  bool
+
+	Limit int
+
+	ServiceName      string
+	SpanName         string
+	Attribute        *model.TraceSpanAttr
+	ExcludePeerAddrs []string
+}
+
+func (q SpanQuery) IsSelectionDefined() bool {
+	return q.TsFrom > q.Ctx.From || q.TsTo < q.Ctx.To || q.DurFrom > 0 || q.DurTo > 0 || q.Errors
+}
+
+func (q SpanQuery) DurationFilter() (string, []any) {
+	var filter string
+	switch {
+	case q.DurFrom > 0 && q.DurTo > 0 && q.Errors:
+		filter = "(Duration BETWEEN @durFrom AND @durTo OR StatusCode = 'STATUS_CODE_ERROR')"
+	case q.DurFrom == 0 && q.DurTo > 0 && q.Errors:
+		filter = "(Duration <= @durTo OR StatusCode = 'STATUS_CODE_ERROR')"
+	case q.DurFrom > 0 && q.DurTo == 0 && q.Errors:
+		filter = "(Duration >= @durFrom OR StatusCode = 'STATUS_CODE_ERROR')"
+	case q.DurFrom == 0 && q.DurTo == 0 && q.Errors:
+		filter = "StatusCode = 'STATUS_CODE_ERROR'"
+	case q.DurFrom > 0 && q.DurTo > 0 && !q.Errors:
+		filter = "Duration BETWEEN @durFrom AND @durTo"
+	case q.DurFrom == 0 && q.DurTo > 0 && !q.Errors:
+		filter = "Duration <= @durTo"
+	case q.DurFrom > 0 && q.DurTo == 0 && !q.Errors:
+		filter = "Duration >= @durFrom"
+	}
+	var args []any
+	if q.DurFrom > 0 {
+		args = append(args, clickhouse.Named("durFrom", q.DurFrom.Nanoseconds()))
+	}
+	if q.DurTo > 0 {
+		args = append(args, clickhouse.Named("durTo", q.DurTo.Nanoseconds()))
+	}
+	return filter, args
+}
+
+func (q SpanQuery) RootSpansFilter() ([]string, []any) {
 	filter := []string{
 		"SpanKind = 'SPAN_KIND_SERVER'",
 		"ParentSpanId = ''",
@@ -474,7 +549,7 @@ func rootSpansFilter(q SpanQuery) ([]string, []any) {
 	return filter, args
 }
 
-func spansByServiceNameFilter(q SpanQuery) ([]string, []any) {
+func (q SpanQuery) SpansByServiceNameFilter() ([]string, []any) {
 	filter := []string{
 		"ServiceName = @serviceName",
 		"SpanKind = 'SPAN_KIND_SERVER'",
@@ -487,6 +562,27 @@ func spansByServiceNameFilter(q SpanQuery) ([]string, []any) {
 		args = append(args, clickhouse.Named("addrs", q.ExcludePeerAddrs))
 	}
 	return filter, args
+}
+
+func (q SpanQuery) SpansByAttributeFilter() (string, []any) {
+	var f string
+	switch q.Attribute.Source {
+	case "SpanName":
+		f = "SpanName = @attr_value"
+	case "StatusCode":
+		f = "StatusCode = @attr_value"
+	case "StatusMessage":
+		f = "StatusMessage = @attr_value"
+	case "ResourceAttributes":
+		f = "ResourceAttributes[@attr_name] = @attr_value"
+	case "SpanAttributes":
+		f = "SpanAttributes[@attr_name] = @attr_value"
+	}
+	args := []any{
+		clickhouse.Named("attr_name", q.Attribute.Name),
+		clickhouse.Named("attr_value", q.Attribute.Value),
+	}
+	return f, args
 }
 
 func inboundSpansFilter(clients []string, listens []model.Listen) ([]string, []any) {
@@ -508,34 +604,6 @@ func inboundSpansFilter(clients []string, listens []model.Listen) ([]string, []a
 		clickhouse.Named("services", clients),
 		clickhouse.Named("ips", maps.Keys(ips)),
 		clickhouse.Named("addrs", addrs),
-	}
-	return filter, args
-}
-
-func durationFilter(durFrom, durTo time.Duration, errors bool) (string, []any) {
-	var filter string
-	switch {
-	case durFrom > 0 && durTo > 0 && errors:
-		filter = "(Duration BETWEEN @durFrom AND @durTo OR StatusCode = 'STATUS_CODE_ERROR')"
-	case durFrom == 0 && durTo > 0 && errors:
-		filter = "(Duration <= @durTo OR StatusCode = 'STATUS_CODE_ERROR')"
-	case durFrom > 0 && durTo == 0 && errors:
-		filter = "(Duration >= @durFrom OR StatusCode = 'STATUS_CODE_ERROR')"
-	case durFrom == 0 && durTo == 0 && errors:
-		filter = "StatusCode = 'STATUS_CODE_ERROR'"
-	case durFrom > 0 && durTo > 0 && !errors:
-		filter = "Duration BETWEEN @durFrom AND @durTo"
-	case durFrom == 0 && durTo > 0 && !errors:
-		filter = "Duration <= @durTo"
-	case durFrom > 0 && durTo == 0 && !errors:
-		filter = "Duration >= @durFrom"
-	}
-	var args []any
-	if durFrom > 0 {
-		args = append(args, clickhouse.Named("durFrom", durFrom.Nanoseconds()))
-	}
-	if durTo > 0 {
-		args = append(args, clickhouse.Named("durTo", durTo.Nanoseconds()))
 	}
 	return filter, args
 }

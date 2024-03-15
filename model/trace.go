@@ -78,7 +78,14 @@ func (s *TraceSpan) Details() TraceSpanDetails {
 	return res
 }
 
+type TraceSpanAttr struct {
+	Source string `json:"source"`
+	Name   string `json:"name"`
+	Value  string `json:"value"`
+}
+
 type TraceSpanAttrStats struct {
+	Source string                     `json:"source"`
 	Name   string                     `json:"name"`
 	Values []*TraceSpanAttrStatsValue `json:"values"`
 }
