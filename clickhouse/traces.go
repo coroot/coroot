@@ -411,38 +411,40 @@ func (c *Client) getSpanAttrStats(ctx context.Context, q SpanQuery) ([]model.Tra
 	}
 	query := fmt.Sprintf(`
 WITH a AS (
-    SELECT
-        arrayJoin(arrayConcat(
-            [('SpanName', 'SpanName', SpanName), ('StatusCode', 'StatusCode', StatusCode), ('StatusMessage', 'StatusMessage', StatusMessage)],
-            arrayMap((k, v) -> ('ResourceAttributes', k, v), mapKeys(ResourceAttributes), mapValues(ResourceAttributes)),
-            arrayMap((k, v) -> ('SpanAttributes', k, v), mapKeys(SpanAttributes), mapValues(SpanAttributes))
-        )) AS attribute,
-        %s AS selection,
-        count(*) AS count
-    FROM otel_traces
-    WHERE
-        %s
-    GROUP BY 1, 2
+    SELECT 'SpanName' as source, ('SpanName', SpanName) AS attribute, %[1]s AS selection, count(*) AS count
+    FROM otel_traces WHERE %[2]s GROUP BY attribute, selection
+    UNION ALL
+    SELECT 'StatusCode' as source, ('StatusCode', StatusCode) AS attribute, %[1]s AS selection, count(*) AS count
+    FROM otel_traces WHERE %[2]s GROUP BY attribute, selection
+    UNION ALL
+    SELECT 'StatusMessage' as source, ('StatusMessage', StatusMessage) AS attribute, %[1]s AS selection, count(*) AS count
+    FROM otel_traces WHERE %[2]s GROUP BY attribute, selection
+    UNION ALL
+    SELECT 'ResourceAttributes' as source, arrayJoin(ResourceAttributes) AS attribute, %[1]s AS selection, count(*) AS count
+    FROM otel_traces WHERE %[2]s GROUP BY attribute, selection
+    UNION ALL
+    SELECT 'SpanAttributes' as source, arrayJoin(SpanAttributes) AS attribute, %[1]s AS selection, count(*) AS count
+    FROM otel_traces WHERE %[2]s GROUP BY attribute, selection
 ), s AS (
     SELECT
-		tupleElement(attribute, 1) AS Source,
-		tupleElement(attribute, 2) AS Name,
-		tupleElement(attribute, 3) AS Value,
+        source,
+        tupleElement(attribute, 1) AS name,
+        tupleElement(attribute, 2) AS value,
         sum(if(a.selection, count, 0)) AS selection,
         sum(if(a.selection, 0, count)) AS baseline,
-        sum(selection) OVER (PARTITION BY Name) AS selection_total,
-        sum(baseline) OVER (PARTITION BY Name) AS baseline_total
+        sum(selection) OVER (PARTITION BY name) AS selection_total,
+        sum(baseline) OVER (PARTITION BY name) AS baseline_total
     FROM a
-    GROUP BY 1, 2, 3
+    GROUP BY source, name, value
 ), t AS (
     SELECT
-		Source, Name, Value,
+        source, name, value,
         if(selection_total=0, 0, selection / selection_total) AS selection,
         if(baseline_total=0, 0, baseline / baseline_total) AS baseline,
-        row_number() OVER (PARTITION BY Name ORDER BY selection+baseline DESC) AS top
+        row_number() OVER (PARTITION BY name ORDER BY selection+baseline DESC) AS top
     FROM s
 )
-SELECT Source, Name, Value, selection, baseline FROM t WHERE top <= @top`,
+SELECT source, name, value, selection, baseline FROM t WHERE top <= @top`,
 		isInSelection, strings.Join(filters, " AND "),
 	)
 
