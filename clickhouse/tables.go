@@ -116,5 +116,7 @@ SELECT
 FROM otel_traces
 WHERE TraceId!=''
 GROUP BY TraceId`,
+
+		`ALTER TABLE otel_traces ADD COLUMN IF NOT EXISTS NetSockPeerAddr LowCardinality(String) MATERIALIZED SpanAttributes['net.sock.peer.addr'] CODEC(ZSTD(1))`,
 	}
 )

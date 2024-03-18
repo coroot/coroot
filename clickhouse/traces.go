@@ -549,7 +549,7 @@ func (q SpanQuery) RootSpansFilter() ([]string, []any) {
 		args = append(args, clickhouse.Named("spanName", q.SpanName))
 	}
 	if len(q.ExcludePeerAddrs) > 0 {
-		filter = append(filter, "SpanAttributes['net.sock.peer.addr'] NOT IN (@addrs)")
+		filter = append(filter, "NetSockPeerAddr NOT IN (@addrs)")
 		args = append(args, clickhouse.Named("addrs", q.ExcludePeerAddrs))
 	}
 	return filter, args
@@ -564,7 +564,7 @@ func (q SpanQuery) SpansByServiceNameFilter() ([]string, []any) {
 		clickhouse.Named("serviceName", q.ServiceName),
 	}
 	if len(q.ExcludePeerAddrs) > 0 {
-		filter = append(filter, "SpanAttributes['net.sock.peer.addr'] NOT IN (@addrs)")
+		filter = append(filter, "NetSockPeerAddr NOT IN (@addrs)")
 		args = append(args, clickhouse.Named("addrs", q.ExcludePeerAddrs))
 	}
 	return filter, args
