@@ -48,7 +48,7 @@ Available values:
 Available values:
             Status:  <b>string</b>
             Title:   <b>string</b>
-            Summury: <b>[]string</b>
+            Summary: <b>[]string</b>
             URL:     <b>string</b>
         </pre
             >
