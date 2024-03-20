@@ -38,7 +38,15 @@ Available values:
             <pre>
 Available values:
             Status:  <b>string</b>
-            Title:   <b>string</b>
+            App <b>struct</b>{
+                Name <b>string</b>
+                Kind <b>string</b>
+                Namespace <b>string</b>
+            }
+            Project <b>struct</b>{
+                Id <b>string></b>
+                Name <b>string</b>
+            }
             Summary: <b>[]string</b>
             URL:     <b>string</b>
         </pre

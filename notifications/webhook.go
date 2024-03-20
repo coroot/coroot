@@ -28,9 +28,15 @@ type IncidentTemplateValues struct {
 	Timestamp timeseries.Time
 }
 
+type Project struct {
+	Id   string
+	Name string
+}
+
 type DeploymentTemplateValues struct {
 	Status  string
-	Title   string
+	App     model.ApplicationId
+	Project Project
 	Summary []string
 	URL     string
 }
@@ -88,8 +94,6 @@ func (t *WebHook) SendDeployment(ctx context.Context, project *db.Project, ds mo
 		status = "Cancelled"
 	}
 
-	title := fmt.Sprintf("Deployment of **%s** to **%s**", d.ApplicationId.Name, project.Name)
-
 	var summary []string
 
 	if ds.State == model.ApplicationDeploymentStateSummary {
@@ -102,9 +106,15 @@ func (t *WebHook) SendDeployment(ctx context.Context, project *db.Project, ds mo
 	}
 
 	var data bytes.Buffer
+	var projectDeploy = Project{
+		Name: *&project.Name,
+		Id:   string(project.Id),
+	}
+
 	err = tmpl.Execute(&data, DeploymentTemplateValues{
 		Status:  status,
-		Title:   title,
+		App:     d.ApplicationId,
+		Project: projectDeploy,
 		Summary: summary,
 		URL:     deploymentUrl(project.Settings.Integrations.BaseUrl, project.Id, d),
 	})
