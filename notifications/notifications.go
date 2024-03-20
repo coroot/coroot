@@ -40,7 +40,7 @@ func getClient(destination db.IntegrationType, integrations db.Integrations) Not
 		}
 	case db.IntegrationTypeWebHook:
 		if cfg := integrations.WebHook; cfg != nil && cfg.Incidents {
-			return NewWebHook(cfg.WebHookUrl, cfg.CorrectResponse, cfg.IsJsonResponse, cfg.IncidentTemplate, cfg.DeploymentTemplate)
+			return NewWebHook(cfg.WebHookUrl, cfg.IncidentTemplate, cfg.DeploymentTemplate)
 		}
 	}
 	return nil

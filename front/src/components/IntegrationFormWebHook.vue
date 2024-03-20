@@ -4,21 +4,12 @@
         <!-- eslint-disable-next-line vue/no-mutating-props -->
         <v-text-field v-model="form.webhook_url" outlined dense :rules="[$validators.notEmpty]" />
 
-        <div class="subtitle-1">Correct response JSON</div>
-        <div class="caption">The webhook will be considered successful if every field and value that is below is also in the response.</div>
         <!-- eslint-disable-next-line vue/no-mutating-props -->
-        <v-text-field v-model="form.correct_response" outlined dense :rules="[$validators.notEmpty]" />
-
-        <div class="subtitle-1">Is response Content-Type/json?</div>
-
-        <!-- eslint-disable-next-line vue/no-mutating-props -->
-        <v-checkbox v-model="form.is_json_response" label="IsJsonResponse" outlined dense />
 
         <div class="subtitle-1">Incident template</div>
         <div class="caption">
             <pre>
 Available values:
-            StatusOK, StatusINFO, StatusWARNING, StatusCRITICAL <b>bool</b>
             Status <b>string</b>
             URL <b>string</b>
             App <b>struct</b>{

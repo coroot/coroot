@@ -138,7 +138,7 @@ func (w *Deployments) sendNotifications(project *db.Project, world *model.World)
 				}
 			}
 			if cfg := integrations.WebHook; cfg != nil && cfg.Deployments && d.Notifications.WebHook.State < ds.State {
-				client := notifications.NewWebHook(cfg.WebHookUrl, cfg.CorrectResponse, cfg.IsJsonResponse, cfg.IncidentTemplate, cfg.DeploymentTemplate)
+				client := notifications.NewWebHook(cfg.WebHookUrl, cfg.IncidentTemplate, cfg.DeploymentTemplate)
 				ctx, cancel := context.WithTimeout(context.Background(), sendTimeout)
 				err := client.SendDeployment(ctx, project, ds)
 				cancel()

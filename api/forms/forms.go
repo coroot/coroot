@@ -488,15 +488,13 @@ type IntegrationFormWebHook struct {
 }
 
 func (f *IntegrationFormWebHook) Valid() bool {
-	return f.WebHookUrl != "" || f.CorrectResponse != "" || f.IncidentTemplate != ""
+	return f.WebHookUrl != "" || f.IncidentTemplate != ""
 }
 
 func (f *IntegrationFormWebHook) Get(project *db.Project, masked bool) {
 	cfg := project.Settings.Integrations.WebHook
 	if cfg == nil {
 		f.WebHookUrl = ""
-		f.CorrectResponse = ``
-		f.IsJsonResponse = false
 		f.IncidentTemplate = ``
 		f.Incidents = true
 		f.DeploymentTemplate = ``
@@ -519,5 +517,5 @@ func (f *IntegrationFormWebHook) Update(ctx context.Context, project *db.Project
 }
 
 func (f *IntegrationFormWebHook) Test(ctx context.Context, project *db.Project) error {
-	return notifications.NewWebHook(f.WebHookUrl, f.CorrectResponse, f.IsJsonResponse, f.IncidentTemplate, f.DeploymentTemplate).SendIncident(ctx, project.Settings.Integrations.BaseUrl, testNotification(project))
+	return notifications.NewWebHook(f.WebHookUrl, f.IncidentTemplate, f.DeploymentTemplate).SendIncident(ctx, project.Settings.Integrations.BaseUrl, testNotification(project))
 }

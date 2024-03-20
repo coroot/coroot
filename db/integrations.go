@@ -150,8 +150,6 @@ type IntegrationOpsgenie struct {
 
 type IntegrationWebHook struct {
 	WebHookUrl         string `json:"webhook_url"`
-	CorrectResponse    string `json:"correct_response"`
-	IsJsonResponse     bool   `json:"is_json_response"`
 	IncidentTemplate   string `json:"incident_template"`
 	Incidents          bool   `json:"incidents"`
 	DeploymentTemplate string `json:"deployment_template"`

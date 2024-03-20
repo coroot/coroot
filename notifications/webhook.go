@@ -3,11 +3,9 @@ package notifications
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"reflect"
 	"strings"
 	"text/template"
 
@@ -18,8 +16,6 @@ import (
 
 type WebHook struct {
 	webhookUrl         string
-	correctResponse    string
-	isJsonResponse     bool
 	incidentTemplate   string
 	deploymentTemplate string
 }
@@ -39,11 +35,9 @@ type DeploymentTemplateValues struct {
 	URL     string
 }
 
-func NewWebHook(webhookUrl string, correctResponse string, isJsonResponse bool, incidentTemplate string, deploymentTemplate string) *WebHook {
+func NewWebHook(webhookUrl string, incidentTemplate string, deploymentTemplate string) *WebHook {
 	return &WebHook{
 		webhookUrl:         webhookUrl,
-		correctResponse:    correctResponse,
-		isJsonResponse:     isJsonResponse,
 		incidentTemplate:   incidentTemplate,
 		deploymentTemplate: deploymentTemplate,
 	}
@@ -128,37 +122,12 @@ func (t *WebHook) SendDeployment(ctx context.Context, project *db.Project, ds mo
 }
 
 func (t *WebHook) validateResponse(resp *http.Response) error {
-	if !t.isJsonResponse {
+	if resp.StatusCode != http.StatusOK {
 		respBody, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
-			return fmt.Errorf("WebHookIntegration: invalid response: %s", err)
+			return fmt.Errorf("WebHookIntegration: error reading response body: %s", err)
 		}
-		if t.correctResponse != string(respBody) {
-			return fmt.Errorf("WebHookIntegration: invalid correctResponse: %s", err)
-		}
-		return nil
+		return fmt.Errorf("WebHookIntegration: invalid response status code: %d, response body: %s", resp.StatusCode, string(respBody))
 	}
-
-	var correctData map[string]interface{}
-	err := json.Unmarshal([]byte(t.correctResponse), &correctData)
-	if err != nil {
-		return fmt.Errorf("WebHookIntegration: invalid correctResponse: %s", err)
-	}
-
-	var respData map[string]interface{}
-	err = json.NewDecoder(resp.Body).Decode(&respData)
-	if err != nil {
-		return fmt.Errorf("WebHookIntegration: invalid response from endpoint: %s", err)
-	}
-
-	for key, value := range correctData {
-		respValue, ok := respData[key]
-		if !ok {
-			return fmt.Errorf("WebHookIntegration: endpoint doesn't contains field:\n%s", key)
-		} else if !reflect.DeepEqual(value, respValue) {
-			return fmt.Errorf("WebHookIntegration: endpoint response %s == %s: %s", key, respValue, respData)
-		}
-	}
-
 	return nil
 }
