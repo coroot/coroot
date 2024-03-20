@@ -62,7 +62,8 @@ func (c *Client) GetRootSpansSummary(ctx context.Context, q SpanQuery) (*model.T
 }
 
 func (c *Client) GetSpanAttrStats(ctx context.Context, q SpanQuery) ([]model.TraceSpanAttrStats, error) {
-	return c.getSpanAttrStats(ctx, q)
+	filter, filterArgs := q.RootSpansFilter()
+	return c.getSpanAttrStats(ctx, q, filter, filterArgs)
 }
 
 func (c *Client) GetSpansByServiceNameHistogram(ctx context.Context, q SpanQuery) ([]model.HistogramBucket, error) {
@@ -380,51 +381,55 @@ func (c *Client) getSpans(ctx context.Context, q SpanQuery, with string, orderBy
 	return res, nil
 }
 
-func (c *Client) getSpanAttrStats(ctx context.Context, q SpanQuery) ([]model.TraceSpanAttrStats, error) {
-	filters := []string{
-		"Timestamp BETWEEN @from AND @to",
-		"NOT startsWith(ServiceName, '/')",
-	}
-	args := []any{
-		clickhouse.DateNamed("from", q.Ctx.From.ToStandard(), clickhouse.Seconds),
-		clickhouse.DateNamed("to", q.Ctx.To.ToStandard(), clickhouse.Seconds),
+func (c *Client) getSpanAttrStats(ctx context.Context, q SpanQuery, filters []string, filterArgs []any) ([]model.TraceSpanAttrStats, error) {
+	tsFilter := "Timestamp BETWEEN @from AND @to"
+	filters = append(filters, tsFilter)
+	filterArgs = append(filterArgs,
+		clickhouse.DateNamed("from", q.Ctx.From.ToStandard(), clickhouse.NanoSeconds),
+		clickhouse.DateNamed("to", q.Ctx.To.ToStandard(), clickhouse.NanoSeconds),
 		clickhouse.DateNamed("tsFrom", q.TsFrom.ToStandard(), clickhouse.Seconds),
 		clickhouse.DateNamed("tsTo", q.TsTo.ToStandard(), clickhouse.Seconds),
 		clickhouse.Named("top", q.Limit),
-	}
+	)
+
 	isInSelection := "false"
 	if q.IsSelectionDefined() {
 		isInSelection = "Timestamp BETWEEN @tsFrom AND @tsTo"
 		durFilter, durFilterArgs := q.DurationFilter()
 		if durFilter != "" {
 			isInSelection += " AND " + durFilter
-			args = append(args, durFilterArgs...)
+			filterArgs = append(filterArgs, durFilterArgs...)
 		}
 	}
-	if q.ServiceName != "" {
-		filters = append(filters, "ServiceName = @serviceName")
-		args = append(args, clickhouse.Named("serviceName", q.ServiceName))
+
+	traceFilters := strings.Join(filters, " AND ")
+	traceIds := fmt.Sprintf("SELECT DISTINCT TraceId FROM otel_traces WHERE %s", traceFilters)
+	if q.Attribute != nil {
+		attrFilter, attrFilterArgs := q.SpansByAttributeFilter()
+		filterArgs = append(filterArgs, attrFilterArgs...)
+		traceIds = fmt.Sprintf(
+			"SELECT DISTINCT TraceId FROM otel_traces JOIN (SELECT DISTINCT TraceId FROM otel_traces WHERE %s AND %s) t USING(TraceId) WHERE %s",
+			tsFilter, attrFilter, traceFilters)
 	}
-	if q.SpanName != "" {
-		filters = append(filters, "SpanName = @spanName")
-		args = append(args, clickhouse.Named("spanName", q.SpanName))
-	}
+
 	query := fmt.Sprintf(`
-WITH a AS (
-    SELECT 'SpanName' as source, ('SpanName', SpanName) AS attribute, %[1]s AS selection, count(*) AS count
-    FROM otel_traces WHERE %[2]s GROUP BY attribute, selection
+WITH t AS (
+	%[1]s
+), a AS (
+    SELECT 'SpanName' as source, ('SpanName', SpanName) AS attribute, %[3]s AS selection, count(*) AS count
+    FROM otel_traces JOIN t USING(TraceId) WHERE %[2]s GROUP BY attribute, selection
     UNION ALL
-    SELECT 'StatusCode' as source, ('StatusCode', StatusCode) AS attribute, %[1]s AS selection, count(*) AS count
-    FROM otel_traces WHERE %[2]s GROUP BY attribute, selection
+    SELECT 'StatusCode' as source, ('StatusCode', StatusCode) AS attribute, %[3]s AS selection, count(*) AS count
+    FROM otel_traces JOIN t USING(TraceId) WHERE %[2]s GROUP BY attribute, selection
     UNION ALL
-    SELECT 'StatusMessage' as source, ('StatusMessage', StatusMessage) AS attribute, %[1]s AS selection, count(*) AS count
-    FROM otel_traces WHERE %[2]s GROUP BY attribute, selection
+    SELECT 'StatusMessage' as source, ('StatusMessage', StatusMessage) AS attribute, %[3]s AS selection, count(*) AS count
+    FROM otel_traces JOIN t USING(TraceId) WHERE %[2]s GROUP BY attribute, selection
     UNION ALL
-    SELECT 'ResourceAttributes' as source, arrayJoin(ResourceAttributes) AS attribute, %[1]s AS selection, count(*) AS count
-    FROM otel_traces WHERE %[2]s GROUP BY attribute, selection
+    SELECT 'ResourceAttributes' as source, arrayJoin(ResourceAttributes) AS attribute, %[3]s AS selection, count(*) AS count
+    FROM otel_traces JOIN t USING(TraceId) WHERE %[2]s GROUP BY attribute, selection
     UNION ALL
-    SELECT 'SpanAttributes' as source, arrayJoin(SpanAttributes) AS attribute, %[1]s AS selection, count(*) AS count
-    FROM otel_traces WHERE %[2]s GROUP BY attribute, selection
+    SELECT 'SpanAttributes' as source, arrayJoin(SpanAttributes) AS attribute, %[3]s AS selection, count(*) AS count
+    FROM otel_traces JOIN t USING(TraceId) WHERE %[2]s GROUP BY attribute, selection
 ), s AS (
     SELECT
         source,
@@ -436,7 +441,7 @@ WITH a AS (
         sum(baseline) OVER (PARTITION BY name) AS baseline_total
     FROM a
     GROUP BY source, name, value
-), t AS (
+), p AS (
     SELECT
         source, name, value,
         if(selection_total=0, 0, selection / selection_total) AS selection,
@@ -444,11 +449,11 @@ WITH a AS (
         row_number() OVER (PARTITION BY name ORDER BY selection+baseline DESC) AS top
     FROM s
 )
-SELECT source, name, value, selection, baseline FROM t WHERE top <= @top`,
-		isInSelection, strings.Join(filters, " AND "),
+SELECT source, name, value, selection, baseline FROM p WHERE top <= @top`,
+		traceIds, tsFilter, isInSelection,
 	)
 
-	rows, err := c.conn.Query(ctx, query, args...)
+	rows, err := c.conn.Query(ctx, query, filterArgs...)
 	if err != nil {
 		return nil, err
 	}
