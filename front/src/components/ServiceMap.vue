@@ -148,14 +148,16 @@ export default {
             this.calc();
         },
         calc() {
-            let applications = Array.from(this.applications || []);
+            if (!this.applications) {
+                return;
+            }
             const index = new Map();
-            applications.forEach((a) => {
+            this.applications.forEach((a) => {
                 index.set(a.id, a);
             });
             this.tooManyApplications = 0;
             const filter = (a) => index.get(a.id) && this.filter.has(a.id);
-            applications = applications.filter(filter);
+            const applications = this.applications.filter(filter).map((a) => ({ ...a }));
             if (applications.length > this.maxApplications) {
                 this.tooManyApplications = applications.length;
                 this.levels = [];

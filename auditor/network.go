@@ -16,6 +16,8 @@ func (a *appAuditor) network() {
 	report := a.addReport(model.AuditReportNetwork)
 
 	rttCheck := report.CreateCheck(model.Checks.NetworkRTT)
+	connectionsCheck := report.CreateCheck(model.Checks.NetworkTCPConnections)
+	connectivityCheck := report.CreateCheck(model.Checks.NetworkConnectivity)
 
 	dependencyMap := report.GetOrCreateDependencyMap()
 	failedConnectionsChart := report.GetOrCreateChart("Failed TCP connections, per second", nil)
@@ -65,6 +67,13 @@ func (a *appAuditor) network() {
 				}
 				summary.rtts = append(summary.rtts, u.Rtt)
 			}
+			if u.HasConnectivityIssues() {
+				connectivityCheck.AddItem(upstreamApp.Id.String())
+			}
+			if u.HasFailedConnectionAttempts() {
+				connectionsCheck.AddItem(upstreamApp.Id.String())
+			}
+
 			if !u.Retransmissions.IsEmpty() {
 				summary.retransmissions = append(summary.retransmissions, u.Retransmissions)
 			}

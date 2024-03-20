@@ -85,7 +85,8 @@ func GuessService(services []string, appId ApplicationId) string {
 		switch {
 		case len(parts) == 4 && parts[1] == "k8s" && parts[2] == appId.Namespace && parts[3] == appId.Name:
 		case len(parts) == 3 && parts[1] == "system.slice" && parts[2] == appId.Name+".service":
-		case strings.HasSuffix(s, appId.Name):
+		case strings.HasSuffix(s, appId.Name): // /docker/backend <-> backend
+		case strings.HasSuffix(appId.Name, s): // demo-cartservice <-> cartservice
 		default:
 			continue
 		}

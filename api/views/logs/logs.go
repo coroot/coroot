@@ -98,8 +98,15 @@ func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, 
 	if v.View == "" {
 		v.View = viewMessages
 	}
-	v.Views = append(v.Views, viewMessages)
 	renderEntries(ctx, v, ch, app, appSettings, w, q, patterns)
+
+	if v.Status == model.UNKNOWN {
+		v.View = viewPatterns
+		renderPatterns(v, patterns, w.Ctx)
+		return v
+	}
+
+	v.Views = append(v.Views, viewMessages)
 	if v.Source == model.LogSourceAgent {
 		v.Views = append(v.Views, viewPatterns)
 		if v.View == viewPatterns {
@@ -139,7 +146,7 @@ func renderEntries(ctx context.Context, v *View, ch *clickhouse.Client, app *mod
 
 	if len(v.Sources) == 0 {
 		v.Status = model.UNKNOWN
-		v.Message = "No logs found"
+		v.Message = "No logs found in ClickHouse"
 		return
 	}
 
