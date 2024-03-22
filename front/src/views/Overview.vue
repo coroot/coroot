@@ -85,9 +85,9 @@ export default {
             return {
                 health: 'Health',
                 map: 'Service Map',
+                traces: 'Traces',
                 nodes: 'Nodes',
                 deployments: 'Deployments',
-                traces: 'Traces',
                 costs: this.costs ? 'Costs' : '',
             };
         },

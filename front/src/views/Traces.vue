@@ -18,7 +18,13 @@
 
             <Heatmap v-if="view.heatmap" :heatmap="view.heatmap" :selection="selection" @select="setSelection" :loading="loading" />
 
-            <v-card outlined class="query px-4 py-2 mb-4">
+            <v-tabs height="32" show-arrows hide-slider>
+                <v-tab v-for="v in views" :to="openView(v)" class="view" :class="{ active: query.view === v }">
+                    {{ v }}
+                </v-tab>
+            </v-tabs>
+
+            <v-card outlined class="query px-4 py-2 my-4">
                 <div v-if="query.service_name || query.span_name" class="mt-2 d-flex align-center">
                     <div class="mr-2">Where:</div>
                     <div class="d-flex flex-wrap" style="gap: 8px">
@@ -68,12 +74,6 @@
                     />
                 </v-form>
             </v-card>
-
-            <v-tabs height="32" show-arrows hide-slider>
-                <v-tab v-for="v in views" :to="openView(v)" class="view" :class="{ active: query.view === v }">
-                    {{ v }}
-                </v-tab>
-            </v-tabs>
 
             <div v-if="query.trace_id" class="mt-5" style="min-height: 50vh">
                 <div class="text-md-h6 mb-3">
@@ -153,8 +153,11 @@
                                     <span class="caption grey--text">/s</span>
                                 </td>
                                 <td class="text-right font-weight-medium">
-                                    <span>{{ format(item.failed, '%') }}</span>
-                                    <span class="caption grey--text">%</span>
+                                    <router-link v-if="item.failed" :to="filterTraces(query.service_name, query.span_name, true)">
+                                        <span>{{ format(item.failed, '%') }}</span>
+                                        <span class="caption grey--text">%</span>
+                                    </router-link>
+                                    <span v-else>—</span>
                                 </td>
                                 <td class="text-right font-weight-medium">
                                     <span>{{ format(item.duration_quantiles[0], 'ms') }}</span>
@@ -299,7 +302,8 @@
                         </div>
                     </template>
                     <template #item.sample_error="{ item }">
-                        <div class="nowrap" :title="item.sample_error">
+                        <div v-if="item.sample_error" class="nowrap" :title="item.sample_error">
+                            <v-icon color="error" small style="margin-bottom: 2px">mdi-alert-circle</v-icon>
                             {{ item.sample_error }}
                         </div>
                     </template>
@@ -362,7 +366,7 @@ export default {
 
     computed: {
         views() {
-            return ['overview', 'traces', 'attributes', 'errors'];
+            return ['overview', 'traces', 'errors', 'attributes'];
         },
         query() {
             let q = {};
