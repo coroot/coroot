@@ -32,6 +32,7 @@ type Traces struct {
 	Limit     int                        `json:"limit"`
 	Summary   *model.TraceSpanSummary    `json:"summary"`
 	AttrStats []model.TraceSpanAttrStats `json:"attr_stats"`
+	Errors    []model.TraceErrorsStat    `json:"errors"`
 }
 
 type Span struct {
@@ -45,7 +46,13 @@ type Span struct {
 	Status     model.TraceSpanStatus  `json:"status"`
 	Details    model.TraceSpanDetails `json:"details"`
 	Attributes map[string]string      `json:"attributes"`
-	Events     []model.TraceSpanEvent `json:"events"`
+	Events     []Event                `json:"events"`
+}
+
+type Event struct {
+	Timestamp  int64             `json:"timestamp"`
+	Name       string            `json:"name"`
+	Attributes map[string]string `json:"attributes"`
 }
 
 type Query struct {
@@ -55,11 +62,10 @@ type Query struct {
 	DurFrom string          `json:"dur_from"`
 	DurTo   string          `json:"dur_to"`
 
-	TraceId     string               `json:"trace_id"`
-	ServiceName string               `json:"service_name"`
-	SpanName    string               `json:"span_name"`
-	Attribute   *model.TraceSpanAttr `json:"attribute"`
-	IncludeAux  bool                 `json:"include_aux"`
+	TraceId     string `json:"trace_id"`
+	ServiceName string `json:"service_name"`
+	SpanName    string `json:"span_name"`
+	IncludeAux  bool   `json:"include_aux"`
 
 	durFrom time.Duration
 	durTo   time.Duration
@@ -80,7 +86,6 @@ func renderTraces(ctx context.Context, ch *clickhouse.Client, w *model.World, qu
 		Ctx:         w.Ctx,
 		ServiceName: q.ServiceName,
 		SpanName:    q.SpanName,
-		Attribute:   q.Attribute,
 	}
 	if !q.IncludeAux {
 		sq.ExcludePeerAddrs = getMonitoringAndControlPlanePodIps(w)
@@ -125,6 +130,8 @@ func renderTraces(ctx context.Context, ch *clickhouse.Client, w *model.World, qu
 	case q.View == "attributes":
 		sq.Limit = attrValuesLimit
 		res.AttrStats, err = ch.GetSpanAttrStats(ctx, sq)
+	case q.View == "errors":
+		res.Errors, err = ch.GetTraceErrors(ctx, sq)
 	default:
 		res.Summary, err = ch.GetRootSpansSummary(ctx, sq)
 	}
@@ -151,13 +158,19 @@ func renderTraces(ctx context.Context, ch *clickhouse.Client, w *model.World, qu
 			Status:     s.Status(),
 			Attributes: map[string]string{},
 			Details:    s.Details(),
-			Events:     s.Events,
 		}
 		for name, value := range s.ResourceAttributes {
 			ss.Attributes[name] = value
 		}
 		for name, value := range s.SpanAttributes {
 			ss.Attributes[name] = value
+		}
+		for _, e := range s.Events {
+			ss.Events = append(ss.Events, Event{
+				Timestamp:  e.Timestamp.UnixMilli(),
+				Name:       e.Name,
+				Attributes: e.Attributes,
+			})
 		}
 		res.Spans = append(res.Spans, ss)
 	}

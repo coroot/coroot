@@ -19,7 +19,7 @@
             <Heatmap v-if="view.heatmap" :heatmap="view.heatmap" :selection="selection" @select="setSelection" :loading="loading" />
 
             <v-card outlined class="query px-4 py-2 mb-4">
-                <div v-if="query.service_name || query.span_name || query.attribute" class="mt-2 d-flex align-center">
+                <div v-if="query.service_name || query.span_name" class="mt-2 d-flex align-center">
                     <div class="mr-2">Where:</div>
                     <div class="d-flex flex-wrap" style="gap: 8px">
                         <v-chip v-if="query.service_name" @click:close="push(filterTraces(undefined, query.span_name))" label close color="primary">
@@ -27,9 +27,6 @@
                         </v-chip>
                         <v-chip v-if="query.span_name" @click:close="push(filterTraces(query.service_name, undefined))" label close color="primary">
                             <div class="where-arg">Root Span Name = {{ query.span_name }}</div>
-                        </v-chip>
-                        <v-chip v-if="query.attribute" @click:close="push(filterTracesByAttr(undefined))" label close color="primary">
-                            <div class="where-arg">{{ query.attribute.name }} = {{ query.attribute.value }}</div>
                         </v-chip>
                     </div>
                 </div>
@@ -72,8 +69,8 @@
                 </v-form>
             </v-card>
 
-            <v-tabs height="32" hide-slider>
-                <v-tab v-for="v in ['overview', 'traces', 'attributes']" :to="openView(v)" class="view" :class="{ active: query.view === v }">
+            <v-tabs height="32" show-arrows hide-slider>
+                <v-tab v-for="v in views" :to="openView(v)" class="view" :class="{ active: query.view === v }">
                     {{ v }}
                 </v-tab>
             </v-tabs>
@@ -181,7 +178,7 @@
                 <v-simple-table dense class="spans">
                     <thead>
                         <tr>
-                            <th></th>
+                            <th>Trace ID</th>
                             <th>Root Service</th>
                             <th>Name</th>
                             <th>Status</th>
@@ -196,9 +193,10 @@
                         </tr>
                         <tr v-else v-for="s in view.spans">
                             <td>
-                                <v-btn small icon :to="openTrace(s.trace_id)" exact>
-                                    <v-icon small>mdi-chart-timeline</v-icon>
-                                </v-btn>
+                                <router-link :to="openTrace(s.trace_id)" exact>
+                                    <v-icon small style="vertical-align: baseline">mdi-chart-timeline</v-icon>
+                                    {{ s.trace_id.substring(0, 8) }}
+                                </router-link>
                             </td>
                             <td class="text-no-wrap">{{ s.service }}</td>
                             <td class="text-no-wrap">{{ s.name }}</td>
@@ -231,7 +229,7 @@
                         <div class="name">{{ attr.name }}</div>
                         <v-tooltip v-for="v in attr.values" bottom transition="none" attach=".attr-stats" content-class="attr-value-details">
                             <template #activator="{ on }">
-                                <router-link :to="filterTracesByAttr(attr, v.name)">
+                                <router-link :to="openTrace(v.sample_trace_id)">
                                     <div class="value" v-on="on">
                                         <div class="name">
                                             {{ v.name }}
@@ -256,20 +254,82 @@
                                 </div>
                                 <div class="d-flex grey--text mt-2">
                                     <v-icon x-small class="mr-1">mdi-information-outline</v-icon>
-                                    Click to view traces containing this attribute
+                                    Click to view a sample trace containing this attribute
                                 </div>
                             </v-card>
                         </v-tooltip>
                     </div>
                 </div>
             </div>
+
+            <div v-else-if="query.view === 'errors'">
+                <div class="d-flex grey--text mt-2 mb-3">
+                    <v-icon small class="mr-2">mdi-information-outline</v-icon>
+                    This section highlights the underlying reasons why traces within the selected range contain errors. It identifies the tracing
+                    spans where errors originated.
+                </div>
+                <v-data-table
+                    :items="view.errors || []"
+                    :loading="loading"
+                    :items-per-page="20"
+                    sort-by="count"
+                    sort-desc
+                    must-sort
+                    class="table errors"
+                    mobile-breakpoint="0"
+                    no-data-text="No errors found"
+                    :headers="[
+                        { value: 'service_name', text: 'Service Name', width: '15%' },
+                        { value: 'span_name', text: 'Span', width: '25%' },
+                        { value: 'sample_error', text: 'Error', width: '40%' },
+                        { value: 'sample_trace_id', text: 'Sample Trace', sortable: false, width: '16ch' },
+                        { value: 'count', text: 'Percentage', width: '16ch' },
+                    ]"
+                    :footer-props="{ itemsPerPageOptions: [10, 20, 50, 100, -1] }"
+                >
+                    <template #item.service_name="{ item }">
+                        <span :title="item.service_name" class="service nowrap" :style="{ borderColor: color(item.service_name) }">
+                            {{ item.service_name }}
+                        </span>
+                    </template>
+                    <template #item.span_name="{ item }">
+                        <div class="nowrap" :title="item.span_name">{{ item.span_name }}</div>
+                        <div v-for="(v, k) in item.labels" :title="`${k}: ${v}`" class="caption nowrap" style="line-height: 1rem">
+                            • {{ k }}: {{ v }}
+                        </div>
+                    </template>
+                    <template #item.sample_error="{ item }">
+                        <div class="nowrap" :title="item.sample_error">
+                            {{ item.sample_error }}
+                        </div>
+                    </template>
+                    <template #item.sample_trace_id="{ item }">
+                        <router-link :to="openTrace(item.sample_trace_id)" exact class="nowrap">
+                            <v-icon small style="vertical-align: baseline">mdi-chart-timeline</v-icon>
+                            {{ item.sample_trace_id.substring(0, 8) }}
+                        </router-link>
+                    </template>
+                    <template #item.count="{ item }">
+                        <div class="d-flex align-center" style="gap: 4px">
+                            <div style="text-align: right; width: 4ch">
+                                <span>{{ format(item.count, '%') }}</span>
+                                <span class="caption grey--text">%</span>
+                            </div>
+                            <div class="flex-grow-1">
+                                <v-progress-linear :value="item.count * 100" background-opacity="0" height="14" />
+                            </div>
+                        </div>
+                    </template>
+                </v-data-table>
+            </div>
         </template>
     </div>
 </template>
 
 <script>
-import Heatmap from '@/components/Heatmap.vue';
-import TracingTrace from '@/components/TracingTrace.vue';
+import { palette } from '../utils/colors';
+import Heatmap from '../components/Heatmap.vue';
+import TracingTrace from '../components/TracingTrace.vue';
 
 export default {
     props: {
@@ -301,6 +361,9 @@ export default {
     },
 
     computed: {
+        views() {
+            return ['overview', 'traces', 'attributes', 'errors'];
+        },
         query() {
             let q = {};
             try {
@@ -344,30 +407,16 @@ export default {
                 q.view = 'traces';
             }
             if (errors) {
+                q.view = 'errors';
                 q.dur_from = 'inf';
                 q.dur_to = 'err';
-            }
-            return this.setQuery(q, from, to);
-        },
-        filterTracesByAttr(attr, value) {
-            const { from, to } = this.$route.query;
-            const q = { ...this.query };
-            if (attr) {
-                q.view = 'traces';
-                const { source, name } = attr;
-                q.attribute = { source, name, value };
-                // q.ts_from = undefined;
-                // q.ts_to = undefined;
-                // q.dur_from = undefined;
-                // q.dur_to = undefined;
-            } else {
-                q.attribute = undefined;
             }
             return this.setQuery(q, from, to);
         },
         openTrace(id) {
             const { from, to } = this.$route.query;
             const q = { ...this.query };
+            q.view = 'traces';
             q.trace_id = id;
             return this.setQuery(q, from, to);
         },
@@ -381,7 +430,6 @@ export default {
                 q.ts_to = undefined;
                 q.dur_from = undefined;
                 q.dur_to = undefined;
-                q.attribute = undefined;
             }
             return this.setQuery(q, from, to);
         },
@@ -403,6 +451,9 @@ export default {
             const q = { ...this.query };
             q.include_aux = !f.excludeAux;
             this.push(this.setQuery(q, from, to));
+        },
+        color(s) {
+            return palette.hash2(s);
         },
         format(v, unit) {
             if (unit === 'ts') {
@@ -515,14 +566,16 @@ export default {
 }
 
 .table:deep(table) {
-    min-width: 500px;
+    min-width: 600px;
 }
 .table:deep(tr:hover) {
     background-color: unset !important;
 }
-.table:deep(th),
-.table:deep(td) {
+.table:deep(th) {
     padding: 0 8px !important;
+}
+.table:deep(td) {
+    padding: 4px 8px !important;
 }
 
 .attr-stats {
@@ -596,5 +649,23 @@ export default {
 }
 .attr-stats .attr-value-details .selection .marker {
     background-color: var(--selection-color);
+}
+
+.errors:deep(table) {
+    table-layout: fixed;
+}
+.service {
+    position: relative;
+    padding-left: 8px;
+}
+.service::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    border-left-width: 4px;
+    border-left-style: solid;
+    border-left-color: inherit;
 }
 </style>

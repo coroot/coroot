@@ -62,8 +62,11 @@ func (c *Client) GetRootSpansSummary(ctx context.Context, q SpanQuery) (*model.T
 }
 
 func (c *Client) GetSpanAttrStats(ctx context.Context, q SpanQuery) ([]model.TraceSpanAttrStats, error) {
-	filter, filterArgs := q.RootSpansFilter()
-	return c.getSpanAttrStats(ctx, q, filter, filterArgs)
+	return c.getSpanAttrStats(ctx, q)
+}
+
+func (c *Client) GetTraceErrors(ctx context.Context, q SpanQuery) ([]model.TraceErrorsStat, error) {
+	return c.getTraceErrors(ctx, q)
 }
 
 func (c *Client) GetSpansByServiceNameHistogram(ctx context.Context, q SpanQuery) ([]model.HistogramBucket, error) {
@@ -142,33 +145,8 @@ func (c *Client) getSpansHistogram(ctx context.Context, q SpanQuery, filters []s
 		clickhouse.DateNamed("to", to.ToStandard(), clickhouse.NanoSeconds),
 	)
 
-	var with string
-	var join string
-
-	if q.Attribute != nil {
-		attrFilter, attrFilterArgs := q.SpansByAttributeFilter()
-		filterArgs = append(filterArgs, attrFilterArgs...)
-		with = "t AS ("
-		with += "SELECT DISTINCT TraceId"
-		with += " FROM otel_traces"
-		with += " WHERE " + strings.Join([]string{tsFilter, attrFilter}, " AND ")
-		with += ")"
-		join = "t USING(TraceId)"
-	}
-
-	var query string
-
-	if with != "" {
-		query += "WITH " + with
-	}
-
-	query += "SELECT toStartOfInterval(Timestamp, INTERVAL @step second), roundDown(Duration/1000000, @buckets), count(1), count(if(StatusCode = 'STATUS_CODE_ERROR', 1, NULL))"
+	query := "SELECT toStartOfInterval(Timestamp, INTERVAL @step second), roundDown(Duration/1000000, @buckets), count(1), count(if(StatusCode = 'STATUS_CODE_ERROR', 1, NULL))"
 	query += " FROM otel_traces"
-
-	if join != "" {
-		query += " JOIN " + join
-	}
-
 	query += " WHERE " + strings.Join(filters, " AND ")
 	query += " GROUP BY 1, 2"
 
@@ -317,28 +295,12 @@ func (c *Client) getSpans(ctx context.Context, q SpanQuery, with string, orderBy
 		filterArgs = append(filterArgs, durFilterArgs...)
 	}
 
-	var join string
-
-	if q.Attribute != nil {
-		attrFilter, attrFilterArgs := q.SpansByAttributeFilter()
-		filterArgs = append(filterArgs, attrFilterArgs...)
-		with = "t AS ("
-		with += "SELECT DISTINCT TraceId"
-		with += " FROM otel_traces"
-		with += " WHERE " + strings.Join([]string{tsFilter, attrFilter}, " AND ")
-		with += ")"
-		join = "t USING(TraceId)"
-	}
-
 	query := ""
 	if with != "" {
 		query += "WITH " + with
 	}
 	query += " SELECT Timestamp, TraceId, SpanId, ParentSpanId, SpanName, ServiceName, Duration, StatusCode, StatusMessage, ResourceAttributes, SpanAttributes, Events.Timestamp, Events.Name, Events.Attributes"
 	query += " FROM otel_traces"
-	if join != "" {
-		query += " JOIN " + join
-	}
 	query += " WHERE " + strings.Join(filters, " AND ")
 	if orderBy != "" {
 		query += " ORDER BY " + orderBy
@@ -381,113 +343,237 @@ func (c *Client) getSpans(ctx context.Context, q SpanQuery, with string, orderBy
 	return res, nil
 }
 
-func (c *Client) getSpanAttrStats(ctx context.Context, q SpanQuery, filters []string, filterArgs []any) ([]model.TraceSpanAttrStats, error) {
-	tsFilter := "Timestamp BETWEEN @from AND @to"
-	filters = append(filters, tsFilter)
-	filterArgs = append(filterArgs,
-		clickhouse.DateNamed("from", q.Ctx.From.ToStandard(), clickhouse.NanoSeconds),
-		clickhouse.DateNamed("to", q.Ctx.To.ToStandard(), clickhouse.NanoSeconds),
-		clickhouse.DateNamed("tsFrom", q.TsFrom.ToStandard(), clickhouse.Seconds),
-		clickhouse.DateNamed("tsTo", q.TsTo.ToStandard(), clickhouse.Seconds),
-		clickhouse.Named("top", q.Limit),
-	)
-
-	isInSelection := "false"
-	if q.IsSelectionDefined() {
-		isInSelection = "Timestamp BETWEEN @tsFrom AND @tsTo"
-		durFilter, durFilterArgs := q.DurationFilter()
-		if durFilter != "" {
-			isInSelection += " AND " + durFilter
-			filterArgs = append(filterArgs, durFilterArgs...)
-		}
-	}
-
-	traceFilters := strings.Join(filters, " AND ")
-	traceIds := fmt.Sprintf("SELECT DISTINCT TraceId FROM otel_traces WHERE %s", traceFilters)
-	if q.Attribute != nil {
-		attrFilter, attrFilterArgs := q.SpansByAttributeFilter()
-		filterArgs = append(filterArgs, attrFilterArgs...)
-		traceIds = fmt.Sprintf(
-			"SELECT DISTINCT TraceId FROM otel_traces JOIN (SELECT DISTINCT TraceId FROM otel_traces WHERE %s AND %s) t USING(TraceId) WHERE %s",
-			tsFilter, attrFilter, traceFilters)
-	}
-
+func (c *Client) getTraces(ctx context.Context, filters []string, filterArgs []any) ([]*model.Trace, error) {
 	query := fmt.Sprintf(`
-WITH t AS (
-	%[1]s
-), a AS (
-    SELECT 'SpanName' as source, ('SpanName', SpanName) AS attribute, %[3]s AS selection, count(*) AS count
-    FROM otel_traces JOIN t USING(TraceId) WHERE %[2]s GROUP BY attribute, selection
-    UNION ALL
-    SELECT 'StatusCode' as source, ('StatusCode', StatusCode) AS attribute, %[3]s AS selection, count(*) AS count
-    FROM otel_traces JOIN t USING(TraceId) WHERE %[2]s GROUP BY attribute, selection
-    UNION ALL
-    SELECT 'StatusMessage' as source, ('StatusMessage', StatusMessage) AS attribute, %[3]s AS selection, count(*) AS count
-    FROM otel_traces JOIN t USING(TraceId) WHERE %[2]s GROUP BY attribute, selection
-    UNION ALL
-    SELECT 'ResourceAttributes' as source, arrayJoin(ResourceAttributes) AS attribute, %[3]s AS selection, count(*) AS count
-    FROM otel_traces JOIN t USING(TraceId) WHERE %[2]s GROUP BY attribute, selection
-    UNION ALL
-    SELECT 'SpanAttributes' as source, arrayJoin(SpanAttributes) AS attribute, %[3]s AS selection, count(*) AS count
-    FROM otel_traces JOIN t USING(TraceId) WHERE %[2]s GROUP BY attribute, selection
-), s AS (
-    SELECT
-        source,
-        tupleElement(attribute, 1) AS name,
-        tupleElement(attribute, 2) AS value,
-        sum(if(a.selection, count, 0)) AS selection,
-        sum(if(a.selection, 0, count)) AS baseline,
-        sum(selection) OVER (PARTITION BY name) AS selection_total,
-        sum(baseline) OVER (PARTITION BY name) AS baseline_total
-    FROM a
-    GROUP BY source, name, value
-), p AS (
-    SELECT
-        source, name, value,
-        if(selection_total=0, 0, selection / selection_total) AS selection,
-        if(baseline_total=0, 0, baseline / baseline_total) AS baseline,
-        row_number() OVER (PARTITION BY name ORDER BY selection+baseline DESC) AS top
-    FROM s
-)
-SELECT source, name, value, selection, baseline FROM p WHERE top <= @top`,
-		traceIds, tsFilter, isInSelection,
-	)
-
+WITH t AS (SELECT TraceId, Timestamp as start, timestampAdd(Timestamp, INTERVAL Duration NANOSECOND) as end FROM otel_traces WHERE %s ORDER BY Timestamp LIMIT 1000)
+SELECT Timestamp, TraceId, SpanId, ParentSpanId, SpanName, ServiceName, Duration, StatusCode, StatusMessage, ResourceAttributes, SpanAttributes, Events.Timestamp, Events.Name, Events.Attributes
+FROM otel_traces
+WHERE 
+	Timestamp BETWEEN (SELECT min(start) FROM t) AND (SELECT max(end) FROM t) AND 
+	TraceId IN (select TraceId from t)`, strings.Join(filters, " AND "))
 	rows, err := c.conn.Query(ctx, query, filterArgs...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	type Attr struct{ source, name string }
-
-	var attr Attr
-	var value string
-	var selection, baseline float64
-	attrs := map[Attr][]*model.TraceSpanAttrStatsValue{}
-	maxDiff := map[Attr]float64{}
+	res := map[string]*model.Trace{}
+	var eventsTimestamp []time.Time
+	var eventsName []string
+	var eventsAttributes []map[string]string
 	for rows.Next() {
-		if err = rows.Scan(&attr.source, &attr.name, &value, &selection, &baseline); err != nil {
+		var s model.TraceSpan
+		err = rows.Scan(
+			&s.Timestamp, &s.TraceId, &s.SpanId, &s.ParentSpanId, &s.Name, &s.ServiceName, &s.Duration,
+			&s.StatusCode, &s.StatusMessage, &s.ResourceAttributes, &s.SpanAttributes,
+			&eventsTimestamp, &eventsName, &eventsAttributes)
+		if err != nil {
 			return nil, err
 		}
-		diff := selection - baseline
-		if diff > maxDiff[attr] {
-			maxDiff[attr] = diff
+		if res[s.TraceId] == nil {
+			res[s.TraceId] = &model.Trace{}
 		}
-		attrs[attr] = append(attrs[attr], &model.TraceSpanAttrStatsValue{
-			Name:      value,
-			Selection: float32(selection),
-			Baseline:  float32(baseline),
+
+		if l := len(eventsTimestamp); l > 0 && l == len(eventsName) && l == len(eventsAttributes) {
+			s.Events = make([]model.TraceSpanEvent, l)
+			for i := range eventsTimestamp {
+				s.Events[i].Timestamp = eventsTimestamp[i]
+				s.Events[i].Name = eventsName[i]
+				s.Events[i].Attributes = eventsAttributes[i]
+			}
+		}
+		res[s.TraceId].Spans = append(res[s.TraceId].Spans, &s)
+	}
+	return maps.Values(res), nil
+}
+
+func (c *Client) getSpanAttrStats(ctx context.Context, q SpanQuery) ([]model.TraceSpanAttrStats, error) {
+	filters, filterArgs := q.RootSpansFilter()
+
+	var err error
+	var selectionFilter string
+	var selectionTraces []*model.Trace
+	if q.IsSelectionDefined() {
+		selectionFilter = "Timestamp BETWEEN @tsFrom AND @tsTo"
+		filterArgs = append(filterArgs,
+			clickhouse.DateNamed("tsFrom", q.TsFrom.ToStandard(), clickhouse.NanoSeconds),
+			clickhouse.DateNamed("tsTo", q.TsTo.ToStandard(), clickhouse.NanoSeconds),
+		)
+		durFilter, durFilterArgs := q.DurationFilter()
+		if durFilter != "" {
+			selectionFilter += " AND " + durFilter
+			filterArgs = append(filterArgs, durFilterArgs...)
+		}
+		selectionTraces, err = c.getTraces(ctx, append(filters, selectionFilter), filterArgs)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	filters = append(filters, "Timestamp BETWEEN @from AND @to")
+	filterArgs = append(filterArgs,
+		clickhouse.DateNamed("from", q.Ctx.From.ToStandard(), clickhouse.NanoSeconds),
+		clickhouse.DateNamed("to", q.Ctx.To.ToStandard(), clickhouse.NanoSeconds),
+	)
+	if selectionFilter != "" {
+		filters = append(filters, fmt.Sprintf("NOT (%s)", selectionFilter))
+	}
+	baselineTraces, err := c.getTraces(ctx, filters, filterArgs)
+	if err != nil {
+		return nil, err
+	}
+
+	type Attr struct{ name, value string }
+	type Counts struct {
+		selection, baseline float32
+		sampleTraceId       string
+	}
+	attrs := map[Attr]*Counts{}
+	for _, t := range selectionTraces {
+		for _, s := range t.Spans {
+			for name, value := range s.SpanAttributes {
+				a := Attr{name: name, value: value}
+				if attrs[a] == nil {
+					attrs[a] = &Counts{sampleTraceId: s.TraceId}
+				}
+				attrs[a].selection++
+			}
+			for name, value := range s.ResourceAttributes {
+				a := Attr{name: name, value: value}
+				if attrs[a] == nil {
+					attrs[a] = &Counts{sampleTraceId: s.TraceId}
+				}
+				attrs[a].selection++
+			}
+		}
+	}
+	for _, t := range baselineTraces {
+		for _, s := range t.Spans {
+			for name, value := range s.SpanAttributes {
+				a := Attr{name: name, value: value}
+				if attrs[a] == nil {
+					attrs[a] = &Counts{sampleTraceId: s.TraceId}
+				}
+				attrs[a].baseline++
+			}
+			for name, value := range s.ResourceAttributes {
+				a := Attr{name: name, value: value}
+				if attrs[a] == nil {
+					attrs[a] = &Counts{sampleTraceId: s.TraceId}
+				}
+				attrs[a].baseline++
+			}
+		}
+	}
+	byName := map[string][]*model.TraceSpanAttrStatsValue{}
+	for attr, counts := range attrs {
+		byName[attr.name] = append(byName[attr.name], &model.TraceSpanAttrStatsValue{
+			Name:          attr.value,
+			Selection:     counts.selection,
+			Baseline:      counts.baseline,
+			SampleTraceId: counts.sampleTraceId,
 		})
 	}
 	var res []model.TraceSpanAttrStats
-	for a, vs := range attrs {
-		res = append(res, model.TraceSpanAttrStats{Source: a.source, Name: a.name, Values: vs})
+	maxDiff := map[string]float32{}
+	for name, values := range byName {
+		var total Counts
+		for _, v := range values {
+			total.selection += v.Selection
+			total.baseline += v.Baseline
+		}
+		for _, v := range values {
+			if total.selection > 0 {
+				v.Selection /= total.selection
+			}
+			if total.baseline > 0 {
+				v.Baseline /= total.baseline
+			}
+			diff := v.Selection - v.Baseline
+			if diff > maxDiff[name] {
+				maxDiff[name] = diff
+			}
+		}
+		sort.Slice(values, func(i, j int) bool {
+			vi, vj := values[i], values[j]
+			return vi.Selection+vi.Baseline > vj.Selection+vj.Baseline
+		})
+		if len(values) > q.Limit {
+			values = values[:q.Limit]
+		}
+		res = append(res, model.TraceSpanAttrStats{Name: name, Values: values})
 	}
 	sort.Slice(res, func(i, j int) bool {
 		ri, rj := res[i], res[j]
-		return maxDiff[Attr{source: ri.Source, name: ri.Name}] > maxDiff[Attr{source: rj.Source, name: rj.Name}]
+		return maxDiff[ri.Name] > maxDiff[rj.Name]
 	})
+	return res, nil
+}
+
+func (c *Client) getTraceErrors(ctx context.Context, q SpanQuery) ([]model.TraceErrorsStat, error) {
+	filters, filterArgs := q.RootSpansFilter()
+	filters = append(filters, "Timestamp BETWEEN @from AND @to")
+	filterArgs = append(filterArgs,
+		clickhouse.DateNamed("from", q.TsFrom.ToStandard(), clickhouse.NanoSeconds),
+		clickhouse.DateNamed("to", q.TsTo.ToStandard(), clickhouse.NanoSeconds),
+	)
+	filters = append(filters, "StatusCode = 'STATUS_CODE_ERROR'")
+	traces, err := c.getTraces(ctx, filters, filterArgs)
+	if err != nil {
+		return nil, err
+	}
+
+	type Key struct {
+		serviceName string
+		spanName    string
+		labelsHash  uint64
+	}
+	errors := map[Key]*model.TraceErrorsStat{}
+	var total float32
+	for _, t := range traces {
+		parents := map[string]string{}
+		errorSpans := map[string]*model.TraceSpan{}
+		for _, s := range t.Spans {
+			parents[s.SpanId] = s.ParentSpanId
+			if s.StatusCode == "STATUS_CODE_ERROR" {
+				errorSpans[s.SpanId] = s
+			}
+		}
+		for _, s := range errorSpans {
+			parentId := s.ParentSpanId
+			for parentId != "" {
+				delete(errorSpans, parentId)
+				parentId = parents[parentId]
+			}
+		}
+
+		for _, s := range errorSpans {
+			ls := s.Labels()
+			k := Key{
+				serviceName: s.ServiceName,
+				spanName:    s.Name,
+				labelsHash:  ls.Hash(),
+			}
+			if errors[k] == nil {
+				errors[k] = &model.TraceErrorsStat{
+					ServiceName:   s.ServiceName,
+					SpanName:      s.Name,
+					Labels:        ls,
+					SampleTraceId: s.TraceId,
+					SampleError:   s.ErrorMessage(),
+				}
+			}
+			errors[k].Count++
+			total++
+
+		}
+	}
+
+	var res []model.TraceErrorsStat
+	for _, v := range errors {
+		v.Count /= total
+		res = append(res, *v)
+	}
 
 	return res, nil
 }
@@ -505,7 +591,6 @@ type SpanQuery struct {
 
 	ServiceName      string
 	SpanName         string
-	Attribute        *model.TraceSpanAttr
 	ExcludePeerAddrs []string
 }
 
@@ -575,27 +660,6 @@ func (q SpanQuery) SpansByServiceNameFilter() ([]string, []any) {
 		args = append(args, clickhouse.Named("addrs", q.ExcludePeerAddrs))
 	}
 	return filter, args
-}
-
-func (q SpanQuery) SpansByAttributeFilter() (string, []any) {
-	var f string
-	switch q.Attribute.Source {
-	case "SpanName":
-		f = "SpanName = @attr_value"
-	case "StatusCode":
-		f = "StatusCode = @attr_value"
-	case "StatusMessage":
-		f = "StatusMessage = @attr_value"
-	case "ResourceAttributes":
-		f = "ResourceAttributes[@attr_name] = @attr_value"
-	case "SpanAttributes":
-		f = "SpanAttributes[@attr_name] = @attr_value"
-	}
-	args := []any{
-		clickhouse.Named("attr_name", q.Attribute.Name),
-		clickhouse.Named("attr_value", q.Attribute.Value),
-	}
-	return f, args
 }
 
 func inboundSpansFilter(clients []string, listens []model.Listen) ([]string, []any) {

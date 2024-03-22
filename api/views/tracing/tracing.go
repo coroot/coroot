@@ -54,7 +54,13 @@ type Span struct {
 	Status     model.TraceSpanStatus  `json:"status"`
 	Details    model.TraceSpanDetails `json:"details"`
 	Attributes map[string]string      `json:"attributes"`
-	Events     []model.TraceSpanEvent `json:"events"`
+	Events     []Event                `json:"events"`
+}
+
+type Event struct {
+	Timestamp  int64             `json:"timestamp"`
+	Name       string            `json:"name"`
+	Attributes map[string]string `json:"attributes"`
 }
 
 func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, appSettings *db.ApplicationSettings, q url.Values, w *model.World) *View {
@@ -259,13 +265,19 @@ func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, 
 			Attributes: map[string]string{},
 			Client:     clients[spanKey{traceId: s.TraceId, spanId: s.SpanId}],
 			Details:    s.Details(),
-			Events:     s.Events,
 		}
 		for name, value := range s.ResourceAttributes {
 			ss.Attributes[name] = value
 		}
 		for name, value := range s.SpanAttributes {
 			ss.Attributes[name] = value
+		}
+		for _, e := range s.Events {
+			ss.Events = append(ss.Events, Event{
+				Timestamp:  e.Timestamp.UnixMilli(),
+				Name:       e.Name,
+				Attributes: e.Attributes,
+			})
 		}
 		v.Spans = append(v.Spans, ss)
 	}
