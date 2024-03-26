@@ -846,7 +846,7 @@ func addChildrenSpans(node *model.FlameGraphNode, byParent map[string][]*model.T
 			}
 		}
 		if child == nil {
-			child = &model.FlameGraphNode{Name: name}
+			child = &model.FlameGraphNode{Name: name, ColorBy: s.ServiceName}
 			node.Children = append(node.Children, child)
 		}
 		child.Total += durations[s]

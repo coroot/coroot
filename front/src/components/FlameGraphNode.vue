@@ -103,6 +103,9 @@ export default {
                 p = (p * 80).toFixed(0);
                 return p < 0 ? `hsl(120, ${-p}%, 70%)` : `hsl(0, ${p}%, 70%)`;
             }
+            if (this.node.color_by) {
+                return palette.hash2(this.node.color_by);
+            }
             let name = this.node.name;
             const i = name.lastIndexOf('/');
             if (i > 0) {

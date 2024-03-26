@@ -112,6 +112,7 @@ type FlameGraphNode struct {
 	Self     int64             `json:"self"`
 	Comp     int64             `json:"comp"`
 	Children []*FlameGraphNode `json:"children"`
+	ColorBy  string            `json:"color_by"`
 }
 
 func (n *FlameGraphNode) InsertStack(stack []string, value int64, comp *int64) {
