@@ -75,15 +75,20 @@ func (c *Client) GetTraceLatencyProfile(ctx context.Context, q SpanQuery) (*mode
 		return nil, err
 	}
 
-	fg := getTraceLatencyFlamegraph(baselineTraces)
-	profile := &model.Profile{
-		Type:       "::nanoseconds",
-		FlameGraph: fg,
-	}
-	if q.Diff && q.IsSelectionDefined() {
-		fgComp := getTraceLatencyFlamegraph(selectionTraces)
-		fg.Diff(fgComp)
+	fgBase := getTraceLatencyFlamegraph(baselineTraces)
+	fgComp := getTraceLatencyFlamegraph(selectionTraces)
+
+	profile := &model.Profile{Type: "::nanoseconds"}
+	if q.Diff {
+		fgBase.Diff(fgComp)
+		profile.FlameGraph = fgBase
 		profile.Diff = true
+	} else {
+		if q.IsSelectionDefined() {
+			profile.FlameGraph = fgComp
+		} else {
+			profile.FlameGraph = fgBase
+		}
 	}
 
 	return profile, nil
@@ -573,46 +578,13 @@ func (c *Client) getTraceErrors(ctx context.Context, q SpanQuery) ([]model.Trace
 	return res, nil
 }
 
-func (c *Client) getTraceLatencyFlamegraph(ctx context.Context, q SpanQuery) (*model.FlameGraphNode, error) {
-	filters, filterArgs := q.RootSpansFilter()
-	filters = append(filters, "Timestamp BETWEEN @from AND @to")
-	filterArgs = append(filterArgs,
-		clickhouse.DateNamed("from", q.TsFrom.ToStandard(), clickhouse.NanoSeconds),
-		clickhouse.DateNamed("to", q.TsTo.ToStandard(), clickhouse.NanoSeconds),
-	)
-	durFilter, durFilterArgs := q.DurationFilter()
-	if durFilter != "" {
-		filters = append(filters, durFilter)
-		filterArgs = append(filterArgs, durFilterArgs...)
-	}
-
-	traces, err := c.getTraces(ctx, filters, filterArgs)
-	if err != nil {
-		return nil, err
-	}
-
-	byParent := map[string][]*model.TraceSpan{}
-	for _, t := range traces {
-		for _, s := range t.Spans {
-			byParent[s.ParentSpanId] = append(byParent[s.ParentSpanId], s)
-		}
-	}
-
-	root := &model.FlameGraphNode{Name: "total"}
-	addChildrenSpans(root, byParent, "")
-	for _, ch := range root.Children {
-		root.Total += ch.Total
-	}
-	return root, nil
-}
-
 func (c *Client) getSelectionAndBaselineTraces(ctx context.Context, q SpanQuery) ([]*model.Trace, []*model.Trace, error) {
 	filters, filterArgs := q.RootSpansFilter()
 
 	var err error
 	var selectionFilter string
 	var selectionTraces []*model.Trace
-	if q.Diff && q.IsSelectionDefined() {
+	if q.IsSelectionDefined() {
 		selectionFilter = "Timestamp BETWEEN @tsFrom AND @tsTo"
 		filterArgs = append(filterArgs,
 			clickhouse.DateNamed("tsFrom", q.TsFrom.ToStandard(), clickhouse.NanoSeconds),
@@ -626,6 +598,9 @@ func (c *Client) getSelectionAndBaselineTraces(ctx context.Context, q SpanQuery)
 		selectionTraces, err = c.getTraces(ctx, append(filters, selectionFilter), filterArgs)
 		if err != nil {
 			return nil, nil, err
+		}
+		if !q.Diff {
+			return selectionTraces, nil, nil
 		}
 	}
 
@@ -787,6 +762,9 @@ func getQuantiles(hist []histBucket, quantiles []float32) []float32 {
 }
 
 func getTraceLatencyFlamegraph(traces []*model.Trace) *model.FlameGraphNode {
+	if len(traces) == 0 {
+		return nil
+	}
 	byParent := map[string][]*model.TraceSpan{}
 	for _, t := range traces {
 		for _, s := range t.Spans {
@@ -799,6 +777,7 @@ func getTraceLatencyFlamegraph(traces []*model.Trace) *model.FlameGraphNode {
 	for _, ch := range root.Children {
 		root.Total += ch.Total
 	}
+	root.Self = 0
 	return root
 
 }

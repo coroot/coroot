@@ -68,7 +68,7 @@
                         </span>
                     </div>
                 </div>
-                <div v-if="query.view === 'attributes' || (query.view === 'latency' && query.diff)" class="d-flex align-center">
+                <div v-if="query.view === 'attributes' || query.view === 'latency'" class="d-flex align-center">
                     <div><div class="marker baseline"></div></div>
                     Baseline: other events within the time window
                 </div>
@@ -81,7 +81,7 @@
                     />
                     <div v-if="query.view === 'latency'" class="d-flex mt-2 mb-1 align-baseline" style="gap: 8px; min-width: 0">
                         <div>View:</div>
-                        <v-btn-toggle v-model="form.diff" mandatory>
+                        <v-btn-toggle :value="query.diff || false" @change="setDiffMode" mandatory>
                             <v-btn :value="false" height="30">
                                 <v-icon small class="mr-1">mdi-chart-timeline</v-icon>
                                 FlameGraph
@@ -473,6 +473,7 @@ export default {
             q.ts_to = undefined;
             q.dur_from = undefined;
             q.dur_to = undefined;
+            q.diff = undefined;
             return this.setQuery(q, from, to);
         },
         setSelection(s) {
@@ -486,6 +487,12 @@ export default {
             if (!q.view || q.view === 'overview') {
                 q.view = 'traces';
             }
+            this.push(this.setQuery(q, from, to));
+        },
+        setDiffMode(m) {
+            const { from, to } = this.$route.query;
+            const q = { ...this.query };
+            q.diff = m || undefined;
             this.push(this.setQuery(q, from, to));
         },
         setForm(f) {
