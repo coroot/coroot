@@ -60,6 +60,7 @@ export default {
         search: String,
         diff: Number,
         unit: String,
+        limit: Number,
     },
 
     data() {
@@ -81,7 +82,7 @@ export default {
             return r;
         },
         show() {
-            return this.rates.root > 0.5;
+            return this.rates.root > (this.limit || 0);
         },
         width() {
             if (this.zoom === false) {

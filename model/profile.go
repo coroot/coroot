@@ -43,6 +43,12 @@ type ProfileMeta struct {
 	Featured    bool
 }
 
+type Profile struct {
+	Type       ProfileType     `json:"type"`
+	FlameGraph *FlameGraphNode `json:"flamegraph"`
+	Diff       bool            `json:"diff"`
+}
+
 var (
 	Profiles = map[ProfileType]ProfileMeta{
 		ProfileTypeEbpfCPU: {
@@ -141,4 +147,36 @@ func (n *FlameGraphNode) Insert(name string) *FlameGraphNode {
 		n.Children[i] = child
 	}
 	return n.Children[i]
+}
+
+func (n *FlameGraphNode) Diff(comparison *FlameGraphNode) {
+	n.diff(comparison)
+	n.Comp = comparison.Total
+	n.Total += n.Comp
+}
+func (n *FlameGraphNode) diff(comparison *FlameGraphNode) {
+	byName := map[string]*FlameGraphNode{}
+	if comparison != nil {
+		for _, ch := range comparison.Children {
+			byName[ch.Name] = ch
+		}
+	}
+	seen := map[*FlameGraphNode]bool{}
+	for _, ch := range n.Children {
+		comp := byName[ch.Name]
+		if byName[ch.Name] != nil {
+			ch.Comp = comp.Total
+			ch.Total += ch.Comp
+			seen[comp] = true
+		}
+		ch.diff(comp)
+	}
+	if comparison != nil {
+		for _, ch := range comparison.Children {
+			if !seen[ch] {
+				ch.Comp = ch.Total
+				n.Children = append(n.Children, ch)
+			}
+		}
+	}
 }

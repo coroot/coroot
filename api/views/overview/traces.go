@@ -33,6 +33,7 @@ type Traces struct {
 	Summary   *model.TraceSpanSummary    `json:"summary"`
 	AttrStats []model.TraceSpanAttrStats `json:"attr_stats"`
 	Errors    []model.TraceErrorsStat    `json:"errors"`
+	Latency   *model.Profile             `json:"latency"`
 }
 
 type Span struct {
@@ -66,6 +67,7 @@ type Query struct {
 	ServiceName string `json:"service_name"`
 	SpanName    string `json:"span_name"`
 	IncludeAux  bool   `json:"include_aux"`
+	Diff        bool   `json:"diff"`
 
 	durFrom time.Duration
 	durTo   time.Duration
@@ -120,6 +122,7 @@ func renderTraces(ctx context.Context, ch *clickhouse.Client, w *model.World, qu
 	sq.DurTo = q.durTo
 	sq.Errors = q.errors
 	sq.Limit = spansLimit
+	sq.Diff = q.Diff
 
 	var spans []*model.TraceSpan
 	switch {
@@ -132,6 +135,8 @@ func renderTraces(ctx context.Context, ch *clickhouse.Client, w *model.World, qu
 		res.AttrStats, err = ch.GetSpanAttrStats(ctx, sq)
 	case q.View == "errors":
 		res.Errors, err = ch.GetTraceErrors(ctx, sq)
+	case q.View == "latency":
+		res.Latency, err = ch.GetTraceLatencyProfile(ctx, sq)
 	default:
 		res.Summary, err = ch.GetRootSpansSummary(ctx, sq)
 	}

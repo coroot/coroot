@@ -21,6 +21,7 @@
             :search="search"
             :diff="diff"
             :unit="unit"
+            :limit="limit"
         />
     </div>
 </template>
@@ -38,6 +39,7 @@ function maxDiff(root, node) {
 export default {
     props: {
         profile: Object,
+        limit: Number,
     },
 
     components: { FlameGraphNode },

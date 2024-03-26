@@ -19,17 +19,22 @@
             <Heatmap v-if="view.heatmap" :heatmap="view.heatmap" :selection="selection" @select="setSelection" :loading="loading" />
 
             <v-tabs height="32" show-arrows hide-slider>
-                <v-tab v-for="v in views" :to="openView(v)" class="view" :class="{ active: query.view === v }">
-                    {{ v }}
+                <v-tab v-for="v in views" :to="openView(v.name)" class="view" :class="{ active: query.view === v.name }">
+                    <v-icon small class="mr-1">{{ v.icon }}</v-icon>
+                    {{ v.title }}
                 </v-tab>
             </v-tabs>
 
             <v-card outlined class="query px-4 py-2 my-4">
                 <div v-if="query.service_name || query.span_name" class="mt-2 d-flex align-center">
                     <div class="mr-2">Where:</div>
-                    <div class="d-flex flex-wrap" style="gap: 8px">
+                    <div class="d-flex1 flex-wrap" style="gap: 8px">
                         <v-chip v-if="query.service_name" @click:close="push(filterTraces(undefined, query.span_name))" label close color="primary">
-                            <div class="where-arg">Root Service Name = {{ query.service_name }}</div>
+                            <div class="where-arg">
+                                Root Service Name = {{ query.service_name }} Lorem ipsum dolor sit amet, consectetur adipisicing elit. Ad cupiditate
+                                dolor dolorem eum, eveniet hic iure nemo obcaecati possimus quaerat, quia vel vero voluptatum! Ad aliquam itaque
+                                molestiae nulla veritatis.
+                            </div>
                         </v-chip>
                         <v-chip v-if="query.span_name" @click:close="push(filterTraces(query.service_name, undefined))" label close color="primary">
                             <div class="where-arg">Root Span Name = {{ query.span_name }}</div>
@@ -40,7 +45,7 @@
                     <div><div class="marker selection"></div></div>
                     <div>
                         Selection:
-                        <template v-if="query.dur_to">
+                        <template v-if="selectionDefined">
                             <template v-if="query.ts_from && query.ts_to">
                                 time <var> {{ format(query.ts_from, 'ts') }}</var> — <var> {{ format(query.ts_to, 'ts') }}</var>
                             </template>
@@ -54,6 +59,12 @@
                                 <template v-if="query.dur_to === 'err'"> trace status is <var> Error</var></template>
                                 )
                             </template>
+                            <v-tooltip bottom>
+                                <template #activator="{ on }">
+                                    <v-btn :to="clearSelection()" v-on="on" small icon exact><v-icon small>mdi-close</v-icon></v-btn>
+                                </template>
+                                <v-card class="px-2 py-1"> clear selection </v-card>
+                            </v-tooltip>
                         </template>
                         <span v-else class="grey--text">
                             <template v-if="query.view === 'attributes'">select a chart area to explore trace attributes</template>
@@ -61,9 +72,9 @@
                         </span>
                     </div>
                 </div>
-                <div v-if="query.view === 'attributes'" class="d-flex align-center">
+                <div v-if="query.view === 'attributes' || (query.view === 'latency' && query.diff)" class="d-flex align-center">
                     <div><div class="marker baseline"></div></div>
-                    Baseline: all other events within the time window
+                    Baseline: other events within the time window
                 </div>
                 <v-form :disabled="loading">
                     <v-checkbox
@@ -72,7 +83,21 @@
                         dense
                         hide-details
                     />
+                    <div v-if="query.view === 'latency'" class="d-flex mt-2 mb-1 align-baseline" style="gap: 8px">
+                        <div>View:</div>
+                        <v-btn-toggle v-model="form.diff">
+                            <v-btn :value="false" height="30">
+                                <v-icon small class="mr-1">mdi-chart-timeline</v-icon>
+                                FlameGraph
+                            </v-btn>
+                            <v-btn :value="true" height="30" :disabled="!selectionDefined">
+                                <v-icon small class="mr-1 mdi-flip-h">mdi-select-compare</v-icon>
+                                Diff
+                            </v-btn>
+                        </v-btn-toggle>
+                    </div>
                 </v-form>
+                <v-progress-linear v-if="loading" indeterminate height="4" style="position: absolute; bottom: 0; left: 0" />
             </v-card>
 
             <div v-if="query.trace_id" class="mt-5" style="min-height: 50vh">
@@ -82,14 +107,12 @@
                     </router-link>
                     Trace {{ query.trace_id }}
                 </div>
-                <v-progress-linear v-if="loading" indeterminate height="4" />
-                <TracingTrace v-else-if="view.spans" :spans="view.spans" />
+                <TracingTrace v-if="view.spans" :spans="view.spans" />
             </div>
 
             <div v-else-if="query.view === 'overview'" class="mt-5" style="min-height: 50vh">
                 <v-data-table
                     :items="view.summary ? view.summary.stats : []"
-                    :loading="loading"
                     :items-per-page="50"
                     sort-by="total"
                     sort-desc
@@ -189,12 +212,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-if="loading">
-                            <td colspan="5" class="pa-0" style="vertical-align: top">
-                                <v-progress-linear v-if="loading" indeterminate height="4" />
-                            </td>
-                        </tr>
-                        <tr v-else v-for="s in view.spans">
+                        <tr v-for="s in view.spans">
                             <td>
                                 <router-link :to="openTrace(s.trace_id)" exact>
                                     <v-icon small style="vertical-align: baseline">mdi-chart-timeline</v-icon>
@@ -226,7 +244,6 @@
                     <v-icon small class="mr-1">mdi-information-outline</v-icon>
                     This section shows how the attributes of traces in the selected area differ from those of other traces.
                 </div>
-                <v-progress-linear v-if="loading" indeterminate height="4" class="mb-1" />
                 <div class="attr-stats" :style="{ gap: statsStyles.gap }">
                     <div v-for="attr in view.attr_stats" class="attr" :style="{ width: statsStyles.attrWidth }">
                         <div class="name">{{ attr.name }}</div>
@@ -273,7 +290,6 @@
                 </div>
                 <v-data-table
                     :items="view.errors || []"
-                    :loading="loading"
                     :items-per-page="20"
                     sort-by="count"
                     sort-desc
@@ -326,6 +342,10 @@
                     </template>
                 </v-data-table>
             </div>
+
+            <div v-else-if="query.view === 'latency'">
+                <FlameGraph v-if="view.latency" :profile="view.latency" class="pt-2" />
+            </div>
         </template>
     </div>
 </template>
@@ -334,6 +354,7 @@
 import { palette } from '../utils/colors';
 import Heatmap from '../components/Heatmap.vue';
 import TracingTrace from '../components/TracingTrace.vue';
+import FlameGraph from '../components/FlameGraph.vue';
 
 export default {
     props: {
@@ -341,18 +362,20 @@ export default {
         loading: Boolean,
     },
 
-    components: { TracingTrace, Heatmap },
+    components: { FlameGraph, TracingTrace, Heatmap },
 
     data() {
         return {
             form: {
                 excludeAux: true,
+                diff: false,
             },
         };
     },
 
     mounted() {
         this.form.excludeAux = !this.query.include_aux;
+        this.form.diff = (this.selectionDefined ? this.query.diff : false) || false;
     },
 
     watch: {
@@ -366,7 +389,13 @@ export default {
 
     computed: {
         views() {
-            return ['overview', 'traces', 'errors', 'attributes'];
+            return [
+                { name: 'overview', title: 'overview', icon: 'mdi-format-list-checkbox' },
+                { name: 'traces', title: 'traces', icon: 'mdi-chart-timeline' },
+                { name: 'errors', title: 'error causes', icon: 'mdi-target' },
+                { name: 'latency', title: 'latency explorer', icon: 'mdi-clock-fast' },
+                { name: 'attributes', title: 'compare attributes', icon: 'mdi-select-compare' },
+            ];
         },
         query() {
             let q = {};
@@ -383,6 +412,10 @@ export default {
         selection() {
             const q = this.query;
             return { x1: q.ts_from, x2: q.ts_to, y1: q.dur_from, y2: q.dur_to };
+        },
+        selectionDefined() {
+            const q = this.query;
+            return q.ts_from || q.ts_to || q.dur_from || q.dur_to;
         },
         statsStyles() {
             const gap = 8;
@@ -437,6 +470,15 @@ export default {
             }
             return this.setQuery(q, from, to);
         },
+        clearSelection() {
+            const { from, to } = this.$route.query;
+            const q = { ...this.query };
+            q.ts_from = undefined;
+            q.ts_to = undefined;
+            q.dur_from = undefined;
+            q.dur_to = undefined;
+            return this.setQuery(q, from, to);
+        },
         setSelection(s) {
             const { from, to } = this.view.heatmap.ctx;
             const q = { ...this.query };
@@ -454,6 +496,7 @@ export default {
             const { from, to } = this.$route.query;
             const q = { ...this.query };
             q.include_aux = !f.excludeAux;
+            q.diff = f.diff;
             this.push(this.setQuery(q, from, to));
         },
         color(s) {

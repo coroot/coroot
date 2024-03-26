@@ -102,10 +102,8 @@ export default {
         view() {
             this.get();
         },
-        '$route.query.query'(v) {
-            if (v) {
-                this.get();
-            }
+        '$route.query.query'() {
+            this.get();
         },
     },
 

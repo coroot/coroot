@@ -69,6 +69,26 @@ func (c *Client) GetTraceErrors(ctx context.Context, q SpanQuery) ([]model.Trace
 	return c.getTraceErrors(ctx, q)
 }
 
+func (c *Client) GetTraceLatencyProfile(ctx context.Context, q SpanQuery) (*model.Profile, error) {
+	selectionTraces, baselineTraces, err := c.getSelectionAndBaselineTraces(ctx, q)
+	if err != nil {
+		return nil, err
+	}
+
+	fg := getTraceLatencyFlamegraph(baselineTraces)
+	profile := &model.Profile{
+		Type:       "::nanoseconds",
+		FlameGraph: fg,
+	}
+	if q.Diff && q.IsSelectionDefined() {
+		fgComp := getTraceLatencyFlamegraph(selectionTraces)
+		fg.Diff(fgComp)
+		profile.Diff = true
+	}
+
+	return profile, nil
+}
+
 func (c *Client) GetSpansByServiceNameHistogram(ctx context.Context, q SpanQuery) ([]model.HistogramBucket, error) {
 	filter, filterArgs := q.SpansByServiceNameFilter()
 	return c.getSpansHistogram(ctx, q, filter, filterArgs)
@@ -388,37 +408,8 @@ WHERE
 }
 
 func (c *Client) getSpanAttrStats(ctx context.Context, q SpanQuery) ([]model.TraceSpanAttrStats, error) {
-	filters, filterArgs := q.RootSpansFilter()
-
-	var err error
-	var selectionFilter string
-	var selectionTraces []*model.Trace
-	if q.IsSelectionDefined() {
-		selectionFilter = "Timestamp BETWEEN @tsFrom AND @tsTo"
-		filterArgs = append(filterArgs,
-			clickhouse.DateNamed("tsFrom", q.TsFrom.ToStandard(), clickhouse.NanoSeconds),
-			clickhouse.DateNamed("tsTo", q.TsTo.ToStandard(), clickhouse.NanoSeconds),
-		)
-		durFilter, durFilterArgs := q.DurationFilter()
-		if durFilter != "" {
-			selectionFilter += " AND " + durFilter
-			filterArgs = append(filterArgs, durFilterArgs...)
-		}
-		selectionTraces, err = c.getTraces(ctx, append(filters, selectionFilter), filterArgs)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	filters = append(filters, "Timestamp BETWEEN @from AND @to")
-	filterArgs = append(filterArgs,
-		clickhouse.DateNamed("from", q.Ctx.From.ToStandard(), clickhouse.NanoSeconds),
-		clickhouse.DateNamed("to", q.Ctx.To.ToStandard(), clickhouse.NanoSeconds),
-	)
-	if selectionFilter != "" {
-		filters = append(filters, fmt.Sprintf("NOT (%s)", selectionFilter))
-	}
-	baselineTraces, err := c.getTraces(ctx, filters, filterArgs)
+	q.Diff = true
+	selectionTraces, baselineTraces, err := c.getSelectionAndBaselineTraces(ctx, q)
 	if err != nil {
 		return nil, err
 	}
@@ -517,7 +508,12 @@ func (c *Client) getTraceErrors(ctx context.Context, q SpanQuery) ([]model.Trace
 		clickhouse.DateNamed("from", q.TsFrom.ToStandard(), clickhouse.NanoSeconds),
 		clickhouse.DateNamed("to", q.TsTo.ToStandard(), clickhouse.NanoSeconds),
 	)
-	filters = append(filters, "StatusCode = 'STATUS_CODE_ERROR'")
+	q.Errors = true
+	durFilter, durFilterArgs := q.DurationFilter()
+	if durFilter != "" {
+		filters = append(filters, durFilter)
+		filterArgs = append(filterArgs, durFilterArgs...)
+	}
 	traces, err := c.getTraces(ctx, filters, filterArgs)
 	if err != nil {
 		return nil, err
@@ -565,7 +561,6 @@ func (c *Client) getTraceErrors(ctx context.Context, q SpanQuery) ([]model.Trace
 			}
 			errors[k].Count++
 			total++
-
 		}
 	}
 
@@ -576,6 +571,77 @@ func (c *Client) getTraceErrors(ctx context.Context, q SpanQuery) ([]model.Trace
 	}
 
 	return res, nil
+}
+
+func (c *Client) getTraceLatencyFlamegraph(ctx context.Context, q SpanQuery) (*model.FlameGraphNode, error) {
+	filters, filterArgs := q.RootSpansFilter()
+	filters = append(filters, "Timestamp BETWEEN @from AND @to")
+	filterArgs = append(filterArgs,
+		clickhouse.DateNamed("from", q.TsFrom.ToStandard(), clickhouse.NanoSeconds),
+		clickhouse.DateNamed("to", q.TsTo.ToStandard(), clickhouse.NanoSeconds),
+	)
+	durFilter, durFilterArgs := q.DurationFilter()
+	if durFilter != "" {
+		filters = append(filters, durFilter)
+		filterArgs = append(filterArgs, durFilterArgs...)
+	}
+
+	traces, err := c.getTraces(ctx, filters, filterArgs)
+	if err != nil {
+		return nil, err
+	}
+
+	byParent := map[string][]*model.TraceSpan{}
+	for _, t := range traces {
+		for _, s := range t.Spans {
+			byParent[s.ParentSpanId] = append(byParent[s.ParentSpanId], s)
+		}
+	}
+
+	root := &model.FlameGraphNode{Name: "total"}
+	addChildrenSpans(root, byParent, "")
+	for _, ch := range root.Children {
+		root.Total += ch.Total
+	}
+	return root, nil
+}
+
+func (c *Client) getSelectionAndBaselineTraces(ctx context.Context, q SpanQuery) ([]*model.Trace, []*model.Trace, error) {
+	filters, filterArgs := q.RootSpansFilter()
+
+	var err error
+	var selectionFilter string
+	var selectionTraces []*model.Trace
+	if q.Diff && q.IsSelectionDefined() {
+		selectionFilter = "Timestamp BETWEEN @tsFrom AND @tsTo"
+		filterArgs = append(filterArgs,
+			clickhouse.DateNamed("tsFrom", q.TsFrom.ToStandard(), clickhouse.NanoSeconds),
+			clickhouse.DateNamed("tsTo", q.TsTo.ToStandard(), clickhouse.NanoSeconds),
+		)
+		durFilter, durFilterArgs := q.DurationFilter()
+		if durFilter != "" {
+			selectionFilter += " AND " + durFilter
+			filterArgs = append(filterArgs, durFilterArgs...)
+		}
+		selectionTraces, err = c.getTraces(ctx, append(filters, selectionFilter), filterArgs)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+
+	filters = append(filters, "Timestamp BETWEEN @from AND @to")
+	filterArgs = append(filterArgs,
+		clickhouse.DateNamed("from", q.Ctx.From.ToStandard(), clickhouse.NanoSeconds),
+		clickhouse.DateNamed("to", q.Ctx.To.ToStandard(), clickhouse.NanoSeconds),
+	)
+	if selectionFilter != "" {
+		filters = append(filters, fmt.Sprintf("NOT (%s)", selectionFilter))
+	}
+	baselineTraces, err := c.getTraces(ctx, filters, filterArgs)
+	if err != nil {
+		return nil, nil, err
+	}
+	return selectionTraces, baselineTraces, nil
 }
 
 type SpanQuery struct {
@@ -592,6 +658,8 @@ type SpanQuery struct {
 	ServiceName      string
 	SpanName         string
 	ExcludePeerAddrs []string
+
+	Diff bool
 }
 
 func (q SpanQuery) IsSelectionDefined() bool {
@@ -716,4 +784,79 @@ func getQuantiles(hist []histBucket, quantiles []float32) []float32 {
 		}
 	}
 	return res
+}
+
+func getTraceLatencyFlamegraph(traces []*model.Trace) *model.FlameGraphNode {
+	byParent := map[string][]*model.TraceSpan{}
+	for _, t := range traces {
+		for _, s := range t.Spans {
+			byParent[s.ParentSpanId] = append(byParent[s.ParentSpanId], s)
+		}
+	}
+
+	root := &model.FlameGraphNode{Name: "total"}
+	addChildrenSpans(root, byParent, "")
+	for _, ch := range root.Children {
+		root.Total += ch.Total
+	}
+	return root
+
+}
+
+func addChildrenSpans(node *model.FlameGraphNode, byParent map[string][]*model.TraceSpan, parentId string) {
+	spans := byParent[parentId]
+	if len(spans) == 0 {
+		return
+	}
+
+	durations := map[*model.TraceSpan]int64{}
+	if parentId == "" {
+		for _, s := range spans {
+			durations[s] = s.Duration.Nanoseconds()
+		}
+	} else {
+		intervalSet := map[int64]bool{}
+		for _, s := range spans {
+			intervalSet[s.Timestamp.UnixNano()] = true
+			intervalSet[s.Timestamp.Add(s.Duration).UnixNano()] = true
+		}
+		intervals := maps.Keys(intervalSet)
+		sort.Slice(intervals, func(i, j int) bool { return intervals[i] < intervals[j] })
+		for i := range intervals[:len(intervals)-1] {
+			from, to := intervals[i], intervals[i+1]
+			var ss []*model.TraceSpan
+			for _, s := range spans {
+				if s.Timestamp.UnixNano() <= from && s.Timestamp.Add(s.Duration).UnixNano() >= to {
+					ss = append(ss, s)
+				}
+			}
+			for _, s := range ss {
+				durations[s] += (to - from) / int64(len(ss))
+			}
+		}
+	}
+
+	for _, s := range spans {
+		var child *model.FlameGraphNode
+		name := s.ServiceName + ": " + s.Name + " " + s.Labels().String()
+		for _, n := range node.Children {
+			if n.Name == name {
+				child = n
+				break
+			}
+		}
+		if child == nil {
+			child = &model.FlameGraphNode{Name: name}
+			node.Children = append(node.Children, child)
+		}
+		child.Total += durations[s]
+		addChildrenSpans(child, byParent, s.SpanId)
+	}
+	sort.Slice(node.Children, func(i, j int) bool {
+		return node.Children[i].Name < node.Children[j].Name
+	})
+	node.Self = node.Total
+	for _, ch := range node.Children {
+		node.Self -= ch.Total
+	}
 }
