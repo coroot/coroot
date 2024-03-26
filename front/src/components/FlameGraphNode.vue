@@ -21,6 +21,7 @@
                 :search="search"
                 :diff="diff"
                 :unit="unit"
+                :limit="limit"
             />
         </div>
 
