@@ -28,13 +28,9 @@
             <v-card outlined class="query px-4 py-2 my-4">
                 <div v-if="query.service_name || query.span_name" class="mt-2 d-flex align-center">
                     <div class="mr-2">Where:</div>
-                    <div class="d-flex1 flex-wrap" style="gap: 8px">
+                    <div class="d-flex flex-wrap" style="gap: 8px; min-width: 0">
                         <v-chip v-if="query.service_name" @click:close="push(filterTraces(undefined, query.span_name))" label close color="primary">
-                            <div class="where-arg">
-                                Root Service Name = {{ query.service_name }} Lorem ipsum dolor sit amet, consectetur adipisicing elit. Ad cupiditate
-                                dolor dolorem eum, eveniet hic iure nemo obcaecati possimus quaerat, quia vel vero voluptatum! Ad aliquam itaque
-                                molestiae nulla veritatis.
-                            </div>
+                            <div class="where-arg">Root Service Name = {{ query.service_name }}</div>
                         </v-chip>
                         <v-chip v-if="query.span_name" @click:close="push(filterTraces(query.service_name, undefined))" label close color="primary">
                             <div class="where-arg">Root Span Name = {{ query.span_name }}</div>
@@ -83,9 +79,9 @@
                         dense
                         hide-details
                     />
-                    <div v-if="query.view === 'latency'" class="d-flex mt-2 mb-1 align-baseline" style="gap: 8px">
+                    <div v-if="query.view === 'latency'" class="d-flex mt-2 mb-1 align-baseline" style="gap: 8px; min-width: 0">
                         <div>View:</div>
-                        <v-btn-toggle v-model="form.diff">
+                        <v-btn-toggle v-model="form.diff" mandatory>
                             <v-btn :value="false" height="30">
                                 <v-icon small class="mr-1">mdi-chart-timeline</v-icon>
                                 FlameGraph
