@@ -180,12 +180,12 @@ line.ok {
 line.warning {
     stroke: var(--status-warning);
     stroke-width: 2;
-    stroke-dasharray: 4;
+    stroke-dasharray: 6;
 }
 line.critical {
     stroke: var(--status-critical);
     stroke-width: 2;
-    stroke-dasharray: 4;
+    stroke-dasharray: 6;
 }
 line.unknown {
     stroke: var(--status-unknown);

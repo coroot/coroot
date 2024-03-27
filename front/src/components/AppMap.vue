@@ -379,12 +379,12 @@ svg {
 .arrow.warning {
     fill: var(--status-warning);
     stroke: var(--status-warning);
-    stroke-dasharray: 4;
+    stroke-dasharray: 6;
 }
 .arrow.critical {
     fill: var(--status-critical);
     stroke: var(--status-critical);
-    stroke-dasharray: 4;
+    stroke-dasharray: 6;
 }
 
 .marker {

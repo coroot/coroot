@@ -11,12 +11,12 @@
     --border-light: rgba(0, 0, 0, 0.2);
     --border-dark: rgba(255, 255, 255, 0.2);
     --tooltip-light: white;
-    --tooltip-dark: #616161;
+    --tooltip-dark: #424242;
 
-    --status-unknown: gray;
-    --status-ok: green;
-    --status-warning: #ff8f00;
-    --status-critical: red;
+    --status-unknown: grey;
+    --status-ok: #23d160;
+    --status-warning: #ffdd57;
+    --status-critical: #f44034;
 }
 .v-application {
     --text-color: var(--text-light);
@@ -64,7 +64,11 @@
 .v-application .v-tooltip__content,
 .v-application .v-tooltip__content .v-data-table,
 .v-application .v-tooltip__content .v-list,
-.v-application .v-tooltip__content .v-card {
+.v-application .v-tooltip__content .v-card,
+.v-application .v-dialog,
+.v-application .v-dialog .v-card,
+.v-application .v-dialog .v-list,
+.v-application .v-dialog .v-data-table {
     color: var(--text-color) !important;
     background-color: var(--tooltip-color) !important;
 }
