@@ -340,6 +340,11 @@
             </div>
 
             <div v-else-if="query.view === 'latency'">
+                <div class="d-flex grey--text mt-2 mb-3">
+                    <v-icon small class="mr-1">mdi-information-outline</v-icon>
+                    This section shows the latency FlameGraph for the selected traces. A wider frame indicates greater time consumption by that
+                    tracing span.
+                </div>
                 <FlameGraph
                     v-if="view.latency"
                     :profile="view.latency"
