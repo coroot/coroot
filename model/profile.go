@@ -113,6 +113,7 @@ type FlameGraphNode struct {
 	Comp     int64             `json:"comp"`
 	Children []*FlameGraphNode `json:"children"`
 	ColorBy  string            `json:"color_by"`
+	Data     map[string]string `json:"data"`
 }
 
 func (n *FlameGraphNode) InsertStack(stack []string, value int64, comp *int64) {
@@ -168,6 +169,12 @@ func (n *FlameGraphNode) diff(comparison *FlameGraphNode) {
 		if byName[ch.Name] != nil {
 			ch.Comp = comp.Total
 			ch.Total += ch.Comp
+			for k, v := range comp.Data {
+				if ch.Data == nil {
+					ch.Data = map[string]string{}
+				}
+				ch.Data[k] = v
+			}
 			seen[comp] = true
 		}
 		ch.diff(comp)

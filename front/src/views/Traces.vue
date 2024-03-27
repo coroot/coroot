@@ -57,7 +57,7 @@
                             </template>
                             <v-tooltip bottom>
                                 <template #activator="{ on }">
-                                    <v-btn :to="clearSelection()" v-on="on" small icon exact><v-icon small>mdi-close</v-icon></v-btn>
+                                    <v-btn :to="clearSelection()" v-on="on" x-small icon exact><v-icon small>mdi-close</v-icon></v-btn>
                                 </template>
                                 <v-card class="px-2 py-1"> clear selection </v-card>
                             </v-tooltip>
@@ -340,7 +340,12 @@
             </div>
 
             <div v-else-if="query.view === 'latency'">
-                <FlameGraph v-if="view.latency" :profile="view.latency" class="pt-2" />
+                <FlameGraph
+                    v-if="view.latency"
+                    :profile="view.latency"
+                    :actions="[{ title: 'Open a sample trace', icon: 'mdi-chart-timeline', to: (s) => openTrace(s.data['trace_id']) }]"
+                    class="pt-2"
+                />
             </div>
         </template>
     </div>

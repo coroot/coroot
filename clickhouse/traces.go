@@ -776,6 +776,9 @@ func getTraceLatencyFlamegraph(traces []*model.Trace) *model.FlameGraphNode {
 	addChildrenSpans(root, byParent, "")
 	for _, ch := range root.Children {
 		root.Total += ch.Total
+		if root.Data == nil {
+			root.Data = ch.Data
+		}
 	}
 	root.Self = 0
 	return root
@@ -825,7 +828,7 @@ func addChildrenSpans(node *model.FlameGraphNode, byParent map[string][]*model.T
 			}
 		}
 		if child == nil {
-			child = &model.FlameGraphNode{Name: name, ColorBy: s.ServiceName}
+			child = &model.FlameGraphNode{Name: name, ColorBy: s.ServiceName, Data: map[string]string{"trace_id": s.TraceId}}
 			node.Children = append(node.Children, child)
 		}
 		child.Total += durations[s]

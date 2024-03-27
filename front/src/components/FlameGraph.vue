@@ -22,6 +22,7 @@
             :diff="diff"
             :unit="unit"
             :limit="limit"
+            :actions="actions"
         />
     </div>
 </template>
@@ -40,6 +41,7 @@ export default {
     props: {
         profile: Object,
         limit: Number,
+        actions: Array,
     },
 
     components: { FlameGraphNode },

@@ -1,6 +1,6 @@
 <template>
-    <div v-if="show" :style="{ width }">
-        <div ref="name" @mouseenter="details = true" @mouseleave="details = false" @click="emit()">
+    <div v-if="show" :style="style">
+        <div ref="name" @mouseenter="details = true" @mouseleave="details = false" @click="click">
             <div class="name" :class="{ dimmed: zoom && zoomed }" :style="{ backgroundColor: color }">
                 {{ node.name }}
                 <template v-if="!!diff">
@@ -22,6 +22,7 @@
                 :diff="diff"
                 :unit="unit"
                 :limit="limit"
+                :actions="actions"
             />
         </div>
 
@@ -30,12 +31,12 @@
                 <div class="font-weight-medium mb-1">{{ node.name }}</div>
                 <template v-if="!!diff">
                     <div>baseline: {{ format(rates.base, '%') }} of total</div>
-                    <div>
-                        comparison: {{ format(rates.comp, '%') }} of total (<span
-                            :style="{ color: rates.diff > 0 ? 'red' : 'green' }"
-                            class="font-weight-medium"
-                            >{{ format(rates.diff, '%', true) }}</span
-                        >)
+                    <div class="comparison">
+                        comparison: {{ format(rates.comp, '%') }} of total
+                        <template v-if="rates.diff !== 0">
+                            (<span class="percent" :class="{ ok: rates.diff < 0 }">{{ format(rates.diff, '%', true) }}</span
+                            >)
+                        </template>
                     </div>
                 </template>
                 <template v-else>
@@ -44,6 +45,19 @@
                 </template>
             </v-card>
         </v-tooltip>
+
+        <v-menu v-if="actions" v-model="menu.show" absolute :position-x="menu.x" :position-y="menu.y" offset-y :open-on-click="false">
+            <v-list dense class="pa-0" style="font-size: 14px">
+                <v-list-item @click="emit()" dense class="px-2" style="min-height: 32px">
+                    <v-icon small class="mr-1">mdi-magnify</v-icon>
+                    Zoom in
+                </v-list-item>
+                <v-list-item v-for="a in actions" :to="a.to(node)" dense exact class="px-2" style="min-height: 32px">
+                    <v-icon small class="mr-1">{{ a.icon }}</v-icon>
+                    {{ a.title }}
+                </v-list-item>
+            </v-list>
+        </v-menu>
     </div>
 </template>
 
@@ -62,11 +76,17 @@ export default {
         diff: Number,
         unit: String,
         limit: Number,
+        actions: Array,
     },
 
     data() {
         return {
             details: false,
+            menu: {
+                show: false,
+                x: 0,
+                y: 0,
+            },
             zoomed: '',
         };
     },
@@ -93,6 +113,16 @@ export default {
                 return '100%';
             }
             return this.rates.parent + '%';
+        },
+        style() {
+            switch (this.zoom) {
+                case false:
+                    return { display: 'none' };
+                case true:
+                    return { display: 'block', width: '100%' };
+                default:
+                    return { display: 'block', width: this.rates.parent + '%' };
+            }
         },
         color() {
             if (!!this.search && !this.node.name.toLowerCase().includes(this.search.toLowerCase())) {
@@ -125,6 +155,15 @@ export default {
     },
 
     methods: {
+        click(e) {
+            if (this.actions) {
+                this.menu.show = true;
+                this.menu.x = e.clientX;
+                this.menu.y = e.clientY;
+            } else {
+                this.emit();
+            }
+        },
         emit(n) {
             this.zoomed = n ? n.name : '';
             this.$emit('zoom');
@@ -221,5 +260,12 @@ export default {
 }
 .details {
     font-size: 12px;
+}
+.details .comparison .percent {
+    font-weight: 600;
+    color: var(--status-critical);
+}
+.details .comparison .percent.ok {
+    color: var(--status-ok);
 }
 </style>

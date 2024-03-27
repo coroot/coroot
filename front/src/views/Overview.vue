@@ -102,8 +102,10 @@ export default {
         view() {
             this.get();
         },
-        '$route.query.query'() {
-            this.get();
+        $route(curr, prev) {
+            if (curr.query.from === prev.query.from && curr.query.to === prev.query.to && curr.query.query !== prev.query.query) {
+                this.get();
+            }
         },
     },
 
