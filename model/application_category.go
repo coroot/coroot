@@ -25,11 +25,15 @@ func (c ApplicationCategory) Builtin() bool {
 }
 
 func (c ApplicationCategory) Auxiliary() bool {
-	return c == ApplicationCategoryControlPlane || c == ApplicationCategoryMonitoring
+	return c.Monitoring() || c.ControlPlane()
 }
 
 func (c ApplicationCategory) Monitoring() bool {
 	return c == ApplicationCategoryMonitoring
+}
+
+func (c ApplicationCategory) ControlPlane() bool {
+	return c == ApplicationCategoryControlPlane
 }
 
 var BuiltinCategoryPatterns = map[ApplicationCategory][]string{

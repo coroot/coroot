@@ -40,6 +40,10 @@
             <Deployments :deployments="deployments" />
         </template>
 
+        <template v-else-if="view === 'traces'">
+            <Traces :view="traces" :loading="loading" class="mt-5" />
+        </template>
+
         <template v-else-if="view === 'costs'">
             <NodesCosts v-if="costs && costs.nodes" :nodes="costs.nodes" class="mt-5" />
             <ApplicationsCosts v-if="costs && costs.applications" :applications="costs.applications" class="mt-5" />
@@ -55,9 +59,10 @@ import NodesCosts from '../components/NodesCosts';
 import ApplicationsCosts from '../components/ApplicationsCosts';
 import Deployments from './Deployments.vue';
 import Health from './Health.vue';
+import Traces from './Traces.vue';
 
 export default {
-    components: { Deployments, NoData, ServiceMap, Table, NodesCosts, ApplicationsCosts, Health },
+    components: { Deployments, NoData, ServiceMap, Table, NodesCosts, ApplicationsCosts, Health, Traces },
     props: {
         view: String,
     },
@@ -68,6 +73,7 @@ export default {
             map: null,
             nodes: null,
             deployments: null,
+            traces: null,
             costs: null,
             loading: false,
             error: '',
@@ -79,6 +85,7 @@ export default {
             return {
                 health: 'Health',
                 map: 'Service Map',
+                traces: 'Traces',
                 nodes: 'Nodes',
                 deployments: 'Deployments',
                 costs: this.costs ? 'Costs' : '',
@@ -95,14 +102,20 @@ export default {
         view() {
             this.get();
         },
+        $route(curr, prev) {
+            if (curr.query.from === prev.query.from && curr.query.to === prev.query.to && curr.query.query !== prev.query.query) {
+                this.get();
+            }
+        },
     },
 
     methods: {
         get() {
             const view = this.view || 'health';
+            const query = this.$route.query.query || '';
             this.loading = true;
             this.error = '';
-            this.$api.getOverview(view, (data, error) => {
+            this.$api.getOverview(view, query, (data, error) => {
                 this.loading = false;
                 if (error) {
                     this.error = error;
@@ -111,8 +124,9 @@ export default {
                 this.health = data.health;
                 this.map = data.map;
                 this.nodes = data.nodes;
-                this.costs = data.costs;
                 this.deployments = data.deployments;
+                this.traces = data.traces;
+                this.costs = data.costs;
                 if (!this.views[view]) {
                     this.$router.replace({ params: { view: undefined } }).catch((err) => err);
                 }

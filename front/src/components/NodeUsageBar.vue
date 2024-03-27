@@ -3,7 +3,7 @@
         <div v-for="a in applications" :key="a.name" :style="style(a)" @mouseenter="(e) => enter(a, e)" />
         <div class="flex-grow-1" @mouseenter="(e) => enter(null, e)" />
 
-        <v-tooltip v-if="tooltip" :value="!!tooltip" :position-x="tooltip.x" :position-y="tooltip.y" bottom content-class="tooltip" transition="none">
+        <v-tooltip v-if="tooltip" :value="!!tooltip" :position-x="tooltip.x" :position-y="tooltip.y" bottom transition="none">
             <v-card class="pa-3">
                 <div class="font-weight-medium">
                     {{ tooltip.app.name }}
@@ -80,10 +80,6 @@ export default {
 </script>
 
 <style scoped>
-.tooltip {
-    opacity: 1;
-    padding: 0;
-}
 .bar {
     display: flex;
     height: 16px;

@@ -61,6 +61,15 @@ router.afterEach((to) => {
             p = p.replace(':' + to.meta.stats.param, to.params[to.meta.stats.param] || '');
         }
         p = p.replaceAll(':', '$');
+        if (to.name === 'overview' && to.params.view === 'traces' && to.query.query) {
+            try {
+                const q = JSON.parse(to.query.query);
+                const selection = q.ts_from || q.ts_to || q.dur_from || q.dur_to;
+                p += `${q.view || ''}:${q.diff ? 'diff' : ''}:${selection ? 'selection' : ''}:${q.service_name ? 'service' : ''}:${q.span_name ? 'span' : ''}:${q.trace_id ? 'id' : ''}:${q.include_aux ? 'aux' : ''}`;
+            } catch {
+                //
+            }
+        }
         if (to.name === 'application' && to.params.report === 'Profiling' && to.query.query) {
             try {
                 const q = JSON.parse(to.query.query);

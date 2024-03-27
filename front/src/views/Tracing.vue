@@ -52,7 +52,7 @@
             <v-simple-table class="spans">
                 <thead>
                     <tr>
-                        <th></th>
+                        <th>Trace ID</th>
                         <th>Client</th>
                         <th>Status</th>
                         <th>Duration</th>
@@ -68,9 +68,10 @@
                     </tr>
                     <tr v-for="s in view.spans">
                         <td>
-                            <v-btn small icon :to="{ query: setTrace({ id: s.trace_id, span: s.id }) }" exact>
-                                <v-icon small>mdi-chart-timeline</v-icon>
-                            </v-btn>
+                            <router-link :to="{ query: setTrace({ id: s.trace_id, span: s.id }) }" exact>
+                                <v-icon small style="vertical-align: baseline">mdi-chart-timeline</v-icon>
+                                {{ s.trace_id.substring(0, 8) }}
+                            </router-link>
                         </td>
                         <td class="text-no-wrap">{{ s.client }}</td>
                         <td class="text-no-wrap">

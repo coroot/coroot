@@ -18,12 +18,12 @@ import (
 )
 
 type View struct {
-	Status   model.Status `json:"status"`
-	Message  string       `json:"message"`
-	Services []Service    `json:"services"`
-	Profiles []Meta       `json:"profiles"`
-	Profile  Profile      `json:"profile"`
-	Chart    *model.Chart `json:"chart"`
+	Status   model.Status   `json:"status"`
+	Message  string         `json:"message"`
+	Services []Service      `json:"services"`
+	Profiles []Meta         `json:"profiles"`
+	Profile  *model.Profile `json:"profile"`
+	Chart    *model.Chart   `json:"chart"`
 }
 
 type Service struct {
@@ -41,12 +41,6 @@ type Query struct {
 	From timeseries.Time   `json:"from"`
 	To   timeseries.Time   `json:"to"`
 	Mode string            `json:"mode"`
-}
-
-type Profile struct {
-	Type       model.ProfileType     `json:"type"`
-	FlameGraph *model.FlameGraphNode `json:"flamegraph"`
-	Diff       bool                  `json:"diff"`
 }
 
 func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, appSettings *db.ApplicationSettings, query url.Values, wCtx timeseries.Context) *View {
@@ -142,7 +136,7 @@ func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, 
 	}
 
 	v.Chart = getChart(app, q.Type, wCtx)
-	v.Profile = Profile{Type: q.Type, Diff: q.Mode == "diff"}
+	v.Profile = &model.Profile{Type: q.Type, Diff: q.Mode == "diff"}
 	v.Profile.FlameGraph, err = ch.GetProfile(ctx, q.From, q.To, services.Items(), q.Type, v.Profile.Diff)
 	if err != nil {
 		klog.Errorln(err)

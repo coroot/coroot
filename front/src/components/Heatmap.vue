@@ -16,7 +16,7 @@
                     <template #activator="{ on }">
                         <v-icon v-on="on" small class="icon">mdi-target</v-icon>
                     </template>
-                    <div v-html="threshold.content" class="text-center" />
+                    <v-card v-html="threshold.content" class="pa-2 text-center" />
                 </v-tooltip>
             </div>
             <ChartAnnotations :ctx="config.ctx" :bbox="bbox" :annotations="annotations" />
@@ -32,7 +32,7 @@
                 </span>
                 <div class="label" :style="{ width: i.width + 'ch' }">{{ i.label }}</div>
                 <div class="value">
-                    <div class="bar" :style="{ width: i.bar + '%' }">{{ i.value }}</div>
+                    <div class="bar" :class="{ error: i.error }" :style="{ width: i.bar + '%' }">{{ i.value }}</div>
                 </div>
             </div>
         </ChartTooltip>
@@ -187,6 +187,7 @@ export default {
                 .map((s, i) => {
                     return {
                         label: s.title,
+                        error: s.value === 'err',
                         value: fmtVal(s.data[idx], '/s'),
                         bar: s.data[idx] ? Math.trunc((s.data[idx] * 100) / max) : 0,
                         threshold: i === thresholdIdx && threshold,
@@ -271,11 +272,13 @@ export default {
                 const w = u.bbox.width / xs.length;
                 const y = u.bbox.height + u.bbox.top - seriesIdx * h;
                 const x = u.bbox.left - w / 2 + margin / 2;
+                const baselineColor = c.series[seriesIdx - 1].value === 'err' ? '0' : '200';
                 uPlot.orient(
                     u,
                     seriesIdx,
                     (series, dataX, dataY, scaleX, scaleY, valToPosX, valToPosY, xOff, yOff, xDim, yDim, moveTo, lineTo, rect) => {
                         u.ctx.save();
+
                         xs.forEach((_, i) => {
                             if (!ys[i]) {
                                 return;
@@ -283,7 +286,7 @@ export default {
                             const p = new Path2D();
                             rect(p, x + i * w + w / 2, y, w - margin, h - margin);
                             const b = ys[i] / norm;
-                            u.ctx.fillStyle = 'hsl(200 100% ' + (75 - Math.trunc(b * 50)) + '%)';
+                            u.ctx.fillStyle = 'hsl(' + baselineColor + ' 100% ' + (75 - Math.trunc(b * 50)) + '%)';
                             u.ctx.fill(p);
                         });
                         u.ctx.restore();
@@ -362,7 +365,7 @@ export default {
 .legend {
     width: 120px;
     height: 10px;
-    background: linear-gradient(to right, hsl(200 100% 75%), hsl(200 100% 25%));
+    background: linear-gradient(to right, hsl(203, 100%, 75%), hsl(200 100% 25%));
     margin: 5px 10px 15px auto;
     display: flex;
 }
@@ -416,6 +419,9 @@ export default {
     height: 12px;
     background-color: hsl(200 100% 75%);
     font-size: 10px;
+}
+.tooltip .item .value .bar.error {
+    background-color: hsl(0, 70%, 75%);
 }
 .tooltip .item .details {
     position: absolute;

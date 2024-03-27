@@ -110,8 +110,8 @@ export default class Api {
         this.post(this.projectPath(`status`), form, cb);
     }
 
-    getOverview(view, cb) {
-        this.get(this.projectPath(`overview/${view}`), {}, cb);
+    getOverview(view, query, cb) {
+        this.get(this.projectPath(`overview/${view}`), { query }, cb);
     }
 
     getCheckConfigs(cb) {

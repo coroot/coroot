@@ -36,7 +36,7 @@
             <div v-else-if="loadingError" class="pa-3 text-center red--text">
                 {{ loadingError }}
             </div>
-            <FlameGraph v-if="view.profile" :profile="view.profile" class="pt-2" />
+            <FlameGraph v-if="view.profile" :profile="view.profile" :limit="0.5" class="pt-2" />
         </div>
 
         <v-dialog v-model="configure" max-width="800">
