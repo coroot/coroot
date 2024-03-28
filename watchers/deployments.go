@@ -137,6 +137,18 @@ func (w *Deployments) sendNotifications(project *db.Project, world *model.World)
 					needSave = true
 				}
 			}
+			if cfg := integrations.WebHook; cfg != nil && cfg.Deployments && d.Notifications.WebHook.State < ds.State {
+				client := notifications.NewWebHook(cfg.WebHookUrl, cfg.IncidentTemplate, cfg.DeploymentTemplate)
+				ctx, cancel := context.WithTimeout(context.Background(), sendTimeout)
+				err := client.SendDeployment(ctx, project, ds)
+				cancel()
+				if err != nil {
+					klog.Errorln(err)
+				} else {
+					d.Notifications.WebHook.State = ds.State
+					needSave = true
+				}
+			}
 			if !needSave {
 				continue
 			}

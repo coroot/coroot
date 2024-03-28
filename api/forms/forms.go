@@ -176,6 +176,8 @@ func NewIntegrationForm(t db.IntegrationType) IntegrationForm {
 		return &IntegrationFormPagerduty{}
 	case db.IntegrationTypeOpsgenie:
 		return &IntegrationFormOpsgenie{}
+	case db.IntegrationTypeWebHook:
+		return &IntegrationFormWebHook{}
 	}
 	return nil
 }
@@ -467,4 +469,41 @@ func testNotification(project *db.Project) *db.IncidentNotification {
 			},
 		},
 	}
+}
+
+type IntegrationFormWebHook struct {
+	db.IntegrationWebHook
+}
+
+func (f *IntegrationFormWebHook) Valid() bool {
+	return f.WebHookUrl != "" || f.IncidentTemplate != ""
+}
+
+func (f *IntegrationFormWebHook) Get(project *db.Project, masked bool) {
+	cfg := project.Settings.Integrations.WebHook
+	if cfg == nil {
+		f.WebHookUrl = ""
+		f.IncidentTemplate = ``
+		f.Incidents = true
+		f.DeploymentTemplate = ``
+		f.Deployments = true
+		return
+	}
+	f.IntegrationWebHook = *cfg
+	if masked {
+		f.WebHookUrl = "<webhook_url>"
+	}
+}
+
+func (f *IntegrationFormWebHook) Update(ctx context.Context, project *db.Project, clear bool) error {
+	cfg := &f.IntegrationWebHook
+	if clear {
+		cfg = nil
+	}
+	project.Settings.Integrations.WebHook = cfg
+	return nil
+}
+
+func (f *IntegrationFormWebHook) Test(ctx context.Context, project *db.Project) error {
+	return notifications.NewWebHook(f.WebHookUrl, f.IncidentTemplate, f.DeploymentTemplate).SendIncident(ctx, project.Settings.Integrations.BaseUrl, testNotification(project))
 }

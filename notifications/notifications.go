@@ -38,6 +38,10 @@ func getClient(destination db.IntegrationType, integrations db.Integrations) Not
 		if cfg := integrations.Opsgenie; cfg != nil && cfg.Incidents {
 			return NewOpsgenie(cfg.ApiKey, cfg.EUInstance)
 		}
+	case db.IntegrationTypeWebHook:
+		if cfg := integrations.WebHook; cfg != nil && cfg.Incidents {
+			return NewWebHook(cfg.WebHookUrl, cfg.IncidentTemplate, cfg.DeploymentTemplate)
+		}
 	}
 	return nil
 }
