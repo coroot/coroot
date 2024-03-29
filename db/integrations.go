@@ -16,7 +16,7 @@ const (
 	IntegrationTypePagerduty  IntegrationType = "pagerduty"
 	IntegrationTypeTeams      IntegrationType = "teams"
 	IntegrationTypeOpsgenie   IntegrationType = "opsgenie"
-	IntegrationTypeWebHook    IntegrationType = "webhook"
+	IntegrationTypeWebhook    IntegrationType = "webhook"
 )
 
 type Integrations struct {
@@ -26,7 +26,7 @@ type Integrations struct {
 	Pagerduty *IntegrationPagerduty `json:"pagerduty,omitempty"`
 	Teams     *IntegrationTeams     `json:"teams,omitempty"`
 	Opsgenie  *IntegrationOpsgenie  `json:"opsgenie,omitempty"`
-	WebHook   *IntegrationWebHook   `json:"webhook,omitempty"`
+	Webhook   *IntegrationWebhook   `json:"webhook,omitempty"`
 
 	Clickhouse *IntegrationClickhouse `json:"clickhouse,omitempty"`
 }
@@ -79,8 +79,8 @@ func (integrations Integrations) GetInfo() []IntegrationInfo {
 	}
 	res = append(res, i)
 
-	i = IntegrationInfo{Type: IntegrationTypeWebHook, Title: "WebHook"}
-	if cfg := integrations.WebHook; cfg != nil {
+	i = IntegrationInfo{Type: IntegrationTypeWebhook, Title: "Webhook"}
+	if cfg := integrations.Webhook; cfg != nil {
 		i.Configured = true
 		i.Incidents = cfg.Incidents
 		i.Deployments = cfg.Deployments
@@ -148,12 +148,15 @@ type IntegrationOpsgenie struct {
 	Incidents  bool   `json:"incidents"`
 }
 
-type IntegrationWebHook struct {
-	WebHookUrl         string `json:"webhook_url"`
-	IncidentTemplate   string `json:"incident_template"`
-	Incidents          bool   `json:"incidents"`
-	DeploymentTemplate string `json:"deployment_template"`
-	Deployments        bool   `json:"deployments"`
+type IntegrationWebhook struct {
+	Url                string           `json:"url"`
+	TlsSkipVerify      bool             `json:"tls_skip_verify"`
+	BasicAuth          *utils.BasicAuth `json:"basic_auth"`
+	CustomHeaders      []utils.Header   `json:"custom_headers"`
+	Incidents          bool             `json:"incidents"`
+	Deployments        bool             `json:"deployments"`
+	IncidentTemplate   string           `json:"incident_template"`
+	DeploymentTemplate string           `json:"deployment_template"`
 }
 
 func (db *DB) SaveIntegrationsBaseUrl(id ProjectId, baseUrl string) error {

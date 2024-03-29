@@ -96,7 +96,7 @@ type ApplicationDeploymentNotifications struct {
 	Teams struct {
 		State ApplicationDeploymentState `json:"state"`
 	} `json:"teams"`
-	WebHook struct {
+	Webhook struct {
 		State ApplicationDeploymentState `json:"state"`
 	} `json:"webhook"`
 }

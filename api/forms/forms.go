@@ -176,8 +176,8 @@ func NewIntegrationForm(t db.IntegrationType) IntegrationForm {
 		return &IntegrationFormPagerduty{}
 	case db.IntegrationTypeOpsgenie:
 		return &IntegrationFormOpsgenie{}
-	case db.IntegrationTypeWebHook:
-		return &IntegrationFormWebHook{}
+	case db.IntegrationTypeWebhook:
+		return &IntegrationFormWebhook{}
 	}
 	return nil
 }
@@ -344,7 +344,7 @@ func (f *IntegrationFormSlack) Update(ctx context.Context, project *db.Project, 
 }
 
 func (f *IntegrationFormSlack) Test(ctx context.Context, project *db.Project) error {
-	return notifications.NewSlack(f.Token, f.DefaultChannel).SendIncident(ctx, project.Settings.Integrations.BaseUrl, testNotification(project))
+	return notifications.NewSlack(f.Token, f.DefaultChannel).SendIncident(ctx, project.Settings.Integrations.BaseUrl, testIncidentNotification(project))
 }
 
 type IntegrationFormTeams struct {
@@ -381,7 +381,7 @@ func (f *IntegrationFormTeams) Update(ctx context.Context, project *db.Project, 
 }
 
 func (f *IntegrationFormTeams) Test(ctx context.Context, project *db.Project) error {
-	return notifications.NewTeams(f.WebhookUrl).SendIncident(ctx, project.Settings.Integrations.BaseUrl, testNotification(project))
+	return notifications.NewTeams(f.WebhookUrl).SendIncident(ctx, project.Settings.Integrations.BaseUrl, testIncidentNotification(project))
 }
 
 type IntegrationFormPagerduty struct {
@@ -417,7 +417,7 @@ func (f *IntegrationFormPagerduty) Update(ctx context.Context, project *db.Proje
 }
 
 func (f *IntegrationFormPagerduty) Test(ctx context.Context, project *db.Project) error {
-	return notifications.NewPagerduty(f.IntegrationKey).SendIncident(ctx, project.Settings.Integrations.BaseUrl, testNotification(project))
+	return notifications.NewPagerduty(f.IntegrationKey).SendIncident(ctx, project.Settings.Integrations.BaseUrl, testIncidentNotification(project))
 }
 
 type IntegrationFormOpsgenie struct {
@@ -453,15 +453,72 @@ func (f *IntegrationFormOpsgenie) Update(ctx context.Context, project *db.Projec
 }
 
 func (f *IntegrationFormOpsgenie) Test(ctx context.Context, project *db.Project) error {
-	return notifications.NewOpsgenie(f.ApiKey, f.EUInstance).SendIncident(ctx, project.Settings.Integrations.BaseUrl, testNotification(project))
+	return notifications.NewOpsgenie(f.ApiKey, f.EUInstance).SendIncident(ctx, project.Settings.Integrations.BaseUrl, testIncidentNotification(project))
 }
 
-func testNotification(project *db.Project) *db.IncidentNotification {
+type IntegrationFormWebhook struct {
+	db.IntegrationWebhook
+}
+
+func (f *IntegrationFormWebhook) Valid() bool {
+	if f.Url == "" {
+		return false
+	}
+	if f.Incidents && f.IncidentTemplate == "" {
+		return false
+	}
+	if f.Deployments && f.DeploymentTemplate == "" {
+		return false
+	}
+	return true
+}
+
+func (f *IntegrationFormWebhook) Get(project *db.Project, masked bool) {
+	cfg := project.Settings.Integrations.Webhook
+	if cfg == nil {
+		f.Incidents = true
+		f.Deployments = true
+		return
+	}
+	f.IntegrationWebhook = *cfg
+	if masked {
+		f.Url = "<webhook_url>"
+	}
+}
+
+func (f *IntegrationFormWebhook) Update(ctx context.Context, project *db.Project, clear bool) error {
+	cfg := &f.IntegrationWebhook
+	if clear {
+		cfg = nil
+	}
+	project.Settings.Integrations.Webhook = cfg
+	return nil
+}
+
+func (f *IntegrationFormWebhook) Test(ctx context.Context, project *db.Project) error {
+	cfg := &f.IntegrationWebhook
+	wh := notifications.NewWebhook(cfg)
+	if cfg.Incidents {
+		err := wh.SendIncident(ctx, project.Settings.Integrations.BaseUrl, testIncidentNotification(project))
+		if err != nil {
+			return err
+		}
+	}
+	if cfg.Deployments {
+		err := wh.SendDeployment(ctx, project, testDeploymentNotification())
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func testIncidentNotification(project *db.Project) *db.IncidentNotification {
 	return &db.IncidentNotification{
 		ProjectId:     project.Id,
 		ApplicationId: model.NewApplicationId("default", model.ApplicationKindDeployment, "test-alert-fake-app"),
-		IncidentKey:   "fake",
-		Status:        model.INFO,
+		IncidentKey:   "123ab456",
+		Status:        model.WARNING,
 		Details: &db.IncidentNotificationDetails{
 			Reports: []db.IncidentNotificationDetailsReport{
 				{Name: model.AuditReportSLO, Check: model.Checks.SLOLatency.Title, Message: "error budget burn rate is 20x within 1 hour"},
@@ -471,39 +528,19 @@ func testNotification(project *db.Project) *db.IncidentNotification {
 	}
 }
 
-type IntegrationFormWebHook struct {
-	db.IntegrationWebHook
-}
-
-func (f *IntegrationFormWebHook) Valid() bool {
-	return f.WebHookUrl != "" || f.IncidentTemplate != ""
-}
-
-func (f *IntegrationFormWebHook) Get(project *db.Project, masked bool) {
-	cfg := project.Settings.Integrations.WebHook
-	if cfg == nil {
-		f.WebHookUrl = ""
-		f.IncidentTemplate = ``
-		f.Incidents = true
-		f.DeploymentTemplate = ``
-		f.Deployments = true
-		return
+func testDeploymentNotification() model.ApplicationDeploymentStatus {
+	return model.ApplicationDeploymentStatus{
+		Status: model.OK,
+		State:  model.ApplicationDeploymentStateSummary,
+		Summary: []model.ApplicationDeploymentSummary{
+			{Report: model.AuditReportSLO, Ok: false, Message: "Availability: 87% (objective: 99%)"},
+			{Report: model.AuditReportCPU, Ok: false, Message: "CPU usage: +21% (+$37/mo) compared to the previous deployment"},
+			{Report: model.AuditReportCPU, Ok: true, Message: "Memory: looks like the memory leak has been fixed"},
+		},
+		Deployment: &model.ApplicationDeployment{
+			ApplicationId: model.NewApplicationId("default", model.ApplicationKindDeployment, "test-deployment-fake-app"),
+			Name:          "123ab456",
+			Details:       &model.ApplicationDeploymentDetails{ContainerImages: []string{"app:v1.8.2"}},
+		},
 	}
-	f.IntegrationWebHook = *cfg
-	if masked {
-		f.WebHookUrl = "<webhook_url>"
-	}
-}
-
-func (f *IntegrationFormWebHook) Update(ctx context.Context, project *db.Project, clear bool) error {
-	cfg := &f.IntegrationWebHook
-	if clear {
-		cfg = nil
-	}
-	project.Settings.Integrations.WebHook = cfg
-	return nil
-}
-
-func (f *IntegrationFormWebHook) Test(ctx context.Context, project *db.Project) error {
-	return notifications.NewWebHook(f.WebHookUrl, f.IncidentTemplate, f.DeploymentTemplate).SendIncident(ctx, project.Settings.Integrations.BaseUrl, testNotification(project))
 }
