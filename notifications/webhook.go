@@ -3,88 +3,71 @@ package notifications
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
+	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 	"text/template"
 
+	"github.com/coroot/coroot/utils"
+
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
-	"github.com/coroot/coroot/timeseries"
 )
 
-type WebHook struct {
-	webhookUrl         string
-	incidentTemplate   string
-	deploymentTemplate string
+type Webhook struct {
+	cfg *db.IntegrationWebhook
 }
 
 type IncidentTemplateValues struct {
-	Status    string
-	App       model.ApplicationId
-	Reports   []db.IncidentNotificationDetailsReport
-	URL       string
-	Timestamp timeseries.Time
-}
-
-type Project struct {
-	Id   string
-	Name string
+	Status      string                                 `json:"status"`
+	Application model.ApplicationId                    `json:"application"`
+	Reports     []db.IncidentNotificationDetailsReport `json:"reports"`
+	URL         string                                 `json:"url"`
 }
 
 type DeploymentTemplateValues struct {
-	Status  string
-	App     model.ApplicationId
-	Project Project
-	Summary []string
-	URL     string
+	Status      string              `json:"status"`
+	Application model.ApplicationId `json:"application"`
+	Version     string              `json:"version"`
+	Summary     []string            `json:"summary"`
+	URL         string              `json:"url"`
 }
 
-func NewWebHook(webhookUrl string, incidentTemplate string, deploymentTemplate string) *WebHook {
-	return &WebHook{
-		webhookUrl:         webhookUrl,
-		incidentTemplate:   incidentTemplate,
-		deploymentTemplate: deploymentTemplate,
-	}
+func NewWebhook(cfg *db.IntegrationWebhook) *Webhook {
+	return &Webhook{cfg: cfg}
 }
 
-func (t *WebHook) SendIncident(ctx context.Context, baseUrl string, n *db.IncidentNotification) error {
-	tmpl, err := template.New("incidentTemplate").Parse(t.incidentTemplate)
+func (wh *Webhook) SendIncident(ctx context.Context, baseUrl string, n *db.IncidentNotification) error {
+	tmpl, err := template.New("incidentTemplate").Funcs(templateFunctions).Parse(wh.cfg.IncidentTemplate)
 	if err != nil {
-		return fmt.Errorf("WebHookIntegration: cant parse incidentTemplate: %s", err)
+		return fmt.Errorf("invalid incident template: %s", err)
 	}
 
 	var data bytes.Buffer
 	err = tmpl.Execute(&data, IncidentTemplateValues{
-		Status:    strings.ToUpper(fmt.Sprint(n.Status)),
-		App:       n.ApplicationId,
-		Reports:   n.Details.Reports,
-		URL:       incidentUrl(baseUrl, n),
-		Timestamp: n.Timestamp,
+		Status:      strings.ToUpper(n.Status.String()),
+		Application: n.ApplicationId,
+		Reports:     n.Details.Reports,
+		URL:         incidentUrl(baseUrl, n),
 	})
 	if err != nil {
-		return fmt.Errorf("WebHookIntegration: cant fill incidentTemplate: %s", err)
+		return fmt.Errorf("invalid incident template: %s", err)
 	}
 
-	resp, err := http.Post(t.webhookUrl, "application/json", &data)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	return t.validateResponse(resp)
+	return wh.send(ctx, data.Bytes())
 }
 
-func (t *WebHook) SendDeployment(ctx context.Context, project *db.Project, ds model.ApplicationDeploymentStatus) error {
-	tmpl, err := template.New("deploymentTemplate").Parse(t.deploymentTemplate)
+func (wh *Webhook) SendDeployment(ctx context.Context, project *db.Project, ds model.ApplicationDeploymentStatus) error {
+	tmpl, err := template.New("deploymentTemplate").Funcs(templateFunctions).Parse(wh.cfg.DeploymentTemplate)
 	if err != nil {
-		return fmt.Errorf("WebHookIntegration: cant parse deploymentTemplate: %s", err)
+		return fmt.Errorf("invalid deployment template: %s", err)
 	}
 
-	d := ds.Deployment
-
 	status := "Deployed"
+	var summary []string
 	switch ds.State {
 	case model.ApplicationDeploymentStateInProgress:
 		return nil
@@ -92,52 +75,69 @@ func (t *WebHook) SendDeployment(ctx context.Context, project *db.Project, ds mo
 		status = "Stuck"
 	case model.ApplicationDeploymentStateCancelled:
 		status = "Cancelled"
-	}
-
-	var summary []string
-
-	if ds.State == model.ApplicationDeploymentStateSummary {
-		summary = append(summary, "No notable changes")
-		if len(ds.Summary) > 0 {
-			for _, s := range ds.Summary {
-				summary = append(summary, fmt.Sprintf("%s %s", s.Emoji(), s.Message))
-			}
+	case model.ApplicationDeploymentStateSummary:
+		for _, s := range ds.Summary {
+			summary = append(summary, fmt.Sprintf("%s %s", s.Emoji(), s.Message))
+		}
+		if len(summary) == 0 {
+			summary = append(summary, "No notable changes")
 		}
 	}
 
 	var data bytes.Buffer
-	var projectDeploy = Project{
-		Name: *&project.Name,
-		Id:   string(project.Id),
-	}
-
 	err = tmpl.Execute(&data, DeploymentTemplateValues{
-		Status:  status,
-		App:     d.ApplicationId,
-		Project: projectDeploy,
-		Summary: summary,
-		URL:     deploymentUrl(project.Settings.Integrations.BaseUrl, project.Id, d),
+		Application: ds.Deployment.ApplicationId,
+		Status:      status,
+		Version:     ds.Deployment.Version(),
+		Summary:     summary,
+		URL:         deploymentUrl(project.Settings.Integrations.BaseUrl, project.Id, ds.Deployment),
 	})
 	if err != nil {
-		return fmt.Errorf("WebHookIntegration: cant fill deploymentTemplate: %s", err)
+		return fmt.Errorf("invalid deployment template: %s", err)
 	}
 
-	resp, err := http.Post(t.webhookUrl, "application/json", &data)
+	return wh.send(ctx, data.Bytes())
+}
+
+func (wh *Webhook) send(ctx context.Context, data []byte) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, wh.cfg.Url, bytes.NewReader(utils.EscapeJsonMultilineStrings(data)))
+	if err != nil {
+		return err
+	}
+	if wh.cfg.BasicAuth != nil {
+		req.SetBasicAuth(wh.cfg.BasicAuth.User, wh.cfg.BasicAuth.Password)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	for _, h := range wh.cfg.CustomHeaders {
+		req.Header.Add(h.Key, h.Value)
+	}
+	httpClient := &http.Client{}
+	if wh.cfg.TlsSkipVerify {
+		httpClient.Transport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
+	}
+
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
 
-	return t.validateResponse(resp)
-}
-
-func (t *WebHook) validateResponse(resp *http.Response) error {
-	if resp.StatusCode != http.StatusOK {
-		respBody, err := ioutil.ReadAll(resp.Body)
+	if resp.StatusCode >= http.StatusBadRequest {
+		body, err := io.ReadAll(resp.Body)
 		if err != nil {
-			return fmt.Errorf("WebHookIntegration: error reading response body: %s", err)
+			return fmt.Errorf("response status: %s", resp.Status)
 		}
-		return fmt.Errorf("WebHookIntegration: invalid response status code: %d, response body: %s", resp.StatusCode, string(respBody))
+		return fmt.Errorf("%s: %s", resp.Status, string(body))
 	}
+
 	return nil
 }
+
+var (
+	templateFunctions = template.FuncMap{
+		"json": func(arg any) (string, error) {
+			data, err := json.Marshal(arg)
+			return string(data), err
+		},
+	}
+)
