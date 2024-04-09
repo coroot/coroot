@@ -51,10 +51,13 @@ var BuiltinCategoryPatterns = map[ApplicationCategory][]string{
 		"istio-system/*",
 		"amazon-cloudwatch/*",
 		"karpenter/*",
-		"istio-system/*",
 		"cert-manager/*",
 		"argocd/*",
 		"flux-system/*",
+		"linkerd/*",
+		"vault/*",
+		"keda/*",
+		"keycloak/*",
 	},
 	ApplicationCategoryMonitoring: {
 		"monitoring/*",
@@ -65,6 +68,7 @@ var BuiltinCategoryPatterns = map[ApplicationCategory][]string{
 		"*/*alertmanager*",
 		"coroot/*",
 		"*/*coroot*",
+		"metrics-server/*",
 	},
 }
 
