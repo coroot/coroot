@@ -36,12 +36,18 @@
                         @mouseleave="unfocus"
                     >
                         <div class="d-flex align-center" style="gap: 2px">
-                            <span class="name" :title="i.id">{{ i.id }}</span>
-                            <v-icon v-if="i.labels && i.labels['role'] === 'primary'" small color="rgba(0,0,0,0.87)"
-                                >mdi-database-edit-outline</v-icon
-                            >
-                            <v-icon v-if="i.labels && i.labels['role'] === 'replica'" small color="grey">mdi-database-import-outline</v-icon>
-                            <v-icon v-if="i.labels && i.labels['proxy']" small color="grey">mdi-swap-horizontal</v-icon>
+                            <div class="name flex-grow-1" :title="i.id">{{ i.id }}</div>
+                            <div>
+                                <v-icon v-if="i.labels && i.labels['role'] === 'primary'" small color="rgba(0,0,0,0.87)" style="margin-bottom: 2px"
+                                    >mdi-database-edit-outline</v-icon
+                                >
+                                <v-icon v-if="i.labels && i.labels['role'] === 'replica'" small color="grey" style="margin-bottom: 2px"
+                                    >mdi-database-import-outline</v-icon
+                                >
+                                <v-icon v-if="i.labels && i.labels['proxy']" small color="grey" style="margin-bottom: 2px"
+                                    >mdi-swap-horizontal</v-icon
+                                >
+                            </div>
                         </div>
                         <Labels :labels="i.labels" class="d-none d-sm-block" />
                     </div>
@@ -326,7 +332,7 @@ export default {
     border: 1px solid #bdbdbd;
     white-space: nowrap;
     padding: 4px 8px;
-    max-width: 12rem;
+    max-width: 16rem;
 }
 .name {
     white-space: nowrap;
@@ -338,10 +344,6 @@ export default {
 
 .label {
     margin-left: 14px;
-}
-
-.instance .name {
-    direction: rtl;
 }
 
 .hi {
