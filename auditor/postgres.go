@@ -24,11 +24,22 @@ var (
 )
 
 func (a *appAuditor) postgres() {
+	isPostgres := a.app.ApplicationTypes()[model.ApplicationTypePostgres]
+
+	if !isPostgres && !a.app.IsPostgres() {
+		return
+	}
+	report := a.addReport(model.AuditReportPostgres)
+
 	if !a.app.IsPostgres() {
+		report.ConfigurationHint = &model.ConfigurationHint{
+			Message:      "It seems this app is a Postgres database. Please install coroot-pg-agent for gathering Postgres specific metrics.",
+			ReadMoreLink: "https://coroot.com/docs/metric-exporters/pg-agent/installation",
+		}
+		report.Status = model.UNKNOWN
 		return
 	}
 
-	report := a.addReport(model.AuditReportPostgres)
 	availabilityCheck := report.CreateCheck(model.Checks.PostgresAvailability)
 	latencyCheck := report.CreateCheck(model.Checks.PostgresLatency)
 	errorsCheck := report.CreateCheck(model.Checks.PostgresErrors)
