@@ -258,3 +258,13 @@ func (app *Application) GetClientsConnections() map[ApplicationId][]*Connection 
 func (app *Application) AddReport(name AuditReportName, widgets ...*Widget) {
 	app.Reports = append(app.Reports, &AuditReport{Name: name, Widgets: widgets})
 }
+
+func (app *Application) ApplicationTypes() map[ApplicationType]bool {
+	res := map[ApplicationType]bool{}
+	for _, i := range app.Instances {
+		for t := range i.ApplicationTypes() {
+			res[t] = true
+		}
+	}
+	return res
+}

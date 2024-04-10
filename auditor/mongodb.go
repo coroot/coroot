@@ -7,11 +7,22 @@ import (
 )
 
 func (a *appAuditor) mongodb() {
-	if !a.app.IsMongodb() {
+	isMongo := a.app.ApplicationTypes()[model.ApplicationTypeMongodb]
+
+	if !isMongo && !a.app.IsMongodb() {
 		return
 	}
 
 	report := a.addReport(model.AuditReportMongodb)
+
+	if !a.app.IsMongodb() {
+		report.ConfigurationHint = &model.ConfigurationHint{
+			Message:      "It seems this app is a MongoDB database. Please install mongodb_exporter for gathering MongoDB specific metrics.",
+			ReadMoreLink: "https://coroot.com/docs/metric-exporters/mongodb-exporter/installation",
+		}
+		report.Status = model.UNKNOWN
+		return
+	}
 
 	availabilityCheck := report.CreateCheck(model.Checks.MongodbAvailability)
 	replicationLagCheck := report.CreateCheck(model.Checks.MongodbReplicationLag)

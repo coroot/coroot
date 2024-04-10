@@ -6,12 +6,23 @@ import (
 )
 
 func (a *appAuditor) redis() {
-	if !a.app.IsRedis() {
+	appTypes := a.app.ApplicationTypes()
+	isRedis := appTypes[model.ApplicationTypeRedis] || appTypes[model.ApplicationTypeKeyDB]
+
+	if !isRedis && !a.app.IsRedis() {
 		return
 	}
 
 	report := a.addReport(model.AuditReportRedis)
 
+	if !a.app.IsRedis() {
+		report.ConfigurationHint = &model.ConfigurationHint{
+			Message:      "It seems this app is a Redis database. Please install redis_exporter for gathering Redis specific metrics.",
+			ReadMoreLink: "https://coroot.com/docs/metric-exporters/redis-exporter/installation",
+		}
+		report.Status = model.UNKNOWN
+		return
+	}
 	availabilityCheck := report.CreateCheck(model.Checks.RedisAvailability)
 	latencyCheck := report.CreateCheck(model.Checks.RedisLatency)
 

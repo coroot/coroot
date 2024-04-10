@@ -28,17 +28,23 @@ const (
 	AuditReportTracing     AuditReportName = "Tracing"
 )
 
+type ConfigurationHint struct {
+	Message      string `json:"message"`
+	ReadMoreLink string `json:"read_more_link"`
+}
+
 type AuditReport struct {
 	app          *Application
 	ctx          timeseries.Context
 	checkConfigs CheckConfigs
 	detailed     bool
 
-	Name    AuditReportName `json:"name"`
-	Status  Status          `json:"status"`
-	Widgets []*Widget       `json:"widgets"`
-	Checks  []*Check        `json:"checks"`
-	Custom  bool            `json:"custom"`
+	Name              AuditReportName    `json:"name"`
+	Status            Status             `json:"status"`
+	Widgets           []*Widget          `json:"widgets"`
+	Checks            []*Check           `json:"checks"`
+	Custom            bool               `json:"custom"`
+	ConfigurationHint *ConfigurationHint `json:"configuration_hint"`
 }
 
 func NewAuditReport(app *Application, ctx timeseries.Context, checkConfigs CheckConfigs, name AuditReportName, detailed bool) *AuditReport {
