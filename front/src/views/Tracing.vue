@@ -8,31 +8,33 @@
                     <span v-if="view.status !== 'warning'"> (<a @click="configure = true">configure</a>) </span>
                 </template>
                 <span v-else-if="loading">Loading...</span>
-                <v-progress-circular v-if="loading" indeterminate size="16" width="2" color="green" class="ml-1" />
             </div>
-            <v-select
-                v-if="view.sources"
-                :value="source"
-                :items="sources"
-                @change="changeSource"
-                outlined
-                hide-details
-                dense
-                :menu-props="{ offsetY: true }"
-                class="mt-4"
-            />
-            <div class="grey--text my-3">
-                <v-icon size="20" style="vertical-align: baseline">mdi-lightbulb-on-outline</v-icon>
-                Select a chart area to see traces for a specific time range, duration, or status.
-            </div>
-            <div class="d-flex flex-column flex-md-row" style="gap: 8px; row-gap: 8px">
-                <v-btn depressed small color="primary" :disabled="loading" class="text-body-2" @click="setSelection('errors')">
-                    <v-icon left small class="mr-0">mdi-filter</v-icon>Show error traces
-                </v-btn>
-                <v-btn depressed small color="primary" :disabled="loading" class="text-body-2" @click="setSelection('slo violations')">
-                    <v-icon left small class="mr-0">mdi-filter</v-icon>Show latency SLO violations
-                </v-btn>
-            </div>
+            <template v-if="view.heatmap">
+                <v-select
+                    v-if="view.sources"
+                    :value="source"
+                    :items="sources"
+                    @change="changeSource"
+                    outlined
+                    hide-details
+                    dense
+                    :menu-props="{ offsetY: true }"
+                    class="mt-4"
+                />
+                <div class="grey--text my-3">
+                    <v-icon size="20" style="vertical-align: baseline">mdi-lightbulb-on-outline</v-icon>
+                    Select a chart area to see traces for a specific time range, duration, or status.
+                </div>
+                <div class="d-flex flex-column flex-md-row" style="gap: 8px; row-gap: 8px">
+                    <v-btn depressed small color="primary" :disabled="loading" class="text-body-2" @click="setSelection('errors')">
+                        <v-icon left small class="mr-0">mdi-filter</v-icon>Show error traces
+                    </v-btn>
+                    <v-btn depressed small color="primary" :disabled="loading" class="text-body-2" @click="setSelection('slo violations')">
+                        <v-icon left small class="mr-0">mdi-filter</v-icon>Show latency SLO violations
+                    </v-btn>
+                </div>
+            </template>
+            <v-progress-linear v-if="loading" indeterminate height="4" style="position: absolute; bottom: 0; left: 0" />
         </v-card>
 
         <Heatmap v-if="view.heatmap" :heatmap="view.heatmap" :selection="selection" @select="setSelection" :loading="loading" class="mt-5" />
@@ -61,14 +63,9 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <tr v-if="loading">
-                        <td colspan="6" class="pa-0" style="vertical-align: top">
-                            <v-progress-linear v-if="loading" indeterminate color="green" height="4" />
-                        </td>
-                    </tr>
                     <tr v-for="s in view.spans">
                         <td>
-                            <router-link :to="{ query: setTrace({ id: s.trace_id, span: s.id }) }" exact>
+                            <router-link :to="{ query: setTrace({ id: s.trace_id, span: s.id }) }" exact class="text-no-wrap">
                                 <v-icon small style="vertical-align: baseline">mdi-chart-timeline</v-icon>
                                 {{ s.trace_id.substring(0, 8) }}
                             </router-link>

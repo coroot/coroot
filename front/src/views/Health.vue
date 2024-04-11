@@ -186,7 +186,7 @@ export default {
     width: 4px;
 }
 .table .application .name {
-    max-width: 60ch;
+    max-width: 30ch;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -215,6 +215,7 @@ export default {
 .value {
     color: inherit;
     opacity: 60%;
+    white-space: nowrap;
 }
 .value.critical,
 .value.warning {

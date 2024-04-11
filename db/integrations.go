@@ -100,27 +100,12 @@ type IntegrationsPrometheus struct {
 }
 
 type IntegrationClickhouse struct {
-	Protocol          string          `json:"protocol"`
-	Addr              string          `json:"addr"`
-	Auth              utils.BasicAuth `json:"auth"`
-	Database          string          `json:"database"`
-	TlsEnable         bool            `json:"tls_enable"`
-	TlsSkipVerify     bool            `json:"tls_skip_verify"`
-	TracesTable       string          `json:"traces_table"`
-	LogsTable         string          `json:"logs_table"`
-	ProfilingDisabled bool            `json:"profiling_disabled"`
-}
-
-func (c *IntegrationClickhouse) TracingEnabled() bool {
-	return c.TracesTable != ""
-}
-
-func (c *IntegrationClickhouse) LogsEnabled() bool {
-	return c.LogsTable != ""
-}
-
-func (c *IntegrationClickhouse) ProfilingEnabled() bool {
-	return !c.ProfilingDisabled
+	Protocol      string          `json:"protocol"`
+	Addr          string          `json:"addr"`
+	Auth          utils.BasicAuth `json:"auth"`
+	Database      string          `json:"database"`
+	TlsEnable     bool            `json:"tls_enable"`
+	TlsSkipVerify bool            `json:"tls_skip_verify"`
 }
 
 type IntegrationSlack struct {

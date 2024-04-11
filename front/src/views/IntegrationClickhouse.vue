@@ -23,39 +23,11 @@
         <div class="subtitle-1 mt-3">Credentials</div>
         <div class="d-flex gap">
             <v-text-field v-model="form.auth.user" :rules="[$validators.notEmpty]" label="username" outlined dense hide-details single-line />
-            <v-text-field
-                v-model="form.auth.password"
-                :rules="[$validators.notEmpty]"
-                label="password"
-                type="password"
-                outlined
-                dense
-                hide-details
-                single-line
-            />
+            <v-text-field v-model="form.auth.password" label="password" type="password" outlined dense hide-details single-line />
         </div>
 
         <div class="subtitle-1 mt-3">Database</div>
         <v-text-field v-model="form.database" :rules="[$validators.notEmpty]" outlined dense hide-details single-line />
-
-        <div class="d-flex align-center">
-            <v-checkbox v-model="traces" label="Use Clickhouse as a datasource for traces" hide-details class="mt-3" />
-            <a href="https://coroot.com/docs/coroot-community-edition/tracing" target="_blank" class="mt-3 ml-1">
-                <v-icon>mdi-information-outline</v-icon>
-            </a>
-        </div>
-        <div class="d-flex align-center">
-            <v-checkbox v-model="logs" label="Use Clickhouse as a datasource for logs" hide-details class="mt-5" />
-            <a href="https://coroot.com/docs/coroot-community-edition/logs" target="_blank" class="mt-5 ml-1">
-                <v-icon>mdi-information-outline</v-icon>
-            </a>
-        </div>
-        <div class="d-flex align-center">
-            <v-checkbox v-model="profiles" label="Use Clickhouse as a datasource for profiles" hide-details class="mt-5" />
-            <a href="https://coroot.com/docs/coroot-community-edition/profiling" target="_blank" class="mt-5 ml-1">
-                <v-icon>mdi-information-outline</v-icon>
-            </a>
-        </div>
 
         <v-checkbox v-model="form.tls_enable" label="Enable TLS" hide-details class="my-3" />
         <v-checkbox v-model="form.tls_skip_verify" :disabled="!form.tls_enable" label="Skip TLS verify" hide-details class="my-2" />
@@ -83,10 +55,6 @@ export default {
             error: '',
             message: '',
             saved: null,
-
-            traces: true,
-            logs: true,
-            profiles: true,
         };
     },
 
@@ -97,18 +65,6 @@ export default {
     computed: {
         changed() {
             return JSON.stringify(this.form) !== JSON.stringify(this.saved);
-        },
-    },
-
-    watch: {
-        traces(v) {
-            this.form.traces_table = v ? 'otel_traces' : '';
-        },
-        logs(v) {
-            this.form.logs_table = v ? 'otel_logs' : '';
-        },
-        profiles(v) {
-            this.form.profiling_disabled = !v;
         },
     },
 
@@ -124,9 +80,6 @@ export default {
                 }
                 this.form = data;
                 this.saved = JSON.parse(JSON.stringify(this.form));
-                this.traces = !!this.form.traces_table;
-                this.logs = !!this.form.logs_table;
-                this.profiles = !this.form.profiling_disabled;
             });
         },
         save() {

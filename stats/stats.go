@@ -279,9 +279,9 @@ func (c *Collector) collect() Stats {
 		}
 		if cfg := p.Settings.Integrations.Clickhouse; cfg != nil && cfg.Addr != "" {
 			stats.Integration.Clickhouse = true
-			stats.Integration.Tracing = cfg.TracingEnabled()
-			stats.Integration.Logs = cfg.LogsEnabled()
-			stats.Integration.Profiles = cfg.ProfilingEnabled()
+			stats.Integration.Tracing = true
+			stats.Integration.Logs = true
+			stats.Integration.Profiles = true
 		}
 
 		for category := range p.Settings.ApplicationCategories {

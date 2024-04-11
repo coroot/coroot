@@ -99,7 +99,7 @@ func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, 
 
 	if len(v.Profiles) == 0 {
 		v.Status = model.UNKNOWN
-		v.Message = "No profiles found"
+		v.Message = "No profiles found in ClickHouse"
 		return v
 	}
 	sort.Slice(v.Profiles, func(i, j int) bool {

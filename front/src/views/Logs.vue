@@ -12,7 +12,6 @@
                     <span v-if="data.status === 'ok'"> (<a @click="configure = true">configure</a>) </span>
                 </template>
                 <span v-else-if="loading">Loading...</span>
-                <v-progress-circular v-if="loading" indeterminate size="16" width="2" color="green" class="ml-1" />
             </div>
 
             <v-form v-if="configured" :disabled="disabled">
@@ -90,11 +89,10 @@
                     </div>
                 </div>
             </v-form>
+            <v-progress-linear v-if="loading" indeterminate height="4" style="position: absolute; bottom: 0; left: 0" />
         </v-card>
 
         <div class="pt-5" style="position: relative; min-height: 50vh">
-            <v-progress-linear v-if="loading" indeterminate color="green" height="4" style="position: absolute; top: 0" />
-
             <div v-if="!loading && loadingError" class="pa-3 text-center red--text">
                 {{ loadingError }}
             </div>

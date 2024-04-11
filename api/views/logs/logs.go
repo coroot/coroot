@@ -86,6 +86,14 @@ func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, 
 
 	patterns := getPatterns(app)
 
+	defer func() {
+		if v.Chart != nil {
+			events := model.EventsToAnnotations(app.Events, w.Ctx)
+			incidents := model.IncidentsToAnnotations(app.Incidents, w.Ctx)
+			v.Chart.AddAnnotation(events...).AddAnnotation(incidents...)
+		}
+	}()
+
 	if ch == nil {
 		v.Status = model.UNKNOWN
 		v.Message = "Clickhouse integration is not configured"
