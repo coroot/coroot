@@ -190,7 +190,7 @@ func requestsChart(app *model.Application, report *model.AuditReport, p *db.Proj
 			hm.AddSeries("errors", "errors", failed, "", "err")
 		}
 	}
-	if cfg := p.Settings.Integrations.Clickhouse; cfg != nil && cfg.TracingEnabled() {
+	if cfg := p.Settings.Integrations.Clickhouse; cfg != nil {
 		hm.DrillDownLink = model.NewRouterLink("tracing", "application").
 			SetParam("id", app.Id).
 			SetParam("report", model.AuditReportTracing)

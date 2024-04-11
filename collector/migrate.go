@@ -1,29 +1,48 @@
-package clickhouse
+package collector
 
 import (
 	"context"
-	"math"
+	"crypto/tls"
+	"strings"
+	"time"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/ClickHouse/ch-go"
+	"github.com/coroot/coroot/db"
 )
 
 const (
-	ttlDays = 7
+	ttlDays = "7"
 )
 
-func (c *Client) Migrate(ctx context.Context) error {
-	var buckets []uint64
-	for _, b := range histogramBuckets {
-		if !math.IsInf(b, 0) {
-			buckets = append(buckets, uint64(b*1000000))
+func (c *Collector) Migrate(ctx context.Context, cfg *db.IntegrationClickhouse) error {
+	if cfg == nil {
+		return nil
+	}
+
+	opts := ch.Options{
+		Address:          cfg.Addr,
+		Database:         cfg.Database,
+		User:             cfg.Auth.User,
+		Password:         cfg.Auth.Password,
+		Compression:      ch.CompressionLZ4,
+		ReadTimeout:      30 * time.Second,
+		DialTimeout:      10 * time.Second,
+		HandshakeTimeout: 10 * time.Second,
+	}
+	if cfg.TlsEnable {
+		opts.TLS = &tls.Config{
+			InsecureSkipVerify: cfg.TlsSkipVerify,
 		}
 	}
-	args := []any{
-		clickhouse.Named("ttl_days", ttlDays),
-		clickhouse.Named("histogram_buckets", buckets),
+	cl, err := ch.Dial(ctx, opts)
+	if err != nil {
+		return nil
 	}
+	defer cl.Close()
+
 	for _, t := range tables {
-		err := c.conn.Exec(ctx, t, args...)
+		t = strings.ReplaceAll(t, "@ttl_days", ttlDays)
+		err = cl.Do(ctx, ch.Query{Body: t})
 		if err != nil {
 			return err
 		}
@@ -118,5 +137,47 @@ WHERE TraceId!=''
 GROUP BY TraceId`,
 
 		`ALTER TABLE otel_traces ADD COLUMN IF NOT EXISTS NetSockPeerAddr LowCardinality(String) MATERIALIZED SpanAttributes['net.sock.peer.addr'] CODEC(ZSTD(1))`,
+
+		`
+CREATE TABLE IF NOT EXISTS profiling_stacks (
+	ServiceName LowCardinality(String) CODEC(ZSTD(1)),
+	Hash UInt64 CODEC(ZSTD(1)),
+	LastSeen DateTime64(9) CODEC(Delta, ZSTD(1)),
+	Stack Array(String) CODEC(ZSTD(1))
+) 
+ENGINE ReplacingMergeTree()
+PRIMARY KEY (ServiceName, Hash)
+TTL toDateTime(LastSeen) + toIntervalDay(@ttl_days)
+PARTITION BY toDate(LastSeen)
+ORDER BY (ServiceName, Hash)`,
+
+		`
+CREATE TABLE IF NOT EXISTS profiling_samples (
+	ServiceName LowCardinality(String) CODEC(ZSTD(1)),
+    Type LowCardinality(String) CODEC(ZSTD(1)),
+	Start DateTime64(9) CODEC(Delta, ZSTD(1)),
+	End DateTime64(9) CODEC(Delta, ZSTD(1)),
+	Labels Map(LowCardinality(String), String) CODEC(ZSTD(1)),
+	StackHash UInt64 CODEC(ZSTD(1)),
+	Value Int64 CODEC(ZSTD(1))
+) ENGINE MergeTree()
+TTL toDateTime(Start) + toIntervalDay(@ttl_days)
+PARTITION BY toDate(Start)
+ORDER BY (ServiceName, Type, toUnixTimestamp(Start), toUnixTimestamp(End))`,
+
+		`
+CREATE TABLE IF NOT EXISTS profiling_profiles (
+    ServiceName LowCardinality(String) CODEC(ZSTD(1)),
+    Type LowCardinality(String) CODEC(ZSTD(1)),
+    LastSeen DateTime64(9) CODEC(Delta, ZSTD(1))
+)
+ENGINE ReplacingMergeTree()
+PRIMARY KEY (ServiceName, Type)
+TTL toDateTime(LastSeen) + toIntervalDay(@ttl_days)
+PARTITION BY toDate(LastSeen)`,
+
+		`
+CREATE MATERIALIZED VIEW IF NOT EXISTS profiling_profiles_mv TO profiling_profiles AS
+SELECT ServiceName, Type, max(End) AS LastSeen FROM profiling_samples group by ServiceName, Type`,
 	}
 )

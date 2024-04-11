@@ -268,11 +268,8 @@ func (f *IntegrationFormClickhouse) Get(project *db.Project, masked bool) {
 	if f.Database == "" {
 		f.Database = "default"
 	}
-	if cfg == nil && f.TracesTable == "" {
-		f.TracesTable = "otel_traces"
-	}
-	if cfg == nil && f.LogsTable == "" {
-		f.LogsTable = "otel_logs"
+	if f.Auth.User == "" {
+		f.Auth.User = "default"
 	}
 	if masked {
 		f.Addr = "<hidden>"

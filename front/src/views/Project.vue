@@ -34,11 +34,10 @@
         <template v-if="tab === 'clickhouse'">
             <h1 class="text-h5 my-5">Clickhouse integration</h1>
             <p>
-                Coroot can display OpenTelemetry traces and logs stored in a ClickHouse database (<a
-                    href="https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/exporter/clickhouseexporter"
-                    target="_blank"
-                    >clickhouse-exporter</a
-                >).
+                Coroot stores
+                <a href="https://coroot.com/docs/coroot-community-edition/logs" target="_blank">logs</a>,
+                <a href="https://coroot.com/docs/coroot-community-edition/tracing" target="_blank">traces</a>, and
+                <a href="https://coroot.com/docs/coroot-community-edition/profiling" target="_blank">profiles</a> in the ClickHouse database.
             </p>
             <IntegrationClickhouse />
         </template>

@@ -196,6 +196,11 @@ func (c *Client) getSpansHistogram(ctx context.Context, q SpanQuery, filters []s
 		byBucket[bucket].Set(ts, float32(total)/float32(step))
 		errors[ts] += failed
 	}
+
+	if len(byBucket) == 0 {
+		return nil, nil
+	}
+
 	res := []model.HistogramBucket{
 		{TimeSeries: timeseries.New(from, int(to.Sub(from)/step), step)}, // errors
 	}

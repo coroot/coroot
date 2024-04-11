@@ -13,6 +13,7 @@ import (
 	"github.com/coroot/coroot/cache"
 	"github.com/coroot/coroot/clickhouse"
 	cloud_pricing "github.com/coroot/coroot/cloud-pricing"
+	"github.com/coroot/coroot/collector"
 	"github.com/coroot/coroot/constructor"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
@@ -26,12 +27,13 @@ import (
 type Api struct {
 	cache    *cache.Cache
 	db       *db.DB
+	coll     *collector.Collector
 	pricing  *cloud_pricing.Manager
 	readOnly bool
 }
 
-func NewApi(cache *cache.Cache, db *db.DB, pricing *cloud_pricing.Manager, readOnly bool) *Api {
-	return &Api{cache: cache, db: db, pricing: pricing, readOnly: readOnly}
+func NewApi(cache *cache.Cache, db *db.DB, coll *collector.Collector, pricing *cloud_pricing.Manager, readOnly bool) *Api {
+	return &Api{cache: cache, db: db, coll: coll, pricing: pricing, readOnly: readOnly}
 }
 
 func (api *Api) Projects(w http.ResponseWriter, _ *http.Request) {
@@ -182,7 +184,7 @@ func (api *Api) Overview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var ch *clickhouse.Client
-	if cfg := project.Settings.Integrations.Clickhouse; cfg != nil && cfg.TracingEnabled() {
+	if cfg := project.Settings.Integrations.Clickhouse; cfg != nil {
 		ch, err = GetClickhouseClient(cfg)
 		if err != nil {
 			klog.Warningln(err)
@@ -331,19 +333,12 @@ func (api *Api) Integration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if cfg := project.Settings.Integrations.Clickhouse; cfg != nil {
-		ch, err := GetClickhouseClient(cfg)
-		if err != nil {
-			klog.Errorln("clickhouse error:", err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		err = ch.Migrate(r.Context())
-		if err != nil {
-			klog.Errorln("clickhouse error:", err)
-			http.Error(w, "Clickhouse error: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
+	cfg := project.Settings.Integrations.Clickhouse
+	err = api.coll.UpdateClickhouseClient(r.Context(), project.Id, cfg)
+	if err != nil {
+		klog.Errorln("clickhouse error:", err)
+		http.Error(w, "Clickhouse error: "+err.Error(), http.StatusInternalServerError)
+		return
 	}
 }
 
@@ -394,10 +389,8 @@ func (api *Api) App(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	auditor.Audit(world, project, app)
-	if cfg := project.Settings.Integrations.Clickhouse; cfg != nil && cfg.ProfilingEnabled() {
+	if cfg := project.Settings.Integrations.Clickhouse; cfg != nil {
 		app.AddReport(model.AuditReportProfiling, &model.Widget{Profiling: &model.Profiling{ApplicationId: app.Id}, Width: "100%"})
-	}
-	if cfg := project.Settings.Integrations.Clickhouse; cfg != nil && cfg.TracingEnabled() {
 		app.AddReport(model.AuditReportTracing, &model.Widget{Tracing: &model.Tracing{ApplicationId: app.Id}, Width: "100%"})
 	}
 	utils.WriteJson(w, withContext(project, cacheStatus, world, views.Application(world, app)))
@@ -569,7 +562,7 @@ func (api *Api) Profile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var ch *clickhouse.Client
-	if cfg := project.Settings.Integrations.Clickhouse; cfg != nil && cfg.ProfilingEnabled() {
+	if cfg := project.Settings.Integrations.Clickhouse; cfg != nil {
 		ch, err = GetClickhouseClient(cfg)
 		if err != nil {
 			klog.Warningln(err)
@@ -632,7 +625,7 @@ func (api *Api) Tracing(w http.ResponseWriter, r *http.Request) {
 	}
 	q := r.URL.Query()
 	var ch *clickhouse.Client
-	if cfg := project.Settings.Integrations.Clickhouse; cfg != nil && cfg.TracingEnabled() {
+	if cfg := project.Settings.Integrations.Clickhouse; cfg != nil {
 		ch, err = GetClickhouseClient(cfg)
 		if err != nil {
 			klog.Warningln(err)
@@ -693,7 +686,7 @@ func (api *Api) Logs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var ch *clickhouse.Client
-	if cfg := project.Settings.Integrations.Clickhouse; cfg != nil && cfg.LogsEnabled() {
+	if cfg := project.Settings.Integrations.Clickhouse; cfg != nil {
 		ch, err = GetClickhouseClient(cfg)
 		if err != nil {
 			klog.Warningln(err)

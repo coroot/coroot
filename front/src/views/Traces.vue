@@ -210,7 +210,7 @@
                     <tbody>
                         <tr v-for="s in view.spans">
                             <td>
-                                <router-link :to="openTrace(s.trace_id)" exact>
+                                <router-link :to="openTrace(s.trace_id)" exact class="text-no-wrap">
                                     <v-icon small style="vertical-align: baseline">mdi-chart-timeline</v-icon>
                                     {{ s.trace_id.substring(0, 8) }}
                                 </router-link>

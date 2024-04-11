@@ -10,7 +10,6 @@
                     </span>
                 </template>
                 <span v-else>Loading...</span>
-                <v-progress-circular v-if="loading" indeterminate size="16" width="2" color="green" class="ml-1" />
             </div>
             <v-select
                 v-if="view.profiles"
@@ -27,13 +26,13 @@
                 <v-icon size="20" style="vertical-align: baseline">mdi-lightbulb-on-outline</v-icon>
                 Select a chart area to zoom in or compare with the previous period
             </div>
+            <v-progress-linear v-if="loading" indeterminate height="4" style="position: absolute; bottom: 0; left: 0" />
         </v-card>
 
         <Chart v-if="view.chart" :chart="view.chart" class="my-5" :selection="selection" @select="setSelection" :loading="loading" />
 
         <div style="position: relative; min-height: 100vh">
-            <v-progress-linear v-if="loading" indeterminate color="green" height="4" style="position: absolute" />
-            <div v-else-if="loadingError" class="pa-3 text-center red--text">
+            <div v-if="!loading && loadingError" class="pa-3 text-center red--text">
                 {{ loadingError }}
             </div>
             <FlameGraph v-if="view.profile" :profile="view.profile" :limit="0.5" class="pt-2" />
@@ -160,7 +159,7 @@ export default {
                 const service = (this.view.services || []).find((s) => s.linked);
                 this.form.service = service ? service.name : null;
                 this.saved = JSON.stringify(this.form);
-                if (this.view.profile.type) {
+                if (this.view.profile && this.view.profile.type) {
                     this.setQuery({ type: this.view.profile.type });
                 }
             });

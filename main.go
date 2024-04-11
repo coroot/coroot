@@ -11,11 +11,10 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/jpillora/backoff"
-
 	"github.com/coroot/coroot/api"
 	"github.com/coroot/coroot/cache"
 	cloud_pricing "github.com/coroot/coroot/cloud-pricing"
+	"github.com/coroot/coroot/collector"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/prom"
 	"github.com/coroot/coroot/stats"
@@ -24,6 +23,7 @@ import (
 	"github.com/coroot/coroot/watchers"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"github.com/jpillora/backoff"
 	"gopkg.in/alecthomas/kingpin.v2"
 	"k8s.io/klog"
 )
@@ -49,8 +49,6 @@ func main() {
 	bootstrapClickhouseUser := kingpin.Flag("bootstrap-clickhouse-user", "Clickhouse user").Envar("BOOTSTRAP_CLICKHOUSE_USER").Default("default").String()
 	bootstrapClickhousePassword := kingpin.Flag("bootstrap-clickhouse-password", "Clickhouse password").Envar("BOOTSTRAP_CLICKHOUSE_PASSWORD").String()
 	bootstrapClickhouseDatabase := kingpin.Flag("bootstrap-clickhouse-database", "Clickhouse database").Envar("BOOTSTRAP_CLICKHOUSE_DATABASE").Default("default").String()
-	bootstrapClickhouseTracesTable := kingpin.Flag("bootstrap-clickhouse-traces-table", "Clickhouse traces table").Envar("BOOTSTRAP_CLICKHOUSE_TRACES_TABLE").Default("otel_traces").String()
-	bootstrapClickhouseLogsTable := kingpin.Flag("bootstrap-clickhouse-logs-table", "Clickhouse logs table").Envar("BOOTSTRAP_CLICKHOUSE_LOGS_TABLE").Default("otel_logs").String()
 
 	kingpin.Version(version)
 	kingpin.Parse()
@@ -69,9 +67,12 @@ func main() {
 		klog.Exitln(err)
 	}
 
+	coll := collector.New(database)
+	defer coll.Close()
+
 	bootstrapPrometheus(database, *bootstrapPrometheusUrl, *bootstrapRefreshInterval, *bootstrapPrometheusExtraSelector)
-	bootstrapClickhouse(database, *bootstrapClickhouseAddr, *bootstrapClickhouseUser, *bootstrapClickhousePassword, *bootstrapClickhouseDatabase, *bootstrapClickhouseTracesTable, *bootstrapClickhouseLogsTable)
-	migrateClickhouse(database)
+	bootstrapClickhouse(database, *bootstrapClickhouseAddr, *bootstrapClickhouseUser, *bootstrapClickhousePassword, *bootstrapClickhouseDatabase)
+	migrateClickhouse(database, coll)
 
 	cacheConfig := cache.Config{
 		Path: path.Join(*dataDir, "cache"),
@@ -103,7 +104,7 @@ func main() {
 
 	watchers.Start(database, promCache, pricing, !*doNotCheckSLO, !*doNotCheckForDeployments)
 
-	a := api.NewApi(promCache, database, pricing, *readOnly)
+	a := api.NewApi(promCache, database, coll, pricing, *readOnly)
 
 	router := mux.NewRouter()
 	router.PathPrefix("/debug/pprof/").Handler(http.DefaultServeMux)
@@ -130,6 +131,11 @@ func main() {
 	r.HandleFunc("/api/project/{project}/app/{app}/logs", a.Logs).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/project/{project}/node/{node}", a.Node).Methods(http.MethodGet)
 	r.PathPrefix("/api/project/{project}/prom").HandlerFunc(a.Prom)
+
+	r.HandleFunc("/v1/metrics", coll.Metrics)
+	r.HandleFunc("/v1/traces", coll.Traces)
+	r.HandleFunc("/v1/logs", coll.Logs)
+	r.HandleFunc("/v1/profiles", coll.Profiles)
 
 	r.HandleFunc("/stats", func(w http.ResponseWriter, r *http.Request) {
 		statsCollector.RegisterRequest(r)
@@ -244,7 +250,7 @@ func bootstrapPrometheus(database *db.DB, url string, refreshInterval time.Durat
 	}
 }
 
-func bootstrapClickhouse(database *db.DB, addr, user, password, databaseName, tracesTable, logsTable string) {
+func bootstrapClickhouse(database *db.DB, addr, user, password, databaseName string) {
 	if addr == "" || user == "" || password == "" || databaseName == "" {
 		return
 	}
@@ -261,20 +267,9 @@ func bootstrapClickhouse(database *db.DB, addr, user, password, databaseName, tr
 				User:     user,
 				Password: password,
 			},
-			Database:    databaseName,
-			TracesTable: tracesTable,
-			LogsTable:   logsTable,
+			Database: databaseName,
 		}
 		save = true
-	} else {
-		if cfg.TracesTable == "" && tracesTable != "" {
-			cfg.TracesTable = tracesTable
-			save = true
-		}
-		if cfg.LogsTable == "" && logsTable != "" {
-			cfg.LogsTable = logsTable
-			save = true
-		}
 	}
 	if !save {
 		return
@@ -284,31 +279,29 @@ func bootstrapClickhouse(database *db.DB, addr, user, password, databaseName, tr
 	}
 }
 
-func migrateClickhouse(database *db.DB) {
+func migrateClickhouse(database *db.DB, coll *collector.Collector) {
 	projects, err := database.GetProjects()
 	if err != nil {
 		klog.Exitln(err)
 	}
 	for _, p := range projects {
-		if p.Settings.Integrations.Clickhouse == nil {
+		cfg := p.Settings.Integrations.Clickhouse
+		if cfg == nil {
 			continue
 		}
-		go func(cfg *db.IntegrationClickhouse) {
+		go func(c *db.IntegrationClickhouse) {
 			b := backoff.Backoff{Factor: 2, Min: time.Minute, Max: 10 * time.Minute}
 			for {
-				ch, err := api.GetClickhouseClient(cfg)
+				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				err = coll.Migrate(ctx, c)
+				cancel()
 				if err == nil {
-					ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-					err = ch.Migrate(ctx)
-					cancel()
-					if err == nil {
-						return
-					}
+					return
 				}
 				d := b.Duration()
 				klog.Errorf("failed to create clickhouse tables, next attempt in %s: %s", d.String(), err)
 				time.Sleep(d)
 			}
-		}(p.Settings.Integrations.Clickhouse)
+		}(cfg)
 	}
 }
