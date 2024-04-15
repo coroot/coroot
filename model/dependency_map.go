@@ -67,5 +67,13 @@ func (m *DependencyMap) UpdateLink(src DependencyMapInstance, sNode DependencyMa
 	sn.AddSrcInstance(src)
 	dn := m.GetOrCreateNode(dNode)
 	dn.AddDstInstance(dst)
+	for _, l := range m.Links {
+		if l.SrcInstance == src.Id && l.DstInstance == dst.Id {
+			if l.Status < linkStatus {
+				l.Status = linkStatus
+			}
+			return
+		}
+	}
 	m.Links = append(m.Links, &DependencyMapLink{SrcInstance: src.Id, DstInstance: dst.Id, Status: linkStatus})
 }
