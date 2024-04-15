@@ -12,7 +12,6 @@ import (
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
-	"github.com/coroot/coroot/utils"
 	"golang.org/x/exp/maps"
 	"k8s.io/klog"
 )
@@ -77,24 +76,40 @@ func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, 
 		return v
 	}
 
-	service := ""
+	services := map[string]bool{}
 	if appSettings != nil && appSettings.Profiling != nil {
-		service = appSettings.Profiling.Service
+		services[appSettings.Profiling.Service] = true
 	} else {
-		service = model.GuessService(maps.Keys(profileTypes), app.Id)
+		for _, i := range app.Instances {
+			for _, c := range i.Containers {
+				services[model.ContainerIdToServiceName(c.Id)] = true
+			}
+		}
+		if s := model.GuessService(maps.Keys(profileTypes), app.Id); len(services) == 0 && s != "" {
+			services[s] = true
+		}
 	}
 
 	for s := range profileTypes {
 		if !strings.HasPrefix(s, "/") {
-			v.Services = append(v.Services, Service{Name: s, Linked: s == service})
+			v.Services = append(v.Services, Service{Name: s, Linked: services[s]})
 		}
 	}
 	sort.Slice(v.Services, func(i, j int) bool {
 		return v.Services[i].Name < v.Services[j].Name
 	})
 
-	for _, p := range profileTypes[service] {
-		v.Profiles = append(v.Profiles, Meta{Type: p, Name: model.Profiles[p].Name})
+	types := map[model.ProfileType]bool{}
+	for s, pts := range profileTypes {
+		if !services[s] {
+			continue
+		}
+		for _, pt := range pts {
+			types[pt] = true
+		}
+	}
+	for pt := range types {
+		v.Profiles = append(v.Profiles, Meta{Type: pt, Name: model.Profiles[pt].Name})
 	}
 
 	if len(v.Profiles) == 0 {
@@ -108,16 +123,16 @@ func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, 
 
 	if q.Type == "" && category != model.ProfileCategoryNone {
 		var featured model.ProfileType
-		for _, p := range profileTypes[service] {
-			pm := model.Profiles[p]
+		for _, p := range v.Profiles {
+			pm := model.Profiles[p.Type]
 			if pm.Category != category {
 				continue
 			}
 			if featured == "" && pm.Featured {
-				featured = p
+				featured = p.Type
 			}
 			if q.Type == "" {
-				q.Type = p
+				q.Type = p.Type
 			}
 		}
 		if featured != "" {
@@ -128,16 +143,9 @@ func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, 
 		q.Type = v.Profiles[0].Type
 	}
 
-	services := utils.NewStringSet()
-	for _, i := range app.Instances {
-		for _, c := range i.Containers {
-			services.Add(model.ContainerIdToServiceName(c.Id))
-		}
-	}
-
 	v.Chart = getChart(app, q.Type, wCtx)
 	v.Profile = &model.Profile{Type: q.Type, Diff: q.Mode == "diff"}
-	v.Profile.FlameGraph, err = ch.GetProfile(ctx, q.From, q.To, services.Items(), q.Type, v.Profile.Diff)
+	v.Profile.FlameGraph, err = ch.GetProfile(ctx, q.From, q.To, maps.Keys(services), q.Type, v.Profile.Diff)
 	if err != nil {
 		klog.Errorln(err)
 		v.Status = model.WARNING
