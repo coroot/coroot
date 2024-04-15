@@ -1,10 +1,10 @@
 package collector
 
 import (
-	"context"
 	"encoding/hex"
 	"io"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/ClickHouse/ch-go"
@@ -46,12 +46,7 @@ func (c *Collector) Traces(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = c.saveTraces(r.Context(), projectId, req)
-	if err != nil {
-		klog.Errorln(err)
-		http.Error(w, "", http.StatusInternalServerError)
-		return
-	}
+	c.getTracesBatch(projectId).Add(req)
 
 	resp := &v1.ExportTraceServiceResponse{}
 	w.Header().Set("Content-Type", contentType)
@@ -64,27 +59,91 @@ func (c *Collector) Traces(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(data)
 }
 
-func (c *Collector) saveTraces(ctx context.Context, projectId db.ProjectId, req *v1.ExportTraceServiceRequest) error {
-	colTimestamp := new(chproto.ColDateTime64).WithPrecision(chproto.PrecisionNano)
-	colTraceId := new(chproto.ColStr)
-	colSpanId := new(chproto.ColStr)
-	colParentSpanId := new(chproto.ColStr)
-	colTraceState := new(chproto.ColStr)
-	colSpanName := new(chproto.ColStr).LowCardinality()
-	colSpanKind := new(chproto.ColStr).LowCardinality()
-	colServiceName := new(chproto.ColStr).LowCardinality()
-	colResourceAttributes := chproto.NewMap[string, string](new(chproto.ColStr).LowCardinality(), new(chproto.ColStr))
-	colSpanAttributes := chproto.NewMap[string, string](new(chproto.ColStr).LowCardinality(), new(chproto.ColStr))
-	colDuration := new(chproto.ColInt64)
-	colStatusCode := new(chproto.ColStr).LowCardinality()
-	colStatusMessage := new(chproto.ColStr)
-	colEventsTimestamp := new(chproto.ColDateTime64).WithPrecision(chproto.PrecisionNano).Array()
-	colEventsName := new(chproto.ColStr).LowCardinality().Array()
-	colEventsAttributes := chproto.NewArray[map[string]string](chproto.NewMap[string, string](new(chproto.ColStr).LowCardinality(), new(chproto.ColStr)))
-	colLinksTraceId := new(chproto.ColStr).Array()
-	colLinksSpanId := new(chproto.ColStr).Array()
-	colLinksTraceState := new(chproto.ColStr).Array()
-	colLinksAttributes := chproto.NewArray[map[string]string](chproto.NewMap[string, string](new(chproto.ColStr).LowCardinality(), new(chproto.ColStr)))
+type TracesBatch struct {
+	limit int
+	exec  func(query ch.Query) error
+
+	lock sync.Mutex
+	done chan struct{}
+
+	Timestamp          *chproto.ColDateTime64
+	TraceId            *chproto.ColStr
+	SpanId             *chproto.ColStr
+	ParentSpanId       *chproto.ColStr
+	TraceState         *chproto.ColStr
+	SpanName           *chproto.ColLowCardinality[string]
+	SpanKind           *chproto.ColLowCardinality[string]
+	ServiceName        *chproto.ColLowCardinality[string]
+	ResourceAttributes *chproto.ColMap[string, string]
+	SpanAttributes     *chproto.ColMap[string, string]
+	Duration           *chproto.ColInt64
+	StatusCode         *chproto.ColLowCardinality[string]
+	StatusMessage      *chproto.ColStr
+	EventsTimestamp    *chproto.ColArr[time.Time]
+	EventsName         *chproto.ColArr[string]
+	EventsAttributes   *chproto.ColArr[map[string]string]
+	LinksTraceId       *chproto.ColArr[string]
+	LinksSpanId        *chproto.ColArr[string]
+	LinksTraceState    *chproto.ColArr[string]
+	LinksAttributes    *chproto.ColArr[map[string]string]
+}
+
+func NewTracesBatch(limit int, timeout time.Duration, exec func(query ch.Query) error) *TracesBatch {
+	b := &TracesBatch{
+		limit: limit,
+		exec:  exec,
+		done:  make(chan struct{}),
+
+		Timestamp:          new(chproto.ColDateTime64).WithPrecision(chproto.PrecisionNano),
+		TraceId:            new(chproto.ColStr),
+		SpanId:             new(chproto.ColStr),
+		ParentSpanId:       new(chproto.ColStr),
+		TraceState:         new(chproto.ColStr),
+		SpanName:           new(chproto.ColStr).LowCardinality(),
+		SpanKind:           new(chproto.ColStr).LowCardinality(),
+		ServiceName:        new(chproto.ColStr).LowCardinality(),
+		ResourceAttributes: chproto.NewMap[string, string](new(chproto.ColStr).LowCardinality(), new(chproto.ColStr)),
+		SpanAttributes:     chproto.NewMap[string, string](new(chproto.ColStr).LowCardinality(), new(chproto.ColStr)),
+		Duration:           new(chproto.ColInt64),
+		StatusCode:         new(chproto.ColStr).LowCardinality(),
+		StatusMessage:      new(chproto.ColStr),
+		EventsTimestamp:    new(chproto.ColDateTime64).WithPrecision(chproto.PrecisionNano).Array(),
+		EventsName:         new(chproto.ColStr).LowCardinality().Array(),
+		EventsAttributes:   chproto.NewArray[map[string]string](chproto.NewMap[string, string](new(chproto.ColStr).LowCardinality(), new(chproto.ColStr))),
+		LinksTraceId:       new(chproto.ColStr).Array(),
+		LinksSpanId:        new(chproto.ColStr).Array(),
+		LinksTraceState:    new(chproto.ColStr).Array(),
+		LinksAttributes:    chproto.NewArray[map[string]string](chproto.NewMap[string, string](new(chproto.ColStr).LowCardinality(), new(chproto.ColStr))),
+	}
+
+	go func() {
+		ticker := time.NewTicker(timeout)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-b.done:
+				return
+			case <-ticker.C:
+				b.lock.Lock()
+				b.save()
+				b.lock.Unlock()
+			}
+		}
+	}()
+
+	return b
+}
+
+func (b *TracesBatch) Close() {
+	b.done <- struct{}{}
+	b.lock.Lock()
+	defer b.lock.Unlock()
+	b.save()
+}
+
+func (b *TracesBatch) Add(req *v1.ExportTraceServiceRequest) {
+	b.lock.Lock()
+	defer b.lock.Unlock()
 
 	for _, rs := range req.GetResourceSpans() {
 		var serviceName string
@@ -99,19 +158,6 @@ func (c *Collector) saveTraces(ctx context.Context, projectId db.ProjectId, req 
 			scopeName := ss.GetScope().GetName()
 			scopeVersion := ss.GetScope().GetVersion()
 			for _, s := range ss.GetSpans() {
-				colTimestamp.Append(time.Unix(0, int64(s.GetStartTimeUnixNano())))
-				colTraceId.Append(hex.EncodeToString(s.GetTraceId()))
-				colSpanId.Append(hex.EncodeToString(s.GetSpanId()))
-				colParentSpanId.Append(hex.EncodeToString(s.GetParentSpanId()))
-				colTraceState.Append(s.GetTraceState())
-				colSpanName.Append(s.GetName())
-				colSpanKind.Append(s.GetKind().String())
-				colServiceName.Append(serviceName)
-				colDuration.Append(int64(s.GetEndTimeUnixNano() - s.GetStartTimeUnixNano()))
-				colStatusCode.Append(s.GetStatus().GetCode().String())
-				colStatusMessage.Append(s.GetStatus().GetMessage())
-
-				colResourceAttributes.Append(resourceAttributes)
 				spanAttributes := map[string]string{}
 				for _, attr := range s.GetAttributes() {
 					spanAttributes[attr.GetKey()] = attr.GetValue().GetStringValue()
@@ -122,8 +168,6 @@ func (c *Collector) saveTraces(ctx context.Context, projectId db.ProjectId, req 
 				if scopeVersion != "" {
 					spanAttributes[semconv.AttributeOtelScopeVersion] = scopeVersion
 				}
-				colSpanAttributes.Append(spanAttributes)
-
 				var eventTimestamps []time.Time
 				var eventNames []string
 				var eventAttributes []map[string]string
@@ -136,10 +180,6 @@ func (c *Collector) saveTraces(ctx context.Context, projectId db.ProjectId, req 
 					}
 					eventAttributes = append(eventAttributes, attrs)
 				}
-				colEventsTimestamp.Append(eventTimestamps)
-				colEventsName.Append(eventNames)
-				colEventsAttributes.Append(eventAttributes)
-
 				var linkTraceIds []string
 				var linkSpanIds []string
 				var linkTraceStates []string
@@ -154,35 +194,68 @@ func (c *Collector) saveTraces(ctx context.Context, projectId db.ProjectId, req 
 					}
 					linkAttributes = append(linkAttributes, attrs)
 				}
-				colLinksTraceId.Append(linkTraceIds)
-				colLinksSpanId.Append(linkSpanIds)
-				colLinksTraceState.Append(linkTraceStates)
-				colLinksAttributes.Append(linkAttributes)
+
+				b.Timestamp.Append(time.Unix(0, int64(s.GetStartTimeUnixNano())))
+				b.TraceId.Append(hex.EncodeToString(s.GetTraceId()))
+				b.SpanId.Append(hex.EncodeToString(s.GetSpanId()))
+				b.ParentSpanId.Append(hex.EncodeToString(s.GetParentSpanId()))
+				b.TraceState.Append(s.GetTraceState())
+				b.SpanName.Append(s.GetName())
+				b.SpanKind.Append(s.GetKind().String())
+				b.ServiceName.Append(serviceName)
+				b.ResourceAttributes.Append(resourceAttributes)
+				b.SpanAttributes.Append(spanAttributes)
+				b.Duration.Append(int64(s.GetEndTimeUnixNano() - s.GetStartTimeUnixNano()))
+				b.StatusCode.Append(s.GetStatus().GetCode().String())
+				b.StatusMessage.Append(s.GetStatus().GetMessage())
+				b.EventsTimestamp.Append(eventTimestamps)
+				b.EventsName.Append(eventNames)
+				b.EventsAttributes.Append(eventAttributes)
+				b.LinksTraceId.Append(linkTraceIds)
+				b.LinksSpanId.Append(linkSpanIds)
+				b.LinksTraceState.Append(linkTraceStates)
+				b.LinksAttributes.Append(linkAttributes)
 			}
 		}
 	}
+	if b.Timestamp.Rows() < b.limit {
+		return
+	}
+	b.save()
+}
+
+func (b *TracesBatch) save() {
+	if b.Timestamp.Rows() == 0 {
+		return
+	}
 
 	input := chproto.Input{
-		{Name: "Timestamp", Data: colTimestamp},
-		{Name: "TraceId", Data: colTraceId},
-		{Name: "SpanId", Data: colSpanId},
-		{Name: "ParentSpanId", Data: colParentSpanId},
-		{Name: "TraceState", Data: colTraceState},
-		{Name: "SpanName", Data: colSpanName},
-		{Name: "SpanKind", Data: colSpanKind},
-		{Name: "ServiceName", Data: colServiceName},
-		{Name: "ResourceAttributes", Data: colResourceAttributes},
-		{Name: "SpanAttributes", Data: colSpanAttributes},
-		{Name: "Duration", Data: colDuration},
-		{Name: "StatusCode", Data: colStatusCode},
-		{Name: "StatusMessage", Data: colStatusMessage},
-		{Name: "Events.Timestamp", Data: colEventsTimestamp},
-		{Name: "Events.Name", Data: colEventsName},
-		{Name: "Events.Attributes", Data: colEventsAttributes},
-		{Name: "Links.TraceId", Data: colLinksTraceId},
-		{Name: "Links.SpanId", Data: colLinksSpanId},
-		{Name: "Links.TraceState", Data: colLinksTraceState},
-		{Name: "Links.Attributes", Data: colLinksAttributes},
+		{Name: "Timestamp", Data: b.Timestamp},
+		{Name: "TraceId", Data: b.TraceId},
+		{Name: "SpanId", Data: b.SpanId},
+		{Name: "ParentSpanId", Data: b.ParentSpanId},
+		{Name: "TraceState", Data: b.TraceState},
+		{Name: "SpanName", Data: b.SpanName},
+		{Name: "SpanKind", Data: b.SpanKind},
+		{Name: "ServiceName", Data: b.ServiceName},
+		{Name: "ResourceAttributes", Data: b.ResourceAttributes},
+		{Name: "SpanAttributes", Data: b.SpanAttributes},
+		{Name: "Duration", Data: b.Duration},
+		{Name: "StatusCode", Data: b.StatusCode},
+		{Name: "StatusMessage", Data: b.StatusMessage},
+		{Name: "Events.Timestamp", Data: b.EventsTimestamp},
+		{Name: "Events.Name", Data: b.EventsName},
+		{Name: "Events.Attributes", Data: b.EventsAttributes},
+		{Name: "Links.TraceId", Data: b.LinksTraceId},
+		{Name: "Links.SpanId", Data: b.LinksSpanId},
+		{Name: "Links.TraceState", Data: b.LinksTraceState},
+		{Name: "Links.Attributes", Data: b.LinksAttributes},
 	}
-	return c.clickhouseDo(ctx, projectId, ch.Query{Body: input.Into("otel_traces"), Input: input})
+	err := b.exec(ch.Query{Body: input.Into("otel_traces"), Input: input})
+	if err != nil {
+		klog.Errorln(err)
+	}
+	for _, i := range input {
+		i.Data.(chproto.Resettable).Reset()
+	}
 }

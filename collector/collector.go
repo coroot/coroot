@@ -16,6 +16,9 @@ import (
 
 const (
 	ApiKeyHeader = "X-API-Key"
+
+	batchLimit   = 10000
+	batchTimeout = 5 * time.Second
 )
 
 var (
@@ -31,12 +34,22 @@ type Collector struct {
 
 	clickhouseClients     map[db.ProjectId]*chpool.Pool
 	clickhouseClientsLock sync.RWMutex
+
+	traceBatches       map[db.ProjectId]*TracesBatch
+	traceBatchesLock   sync.Mutex
+	logBatches         map[db.ProjectId]*LogsBatch
+	logBatchesLock     sync.Mutex
+	profileBatches     map[db.ProjectId]*ProfilesBatch
+	profileBatchesLock sync.Mutex
 }
 
 func New(database *db.DB) *Collector {
 	c := &Collector{
 		db:                database,
 		clickhouseClients: map[db.ProjectId]*chpool.Pool{},
+		traceBatches:      map[db.ProjectId]*TracesBatch{},
+		profileBatches:    map[db.ProjectId]*ProfilesBatch{},
+		logBatches:        map[db.ProjectId]*LogsBatch{},
 	}
 
 	c.updateProjects()
@@ -87,6 +100,22 @@ func (c *Collector) getProject(id db.ProjectId) (*db.Project, error) {
 }
 
 func (c *Collector) Close() {
+	c.traceBatchesLock.Lock()
+	defer c.traceBatchesLock.Unlock()
+	for _, b := range c.traceBatches {
+		b.Close()
+	}
+	c.logBatchesLock.Lock()
+	defer c.logBatchesLock.Unlock()
+	for _, b := range c.logBatches {
+		b.Close()
+	}
+	c.profileBatchesLock.Lock()
+	defer c.profileBatchesLock.Unlock()
+	for _, b := range c.profileBatches {
+		b.Close()
+	}
+
 	c.clickhouseClientsLock.Lock()
 	defer c.clickhouseClientsLock.Unlock()
 	for _, cl := range c.clickhouseClients {
@@ -136,10 +165,6 @@ func (c *Collector) getClickhouseClient(projectId db.ProjectId) (*chpool.Pool, e
 		ReadTimeout:      30 * time.Second,
 		DialTimeout:      10 * time.Second,
 		HandshakeTimeout: 10 * time.Second,
-		Settings: []ch.Setting{
-			{Key: "async_insert", Value: "1"},
-			{Key: "wait_for_async_insert", Value: "0"},
-		},
 	}
 	if cfg.TlsEnable {
 		opts.TLS = &tls.Config{
@@ -171,4 +196,43 @@ func (c *Collector) clickhouseDo(ctx context.Context, projectId db.ProjectId, qu
 		return err
 	}
 	return nil
+}
+
+func (c *Collector) getTracesBatch(projectId db.ProjectId) *TracesBatch {
+	c.traceBatchesLock.Lock()
+	defer c.traceBatchesLock.Unlock()
+	b := c.traceBatches[projectId]
+	if b == nil {
+		b = NewTracesBatch(batchLimit, batchTimeout, func(query ch.Query) error {
+			return c.clickhouseDo(context.TODO(), projectId, query)
+		})
+		c.traceBatches[projectId] = b
+	}
+	return b
+}
+
+func (c *Collector) getLogsBatch(projectId db.ProjectId) *LogsBatch {
+	c.logBatchesLock.Lock()
+	defer c.logBatchesLock.Unlock()
+	b := c.logBatches[projectId]
+	if b == nil {
+		b = NewLogsBatch(batchLimit, batchTimeout, func(query ch.Query) error {
+			return c.clickhouseDo(context.TODO(), projectId, query)
+		})
+		c.logBatches[projectId] = b
+	}
+	return b
+}
+
+func (c *Collector) getProfilesBatch(projectId db.ProjectId) *ProfilesBatch {
+	c.profileBatchesLock.Lock()
+	defer c.profileBatchesLock.Unlock()
+	b := c.profileBatches[projectId]
+	if b == nil {
+		b = NewProfilesBatch(batchLimit, batchTimeout, func(query ch.Query) error {
+			return c.clickhouseDo(context.TODO(), projectId, query)
+		})
+		c.profileBatches[projectId] = b
+	}
+	return b
 }
