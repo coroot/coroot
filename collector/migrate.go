@@ -36,7 +36,7 @@ func (c *Collector) Migrate(ctx context.Context, cfg *db.IntegrationClickhouse) 
 	}
 	cl, err := ch.Dial(ctx, opts)
 	if err != nil {
-		return nil
+		return err
 	}
 	defer cl.Close()
 

@@ -1,10 +1,10 @@
 package collector
 
 import (
-	"context"
 	"fmt"
 	"hash/fnv"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/ClickHouse/ch-go"
@@ -50,23 +50,70 @@ func (c *Collector) Profiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = c.saveProfile(r.Context(), projectId, serviceName, labels, p)
-	if err != nil {
-		klog.Errorln(err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	c.getProfilesBatch(projectId).Add(serviceName, labels, p)
 }
 
-func (c *Collector) saveProfile(ctx context.Context, projectId db.ProjectId, serviceName string, labels model.Labels, p *profile.Profile) error {
-	colServiceName := new(chproto.ColStr).LowCardinality()
-	colType := new(chproto.ColStr).LowCardinality()
-	colValue := new(chproto.ColInt64)
-	colStackHash := new(chproto.ColUInt64)
-	colStart := new(chproto.ColDateTime64).WithPrecision(chproto.PrecisionNano)
-	colEnd := new(chproto.ColDateTime64).WithPrecision(chproto.PrecisionNano)
-	colLabels := chproto.NewMap[string, string](new(chproto.ColStr).LowCardinality(), new(chproto.ColStr))
-	colStack := new(chproto.ColStr).Array()
+type ProfilesBatch struct {
+	limit int
+	exec  func(query ch.Query) error
+
+	lock sync.Mutex
+	done chan struct{}
+
+	ServiceName *chproto.ColLowCardinality[string]
+	Type        *chproto.ColLowCardinality[string]
+	Start       *chproto.ColDateTime64
+	End         *chproto.ColDateTime64
+	Labels      *chproto.ColMap[string, string]
+	Value       *chproto.ColInt64
+	StackHash   *chproto.ColUInt64
+	Stack       *chproto.ColArr[string]
+}
+
+func NewProfilesBatch(limit int, timeout time.Duration, exec func(query ch.Query) error) *ProfilesBatch {
+	b := &ProfilesBatch{
+		limit: limit,
+		exec:  exec,
+		done:  make(chan struct{}),
+
+		ServiceName: new(chproto.ColStr).LowCardinality(),
+		Type:        new(chproto.ColStr).LowCardinality(),
+		Start:       new(chproto.ColDateTime64).WithPrecision(chproto.PrecisionNano),
+		End:         new(chproto.ColDateTime64).WithPrecision(chproto.PrecisionNano),
+		Labels:      chproto.NewMap[string, string](new(chproto.ColStr).LowCardinality(), new(chproto.ColStr)),
+		Value:       new(chproto.ColInt64),
+		StackHash:   new(chproto.ColUInt64),
+		Stack:       new(chproto.ColStr).Array(),
+	}
+
+	go func() {
+		ticker := time.NewTicker(timeout)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-b.done:
+				return
+			case <-ticker.C:
+				b.lock.Lock()
+				b.save()
+				b.lock.Unlock()
+			}
+		}
+	}()
+
+	return b
+}
+
+func (b *ProfilesBatch) Close() {
+	b.done <- struct{}{}
+	b.lock.Lock()
+	defer b.lock.Unlock()
+	b.save()
+}
+
+func (b *ProfilesBatch) Add(serviceName string, labels model.Labels, p *profile.Profile) {
+	b.lock.Lock()
+	defer b.lock.Unlock()
 
 	end := time.Unix(0, p.TimeNanos)
 	start := end.Add(-time.Duration(p.DurationNanos))
@@ -86,41 +133,61 @@ func (c *Collector) saveProfile(ctx context.Context, projectId db.ProjectId, ser
 					stack = append(stack, l)
 				}
 			}
-			colServiceName.Append(serviceName)
-			colType.Append(st.Type)
-			colStart.Append(start)
-			colEnd.Append(end)
-			colLabels.Append(labels)
-			colValue.Append(s.Value[i])
-			colStackHash.Append(StackHash(stack))
-			colStack.Append(stack)
+			stackHash := StackHash(stack)
+
+			b.ServiceName.Append(serviceName)
+			b.Type.Append(st.Type)
+			b.Start.Append(start)
+			b.End.Append(end)
+			b.Labels.Append(labels)
+			b.Value.Append(s.Value[i])
+			b.StackHash.Append(stackHash)
+			b.Stack.Append(stack)
 		}
 	}
 
-	input := chproto.Input{
-		{Name: "ServiceName", Data: colServiceName},
-		{Name: "Hash", Data: colStackHash},
-		{Name: "LastSeen", Data: colEnd},
-		{Name: "Stack", Data: colStack},
+	if b.ServiceName.Rows() < b.limit {
+		return
 	}
-	err := c.clickhouseDo(ctx, projectId, ch.Query{Body: input.Into("profiling_stacks"), Input: input})
+	b.save()
+}
+
+func (b *ProfilesBatch) save() {
+	if b.ServiceName.Rows() == 0 {
+		return
+	}
+
+	stacksInput := chproto.Input{
+		chproto.InputColumn{Name: "ServiceName", Data: b.ServiceName},
+		chproto.InputColumn{Name: "Hash", Data: b.StackHash},
+		chproto.InputColumn{Name: "LastSeen", Data: b.End},
+		chproto.InputColumn{Name: "Stack", Data: b.Stack},
+	}
+	err := b.exec(ch.Query{Body: stacksInput.Into("profiling_stacks"), Input: stacksInput})
 	if err != nil {
-		return err
+		klog.Errorln(err)
 	}
-	input = chproto.Input{
-		{Name: "ServiceName", Data: colServiceName},
-		{Name: "Type", Data: colType},
-		{Name: "Start", Data: colStart},
-		{Name: "End", Data: colEnd},
-		{Name: "Labels", Data: colLabels},
-		{Name: "StackHash", Data: colStackHash},
-		{Name: "Value", Data: colValue},
+
+	samplesInput := chproto.Input{
+		chproto.InputColumn{Name: "ServiceName", Data: b.ServiceName},
+		chproto.InputColumn{Name: "Type", Data: b.Type},
+		chproto.InputColumn{Name: "Start", Data: b.Start},
+		chproto.InputColumn{Name: "End", Data: b.End},
+		chproto.InputColumn{Name: "Labels", Data: b.Labels},
+		chproto.InputColumn{Name: "StackHash", Data: b.StackHash},
+		chproto.InputColumn{Name: "Value", Data: b.Value},
 	}
-	err = c.clickhouseDo(ctx, projectId, ch.Query{Body: input.Into("profiling_samples"), Input: input})
+	err = b.exec(ch.Query{Body: samplesInput.Into("profiling_samples"), Input: samplesInput})
 	if err != nil {
-		return err
+		klog.Errorln(err)
 	}
-	return nil
+
+	for _, i := range stacksInput {
+		i.Data.(chproto.Resettable).Reset()
+	}
+	for _, i := range samplesInput {
+		i.Data.(chproto.Resettable).Reset()
+	}
 }
 
 func StackHash(s []string) uint64 {

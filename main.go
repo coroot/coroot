@@ -6,8 +6,10 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"os"
+	"os/signal"
 	"path"
 	"strings"
+	"syscall"
 	"text/template"
 	"time"
 
@@ -67,11 +69,18 @@ func main() {
 		klog.Exitln(err)
 	}
 
-	coll := collector.New(database)
-	defer coll.Close()
-
 	bootstrapPrometheus(database, *bootstrapPrometheusUrl, *bootstrapRefreshInterval, *bootstrapPrometheusExtraSelector)
 	bootstrapClickhouse(database, *bootstrapClickhouseAddr, *bootstrapClickhouseUser, *bootstrapClickhousePassword, *bootstrapClickhouseDatabase)
+
+	coll := collector.New(database)
+	go func() {
+		ch := make(chan os.Signal, 1)
+		signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)
+		<-ch
+		coll.Close()
+		os.Exit(0)
+	}()
+
 	migrateClickhouse(database, coll)
 
 	cacheConfig := cache.Config{

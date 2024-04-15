@@ -1,10 +1,10 @@
 package collector
 
 import (
-	"context"
 	"encoding/hex"
 	"io"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/ClickHouse/ch-go"
@@ -47,12 +47,7 @@ func (c *Collector) Logs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = c.saveLogs(r.Context(), projectId, req)
-	if err != nil {
-		klog.Errorln(err)
-		http.Error(w, "", http.StatusInternalServerError)
-		return
-	}
+	c.getLogsBatch(projectId).Add(req)
 
 	resp := &v1.ExportLogsServiceResponse{}
 	w.Header().Set("Content-Type", contentType)
@@ -65,17 +60,71 @@ func (c *Collector) Logs(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(data)
 }
 
-func (c *Collector) saveLogs(ctx context.Context, projectId db.ProjectId, req *v1.ExportLogsServiceRequest) error {
-	colTimestamp := new(chproto.ColDateTime64).WithPrecision(chproto.PrecisionNano)
-	colTraceId := new(chproto.ColStr)
-	colSpanId := new(chproto.ColStr)
-	colTraceFlags := new(chproto.ColUInt32)
-	colSeverityText := new(chproto.ColStr).LowCardinality()
-	colSeverityNumber := new(chproto.ColInt32)
-	colServiceName := new(chproto.ColStr).LowCardinality()
-	colResourceAttributes := chproto.NewMap[string, string](new(chproto.ColStr).LowCardinality(), new(chproto.ColStr))
-	colLogAttributes := chproto.NewMap[string, string](new(chproto.ColStr).LowCardinality(), new(chproto.ColStr))
-	colBody := new(chproto.ColStr)
+type LogsBatch struct {
+	limit int
+	exec  func(query ch.Query) error
+
+	lock sync.Mutex
+	done chan struct{}
+
+	Timestamp          *chproto.ColDateTime64
+	TraceId            *chproto.ColStr
+	SpanId             *chproto.ColStr
+	TraceFlags         *chproto.ColUInt32
+	SeverityText       *chproto.ColLowCardinality[string]
+	SeverityNumber     *chproto.ColInt32
+	ServiceName        *chproto.ColLowCardinality[string]
+	ResourceAttributes *chproto.ColMap[string, string]
+	LogAttributes      *chproto.ColMap[string, string]
+	Body               *chproto.ColStr
+}
+
+func NewLogsBatch(limit int, timeout time.Duration, exec func(query ch.Query) error) *LogsBatch {
+	b := &LogsBatch{
+		limit: limit,
+		exec:  exec,
+		done:  make(chan struct{}),
+
+		Timestamp:          new(chproto.ColDateTime64).WithPrecision(chproto.PrecisionNano),
+		TraceId:            new(chproto.ColStr),
+		SpanId:             new(chproto.ColStr),
+		TraceFlags:         new(chproto.ColUInt32),
+		SeverityText:       new(chproto.ColStr).LowCardinality(),
+		SeverityNumber:     new(chproto.ColInt32),
+		ServiceName:        new(chproto.ColStr).LowCardinality(),
+		ResourceAttributes: chproto.NewMap[string, string](new(chproto.ColStr).LowCardinality(), new(chproto.ColStr)),
+		LogAttributes:      chproto.NewMap[string, string](new(chproto.ColStr).LowCardinality(), new(chproto.ColStr)),
+		Body:               new(chproto.ColStr),
+	}
+
+	go func() {
+		ticker := time.NewTicker(timeout)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-b.done:
+				return
+			case <-ticker.C:
+				b.lock.Lock()
+				b.save()
+				b.lock.Unlock()
+			}
+		}
+	}()
+
+	return b
+}
+
+func (b *LogsBatch) Close() {
+	b.done <- struct{}{}
+	b.lock.Lock()
+	defer b.lock.Unlock()
+	b.save()
+}
+
+func (b *LogsBatch) Add(req *v1.ExportLogsServiceRequest) {
+	b.lock.Lock()
+	defer b.lock.Unlock()
 
 	for _, l := range req.GetResourceLogs() {
 		var serviceName string
@@ -90,16 +139,6 @@ func (c *Collector) saveLogs(ctx context.Context, projectId db.ProjectId, req *v
 			scopeName := sl.GetScope().GetName()
 			scopeVersion := sl.GetScope().GetVersion()
 			for _, lr := range sl.GetLogRecords() {
-				colTimestamp.Append(time.Unix(0, int64(lr.GetTimeUnixNano())))
-				colTraceId.Append(hex.EncodeToString(lr.GetTraceId()))
-				colSpanId.Append(hex.EncodeToString(lr.GetSpanId()))
-				colTraceFlags.Append(lr.GetFlags())
-				colSeverityText.Append(lr.GetSeverityText())
-				colSeverityNumber.Append(int32(lr.GetSeverityNumber()))
-				colServiceName.Append(serviceName)
-				colBody.Append(lr.GetBody().GetStringValue())
-
-				colResourceAttributes.Append(resourceAttributes)
 				logAttributes := map[string]string{}
 				for _, attr := range lr.GetAttributes() {
 					logAttributes[attr.GetKey()] = attr.GetValue().GetStringValue()
@@ -110,21 +149,48 @@ func (c *Collector) saveLogs(ctx context.Context, projectId db.ProjectId, req *v
 				if scopeVersion != "" {
 					logAttributes[semconv.AttributeOtelScopeVersion] = scopeVersion
 				}
-				colLogAttributes.Append(logAttributes)
+
+				b.Timestamp.Append(time.Unix(0, int64(lr.GetTimeUnixNano())))
+				b.TraceId.Append(hex.EncodeToString(lr.GetTraceId()))
+				b.SpanId.Append(hex.EncodeToString(lr.GetSpanId()))
+				b.TraceFlags.Append(lr.GetFlags())
+				b.SeverityText.Append(lr.GetSeverityText())
+				b.SeverityNumber.Append(int32(lr.GetSeverityNumber()))
+				b.ServiceName.Append(serviceName)
+				b.ResourceAttributes.Append(resourceAttributes)
+				b.LogAttributes.Append(logAttributes)
+				b.Body.Append(lr.GetBody().GetStringValue())
 			}
 		}
 	}
-	input := chproto.Input{
-		{Name: "Timestamp", Data: colTimestamp},
-		{Name: "TraceId", Data: colTraceId},
-		{Name: "SpanId", Data: colSpanId},
-		{Name: "TraceFlags", Data: colTraceFlags},
-		{Name: "SeverityText", Data: colSeverityText},
-		{Name: "SeverityNumber", Data: colSeverityNumber},
-		{Name: "ServiceName", Data: colServiceName},
-		{Name: "Body", Data: colBody},
-		{Name: "ResourceAttributes", Data: colResourceAttributes},
-		{Name: "LogAttributes", Data: colLogAttributes},
+	if b.Timestamp.Rows() < b.limit {
+		return
 	}
-	return c.clickhouseDo(ctx, projectId, ch.Query{Body: input.Into("otel_logs"), Input: input})
+	b.save()
+}
+
+func (b *LogsBatch) save() {
+	if b.Timestamp.Rows() == 0 {
+		return
+	}
+
+	input := chproto.Input{
+		chproto.InputColumn{Name: "Timestamp", Data: b.Timestamp},
+		chproto.InputColumn{Name: "TraceId", Data: b.TraceId},
+		chproto.InputColumn{Name: "SpanId", Data: b.SpanId},
+		chproto.InputColumn{Name: "TraceFlags", Data: b.TraceFlags},
+		chproto.InputColumn{Name: "SeverityText", Data: b.SeverityText},
+		chproto.InputColumn{Name: "SeverityNumber", Data: b.SeverityNumber},
+		chproto.InputColumn{Name: "ServiceName", Data: b.ServiceName},
+		chproto.InputColumn{Name: "ResourceAttributes", Data: b.ResourceAttributes},
+		chproto.InputColumn{Name: "LogAttributes", Data: b.LogAttributes},
+		chproto.InputColumn{Name: "Body", Data: b.Body},
+	}
+	err := b.exec(ch.Query{Body: input.Into("otel_logs"), Input: input})
+	if err != nil {
+		klog.Errorln(err)
+	}
+	for _, i := range input {
+		i.Data.(chproto.Resettable).Reset()
+	}
 }
