@@ -228,6 +228,9 @@ func (i *Instance) addDependency(id model.ApplicationId, status model.Status, di
 func (i *Instance) addInternalLink(id string, status model.Status) {
 	for _, l := range i.InternalLinks {
 		if l.Id == id {
+			if l.Status < status {
+				l.Status = status
+			}
 			return
 		}
 	}
