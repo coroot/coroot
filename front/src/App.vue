@@ -109,7 +109,7 @@
                         </template>
                         <template v-else-if="status.node_agent.status !== 'ok'">
                             <div class="flex-grow-1 mb-3 mb-sm-0">No metrics found. Looks like you didn't install <b>node-agent</b>.</div>
-                            <v-btn outlined :to="{ name: 'project_settings' }">Install node-agent</v-btn>
+                            <AgentInstallation outlined>Install node-agent</AgentInstallation>
                         </template>
                         <template v-else-if="status.kube_state_metrics && status.kube_state_metrics.status !== 'ok'">
                             <div class="flex-grow-1 mb-3 mb-sm-0">
@@ -132,10 +132,11 @@ import Search from './views/Search.vue';
 import Led from './components/Led.vue';
 import CheckForUpdates from './components/CheckForUpdates.vue';
 import ThemeSelector from './components/ThemeSelector.vue';
+import AgentInstallation from './views/AgentInstallation.vue';
 import './app.css';
 
 export default {
-    components: { Search, TimePicker, Led, CheckForUpdates, ThemeSelector },
+    components: { Search, TimePicker, Led, CheckForUpdates, ThemeSelector, AgentInstallation },
 
     data() {
         return {

@@ -119,6 +119,11 @@ func main() {
 	router.PathPrefix("/debug/pprof/").Handler(http.DefaultServeMux)
 	router.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {}).Methods(http.MethodGet)
 
+	router.HandleFunc("/v1/metrics", coll.Metrics)
+	router.HandleFunc("/v1/traces", coll.Traces)
+	router.HandleFunc("/v1/logs", coll.Logs)
+	router.HandleFunc("/v1/profiles", coll.Profiles)
+
 	r := router
 	cleanUrlBasePath(urlBasePath)
 	if *urlBasePath != "/" {
@@ -140,11 +145,6 @@ func main() {
 	r.HandleFunc("/api/project/{project}/app/{app}/logs", a.Logs).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/project/{project}/node/{node}", a.Node).Methods(http.MethodGet)
 	r.PathPrefix("/api/project/{project}/prom").HandlerFunc(a.Prom)
-
-	r.HandleFunc("/v1/metrics", coll.Metrics)
-	r.HandleFunc("/v1/traces", coll.Traces)
-	r.HandleFunc("/v1/logs", coll.Logs)
-	r.HandleFunc("/v1/profiles", coll.Profiles)
 
 	r.HandleFunc("/stats", func(w http.ResponseWriter, r *http.Request) {
 		statsCollector.RegisterRequest(r)

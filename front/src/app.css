@@ -68,6 +68,8 @@
 .v-application .v-dialog,
 .v-application .v-dialog .v-card,
 .v-application .v-dialog .v-list,
+.v-application .v-dialog .v-tabs-bar,
+.v-application .v-dialog .v-tabs-items,
 .v-application .v-dialog .v-data-table {
     color: var(--text-color) !important;
     background-color: var(--tooltip-color) !important;

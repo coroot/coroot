@@ -32,7 +32,12 @@
         </template>
 
         <template v-else-if="view === 'nodes'">
-            <Table v-if="nodes && nodes.rows" :header="nodes.header" :rows="nodes.rows" />
+            <template v-if="nodes && nodes.rows">
+                <Table v-if="nodes && nodes.rows" :header="nodes.header" :rows="nodes.rows" />
+                <div class="mt-4">
+                    <AgentInstallation color="primary">Add nodes</AgentInstallation>
+                </div>
+            </template>
             <NoData v-else-if="!loading" />
         </template>
 
@@ -41,7 +46,8 @@
         </template>
 
         <template v-else-if="view === 'traces'">
-            <Traces :view="traces" :loading="loading" class="mt-5" />
+            <Traces v-if="traces" :view="traces" :loading="loading" class="mt-5" />
+            <NoData v-else-if="!loading" />
         </template>
 
         <template v-else-if="view === 'costs'">
@@ -60,9 +66,10 @@ import ApplicationsCosts from '../components/ApplicationsCosts';
 import Deployments from './Deployments.vue';
 import Health from './Health.vue';
 import Traces from './Traces.vue';
+import AgentInstallation from './AgentInstallation.vue';
 
 export default {
-    components: { Deployments, NoData, ServiceMap, Table, NodesCosts, ApplicationsCosts, Health, Traces },
+    components: { Deployments, NoData, ServiceMap, Table, NodesCosts, ApplicationsCosts, Health, Traces, AgentInstallation },
     props: {
         view: String,
     },
