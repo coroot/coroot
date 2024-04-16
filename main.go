@@ -260,7 +260,7 @@ func bootstrapPrometheus(database *db.DB, url string, refreshInterval time.Durat
 }
 
 func bootstrapClickhouse(database *db.DB, addr, user, password, databaseName string) {
-	if addr == "" || user == "" || password == "" || databaseName == "" {
+	if addr == "" || user == "" || databaseName == "" {
 		return
 	}
 	p := getOrCreateDefaultProject(database)
