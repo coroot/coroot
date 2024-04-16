@@ -12,7 +12,7 @@ export function isSlug(v) {
 }
 
 export function isUrl(v) {
-    return !v || urlRe.test(v) || 'a valid URL is required, e.g. https://yourdomain.com';
+    return !v || urlRe.test(v) || 'a valid URL is required, e.g. http://HOST:PORT';
 }
 
 export function isAddr(v) {
