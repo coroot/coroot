@@ -1,5 +1,5 @@
 <template>
-    <div class="code">
+    <div ref="code" class="code">
         <v-btn icon small dark class="copy" @click="copy" :disabled="disabled">
             <v-icon small>{{ icon }}</v-icon>
         </v-btn>
@@ -29,11 +29,20 @@ export default {
 
     methods: {
         copy() {
-            navigator.clipboard.writeText(this.$refs.body.innerText.trim());
-            this.copied = true;
-            setTimeout(() => {
-                this.copied = false;
-            }, 1000);
+            const textarea = document.createElement('textarea');
+            this.$refs.code.appendChild(textarea);
+            textarea.value = this.$refs.body.innerText.trim();
+            textarea.focus();
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                this.copied = true;
+                setTimeout(() => {
+                    this.copied = false;
+                }, 3000);
+            } finally {
+                this.$refs.code.removeChild(textarea);
+            }
         },
     },
 };
