@@ -1,0 +1,47 @@
+version: "3.8"
+
+volumes:
+  prometheus_data: {}
+  coroot_data: {}
+
+services:
+  coroot:
+    image: ghcr.io/coroot/coroot:1.0.0-rc7
+    volumes:
+      - coroot_data:/data
+    ports:
+      - target: 8080
+        published: 8080
+        protocol: tcp
+        mode: host
+    command:
+      - '--bootstrap-prometheus-url=http://prometheus:9090'
+      - '--bootstrap-refresh-interval=15s'
+      - '--bootstrap-clickhouse-address=clickhouse:9000'
+    depends_on:
+      - clickhouse
+      - prometheus
+
+  prometheus:
+    image: prom/prometheus:v2.45.4
+    volumes:
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-lifecycle'
+      - '--web.enable-remote-write-receiver'
+    ports:
+      - '9090:9090'
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.3
+    ports:
+      - '9000:9000'
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+
