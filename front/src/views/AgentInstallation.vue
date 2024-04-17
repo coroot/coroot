@@ -117,10 +117,11 @@ export default {
     components: { Code },
 
     data() {
+        const local = ['127.0.0.1', 'localhost'].some((v) => location.origin.includes(v));
         return {
             dialog: false,
             tab: null,
-            coroot_url: '',
+            coroot_url: !local ? location.origin : '',
             scrape_interval: '15s',
             valid: false,
         };
