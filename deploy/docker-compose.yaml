@@ -1,5 +1,3 @@
-version: '3.8'
-
 volumes:
   prometheus_data: {}
   coroot_data: {}
@@ -16,8 +14,10 @@ services:
       - '--bootstrap-refresh-interval=15s'
       - '--bootstrap-clickhouse-address=clickhouse:9000'
     depends_on:
-      - clickhouse
-      - prometheus
+      clickhouse:
+        condition: service_healthy
+      prometheus:
+        condition: service_healthy
 
   coroot-node-agent:
     image: ghcr.io/coroot/coroot-node-agent
@@ -31,7 +31,7 @@ services:
       - '--cgroupfs-root=/host/sys/fs/cgroup'
 
   prometheus:
-    image: prom/prometheus:v2.45.4
+    image: prom/prometheus:v2.51.2
     volumes:
       - prometheus_data:/prometheus
     command:
@@ -43,11 +43,15 @@ services:
       - '--web.enable-remote-write-receiver'
     ports:
       - '127.0.0.1:9090:9090'
+    healthcheck:
+      test: ["CMD", "wget", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
 
   clickhouse:
     image: clickhouse/clickhouse-server:24.3
     ports:
       - '127.0.0.1:9000:9000'
+    healthcheck:
+      test: ["CMD", "wget", "--tries=1", "--spider", "http://localhost:8123/ping"]
     ulimits:
       nofile:
         soft: 262144
