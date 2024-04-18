@@ -43,7 +43,9 @@ func getInstanceAndContainer(w *model.World, node *model.Node, instances map[ins
 			containerName = parts[3]
 			instanceName = parts[3] + "." + parts[4]
 		} else {
-			containerName = strings.TrimSuffix(parts[len(parts)-1], ".service")
+			containerName = strings.TrimSuffix(
+				strings.TrimSuffix(parts[len(parts)-1], ".service"),
+				".slice")
 			appId = model.NewApplicationId("", model.ApplicationKindUnknown, containerName)
 			instanceName = fmt.Sprintf("%s@%s", containerName, nodeName)
 		}
