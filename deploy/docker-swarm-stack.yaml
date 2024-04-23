@@ -6,7 +6,7 @@ volumes:
 
 services:
   coroot:
-    image: ghcr.io/coroot/coroot:1.0.0-rc7
+    image: ghcr.io/coroot/coroot
     volumes:
       - coroot_data:/data
     ports:
