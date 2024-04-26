@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"embed"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -32,6 +33,9 @@ import (
 
 var version = "unknown"
 
+//go:embed static
+var static embed.FS
+
 func main() {
 	listen := kingpin.Flag("listen", "listen address - ip:port or :port").Envar("LISTEN").Default("0.0.0.0:8080").String()
 	urlBasePath := kingpin.Flag("url-base-path", "the base URL to run Coroot at a sub-path, e.g. /coroot/").Envar("URL_BASE_PATH").Default("/").String()
@@ -51,6 +55,7 @@ func main() {
 	bootstrapClickhouseUser := kingpin.Flag("bootstrap-clickhouse-user", "Clickhouse user").Envar("BOOTSTRAP_CLICKHOUSE_USER").Default("default").String()
 	bootstrapClickhousePassword := kingpin.Flag("bootstrap-clickhouse-password", "Clickhouse password").Envar("BOOTSTRAP_CLICKHOUSE_PASSWORD").String()
 	bootstrapClickhouseDatabase := kingpin.Flag("bootstrap-clickhouse-database", "Clickhouse database").Envar("BOOTSTRAP_CLICKHOUSE_DATABASE").Default("default").String()
+	developerMode := kingpin.Flag("developer-mode", "If enabled, Coroot will not use embedded static assets").Envar("DEVELOPER_MODE").Default("false").Bool()
 
 	kingpin.Version(version)
 	kingpin.Parse()
@@ -150,9 +155,13 @@ func main() {
 		statsCollector.RegisterRequest(r)
 	}).Methods(http.MethodPost)
 
-	r.PathPrefix("/static/").Handler(http.StripPrefix(*urlBasePath+"static/", http.FileServer(http.Dir("./static"))))
+	if *developerMode {
+		r.PathPrefix("/static/").Handler(http.StripPrefix(*urlBasePath+"static/", http.FileServer(http.Dir("./static"))))
+	} else {
+		r.PathPrefix("/static/").Handler(http.StripPrefix(*urlBasePath, http.FileServer(http.FS(static))))
+	}
 
-	indexHtml := readIndexHtml(*urlBasePath, version, instanceUuid, !*doNotCheckForUpdates)
+	indexHtml := readIndexHtml(*urlBasePath, version, instanceUuid, !*doNotCheckForUpdates, *developerMode)
 	r.PathPrefix("").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write(indexHtml)
 	})
@@ -170,8 +179,16 @@ type Options struct {
 	CheckForUpdates bool
 }
 
-func readIndexHtml(basePath, version, instanceUuid string, checkForUpdates bool) []byte {
-	tpl, err := template.ParseFiles("./static/index.html")
+func readIndexHtml(basePath, version, instanceUuid string, checkForUpdates bool, developerMode bool) []byte {
+	var (
+		err error
+		tpl *template.Template
+	)
+	if developerMode {
+		tpl, err = template.ParseFiles("./static/index.html")
+	} else {
+		tpl, err = template.ParseFS(static, "static/index.html")
+	}
 	if err != nil {
 		klog.Exitln(err)
 	}
