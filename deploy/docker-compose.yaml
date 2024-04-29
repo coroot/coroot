@@ -1,5 +1,7 @@
 version: '3.8'
 
+name: coroot
+
 volumes:
   prometheus_data: {}
   coroot_data: {}
@@ -19,7 +21,7 @@ services:
       - clickhouse
       - prometheus
 
-  coroot-node-agent:
+  node-agent:
     image: ghcr.io/coroot/coroot-node-agent
     privileged: true
     pid: "host"
