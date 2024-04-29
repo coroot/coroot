@@ -1,11 +1,17 @@
 package collector
 
 import (
+	"bytes"
+	"compress/gzip"
+	"compress/zlib"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math"
 	"strconv"
 
+	"github.com/golang/snappy"
+	"github.com/klauspost/compress/zstd"
 	v1 "go.opentelemetry.io/proto/otlp/common/v1"
 )
 
@@ -57,4 +63,33 @@ func valueToString(value *v1.AnyValue) string {
 		return string(j)
 	}
 	return fmt.Sprintf("unknown attribute value type: %T", value.Value)
+}
+
+func getDecoder(encoding string, body io.ReadCloser) (io.ReadCloser, error) {
+	switch encoding {
+	case "", "node":
+		return body, nil
+	case "gzip":
+		return gzip.NewReader(body)
+	case "zlib", "deflate":
+		return zlib.NewReader(body)
+	case "zstd":
+		r, err := zstd.NewReader(body, zstd.WithDecoderConcurrency(1))
+		if err != nil {
+			return nil, err
+		}
+		return r.IOReadCloser(), nil
+	case "snappy":
+		r := snappy.NewReader(body)
+		b := new(bytes.Buffer)
+		_, err := io.Copy(b, r)
+		if err != nil {
+			return nil, err
+		}
+		if err = body.Close(); err != nil {
+			return nil, err
+		}
+		return io.NopCloser(b), nil
+	}
+	return nil, fmt.Errorf("unsupported content encoding: %q", encoding)
 }
