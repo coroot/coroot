@@ -33,7 +33,13 @@ func (c *Collector) Logs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data, err := io.ReadAll(r.Body)
+	decoder, err := getDecoder(r.Header.Get("Content-Encoding"), r.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	data, err := io.ReadAll(decoder)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
