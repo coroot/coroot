@@ -147,21 +147,17 @@ func (b *TracesBatch) Add(req *v1.ExportTraceServiceRequest) {
 
 	for _, rs := range req.GetResourceSpans() {
 		var serviceName string
-		resourceAttributes := map[string]string{}
-		for _, attr := range rs.GetResource().GetAttributes() {
-			if attr.GetKey() == semconv.AttributeServiceName {
-				serviceName = attr.GetValue().GetStringValue()
+		resourceAttributes := attributesToMap(rs.GetResource().GetAttributes())
+		for k, v := range resourceAttributes {
+			if k == semconv.AttributeServiceName {
+				serviceName = v
 			}
-			resourceAttributes[attr.GetKey()] = attr.GetValue().GetStringValue()
 		}
 		for _, ss := range rs.GetScopeSpans() {
 			scopeName := ss.GetScope().GetName()
 			scopeVersion := ss.GetScope().GetVersion()
 			for _, s := range ss.GetSpans() {
-				spanAttributes := map[string]string{}
-				for _, attr := range s.GetAttributes() {
-					spanAttributes[attr.GetKey()] = attr.GetValue().GetStringValue()
-				}
+				spanAttributes := attributesToMap(s.GetAttributes())
 				if scopeName != "" {
 					spanAttributes[semconv.AttributeOtelScopeName] = scopeName
 				}
@@ -174,11 +170,7 @@ func (b *TracesBatch) Add(req *v1.ExportTraceServiceRequest) {
 				for _, e := range s.GetEvents() {
 					eventTimestamps = append(eventTimestamps, time.Unix(0, int64(e.GetTimeUnixNano())))
 					eventNames = append(eventNames, e.GetName())
-					attrs := map[string]string{}
-					for _, a := range e.GetAttributes() {
-						attrs[a.GetKey()] = a.GetValue().GetStringValue()
-					}
-					eventAttributes = append(eventAttributes, attrs)
+					eventAttributes = append(eventAttributes, attributesToMap(e.GetAttributes()))
 				}
 				var linkTraceIds []string
 				var linkSpanIds []string
@@ -188,11 +180,7 @@ func (b *TracesBatch) Add(req *v1.ExportTraceServiceRequest) {
 					linkTraceIds = append(linkTraceIds, hex.EncodeToString(l.GetTraceId()))
 					linkSpanIds = append(linkSpanIds, hex.EncodeToString(l.GetSpanId()))
 					linkTraceStates = append(linkTraceStates, l.GetTraceState())
-					attrs := map[string]string{}
-					for _, a := range l.GetAttributes() {
-						attrs[a.GetKey()] = a.GetValue().GetStringValue()
-					}
-					linkAttributes = append(linkAttributes, attrs)
+					linkAttributes = append(linkAttributes, attributesToMap(l.GetAttributes()))
 				}
 
 				b.Timestamp.Append(time.Unix(0, int64(s.GetStartTimeUnixNano())))
