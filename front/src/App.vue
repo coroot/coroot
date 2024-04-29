@@ -108,7 +108,11 @@
                             <v-btn v-if="status.prometheus.action === 'wait'" outlined @click="refresh">refresh</v-btn>
                         </template>
                         <template v-else-if="status.node_agent.status !== 'ok'">
-                            <div class="flex-grow-1 mb-3 mb-sm-0">No metrics found. Looks like you didn't install <b>node-agent</b>.</div>
+                            <div class="flex-grow-1 mb-3 mb-sm-0">
+                                No metrics found. If you just installed Coroot and node-agent, please wait a couple minutes for it to collect data.
+                                <br />
+                                If you haven't installed node-agent, please do so now.
+                            </div>
                             <AgentInstallation outlined>Install node-agent</AgentInstallation>
                         </template>
                         <template v-else-if="status.kube_state_metrics && status.kube_state_metrics.status !== 'ok'">
