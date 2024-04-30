@@ -158,7 +158,7 @@ func main() {
 	if *developerMode {
 		r.PathPrefix("/static/").Handler(http.StripPrefix(*urlBasePath+"static/", http.FileServer(http.Dir("./static"))))
 	} else {
-		r.PathPrefix("/static/").Handler(http.StripPrefix(*urlBasePath, http.FileServer(http.FS(static))))
+		r.PathPrefix("/static/").Handler(http.StripPrefix(*urlBasePath, http.FileServer(&StaticFSWrapper{FileSystem: http.FS(static), modTime: time.Now()})))
 	}
 
 	indexHtml := readIndexHtml(*urlBasePath, version, instanceUuid, !*doNotCheckForUpdates, *developerMode)
@@ -330,4 +330,33 @@ func migrateClickhouse(database *db.DB, coll *collector.Collector) {
 			}
 		}(cfg)
 	}
+}
+
+type StaticFSWrapper struct {
+	http.FileSystem
+	modTime time.Time
+}
+
+func (f *StaticFSWrapper) Open(name string) (http.File, error) {
+	file, err := f.FileSystem.Open(name)
+	return &StaticFileWrapper{File: file, modTime: f.modTime}, err
+}
+
+type StaticFileWrapper struct {
+	http.File
+	modTime time.Time
+}
+
+func (f *StaticFileWrapper) Stat() (os.FileInfo, error) {
+	fileInfo, err := f.File.Stat()
+	return &StaticFileInfoWrapper{FileInfo: fileInfo, modTime: f.modTime}, err
+}
+
+type StaticFileInfoWrapper struct {
+	os.FileInfo
+	modTime time.Time
+}
+
+func (f *StaticFileInfoWrapper) ModTime() time.Time {
+	return f.modTime
 }
