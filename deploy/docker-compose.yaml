@@ -27,6 +27,7 @@ services:
     pid: "host"
     volumes:
       - /sys/kernel/tracing:/sys/kernel/tracing
+      - /sys/kernel/debug:/sys/kernel/debug
       - /sys/fs/cgroup:/host/sys/fs/cgroup
     command:
       - '--collector-endpoint=http://coroot:8080'
