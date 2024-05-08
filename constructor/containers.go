@@ -62,7 +62,7 @@ func getInstanceAndContainer(w *model.World, node *model.Node, instances map[ins
 	return instance, instance.GetOrCreateContainer(containerId, containerName)
 }
 
-func loadContainers(w *model.World, metrics map[string][]model.MetricValues, pjs promJobStatuses, nodesByMachineId map[string]*model.Node, servicesByClusterIP map[string]*model.Service) {
+func loadContainers(w *model.World, metrics map[string][]model.MetricValues, pjs promJobStatuses, nodesByMachineId map[string]*model.Node, servicesByClusterIP map[string]*model.Service, ip2fqdn map[string]*model.LabelLastValue) {
 	instances := map[instanceId]*model.Instance{}
 	for _, a := range w.Applications {
 		for _, i := range a.Instances {
@@ -270,7 +270,11 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues, pjs
 						appId.Name = svc.Name
 					}
 				} else {
-					appId.Name = externalServiceName(u.ActualRemotePort)
+					if fqdn := ip2fqdn[u.ActualRemoteIP]; fqdn != nil {
+						appId.Name = fqdn.Value() + ":" + u.ActualRemotePort
+					} else {
+						appId.Name = externalServiceName(u.ActualRemotePort)
+					}
 				}
 				ri := w.GetOrCreateApplication(appId).GetOrCreateInstance(u.ActualRemoteIP+":"+u.ActualRemotePort, nil)
 				ri.TcpListens[model.Listen{IP: u.ActualRemoteIP, Port: u.ActualRemotePort}] = true

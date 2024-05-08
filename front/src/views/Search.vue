@@ -31,7 +31,7 @@
                     <v-list-item-title class="ml-3">
                         <Led :status="a.status" />
                         <span>{{ a.name }}</span>
-                        <span v-if="a.ns" class="caption">(ns: {{ a.ns }})</span>
+                        <span v-if="a.ns" class="caption"> (ns: {{ a.ns }})</span>
                     </v-list-item-title>
                 </v-list-item>
             </template>
