@@ -34,6 +34,16 @@ func getInstanceAndContainer(w *model.World, node *model.Node, instances map[ins
 		ns, pod := parts[2], parts[3]
 		containerName = parts[4]
 		instance = instances[instanceId{ns: ns, name: pod, node: nodeId}]
+	} else if len(parts) == 7 && parts[1] == "nomad" {
+		ns, job, group, allocId, task := parts[2], parts[3], parts[4], parts[5], parts[6]
+		containerName = task
+		appId := model.NewApplicationId(ns, model.ApplicationKindNomadJobGroup, job+"."+group)
+		id := instanceId{ns: ns, name: group + "-" + allocId, node: nodeId}
+		instance = instances[id]
+		if instance == nil {
+			instance = w.GetOrCreateApplication(appId).GetOrCreateInstance(id.name, node)
+			instances[id] = instance
+		}
 	} else {
 		var appId model.ApplicationId
 		var instanceName, ns string

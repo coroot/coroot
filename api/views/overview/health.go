@@ -38,7 +38,11 @@ type ApplicationParam struct {
 func renderHealth(w *model.World) []*ApplicationStatus {
 	var res []*ApplicationStatus
 	for _, app := range w.Applications {
-		if !app.IsK8s() && app.IsStandalone() {
+		switch {
+		case app.IsK8s():
+		case app.Id.Kind == model.ApplicationKindNomadJobGroup:
+		case !app.IsStandalone():
+		default:
 			continue
 		}
 		a := &ApplicationStatus{Id: app.Id, Category: app.Category}
