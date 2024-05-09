@@ -21,6 +21,7 @@ const (
 	ApplicationKindDatabaseCluster    ApplicationKind = "DatabaseCluster"
 	ApplicationKindRds                ApplicationKind = "RDS"
 	ApplicationKindElasticacheCluster ApplicationKind = "ElasticacheCluster"
+	ApplicationKindNomadJobGroup      ApplicationKind = "NomadJobGroup"
 )
 
 type Job struct{}

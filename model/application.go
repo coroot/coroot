@@ -85,7 +85,7 @@ func (app *Application) Labels() Labels {
 		res["db"] = fmt.Sprintf(`%s (RDS)`, app.Instances[0].Rds.Engine.Value())
 	case ApplicationKindElasticacheCluster:
 		res["db"] = fmt.Sprintf(`%s (EC)`, app.Instances[0].Elasticache.Engine.Value())
-	case ApplicationKindUnknown, ApplicationKindDockerSwarmService:
+	case ApplicationKindUnknown, ApplicationKindDockerSwarmService, ApplicationKindNomadJobGroup:
 		if app.Id.Namespace != "_" {
 			res["ns"] = app.Id.Namespace
 		} else {
