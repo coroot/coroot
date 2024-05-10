@@ -13,7 +13,9 @@ func (a *appAuditor) logs() {
 
 	seenContainers := false
 	sum := timeseries.NewAggregate(timeseries.NanSum)
-	byHash := map[string]*model.LogPattern{}
+	uniqPatterns := map[string]*model.LogPattern{}
+	equalTo := map[string]string{}
+	uniqErrors := map[string]bool{}
 	for _, instance := range a.app.Instances {
 		if len(instance.Containers) > 0 {
 			seenContainers = true
@@ -24,21 +26,22 @@ func (a *appAuditor) logs() {
 			}
 			sum.Add(msgs.Messages)
 			for hash, pattern := range msgs.Patterns {
-				if byHash[hash] != nil {
-					continue
-				}
-				var found bool
-				for _, p := range byHash {
-					if p.Pattern.WeakEqual(pattern.Pattern) {
-						found = true
-						break
+				equal := equalTo[hash]
+				if equal == "" {
+					for h, p := range uniqPatterns {
+						if p.Pattern.WeakEqual(pattern.Pattern) {
+							equal = h
+							break
+						}
 					}
-				}
-				byHash[hash] = pattern
-				if !found {
-					if pattern.Messages.Reduce(timeseries.NanSum) > 0 {
-						check.AddItem(hash)
+					if equal == "" {
+						equal = hash
+						uniqPatterns[hash] = pattern
 					}
+					equalTo[hash] = equal
+				}
+				if !uniqErrors[equal] && pattern.Messages.Reduce(timeseries.NanSum) > 0 {
+					uniqErrors[equal] = true
 				}
 			}
 		}
@@ -46,6 +49,9 @@ func (a *appAuditor) logs() {
 	ts := sum.Get()
 	check.Inc(int64(ts.Reduce(timeseries.NanSum)))
 	check.SetValues(ts)
+	for h := range uniqErrors {
+		check.AddItem(h)
+	}
 	if !seenContainers {
 		check.SetStatus(model.UNKNOWN, "no data")
 	}
