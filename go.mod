@@ -9,7 +9,7 @@ require (
 	github.com/PagerDuty/go-pagerduty v1.6.0
 	github.com/atc0005/go-teams-notify/v2 v2.7.0
 	github.com/buger/jsonparser v1.1.1
-	github.com/coroot/logparser v1.0.14
+	github.com/coroot/logparser v1.1.3
 	github.com/dustin/go-humanize v1.0.1
 	github.com/golang/snappy v0.0.4
 	github.com/google/pprof v0.0.0-20230111200839-76d1ae5aea2b
