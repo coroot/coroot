@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/coroot/coroot/utils"
@@ -28,8 +29,9 @@ type Traces struct {
 	Message   string                     `json:"message"`
 	Error     string                     `json:"error"`
 	Heatmap   *model.Heatmap             `json:"heatmap"`
-	Spans     []Span                     `json:"spans"`
+	Traces    []Span                     `json:"traces"`
 	Limit     int                        `json:"limit"`
+	Trace     []Span                     `json:"trace"`
 	Summary   *model.TraceSpanSummary    `json:"summary"`
 	AttrStats []model.TraceSpanAttrStats `json:"attr_stats"`
 	Errors    []model.TraceErrorsStat    `json:"errors"`
@@ -63,15 +65,20 @@ type Query struct {
 	DurFrom string          `json:"dur_from"`
 	DurTo   string          `json:"dur_to"`
 
-	TraceId     string `json:"trace_id"`
-	ServiceName string `json:"service_name"`
-	SpanName    string `json:"span_name"`
-	IncludeAux  bool   `json:"include_aux"`
-	Diff        bool   `json:"diff"`
+	TraceId    string   `json:"trace_id"`
+	Filters    []Filter `json:"filters"`
+	IncludeAux bool     `json:"include_aux"`
+	Diff       bool     `json:"diff"`
 
 	durFrom time.Duration
 	durTo   time.Duration
 	errors  bool
+}
+
+type Filter struct {
+	Field string `json:"field"`
+	Op    string `json:"op"`
+	Value string `json:"value"`
 }
 
 func renderTraces(ctx context.Context, ch *clickhouse.Client, w *model.World, query string) *Traces {
@@ -84,13 +91,15 @@ func renderTraces(ctx context.Context, ch *clickhouse.Client, w *model.World, qu
 
 	q := parseQuery(query, w.Ctx)
 
-	sq := clickhouse.SpanQuery{
-		Ctx:         w.Ctx,
-		ServiceName: q.ServiceName,
-		SpanName:    q.SpanName,
+	sq := clickhouse.SpanQuery{Ctx: w.Ctx}
+
+	for _, f := range q.Filters {
+		sq.Filters = append(sq.Filters, clickhouse.NewSpanFilter(f.Field, f.Op, f.Value))
 	}
+
 	if !q.IncludeAux {
 		sq.ExcludePeerAddrs = getMonitoringAndControlPlanePodIps(w)
+		sq.Filters = append(sq.Filters, clickhouse.NewSpanFilter("SpanName", "!~", "GET /(health[z]*|metrics|debug/.+|actuator/.+)"))
 	}
 
 	histogram, err := ch.GetRootSpansHistogram(ctx, sq)
@@ -106,8 +115,23 @@ func renderTraces(ctx context.Context, ch *clickhouse.Client, w *model.World, qu
 		}
 		res.Heatmap.AddSeries("errors", "errors", histogram[0].TimeSeries, "", "err")
 	} else {
-		res.Message = "not_found"
-		return res
+		services, err := ch.GetServicesFromTraces(ctx)
+		if err != nil {
+			klog.Errorln(err)
+			res.Error = fmt.Sprintf("Clickhouse error: %s", err)
+			return res
+		}
+		var otelTracesFound bool
+		for _, s := range services {
+			if !strings.HasPrefix(s, "/") {
+				otelTracesFound = true
+				break
+			}
+		}
+		if !otelTracesFound {
+			res.Message = "not_found"
+			return res
+		}
 	}
 
 	sq.TsFrom = q.TsFrom
@@ -177,7 +201,11 @@ func renderTraces(ctx context.Context, ch *clickhouse.Client, w *model.World, qu
 				Attributes: e.Attributes,
 			})
 		}
-		res.Spans = append(res.Spans, ss)
+		if q.TraceId != "" {
+			res.Trace = append(res.Trace, ss)
+		} else {
+			res.Traces = append(res.Traces, ss)
+		}
 	}
 
 	return res

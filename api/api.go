@@ -782,6 +782,10 @@ func (api *Api) loadWorldByRequest(r *http.Request) (*model.World, *db.Project, 
 	}
 
 	world, cacheStatus, err := api.loadWorld(r.Context(), project, from, to)
+	if world == nil {
+		step := increaseStepForBigDurations(to.Sub(from), 15*timeseries.Second)
+		world = model.NewWorld(from, to.Add(-step), step)
+	}
 	return world, project, cacheStatus, err
 }
 
