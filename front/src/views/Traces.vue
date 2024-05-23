@@ -19,22 +19,55 @@
             <Heatmap v-if="view.heatmap" :heatmap="view.heatmap" :selection="selection" @select="setSelection" :loading="loading" />
 
             <v-tabs height="32" show-arrows hide-slider>
-                <v-tab v-for="v in views" :to="openView(v.name)" class="view" :class="{ active: query.view === v.name }">
+                <v-tab v-for="v in views" :key="v.name" :to="openView(v.name)" class="view" :class="{ active: query.view === v.name }">
                     <v-icon small class="mr-1">{{ v.icon }}</v-icon>
                     {{ v.title }}
                 </v-tab>
             </v-tabs>
 
             <v-card outlined class="query px-4 py-2 my-4">
-                <div v-if="query.service_name || query.span_name" class="mt-2 d-flex align-center">
-                    <div class="mr-2">Where:</div>
-                    <div class="d-flex flex-wrap" style="gap: 8px; min-width: 0">
-                        <v-chip v-if="query.service_name" @click:close="push(filterTraces(undefined, query.span_name))" label close color="primary">
-                            <div class="where-arg">Root Service Name = {{ query.service_name }}</div>
-                        </v-chip>
-                        <v-chip v-if="query.span_name" @click:close="push(filterTraces(query.service_name, undefined))" label close color="primary">
-                            <div class="where-arg">Root Span Name = {{ query.span_name }}</div>
-                        </v-chip>
+                <div class="mt-2 d-flex align-center" style="gap: 4px">
+                    <div>Filters:</div>
+                    <div class="d-flex flex-wrap align-center filters">
+                        <div v-for="(f, i) in filters" class="d-flex align-center filter">
+                            <template v-if="f.edit">
+                                <v-select
+                                    v-model="f.field"
+                                    :items="Object.keys(filterable.fields).map((f) => ({ value: f, text: filterable.fields[f] }))"
+                                    outlined
+                                    dense
+                                    hide-details
+                                    :menu-props="{ 'offset-y': true }"
+                                    append-icon="mdi-chevron-down"
+                                    class="field"
+                                />
+                                <v-select
+                                    v-model="f.op"
+                                    :items="filterable.ops"
+                                    outlined
+                                    dense
+                                    hide-details
+                                    :menu-props="{ 'offset-y': true }"
+                                    append-icon="mdi-chevron-down"
+                                    class="op"
+                                />
+                                <v-text-field outlined dense v-model="f.value" hide-details class="value" />
+                                <v-btn @click="applyFilters" :disabled="!f.field" small icon>
+                                    <v-icon small color="success">mdi-check</v-icon>
+                                </v-btn>
+                                <v-btn @click="delFilter(i)" small icon>
+                                    <v-icon small color="error">mdi-close</v-icon>
+                                </v-btn>
+                            </template>
+                            <template v-else>
+                                <v-chip @click="editFilter(i)" @click:close="delFilter(i)" label close color="primary">
+                                    <div class="where-arg">{{ filterable.fields[f.field] }} {{ f.op }} {{ f.value }}</div>
+                                </v-chip>
+                            </template>
+                        </div>
+                        <v-btn v-if="!filters.some((f) => f.edit)" @click="newFilter" small icon>
+                            <v-icon small>mdi-plus</v-icon>
+                        </v-btn>
                     </div>
                 </div>
                 <div class="d-flex align-center">
@@ -103,7 +136,7 @@
                     </router-link>
                     Trace {{ query.trace_id }}
                 </div>
-                <TracingTrace v-if="view.spans" :spans="view.spans" />
+                <TracingTrace v-if="view.trace" :spans="view.trace" />
             </div>
 
             <div v-else-if="query.view === 'overview'" class="mt-5" style="min-height: 50vh">
@@ -197,7 +230,7 @@
             </div>
 
             <div v-else-if="query.view === 'traces'" class="mt-5" style="min-height: 50vh">
-                <v-simple-table dense class="spans">
+                <v-simple-table dense>
                     <thead>
                         <tr>
                             <th>Trace ID</th>
@@ -208,7 +241,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="s in view.spans">
+                        <tr v-for="s in view.traces">
                             <td>
                                 <router-link :to="openTrace(s.trace_id)" exact class="text-no-wrap">
                                     <v-icon small style="vertical-align: baseline">mdi-chart-timeline</v-icon>
@@ -229,8 +262,8 @@
                         </tr>
                     </tbody>
                 </v-simple-table>
-                <div v-if="!loading && (!view.spans || !view.spans.length)" class="pa-3 text-center grey--text">No traces found</div>
-                <div v-if="!loading && view.spans && view.spans.length && view.limit" class="text-right caption grey--text">
+                <div v-if="!loading && (!view.traces || !view.traces.length)" class="pa-3 text-center grey--text">No traces found</div>
+                <div v-if="!loading && view.traces && view.traces.length && view.limit" class="text-right caption grey--text">
                     The output is capped at {{ view.limit }} traces.
                 </div>
             </div>
@@ -372,16 +405,12 @@ export default {
 
     data() {
         return {
+            filters: [],
             form: {
                 excludeAux: true,
                 diff: false,
             },
         };
-    },
-
-    mounted() {
-        this.form.excludeAux = !this.query.include_aux;
-        this.form.diff = (this.selectionDefined ? this.query.diff : false) || false;
     },
 
     watch: {
@@ -390,6 +419,14 @@ export default {
                 this.setForm(v);
             },
             deep: true,
+        },
+        '$route.query.query': {
+            handler() {
+                this.filters = (this.query.filters || []).map((f) => ({ ...f, edit: false }));
+                this.form.excludeAux = !this.query.include_aux;
+                this.form.diff = (this.selectionDefined ? this.query.diff : false) || false;
+            },
+            immediate: true,
         },
     },
 
@@ -414,6 +451,16 @@ export default {
                 q.view = 'overview';
             }
             return q;
+        },
+        filterable() {
+            return {
+                fields: {
+                    ServiceName: 'Root Service Name',
+                    SpanName: 'Root Span Name',
+                    TraceId: 'Trace ID',
+                },
+                ops: ['=', '!=', '~', '!~'],
+            };
         },
         selection() {
             const q = this.query;
@@ -444,9 +491,12 @@ export default {
         filterTraces(serviceName, spanName, errors) {
             const { from, to } = this.$route.query;
             const q = { ...this.query };
-            q.service_name = serviceName;
-            q.span_name = spanName;
+            q.filters = [];
+            if (serviceName) {
+                q.filters.push({ field: 'ServiceName', op: '=', value: serviceName });
+            }
             if (spanName) {
+                q.filters.push({ field: 'SpanName', op: '=', value: spanName });
                 q.view = 'traces';
             }
             if (errors) {
@@ -475,6 +525,31 @@ export default {
                 q.dur_to = undefined;
             }
             return this.setQuery(q, from, to);
+        },
+        newFilter() {
+            this.filters.push({ field: '', op: '=', value: '', edit: true });
+        },
+        delFilter(i) {
+            this.filters.splice(i, 1);
+            this.applyFilters();
+        },
+        editFilter(i) {
+            this.filters[i].edit = true;
+        },
+        applyFilters() {
+            this.filters.forEach((f) => {
+                f.edit = !f.field;
+            });
+            const { from, to } = this.$route.query;
+            const q = { ...this.query };
+            q.filters = this.filters.filter((f) => !f.edit).map(({ field, op, value }) => ({ field, op, value }));
+            if (!q.filters.length) {
+                q.filters = undefined;
+            }
+            if (q.view === 'overview' && q.filters && q.filters.some((f) => f.field === 'TraceId')) {
+                q.view = 'traces';
+            }
+            this.push(this.setQuery(q, from, to));
         },
         clearSelection() {
             const { from, to } = this.$route.query;
@@ -625,17 +700,42 @@ export default {
     color: var(--text-color);
 }
 
-.table:deep(table) {
-    min-width: 600px;
+.filters {
+    gap: 8px;
+    min-width: 0;
 }
-.table:deep(tr:hover) {
-    background-color: unset !important;
+.filter {
+    gap: 4px;
+    max-width: 100%;
 }
-.table:deep(th) {
+.filter * {
+    font-size: 14px;
+}
+.filter:deep(.v-input__slot) {
+    min-height: initial !important;
+    height: 26px !important;
     padding: 0 8px !important;
 }
-.table:deep(td) {
-    padding: 4px 8px !important;
+.filter:deep(.v-select__selection--comma) {
+    margin: 0 !important;
+}
+.filter:deep(.v-input__append-inner) {
+    margin-top: 2px !important;
+    margin-right: -8px !important;
+}
+.filter:deep(.v-icon) {
+    font-size: 16px;
+}
+*:deep(.v-list-item) {
+    font-size: 14px;
+    min-height: 32px !important;
+    padding: 0 8px !important;
+}
+.filter .field {
+    max-width: 22ch;
+}
+.filter .op {
+    max-width: 8ch;
 }
 
 .attr-stats {

@@ -51,7 +51,7 @@
         </div>
 
         <div v-else class="mt-5" style="min-height: 50vh">
-            <v-simple-table class="spans">
+            <v-simple-table dense class="spans">
                 <thead>
                     <tr>
                         <th>Trace ID</th>
@@ -76,7 +76,10 @@
                             <v-icon v-else color="success" small class="ml-1" style="margin-bottom: 2px">mdi-check-circle</v-icon>
                             {{ s.status.message }}
                         </td>
-                        <td class="text-no-wrap">{{ s.duration.toFixed(2) }}ms</td>
+                        <td class="text-no-wrap">
+                            {{ s.duration.toFixed(1) }}
+                            <span class="caption grey--text"> ms</span>
+                        </td>
                         <td class="text-no-wrap">
                             {{ s.name }}
                         </td>
@@ -318,12 +321,6 @@ export default {
 </script>
 
 <style scoped>
-/*.spans {*/
-/*    min-height: 50vh;*/
-/*}*/
-.spans:deep(tr:hover) {
-    background-color: unset !important;
-}
 .details {
     font-family: monospace, monospace;
     font-size: 14px;

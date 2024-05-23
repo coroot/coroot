@@ -624,6 +624,29 @@ func (c *Client) getSelectionAndBaselineTraces(ctx context.Context, q SpanQuery)
 	return selectionTraces, baselineTraces, nil
 }
 
+type SpanFilter struct {
+	Field string
+	Op    string
+	Value string
+}
+
+func NewSpanFilter(field, op, value string) SpanFilter {
+	return SpanFilter{Field: field, Op: op, Value: value}
+}
+
+func (f SpanFilter) String() string {
+	expr := "%s = '%s'"
+	switch f.Op {
+	case "!=":
+		expr = "%s != '%s'"
+	case "~":
+		expr = "match(%s, '%s')"
+	case "!~":
+		expr = "NOT match(%s, '%s')"
+	}
+	return fmt.Sprintf(expr, f.Field, f.Value)
+}
+
 type SpanQuery struct {
 	Ctx timeseries.Context
 
@@ -635,8 +658,7 @@ type SpanQuery struct {
 
 	Limit int
 
-	ServiceName      string
-	SpanName         string
+	Filters          []SpanFilter
 	ExcludePeerAddrs []string
 
 	Diff bool
@@ -679,15 +701,10 @@ func (q SpanQuery) RootSpansFilter() ([]string, []any) {
 		"SpanKind = 'SPAN_KIND_SERVER'",
 		"ParentSpanId = ''",
 	}
+	for _, f := range q.Filters {
+		filter = append(filter, f.String())
+	}
 	var args []any
-	if q.ServiceName != "" {
-		filter = append(filter, "ServiceName = @serviceName")
-		args = append(args, clickhouse.Named("serviceName", q.ServiceName))
-	}
-	if q.SpanName != "" {
-		filter = append(filter, "SpanName = @spanName")
-		args = append(args, clickhouse.Named("spanName", q.SpanName))
-	}
 	if len(q.ExcludePeerAddrs) > 0 {
 		filter = append(filter, "NetSockPeerAddr NOT IN (@addrs)")
 		args = append(args, clickhouse.Named("addrs", q.ExcludePeerAddrs))
@@ -697,12 +714,12 @@ func (q SpanQuery) RootSpansFilter() ([]string, []any) {
 
 func (q SpanQuery) SpansByServiceNameFilter() ([]string, []any) {
 	filter := []string{
-		"ServiceName = @serviceName",
 		"SpanKind = 'SPAN_KIND_SERVER'",
 	}
-	args := []any{
-		clickhouse.Named("serviceName", q.ServiceName),
+	for _, f := range q.Filters {
+		filter = append(filter, f.String())
 	}
+	var args []any
 	if len(q.ExcludePeerAddrs) > 0 {
 		filter = append(filter, "NetSockPeerAddr NOT IN (@addrs)")
 		args = append(args, clickhouse.Named("addrs", q.ExcludePeerAddrs))

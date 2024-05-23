@@ -142,9 +142,9 @@ func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, 
 			var e error
 			sq := clickhouse.SpanQuery{
 				Ctx:              w.Ctx,
-				ServiceName:      service,
 				ExcludePeerAddrs: ignoredPeerAddrs,
 			}
+			sq.Filters = append(sq.Filters, clickhouse.NewSpanFilter("ServiceName", "=", service))
 			histogram, e = ch.GetSpansByServiceNameHistogram(ctx, sq)
 			if e != nil {
 				err = e
@@ -162,9 +162,9 @@ func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, 
 				DurTo:            durTo,
 				Errors:           errors,
 				Limit:            limit,
-				ServiceName:      service,
 				ExcludePeerAddrs: ignoredPeerAddrs,
 			}
+			sq.Filters = append(sq.Filters, clickhouse.NewSpanFilter("ServiceName", "=", service))
 			spans, e = ch.GetSpansByServiceName(ctx, sq)
 			if e != nil {
 				err = e

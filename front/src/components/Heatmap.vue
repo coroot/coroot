@@ -285,7 +285,7 @@ export default {
                             }
                             const p = new Path2D();
                             rect(p, x + i * w + w / 2, y, w - margin, h - margin);
-                            const b = ys[i] / norm;
+                            const b = norm ? ys[i] / norm : 1;
                             u.ctx.fillStyle = 'hsl(' + baselineColor + ' 100% ' + (75 - Math.trunc(b * 50)) + '%)';
                             u.ctx.fill(p);
                         });
