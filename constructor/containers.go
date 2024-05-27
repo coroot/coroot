@@ -13,13 +13,16 @@ import (
 )
 
 type instanceId struct {
-	ns, name, node string
+	ns   string
+	name string
+	node model.NodeId
 }
 
 func getInstanceAndContainer(w *model.World, node *model.Node, instances map[instanceId]*model.Instance, containerId string) (*model.Instance, *model.Container) {
-	nodeId, nodeName := "", ""
+	var nodeId model.NodeId
+	var nodeName string
 	if node != nil {
-		nodeId = node.MachineID
+		nodeId = node.Id
 		nodeName = node.GetName()
 	}
 	if !strings.HasPrefix(containerId, "/") {
@@ -72,13 +75,13 @@ func getInstanceAndContainer(w *model.World, node *model.Node, instances map[ins
 	return instance, instance.GetOrCreateContainer(containerId, containerName)
 }
 
-func loadContainers(w *model.World, metrics map[string][]model.MetricValues, pjs promJobStatuses, nodesByMachineId map[string]*model.Node, servicesByClusterIP map[string]*model.Service, ip2fqdn map[string]*model.LabelLastValue) {
+func loadContainers(w *model.World, metrics map[string][]model.MetricValues, pjs promJobStatuses, nodesByID map[model.NodeId]*model.Node, servicesByClusterIP map[string]*model.Service, ip2fqdn map[string]*model.LabelLastValue) {
 	instances := map[instanceId]*model.Instance{}
 	for _, a := range w.Applications {
 		for _, i := range a.Instances {
-			nodeId := ""
+			var nodeId model.NodeId
 			if i.Node != nil {
-				nodeId = i.Node.MachineID
+				nodeId = i.Node.Id
 			}
 			instances[instanceId{ns: a.Id.Namespace, name: i.Name, node: nodeId}] = i
 		}
@@ -93,7 +96,8 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues, pjs
 			continue
 		}
 		for _, m := range metrics[queryName] {
-			instance, container := getInstanceAndContainer(w, nodesByMachineId[m.Labels["machine_id"]], instances, m.Labels["container_id"])
+			nodeId := model.NewNodeIdFromLabels(m.Labels)
+			instance, container := getInstanceAndContainer(w, nodesByID[nodeId], instances, m.Labels["container_id"])
 			if instance == nil || container == nil {
 				continue
 			}
@@ -103,7 +107,7 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues, pjs
 					container.Image = image
 				}
 			case "container_net_latency":
-				id := instanceId{ns: instance.OwnerId.Namespace, name: instance.Name, node: instance.NodeName()}
+				id := instanceId{ns: instance.OwnerId.Namespace, name: instance.Name, node: instance.NodeId()}
 				rtts := rttByInstance[id]
 				if rtts == nil {
 					rtts = map[string]*timeseries.TimeSeries{}
@@ -246,7 +250,7 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues, pjs
 						u.RemoteInstance = instancesByListen[l]
 					}
 				}
-				if upstreams, ok := rttByInstance[instanceId{ns: instance.OwnerId.Namespace, name: instance.Name, node: instance.NodeName()}]; ok {
+				if upstreams, ok := rttByInstance[instanceId{ns: instance.OwnerId.Namespace, name: instance.Name, node: instance.NodeId()}]; ok {
 					u.Rtt = merge(u.Rtt, upstreams[u.ActualRemoteIP], timeseries.Any)
 				}
 				if svc := servicesByClusterIP[u.ServiceRemoteIP]; svc != nil {
@@ -334,7 +338,7 @@ func getOrCreateConnection(instance *model.Instance, container string, m model.M
 		instanceId: instanceId{
 			ns:   instance.OwnerId.Namespace,
 			name: instance.Name,
-			node: instance.NodeName(),
+			node: instance.NodeId(),
 		},
 		destination:       dest,
 		actualDestination: actualDest,

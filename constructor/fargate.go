@@ -8,17 +8,17 @@ import (
 	"github.com/coroot/coroot/timeseries"
 )
 
-func (c *Constructor) loadFargateNodes(metrics map[string][]model.MetricValues, nodesByMachineId map[string]*model.Node) {
+func (c *Constructor) loadFargateNodes(metrics map[string][]model.MetricValues, nodesById map[model.NodeId]*model.Node) {
 	for queryName := range metrics {
 		if !strings.HasPrefix(queryName, "fargate_node_") {
 			continue
 		}
 		for _, m := range metrics[queryName] {
-			machineID := strings.Replace(m.Labels["system_uuid"], "-", "", -1)
-			if machineID == "" {
+			id := model.NewNodeIdFromLabels(m.Labels)
+			if id.MachineID == "" && id.SystemUUID == "" {
 				continue
 			}
-			node := nodesByMachineId[machineID]
+			node := nodesById[id]
 			if node == nil {
 				continue
 			}
@@ -67,12 +67,12 @@ func loadFargateContainers(w *model.World, metrics map[string][]model.MetricValu
 				for _, a := range w.Applications {
 					for _, i := range a.Instances {
 						if n := i.NodeName(); n != "" {
-							instances[instanceId{ns: a.Id.Namespace, name: i.Name, node: n}] = i
+							instances[instanceId{ns: a.Id.Namespace, name: i.Name, node: model.NewNodeId(n, n)}] = i
 						}
 					}
 				}
 			}
-			instance := instances[instanceId{ns: ns, name: pod, node: nodeName}]
+			instance := instances[instanceId{ns: ns, name: pod, node: model.NewNodeId(nodeName, nodeName)}]
 			if instance == nil {
 				continue
 			}

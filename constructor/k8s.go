@@ -96,7 +96,7 @@ func podInfo(w *model.World, metrics []model.MetricValues) map[string]*model.Ins
 		switch {
 		case ownerKind == "" || ownerKind == "<none>" || ownerKind == "Node":
 			appId = model.NewApplicationId(ns, model.ApplicationKindStaticPods, strings.TrimSuffix(pod, "-"+nodeName))
-		case ownerName != "" && ownerKind != "":
+		case ownerName != "":
 			appId = model.NewApplicationId(ns, model.ApplicationKind(ownerKind), ownerName)
 		default:
 			continue
