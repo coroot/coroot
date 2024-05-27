@@ -14,7 +14,6 @@ import (
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 	"github.com/coroot/logparser"
-	"golang.org/x/exp/maps"
 	"k8s.io/klog"
 )
 
@@ -133,22 +132,32 @@ func renderEntries(ctx context.Context, v *View, ch *clickhouse.Client, app *mod
 		return
 	}
 
-	service := ""
-	if appSettings != nil && appSettings.Logs != nil {
-		service = appSettings.Logs.Service
-	} else {
-		service = model.GuessService(maps.Keys(services), app.Id)
-	}
+	var logsFromAgentFound bool
+	var otelServices []string
 	for s := range services {
 		if strings.HasPrefix(s, "/") {
-			v.Sources = append(v.Sources, model.LogSourceAgent)
+			logsFromAgentFound = true
 		} else {
-			v.Services = append(v.Services, s)
-			if s == service {
-				v.Service = s
-				v.Sources = append(v.Sources, model.LogSourceOtel)
-			}
+			otelServices = append(otelServices, s)
 		}
+	}
+	otelService := ""
+	if appSettings != nil && appSettings.Logs != nil {
+		otelService = appSettings.Logs.Service
+	} else {
+		otelService = model.GuessService(otelServices, app.Id)
+	}
+
+	if logsFromAgentFound {
+		v.Sources = append(v.Sources, model.LogSourceAgent)
+	}
+
+	for _, s := range otelServices {
+		if s == otelService {
+			v.Service = s
+			v.Sources = append(v.Sources, model.LogSourceOtel)
+		}
+		v.Services = append(v.Services, s)
 	}
 	sort.Strings(v.Services)
 
@@ -172,15 +181,15 @@ func renderEntries(ctx context.Context, v *View, ch *clickhouse.Client, app *mod
 	var entries []*model.LogEntry
 	switch v.Source {
 	case model.LogSourceOtel:
-		v.Message = fmt.Sprintf("Using OpenTelemetry logs of <i>%s</i>", service)
+		v.Message = fmt.Sprintf("Using OpenTelemetry logs of <i>%s</i>", otelService)
 		v.Severities = services[v.Service]
 		if len(v.Severity) == 0 {
 			v.Severity = v.Severities
 		}
 		if v.View == viewMessages {
-			histogram, err = ch.GetServiceLogsHistogram(ctx, w.Ctx.From, w.Ctx.To, w.Ctx.Step, service, v.Severity, q.Search)
+			histogram, err = ch.GetServiceLogsHistogram(ctx, w.Ctx.From, w.Ctx.To, w.Ctx.Step, otelService, v.Severity, q.Search)
 			if err == nil {
-				entries, err = ch.GetServiceLogs(ctx, w.Ctx.From, w.Ctx.To, service, v.Severity, q.Search, q.Limit)
+				entries, err = ch.GetServiceLogs(ctx, w.Ctx.From, w.Ctx.To, otelService, v.Severity, q.Search, q.Limit)
 			}
 		}
 	case model.LogSourceAgent:
