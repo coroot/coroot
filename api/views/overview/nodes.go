@@ -17,7 +17,7 @@ func renderNodes(w *model.World) *model.Table {
 	for _, n := range w.Nodes {
 		name := n.GetName()
 		if name == "" {
-			klog.Warningln("empty node name for", n.MachineID)
+			klog.Warningln("empty node name for", n.Id)
 			continue
 		}
 

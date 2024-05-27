@@ -30,8 +30,9 @@ func loadRdsMetadata(w *model.World, metrics map[string][]model.MetricValues, pj
 			instance.Rds = &model.Rds{}
 		}
 		if instance.Node == nil {
-			instance.Node = model.NewNode("rds:" + instance.Name)
-			instance.Node.Name.Update(m.Values, "rds:"+instance.Name)
+			name := "rds:" + instance.Name
+			instance.Node = model.NewNode(model.NewNodeId(name, name))
+			instance.Node.Name.Update(m.Values, name)
 			instance.Node.Instances = append(instance.Node.Instances, instance)
 			w.Nodes = append(w.Nodes, instance.Node)
 		}

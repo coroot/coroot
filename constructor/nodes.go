@@ -4,51 +4,55 @@ import (
 	"strconv"
 	"strings"
 
+	"k8s.io/klog"
+
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 )
 
-func initNodesList(w *model.World, metrics map[string][]model.MetricValues, nodesByMachineID map[string]*model.Node) {
+func initNodesList(w *model.World, metrics map[string][]model.MetricValues, nodesByID map[model.NodeId]*model.Node) {
 	for _, m := range metrics["node_info"] {
 		name := m.Labels["hostname"]
-		machineID := m.Labels["machine_id"]
-		if machineID == "" {
+		id := model.NewNodeIdFromLabels(m.Labels)
+		if id.MachineID == "" && id.SystemUUID == "" {
+			klog.Infoln("invalid `node_info` metric: missing `machine_id` and `system_uuid` labels")
 			continue
 		}
 		w.IntegrationStatus.NodeAgent.Installed = true
-		node := nodesByMachineID[machineID]
+		node := nodesByID[id]
 		if node == nil {
-			node = model.NewNode(machineID)
+			node = model.NewNode(id)
 			w.Nodes = append(w.Nodes, node)
-			nodesByMachineID[machineID] = node
+			nodesByID[node.Id] = node
 		}
 		node.Name.Update(m.Values, name)
 	}
 	for _, m := range metrics["kube_node_info"] {
 		name := m.Labels["node"]
-		machineID := strings.Replace(m.Labels["system_uuid"], "-", "", -1)
-		if machineID == "" {
+		id := model.NewNodeIdFromLabels(m.Labels)
+		if id.MachineID == "" && id.SystemUUID == "" {
+			klog.Infoln("invalid `kube_node_info` metric: missing `system_uuid` label")
 			continue
 		}
-		node := nodesByMachineID[machineID]
+		node := nodesByID[id]
 		if node == nil {
-			node = model.NewNode(machineID)
+			node = model.NewNode(id)
 			w.Nodes = append(w.Nodes, node)
-			nodesByMachineID[machineID] = node
+			nodesByID[node.Id] = node
 		}
 		node.K8sName.Update(m.Values, name)
 	}
 }
 
-func (c *Constructor) loadNodes(w *model.World, metrics map[string][]model.MetricValues, nodesByMachineId map[string]*model.Node) {
-	initNodesList(w, metrics, nodesByMachineId)
+func (c *Constructor) loadNodes(w *model.World, metrics map[string][]model.MetricValues, nodesByID map[model.NodeId]*model.Node) {
+	initNodesList(w, metrics, nodesByID)
 
 	for queryName := range metrics {
 		if !strings.HasPrefix(queryName, "node_") {
 			continue
 		}
 		for _, m := range metrics[queryName] {
-			node := nodesByMachineId[m.Labels["machine_id"]]
+			node := nodesByID[model.NewNodeIdFromLabels(m.Labels)]
 			if node == nil {
 				continue
 			}

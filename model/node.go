@@ -1,6 +1,8 @@
 package model
 
 import (
+	"strings"
+
 	"github.com/coroot/coroot/timeseries"
 )
 
@@ -29,13 +31,36 @@ type InterfaceStats struct {
 	TxBytes   *timeseries.TimeSeries
 }
 
+type NodeId struct {
+	MachineID  string
+	SystemUUID string
+}
+
+func NewNodeId(machineID, systemUUID string) NodeId {
+	return NodeId{MachineID: machineID, SystemUUID: systemUUID}
+}
+
+func NewNodeIdFromLabels(labels Labels) NodeId {
+	machineID := labels["machine_id"]
+	systemUUID := labels["system_uuid"]
+	if systemUUID == "" {
+		systemUUID = machineID
+	} else {
+		systemUUID = strings.Replace(systemUUID, "-", "", -1)
+	}
+	if machineID == "" {
+		machineID = systemUUID
+	}
+	return NewNodeId(machineID, systemUUID)
+}
+
 type Node struct {
 	AgentVersion LabelLastValue
 
-	Name      LabelLastValue
-	K8sName   LabelLastValue
-	MachineID string
-	Uptime    *timeseries.TimeSeries
+	Name    LabelLastValue
+	K8sName LabelLastValue
+	Id      NodeId
+	Uptime  *timeseries.TimeSeries
 
 	CpuCapacity     *timeseries.TimeSeries
 	CpuUsagePercent *timeseries.TimeSeries
@@ -67,9 +92,9 @@ type NodePrice struct {
 	PerMemoryByte float32
 }
 
-func NewNode(machineId string) *Node {
+func NewNode(id NodeId) *Node {
 	return &Node{
-		MachineID:      machineId,
+		Id:             id,
 		Disks:          map[string]*DiskStats{},
 		CpuUsageByMode: map[string]*timeseries.TimeSeries{},
 	}

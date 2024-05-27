@@ -118,6 +118,13 @@ func (instance *Instance) NodeName() string {
 	return ""
 }
 
+func (instance *Instance) NodeId() NodeId {
+	if instance.Node != nil {
+		return instance.Node.Id
+	}
+	return NodeId{}
+}
+
 func (instance *Instance) UpdateClusterRole(role string, v *timeseries.TimeSeries) {
 	switch role {
 	case "primary":

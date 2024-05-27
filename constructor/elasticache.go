@@ -26,8 +26,9 @@ func loadElasticacheMetadata(w *model.World, metrics map[string][]model.MetricVa
 			instance.Elasticache = &model.Elasticache{}
 		}
 		if instance.Node == nil {
-			instance.Node = model.NewNode("elasticache:" + instance.Name)
-			instance.Node.Name.Update(m.Values, "elasticache:"+instance.Name)
+			name := "elasticache:" + instance.Name
+			instance.Node = model.NewNode(model.NewNodeId(name, name))
+			instance.Node.Name.Update(m.Values, name)
 			instance.Node.Instances = append(instance.Node.Instances, instance)
 			w.Nodes = append(w.Nodes, instance.Node)
 		}
