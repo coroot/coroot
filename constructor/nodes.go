@@ -11,6 +11,7 @@ import (
 )
 
 func initNodesList(w *model.World, metrics map[string][]model.MetricValues, nodesByID map[model.NodeId]*model.Node) {
+	nodesBySystemUUID := map[string]*model.Node{}
 	for _, m := range metrics["node_info"] {
 		name := m.Labels["hostname"]
 		id := model.NewNodeIdFromLabels(m.Labels)
@@ -24,6 +25,7 @@ func initNodesList(w *model.World, metrics map[string][]model.MetricValues, node
 			node = model.NewNode(id)
 			w.Nodes = append(w.Nodes, node)
 			nodesByID[node.Id] = node
+			nodesBySystemUUID[node.Id.SystemUUID] = node
 		}
 		node.Name.Update(m.Values, name)
 	}
@@ -34,11 +36,12 @@ func initNodesList(w *model.World, metrics map[string][]model.MetricValues, node
 			klog.Infoln("invalid `kube_node_info` metric: missing `system_uuid` label")
 			continue
 		}
-		node := nodesByID[id]
+		node := nodesBySystemUUID[id.SystemUUID]
 		if node == nil {
 			node = model.NewNode(id)
 			w.Nodes = append(w.Nodes, node)
 			nodesByID[node.Id] = node
+			nodesBySystemUUID[node.Id.SystemUUID] = node
 		}
 		node.K8sName.Update(m.Values, name)
 	}
