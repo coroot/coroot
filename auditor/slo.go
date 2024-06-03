@@ -14,7 +14,7 @@ type sumFromFunc func(from timeseries.Time) float32
 
 func (a *appAuditor) slo() {
 	report := a.addReport(model.AuditReportSLO)
-	requestsChart(a.app, report, a.p)
+	sloRequestsChart(a.app, report, a.p)
 	availability(a.w.Ctx, a.app, report)
 	latency(a.w.Ctx, a.app, report)
 	clientRequests(a.app, report)
@@ -155,7 +155,7 @@ func calcBurnRates(now timeseries.Time, badSum, totalSum sumFromFunc, objectiveP
 	return first
 }
 
-func requestsChart(app *model.Application, report *model.AuditReport, p *db.Project) {
+func sloRequestsChart(app *model.Application, report *model.AuditReport, p *db.Project) {
 	hm := report.GetOrCreateHeatmap("Latency & Errors heatmap, requests per second")
 	if hm == nil {
 		return

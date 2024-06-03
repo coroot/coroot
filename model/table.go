@@ -40,11 +40,11 @@ func (t *Table) SortRows() {
 	})
 }
 
-func (t *Table) SetSorted(s bool) *Table {
+func (t *Table) SetSorted() *Table {
 	if t == nil {
 		return nil
 	}
-	t.sorted = s
+	t.sorted = true
 	return t
 }
 
@@ -194,6 +194,21 @@ func (c *TableCell) SetMaxWidth(w int) *TableCell {
 		return nil
 	}
 	c.MaxWidth = w
+	return c
+}
+
+func (c *TableCell) SetEventsCount(count uint64) *TableCell {
+	switch {
+	case count < 1:
+	case count > 1e6:
+		c.Value = fmt.Sprintf("%.1f", float32(count)/1e6)
+		c.SetUnit("M")
+	case count > 1e3:
+		c.Value = fmt.Sprintf("%.1f", float32(count)/1e3)
+		c.SetUnit("k")
+	default:
+		c.Value = fmt.Sprintf("%d", count)
+	}
 	return c
 }
 

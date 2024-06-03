@@ -110,6 +110,8 @@ var QUERIES = map[string]string{
 	"container_cassandra_queries_histogram": `rate(container_cassandra_queries_duration_seconds_total_bucket[$RANGE])`,
 	"container_rabbitmq_messages":           `rate(container_rabbitmq_messages_total[$RANGE])`,
 	"container_nats_messages":               `rate(container_nats_messages_total[$RANGE])`,
+	"container_dns_requests_total":          `rate(container_dns_requests_total[$RANGE])`,
+	"container_dns_requests_latency":        `rate(container_dns_requests_duration_seconds_total_bucket[$RANGE])`,
 
 	"kube_pod_init_container_info":                     `kube_pod_init_container_info`,
 	"kube_pod_container_resource_requests":             `kube_pod_container_resource_requests`,

@@ -15,7 +15,7 @@ func (a *appAuditor) deployments() {
 
 	statusCheck := report.CreateCheck(model.Checks.DeploymentStatus)
 
-	table := report.GetOrCreateTable("Deployment", "Deployed", "Summary").SetSorted(true)
+	table := report.GetOrCreateTable("Deployment", "Deployed", "Summary").SetSorted()
 
 	now := timeseries.Now()
 	statuses := model.CalcApplicationDeploymentStatuses(a.app, a.w.CheckConfigs, now)

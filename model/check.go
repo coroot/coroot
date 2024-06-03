@@ -86,6 +86,9 @@ var Checks = struct {
 	JvmAvailability        CheckConfig
 	JvmSafepointTime       CheckConfig
 	DotNetAvailability     CheckConfig
+	DnsLatency             CheckConfig
+	DnsServerErrors        CheckConfig
+	DnsNxdomainErrors      CheckConfig
 }{
 	index: map[CheckId]*CheckConfig{},
 
@@ -292,6 +295,28 @@ var Checks = struct {
 		DefaultThreshold:        0,
 		MessageTemplate:         `{{.ItemsWithToBe ".NET instance"}} unavailable`,
 		ConditionFormatTemplate: "the number of unavailable .NET instances > <threshold>",
+	},
+	DnsLatency: CheckConfig{
+		Type:                    CheckTypeValueBased,
+		Title:                   "DNS latency",
+		DefaultThreshold:        0.1,
+		Unit:                    CheckUnitSecond,
+		MessageTemplate:         `high latency`,
+		ConditionFormatTemplate: "the 95th percentile of DNS response times > <threshold>",
+	},
+	DnsServerErrors: CheckConfig{
+		Type:                    CheckTypeEventBased,
+		Title:                   "DNS server errors",
+		DefaultThreshold:        0,
+		MessageTemplate:         `{{.Count "server DNS error"}} occurred`,
+		ConditionFormatTemplate: "the number of server DNS errors (excluding NXDOMAIN) > <threshold>",
+	},
+	DnsNxdomainErrors: CheckConfig{
+		Type:                    CheckTypeEventBased,
+		Title:                   "DNS NXDOMAIN errors",
+		DefaultThreshold:        0,
+		MessageTemplate:         `the app received an empty DNS response {{.Count "time"}}`,
+		ConditionFormatTemplate: "the number of the NXDOMAIN DNS errors (for previously valid requests) > <threshold>",
 	},
 }
 

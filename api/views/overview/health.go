@@ -26,6 +26,7 @@ type ApplicationStatus struct {
 	DiskIO    ApplicationParam `json:"disk_io"`
 	DiskUsage ApplicationParam `json:"disk_usage"`
 	Network   ApplicationParam `json:"network"`
+	DNS       ApplicationParam `json:"dns"`
 	Logs      ApplicationParam `json:"logs"`
 }
 
@@ -140,6 +141,18 @@ func renderHealth(w *model.World) []*ApplicationStatus {
 					if ch.Status >= model.WARNING {
 						a.Network.Status = ch.Status
 						a.Network.Value = "failed conns"
+					}
+				case model.Checks.DnsLatency.Id:
+					if ch.Status >= model.WARNING {
+						a.DNS.Status = ch.Status
+						if ch.Value() > 0 {
+							a.DNS.Value = utils.FormatLatency(ch.Value())
+						}
+					}
+				case model.Checks.DnsServerErrors.Id, model.Checks.DnsNxdomainErrors.Id:
+					if ch.Status >= model.WARNING {
+						a.DNS.Status = ch.Status
+						a.DNS.Value = "errors"
 					}
 				case model.Checks.LogErrors.Id:
 					if items := ch.Items(); items != nil && items.Len() > 0 {
