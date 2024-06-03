@@ -178,6 +178,28 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues, pjs
 					}
 					c.RequestsHistogram[protocol][float32(le)] = merge(c.RequestsHistogram[protocol][float32(le)], m.Values, timeseries.NanSum)
 				}
+			case "container_dns_requests_total":
+				r := model.DNSRequest{
+					Type:   m.Labels["request_type"],
+					Domain: m.Labels["domain"],
+				}
+				if r.Type == "" || r.Domain == "" {
+					continue
+				}
+				status := m.Labels["status"]
+				byStatus := container.DNSRequests[r]
+				if byStatus == nil {
+					byStatus = map[string]*timeseries.TimeSeries{}
+					container.DNSRequests[r] = byStatus
+				}
+				byStatus[status] = merge(byStatus[status], m.Values, timeseries.Any)
+			case "container_dns_requests_latency":
+				le, err := strconv.ParseFloat(m.Labels["le"], 32)
+				if err != nil {
+					klog.Warningln(err)
+					continue
+				}
+				container.DNSRequestsHistogram[float32(le)] = merge(container.DNSRequestsHistogram[float32(le)], m.Values, timeseries.Any)
 			case "container_cpu_limit":
 				container.CpuLimit = merge(container.CpuLimit, m.Values, timeseries.Any)
 			case "container_cpu_usage":

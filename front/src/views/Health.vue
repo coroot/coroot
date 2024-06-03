@@ -27,6 +27,7 @@
                 { value: 'disk_io', text: 'I/O', sortable: false, align: 'end' },
                 { value: 'disk_usage', text: 'Disk', sortable: false, align: 'end' },
                 { value: 'network', text: 'Net', sortable: false, align: 'end' },
+                { value: 'dns', text: 'DNS', sortable: false, align: 'end' },
                 { value: 'logs', text: 'Logs', sortable: false, align: 'center' },
             ]"
             :footer-props="{ itemsPerPageOptions: [10, 20, 50, 100, -1] }"
@@ -69,6 +70,9 @@
             </template>
             <template #item.network="{ item: { id, network: param } }">
                 <router-link :to="link(id, 'Net')" class="value" :class="param.status">{{ param.value || '–' }}</router-link>
+            </template>
+            <template #item.dns="{ item: { id, dns: param } }">
+                <router-link :to="link(id, 'DNS')" class="value" :class="param.status">{{ param.value || '–' }}</router-link>
             </template>
             <template #item.logs="{ item: { id, logs: param } }">
                 <router-link :to="link(id, 'Logs', { query: JSON.stringify({ source: 'agent', view: 'patterns' }) })" class="logs">

@@ -16,6 +16,7 @@ const (
 	AuditReportMemory      AuditReportName = "Memory"
 	AuditReportStorage     AuditReportName = "Storage"
 	AuditReportNetwork     AuditReportName = "Net"
+	AuditReportDNS         AuditReportName = "DNS"
 	AuditReportLogs        AuditReportName = "Logs"
 	AuditReportPostgres    AuditReportName = "Postgres"
 	AuditReportRedis       AuditReportName = "Redis"

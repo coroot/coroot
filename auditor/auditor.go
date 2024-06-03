@@ -33,6 +33,7 @@ func Audit(w *model.World, p *db.Project, generateDetailedReportFor *model.Appli
 		a.memory(ncs)
 		a.storage()
 		a.network()
+		a.dns()
 		a.postgres()
 		a.redis()
 		a.mongodb()

@@ -15,6 +15,11 @@ const (
 	ContainerStatusTerminated ContainerStatus = "terminated"
 )
 
+type DNSRequest struct {
+	Type   string
+	Domain string
+}
+
 type Container struct {
 	Id   string
 	Name string
@@ -46,13 +51,18 @@ type Container struct {
 	MemoryRequest *timeseries.TimeSeries
 
 	OOMKills *timeseries.TimeSeries
+
+	DNSRequests          map[DNSRequest]map[string]*timeseries.TimeSeries
+	DNSRequestsHistogram map[float32]*timeseries.TimeSeries
 }
 
 func NewContainer(id, name string) *Container {
 	return &Container{
-		Id:               id,
-		Name:             name,
-		ApplicationTypes: map[ApplicationType]bool{},
+		Id:                   id,
+		Name:                 name,
+		ApplicationTypes:     map[ApplicationType]bool{},
+		DNSRequests:          map[DNSRequest]map[string]*timeseries.TimeSeries{},
+		DNSRequestsHistogram: map[float32]*timeseries.TimeSeries{},
 	}
 }
 
