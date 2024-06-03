@@ -698,8 +698,8 @@ func (q SpanQuery) DurationFilter() (string, []any) {
 
 func (q SpanQuery) RootSpansFilter() ([]string, []any) {
 	filter := []string{
-		"SpanKind = 'SPAN_KIND_SERVER'",
 		"ParentSpanId = ''",
+		"NOT startsWith(ServiceName, '/')",
 	}
 	for _, f := range q.Filters {
 		filter = append(filter, f.String())
