@@ -8,6 +8,7 @@ import (
 
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
+	"github.com/coroot/coroot/utils"
 	"github.com/coroot/logparser"
 	"k8s.io/klog"
 )
@@ -75,7 +76,7 @@ func getInstanceAndContainer(w *model.World, node *model.Node, instances map[ins
 	return instance, instance.GetOrCreateContainer(containerId, containerName)
 }
 
-func loadContainers(w *model.World, metrics map[string][]model.MetricValues, pjs promJobStatuses, nodesByID map[model.NodeId]*model.Node, servicesByClusterIP map[string]*model.Service, ip2fqdn map[string]*model.LabelLastValue) {
+func loadContainers(w *model.World, metrics map[string][]model.MetricValues, pjs promJobStatuses, nodesByID map[model.NodeId]*model.Node, servicesByClusterIP map[string]*model.Service, ip2fqdn map[string]*utils.StringSet) {
 	instances := map[instanceId]*model.Instance{}
 	for _, a := range w.Applications {
 		for _, i := range a.Instances {
@@ -306,8 +307,8 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues, pjs
 						appId.Name = svc.Name
 					}
 				} else {
-					if fqdn := ip2fqdn[u.ActualRemoteIP]; fqdn != nil {
-						appId.Name = fqdn.Value() + ":" + u.ActualRemotePort
+					if fqdns := ip2fqdn[u.ActualRemoteIP]; fqdns != nil && fqdns.Len() > 0 {
+						appId.Name = fqdns.Items()[0] + ":" + u.ActualRemotePort
 					} else {
 						appId.Name = externalServiceName(u.ActualRemotePort)
 					}
