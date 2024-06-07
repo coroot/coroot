@@ -56,7 +56,8 @@ func main() {
 	bootstrapClickhousePassword := kingpin.Flag("bootstrap-clickhouse-password", "Clickhouse password").Envar("BOOTSTRAP_CLICKHOUSE_PASSWORD").String()
 	bootstrapClickhouseDatabase := kingpin.Flag("bootstrap-clickhouse-database", "Clickhouse database").Envar("BOOTSTRAP_CLICKHOUSE_DATABASE").Default("default").String()
 	developerMode := kingpin.Flag("developer-mode", "If enabled, Coroot will not use embedded static assets").Envar("DEVELOPER_MODE").Default("false").Bool()
-
+        cacheDir := kingpin.Flag("cache-dir", `path to the data directory`).Envar("CACHE_DIR").Default("/data").String()
+        
 	kingpin.Version(version)
 	kingpin.Parse()
 
@@ -89,7 +90,7 @@ func main() {
 	migrateClickhouse(database, coll)
 
 	cacheConfig := cache.Config{
-		Path: path.Join(*dataDir, "cache"),
+		Path: path.Join(*cacheDir, "cache"),
 		GC: &cache.GcConfig{
 			TTL:      *cacheTTL,
 			Interval: *cacheGcInterval,
