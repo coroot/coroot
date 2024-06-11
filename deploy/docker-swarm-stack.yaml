@@ -2,10 +2,13 @@ version: "3.8"
 
 volumes:
   prometheus_data: {}
+  clickhouse_data: {}
+  clickhouse_logs: {}
   coroot_data: {}
 
 services:
   coroot:
+    restart: always
     image: ghcr.io/coroot/coroot
     volumes:
       - coroot_data:/data
@@ -15,6 +18,7 @@ services:
         protocol: tcp
         mode: host
     command:
+      - '--data-dir=/data'
       - '--bootstrap-prometheus-url=http://prometheus:9090'
       - '--bootstrap-refresh-interval=15s'
       - '--bootstrap-clickhouse-address=clickhouse:9000'
@@ -23,6 +27,7 @@ services:
       - prometheus
 
   prometheus:
+    restart: always
     image: prom/prometheus:v2.45.4
     volumes:
       - prometheus_data:/prometheus
@@ -37,7 +42,11 @@ services:
       - '9090:9090'
 
   clickhouse:
+    restart: always
     image: clickhouse/clickhouse-server:24.3
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - clickhouse_logs:/var/log/clickhouse-server
     ports:
       - '9000:9000'
     ulimits:
