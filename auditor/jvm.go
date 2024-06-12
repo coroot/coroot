@@ -21,10 +21,14 @@ func (a *appAuditor) jvm() {
 
 	for _, i := range a.app.Instances {
 		obsolete := i.IsObsolete()
+		succeeded := false
+		if i.Pod != nil {
+			succeeded = i.Pod.IsSucceeded()
+		}
 		for name, j := range i.Jvms {
 			fullName := name + "@" + i.Name
 
-			if !obsolete && !j.IsUp() {
+			if !obsolete && !succeeded && !j.IsUp() {
 				availabilityCheck.AddItem(fullName)
 			}
 			if !obsolete && j.SafepointTime.Last() > safepointCheck.Threshold {
@@ -45,7 +49,7 @@ func (a *appAuditor) jvm() {
 				safepointChart.AddSeries(fullName, j.SafepointTime)
 			}
 
-			if !obsolete && table != nil {
+			if !obsolete && !succeeded && table != nil {
 				name := model.NewTableCell(fullName)
 				status := model.NewTableCell().SetStatus(model.OK, "up")
 				if !j.IsUp() {

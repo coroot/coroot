@@ -35,3 +35,7 @@ func (pod *Pod) IsFailed() bool {
 func (pod *Pod) IsReady() bool {
 	return pod.Ready.Last() > 0
 }
+
+func (pod *Pod) IsSucceeded() bool {
+	return pod.Phase == "Succeeded"
+}
