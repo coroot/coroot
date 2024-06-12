@@ -1,8 +1,8 @@
 <template>
     <div v-on-resize="calcArrows" class="map">
-        <div class="column" :style="{ rowGap: columnRowGap(map.clients) }">
+        <div class="column" :style="{ rowGap: columnRowGap(clients) }">
             <div
-                v-for="app in map.clients"
+                v-for="app in clients"
                 class="client"
                 :ref="app.id"
                 :class="{ hi: highlighted.clients.has(app.id) }"
@@ -13,8 +13,24 @@
                     <router-link :to="{ name: 'application', params: { id: app.id }, query: $utils.contextQuery() }" class="name">
                         <AppHealth :app="app" />
                     </router-link>
-                    <Labels v-if="!hideLabels(map.clients)" :labels="app.labels" class="d-none d-sm-block label" />
+                    <Labels v-if="!hideLabels(clients)" :labels="app.labels" class="d-none d-sm-block label" />
                 </div>
+            </div>
+            <div v-if="map.clients">
+                <v-btn v-if="clientsExpanded" @click="clientsExpanded = false" x-small elevation="0" color="primary" class="d-block mx-auto caption">
+                    collapse
+                    <v-icon x-small>mdi-arrow-up</v-icon>
+                </v-btn>
+                <v-btn
+                    v-else-if="map.clients.length > clients.length"
+                    x-small
+                    @click="clientsExpanded = true"
+                    elevation="0"
+                    color="primary"
+                    class="d-block mx-auto caption"
+                >
+                    expand (+{{ map.clients.length - clients.length }} apps)
+                </v-btn>
             </div>
         </div>
 
@@ -26,9 +42,9 @@
                     </span>
                     <Labels :labels="map.application.labels" class="d-none d-sm-block label" />
                 </div>
-                <div v-if="map.instances && map.instances.length" class="instances">
+                <div v-if="instances && instances.length" class="instances">
                     <div
-                        v-for="i in map.instances"
+                        v-for="i in instances"
                         class="instance"
                         :ref="'instance:' + i.id"
                         :class="{ hi: highlighted.instances.has(i.id) }"
@@ -52,12 +68,35 @@
                         <Labels :labels="i.labels" class="d-none d-sm-block" />
                     </div>
                 </div>
+                <div v-if="map.instances">
+                    <v-btn
+                        v-if="instancesExpanded"
+                        @click="instancesExpanded = false"
+                        x-small
+                        elevation="0"
+                        color="primary"
+                        class="d-block mx-auto caption"
+                    >
+                        collapse
+                        <v-icon x-small>mdi-arrow-up</v-icon>
+                    </v-btn>
+                    <v-btn
+                        v-else-if="map.instances.length > instances.length"
+                        x-small
+                        @click="instancesExpanded = true"
+                        elevation="0"
+                        color="primary"
+                        class="d-block mx-auto caption"
+                    >
+                        expand (+{{ map.instances.length - instances.length }} instances)
+                    </v-btn>
+                </div>
             </div>
         </div>
 
-        <div class="column" :style="{ rowGap: columnRowGap(map.dependencies) }">
+        <div class="column" :style="{ rowGap: columnRowGap(dependencies) }">
             <div
-                v-for="app in map.dependencies"
+                v-for="app in dependencies"
                 class="dependency"
                 :ref="app.id"
                 :class="{ hi: highlighted.dependencies.has(app.id) }"
@@ -68,8 +107,31 @@
                     <router-link :to="{ name: 'application', params: { id: app.id }, query: $utils.contextQuery() }" class="name">
                         <AppHealth :app="app" />
                     </router-link>
-                    <Labels v-if="!hideLabels(map.dependencies)" :labels="app.labels" class="d-none d-sm-block label" />
+                    <Labels v-if="!hideLabels(dependencies)" :labels="app.labels" class="d-none d-sm-block label" />
                 </div>
+            </div>
+            <div v-if="map.dependencies">
+                <v-btn
+                    v-if="dependenciesExpanded"
+                    @click="dependenciesExpanded = false"
+                    x-small
+                    elevation="0"
+                    color="primary"
+                    class="d-block mx-auto caption"
+                >
+                    collapse
+                    <v-icon x-small>mdi-arrow-up</v-icon>
+                </v-btn>
+                <v-btn
+                    v-else-if="map.dependencies.length > dependencies.length"
+                    x-small
+                    @click="dependenciesExpanded = true"
+                    elevation="0"
+                    color="primary"
+                    class="d-block mx-auto caption"
+                >
+                    expand (+{{ map.dependencies.length - dependencies.length }} apps)
+                </v-btn>
             </div>
         </div>
 
@@ -124,6 +186,8 @@
 import Labels from './Labels';
 import AppHealth from './AppHealth';
 
+const collapseThreshold = 10;
+
 export default {
     props: {
         map: Object,
@@ -135,6 +199,9 @@ export default {
         return {
             arrows: [],
             focused: {},
+            clientsExpanded: false,
+            dependenciesExpanded: false,
+            instancesExpanded: false,
         };
     },
 
@@ -147,9 +214,45 @@ export default {
             requestAnimationFrame(this.calcArrows);
             this.unfocus();
         },
+        clientsExpanded() {
+            requestAnimationFrame(this.calcArrows);
+        },
+        dependenciesExpanded() {
+            requestAnimationFrame(this.calcArrows);
+        },
+        instancesExpanded() {
+            requestAnimationFrame(this.calcArrows);
+        },
     },
 
     computed: {
+        clients() {
+            if (!this.map.clients) {
+                return [];
+            }
+            if (this.clientsExpanded) {
+                return this.map.clients || [];
+            }
+            return this.map.clients.slice(0, collapseThreshold);
+        },
+        dependencies() {
+            if (!this.map.dependencies) {
+                return [];
+            }
+            if (this.dependenciesExpanded) {
+                return this.map.dependencies || [];
+            }
+            return this.map.dependencies.slice(0, collapseThreshold);
+        },
+        instances() {
+            if (!this.map.instances) {
+                return [];
+            }
+            if (this.instancesExpanded) {
+                return this.map.instances || [];
+            }
+            return this.map.instances.slice(0, collapseThreshold);
+        },
         highlighted() {
             const res = {
                 clients: new Set(),
@@ -202,18 +305,27 @@ export default {
                 const me = (focused) => focused.instance && focused.instance === i.id;
                 const lo = (focused) => (Object.keys(focused).length ? 'lo' : '');
                 (i.clients || []).forEach((a) => {
+                    if (!this.clients.find((c) => c.id === a.id) || !this.instances.find((ii) => ii.id === i.id)) {
+                        return;
+                    }
                     const from = a.id;
                     const to = 'instance:' + i.id;
                     const hi = (focused) => (me(focused) || (focused.client && focused.client === from) ? 'hi' : lo(focused));
                     links.push({ from, to, status: a.status, stats: a.stats, weight: a.weight, direction: a.direction, hi });
                 });
                 (i.dependencies || []).forEach((a) => {
+                    if (!this.dependencies.find((d) => d.id === a.id) || !this.instances.find((ii) => ii.id === i.id)) {
+                        return;
+                    }
                     const from = 'instance:' + i.id;
                     const to = a.id;
                     const hi = (focused) => (me(focused) || (focused.dependency && focused.dependency === to) ? 'hi' : lo(focused));
                     links.push({ from, to, status: a.status, stats: a.stats, weight: a.weight, direction: a.direction, hi });
                 });
                 (i.internal_links || []).forEach((l) => {
+                    if (!this.instances.find((ii) => ii.id === i.id) || !this.instances.find((ii) => ii.id === l.id)) {
+                        return;
+                    }
                     const from = 'instance:' + i.id;
                     const to = 'instance:' + l.id;
                     const hi = (focused) => (me(focused) || (focused.instance && focused.instance === l.id) ? 'hi' : lo(focused));
@@ -226,10 +338,10 @@ export default {
 
     methods: {
         hideLabels(items) {
-            return items && items.length > 15;
+            return items && items.length > collapseThreshold;
         },
         columnRowGap(items) {
-            return (items && items.length > 15 ? 4 : 16) + 'px';
+            return (items && items.length > collapseThreshold ? 4 : 16) + 'px';
         },
         focus(type, id) {
             this.focused = {};
