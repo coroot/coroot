@@ -23,6 +23,7 @@ const (
 	ApplicationKindElasticacheCluster ApplicationKind = "ElasticacheCluster"
 	ApplicationKindNomadJobGroup      ApplicationKind = "NomadJobGroup"
 	ApplicationKindArgoWorkflow       ApplicationKind = "Workflow"
+	ApplicationKindSparkApplication   ApplicationKind = "SparkApplication"
 )
 
 type Job struct{}
