@@ -3,11 +3,16 @@ package constructor
 import (
 	"fmt"
 	"net"
+	"regexp"
 	"strings"
 
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"k8s.io/klog"
+)
+
+var (
+	argoWorkflowNameSuffixRe = regexp.MustCompile(`-([a-z0-9]{5}|\d{10,})$`)
 )
 
 func loadKubernetesMetadata(w *model.World, metrics map[string][]model.MetricValues, servicesByClusterIP map[string]*model.Service) {
@@ -96,6 +101,12 @@ func podInfo(w *model.World, metrics []model.MetricValues) map[string]*model.Ins
 		switch {
 		case ownerKind == "" || ownerKind == "<none>" || ownerKind == "Node":
 			appId = model.NewApplicationId(ns, model.ApplicationKindStaticPods, strings.TrimSuffix(pod, "-"+nodeName))
+		case model.ApplicationKind(ownerKind) == model.ApplicationKindArgoWorkflow:
+			appId = model.NewApplicationId(
+				ns,
+				model.ApplicationKindArgoWorkflow,
+				argoWorkflowNameSuffixRe.ReplaceAllString(ownerName, ""),
+			)
 		case ownerName != "":
 			appId = model.NewApplicationId(ns, model.ApplicationKind(ownerKind), ownerName)
 		default:

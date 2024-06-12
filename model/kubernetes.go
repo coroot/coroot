@@ -22,6 +22,7 @@ const (
 	ApplicationKindRds                ApplicationKind = "RDS"
 	ApplicationKindElasticacheCluster ApplicationKind = "ElasticacheCluster"
 	ApplicationKindNomadJobGroup      ApplicationKind = "NomadJobGroup"
+	ApplicationKindArgoWorkflow       ApplicationKind = "Workflow"
 )
 
 type Job struct{}
