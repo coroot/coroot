@@ -268,3 +268,18 @@ func (app *Application) ApplicationTypes() map[ApplicationType]bool {
 	}
 	return res
 }
+
+func (app *Application) PeriodicJob() bool {
+	switch app.Id.Kind {
+	case ApplicationKindJob, ApplicationKindCronJob:
+		return true
+	}
+	for _, i := range app.Instances {
+		for _, c := range i.Containers {
+			if c.PeriodicSystemdJob {
+				return true
+			}
+		}
+	}
+	return false
+}

@@ -104,10 +104,9 @@ func (a *appAuditor) memory(ncs nodeConsumersByNode) {
 		leakCheck.SetStatus(model.UNKNOWN, "no data")
 		return
 	}
-	switch a.app.Id.Kind {
-	case model.ApplicationKindCronJob, model.ApplicationKindJob:
-		leakCheck.SetStatus(model.UNKNOWN, "not checked for Jobs and CronJobs")
-	default:
+	if a.app.PeriodicJob() {
+		leakCheck.SetStatus(model.UNKNOWN, "not checked for periodic jobs")
+	} else {
 		v := totalRss.Get().MapInPlace(timeseries.ZeroToNan)
 		if v.Reduce(timeseries.NanCount) > float32(v.Len())*0.8 { // we require 80% of the data to be present
 			if lr := timeseries.NewLinearRegression(v); lr != nil {

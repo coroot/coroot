@@ -107,6 +107,9 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues, pjs
 				if image := m.Labels["image"]; image != "" {
 					container.Image = image
 				}
+				if strings.HasSuffix(m.Labels["systemd_triggered_by"], ".timer") {
+					container.PeriodicSystemdJob = true
+				}
 			case "container_net_latency":
 				id := instanceId{ns: instance.OwnerId.Namespace, name: instance.Name, node: instance.NodeId()}
 				rtts := rttByInstance[id]
