@@ -41,7 +41,7 @@ var QUERIES = map[string]string{
 	"node_net_ip":                 `node_net_interface_ip`,
 	"node_net_rx_bytes":           `rate(node_net_received_bytes_total[$RANGE])`,
 	"node_net_tx_bytes":           `rate(node_net_transmitted_bytes_total[$RANGE])`,
-	"ip_to_fqdn":                  `ip_to_fqdn`,
+	"ip_to_fqdn":                  `sum by(fqdn, ip) (ip_to_fqdn)`,
 
 	"fargate_node_machine_cpu_cores":    `machine_cpu_cores{eks_amazonaws_com_compute_type="fargate"}`,
 	"fargate_node_machine_memory_bytes": `machine_memory_bytes{eks_amazonaws_com_compute_type="fargate"}`,
