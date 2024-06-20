@@ -144,7 +144,10 @@ func (a *appAuditor) instances() {
 	if a.app.Id.Kind == model.ApplicationKindUnknown {
 		desired = float32(len(a.app.Instances))
 	}
-	if desired > 0 {
+	if a.app.PeriodicJob() {
+		availabilityCheck.SetStatus(model.OK, "not checked for periodic jobs")
+		restartsCheck.SetStatus(model.OK, "not checked for periodic jobs")
+	} else if desired > 0 {
 		availabilityCheck.SetDesired(int64(desired))
 		available := float32(availabilityCheck.Count())
 		percentage := available / desired * 100
