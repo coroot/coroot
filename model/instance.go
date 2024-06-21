@@ -82,6 +82,10 @@ func (instance *Instance) InstrumentedType() ApplicationType {
 		return ApplicationTypePostgres
 	case instance.Redis != nil:
 		return ApplicationTypeRedis
+	case instance.Mongodb != nil:
+		return ApplicationTypeMongodb
+	case instance.Memcached != nil:
+		return ApplicationTypeMemcached
 	}
 	return ApplicationTypeUnknown
 }
