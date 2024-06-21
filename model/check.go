@@ -77,6 +77,7 @@ var Checks = struct {
 	RedisLatency           CheckConfig
 	MongodbAvailability    CheckConfig
 	MongodbReplicationLag  CheckConfig
+	MemcachedAvailability  CheckConfig
 	PostgresAvailability   CheckConfig
 	PostgresLatency        CheckConfig
 	PostgresErrors         CheckConfig
@@ -228,6 +229,13 @@ var Checks = struct {
 		MessageTemplate:         `{{.ItemsWithToBe "mongodb replica"}} far behind the primary`,
 		ConditionFormatTemplate: "replication lag > <threshold>",
 		Unit:                    CheckUnitSecond,
+	},
+	MemcachedAvailability: CheckConfig{
+		Type:                    CheckTypeItemBased,
+		Title:                   "Memcached availability",
+		DefaultThreshold:        0,
+		MessageTemplate:         `{{.ItemsWithToBe "memcached instance"}} unavailable`,
+		ConditionFormatTemplate: "the number of unavailable memcached instances > <threshold>",
 	},
 	PostgresAvailability: CheckConfig{
 		Type:                    CheckTypeItemBased,

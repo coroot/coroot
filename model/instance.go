@@ -50,9 +50,10 @@ type Instance struct {
 	clusterRole      *timeseries.TimeSeries
 	ClusterComponent *Application
 
-	Postgres *Postgres
-	Redis    *Redis
-	Mongodb  *Mongodb
+	Postgres  *Postgres
+	Redis     *Redis
+	Mongodb   *Mongodb
+	Memcached *Memcached
 }
 
 func NewInstance(name string, owner ApplicationId) *Instance {

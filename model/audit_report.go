@@ -21,6 +21,7 @@ const (
 	AuditReportPostgres    AuditReportName = "Postgres"
 	AuditReportRedis       AuditReportName = "Redis"
 	AuditReportMongodb     AuditReportName = "Mongodb"
+	AuditReportMemcached   AuditReportName = "Memcached"
 	AuditReportJvm         AuditReportName = "JVM"
 	AuditReportDotNet      AuditReportName = ".NET"
 	AuditReportNode        AuditReportName = "Node"

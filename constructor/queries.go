@@ -187,6 +187,12 @@ var QUERIES = map[string]string{
 	"container_dotnet_thread_pool_completed_items_total": `rate(container_dotnet_thread_pool_completed_items_total[$RANGE])`,
 	"container_dotnet_thread_pool_queue_length":          `container_dotnet_thread_pool_queue_length`,
 	"container_dotnet_thread_pool_size":                  `container_dotnet_thread_pool_size`,
+
+	"memcached_up":                  `memcached_up`,
+	"memcached_version":             `memcached_version`,
+	"memcached_limit_bytes":         `memcached_limit_bytes`,
+	"memcached_commands_total":      `rate(memcached_commands_total[$RANGE])`,
+	"memcached_items_evicted_total": `rate(memcached_items_evicted_total[$RANGE])`,
 }
 
 var RecordingRules = map[string]func(p *db.Project, w *model.World) []model.MetricValues{
