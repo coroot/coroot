@@ -141,6 +141,15 @@ func (app *Application) IsMongodb() bool {
 	return false
 }
 
+func (app *Application) IsMemcached() bool {
+	for _, i := range app.Instances {
+		if i.Memcached != nil {
+			return true
+		}
+	}
+	return false
+}
+
 func (app *Application) IsPostgres() bool {
 	for _, i := range app.Instances {
 		if i.Postgres != nil {
