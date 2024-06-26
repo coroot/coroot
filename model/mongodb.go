@@ -12,6 +12,7 @@ type Mongodb struct {
 	Warning     LabelLastValue
 	ReplicaSet  LabelLastValue
 	State       LabelLastValue
+	Version     LabelLastValue
 	LastApplied *timeseries.TimeSeries
 }
 

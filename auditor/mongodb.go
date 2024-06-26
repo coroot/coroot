@@ -25,7 +25,7 @@ func (a *appAuditor) mongodb() {
 	availabilityCheck := report.CreateCheck(model.Checks.MongodbAvailability)
 	replicationLagCheck := report.CreateCheck(model.Checks.MongodbReplicationLag)
 
-	table := report.GetOrCreateTable("Instance", "Status", "ReplicaSet", "State", "Queries", "Latency", "Replication lag")
+	table := report.GetOrCreateTable("Instance", "Status", "ReplicaSet", "State", "Queries", "Latency", "Replication lag", "Version")
 	qpsChart := report.GetOrCreateChart("Queries, per second", nil)
 	latencyChart := report.GetOrCreateChart("Latency, seconds", nil)
 	replicationLagChart := report.GetOrCreateChart("Replication lag, seconds", nil)
@@ -89,6 +89,8 @@ func (a *appAuditor) mongodb() {
 				state.SetIcon("mdi-database-edit-outline", "rgba(0,0,0,0.87)")
 			case "secondary":
 				state.SetIcon("mdi-database-import-outline", "grey")
+			case "arbiter":
+				state.SetIcon("mdi-database-eye-outline", "grey")
 			}
 			status := model.NewTableCell().SetStatus(model.OK, "up")
 			if !i.Mongodb.IsUp() {
@@ -125,7 +127,8 @@ func (a *appAuditor) mongodb() {
 				state,
 				model.NewTableCell(utils.FormatFloat(qps.Last())).SetUnit("/s"),
 				latencyCell,
-				lagCell)
+				lagCell,
+				model.NewTableCell(i.Mongodb.Version.Value()))
 		}
 	}
 }

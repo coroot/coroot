@@ -177,10 +177,11 @@ var QUERIES = map[string]string{
 	"container_jvm_safepoint_sync_time_seconds": `rate(container_jvm_safepoint_sync_time_seconds[$RANGE])`,
 	"container_jvm_safepoint_time_seconds":      `rate(container_jvm_safepoint_time_seconds[$RANGE])`,
 
-	"mongo_up":                       `mongo_up`,
-	"mongo_scrape_error":             `mongo_scrape_error`,
-	"mongodb_members_self":           `mongodb_members_self`,
-	"mongodb_rs_optimes_lastApplied": `timestamp(mongodb_rs_optimes_lastAppliedWallTime) - mongodb_rs_optimes_lastAppliedWallTime/1000`,
+	"mongo_up":                           `mongo_up`,
+	"mongo_info":                         `mongo_info`,
+	"mongo_scrape_error":                 `mongo_scrape_error`,
+	"mongo_rs_status":                    `mongo_rs_status`,
+	"mongo_rs_last_applied_timestamp_ms": `timestamp(mongo_rs_last_applied_timestamp_ms) - mongo_rs_last_applied_timestamp_ms/1000`,
 
 	"container_dotnet_info":                              `container_dotnet_info`,
 	"container_dotnet_memory_allocated_bytes_total":      `rate(container_dotnet_memory_allocated_bytes_total[$RANGE])`,
