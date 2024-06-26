@@ -60,6 +60,9 @@
                                 <v-icon v-if="i.labels && i.labels['role'] === 'replica'" small color="grey" style="margin-bottom: 2px"
                                     >mdi-database-import-outline</v-icon
                                 >
+                                <v-icon v-if="i.labels && i.labels['role'] === 'arbiter'" small color="grey" style="margin-bottom: 2px"
+                                    >mdi-database-eye-outline</v-icon
+                                >
                                 <v-icon v-if="i.labels && i.labels['proxy']" small color="grey" style="margin-bottom: 2px"
                                     >mdi-swap-horizontal</v-icon
                                 >

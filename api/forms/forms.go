@@ -119,8 +119,16 @@ func (f *ApplicationCategoryForm) Valid() bool {
 	return true
 }
 
+type ApplicationInstrumentationForm struct {
+	model.ApplicationInstrumentation
+}
+
+func (f *ApplicationInstrumentationForm) Valid() bool {
+	return f.Port != ""
+}
+
 type ApplicationSettingsProfilingForm struct {
-	db.ApplicationSettingsProfiling
+	model.ApplicationSettingsProfiling
 }
 
 func (f *ApplicationSettingsProfilingForm) Valid() bool {
@@ -128,7 +136,7 @@ func (f *ApplicationSettingsProfilingForm) Valid() bool {
 }
 
 type ApplicationSettingsTracingForm struct {
-	db.ApplicationSettingsTracing
+	model.ApplicationSettingsTracing
 }
 
 func (f *ApplicationSettingsTracingForm) Valid() bool {
@@ -136,7 +144,7 @@ func (f *ApplicationSettingsTracingForm) Valid() bool {
 }
 
 type ApplicationSettingsLogsForm struct {
-	db.ApplicationSettingsLogs
+	model.ApplicationSettingsLogs
 }
 
 func (f *ApplicationSettingsLogsForm) Valid() bool {
@@ -168,6 +176,8 @@ func NewIntegrationForm(t db.IntegrationType) IntegrationForm {
 		return &IntegrationFormPrometheus{}
 	case db.IntegrationTypeClickhouse:
 		return &IntegrationFormClickhouse{}
+	case db.IntegrationTypeAWS:
+		return &IntegrationFormAWS{}
 	case db.IntegrationTypeSlack:
 		return &IntegrationFormSlack{}
 	case db.IntegrationTypeTeams:
@@ -304,6 +314,42 @@ func (f *IntegrationFormClickhouse) Test(ctx context.Context, project *db.Projec
 	if err = client.Ping(ctx); err != nil {
 		return err
 	}
+	return nil
+}
+
+type IntegrationFormAWS struct {
+	model.AWSConfig
+}
+
+func (f *IntegrationFormAWS) Valid() bool {
+	return f.Region != "" && f.AccessKeyID != "" && f.SecretAccessKey != ""
+}
+
+func (f *IntegrationFormAWS) Get(project *db.Project, masked bool) {
+	cfg := project.Settings.Integrations.AWS
+	if cfg != nil {
+		f.AWSConfig = *cfg
+	}
+	if masked {
+		f.AccessKeyID = "<access_key_id>"
+		f.SecretAccessKey = "<secret_access_key>"
+	}
+}
+
+func (f *IntegrationFormAWS) Update(ctx context.Context, project *db.Project, clear bool) error {
+	cfg := &f.AWSConfig
+	if clear {
+		cfg = nil
+	} else {
+		if err := f.Test(ctx, project); err != nil {
+			return err
+		}
+	}
+	project.Settings.Integrations.AWS = cfg
+	return nil
+}
+
+func (f *IntegrationFormAWS) Test(ctx context.Context, project *db.Project) error {
 	return nil
 }
 

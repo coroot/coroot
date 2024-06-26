@@ -10,11 +10,16 @@ func redis(instance *model.Instance, queryName string, m model.MetricValues) {
 		return
 	}
 	if instance.Redis == nil {
-		instance.Redis = model.NewRedis()
+		instance.Redis = model.NewRedis(false)
+	}
+	if instance.Redis.InternalExporter != metricFromInternalExporter(m.Labels) {
+		return
 	}
 	switch queryName {
 	case "redis_up":
 		instance.Redis.Up = merge(instance.Redis.Up, m.Values, timeseries.Any)
+	case "redis_scrape_error":
+		instance.Redis.Error.Update(m.Values, m.Labels["err"])
 	case "redis_instance_info":
 		instance.Redis.Version.Update(m.Values, m.Labels["redis_version"])
 		role := m.Labels["role"]

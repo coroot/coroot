@@ -77,17 +77,6 @@ func main() {
 	bootstrapPrometheus(database, *bootstrapPrometheusUrl, *bootstrapRefreshInterval, *bootstrapPrometheusExtraSelector)
 	bootstrapClickhouse(database, *bootstrapClickhouseAddr, *bootstrapClickhouseUser, *bootstrapClickhousePassword, *bootstrapClickhouseDatabase)
 
-	coll := collector.New(database)
-	go func() {
-		ch := make(chan os.Signal, 1)
-		signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)
-		<-ch
-		coll.Close()
-		os.Exit(0)
-	}()
-
-	migrateClickhouse(database, coll)
-
 	cacheConfig := cache.Config{
 		Path: path.Join(*dataDir, "cache"),
 		GC: &cache.GcConfig{
@@ -103,6 +92,17 @@ func main() {
 	if err != nil {
 		klog.Exitln(err)
 	}
+
+	coll := collector.New(database, promCache)
+	go func() {
+		ch := make(chan os.Signal, 1)
+		signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)
+		<-ch
+		coll.Close()
+		os.Exit(0)
+	}()
+
+	migrateClickhouse(database, coll)
 
 	pricing, err := cloud_pricing.NewManager(path.Join(*dataDir, "cloud-pricing"))
 	if err != nil {
@@ -128,6 +128,7 @@ func main() {
 	router.HandleFunc("/v1/traces", coll.Traces)
 	router.HandleFunc("/v1/logs", coll.Logs)
 	router.HandleFunc("/v1/profiles", coll.Profiles)
+	router.HandleFunc("/v1/config", coll.Config)
 
 	r := router
 	cleanUrlBasePath(urlBasePath)
@@ -145,6 +146,7 @@ func main() {
 	r.HandleFunc("/api/project/{project}/integrations/{type}", a.Integration).Methods(http.MethodGet, http.MethodPut, http.MethodDelete, http.MethodPost)
 	r.HandleFunc("/api/project/{project}/app/{app}", a.App).Methods(http.MethodGet)
 	r.HandleFunc("/api/project/{project}/app/{app}/check/{check}/config", a.Check).Methods(http.MethodGet, http.MethodPost)
+	r.HandleFunc("/api/project/{project}/app/{app}/instrumentation/{type}", a.Instrumentation).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/project/{project}/app/{app}/profile", a.Profile).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/project/{project}/app/{app}/tracing", a.Tracing).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/project/{project}/app/{app}/logs", a.Logs).Methods(http.MethodGet, http.MethodPost)

@@ -5,6 +5,8 @@ import (
 )
 
 type Memcached struct {
+	InternalExporter bool
+
 	Up           *timeseries.TimeSeries
 	Version      LabelLastValue
 	Calls        map[string]*timeseries.TimeSeries
@@ -14,9 +16,10 @@ type Memcached struct {
 	EvictedItems *timeseries.TimeSeries
 }
 
-func NewMemcached() *Memcached {
+func NewMemcached(internalExporter bool) *Memcached {
 	return &Memcached{
-		Calls: map[string]*timeseries.TimeSeries{},
+		InternalExporter: internalExporter,
+		Calls:            map[string]*timeseries.TimeSeries{},
 	}
 }
 

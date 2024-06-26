@@ -126,6 +126,8 @@ var QUERIES = map[string]string{
 	"kube_daemonset_status_desired_number_scheduled":   `kube_daemonset_status_desired_number_scheduled`,
 	"kube_statefulset_replicas":                        `kube_statefulset_replicas`,
 
+	"aws_discovery_error": `aws_discovery_error`,
+
 	"aws_rds_info":                        `aws_rds_info`,
 	"aws_rds_status":                      `aws_rds_status`,
 	"aws_rds_cpu_cores":                   `aws_rds_cpu_cores`,
@@ -149,6 +151,7 @@ var QUERIES = map[string]string{
 
 	"pg_connections":                  `pg_connections{db!="postgres"}`,
 	"pg_up":                           `pg_up`,
+	"pg_scrape_error":                 `pg_scrape_error`,
 	"pg_info":                         `pg_info`,
 	"pg_setting":                      `pg_setting`,
 	"pg_lock_awaiting_queries":        `pg_lock_awaiting_queries`,
@@ -162,6 +165,7 @@ var QUERIES = map[string]string{
 	"pg_wal_reply_lsn":                `pg_wal_reply_lsn`,
 
 	"redis_up":                              `redis_up`,
+	"redis_scrape_error":                    `redis_exporter_last_scrape_error`,
 	"redis_instance_info":                   `redis_instance_info`,
 	"redis_commands_duration_seconds_total": `rate(redis_commands_duration_seconds_total[$RANGE])`,
 	"redis_commands_total":                  `rate(redis_commands_total[$RANGE])`,
@@ -173,9 +177,11 @@ var QUERIES = map[string]string{
 	"container_jvm_safepoint_sync_time_seconds": `rate(container_jvm_safepoint_sync_time_seconds[$RANGE])`,
 	"container_jvm_safepoint_time_seconds":      `rate(container_jvm_safepoint_time_seconds[$RANGE])`,
 
-	"mongodb_up":                     `mongodb_up`,
-	"mongodb_members_self":           `mongodb_members_self`,
-	"mongodb_rs_optimes_lastApplied": `timestamp(mongodb_rs_optimes_lastAppliedWallTime) - mongodb_rs_optimes_lastAppliedWallTime/1000`,
+	"mongo_up":                           `mongo_up`,
+	"mongo_info":                         `mongo_info`,
+	"mongo_scrape_error":                 `mongo_scrape_error`,
+	"mongo_rs_status":                    `mongo_rs_status`,
+	"mongo_rs_last_applied_timestamp_ms": `timestamp(mongo_rs_last_applied_timestamp_ms) - mongo_rs_last_applied_timestamp_ms/1000`,
 
 	"container_dotnet_info":                              `container_dotnet_info`,
 	"container_dotnet_memory_allocated_bytes_total":      `rate(container_dotnet_memory_allocated_bytes_total[$RANGE])`,

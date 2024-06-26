@@ -10,6 +10,7 @@ const (
 	ClusterRoleNone ClusterRole = iota
 	ClusterRolePrimary
 	ClusterRoleReplica
+	ClusterRoleArbiter
 )
 
 func (r ClusterRole) String() string {
@@ -18,6 +19,8 @@ func (r ClusterRole) String() string {
 		return "primary"
 	case ClusterRoleReplica:
 		return "replica"
+	case ClusterRoleArbiter:
+		return "arbiter"
 	}
 	return ""
 }
@@ -72,6 +75,12 @@ func (instance *Instance) ApplicationTypes() map[ApplicationType]bool {
 		for t := range c.ApplicationTypes {
 			res[t] = true
 		}
+	}
+	if t := instance.Rds.ApplicationType(); t != ApplicationTypeUnknown {
+		res[t] = true
+	}
+	if t := instance.Elasticache.ApplicationType(); t != ApplicationTypeUnknown {
+		res[t] = true
 	}
 	return res
 }
@@ -143,6 +152,13 @@ func (instance *Instance) UpdateClusterRole(role string, v *timeseries.TimeSerie
 		v = v.Map(func(t timeseries.Time, v float32) float32 {
 			if v == 1 {
 				return float32(ClusterRoleReplica)
+			}
+			return timeseries.NaN
+		})
+	case "arbiter":
+		v = v.Map(func(t timeseries.Time, v float32) float32 {
+			if v == 1 {
+				return float32(ClusterRoleArbiter)
 			}
 			return timeseries.NaN
 		})

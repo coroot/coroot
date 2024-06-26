@@ -29,13 +29,12 @@ func (a *appAuditor) postgres() {
 	if !isPostgres && !a.app.IsPostgres() {
 		return
 	}
+
 	report := a.addReport(model.AuditReportPostgres)
 
+	report.Instrumentation = model.ApplicationTypePostgres
+
 	if !a.app.IsPostgres() {
-		report.ConfigurationHint = &model.ConfigurationHint{
-			Message:      "It seems this app is a Postgres database. Please install coroot-pg-agent for gathering Postgres specific metrics.",
-			ReadMoreLink: "https://coroot.com/docs/metric-exporters/pg-agent/installation",
-		}
 		report.Status = model.UNKNOWN
 		return
 	}
@@ -123,7 +122,15 @@ func (a *appAuditor) postgres() {
 		status := model.NewTableCell().SetStatus(model.OK, "up")
 		if !i.Postgres.IsUp() {
 			availabilityCheck.AddItem(i.Name)
-			status.SetStatus(model.WARNING, "down (no metrics)")
+			if v := i.Postgres.Error.Value(); v != "" {
+				status.SetStatus(model.WARNING, v)
+			} else {
+				status.SetStatus(model.WARNING, "down (no metrics)")
+			}
+		} else {
+			if v := i.Postgres.Warning.Value(); v != "" {
+				status.SetStatus(model.OK, v)
+			}
 		}
 		errorsCell := model.NewTableCell()
 		if total := errors.Reduce(timeseries.NanSum); !timeseries.IsNaN(total) {

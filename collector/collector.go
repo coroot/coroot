@@ -9,6 +9,7 @@ import (
 
 	"github.com/ClickHouse/ch-go"
 	"github.com/ClickHouse/ch-go/chpool"
+	"github.com/coroot/coroot/cache"
 	"github.com/coroot/coroot/db"
 	"golang.org/x/exp/maps"
 	"k8s.io/klog"
@@ -27,7 +28,8 @@ var (
 )
 
 type Collector struct {
-	db *db.DB
+	db    *db.DB
+	cache *cache.Cache
 
 	projects     map[db.ProjectId]*db.Project
 	projectsLock sync.RWMutex
@@ -43,9 +45,10 @@ type Collector struct {
 	profileBatchesLock sync.Mutex
 }
 
-func New(database *db.DB) *Collector {
+func New(database *db.DB, cache *cache.Cache) *Collector {
 	c := &Collector{
 		db:                database,
+		cache:             cache,
 		clickhouseClients: map[db.ProjectId]*chpool.Pool{},
 		traceBatches:      map[db.ProjectId]*TracesBatch{},
 		profileBatches:    map[db.ProjectId]*ProfilesBatch{},

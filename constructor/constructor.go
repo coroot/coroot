@@ -109,6 +109,7 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 	prof.stage("load_fqdn", func() { loadFQDNs(metrics, ip2fqdn) })
 	prof.stage("load_fargate_nodes", func() { c.loadFargateNodes(metrics, nodesByID) })
 	prof.stage("load_k8s_metadata", func() { loadKubernetesMetadata(w, metrics, servicesByClusterIP) })
+	prof.stage("load_aws_status", func() { loadAWSStatus(w, metrics) })
 	prof.stage("load_rds_metadata", func() { loadRdsMetadata(w, metrics, pjs, rdsInstancesById) })
 	prof.stage("load_elasticache_metadata", func() { loadElasticacheMetadata(w, metrics, pjs, ecInstancesById) })
 	prof.stage("load_rds", func() { c.loadRds(w, metrics, pjs, rdsInstancesById) })
@@ -118,6 +119,7 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 	prof.stage("enrich_instances", func() { enrichInstances(w, metrics, rdsInstancesById, ecInstancesById) })
 	prof.stage("join_db_cluster", func() { joinDBClusterComponents(w) })
 	prof.stage("calc_app_categories", func() { c.calcApplicationCategories(w) })
+	prof.stage("load_app_settings", func() { c.loadApplicationSettings(w) })
 	prof.stage("load_sli", func() { c.loadSLIs(w, metrics) })
 	prof.stage("load_app_deployments", func() { c.loadApplicationDeployments(w) })
 	prof.stage("load_app_incidents", func() { c.loadApplicationIncidents(w) })
@@ -231,6 +233,17 @@ func (c *Constructor) calcApplicationCategories(w *model.World) {
 	}
 }
 
+func (c *Constructor) loadApplicationSettings(w *model.World) {
+	settings, err := c.db.GetApplicationSettingsByProject(c.project.Id)
+	if err != nil {
+		klog.Errorln(err)
+		return
+	}
+	for _, app := range w.Applications {
+		app.Settings = settings[app.Id]
+	}
+}
+
 func (c *Constructor) loadApplicationDeployments(w *model.World) {
 	byApp, err := c.db.GetApplicationDeployments(c.project.Id)
 	if err != nil {
@@ -296,6 +309,36 @@ func enrichInstances(w *model.World, metrics map[string][]model.MetricValues, rd
 		}
 	}
 
+	for _, queryName := range []string{"pg_up", "redis_up", "mongo_up", "memcached_up"} {
+		for _, m := range metrics[queryName] {
+			if !metricFromInternalExporter(m.Labels) {
+				continue
+			}
+			address := m.Labels["address"]
+			if address == "" {
+				continue
+			}
+			host, port, err := net.SplitHostPort(address)
+			if err != nil {
+				continue
+			}
+			instance := instancesByListen[model.Listen{IP: host, Port: port}]
+			if instance == nil {
+				continue
+			}
+			switch queryName {
+			case "pg_up":
+				instance.Postgres = model.NewPostgres(true)
+			case "redis_up":
+				instance.Redis = model.NewRedis(true)
+			case "mongo_up":
+				instance.Mongodb = model.NewMongodb(true)
+			case "memcached_up":
+				instance.Memcached = model.NewMemcached(true)
+			}
+		}
+	}
+
 	for queryName := range metrics {
 		for _, m := range metrics[queryName] {
 			switch {
@@ -305,7 +348,7 @@ func enrichInstances(w *model.World, metrics map[string][]model.MetricValues, rd
 			case strings.HasPrefix(queryName, "redis_"):
 				instance := findInstance(instancesByPod, instancesByListen, rdsInstancesById, ecInstanceById, m.Labels, model.ApplicationTypeRedis, model.ApplicationTypeKeyDB)
 				redis(instance, queryName, m)
-			case strings.HasPrefix(queryName, "mongodb_"):
+			case strings.HasPrefix(queryName, "mongo_"):
 				instance := findInstance(instancesByPod, instancesByListen, rdsInstancesById, ecInstanceById, m.Labels, model.ApplicationTypeMongodb, model.ApplicationTypeMongos)
 				mongodb(instance, queryName, m)
 			case strings.HasPrefix(queryName, "memcached_"):
@@ -380,7 +423,11 @@ func findInstance(instancesByPod map[podId]*model.Instance, instancesByListen ma
 	if ecId := ls["ec_instance_id"]; ecId != "" {
 		return ecInstancesById[ecId]
 	}
-	if host, port, err := net.SplitHostPort(ls["instance"]); err == nil {
+	address := ls["instance"]
+	if ls["address"] != "" {
+		address = ls["address"]
+	}
+	if host, port, err := net.SplitHostPort(address); err == nil {
 		if ip := net.ParseIP(host); ip != nil && !ip.IsLoopback() {
 			var instance *model.Instance
 			for _, l := range []model.Listen{{IP: host, Port: port, Proxied: true}, {IP: host, Port: port, Proxied: false}, {IP: host, Port: "0", Proxied: false}} {
@@ -424,4 +471,8 @@ func getActualServiceInstance(instance *model.Instance, applicationTypes ...mode
 		}
 	}
 	return instance
+}
+
+func metricFromInternalExporter(ls model.Labels) bool {
+	return ls["job"] == "coroot-cluster-agent"
 }

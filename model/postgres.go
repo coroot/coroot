@@ -40,7 +40,12 @@ type QueryStat struct {
 }
 
 type Postgres struct {
+	InternalExporter bool
+
 	Up *timeseries.TimeSeries
+
+	Error   LabelLastValue
+	Warning LabelLastValue
 
 	Version LabelLastValue
 
@@ -62,8 +67,9 @@ type Postgres struct {
 	WalReplayLsn  *timeseries.TimeSeries
 }
 
-func NewPostgres() *Postgres {
+func NewPostgres(internalExporter bool) *Postgres {
 	return &Postgres{
+		InternalExporter:              internalExporter,
 		Connections:                   map[PgConnectionKey]*timeseries.TimeSeries{},
 		AwaitingQueriesByLockingQuery: map[QueryKey]*timeseries.TimeSeries{},
 		Settings:                      map[string]PgSetting{},

@@ -15,11 +15,9 @@ func (a *appAuditor) mongodb() {
 
 	report := a.addReport(model.AuditReportMongodb)
 
+	report.Instrumentation = model.ApplicationTypeMongodb
+
 	if !a.app.IsMongodb() {
-		report.ConfigurationHint = &model.ConfigurationHint{
-			Message:      "It seems this app is a MongoDB database. Please install mongodb_exporter for gathering MongoDB specific metrics.",
-			ReadMoreLink: "https://coroot.com/docs/metric-exporters/mongodb-exporter/installation",
-		}
 		report.Status = model.UNKNOWN
 		return
 	}
@@ -27,7 +25,7 @@ func (a *appAuditor) mongodb() {
 	availabilityCheck := report.CreateCheck(model.Checks.MongodbAvailability)
 	replicationLagCheck := report.CreateCheck(model.Checks.MongodbReplicationLag)
 
-	table := report.GetOrCreateTable("Instance", "Status", "ReplicaSet", "State", "Queries", "Latency", "Replication lag")
+	table := report.GetOrCreateTable("Instance", "Status", "ReplicaSet", "State", "Queries", "Latency", "Replication lag", "Version")
 	qpsChart := report.GetOrCreateChart("Queries, per second", nil)
 	latencyChart := report.GetOrCreateChart("Latency, seconds", nil)
 	replicationLagChart := report.GetOrCreateChart("Replication lag, seconds", nil)
@@ -91,10 +89,20 @@ func (a *appAuditor) mongodb() {
 				state.SetIcon("mdi-database-edit-outline", "rgba(0,0,0,0.87)")
 			case "secondary":
 				state.SetIcon("mdi-database-import-outline", "grey")
+			case "arbiter":
+				state.SetIcon("mdi-database-eye-outline", "grey")
 			}
 			status := model.NewTableCell().SetStatus(model.OK, "up")
 			if !i.Mongodb.IsUp() {
-				status.SetStatus(model.WARNING, "down (no metrics)")
+				if v := i.Mongodb.Error.Value(); v != "" {
+					status.SetStatus(model.WARNING, v)
+				} else {
+					status.SetStatus(model.WARNING, "down (no metrics)")
+				}
+			} else {
+				if v := i.Mongodb.Warning.Value(); v != "" {
+					status.SetStatus(model.OK, v)
+				}
 			}
 
 			protocolFilter := func(protocol model.Protocol) bool {
@@ -119,7 +127,8 @@ func (a *appAuditor) mongodb() {
 				state,
 				model.NewTableCell(utils.FormatFloat(qps.Last())).SetUnit("/s"),
 				latencyCell,
-				lagCell)
+				lagCell,
+				model.NewTableCell(i.Mongodb.Version.Value()))
 		}
 	}
 }

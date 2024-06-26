@@ -16,11 +16,9 @@ func (a *appAuditor) memcached() {
 
 	report := a.addReport(model.AuditReportMemcached)
 
+	report.Instrumentation = model.ApplicationTypeMemcached
+
 	if !a.app.IsMemcached() {
-		report.ConfigurationHint = &model.ConfigurationHint{
-			Message:      "It seems this app is a Memcached instance. Please install memcached_exporter for gathering Memcached-specific metrics.",
-			ReadMoreLink: "https://github.com/prometheus/memcached_exporter",
-		}
 		report.Status = model.UNKNOWN
 		return
 	}
