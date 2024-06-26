@@ -10,14 +10,21 @@ func postgres(instance *model.Instance, queryName string, m model.MetricValues) 
 		return
 	}
 	if instance.Postgres == nil {
-		instance.Postgres = model.NewPostgres()
+		instance.Postgres = model.NewPostgres(false)
 	}
+	if instance.Postgres.InternalExporter != metricFromInternalExporter(m.Labels) {
+		return
+	}
+
 	pg := instance.Postgres
 	ls := m.Labels
 	values := m.Values
 	switch queryName {
 	case "pg_up":
 		pg.Up = merge(pg.Up, values, timeseries.Any)
+	case "pg_scrape_error":
+		pg.Error.Update(values, ls["error"])
+		pg.Warning.Update(values, ls["warning"])
 	case "pg_info":
 		pg.Version.Update(values, ls["server_version"])
 	case "pg_connections":

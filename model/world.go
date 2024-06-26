@@ -23,6 +23,8 @@ type World struct {
 	Applications    map[ApplicationId]*Application
 	appsByNsAndName map[nsAndName]*Application
 
+	AWS AWS
+
 	IntegrationStatus IntegrationStatus
 }
 
@@ -35,6 +37,7 @@ func NewWorld(from, to timeseries.Time, step timeseries.Duration) *World {
 	return &World{
 		Ctx:          timeseries.Context{From: from, To: to, Step: step},
 		Applications: map[ApplicationId]*Application{},
+		AWS:          AWS{DiscoveryErrors: map[string]bool{}},
 	}
 }
 

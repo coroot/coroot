@@ -157,6 +157,14 @@ export default class Api {
         this.post(this.projectPath(`app/${appId}/check/${checkId}/config`), form, cb);
     }
 
+    getInstrumentation(appId, type, cb) {
+        this.get(this.projectPath(`app/${appId}/instrumentation/${type}`), {}, cb);
+    }
+
+    saveInstrumentationSettings(appId, type, form, cb) {
+        this.post(this.projectPath(`app/${appId}/instrumentation/${type}`), form, cb);
+    }
+
     getProfile(appId, query, cb) {
         this.get(this.projectPath(`app/${appId}/profile`), { query }, cb);
     }

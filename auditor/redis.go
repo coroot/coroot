@@ -15,11 +15,9 @@ func (a *appAuditor) redis() {
 
 	report := a.addReport(model.AuditReportRedis)
 
+	report.Instrumentation = model.ApplicationTypeRedis
+
 	if !a.app.IsRedis() {
-		report.ConfigurationHint = &model.ConfigurationHint{
-			Message:      "It seems this app is a Redis database. Please install redis_exporter for gathering Redis specific metrics.",
-			ReadMoreLink: "https://coroot.com/docs/metric-exporters/redis-exporter/installation",
-		}
 		report.Status = model.UNKNOWN
 		return
 	}
@@ -64,7 +62,11 @@ func (a *appAuditor) redis() {
 			}
 			status := model.NewTableCell().SetStatus(model.OK, "up")
 			if !i.Redis.IsUp() {
-				status.SetStatus(model.WARNING, "down (no metrics)")
+				if v := i.Redis.Error.Value(); v != "" {
+					status.SetStatus(model.WARNING, v)
+				} else {
+					status.SetStatus(model.WARNING, "down (no metrics)")
+				}
 			}
 			table.AddRow(name, role, status, model.NewTableCell(i.Redis.Version.Value()))
 		}

@@ -6,13 +6,10 @@ import (
 	"fmt"
 
 	"github.com/coroot/coroot/model"
+	"k8s.io/klog"
 )
 
-type ApplicationSettings struct {
-	Profiling *ApplicationSettingsProfiling `json:"profiling,omitempty"`
-	Tracing   *ApplicationSettingsTracing   `json:"tracing,omitempty"`
-	Logs      *ApplicationSettingsLogs      `json:"logs,omitempty"`
-}
+type ApplicationSettings struct{}
 
 func (s *ApplicationSettings) Migrate(m *Migrator) error {
 	return m.Exec(`
@@ -24,19 +21,7 @@ func (s *ApplicationSettings) Migrate(m *Migrator) error {
 	)`)
 }
 
-type ApplicationSettingsProfiling struct {
-	Service string `json:"service"`
-}
-
-type ApplicationSettingsTracing struct {
-	Service string `json:"service"`
-}
-
-type ApplicationSettingsLogs struct {
-	Service string `json:"service"`
-}
-
-func (db *DB) GetApplicationSettings(projectId ProjectId, appId model.ApplicationId) (*ApplicationSettings, error) {
+func (db *DB) GetApplicationSettings(projectId ProjectId, appId model.ApplicationId) (*model.ApplicationSettings, error) {
 	var settings sql.NullString
 	err := db.db.QueryRow(
 		"SELECT settings FROM application_settings WHERE project_id = $1 AND application_id = $2",
@@ -45,8 +30,8 @@ func (db *DB) GetApplicationSettings(projectId ProjectId, appId model.Applicatio
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
 	}
-	var res *ApplicationSettings
-	if err := unmarshal(settings.String, &res); err != nil {
+	var res *model.ApplicationSettings
+	if err = unmarshal(settings.String, &res); err != nil {
 		return nil, err
 	}
 	return res, nil
@@ -60,15 +45,20 @@ func (db *DB) SaveApplicationSetting(projectId ProjectId, appId model.Applicatio
 	insert := false
 	if as == nil {
 		insert = true
-		as = &ApplicationSettings{}
+		as = &model.ApplicationSettings{}
 	}
 	switch v := s.(type) {
-	case *ApplicationSettingsProfiling:
+	case *model.ApplicationSettingsProfiling:
 		as.Profiling = v
-	case *ApplicationSettingsTracing:
+	case *model.ApplicationSettingsTracing:
 		as.Tracing = v
-	case *ApplicationSettingsLogs:
+	case *model.ApplicationSettingsLogs:
 		as.Logs = v
+	case *model.ApplicationInstrumentation:
+		if as.Instrumentation == nil {
+			as.Instrumentation = map[model.ApplicationType]*model.ApplicationInstrumentation{}
+		}
+		as.Instrumentation[v.Type] = v
 	default:
 		return fmt.Errorf("unsupported type: %T", s)
 	}
@@ -86,4 +76,38 @@ func (db *DB) SaveApplicationSetting(projectId ProjectId, appId model.Applicatio
 			settings, projectId, appId.String())
 	}
 	return err
+}
+
+func (db *DB) GetApplicationSettingsByProject(projectId ProjectId) (map[model.ApplicationId]*model.ApplicationSettings, error) {
+	rows, err := db.db.Query("SELECT application_id, settings FROM application_settings WHERE project_id = $1", projectId)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	res := map[model.ApplicationId]*model.ApplicationSettings{}
+	var appId model.ApplicationId
+	var appIdStr sql.NullString
+	var settingsStr sql.NullString
+	for rows.Next() {
+		err = rows.Scan(&appIdStr, &settingsStr)
+		if err != nil {
+			return nil, err
+		}
+		if !settingsStr.Valid {
+			continue
+		}
+		appId, err = model.NewApplicationIdFromString(appIdStr.String)
+		if err != nil {
+			klog.Warningln(err)
+			continue
+		}
+		var settings *model.ApplicationSettings
+		err = unmarshal(settingsStr.String, &settings)
+		if err != nil {
+			klog.Warningln(err)
+			continue
+		}
+		res[appId] = settings
+	}
+	return res, nil
 }

@@ -154,7 +154,7 @@ export default {
                 this.message = 'Settings were successfully updated. The changes will take effect in a minute or two.';
                 setTimeout(() => {
                     this.message = '';
-                }, 1000);
+                }, 3000);
                 this.get();
             });
         },

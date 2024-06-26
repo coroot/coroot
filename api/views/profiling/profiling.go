@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/coroot/coroot/clickhouse"
-	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"golang.org/x/exp/maps"
@@ -42,7 +41,7 @@ type Query struct {
 	Mode string            `json:"mode"`
 }
 
-func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, appSettings *db.ApplicationSettings, query url.Values, wCtx timeseries.Context) *View {
+func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, query url.Values, wCtx timeseries.Context) *View {
 	if ch == nil {
 		return nil
 	}
@@ -77,8 +76,8 @@ func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, 
 	}
 
 	services := map[string]bool{}
-	if appSettings != nil && appSettings.Profiling != nil {
-		services[appSettings.Profiling.Service] = true
+	if app.Settings != nil && app.Settings.Profiling != nil {
+		services[app.Settings.Profiling.Service] = true
 	} else {
 		for _, i := range app.Instances {
 			for _, c := range i.Containers {

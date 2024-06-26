@@ -15,11 +15,9 @@ func (a *appAuditor) mongodb() {
 
 	report := a.addReport(model.AuditReportMongodb)
 
+	report.Instrumentation = model.ApplicationTypeMongodb
+
 	if !a.app.IsMongodb() {
-		report.ConfigurationHint = &model.ConfigurationHint{
-			Message:      "It seems this app is a MongoDB database. Please install mongodb_exporter for gathering MongoDB specific metrics.",
-			ReadMoreLink: "https://coroot.com/docs/metric-exporters/mongodb-exporter/installation",
-		}
 		report.Status = model.UNKNOWN
 		return
 	}
@@ -94,7 +92,15 @@ func (a *appAuditor) mongodb() {
 			}
 			status := model.NewTableCell().SetStatus(model.OK, "up")
 			if !i.Mongodb.IsUp() {
-				status.SetStatus(model.WARNING, "down (no metrics)")
+				if v := i.Mongodb.Error.Value(); v != "" {
+					status.SetStatus(model.WARNING, v)
+				} else {
+					status.SetStatus(model.WARNING, "down (no metrics)")
+				}
+			} else {
+				if v := i.Mongodb.Warning.Value(); v != "" {
+					status.SetStatus(model.OK, v)
+				}
 			}
 
 			protocolFilter := func(protocol model.Protocol) bool {

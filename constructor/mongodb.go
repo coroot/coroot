@@ -12,11 +12,17 @@ func mongodb(instance *model.Instance, queryName string, m model.MetricValues) {
 		return
 	}
 	if instance.Mongodb == nil {
-		instance.Mongodb = model.NewMongodb()
+		instance.Mongodb = model.NewMongodb(false)
+	}
+	if instance.Mongodb.InternalExporter != metricFromInternalExporter(m.Labels) {
+		return
 	}
 	switch queryName {
-	case "mongodb_up":
+	case "mongo_up":
 		instance.Mongodb.Up = merge(instance.Mongodb.Up, m.Values, timeseries.Any)
+	case "mongo_scrape_error":
+		instance.Mongodb.Error.Update(m.Values, m.Labels["error"])
+		instance.Mongodb.Warning.Update(m.Values, m.Labels["warning"])
 	case "mongodb_members_self":
 		instance.Mongodb.ReplicaSet.Update(m.Values, m.Labels["rs_nm"])
 		state := strings.ToLower(m.Labels["member_state"])

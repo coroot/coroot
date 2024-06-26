@@ -28,6 +28,8 @@ type Application struct {
 
 	Status  Status
 	Reports []*AuditReport
+
+	Settings *ApplicationSettings
 }
 
 func NewApplication(id ApplicationId) *Application {
@@ -275,6 +277,19 @@ func (app *Application) ApplicationTypes() map[ApplicationType]bool {
 			res[t] = true
 		}
 	}
+
+	if app.Id.Kind == ApplicationKindExternalService {
+		for _, d := range app.Downstreams {
+			for p := range d.RequestsCount {
+				t := p.ToApplicationType()
+				if t == ApplicationTypeUnknown {
+					continue
+				}
+				res[t] = true
+			}
+		}
+	}
+
 	return res
 }
 

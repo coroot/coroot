@@ -5,14 +5,20 @@ import (
 )
 
 type Mongodb struct {
+	InternalExporter bool
+
 	Up          *timeseries.TimeSeries
+	Error       LabelLastValue
+	Warning     LabelLastValue
 	ReplicaSet  LabelLastValue
 	State       LabelLastValue
 	LastApplied *timeseries.TimeSeries
 }
 
-func NewMongodb() *Mongodb {
-	return &Mongodb{}
+func NewMongodb(internalExporter bool) *Mongodb {
+	return &Mongodb{
+		InternalExporter: internalExporter,
+	}
 }
 
 func (m *Mongodb) IsUp() bool {

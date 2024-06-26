@@ -32,7 +32,7 @@
         </template>
 
         <template v-if="tab === 'clickhouse'">
-            <h1 class="text-h5 my-5">Clickhouse integration</h1>
+            <h1 class="text-h5 my-5">ClickHouse integration</h1>
             <p>
                 Coroot stores
                 <a href="https://coroot.com/docs/coroot-community-edition/logs" target="_blank">logs</a>,
@@ -40,6 +40,11 @@
                 <a href="https://coroot.com/docs/coroot-community-edition/profiling" target="_blank">profiles</a> in the ClickHouse database.
             </p>
             <IntegrationClickhouse />
+        </template>
+
+        <template v-if="tab === 'aws'">
+            <h1 class="text-h5 my-5">AWS integration</h1>
+            <IntegrationAWS />
         </template>
 
         <template v-if="tab === 'inspections'">
@@ -91,11 +96,13 @@ import ApplicationCategories from './ApplicationCategories.vue';
 import Integrations from './Integrations.vue';
 import IntegrationPrometheus from './IntegrationPrometheus.vue';
 import IntegrationClickhouse from './IntegrationClickhouse.vue';
+import IntegrationAWS from './IntegrationAWS.vue';
 
 const tabs = [
     { id: undefined, name: 'General' },
     { id: 'prometheus', name: 'Prometheus' },
     { id: 'clickhouse', name: 'Clickhouse' },
+    { id: 'aws', name: 'AWS' },
     { id: 'inspections', name: 'Inspections' },
     { id: 'categories', name: 'Categories' },
     { id: 'notifications', name: 'Notifications' },
@@ -110,6 +117,7 @@ export default {
     components: {
         IntegrationPrometheus,
         IntegrationClickhouse,
+        IntegrationAWS,
         ProjectCheckConfigs,
         ProjectSettings,
         ProjectStatus,

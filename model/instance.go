@@ -73,6 +73,12 @@ func (instance *Instance) ApplicationTypes() map[ApplicationType]bool {
 			res[t] = true
 		}
 	}
+	if t := instance.Rds.ApplicationType(); t != ApplicationTypeUnknown {
+		res[t] = true
+	}
+	if t := instance.Elasticache.ApplicationType(); t != ApplicationTypeUnknown {
+		res[t] = true
+	}
 	return res
 }
 
