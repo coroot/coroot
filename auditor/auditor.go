@@ -35,6 +35,7 @@ func Audit(w *model.World, p *db.Project, generateDetailedReportFor *model.Appli
 		a.network()
 		a.dns()
 		a.postgres()
+		a.mysql()
 		a.redis()
 		a.mongodb()
 		a.memcached()

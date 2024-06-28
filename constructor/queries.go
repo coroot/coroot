@@ -199,6 +199,25 @@ var QUERIES = map[string]string{
 	"memcached_limit_bytes":         `memcached_limit_bytes`,
 	"memcached_commands_total":      `rate(memcached_commands_total[$RANGE])`,
 	"memcached_items_evicted_total": `rate(memcached_items_evicted_total[$RANGE])`,
+
+	"mysql_up":                                `mysql_up`,
+	"mysql_scrape_error":                      `mysql_scrape_error`,
+	"mysql_info":                              `mysql_info`,
+	"mysql_top_query_calls_per_second":        `mysql_top_query_calls_per_second`,
+	"mysql_top_query_time_per_second":         `mysql_top_query_time_per_second`,
+	"mysql_top_query_lock_time_per_second":    `mysql_top_query_lock_time_per_second`,
+	"mysql_replication_io_status":             `mysql_replication_io_status`,
+	"mysql_replication_sql_status":            `mysql_replication_sql_status`,
+	"mysql_replication_lag_seconds":           `mysql_replication_lag_seconds`,
+	"mysql_connections_max":                   `mysql_connections_max`,
+	"mysql_connections_current":               `mysql_connections_current`,
+	"mysql_connections_total":                 `rate(mysql_connections_total[$RANGE])`,
+	"mysql_connections_aborted_total":         `rate(mysql_connections_aborted_total[$RANGE])`,
+	"mysql_traffic_received_bytes_total":      `rate(mysql_traffic_received_bytes_total[$RANGE])`,
+	"mysql_traffic_sent_bytes_total":          `rate(mysql_traffic_sent_bytes_total[$RANGE])`,
+	"mysql_queries_total":                     `rate(mysql_queries_total[$RANGE])`,
+	"mysql_slow_queries_total":                `rate(mysql_slow_queries_total[$RANGE])`,
+	"mysql_top_table_io_wait_time_per_second": `mysql_top_table_io_wait_time_per_second`,
 }
 
 var RecordingRules = map[string]func(p *db.Project, w *model.World) []model.MetricValues{

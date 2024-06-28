@@ -9,9 +9,11 @@ import (
 type Protocol string
 
 const (
-	ProtocolPostgres = "postgres"
-	ProtocolMongodb  = "mongo"
-	ProtocolRedis    = "redis"
+	ProtocolPostgres  = "postgres"
+	ProtocolMongodb   = "mongo"
+	ProtocolRedis     = "redis"
+	ProtocolMysql     = "mysql"
+	ProtocolMemcached = "memcached"
 )
 
 func (p Protocol) ToApplicationType() ApplicationType {
@@ -20,6 +22,12 @@ func (p Protocol) ToApplicationType() ApplicationType {
 		return ApplicationTypePostgres
 	case ProtocolRedis:
 		return ApplicationTypeRedis
+	case ProtocolMongodb:
+		return ApplicationTypeMongodb
+	case ProtocolMysql:
+		return ApplicationTypeMysql
+	case ProtocolMemcached:
+		return ApplicationTypeMemcached
 	}
 	return ApplicationTypeUnknown
 }

@@ -34,6 +34,16 @@ create extension pg_stat_statements;
                 <p>The <var>pg_stat_statements</var> extension should be loaded via the <var>shared_preload_libraries</var> server setting.</p>
             </template>
 
+            <template v-if="type === 'mysql'">
+                <p>This integration allows Coroot to collect Mysql-specific metrics. It requires a Mysql user with the following permissions:</p>
+                <Code>
+                    <pre>
+CREATE USER 'coroot'@'%' IDENTIFIED BY '&lt;PASSWORD&gt;';
+GRANT SELECT, PROCESS, REPLICATION CLIENT ON *.* TO 'coroot'@'%';
+                    </pre>
+                </Code>
+            </template>
+
             <template v-if="type === 'redis'">
                 <p>This integration allows Coroot to collect Redis-specific metrics.</p>
             </template>
@@ -57,6 +67,18 @@ create extension pg_stat_statements;
                     <v-select
                         v-model="sslmode"
                         :items="['disable', 'require', 'verify-ca']"
+                        outlined
+                        dense
+                        hide-details
+                        :menu-props="{ offsetY: true }"
+                    />
+                </div>
+
+                <div v-if="type === 'mysql'">
+                    <div class="subtitle-1 mt-3">TLS</div>
+                    <v-select
+                        v-model="tls"
+                        :items="['false', 'true', 'skip-verify', 'preferred']"
                         outlined
                         dense
                         hide-details
@@ -102,6 +124,7 @@ export default {
             message: '',
 
             sslmode: 'disable',
+            tls: 'false',
         };
     },
 
@@ -118,6 +141,7 @@ export default {
                 redis: { name: 'Redis', username: false, password: true },
                 memcached: { name: 'Memcached', username: false, password: false },
                 mongodb: { name: 'MongoDB', username: true, password: true },
+                mysql: { name: 'MySQL', username: true, password: true },
             };
         },
     },
@@ -145,6 +169,9 @@ export default {
             const form = { ...this.config, disabled: disable };
             if (this.type === 'postgres') {
                 form.params = { sslmode: this.sslmode };
+            }
+            if (this.type === 'mysql') {
+                form.params = { tls: this.tls };
             }
             this.$api.saveInstrumentationSettings(this.appId, this.type, form, (data, error) => {
                 this.loading = false;

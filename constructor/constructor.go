@@ -354,6 +354,9 @@ func enrichInstances(w *model.World, metrics map[string][]model.MetricValues, rd
 			case strings.HasPrefix(queryName, "memcached_"):
 				instance := findInstance(instancesByPod, instancesByListen, rdsInstancesById, ecInstanceById, m.Labels, model.ApplicationTypeMemcached)
 				memcached(instance, queryName, m)
+			case strings.HasPrefix(queryName, "mysql_"):
+				instance := findInstance(instancesByPod, instancesByListen, rdsInstancesById, ecInstanceById, m.Labels, model.ApplicationTypeMysql)
+				mysql(instance, queryName, m)
 			}
 		}
 	}
