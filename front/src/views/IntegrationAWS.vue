@@ -104,7 +104,7 @@
         </v-form>
 
         <h2 class="text-h6 mt-10 mb-3">Discovery status</h2>
-        <v-alert v-if="!form.region" color="primary" outlined text> Not configured </v-alert>
+        <v-alert v-if="form && !form.region" color="primary" outlined text> Not configured </v-alert>
         <v-alert v-else-if="errors.length" color="error" outlined text class="pb-2">
             <div v-for="e in errors" class="mb-2">• {{ e }}</div>
         </v-alert>

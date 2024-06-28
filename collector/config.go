@@ -3,12 +3,16 @@ package collector
 import (
 	"errors"
 	"net/http"
+	"sort"
+
+	"golang.org/x/exp/maps"
 
 	"github.com/coroot/coroot/constructor"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
+	"inet.af/netaddr"
 	"k8s.io/klog"
 )
 
@@ -97,22 +101,72 @@ func (c *Collector) Config(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			switch instrumentation.Type {
-			case model.ApplicationTypePostgres:
+			case model.ApplicationTypePostgres, model.ApplicationTypeMysql:
 				if instrumentation.Credentials.Username == "" || instrumentation.Credentials.Password == "" {
 					continue
 				}
 			}
 			for instance := range instancesByType[t] {
+				ips := map[string]netaddr.IP{}
 				for listen, active := range instance.TcpListens {
 					if active && listen.Port == instrumentation.Port {
-						i := *instrumentation // copy
-						i.Host = listen.IP
-						res.ApplicationInstrumentation = append(res.ApplicationInstrumentation, i)
+						if ip, err := netaddr.ParseIP(listen.IP); err == nil {
+							ips[listen.IP] = ip
+						}
 					}
+				}
+				if ip := SelectIP(maps.Values(ips)); ip != nil {
+					i := *instrumentation // copy
+					i.Host = ip.String()
+					res.ApplicationInstrumentation = append(res.ApplicationInstrumentation, i)
 				}
 			}
 		}
 	}
 
 	utils.WriteJson(w, res)
+}
+
+func SelectIP(ips []netaddr.IP) *netaddr.IP {
+	if len(ips) == 0 {
+		return nil
+	}
+
+	if len(ips) == 1 {
+		return &ips[0]
+	}
+
+	type weightedIp struct {
+		ip     netaddr.IP
+		weight int
+	}
+
+	weightedIps := make([]weightedIp, 0, len(ips))
+	for _, ip := range ips {
+		rank := 5
+		switch {
+		case ip.IsLoopback():
+			rank = 10
+		case utils.IsIpDocker(ip):
+			rank = 9
+		case utils.IsIpPrivate(ip):
+			rank = 1
+			if ip.Is6() {
+				rank = 2
+			}
+		case ip.Is6():
+			rank = 6
+		}
+		weightedIps = append(weightedIps, weightedIp{ip, rank})
+	}
+
+	sort.Slice(weightedIps, func(i, j int) bool {
+		ip1, ip2 := weightedIps[i], weightedIps[j]
+		if ip1.weight == ip2.weight {
+			return ip1.ip.String() < ip2.ip.String()
+		}
+		return ip1.weight < ip2.weight
+	})
+
+	return &weightedIps[0].ip
 }
