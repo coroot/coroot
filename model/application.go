@@ -143,6 +143,15 @@ func (app *Application) IsMongodb() bool {
 	return false
 }
 
+func (app *Application) IsMysql() bool {
+	for _, i := range app.Instances {
+		if i.Mysql != nil {
+			return true
+		}
+	}
+	return false
+}
+
 func (app *Application) IsMemcached() bool {
 	for _, i := range app.Instances {
 		if i.Memcached != nil {

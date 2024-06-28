@@ -44,6 +44,8 @@ func GetDefaultInstrumentation(t ApplicationType) *ApplicationInstrumentation {
 		return &ApplicationInstrumentation{Type: ApplicationTypeMongodb, Port: "27017"}
 	case ApplicationTypeMemcached:
 		return &ApplicationInstrumentation{Type: ApplicationTypeMemcached, Port: "11211"}
+	case ApplicationTypeMysql:
+		return &ApplicationInstrumentation{Type: ApplicationTypeMysql, Port: "3306"}
 	}
 	return nil
 }

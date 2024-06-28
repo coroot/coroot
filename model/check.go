@@ -90,6 +90,10 @@ var Checks = struct {
 	DnsLatency             CheckConfig
 	DnsServerErrors        CheckConfig
 	DnsNxdomainErrors      CheckConfig
+	MysqlAvailability      CheckConfig
+	MysqlReplicationStatus CheckConfig
+	MysqlReplicationLag    CheckConfig
+	MysqlConnections       CheckConfig
 }{
 	index: map[CheckId]*CheckConfig{},
 
@@ -325,6 +329,37 @@ var Checks = struct {
 		DefaultThreshold:        0,
 		MessageTemplate:         `the app received an empty DNS response {{.Count "time"}}`,
 		ConditionFormatTemplate: "the number of the NXDOMAIN DNS errors (for previously valid requests) > <threshold>",
+	},
+	MysqlAvailability: CheckConfig{
+		Type:                    CheckTypeItemBased,
+		Title:                   "Mysql availability",
+		DefaultThreshold:        0,
+		MessageTemplate:         `{{.ItemsWithToBe "mysql instance"}} unavailable`,
+		ConditionFormatTemplate: "the number of unavailable mysql instances > <threshold>",
+	},
+	MysqlReplicationStatus: CheckConfig{
+		Type:                    CheckTypeItemBased,
+		Title:                   "Mysql replication status",
+		DefaultThreshold:        0,
+		MessageTemplate:         `{{.ItemsWithHave "mysql replica"}} issues with IO or SQL replication threads`,
+		ConditionFormatTemplate: "IO or SQL replication thread is not running ",
+		Unit:                    CheckUnitSecond,
+	},
+	MysqlReplicationLag: CheckConfig{
+		Type:                    CheckTypeItemBased,
+		Title:                   "Mysql replication lag",
+		DefaultThreshold:        30,
+		MessageTemplate:         `{{.ItemsWithToBe "mysql replica"}} far behind the primary`,
+		ConditionFormatTemplate: "replication lag > <threshold>",
+		Unit:                    CheckUnitSecond,
+	},
+	MysqlConnections: CheckConfig{
+		Type:                    CheckTypeItemBased,
+		Title:                   "Mysql connections",
+		DefaultThreshold:        90,
+		MessageTemplate:         `{{.ItemsWithHave "mysql instance"}} too many connections`,
+		ConditionFormatTemplate: "the number of connections > <threshold> of `max_connections`",
+		Unit:                    CheckUnitPercent,
 	},
 }
 

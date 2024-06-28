@@ -57,6 +57,7 @@ type Instance struct {
 	Redis     *Redis
 	Mongodb   *Mongodb
 	Memcached *Memcached
+	Mysql     *Mysql
 }
 
 func NewInstance(name string, owner ApplicationId) *Instance {
