@@ -1,8 +1,6 @@
 #!/bin/sh
 set -e
 
-GITHUB_URL="https://github.com/coroot/coroot/releases"
-DOWNLOADER=
 SUDO=sudo
 if [ $(id -u) -eq 0 ]; then
     SUDO=
@@ -10,21 +8,22 @@ fi
 
 BIN_DIR=/usr/bin
 SYSTEMD_DIR=/etc/systemd/system
-VERSION=
-SYSTEM_NAME=coroot
-SYSTEMD_SERVICE=${SYSTEM_NAME}.service
-UNINSTALL_SH=${BIN_DIR}/${SYSTEM_NAME}-uninstall.sh
-FILE_SERVICE=${SYSTEMD_DIR}/${SYSTEMD_SERVICE}
-FILE_ENV=${SYSTEMD_DIR}/${SYSTEMD_SERVICE}.env
-ENV_VARS="^(LISTEN|URL_BASE_PATH|CACHE_TTL|CACHE_GC_INTERVAL|PG_CONNECTION_STRING|DISABLE_USAGE_STATISTICS|READ_ONLY|BOOTSTRAP_PROMETHEUS_URL|BOOTSTRAP_REFRESH_INTERVAL|BOOTSTRAP_PROMETHEUS_EXTRA_SELECTOR|DO_NOT_CHECK_SLO|DO_NOT_CHECK_FOR_DEPLOYMENTS|DO_NOT_CHECK_FOR_UPDATES|BOOTSTRAP_CLICKHOUSE_ADDRESS|BOOTSTRAP_CLICKHOUSE_USER|BOOTSTRAP_CLICKHOUSE_PASSWORD|BOOTSTRAP_CLICKHOUSE_DATABASE)"
+DATA_DIR=/var/lib/coroot
 
-info()
-{
+DOWNLOADER=
+GITHUB_URL=
+VERSION=
+SYSTEM_NAME=
+SYSTEM_DESCRIPTION=
+FILE_SERVICE=
+FILE_ENV=
+ARGS=
+
+info() {
     echo '[INFO] ' "$@"
 }
 
-fatal()
-{
+fatal() {
     echo '[ERROR] ' "$@" >&2
     exit 1
 }
@@ -34,12 +33,6 @@ verify_system() {
         return
     fi
     fatal 'Cannot find systemd'
-}
-
-verify_executable() {
-    if [ ! -x ${BIN_DIR}/coroot ]; then
-        fatal "Executable coroot binary not found at ${BIN_DIR}/coroot"
-    fi
 }
 
 verify_arch() {
@@ -72,7 +65,7 @@ verify_downloader() {
 
 setup_tmp() {
     TMP_DIR=$(mktemp -d -t coroot-install.XXXXXXXXXX)
-    TMP_BIN=${TMP_DIR}/coroot
+    TMP_BIN=${TMP_DIR}/${SYSTEM_NAME}
     cleanup() {
         code=$?
         set +e
@@ -102,7 +95,7 @@ get_release_version() {
 
 download_binary() {
     info "Downloading binary"
-    URL="${GITHUB_URL}/download/${VERSION}/coroot-${ARCH}"
+    URL="${GITHUB_URL}/download/${VERSION}/${SYSTEM_NAME}-${ARCH}"
     set +e
     case $DOWNLOADER in
         curl)
@@ -122,43 +115,49 @@ download_binary() {
 
 setup_binary() {
     chmod 755 ${TMP_BIN}
-    info "Installing coroot to ${BIN_DIR}/coroot"
+    info "Installing to ${BIN_DIR}/${SYSTEM_NAME}"
     $SUDO chown root:root ${TMP_BIN}
-    $SUDO mv -f ${TMP_BIN} ${BIN_DIR}/coroot
+    $SUDO mv -f ${TMP_BIN} ${BIN_DIR}/${SYSTEM_NAME}
 }
 
 download() {
-    verify_arch
-    verify_downloader curl || verify_downloader wget || fatal 'Can not find curl or wget for downloading files'
     setup_tmp
     get_release_version
     download_binary
     setup_binary
 }
 
-
 create_uninstall() {
+    UNINSTALL_SH=${BIN_DIR}/coroot-uninstall.sh
     info "Creating uninstall script ${UNINSTALL_SH}"
     $SUDO tee ${UNINSTALL_SH} >/dev/null << EOF
 #!/bin/sh
 set -x
 [ \$(id -u) -eq 0 ] || exec sudo \$0 \$@
 
-systemctl stop ${SYSTEM_NAME}
-systemctl disable ${SYSTEM_NAME}
-systemctl reset-failed ${SYSTEM_NAME}
+systemctl stop coroot
+systemctl disable coroot
+systemctl reset-failed coroot
+
+systemctl stop coroot-cluster-agent
+systemctl disable coroot-cluster-agent
+systemctl reset-failed coroot-cluster-agent
+
 systemctl daemon-reload
 
-rm -f ${FILE_SERVICE}
-rm -f ${FILE_ENV}
+rm -f ${SYSTEMD_DIR}/coroot.service
+rm -f ${SYSTEMD_DIR}/coroot.service.env
+rm -f ${SYSTEMD_DIR}/coroot-cluster-agent.service
+rm -f ${SYSTEMD_DIR}/coroot-cluster-agent.service.env
 
 remove_uninstall() {
     rm -f ${UNINSTALL_SH}
 }
 trap remove_uninstall EXIT
 
-rm -rf /var/lib/coroot || true
+rm -rf ${DATA_DIR} || true
 rm -f ${BIN_DIR}/coroot
+rm -f ${BIN_DIR}/coroot-cluster-agent
 EOF
     $SUDO chmod 755 ${UNINSTALL_SH}
     $SUDO chown root:root ${UNINSTALL_SH}
@@ -174,14 +173,35 @@ create_env_file() {
     info "env: Creating environment file ${FILE_ENV}"
     $SUDO touch ${FILE_ENV}
     $SUDO chmod 0600 ${FILE_ENV}
-    sh -c export | while read x v; do echo $v; done | grep -E ${ENV_VARS} | $SUDO tee ${FILE_ENV} >/dev/null
+    case $SYSTEM_NAME in
+        coroot)
+            env_vars="LISTEN|URL_BASE_PATH|CACHE_TTL|CACHE_GC_INTERVAL|PG_CONNECTION_STRING|DISABLE_USAGE_STATISTICS|READ_ONLY|BOOTSTRAP_PROMETHEUS_URL|BOOTSTRAP_REFRESH_INTERVAL|BOOTSTRAP_PROMETHEUS_EXTRA_SELECTOR|DO_NOT_CHECK_SLO|DO_NOT_CHECK_FOR_DEPLOYMENTS|DO_NOT_CHECK_FOR_UPDATES|BOOTSTRAP_CLICKHOUSE_ADDRESS|BOOTSTRAP_CLICKHOUSE_USER|BOOTSTRAP_CLICKHOUSE_PASSWORD|BOOTSTRAP_CLICKHOUSE_DATABASE"
+            sh -c export | while read x v; do echo $v; done | grep -E "^(${env_vars})" | $SUDO tee ${FILE_ENV} >/dev/null
+            ;;
+        coroot-cluster-agent)
+            host=$(sh -c export | sed -nr "s/.*LISTEN='(.+):.*'/\1/p")
+            if [ -z $host ]; then
+                host=127.0.0.1
+            fi
+            port=$(sh -c export | sed -nr "s/.*LISTEN='.*:([0-9]+)'/\1/p")
+            if [ -z $port ]; then
+                port=8080
+            fi
+            interval=$(sh -c export | sed -nr "s/.*BOOTSTRAP_REFRESH_INTERVAL='(.+)'/\1/p")
+            if [ -z $interval ]; then
+                interval=15s
+            fi
+            echo "COROOT_URL='http://${host}:${port}'" >> ${FILE_ENV}
+            echo "METRICS_SCRAPE_INTERVAL='${interval}'" >> ${FILE_ENV}
+            ;;
+    esac
 }
 
-create_systemd_service_file() {
+create_service_file() {
     info "systemd: Creating service file ${FILE_SERVICE}"
     $SUDO tee ${FILE_SERVICE} >/dev/null << EOF
 [Unit]
-Description=Coroot
+Description=${SYSTEM_DESCRIPTION}
 Documentation=https://coroot.com
 Wants=network-online.target
 After=network-online.target
@@ -205,51 +225,43 @@ TasksMax=infinity
 TimeoutStartSec=0
 Restart=always
 RestartSec=5s
-ExecStart=${BIN_DIR}/coroot --data-dir=/var/lib/coroot
+ExecStart=${BIN_DIR}/${SYSTEM_NAME} ${ARGS}
 EOF
 }
 
-create_service_file() {
-    create_systemd_service_file
-    return 0
-}
-
-get_installed_hashes() {
-    $SUDO sha256sum ${BIN_DIR}/coroot ${FILE_SERVICE} ${FILE_ENV} 2>&1 || true
-}
-
-systemd_enable() {
-    info "systemd: Enabling ${SYSTEM_NAME} unit"
+service_enable_and_start() {
+    info "systemd: Enabling ${SYSTEM_NAME}"
     $SUDO systemctl enable ${FILE_SERVICE} >/dev/null
     $SUDO systemctl daemon-reload >/dev/null
-}
 
-systemd_start() {
     info "systemd: Starting ${SYSTEM_NAME}"
     $SUDO systemctl restart ${SYSTEM_NAME}
 }
 
+install() {
+    SYSTEM_NAME=$1
+    SYSTEM_DESCRIPTION=$2
+    ARGS=$3
 
-service_enable_and_start() {
-    systemd_enable
+    FILE_SERVICE=${SYSTEMD_DIR}/${SYSTEM_NAME}.service
+    FILE_ENV=${FILE_SERVICE}.env
+    GITHUB_URL="https://github.com/coroot/${SYSTEM_NAME}/releases"
 
-    POST_INSTALL_HASHES=$(get_installed_hashes)
-    if [ "${PRE_INSTALL_HASHES}" = "${POST_INSTALL_HASHES}" ]; then
-        info 'No change detected so skipping service start'
-        return
-    fi
-
-    systemd_start
-
-    return 0
-}
-
-{
-    verify_system
+    echo "*** INSTALLING ${SYSTEM_NAME} ***"
     download
-    create_uninstall
     systemd_disable
     create_env_file
     create_service_file
     service_enable_and_start
+}
+
+{
+    verify_system
+    verify_arch
+    verify_downloader curl || verify_downloader wget || fatal 'Can not find curl or wget for downloading files'
+
+    create_uninstall
+
+    install coroot "Coroot" "--data-dir=${DATA_DIR}"
+    install coroot-cluster-agent "Coroot Cluster Agent" "--metrics-wal-dir=${DATA_DIR}"
 }

@@ -8,6 +8,7 @@ volumes:
   clickhouse_logs: {}
   coroot_data: {}
   node_agent_data: {}
+  cluster_agent_data: {}
 
 services:
   coroot:
@@ -40,6 +41,18 @@ services:
       - '--collector-endpoint=http://coroot:8080'
       - '--cgroupfs-root=/host/sys/fs/cgroup'
       - '--wal-dir=/data'
+
+  cluster-agent:
+    restart: always
+    image: ghcr.io/coroot/coroot-cluster-agent
+    volumes:
+      - cluster_agent_data:/data
+    command:
+      - '--coroot-url=http://coroot:8080'
+      - '--metrics-scrape-interval=15s'
+      - '--metrics-wal-dir=/data'
+    depends_on:
+      - coroot
 
   prometheus:
     restart: always
