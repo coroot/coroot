@@ -90,6 +90,8 @@ func (instance *Instance) InstrumentedType() ApplicationType {
 	switch {
 	case instance.Postgres != nil:
 		return ApplicationTypePostgres
+	case instance.Mysql != nil:
+		return ApplicationTypeMysql
 	case instance.Redis != nil:
 		return ApplicationTypeRedis
 	case instance.Mongodb != nil:

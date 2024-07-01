@@ -100,11 +100,8 @@ func (c *Collector) Config(w http.ResponseWriter, r *http.Request) {
 			if instrumentation == nil || instrumentation.Disabled {
 				continue
 			}
-			switch instrumentation.Type {
-			case model.ApplicationTypePostgres, model.ApplicationTypeMysql:
-				if instrumentation.Credentials.Username == "" || instrumentation.Credentials.Password == "" {
-					continue
-				}
+			if instrumentation.Type.IsCredentialsRequired() && (instrumentation.Credentials.Username == "" || instrumentation.Credentials.Password == "") {
+				continue
 			}
 			for instance := range instancesByType[t] {
 				ips := map[string]netaddr.IP{}

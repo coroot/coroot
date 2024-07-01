@@ -48,15 +48,6 @@ func (f *ProjectForm) Valid() bool {
 	return true
 }
 
-type ProjectStatusForm struct {
-	Mute   *model.ApplicationType `json:"mute"`
-	UnMute *model.ApplicationType `json:"unmute"`
-}
-
-func (f *ProjectStatusForm) Valid() bool {
-	return true
-}
-
 type CheckConfigForm struct {
 	Configs []*model.CheckConfigSimple `json:"configs"`
 }

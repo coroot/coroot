@@ -138,7 +138,7 @@ func main() {
 	r.HandleFunc("/api/projects", a.Projects).Methods(http.MethodGet)
 	r.HandleFunc("/api/project/", a.Project).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/project/{project}", a.Project).Methods(http.MethodGet, http.MethodPost, http.MethodDelete)
-	r.HandleFunc("/api/project/{project}/status", a.Status).Methods(http.MethodGet, http.MethodPost)
+	r.HandleFunc("/api/project/{project}/status", a.Status).Methods(http.MethodGet)
 	r.HandleFunc("/api/project/{project}/overview/{view}", a.Overview).Methods(http.MethodGet)
 	r.HandleFunc("/api/project/{project}/configs", a.Configs).Methods(http.MethodGet)
 	r.HandleFunc("/api/project/{project}/categories", a.Categories).Methods(http.MethodGet, http.MethodPost)
