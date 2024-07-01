@@ -57,14 +57,14 @@ func (a *appAuditor) postgres() {
 			continue
 		}
 		report.
-			GetOrCreateChartInGroup("Postgres query latency <selector>, seconds", "overview", nil).
+			GetOrCreateChartInGroup("Postgres average query latency <selector>, seconds", "overview", nil).
 			Feature().
 			AddSeries(i.Name, i.Postgres.Avg)
 		if i.Postgres.Avg.Last() > latencyCheck.Threshold {
 			latencyCheck.AddItem(i.Name)
 		}
 		report.
-			GetOrCreateChartInGroup("Postgres query latency <selector>, seconds", i.Name, nil).
+			GetOrCreateChartInGroup("Postgres average query latency <selector>, seconds", i.Name, nil).
 			AddSeries("avg", i.Postgres.Avg).
 			AddSeries("p50", i.Postgres.P50).
 			AddSeries("p95", i.Postgres.P95).
