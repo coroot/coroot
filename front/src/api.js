@@ -106,10 +106,6 @@ export default class Api {
         this.get(this.projectPath(`status`), {}, cb);
     }
 
-    setStatus(form, cb) {
-        this.post(this.projectPath(`status`), form, cb);
-    }
-
     getOverview(view, query, cb) {
         this.get(this.projectPath(`overview/${view}`), { query }, cb);
     }

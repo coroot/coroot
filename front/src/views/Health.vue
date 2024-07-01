@@ -4,7 +4,7 @@
 
         <div class="legend mb-3">
             <div v-for="s in statuses" class="item">
-                <div class="count lighten-1" :class="s.color">{{ s.count }}</div>
+                <div class="count" :class="s.color">{{ s.count }}</div>
                 <div class="label">{{ s.name }}</div>
             </div>
         </div>
@@ -17,6 +17,7 @@
             :items="items"
             :headers="[
                 { value: 'application', text: 'Application', sortable: false },
+                { value: 'type', text: 'Type', sortable: false },
                 { value: 'errors', text: 'Errors', sortable: false, align: 'end' },
                 { value: 'latency', text: 'Latency', sortable: false, align: 'end' },
                 { value: 'upstreams', text: 'Upstreams', sortable: false, align: 'end' },
@@ -34,10 +35,28 @@
         >
             <template #item.application="{ item: { id, name, ns, color } }">
                 <div class="application">
-                    <div class="status lighten-1" :class="color" />
+                    <div class="status" :class="color" />
                     <div class="name">
                         <router-link :to="link(id, undefined)">{{ name }}</router-link>
                         <span v-if="ns" class="caption grey--text"> (ns:{{ ns }})</span>
+                    </div>
+                </div>
+            </template>
+            <template #item.type="{ item: { id, type } }">
+                <div v-if="type" class="d-flex align-center">
+                    <img
+                        v-if="type.icon"
+                        :src="`${$coroot.base_path}static/img/tech-icons/${type.icon}.svg`"
+                        onerror="this.style.display='none'"
+                        height="16"
+                        width="16"
+                        class="icon"
+                    />
+                    <router-link v-if="type.report" :to="link(id, type.report)" class="type" :class="type.status">
+                        {{ type.name }}
+                    </router-link>
+                    <div v-else class="type">
+                        {{ type.name }}
                     </div>
                 </div>
             </template>
@@ -97,10 +116,11 @@
 import ApplicationFilter from '../components/ApplicationFilter.vue';
 
 const statuses = {
-    critical: { name: 'SLO violation', color: 'red' },
-    warning: { name: 'Warning', color: 'orange' },
-    info: { name: 'Errors in logs', color: 'blue' },
-    ok: { name: 'OK', color: 'green' },
+    critical: { name: 'SLO violation', color: 'red lighten-1' },
+    warning: { name: 'Warning', color: 'orange lighten-1' },
+    info: { name: 'Errors in logs', color: 'blue lighten-1' },
+    unknown: { name: 'Integration required', color: 'purple lighten-1' },
+    ok: { name: 'OK', color: 'green lighten-1' },
 };
 
 export default {
@@ -216,6 +236,30 @@ export default {
     min-width: 120px;
     padding: 0 !important;
 }
+
+.icon {
+    margin-right: 4px;
+    opacity: 80%;
+}
+.type {
+    opacity: 60%;
+    white-space: nowrap;
+}
+.type.unknown {
+    opacity: 100%;
+    border-bottom: 2px solid #ab47bc !important;
+    background-color: unset !important;
+}
+.type.ok {
+    opacity: 100%;
+}
+.type.critical,
+.type.warning {
+    opacity: 100%;
+    border-bottom: 2px solid red !important;
+    background-color: unset !important;
+}
+
 .value {
     color: inherit;
     opacity: 60%;

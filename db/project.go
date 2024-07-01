@@ -25,7 +25,6 @@ type Project struct {
 }
 
 type Settings struct {
-	ConfigurationHintsMuted     map[model.ApplicationType]bool                            `json:"configuration_hints_muted"`
 	ApplicationCategories       map[model.ApplicationCategory][]string                    `json:"application_categories"`
 	ApplicationCategorySettings map[model.ApplicationCategory]ApplicationCategorySettings `json:"application_category_settings"`
 	Integrations                Integrations                                              `json:"integrations"`
@@ -192,22 +191,6 @@ func (db *DB) DeleteProject(id ProjectId) error {
 		return err
 	}
 	return tx.Commit()
-}
-
-func (db *DB) ToggleConfigurationHint(id ProjectId, appType model.ApplicationType, mute bool) error {
-	p, err := db.GetProject(id)
-	if err != nil {
-		return err
-	}
-	if mute {
-		if p.Settings.ConfigurationHintsMuted == nil {
-			p.Settings.ConfigurationHintsMuted = map[model.ApplicationType]bool{}
-		}
-		p.Settings.ConfigurationHintsMuted[appType] = true
-	} else {
-		delete(p.Settings.ConfigurationHintsMuted, appType)
-	}
-	return db.saveProjectSettings(p)
 }
 
 func (db *DB) SaveApplicationCategory(id ProjectId, category, newName model.ApplicationCategory, customPatterns []string, notifyAboutDeployments bool) error {
