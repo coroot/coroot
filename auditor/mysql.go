@@ -29,7 +29,7 @@ func (a *appAuditor) mysql() {
 
 	table := report.GetOrCreateTable("Instance", "Status", "Queries", "Latency", "Replication status", "Replication lag", "Version")
 	qpsChart := report.GetOrCreateChartGroup("Queries <selector>, per second", nil)
-	latencyChart := report.GetOrCreateChart("Latency, seconds", nil)
+	latencyChart := report.GetOrCreateChart("Average latency, seconds", nil)
 	queriesByTotalTime := report.GetOrCreateChartGroup("Queries by total time <selector>, query seconds/second", nil)
 	tablesByIOTime := report.GetOrCreateChartGroup("I/O time by table <selector>, IO seconds/second", nil)
 

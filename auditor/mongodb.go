@@ -27,7 +27,7 @@ func (a *appAuditor) mongodb() {
 
 	table := report.GetOrCreateTable("Instance", "Status", "ReplicaSet", "State", "Queries", "Latency", "Replication lag", "Version")
 	qpsChart := report.GetOrCreateChart("Queries, per second", nil)
-	latencyChart := report.GetOrCreateChart("Latency, seconds", nil)
+	latencyChart := report.GetOrCreateChart("Average latency, seconds", nil)
 	replicationLagChart := report.GetOrCreateChart("Replication lag, seconds", nil)
 
 	connectionsByInstance := map[string][]*model.Connection{}
