@@ -97,7 +97,7 @@ func renderStatus(p *db.Project, cacheStatus *cache.Status, w *model.World) Stat
 		res.Prometheus.Error = cacheStatus.Error
 		res.Prometheus.Action = "configure"
 	case cacheStatus != nil && cacheStatus.LagMax > 5*refreshInterval:
-		msg := fmt.Sprintf("Prometheus cache is %s behind.", utils.FormatDuration(cacheStatus.LagAvg, 1))
+		msg := fmt.Sprintf("Prometheus cache is %s behind. (this could be expected after a restart/upgrade)", utils.FormatDuration(cacheStatus.LagAvg, 1))
 		res.Prometheus.Status = model.WARNING
 		if w == nil {
 			msg += " Please wait until synchronization is complete."
