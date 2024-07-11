@@ -28,6 +28,7 @@ const (
 	ApplicationTypeJava          ApplicationType = "java"
 	ApplicationTypeNodeJS        ApplicationType = "nodejs"
 	ApplicationTypePython        ApplicationType = "python"
+	ApplicationTypeEnvoy         ApplicationType = "envoy"
 )
 
 func (at ApplicationType) IsDatabase() bool {
@@ -72,6 +73,8 @@ func (at ApplicationType) Weight() int {
 		return 2
 	case at.IsLanguage():
 		return 4
+	case at == ApplicationTypeEnvoy: // when using service meshes, Envoy is deployed as a sidecar to each container
+		return 5
 	}
 	return 3
 }
