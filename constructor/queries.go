@@ -218,6 +218,8 @@ var QUERIES = map[string]string{
 	"mysql_queries_total":                     `rate(mysql_queries_total[$RANGE])`,
 	"mysql_slow_queries_total":                `rate(mysql_slow_queries_total[$RANGE])`,
 	"mysql_top_table_io_wait_time_per_second": `mysql_top_table_io_wait_time_per_second`,
+
+	"container_python_thread_lock_wait_time_seconds": `rate(container_python_thread_lock_wait_time_seconds[$RANGE])`,
 }
 
 var RecordingRules = map[string]func(p *db.Project, w *model.World) []model.MetricValues{

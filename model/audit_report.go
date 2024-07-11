@@ -25,6 +25,7 @@ const (
 	AuditReportMysql       AuditReportName = "Mysql"
 	AuditReportJvm         AuditReportName = "JVM"
 	AuditReportDotNet      AuditReportName = ".NET"
+	AuditReportPython      AuditReportName = "Python"
 	AuditReportNode        AuditReportName = "Node"
 	AuditReportDeployments AuditReportName = "Deployments"
 	AuditReportProfiling   AuditReportName = "Profiling"
