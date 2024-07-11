@@ -188,6 +188,15 @@ func (app *Application) IsDotNet() bool {
 	return false
 }
 
+func (app *Application) IsPython() bool {
+	for _, i := range app.Instances {
+		if i.Python != nil {
+			return true
+		}
+	}
+	return false
+}
+
 func (app *Application) IsStandalone() bool {
 	for _, d := range app.Downstreams {
 		if d.Instance.OwnerId != app.Id && !d.IsObsolete() {

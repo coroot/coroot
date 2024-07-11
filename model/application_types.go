@@ -27,6 +27,7 @@ const (
 	ApplicationTypePHP           ApplicationType = "php"
 	ApplicationTypeJava          ApplicationType = "java"
 	ApplicationTypeNodeJS        ApplicationType = "nodejs"
+	ApplicationTypePython        ApplicationType = "python"
 )
 
 func (at ApplicationType) IsDatabase() bool {
@@ -91,6 +92,8 @@ func (at ApplicationType) AuditReport() AuditReportName {
 		return AuditReportJvm
 	case ApplicationTypeDotNet:
 		return AuditReportDotNet
+	case ApplicationTypePython:
+		return AuditReportPython
 	}
 	return ""
 }

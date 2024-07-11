@@ -41,6 +41,7 @@ func Audit(w *model.World, p *db.Project, generateDetailedReportFor *model.Appli
 		a.memcached()
 		a.jvm()
 		a.dotnet()
+		a.python()
 		a.logs()
 		a.deployments()
 

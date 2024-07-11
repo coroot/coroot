@@ -87,6 +87,7 @@ var Checks = struct {
 	JvmAvailability        CheckConfig
 	JvmSafepointTime       CheckConfig
 	DotNetAvailability     CheckConfig
+	PythonGILWaitingTime   CheckConfig
 	DnsLatency             CheckConfig
 	DnsServerErrors        CheckConfig
 	DnsNxdomainErrors      CheckConfig
@@ -307,6 +308,14 @@ var Checks = struct {
 		DefaultThreshold:        0,
 		MessageTemplate:         `{{.ItemsWithToBe ".NET instance"}} unavailable`,
 		ConditionFormatTemplate: "the number of unavailable .NET instances > <threshold>",
+	},
+	PythonGILWaitingTime: CheckConfig{
+		Type:                    CheckTypeItemBased,
+		Title:                   "Python GIL (Global Interpreter Lock) waiting time",
+		DefaultThreshold:        0.05,
+		MessageTemplate:         `high GIL waiting times on {{.Items "Python instance"}}`,
+		ConditionFormatTemplate: "the time Python threads have been waiting for acquiring the GIL (Global Interpreter Lock) > <threshold>",
+		Unit:                    CheckUnitSecond,
 	},
 	DnsLatency: CheckConfig{
 		Type:                    CheckTypeValueBased,

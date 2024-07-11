@@ -242,6 +242,8 @@ func loadContainers(w *model.World, metrics map[string][]model.MetricValues, pjs
 				"container_dotnet_monitor_lock_contentions_total", "container_dotnet_thread_pool_completed_items_total",
 				"container_dotnet_thread_pool_queue_length", "container_dotnet_thread_pool_size":
 				dotnet(instance, queryName, m)
+			case "container_python_thread_lock_wait_time_seconds":
+				python(instance, queryName, m)
 			}
 		}
 	}

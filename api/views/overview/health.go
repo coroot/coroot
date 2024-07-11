@@ -331,11 +331,16 @@ func getApplicationType(app *model.Application) *ApplicationType {
 	}
 
 	report := t.AuditReport()
+	hasReport := false
 	var status model.Status
 	for _, r := range app.Reports {
 		if r.Name == report {
 			status = r.Status
+			hasReport = true
 		}
+	}
+	if !hasReport {
+		report = ""
 	}
 	return &ApplicationType{Name: t, Icon: t.Icon(), Report: report, Status: status}
 }
