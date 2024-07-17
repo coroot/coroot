@@ -39,6 +39,21 @@
                 <div>
                     <span class="name">
                         <AppHealth :app="map.application" />
+
+                        <v-btn
+                            v-if="map.application.custom"
+                            icon
+                            x-small
+                            :to="{
+                                name: 'project_settings',
+                                params: { tab: 'applications' },
+                                hash: '#custom-applications',
+                                query: { custom_app: $utils.appId(map.application.id).name },
+                            }"
+                            class="ml-1"
+                        >
+                            <v-icon small>mdi-cog-outline</v-icon>
+                        </v-btn>
                     </span>
                     <Labels :labels="map.application.labels" class="d-none d-sm-block label" />
                 </div>
@@ -66,6 +81,47 @@
                                 <v-icon v-if="i.labels && i.labels['proxy']" small color="grey" style="margin-bottom: 2px"
                                     >mdi-swap-horizontal</v-icon
                                 >
+                                <template
+                                    v-if="!map.application.custom && ['Unknown', 'ExternalService'].includes($utils.appId(map.application.id).kind)"
+                                >
+                                    <v-menu offset-y>
+                                        <template v-slot:activator="{ attrs, on }">
+                                            <v-btn icon x-small class="ml-1" v-bind="attrs" v-on="on">
+                                                <v-icon small>mdi-dots-vertical</v-icon>
+                                            </v-btn>
+                                        </template>
+
+                                        <v-list dense>
+                                            <v-list-item class="grey--text">Move the instance to another application</v-list-item>
+                                            <v-list-item
+                                                link
+                                                :to="{
+                                                    name: 'project_settings',
+                                                    params: { tab: 'applications' },
+                                                    hash: '#custom-applications',
+                                                    query: { custom_app: '', instance_pattern: i.id },
+                                                }"
+                                            >
+                                                <v-list-item-title> <v-icon small class="mr-2">mdi-plus</v-icon>a new application</v-list-item-title>
+                                            </v-list-item>
+                                            <template v-if="map.custom_applications">
+                                                <v-list-item
+                                                    v-for="a in map.custom_applications"
+                                                    link
+                                                    :to="{
+                                                        name: 'project_settings',
+                                                        params: { tab: 'applications' },
+                                                        hash: '#custom-applications',
+                                                        query: { custom_app: a, instance_pattern: i.id },
+                                                    }"
+                                                >
+                                                    <v-icon small class="mr-2">mdi-arrow-right-thin</v-icon>
+                                                    <v-list-item-title>{{ a }}</v-list-item-title>
+                                                </v-list-item>
+                                            </template>
+                                        </v-list>
+                                    </v-menu>
+                                </template>
                             </div>
                         </div>
                         <Labels :labels="i.labels" class="d-none d-sm-block" />

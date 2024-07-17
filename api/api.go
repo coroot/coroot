@@ -211,6 +211,36 @@ func (api *Api) Categories(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJson(w, views.Categories(p))
 }
 
+func (api *Api) CustomApplications(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	projectId := db.ProjectId(vars["project"])
+
+	if r.Method == http.MethodPost {
+		if api.readOnly {
+			return
+		}
+		var form forms.CustomApplicationForm
+		if err := forms.ReadAndValidate(r, &form); err != nil {
+			klog.Warningln("bad request:", err)
+			http.Error(w, "Invalid name or patterns", http.StatusBadRequest)
+			return
+		}
+		if err := api.db.SaveCustomApplication(projectId, form.Name, form.NewName, form.InstancePatterns); err != nil {
+			klog.Errorln("failed to save:", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		return
+	}
+	p, err := api.db.GetProject(projectId)
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	utils.WriteJson(w, views.CustomApplications(p))
+}
+
 func (api *Api) Integrations(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	projectId := db.ProjectId(vars["project"])

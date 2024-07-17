@@ -3,6 +3,8 @@ package application
 import (
 	"sort"
 
+	"golang.org/x/exp/maps"
+
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
@@ -19,10 +21,13 @@ type AppMap struct {
 
 	Clients      []*Application `json:"clients"`
 	Dependencies []*Application `json:"dependencies"`
+
+	CustomApplications []string `json:"custom_applications"`
 }
 
 type Application struct {
 	Id         model.ApplicationId `json:"id"`
+	Custom     bool                `json:"custom"`
 	Status     model.Status        `json:"status"`
 	Indicators []model.Indicator   `json:"indicators"`
 	Labels     model.Labels        `json:"labels"`
@@ -57,10 +62,12 @@ func Render(world *model.World, app *model.Application) *View {
 	appMap := &AppMap{
 		Application: &Application{
 			Id:         app.Id,
+			Custom:     app.Custom,
 			Status:     app.Status,
 			Indicators: model.CalcIndicators(app),
 			Labels:     app.Labels(),
 		},
+		CustomApplications: maps.Keys(world.CustomApplications),
 	}
 
 	deps := map[model.ApplicationId]bool{}
@@ -169,6 +176,7 @@ func (m *AppMap) addDependency(w *model.World, id model.ApplicationId) {
 	}
 	m.Dependencies = append(m.Dependencies, &Application{
 		Id:         id,
+		Custom:     app.Custom,
 		Status:     app.Status,
 		Indicators: model.CalcIndicators(app),
 		Labels:     app.Labels(),
@@ -187,6 +195,7 @@ func (m *AppMap) addClient(w *model.World, id model.ApplicationId) {
 	}
 	m.Clients = append(m.Clients, &Application{
 		Id:         id,
+		Custom:     app.Custom,
 		Status:     app.Status,
 		Indicators: model.CalcIndicators(app),
 		Labels:     app.Labels(),

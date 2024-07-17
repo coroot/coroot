@@ -1,4 +1,4 @@
-package categories
+package applications
 
 import (
 	"sort"
@@ -8,7 +8,7 @@ import (
 	"github.com/coroot/coroot/model"
 )
 
-type View struct {
+type CategoriesView struct {
 	Categories   []Category        `json:"categories"`
 	Integrations map[string]string `json:"integrations"`
 }
@@ -22,7 +22,7 @@ type Category struct {
 	NotifyOfDeployments bool                      `json:"notify_of_deployments"`
 }
 
-func Render(p *db.Project) *View {
+func RenderCategories(p *db.Project) *CategoriesView {
 	var categories []Category
 	for c, ps := range model.BuiltinCategoryPatterns {
 		categories = append(categories, Category{
@@ -55,7 +55,7 @@ func Render(p *db.Project) *View {
 
 	categories = append(categories, custom...)
 
-	v := &View{Categories: categories, Integrations: map[string]string{}}
+	v := &CategoriesView{Categories: categories, Integrations: map[string]string{}}
 
 	for _, i := range p.Settings.Integrations.GetInfo() {
 		if i.Configured && i.Deployments {

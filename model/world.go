@@ -17,7 +17,8 @@ type IntegrationStatus struct {
 type World struct {
 	Ctx timeseries.Context
 
-	CheckConfigs CheckConfigs
+	CustomApplications map[string]CustomApplication
+	CheckConfigs       CheckConfigs
 
 	Nodes           []*Node
 	Applications    map[ApplicationId]*Application
@@ -35,9 +36,10 @@ type nsAndName struct {
 
 func NewWorld(from, to timeseries.Time, step timeseries.Duration) *World {
 	return &World{
-		Ctx:          timeseries.Context{From: from, To: to, Step: step},
-		Applications: map[ApplicationId]*Application{},
-		AWS:          AWS{DiscoveryErrors: map[string]bool{}},
+		Ctx:                timeseries.Context{From: from, To: to, Step: step},
+		Applications:       map[ApplicationId]*Application{},
+		AWS:                AWS{DiscoveryErrors: map[string]bool{}},
+		CustomApplications: map[string]CustomApplication{},
 	}
 }
 
@@ -55,10 +57,11 @@ func (w *World) GetApplicationByNsAndName(ns, name string) *Application {
 	return w.appsByNsAndName[nsAndName{ns: ns, name: name}]
 }
 
-func (w *World) GetOrCreateApplication(id ApplicationId) *Application {
+func (w *World) GetOrCreateApplication(id ApplicationId, custom bool) *Application {
 	app := w.GetApplication(id)
 	if app == nil {
 		app = NewApplication(id)
+		app.Custom = custom
 		w.Applications[id] = app
 	}
 	return app
