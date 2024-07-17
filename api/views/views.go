@@ -5,8 +5,8 @@ import (
 	"net/url"
 
 	"github.com/coroot/coroot/api/views/application"
+	"github.com/coroot/coroot/api/views/applications"
 	"github.com/coroot/coroot/api/views/aws"
-	"github.com/coroot/coroot/api/views/categories"
 	"github.com/coroot/coroot/api/views/configs"
 	"github.com/coroot/coroot/api/views/integrations"
 	"github.com/coroot/coroot/api/views/logs"
@@ -43,8 +43,12 @@ func Configs(checkConfigs model.CheckConfigs) *configs.View {
 	return configs.Render(checkConfigs)
 }
 
-func Categories(p *db.Project) *categories.View {
-	return categories.Render(p)
+func Categories(p *db.Project) *applications.CategoriesView {
+	return applications.RenderCategories(p)
+}
+
+func CustomApplications(p *db.Project) *applications.CustomApplicationsView {
+	return applications.RenderCustomApplications(p)
 }
 
 func Integrations(p *db.Project) *integrations.View {

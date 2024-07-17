@@ -57,8 +57,8 @@
             <ProjectCheckConfigs :projectId="projectId" />
         </template>
 
-        <template v-if="tab === 'categories'">
-            <h1 class="text-h5 my-5">
+        <template v-if="tab === 'applications'">
+            <h2 class="text-h5 my-5" id="categories">
                 Application categories
                 <a
                     href="https://coroot.com/docs/coroot-community-edition/getting-started/project-configuration#application-categories"
@@ -66,13 +66,35 @@
                 >
                     <v-icon>mdi-information-outline</v-icon>
                 </a>
-            </h1>
+            </h2>
             <p>
                 You can organize your applications into groups by defining
                 <a href="https://en.wikipedia.org/wiki/Glob_(programming)" target="_blank">glob patterns</a>
                 in the <var>&lt;namespace&gt;/&lt;application_name&gt;</var> format.
             </p>
             <ApplicationCategories />
+
+            <h2 class="text-h5 mt-10 mb-5" id="custom-applications">Custom applications</h2>
+
+            <p>Coroot groups individual containers into applications using the following approach:</p>
+
+            <ul>
+                <li><b>Kubernetes metadata</b>: Pods are grouped into Deployments, StatefulSets, etc.</li>
+                <li>
+                    <b>Non-Kubernetes containers</b>: Containers such as Docker containers or Systemd units are grouped into applications by their
+                    names. For example, Systemd services named <var>mysql</var> on different hosts are grouped into a single application called
+                    <var>mysql</var>.
+                </li>
+            </ul>
+
+            <p class="my-5">
+                This default approach works well in most cases. However, since no one knows your system better than you do, Coroot allows you to
+                manually adjust application groupings to better fit your specific needs. You can match desired application instances by defining
+                <a href="https://en.wikipedia.org/wiki/Glob_(programming)" target="_blank">glob patterns</a>
+                for <var>instance_name</var>. Note that this is not applicable to Kubernetes applications.
+            </p>
+
+            <CustomApplications />
         </template>
 
         <template v-if="tab === 'notifications'">
@@ -97,6 +119,7 @@ import Integrations from './Integrations.vue';
 import IntegrationPrometheus from './IntegrationPrometheus.vue';
 import IntegrationClickhouse from './IntegrationClickhouse.vue';
 import IntegrationAWS from './IntegrationAWS.vue';
+import CustomApplications from '@/views/CustomApplications.vue';
 
 const tabs = [
     { id: undefined, name: 'General' },
@@ -104,7 +127,7 @@ const tabs = [
     { id: 'clickhouse', name: 'Clickhouse' },
     { id: 'aws', name: 'AWS' },
     { id: 'inspections', name: 'Inspections' },
-    { id: 'categories', name: 'Categories' },
+    { id: 'applications', name: 'Applications' },
     { id: 'notifications', name: 'Notifications' },
 ];
 
@@ -115,6 +138,7 @@ export default {
     },
 
     components: {
+        CustomApplications,
         IntegrationPrometheus,
         IntegrationClickhouse,
         IntegrationAWS,

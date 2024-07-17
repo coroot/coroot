@@ -142,6 +142,7 @@ func main() {
 	r.HandleFunc("/api/project/{project}/overview/{view}", a.Overview).Methods(http.MethodGet)
 	r.HandleFunc("/api/project/{project}/configs", a.Configs).Methods(http.MethodGet)
 	r.HandleFunc("/api/project/{project}/categories", a.Categories).Methods(http.MethodGet, http.MethodPost)
+	r.HandleFunc("/api/project/{project}/custom_applications", a.CustomApplications).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/project/{project}/integrations", a.Integrations).Methods(http.MethodGet, http.MethodPut)
 	r.HandleFunc("/api/project/{project}/integrations/{type}", a.Integration).Methods(http.MethodGet, http.MethodPut, http.MethodDelete, http.MethodPost)
 	r.HandleFunc("/api/project/{project}/app/{app}", a.App).Methods(http.MethodGet)

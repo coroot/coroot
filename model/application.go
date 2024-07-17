@@ -12,6 +12,7 @@ import (
 type Application struct {
 	Id ApplicationId
 
+	Custom   bool
 	Category ApplicationCategory
 
 	Instances   []*Instance

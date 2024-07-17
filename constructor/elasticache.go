@@ -22,7 +22,7 @@ func loadElasticacheMetadata(w *model.World, metrics map[string][]model.MetricVa
 			}
 			appId = model.NewApplicationId("", model.ApplicationKindElasticacheCluster, m.Labels["cluster_id"])
 			instanceName := instanceParts[1] + "-" + instanceParts[2]
-			instance = w.GetOrCreateApplication(appId).GetOrCreateInstance(instanceName, nil)
+			instance = w.GetOrCreateApplication(appId, false).GetOrCreateInstance(instanceName, nil)
 			ecInstancesById[ecId] = instance
 			instance.Elasticache = &model.Elasticache{}
 		}

@@ -113,7 +113,7 @@ func podInfo(w *model.World, metrics []model.MetricValues) map[string]*model.Ins
 		podOwners[podId{name: pod, ns: ns}] = appId
 		instance := pods[uid]
 		if instance == nil {
-			instance = w.GetOrCreateApplication(appId).GetOrCreateInstance(pod, node)
+			instance = w.GetOrCreateApplication(appId, false).GetOrCreateInstance(pod, node)
 			if instance.Pod == nil {
 				instance.Pod = &model.Pod{}
 			}

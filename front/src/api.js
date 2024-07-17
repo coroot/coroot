@@ -122,6 +122,14 @@ export default class Api {
         this.post(this.projectPath(`categories`), form, cb);
     }
 
+    getCustomApplications(cb) {
+        this.get(this.projectPath(`custom_applications`), {}, cb);
+    }
+
+    saveCustomApplication(form, cb) {
+        this.post(this.projectPath(`custom_applications`), form, cb);
+    }
+
     getIntegrations(type, cb) {
         this.get(this.projectPath(`integrations${type ? '/' + type : ''}`), {}, cb);
     }

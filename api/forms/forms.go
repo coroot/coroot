@@ -110,6 +110,25 @@ func (f *ApplicationCategoryForm) Valid() bool {
 	return true
 }
 
+type CustomApplicationForm struct {
+	Name    string `json:"name"`
+	NewName string `json:"new_name"`
+
+	InstancePatternsStr string `json:"instance_patterns"`
+	InstancePatterns    []string
+}
+
+func (f *CustomApplicationForm) Valid() bool {
+	if !slugRe.MatchString(f.NewName) {
+		return false
+	}
+	f.InstancePatterns = strings.Fields(f.InstancePatternsStr)
+	if !utils.GlobValidate(f.InstancePatterns) {
+		return false
+	}
+	return true
+}
+
 type ApplicationInstrumentationForm struct {
 	model.ApplicationInstrumentation
 }
