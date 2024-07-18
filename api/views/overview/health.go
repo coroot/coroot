@@ -19,18 +19,18 @@ type ApplicationStatus struct {
 	Status   model.Status              `json:"status"`
 	Type     *ApplicationType          `json:"type"`
 
-	Errors    ApplicationParam `json:"errors"`
-	Latency   ApplicationParam `json:"latency"`
-	Upstreams ApplicationParam `json:"upstreams"`
-	Instances ApplicationParam `json:"instances"`
-	Restarts  ApplicationParam `json:"restarts"`
-	CPU       ApplicationParam `json:"cpu"`
-	Memory    ApplicationParam `json:"memory"`
-	DiskIO    ApplicationParam `json:"disk_io"`
-	DiskUsage ApplicationParam `json:"disk_usage"`
-	Network   ApplicationParam `json:"network"`
-	DNS       ApplicationParam `json:"dns"`
-	Logs      ApplicationParam `json:"logs"`
+	Errors     ApplicationParam `json:"errors"`
+	Latency    ApplicationParam `json:"latency"`
+	Upstreams  ApplicationParam `json:"upstreams"`
+	Instances  ApplicationParam `json:"instances"`
+	Restarts   ApplicationParam `json:"restarts"`
+	CPU        ApplicationParam `json:"cpu"`
+	Memory     ApplicationParam `json:"memory"`
+	DiskIOLoad ApplicationParam `json:"disk_io_load"`
+	DiskUsage  ApplicationParam `json:"disk_usage"`
+	Network    ApplicationParam `json:"network"`
+	DNS        ApplicationParam `json:"dns"`
+	Logs       ApplicationParam `json:"logs"`
 }
 
 type ApplicationType struct {
@@ -122,15 +122,12 @@ func renderHealth(w *model.World) []*ApplicationStatus {
 						a.Memory.Status = model.WARNING
 						a.Memory.Value = "leak"
 					}
-				case model.Checks.StorageIO.Id:
+				case model.Checks.StorageIOLoad.Id:
 					if ch.Status != model.UNKNOWN {
-						a.DiskIO.Status = ch.Status
-						if !sloIsViolating {
-							a.DiskIO.Status = model.OK
-						}
+						a.DiskIOLoad.Status = ch.Status
 					}
 					if ch.Value() > 0 {
-						a.DiskIO.Value = formatPercent(ch.Value())
+						a.DiskIOLoad.Value = utils.FormatFloat(ch.Value())
 					}
 				case model.Checks.StorageSpace.Id:
 					a.DiskUsage.Status = ch.Status

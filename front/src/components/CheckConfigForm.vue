@@ -97,6 +97,8 @@ export default {
                     return '%';
                 case 'second':
                     return 'seconds';
+                case 'seconds/second':
+                    return 'seconds/second';
             }
             return '';
         },

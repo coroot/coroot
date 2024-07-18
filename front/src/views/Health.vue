@@ -25,7 +25,7 @@
                 { value: 'restarts', text: 'Restarts', sortable: false, align: 'end' },
                 { value: 'cpu', text: 'CPU', sortable: false, align: 'end' },
                 { value: 'memory', text: 'Mem', sortable: false, align: 'end' },
-                { value: 'disk_io', text: 'I/O', sortable: false, align: 'end' },
+                { value: 'disk_io_load', text: 'I/O load', sortable: false, align: 'end' },
                 { value: 'disk_usage', text: 'Disk', sortable: false, align: 'end' },
                 { value: 'network', text: 'Net', sortable: false, align: 'end' },
                 { value: 'dns', text: 'DNS', sortable: false, align: 'end' },
@@ -81,7 +81,7 @@
             <template #item.memory="{ item: { id, memory: param } }">
                 <router-link :to="link(id, 'Memory')" class="value" :class="param.status">{{ param.value || '–' }}</router-link>
             </template>
-            <template #item.disk_io="{ item: { id, disk_io: param } }">
+            <template #item.disk_io_load="{ item: { id, disk_io_load: param } }">
                 <router-link :to="link(id, 'Storage')" class="value" :class="param.status">{{ param.value || '–' }}</router-link>
             </template>
             <template #item.disk_usage="{ item: { id, disk_usage: param } }">
