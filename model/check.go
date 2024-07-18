@@ -27,15 +27,18 @@ const (
 type CheckUnit string
 
 const (
-	CheckUnitPercent = "percent"
-	CheckUnitSecond  = "second"
-	CheckUnitByte    = "byte"
+	CheckUnitPercent          = "percent"
+	CheckUnitSecond           = "second"
+	CheckUnitByte             = "byte"
+	CheckUnitSecondsPerSecond = "seconds/second"
 )
 
 func (u CheckUnit) FormatValue(v float32) string {
 	switch u {
 	case CheckUnitSecond:
 		return utils.FormatDuration(timeseries.Duration(v), 1)
+	case CheckUnitSecondsPerSecond:
+		return utils.FormatDuration(timeseries.Duration(v), 1) + "/second"
 	case CheckUnitByte:
 		value, unit := utils.FormatBytes(v)
 		return value + unit
@@ -66,7 +69,7 @@ var Checks = struct {
 	MemoryOOM              CheckConfig
 	MemoryLeakPercent      CheckConfig
 	StorageSpace           CheckConfig
-	StorageIO              CheckConfig
+	StorageIOLoad          CheckConfig
 	NetworkRTT             CheckConfig
 	NetworkConnectivity    CheckConfig
 	NetworkTCPConnections  CheckConfig
@@ -144,13 +147,13 @@ var Checks = struct {
 		MessageTemplate:         `memory usage is growing by {{.Value}} %% per hour`,
 		ConditionFormatTemplate: "memory usage is growing by > <threshold> % per hour",
 	},
-	StorageIO: CheckConfig{
+	StorageIOLoad: CheckConfig{
 		Type:                    CheckTypeItemBased,
-		Title:                   "Disk I/O",
-		DefaultThreshold:        80,
-		Unit:                    CheckUnitPercent,
-		MessageTemplate:         `high I/O utilization of {{.Items "volume"}}`,
-		ConditionFormatTemplate: "the I/O utilization of a volume > <threshold>",
+		Title:                   "Disk I/O load",
+		DefaultThreshold:        5,
+		Unit:                    CheckUnitSecondsPerSecond,
+		MessageTemplate:         `high I/O load of {{.Items "volume"}}`,
+		ConditionFormatTemplate: "the I/O load of a volume > <threshold>",
 	},
 	StorageSpace: CheckConfig{
 		Type:                    CheckTypeItemBased,
