@@ -5,6 +5,7 @@ import (
 
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
+	"inet.af/netaddr"
 )
 
 type netSummary struct {
@@ -100,8 +101,16 @@ func (a *appAuditor) network() {
 						dnAz = u.RemoteInstance.Node.AvailabilityZone.Value()
 					}
 					dInstanceName = u.RemoteInstance.Name
-					if u.RemoteInstance.OwnerId.Kind == model.ApplicationKindExternalService && u.Service != nil {
-						dInstanceName += " (" + u.Service.Name + ")"
+					if u.RemoteInstance.OwnerId.Kind == model.ApplicationKindExternalService {
+						if u.Service != nil {
+							dInstanceName += " (" + u.Service.Name + ")"
+						} else {
+							h, _, _ := net.SplitHostPort(u.RemoteInstance.OwnerId.Name)
+							if _, err := netaddr.ParseIP(h); h != "" && err != nil {
+								dnName = h
+							}
+						}
+
 					}
 				} else {
 					dInstanceName = u.RemoteApplication.Id.Name + " (service)"
