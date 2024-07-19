@@ -132,6 +132,10 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]model.
 				if c := getOrCreateConnection(instance, container.Name, m, connectionCache, servicesByClusterIP, servicesByActualDestIP); c != nil {
 					c.SuccessfulConnections = merge(c.SuccessfulConnections, m.Values, timeseries.Any)
 				}
+			case "container_net_tcp_connection_time_seconds":
+				if c := getOrCreateConnection(instance, container.Name, m, connectionCache, servicesByClusterIP, servicesByActualDestIP); c != nil {
+					c.ConnectionTime = merge(c.ConnectionTime, m.Values, timeseries.Any)
+				}
 			case "container_net_tcp_failed_connects":
 				if c := getOrCreateConnection(instance, container.Name, m, connectionCache, servicesByClusterIP, servicesByActualDestIP); c != nil {
 					c.FailedConnections = merge(c.FailedConnections, m.Values, timeseries.Any)

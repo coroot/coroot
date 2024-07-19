@@ -45,6 +45,7 @@ type Connection struct {
 	SuccessfulConnections *timeseries.TimeSeries
 	Active                *timeseries.TimeSeries
 	FailedConnections     *timeseries.TimeSeries
+	ConnectionTime        *timeseries.TimeSeries
 
 	Retransmissions *timeseries.TimeSeries
 
