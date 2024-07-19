@@ -8,11 +8,6 @@ import (
 	"inet.af/netaddr"
 )
 
-type netSummary struct {
-	retransmissions []*timeseries.TimeSeries
-	rtts            []*timeseries.TimeSeries
-}
-
 func (a *appAuditor) network() {
 	report := a.addReport(model.AuditReportNetwork)
 
@@ -21,35 +16,55 @@ func (a *appAuditor) network() {
 	connectivityCheck := report.CreateCheck(model.Checks.NetworkConnectivity)
 
 	dependencyMap := report.GetOrCreateDependencyMap()
-	failedConnectionsChart := report.GetOrCreateChart("Failed TCP connections, per second", nil)
 	rttChart := report.GetOrCreateChart("Network round-trip time, seconds", nil)
+	activeConnectionsChart := report.GetOrCreateChart("Active TCP connections", nil)
+	connectionAttemptsChart := report.GetOrCreateChart("TCP connection attempts, per second", nil)
+	failedConnectionsChart := report.GetOrCreateChart("Failed TCP connections, per second", nil)
 	retransmissionsChart := report.GetOrCreateChart("TCP retransmissions, segments/second", nil)
 
 	seenConnections := false
-	upstreams := map[model.ApplicationId]*netSummary{}
 
-	failedConnectionByDest := map[string]*timeseries.Aggregate{}
+	type connStats struct {
+		failed          *timeseries.Aggregate
+		active          *timeseries.Aggregate
+		attempts        *timeseries.Aggregate
+		totalTime       *timeseries.Aggregate
+		retransmissions *timeseries.Aggregate
+		rtts            []*timeseries.TimeSeries
+	}
+
+	connectionByDest := map[string]*connStats{}
 
 	for _, instance := range a.app.Instances {
 		for _, u := range instance.Upstreams {
-			if failedConnectionsChart != nil && !u.FailedConnections.IsEmpty() {
-				dest := net.JoinHostPort(u.ServiceRemoteIP, u.ServiceRemotePort)
-				if u.Service != nil {
-					dest += " (" + u.Service.Name + ")"
+			dest := net.JoinHostPort(u.ServiceRemoteIP, u.ServiceRemotePort)
+			if u.Service != nil {
+				dest += " (" + u.Service.Name + ")"
+			}
+			if u.RemoteApplication != nil {
+				if u.RemoteInstance != nil && u.RemoteApplication == a.app {
+					dest = u.RemoteInstance.Name
+				} else {
+					dest = u.RemoteApplication.Id.Name
 				}
-				if u.RemoteApplication != nil {
-					if u.RemoteInstance != nil && u.RemoteApplication == a.app {
-						dest = u.RemoteInstance.Name
-					} else {
-						dest = u.RemoteApplication.Id.Name
-					}
+			}
+			stats := connectionByDest[dest]
+			if stats == nil {
+				stats = &connStats{
+					failed:          timeseries.NewAggregate(timeseries.NanSum),
+					active:          timeseries.NewAggregate(timeseries.NanSum),
+					attempts:        timeseries.NewAggregate(timeseries.NanSum),
+					totalTime:       timeseries.NewAggregate(timeseries.NanSum),
+					retransmissions: timeseries.NewAggregate(timeseries.NanSum),
 				}
-				v := failedConnectionByDest[dest]
-				if v == nil {
-					v = timeseries.NewAggregate(timeseries.NanSum)
-					failedConnectionByDest[dest] = v
-				}
-				v.Add(u.FailedConnections)
+				connectionByDest[dest] = stats
+			}
+			stats.failed.Add(u.FailedConnections)
+			stats.active.Add(u.Active)
+			stats.attempts.Add(u.SuccessfulConnections, u.FailedConnections)
+			stats.retransmissions.Add(u.Retransmissions)
+			if !u.Rtt.IsEmpty() {
+				stats.rtts = append(stats.rtts, u.Rtt)
 			}
 
 			upstreamApp := u.RemoteApplication
@@ -57,26 +72,16 @@ func (a *appAuditor) network() {
 				continue
 			}
 			seenConnections = true
-			summary := upstreams[upstreamApp.Id]
-			if summary == nil {
-				summary = &netSummary{}
-				upstreams[upstreamApp.Id] = summary
-			}
 			if !u.Rtt.IsEmpty() {
 				if last := u.Rtt.Last(); last > rttCheck.Value() {
 					rttCheck.SetValue(last)
 				}
-				summary.rtts = append(summary.rtts, u.Rtt)
 			}
 			if u.HasConnectivityIssues() {
 				connectivityCheck.AddItem(upstreamApp.Id.String())
 			}
 			if u.HasFailedConnectionAttempts() {
 				connectionsCheck.AddItem(upstreamApp.Id.String())
-			}
-
-			if !u.Retransmissions.IsEmpty() {
-				summary.retransmissions = append(summary.retransmissions, u.Retransmissions)
 			}
 
 			if dependencyMap != nil && instance.Node != nil && !u.IsEmpty() {
@@ -127,15 +132,10 @@ func (a *appAuditor) network() {
 			}
 		}
 	}
-	if failedConnectionsChart != nil {
-		for dest, v := range failedConnectionByDest {
-			failedConnectionsChart.AddSeries("→"+dest, v)
-		}
-	}
 
-	for appId, summary := range upstreams {
+	for dest, stats := range connectionByDest {
 		var sum, count float32
-		for _, rtt := range summary.rtts {
+		for _, rtt := range stats.rtts {
 			last := rtt.Last()
 			if !timeseries.IsNaN(last) {
 				sum += last
@@ -143,17 +143,27 @@ func (a *appAuditor) network() {
 			}
 		}
 		if sum > 0 && count > 0 && sum/count > rttCheck.Threshold {
-			rttCheck.AddItem(appId.Name)
+			rttCheck.AddItem(dest)
 		}
 		if rttChart != nil {
-			sum := timeseries.NewAggregate(timeseries.NanSum).Add(summary.rtts...).Get()
-			count := sum.Map(timeseries.Defined)
-			avg := timeseries.Div(sum, count)
-			rttChart.AddSeries("→"+appId.Name, avg)
+			sum := timeseries.NewAggregate(timeseries.NanSum).Add(stats.rtts...).Get()
+			count := timeseries.NewAggregate(timeseries.NanSum)
+			for _, rtt := range stats.rtts {
+				count.Add(rtt.Map(timeseries.Defined))
+			}
+			rttChart.AddSeries("→"+dest, timeseries.Div(sum, count.Get()))
 		}
 		if retransmissionsChart != nil {
-			sum := timeseries.NewAggregate(timeseries.NanSum).Add(summary.retransmissions...).Get()
-			retransmissionsChart.AddSeries("→"+appId.Name, sum)
+			retransmissionsChart.AddSeries("→"+dest, stats.retransmissions)
+		}
+		if connectionAttemptsChart != nil {
+			connectionAttemptsChart.AddSeries("→"+dest, stats.attempts)
+		}
+		if failedConnectionsChart != nil {
+			failedConnectionsChart.AddSeries("→"+dest, stats.failed)
+		}
+		if activeConnectionsChart != nil {
+			activeConnectionsChart.AddSeries("→"+dest, stats.active)
 		}
 	}
 	if !seenConnections {
