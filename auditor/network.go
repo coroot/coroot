@@ -17,6 +17,7 @@ func (a *appAuditor) network() {
 
 	dependencyMap := report.GetOrCreateDependencyMap()
 	rttChart := report.GetOrCreateChart("Network round-trip time, seconds", nil)
+	connectionLatencyChart := report.GetOrCreateChart("TCP connection latency, seconds", nil)
 	activeConnectionsChart := report.GetOrCreateChart("Active TCP connections", nil)
 	connectionAttemptsChart := report.GetOrCreateChart("TCP connection attempts, per second", nil)
 	failedConnectionsChart := report.GetOrCreateChart("Failed TCP connections, per second", nil)
@@ -63,6 +64,7 @@ func (a *appAuditor) network() {
 			stats.active.Add(u.Active)
 			stats.attempts.Add(u.SuccessfulConnections, u.FailedConnections)
 			stats.retransmissions.Add(u.Retransmissions)
+			stats.totalTime.Add(u.ConnectionTime)
 			if !u.Rtt.IsEmpty() {
 				stats.rtts = append(stats.rtts, u.Rtt)
 			}
@@ -156,14 +158,16 @@ func (a *appAuditor) network() {
 		if retransmissionsChart != nil {
 			retransmissionsChart.AddSeries("→"+dest, stats.retransmissions)
 		}
-		if connectionAttemptsChart != nil {
-			connectionAttemptsChart.AddSeries("→"+dest, stats.attempts)
-		}
 		if failedConnectionsChart != nil {
 			failedConnectionsChart.AddSeries("→"+dest, stats.failed)
 		}
 		if activeConnectionsChart != nil {
 			activeConnectionsChart.AddSeries("→"+dest, stats.active)
+		}
+		if connectionAttemptsChart != nil && connectionLatencyChart != nil {
+			attempts := stats.attempts.Get()
+			connectionLatencyChart.AddSeries("→"+dest, timeseries.Div(stats.totalTime.Get(), attempts))
+			connectionAttemptsChart.AddSeries("→"+dest, attempts)
 		}
 	}
 	if !seenConnections {
