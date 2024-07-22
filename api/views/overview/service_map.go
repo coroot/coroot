@@ -27,8 +27,9 @@ type Link struct {
 func renderServiceMap(w *model.World) []*Application {
 	var apps []*Application
 	used := map[model.ApplicationId]bool{}
+	appsById := map[model.ApplicationId]*Application{}
 	for _, a := range w.Applications {
-		app := Application{
+		app := &Application{
 			Id:          a.Id,
 			Category:    a.Category,
 			Labels:      a.Labels(),
@@ -37,7 +38,7 @@ func renderServiceMap(w *model.World) []*Application {
 			Upstreams:   []Link{},
 			Downstreams: []Link{},
 		}
-
+		appsById[a.Id] = app
 		upstreams := map[model.ApplicationId]struct {
 			status      model.Status
 			connections []*model.Connection
@@ -89,12 +90,28 @@ func renderServiceMap(w *model.World) []*Application {
 			used[id] = true
 		}
 
-		apps = append(apps, &app)
+		apps = append(apps, app)
 	}
 	var appsUsed []*Application
 	for _, a := range apps {
 		if !used[a.Id] {
 			continue
+		}
+		if len(a.Upstreams) == 0 && len(a.Downstreams) > 0 {
+			downstreamCategories := utils.NewStringSet()
+			ca := appsById[a.Id]
+			if ca == nil || !ca.Category.Default() {
+				continue
+			}
+			for _, dId := range a.Downstreams {
+				d := appsById[dId.Id]
+				if d != nil {
+					downstreamCategories.Add(string(d.Category))
+				}
+			}
+			if downstreamCategories.Len() == 1 {
+				ca.Category = model.ApplicationCategory(downstreamCategories.Items()[0])
+			}
 		}
 		appsUsed = append(appsUsed, a)
 	}
