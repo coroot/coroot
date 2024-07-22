@@ -58,6 +58,13 @@ var BuiltinCategoryPatterns = map[ApplicationCategory][]string{
 		"vault/*",
 		"keda/*",
 		"keycloak/*",
+		"longhorn-system/*",
+		"calico-system/*",
+		"_/esm-cache",
+		"_/*motd*",
+		"_/*apt*",
+		"_/*fwupd*",
+		"_/snap*",
 	},
 	ApplicationCategoryMonitoring: {
 		"monitoring/*",
