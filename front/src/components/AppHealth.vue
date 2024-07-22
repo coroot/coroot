@@ -1,5 +1,5 @@
 <template>
-    <v-tooltip bottom>
+    <v-tooltip v-if="app.indicators" bottom>
         <template #activator="{ on }">
             <span v-on="on">
                 <Led :status="app.status" />
@@ -13,6 +13,10 @@
             </div>
         </v-card>
     </v-tooltip>
+    <span v-else>
+        <Led :status="app.status" />
+        <span>{{ $utils.appId(app.id).name }}</span>
+    </span>
 </template>
 
 <script>

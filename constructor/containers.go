@@ -313,7 +313,7 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]model.
 				if u.RemoteInstance != nil || u.RemoteApplication != nil {
 					continue
 				}
-				appId := model.NewApplicationId("", model.ApplicationKindExternalService, "")
+				appId := model.NewApplicationId("external", model.ApplicationKindExternalService, "")
 				svc := getServiceForConnection(u, servicesByClusterIP, servicesByActualDestIP)
 				instanceName := u.ActualRemoteIP + ":" + u.ActualRemotePort
 				if svc != nil {
