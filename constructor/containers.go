@@ -503,5 +503,5 @@ func externalServiceName(port string) string {
 	default:
 		service = ":" + port
 	}
-	return "external " + service
+	return "external-" + service
 }

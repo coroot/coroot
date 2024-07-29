@@ -21,15 +21,17 @@ type AppMap struct {
 	Clients      []*Application `json:"clients"`
 	Dependencies []*Application `json:"dependencies"`
 
-	CustomApplications []string `json:"custom_applications"`
+	CustomApplications []string                    `json:"custom_applications"`
+	Categories         []model.ApplicationCategory `json:"categories"`
 }
 
 type Application struct {
-	Id         model.ApplicationId `json:"id"`
-	Custom     bool                `json:"custom"`
-	Status     model.Status        `json:"status"`
-	Indicators []model.Indicator   `json:"indicators"`
-	Labels     model.Labels        `json:"labels"`
+	Id         model.ApplicationId       `json:"id"`
+	Category   model.ApplicationCategory `json:"category"`
+	Custom     bool                      `json:"custom"`
+	Status     model.Status              `json:"status"`
+	Indicators []model.Indicator         `json:"indicators"`
+	Labels     model.Labels              `json:"labels"`
 }
 
 type Instance struct {
@@ -62,12 +64,14 @@ func Render(world *model.World, app *model.Application) *View {
 	appMap := &AppMap{
 		Application: &Application{
 			Id:         app.Id,
+			Category:   app.Category,
 			Custom:     app.Custom,
 			Status:     app.Status,
 			Indicators: model.CalcIndicators(app),
 			Labels:     app.Labels(),
 		},
 		CustomApplications: maps.Keys(world.CustomApplications),
+		Categories:         world.Categories,
 	}
 
 	deps := map[model.ApplicationId]bool{}

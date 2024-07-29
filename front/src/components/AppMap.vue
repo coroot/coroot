@@ -39,21 +39,7 @@
                 <div>
                     <span class="name">
                         <AppHealth :app="map.application" />
-
-                        <v-btn
-                            v-if="map.application.custom"
-                            icon
-                            x-small
-                            :to="{
-                                name: 'project_settings',
-                                params: { tab: 'applications' },
-                                hash: '#custom-applications',
-                                query: { custom_app: $utils.appId(map.application.id).name },
-                            }"
-                            class="ml-1"
-                        >
-                            <v-icon small>mdi-cog-outline</v-icon>
-                        </v-btn>
+                        <AppPreferences :app="map.application" :categories="map.categories" />
                     </span>
                     <Labels :labels="map.application.labels" class="d-none d-sm-block label" />
                 </div>
@@ -244,6 +230,7 @@
 <script>
 import Labels from './Labels';
 import AppHealth from './AppHealth';
+import AppPreferences from '@/components/AppPreferences.vue';
 
 const collapseThreshold = 10;
 
@@ -252,7 +239,7 @@ export default {
         map: Object,
     },
 
-    components: { Labels, AppHealth },
+    components: { AppPreferences, Labels, AppHealth },
 
     data() {
         return {

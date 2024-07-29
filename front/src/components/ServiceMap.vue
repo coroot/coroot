@@ -20,12 +20,19 @@
                 :style="{ rowGap: 200 / apps.length + 'px', maxWidth: 100 / levels.length + '%' }"
             >
                 <div v-for="a in apps" style="text-align: center">
-                    <span :ref="a.id" class="app" :class="{ selected: a.hi(hi) }" @mouseenter="hi = a.id" @mouseleave="hi = null">
-                        <router-link :to="{ name: 'application', params: { id: a.id }, query: $utils.contextQuery() }" class="name">
-                            <AppHealth :app="a" />
-                        </router-link>
+                    <div :ref="a.id" class="app" :class="{ selected: a.hi(hi) }" @mouseenter="hi = a.id" @mouseleave="hi = null">
+                        <div class="d-flex">
+                            <div class="flex-grow-1 name">
+                                <router-link :to="{ name: 'application', params: { id: a.id }, query: $utils.contextQuery() }">
+                                    <AppHealth :app="a" />
+                                </router-link>
+                            </div>
+                            <div>
+                                <AppPreferences :app="a" :categories="categories" />
+                            </div>
+                        </div>
                         <Labels v-if="!hideLabels" :labels="a.labels" class="d-none d-sm-block label" />
-                    </span>
+                    </div>
                 </div>
             </div>
             <svg :style="{ zIndex: hi ? 2 : 0 }">
@@ -66,6 +73,7 @@
 import Labels from './Labels';
 import AppHealth from './AppHealth';
 import ApplicationFilter from './ApplicationFilter.vue';
+import AppPreferences from '@/components/AppPreferences.vue';
 
 function findBackLinks(index, a, discovered, finished, found) {
     if (!a) {
@@ -105,9 +113,10 @@ export default {
     props: {
         applications: Array,
         categoriesTo: Object,
+        categories: Array,
     },
 
-    components: { ApplicationFilter, AppHealth, Labels },
+    components: { AppPreferences, ApplicationFilter, AppHealth, Labels },
 
     data() {
         return {

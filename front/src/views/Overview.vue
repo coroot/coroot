@@ -27,7 +27,7 @@
         </template>
 
         <template v-else-if="view === 'map'">
-            <ServiceMap v-if="map" :applications="map" />
+            <ServiceMap v-if="map" :applications="map" :categories="categories" />
             <NoData v-else-if="!loading" />
         </template>
 
@@ -82,6 +82,7 @@ export default {
             deployments: null,
             traces: null,
             costs: null,
+            categories: null,
             loading: false,
             error: '',
         };
@@ -128,6 +129,7 @@ export default {
                     this.error = error;
                     return;
                 }
+                this.categories = data.categories;
                 this.health = data.health;
                 this.map = data.map;
                 this.nodes = data.nodes;
