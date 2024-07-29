@@ -18,6 +18,7 @@ type World struct {
 	Ctx timeseries.Context
 
 	CustomApplications map[string]CustomApplication
+	Categories         []ApplicationCategory
 	CheckConfigs       CheckConfigs
 
 	Nodes           []*Node

@@ -161,6 +161,20 @@ export default {
                 }
                 this.categories = data.categories;
                 this.integrations = data.integrations;
+                const category = this.categories ? this.categories.find((c) => c.name === this.$route.query.category) || {} : {};
+                const p = this.$route.query.app_pattern;
+                if (!category.name && !p) {
+                    return;
+                }
+                if (p) {
+                    if (!category.custom_patterns) {
+                        category.custom_patterns = p;
+                    } else {
+                        category.custom_patterns += ' ' + p;
+                    }
+                }
+                this.openForm(category);
+                this.$router.replace({ query: { ...this.$route.query, category: undefined, app_pattern: undefined }, hash: this.$route.hash });
             });
         },
         openForm(category, del) {
@@ -168,7 +182,7 @@ export default {
             this.form.builtin = category && category.builtin;
             this.form.default = category && category.default;
             this.form.active = true;
-            this.form.new = !category;
+            this.form.new = !category || !category.name;
             this.form.del = del;
             this.form.oldName = category ? category.name : '';
             this.form.name = category ? category.name : '';

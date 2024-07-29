@@ -8,6 +8,7 @@ import (
 
 type Application struct {
 	Id         model.ApplicationId       `json:"id"`
+	Custom     bool                      `json:"custom"`
 	Category   model.ApplicationCategory `json:"category"`
 	Labels     model.Labels              `json:"labels"`
 	Status     model.Status              `json:"status"`
@@ -31,6 +32,7 @@ func renderServiceMap(w *model.World) []*Application {
 	for _, a := range w.Applications {
 		app := &Application{
 			Id:          a.Id,
+			Custom:      a.Custom,
 			Category:    a.Category,
 			Labels:      a.Labels(),
 			Status:      a.Status,

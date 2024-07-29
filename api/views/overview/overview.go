@@ -8,16 +8,19 @@ import (
 )
 
 type Overview struct {
-	Health      []*ApplicationStatus `json:"health"`
-	Map         []*Application       `json:"map"`
-	Nodes       *model.Table         `json:"nodes"`
-	Deployments []*Deployment        `json:"deployments"`
-	Traces      *Traces              `json:"traces"`
-	Costs       *Costs               `json:"costs"`
+	Health      []*ApplicationStatus        `json:"health"`
+	Map         []*Application              `json:"map"`
+	Nodes       *model.Table                `json:"nodes"`
+	Deployments []*Deployment               `json:"deployments"`
+	Traces      *Traces                     `json:"traces"`
+	Costs       *Costs                      `json:"costs"`
+	Categories  []model.ApplicationCategory `json:"categories"`
 }
 
 func Render(ctx context.Context, ch *clickhouse.Client, w *model.World, view, query string) *Overview {
-	v := &Overview{}
+	v := &Overview{
+		Categories: w.Categories,
+	}
 
 	for _, n := range w.Nodes {
 		if n.Price != nil {

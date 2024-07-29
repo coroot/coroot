@@ -15,6 +15,7 @@ import (
 	"github.com/coroot/coroot/prom"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
+	"golang.org/x/exp/maps"
 	"k8s.io/klog"
 )
 
@@ -73,6 +74,7 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 	start := time.Now()
 	w := model.NewWorld(from, to, step)
 	w.CustomApplications = c.project.Settings.CustomApplications
+	w.Categories = maps.Keys(c.project.Settings.ApplicationCategories)
 
 	if prof == nil {
 		prof = &Profile{}
