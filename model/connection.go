@@ -46,6 +46,8 @@ type Connection struct {
 	Active                *timeseries.TimeSeries
 	FailedConnections     *timeseries.TimeSeries
 	ConnectionTime        *timeseries.TimeSeries
+	BytesSent             *timeseries.TimeSeries
+	BytesReceived         *timeseries.TimeSeries
 
 	Retransmissions *timeseries.TimeSeries
 
@@ -99,15 +101,18 @@ func (c *Connection) HasFailedConnectionAttempts() bool {
 	return c.FailedConnections.Last() > 0
 }
 
-func (c *Connection) Status() Status {
+func (c *Connection) Status() (Status, string) {
 	if !c.IsActual() {
-		return UNKNOWN
+		return UNKNOWN, ""
 	}
 	status := OK
-	if c.HasConnectivityIssues() || c.HasFailedConnectionAttempts() {
-		status = CRITICAL
+	switch {
+	case c.HasConnectivityIssues():
+		return CRITICAL, "connectivity issues"
+	case c.HasFailedConnectionAttempts():
+		return CRITICAL, "failed connections"
 	}
-	return status
+	return status, ""
 }
 
 func IsRequestStatusFailed(status string) bool {

@@ -40,8 +40,9 @@ func renderServiceMap(w *model.World) []*Application {
 		}
 		appsById[a.Id] = app
 		upstreams := map[model.ApplicationId]struct {
-			status      model.Status
-			connections []*model.Connection
+			status       model.Status
+			statusReason string
+			connections  []*model.Connection
 		}{}
 		downstreams := map[model.ApplicationId]bool{}
 		for _, i := range a.Instances {
@@ -52,10 +53,11 @@ func renderServiceMap(w *model.World) []*Application {
 				if u.IsObsolete() || u.RemoteApplication == nil || u.RemoteApplication == a {
 					continue
 				}
-				status := u.Status()
+				status, statusReason := u.Status()
 				s := upstreams[u.RemoteApplication.Id]
 				if status >= s.status {
 					s.status = status
+					s.statusReason = statusReason
 				}
 				s.connections = append(s.connections, u)
 				upstreams[u.RemoteApplication.Id] = s
@@ -74,11 +76,18 @@ func renderServiceMap(w *model.World) []*Application {
 			latency := model.GetConnectionsRequestsLatency(s.connections, nil).Last()
 			if !timeseries.IsNaN(requests) {
 				l.Weight = requests
-				l.Stats = append(l.Stats, utils.FormatFloat(requests)+" rps")
 			}
-			if !timeseries.IsNaN(latency) {
-				l.Stats = append(l.Stats, utils.FormatLatency(latency))
+			var bytesSent, bytesReceived float32
+
+			for _, c := range s.connections {
+				if v := c.BytesSent.Last(); !timeseries.IsNaN(v) {
+					bytesSent += v
+				}
+				if v := c.BytesReceived.Last(); !timeseries.IsNaN(v) {
+					bytesReceived += v
+				}
 			}
+			l.Stats = utils.FormatLinkStats(requests, latency, bytesSent, bytesReceived, s.statusReason)
 			app.Upstreams = append(app.Upstreams, l)
 			used[a.Id] = true
 			used[id] = true

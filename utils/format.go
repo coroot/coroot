@@ -88,3 +88,32 @@ func LastPart(s string, sep string) string {
 	}
 	return parts[len(parts)-1]
 }
+
+func FormatLinkStats(requests, latency, bytesSent, bytesReceived float32, issue string) []string {
+	if issue != "" {
+		return []string{"⚠️ " + issue}
+	}
+	var res []string
+	line := ""
+	if !timeseries.IsNaN(requests) {
+		line += "📈 " + FormatFloat(requests) + " rps"
+	}
+	if !timeseries.IsNaN(latency) {
+		if len(line) > 0 {
+			line += " "
+		}
+		line += "⏱️ " + FormatLatency(latency)
+	}
+	if len(line) > 0 {
+		res = append(res, line)
+	}
+	if bytesSent > 0 || bytesReceived > 0 {
+		line = ""
+		v, u := FormatBytes(bytesSent)
+		line += "↑" + v + u + "/s"
+		v, u = FormatBytes(bytesReceived)
+		line += " ↓" + v + u + "/s"
+		res = append(res, line)
+	}
+	return res
+}

@@ -69,6 +69,8 @@ var QUERIES = map[string]string{
 	"container_net_tcp_failed_connects":         `rate(container_net_tcp_failed_connects_total[$RANGE])`,
 	"container_net_tcp_active_connections":      `container_net_tcp_active_connections`,
 	"container_net_tcp_connection_time_seconds": `rate(container_net_tcp_connection_time_seconds_total[$RANGE])`,
+	"container_net_tcp_bytes_sent":              `rate(container_net_tcp_bytes_sent_total[$RANGE])`,
+	"container_net_tcp_bytes_received":          `rate(container_net_tcp_bytes_received_total[$RANGE])`,
 	"container_net_tcp_listen_info":             `container_net_tcp_listen_info`,
 	"container_net_tcp_retransmits":             `rate(container_net_tcp_retransmits_total[$RANGE])`,
 	"container_log_messages":                    `container_log_messages_total % 10000000`,
