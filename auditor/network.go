@@ -21,6 +21,7 @@ func (a *appAuditor) network() {
 	activeConnectionsChart := report.GetOrCreateChart("Active TCP connections", nil)
 	connectionAttemptsChart := report.GetOrCreateChart("TCP connection attempts, per second", nil)
 	failedConnectionsChart := report.GetOrCreateChart("Failed TCP connections, per second", nil)
+	trafficChart := report.GetOrCreateChartGroup("Traffic <selector>, bytes/second", nil)
 	retransmissionsChart := report.GetOrCreateChart("TCP retransmissions, segments/second", nil)
 
 	seenConnections := false
@@ -31,6 +32,8 @@ func (a *appAuditor) network() {
 		attempts        *timeseries.Aggregate
 		totalTime       *timeseries.Aggregate
 		retransmissions *timeseries.Aggregate
+		bytesSent       *timeseries.Aggregate
+		bytesReceived   *timeseries.Aggregate
 		rtts            []*timeseries.TimeSeries
 	}
 
@@ -57,6 +60,8 @@ func (a *appAuditor) network() {
 					attempts:        timeseries.NewAggregate(timeseries.NanSum),
 					totalTime:       timeseries.NewAggregate(timeseries.NanSum),
 					retransmissions: timeseries.NewAggregate(timeseries.NanSum),
+					bytesSent:       timeseries.NewAggregate(timeseries.NanSum),
+					bytesReceived:   timeseries.NewAggregate(timeseries.NanSum),
 				}
 				connectionByDest[dest] = stats
 			}
@@ -64,6 +69,8 @@ func (a *appAuditor) network() {
 			stats.active.Add(u.Active)
 			stats.attempts.Add(u.SuccessfulConnections, u.FailedConnections)
 			stats.retransmissions.Add(u.Retransmissions)
+			stats.bytesSent.Add(u.BytesSent)
+			stats.bytesReceived.Add(u.BytesReceived)
 			stats.totalTime.Add(u.ConnectionTime)
 			if !u.Rtt.IsEmpty() {
 				stats.rtts = append(stats.rtts, u.Rtt)
@@ -89,7 +96,7 @@ func (a *appAuditor) network() {
 			if dependencyMap != nil && instance.Node != nil && !u.IsEmpty() {
 				linkStatus := model.UNKNOWN
 				if !instance.IsObsolete() && !u.IsObsolete() {
-					linkStatus = u.Status()
+					linkStatus, _ = u.Status()
 					if linkStatus == model.OK {
 						if u.Rtt.Last() > rttCheck.Threshold || u.FailedConnections.Last() > 0 {
 							linkStatus = model.WARNING
@@ -168,6 +175,10 @@ func (a *appAuditor) network() {
 			attempts := stats.attempts.Get()
 			connectionLatencyChart.AddSeries("→"+dest, timeseries.Div(stats.totalTime.Get(), attempts))
 			connectionAttemptsChart.AddSeries("→"+dest, attempts)
+		}
+		if trafficChart != nil {
+			trafficChart.GetOrCreateChart("inbound").Stacked().AddSeries("←"+dest, stats.bytesReceived)
+			trafficChart.GetOrCreateChart("outbound").Stacked().AddSeries("→"+dest, stats.bytesSent)
 		}
 	}
 	if !seenConnections {
