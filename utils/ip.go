@@ -20,3 +20,7 @@ func IsIpPrivate(ip netaddr.IP) bool {
 func IsIpDocker(ip netaddr.IP) bool {
 	return dockerNetwork.Contains(ip)
 }
+
+func IsIpExternal(ip netaddr.IP) bool {
+	return !ip.IsLoopback() && !ip.IsPrivate()
+}
