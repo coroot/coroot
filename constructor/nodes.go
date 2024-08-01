@@ -115,6 +115,7 @@ func (c *Constructor) loadNodes(w *model.World, metrics map[string][]model.Metri
 	if c.pricing != nil {
 		for _, n := range w.Nodes {
 			n.Price = c.pricing.GetNodePrice(n)
+			n.DataTransferPrice = c.pricing.GetDataTransferPrice(n)
 		}
 	}
 }

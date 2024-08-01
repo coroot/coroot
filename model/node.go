@@ -82,14 +82,37 @@ type Node struct {
 	InstanceType      LabelLastValue
 	InstanceLifeCycle LabelLastValue
 
-	Fargate bool
-	Price   *NodePrice
+	Fargate           bool
+	Price             *NodePrice
+	DataTransferPrice *DataTransferPrice
 }
 
 type NodePrice struct {
 	Total         float32
 	PerCPUCore    float32
 	PerMemoryByte float32
+}
+
+type InternetStartUsageAmountGB int64
+
+type DataTransferPrice struct {
+	InterZoneIngressPerGB float32
+	InterZoneEgressPerGB  float32
+	InternetPerGB         map[InternetStartUsageAmountGB]float32
+}
+
+func (dtp *DataTransferPrice) GetInternetEgressPrice() float32 {
+	// so far it returns the price with minimum InternetStartUsageAmountGB
+	var minThreshold InternetStartUsageAmountGB = -1
+	var price float32
+
+	for threshold, p := range dtp.InternetPerGB {
+		if minThreshold == -1 || threshold < minThreshold {
+			minThreshold = threshold
+			price = p
+		}
+	}
+	return price
 }
 
 func NewNode(id NodeId) *Node {

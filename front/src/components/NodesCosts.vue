@@ -22,7 +22,9 @@
                 { value: 'cpu_usage', text: 'CPU', align: 'center', width: '25%' },
                 { value: 'memory_usage', text: 'Memory', align: 'center', width: '25%' },
                 { value: 'price', text: 'Price', align: 'end' },
-                { value: 'idle_costs', text: 'Idle costs', align: 'end', class: 'text-no-wrap' },
+                { value: 'idle_costs', text: 'Idle cost', align: 'end', class: 'text-no-wrap' },
+                { value: 'cross_az_traffic_costs', text: 'Cross-AZ traffic', align: 'end', class: 'text-no-wrap' },
+                { value: 'internet_egress_costs', text: 'Internet egress traffic', align: 'end', class: 'text-no-wrap' },
             ]"
             :footer-props="{ itemsPerPageOptions: [10, 20, 50, 100, -1] }"
         >
@@ -47,6 +49,12 @@
                 <div class="caption grey--text">{{ item.instance_life_cycle }}</div>
             </template>
             <template #item.idle_costs="{ item }"> ${{ item.idle_costs.toFixed(2) }}<span class="caption grey--text">/mo</span> </template>
+            <template #item.cross_az_traffic_costs="{ item }">
+                ${{ item.cross_az_traffic_costs.toFixed(2) }}<span class="caption grey--text">/mo</span>
+            </template>
+            <template #item.internet_egress_costs="{ item }">
+                ${{ item.internet_egress_costs.toFixed(2) }}<span class="caption grey--text">/mo</span>
+            </template>
 
             <template #foot>
                 <tfoot>
@@ -57,6 +65,12 @@
                         <td></td>
                         <td class="text-right font-weight-medium">${{ item.price.toFixed(2) }}<span class="caption grey--text">/mo</span></td>
                         <td class="text-right font-weight-medium">${{ item.idle_costs.toFixed(2) }}<span class="caption grey--text">/mo</span></td>
+                        <td class="text-right font-weight-medium">
+                            ${{ item.cross_az_traffic_costs.toFixed(2) }}<span class="caption grey--text">/mo</span>
+                        </td>
+                        <td class="text-right font-weight-medium">
+                            ${{ item.internet_egress_costs.toFixed(2) }}<span class="caption grey--text">/mo</span>
+                        </td>
                     </tr>
                 </tfoot>
             </template>
@@ -76,10 +90,12 @@ export default {
 
     computed: {
         total() {
-            const res = { price: 0, idle_costs: 0 };
+            const res = { price: 0, idle_costs: 0, cross_az_traffic_costs: 0, internet_egress_costs: 0 };
             this.nodes.forEach((n) => {
                 res.price += n.price;
                 res.idle_costs += n.idle_costs;
+                res.cross_az_traffic_costs += n.cross_az_traffic_costs;
+                res.internet_egress_costs += n.internet_egress_costs;
             });
             return res;
         },
