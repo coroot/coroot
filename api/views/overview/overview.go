@@ -22,13 +22,6 @@ func Render(ctx context.Context, ch *clickhouse.Client, w *model.World, view, qu
 		Categories: w.Categories,
 	}
 
-	for _, n := range w.Nodes {
-		if n.Price != nil {
-			v.Costs = &Costs{}
-			break
-		}
-	}
-
 	switch view {
 	case "health":
 		v.Health = renderHealth(w)

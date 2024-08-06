@@ -4,9 +4,6 @@
             Overview
             <v-progress-circular v-if="loading" indeterminate color="green" />
         </h1>
-        <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
-            {{ error }}
-        </v-alert>
 
         <v-tabs height="40" show-arrows slider-size="2" class="mb-3">
             <template v-for="(name, id) in views">
@@ -21,14 +18,18 @@
             </template>
         </v-tabs>
 
+        <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
+            {{ error }}
+        </v-alert>
+
         <template v-if="!view">
             <Health v-if="health" :applications="health" />
-            <NoData v-else-if="!loading" />
+            <NoData v-else-if="!loading && !error" />
         </template>
 
         <template v-else-if="view === 'map'">
             <ServiceMap v-if="map" :applications="map" :categories="categories" />
-            <NoData v-else-if="!loading" />
+            <NoData v-else-if="!loading && !error" />
         </template>
 
         <template v-else-if="view === 'nodes'">
@@ -38,7 +39,7 @@
                     <AgentInstallation color="primary">Add nodes</AgentInstallation>
                 </div>
             </template>
-            <NoData v-else-if="!loading" />
+            <NoData v-else-if="!loading && !error" />
         </template>
 
         <template v-else-if="view === 'deployments'">
@@ -47,10 +48,14 @@
 
         <template v-else-if="view === 'traces'">
             <Traces v-if="traces" :view="traces" :loading="loading" class="mt-5" />
-            <NoData v-else-if="!loading" />
+            <NoData v-else-if="!loading && !error" />
         </template>
 
         <template v-else-if="view === 'costs'">
+            <v-alert v-if="!loading && !error && !costs" color="info" outlined text>
+                Coroot currently supports cost monitoring for services running on AWS, GCP, and Azure. The agent on each node requires access to the
+                cloud metadata service to obtain instance metadata, such as region, availability zone, and instance type.
+            </v-alert>
             <NodesCosts v-if="costs && costs.nodes" :nodes="costs.nodes" class="mt-5" />
             <ApplicationsCosts v-if="costs && costs.applications" :applications="costs.applications" class="mt-5" />
         </template>
@@ -96,7 +101,7 @@ export default {
                 traces: 'Traces',
                 nodes: 'Nodes',
                 deployments: 'Deployments',
-                costs: this.costs ? 'Costs' : '',
+                costs: 'Costs',
             };
         },
     },

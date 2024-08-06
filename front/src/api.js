@@ -58,8 +58,16 @@ export default class Api {
                 }
             })
             .catch((error) => {
-                const err = (error.response && error.response.data && error.response.data.trim()) || error.message || defaultErrorMessage;
-                cb(null, err);
+                const err = error.response && error.response.data && error.response.data.trim();
+                if (error.response && error.response.status === 401) {
+                    const r = this.router.currentRoute;
+                    const action = err || undefined;
+                    if (r.name !== 'login' || r.query.action !== action) {
+                        const next = r.fullPath !== '/' && r.name !== 'login' ? r.fullPath : undefined;
+                        this.router.push({ name: 'login', query: { action, next } }).catch((err) => err);
+                    }
+                }
+                cb(null, err || error.message || defaultErrorMessage);
             });
     }
 
@@ -81,8 +89,28 @@ export default class Api {
         this.request({ method: 'delete', url }, cb);
     }
 
-    getProjects(cb) {
-        this.get(`projects`, {}, cb);
+    user(form, cb) {
+        if (form) {
+            this.post(`user`, form, cb);
+        } else {
+            this.get(`user`, {}, cb);
+        }
+    }
+
+    login(form, cb) {
+        this.post(`login`, form, cb);
+    }
+
+    logout(cb) {
+        this.post(`logout`, null, cb);
+    }
+
+    users(form, cb) {
+        if (form) {
+            this.post(`users`, form, cb);
+        } else {
+            this.get(`users`, {}, cb);
+        }
     }
 
     getProject(projectId, cb) {
@@ -110,8 +138,8 @@ export default class Api {
         this.get(this.projectPath(`overview/${view}`), { query }, cb);
     }
 
-    getCheckConfigs(cb) {
-        this.get(this.projectPath(`configs`), {}, cb);
+    getInspections(cb) {
+        this.get(this.projectPath(`inspections`), {}, cb);
     }
 
     getApplicationCategories(cb) {
@@ -153,12 +181,12 @@ export default class Api {
         this.get(this.projectPath(`app/${appId}`), {}, cb);
     }
 
-    getCheckConfig(appId, checkId, cb) {
-        this.get(this.projectPath(`app/${appId}/check/${checkId}/config`), {}, cb);
+    getInspectionConfig(appId, type, cb) {
+        this.get(this.projectPath(`app/${appId}/inspection/${type}/config`), {}, cb);
     }
 
-    saveCheckConfig(appId, checkId, form, cb) {
-        this.post(this.projectPath(`app/${appId}/check/${checkId}/config`), form, cb);
+    saveInspectionConfig(appId, type, form, cb) {
+        this.post(this.projectPath(`app/${appId}/inspection/${type}/config`), form, cb);
     }
 
     getInstrumentation(appId, type, cb) {
@@ -169,12 +197,12 @@ export default class Api {
         this.post(this.projectPath(`app/${appId}/instrumentation/${type}`), form, cb);
     }
 
-    getProfile(appId, query, cb) {
-        this.get(this.projectPath(`app/${appId}/profile`), { query }, cb);
+    getProfiling(appId, query, cb) {
+        this.get(this.projectPath(`app/${appId}/profiling`), { query }, cb);
     }
 
-    saveProfileSettings(appId, form, cb) {
-        this.post(this.projectPath(`app/${appId}/profile`), form, cb);
+    saveProfilingSettings(appId, form, cb) {
+        this.post(this.projectPath(`app/${appId}/profiling`), form, cb);
     }
 
     getTracing(appId, trace, cb) {

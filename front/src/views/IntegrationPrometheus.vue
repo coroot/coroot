@@ -66,10 +66,6 @@ const refreshIntervals = [
 ];
 
 export default {
-    props: {
-        projectId: String,
-    },
-
     data() {
         return {
             form: {
@@ -94,9 +90,6 @@ export default {
     },
 
     watch: {
-        projectId() {
-            this.get();
-        },
         custom_headers(v) {
             if (v && !this.form.custom_headers.length) {
                 this.form.custom_headers.push({ key: '', value: '' });

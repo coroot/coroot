@@ -20,7 +20,8 @@ import (
 var (
 	ErrInvalidForm = errors.New("invalid form")
 
-	slugRe = regexp.MustCompile("^[-_0-9a-z]{3,}$")
+	slugRe  = regexp.MustCompile("^[-_0-9a-z]{3,}$")
+	emailRe = regexp.MustCompile(`^[^@\r\n\t\f\v ]+@[^@\r\n\t\f\v ]+\.[a-z]+$`)
 )
 
 type Form interface {
@@ -233,11 +234,11 @@ func (f *IntegrationFormPrometheus) Get(project *db.Project, masked bool) {
 	if masked {
 		f.Url = "http://<hidden>"
 		if f.BasicAuth != nil {
-			f.BasicAuth.User = "<user>"
-			f.BasicAuth.Password = "<password>"
+			f.BasicAuth.User = "<hidden>"
+			f.BasicAuth.Password = "<hidden>"
 		}
 		for i := range f.CustomHeaders {
-			f.CustomHeaders[i].Value = "<header>"
+			f.CustomHeaders[i].Value = "<hidden>"
 		}
 	}
 }
@@ -293,8 +294,8 @@ func (f *IntegrationFormClickhouse) Get(project *db.Project, masked bool) {
 	}
 	if masked {
 		f.Addr = "<hidden>"
-		f.Auth.User = "<user>"
-		f.Auth.Password = "<password>"
+		f.Auth.User = "<hidden>"
+		f.Auth.Password = "<hidden>"
 	}
 }
 
@@ -341,8 +342,8 @@ func (f *IntegrationFormAWS) Get(project *db.Project, masked bool) {
 		f.AWSConfig = *cfg
 	}
 	if masked {
-		f.AccessKeyID = "<access_key_id>"
-		f.SecretAccessKey = "<secret_access_key>"
+		f.AccessKeyID = "<hidden>"
+		f.SecretAccessKey = "<hidden>"
 	}
 }
 
@@ -383,7 +384,7 @@ func (f *IntegrationFormSlack) Get(project *db.Project, masked bool) {
 	}
 	f.IntegrationSlack = *cfg
 	if masked {
-		f.Token = "<token>"
+		f.Token = "<hidden>"
 	}
 }
 
@@ -420,7 +421,7 @@ func (f *IntegrationFormTeams) Get(project *db.Project, masked bool) {
 	}
 	f.IntegrationTeams = *cfg
 	if masked {
-		f.WebhookUrl = "<webhook_url>"
+		f.WebhookUrl = "<hidden>"
 	}
 }
 
@@ -456,7 +457,7 @@ func (f *IntegrationFormPagerduty) Get(project *db.Project, masked bool) {
 	}
 	f.IntegrationPagerduty = *cfg
 	if masked {
-		f.IntegrationKey = "<integration_key>"
+		f.IntegrationKey = "<hidden>"
 	}
 }
 
@@ -492,7 +493,7 @@ func (f *IntegrationFormOpsgenie) Get(project *db.Project, masked bool) {
 	}
 	f.IntegrationOpsgenie = *cfg
 	if masked {
-		f.ApiKey = "<api_key>"
+		f.ApiKey = "<hidden>"
 	}
 }
 
@@ -535,7 +536,7 @@ func (f *IntegrationFormWebhook) Get(project *db.Project, masked bool) {
 	}
 	f.IntegrationWebhook = *cfg
 	if masked {
-		f.Url = "<webhook_url>"
+		f.Url = "<hidden>"
 	}
 }
 

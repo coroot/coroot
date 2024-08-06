@@ -36,7 +36,7 @@
             </tbody>
         </v-simple-table>
 
-        <v-btn color="primary" class="mt-2" @click="openForm()">Add a category</v-btn>
+        <v-btn color="primary" class="mt-2" @click="openForm()" small>Add a category</v-btn>
 
         <v-dialog v-model="form.active" max-width="800">
             <v-card class="pa-4">
@@ -64,17 +64,17 @@
                             <a href="https://en.wikipedia.org/wiki/Glob_(programming)" target="_blank">glob patterns</a>
                             in the <var>&lt;namespace&gt;/&lt;application_name&gt;</var> format, e.g.: <var>staging/* test-*/*</var>
                         </div>
-                        <v-textarea v-model="form.custom_patterns" outlined dense rows="1" auto-grow :disabled="form.del" />
+                        <v-textarea v-model="form.custom_patterns" outlined dense rows="1" auto-grow :disabled="form.del" hide-details />
                     </template>
 
                     <v-checkbox
                         v-model="form.notify_of_deployments"
                         :disabled="form.del"
                         label="Get notified of deployments"
-                        class="mt-1"
+                        class="my-2"
                         hide-details
                     />
-                    <div v-if="form.notify_of_deployments">
+                    <div v-if="form.notify_of_deployments" class="my-2">
                         <ul v-if="integrations && Object.keys(integrations).length">
                             <li v-for="(details, type) in integrations">
                                 <span>{{ type }}</span>
@@ -88,8 +88,9 @@
                             :to="{ name: 'project_settings', params: { tab: 'notifications' } }"
                             @click="form.active = false"
                             class="mt-1"
-                            >Configure integrations</v-btn
                         >
+                            Configure integrations
+                        </v-btn>
                     </div>
 
                     <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>

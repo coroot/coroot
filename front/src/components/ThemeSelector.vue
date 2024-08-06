@@ -1,19 +1,10 @@
 <template>
-    <v-menu dark offset-y tile left attach=".v-app-bar">
-        <template #activator="{ on }">
-            <v-btn v-on="on" plain outlined height="40" class="px-2">
-                <v-icon>{{ themes[theme] }}</v-icon>
-            </v-btn>
-        </template>
-        <v-list dense>
-            <v-list-item-group v-model="theme">
-                <v-list-item v-for="(icon, name) in themes" @click="setTheme(name)" :value="name">
-                    <v-icon small class="mr-1">{{ icon }}</v-icon>
-                    {{ name }}
-                </v-list-item>
-            </v-list-item-group>
-        </v-list>
-    </v-menu>
+    <v-list-item-group v-model="theme">
+        <v-list-item v-for="(icon, name) in themes" @click="setTheme(name)" :value="name">
+            <v-icon small class="mr-1">{{ icon }}</v-icon>
+            {{ name }}
+        </v-list-item>
+    </v-list-item-group>
 </template>
 
 <script>
@@ -34,7 +25,7 @@ export default {
         },
     },
 
-    mounted() {
+    created() {
         this.setTheme();
     },
 
