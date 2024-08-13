@@ -34,8 +34,10 @@ require (
 	github.com/xhit/go-str2duration/v2 v2.0.0
 	go.opentelemetry.io/collector/semconv v0.97.0
 	go.opentelemetry.io/proto/otlp v0.19.0
+	golang.org/x/crypto v0.21.0
 	golang.org/x/exp v0.0.0-20230213192124-5e25df0256eb
 	golang.org/x/net v0.22.0
+	golang.org/x/term v0.18.0
 	gonum.org/v1/gonum v0.12.0
 	google.golang.org/protobuf v1.33.0
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6

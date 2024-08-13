@@ -3,7 +3,7 @@
         <h1 class="text-h5 my-5">Configuration</h1>
 
         <v-tabs height="40" show-arrows slider-size="2">
-            <v-tab v-for="t in tabs" :key="t.id" :to="{ params: { tab: t.id } }" :disabled="t.id && !projectId" exact>
+            <v-tab v-for="t in tabs" :key="t.id" :to="{ params: { tab: t.id } }" :disabled="t.disabled" exact>
                 {{ t.name }}
             </v-tab>
         </v-tabs>
@@ -28,7 +28,7 @@
                     <v-icon>mdi-information-outline</v-icon>
                 </a>
             </h1>
-            <IntegrationPrometheus :projectId="projectId" />
+            <IntegrationPrometheus />
         </template>
 
         <template v-if="tab === 'clickhouse'">
@@ -54,7 +54,7 @@
                     <v-icon>mdi-information-outline</v-icon>
                 </a>
             </h1>
-            <ProjectCheckConfigs :projectId="projectId" />
+            <Inspections />
         </template>
 
         <template v-if="tab === 'applications'">
@@ -106,6 +106,15 @@
             </h1>
             <Integrations />
         </template>
+
+        <template v-if="tab === 'organization'">
+            <h1 class="text-h5 my-5">Users</h1>
+            <Users />
+            <h1 class="text-h5 mt-10 mb-5">Role-Based Access Control (RBAC)</h1>
+            <RBAC />
+            <h1 class="text-h5 mt-10 mb-5">Single Sign-On (SAML)</h1>
+            <SSO />
+        </template>
     </div>
 </template>
 
@@ -113,23 +122,16 @@
 import ProjectSettings from './ProjectSettings.vue';
 import ProjectStatus from './ProjectStatus.vue';
 import ProjectDelete from './ProjectDelete.vue';
-import ProjectCheckConfigs from './ProjectCheckConfigs.vue';
+import Inspections from './Inspections.vue';
 import ApplicationCategories from './ApplicationCategories.vue';
 import Integrations from './Integrations.vue';
 import IntegrationPrometheus from './IntegrationPrometheus.vue';
 import IntegrationClickhouse from './IntegrationClickhouse.vue';
 import IntegrationAWS from './IntegrationAWS.vue';
-import CustomApplications from '@/views/CustomApplications.vue';
-
-const tabs = [
-    { id: undefined, name: 'General' },
-    { id: 'prometheus', name: 'Prometheus' },
-    { id: 'clickhouse', name: 'Clickhouse' },
-    { id: 'aws', name: 'AWS' },
-    { id: 'inspections', name: 'Inspections' },
-    { id: 'applications', name: 'Applications' },
-    { id: 'notifications', name: 'Notifications' },
-];
+import CustomApplications from './CustomApplications.vue';
+import Users from './Users.vue';
+import RBAC from './RBAC.vue';
+import SSO from './SSO.vue';
 
 export default {
     props: {
@@ -142,12 +144,15 @@ export default {
         IntegrationPrometheus,
         IntegrationClickhouse,
         IntegrationAWS,
-        ProjectCheckConfigs,
+        Inspections,
         ProjectSettings,
         ProjectStatus,
         ProjectDelete,
         ApplicationCategories,
         Integrations,
+        Users,
+        RBAC,
+        SSO,
     },
 
     mounted() {
@@ -158,7 +163,17 @@ export default {
 
     computed: {
         tabs() {
-            return tabs;
+            const disabled = !this.projectId;
+            return [
+                { id: undefined, name: 'General' },
+                { id: 'prometheus', name: 'Prometheus', disabled },
+                { id: 'clickhouse', name: 'Clickhouse', disabled },
+                { id: 'aws', name: 'AWS', disabled },
+                { id: 'inspections', name: 'Inspections', disabled },
+                { id: 'applications', name: 'Applications', disabled },
+                { id: 'notifications', name: 'Notifications', disabled },
+                { id: 'organization', name: 'Organization' },
+            ];
         },
     },
 };

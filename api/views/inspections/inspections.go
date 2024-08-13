@@ -1,4 +1,4 @@
-package configs
+package inspections
 
 import (
 	"github.com/coroot/coroot/model"

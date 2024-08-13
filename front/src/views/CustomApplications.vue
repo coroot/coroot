@@ -29,7 +29,7 @@
             </tbody>
         </v-simple-table>
 
-        <v-btn color="primary" class="mt-2" @click="openForm()">Add an application</v-btn>
+        <v-btn color="primary" class="mt-3" @click="openForm()" small>Add an application</v-btn>
 
         <v-dialog v-model="form.active" max-width="800">
             <v-card class="pa-4">

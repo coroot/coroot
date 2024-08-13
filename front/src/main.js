@@ -16,6 +16,8 @@ import Overview from '@/views/Overview';
 import Application from '@/views/Application';
 import Node from '@/views/Node';
 import Welcome from '@/views/Welcome';
+import Login from '@/views/auth/Login.vue';
+import Logout from '@/views/auth/Logout.vue';
 
 Vue.config.productionTip = false;
 Vue.config.devtools = false;
@@ -27,7 +29,9 @@ const router = new VueRouter({
     mode: 'history',
     base: config.base_path,
     routes: [
-        { path: '/p/new/:tab?', name: 'project_new', component: Project },
+        { path: '/login', name: 'login', component: Login },
+        { path: '/logout', name: 'logout', component: Logout },
+        { path: '/p/settings/:tab?', name: 'project_new', component: Project, props: true },
         { path: '/p/:projectId/settings/:tab?', name: 'project_settings', component: Project, props: true, meta: { stats: { param: 'tab' } } },
         { path: '/p/:projectId/:view?', name: 'overview', component: Overview, props: true, meta: { stats: { param: 'view' } } },
         { path: '/p/:projectId/app/:id/:report?', name: 'application', component: Application, props: true, meta: { stats: { param: 'report' } } },

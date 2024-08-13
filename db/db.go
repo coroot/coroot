@@ -6,12 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"path"
+	"strings"
 
 	"github.com/lib/pq"
 	_ "github.com/lib/pq"
 	"github.com/mattn/go-sqlite3"
 	_ "github.com/mattn/go-sqlite3"
-	"k8s.io/klog"
 )
 
 type Type string
@@ -24,6 +24,7 @@ const (
 var (
 	ErrNotFound = errors.New("not found")
 	ErrConflict = errors.New("conflict")
+	ErrInvalid  = errors.New("invalid")
 )
 
 type DB struct {
@@ -40,11 +41,9 @@ func Open(dataDir string, pgConnString string) (*DB, error) {
 	var err error
 	var typ Type
 	if pgConnString != "" {
-		klog.Infoln("using postgres database")
 		typ = TypePostgres
 		db, err = postgres(pgConnString)
 	} else {
-		klog.Infoln("using sqlite database")
 		typ = TypeSqlite
 		db, err = sqlite(path.Join(dataDir, "db.sqlite"))
 	}
@@ -75,6 +74,8 @@ func (db *DB) MigrateDefault(extraTables ...Table) error {
 		&IncidentNotification{},
 		&ApplicationDeployment{},
 		&ApplicationSettings{},
+		&Setting{},
+		&User{},
 	}
 	return NewMigrator(db.typ, db.db).Migrate(append(defaultTables, extraTables...)...)
 }
@@ -130,6 +131,10 @@ func (m *Migrator) Migrate(tables ...Table) error {
 }
 
 func (m *Migrator) Exec(query string, args ...any) error {
+	switch m.typ {
+	case TypePostgres:
+		query = strings.ReplaceAll(query, "INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT", "SERIAL PRIMARY KEY")
+	}
 	_, err := m.db.Exec(query, args...)
 	return err
 }

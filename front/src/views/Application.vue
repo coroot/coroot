@@ -26,7 +26,7 @@
 
             <Dashboard v-if="r" :name="r.name" :widgets="r.widgets" />
         </div>
-        <NoData v-else-if="!loading" />
+        <NoData v-else-if="!loading && !error" />
     </div>
 </template>
 

@@ -43,9 +43,6 @@ import CheckForm from '../components/CheckForm.vue';
 
 export default {
     components: { CheckForm },
-    props: {
-        projectId: String,
-    },
 
     data() {
         return {
@@ -62,12 +59,6 @@ export default {
     mounted() {
         this.get();
         this.$events.watch(this, this.get, 'refresh');
-    },
-
-    watch: {
-        projectId() {
-            this.get();
-        },
     },
 
     methods: {
@@ -100,7 +91,7 @@ export default {
         get() {
             this.loading = true;
             this.error = '';
-            this.$api.getCheckConfigs((data, error) => {
+            this.$api.getInspections((data, error) => {
                 this.loading = false;
                 if (error) {
                     this.error = error;

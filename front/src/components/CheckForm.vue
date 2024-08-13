@@ -6,7 +6,7 @@
                     Configure the "{{ check.title }}" inspection
                     <v-btn v-if="form && !form.default" small icon @click="confirmation = true"><v-icon small>mdi-trash-can-outline</v-icon></v-btn>
                     <v-overlay :value="confirmation" absolute opacity="0.8">
-                        <div>Are you sure you want to delete the "{{ check.title }}" check?</div>
+                        <div>Are you sure you want to delete the "{{ check.title }}" inspection?</div>
                         <div class="mt-5 d-flex">
                             <v-spacer />
                             <v-btn @click="confirmation = false" small color="info">Cancel</v-btn>
@@ -18,6 +18,7 @@
                 <v-spacer />
                 <v-btn icon @click="emitValue(false)"><v-icon>mdi-close</v-icon></v-btn>
             </div>
+
             <v-form v-if="form" v-model="valid">
                 <CheckFormSLOAvailability v-if="check.id === 'SLOAvailability'" :form="form" />
                 <CheckFormSLOLatency v-else-if="check.id === 'SLOLatency'" :form="form" />
@@ -33,9 +34,9 @@
                             </li>
                         </ul>
                         <div v-else class="grey--text">No notification integrations configured.</div>
-                        <v-btn color="primary" small :to="{ name: 'project_settings', params: { tab: 'notifications' } }" class="mt-1"
-                            >Configure integrations</v-btn
-                        >
+                        <v-btn color="primary" small :to="{ name: 'project_settings', params: { tab: 'notifications' } }" class="mt-1">
+                            Configure integrations
+                        </v-btn>
                     </div>
                 </div>
 
@@ -98,7 +99,7 @@ export default {
     methods: {
         get() {
             this.loading = true;
-            this.$api.getCheckConfig(this.appId, this.check.id, (data, error) => {
+            this.$api.getInspectionConfig(this.appId, this.check.id, (data, error) => {
                 this.loading = false;
                 if (error) {
                     this.error = error;
@@ -114,7 +115,7 @@ export default {
             this.saving = true;
             this.error = '';
             this.message = '';
-            this.$api.saveCheckConfig(this.appId, this.check.id, this.form, (data, error) => {
+            this.$api.saveInspectionConfig(this.appId, this.check.id, this.form, (data, error) => {
                 this.saving = false;
                 if (error) {
                     this.error = error;
@@ -132,7 +133,7 @@ export default {
             this.confirmation = false;
             this.deleting = true;
             this.error = '';
-            this.$api.saveCheckConfig(this.appId, this.check.id, { configs: null }, (data, error) => {
+            this.$api.saveInspectionConfig(this.appId, this.check.id, { configs: null }, (data, error) => {
                 this.deleting = false;
                 if (error) {
                     this.error = error;

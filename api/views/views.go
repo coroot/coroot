@@ -7,7 +7,7 @@ import (
 	"github.com/coroot/coroot/api/views/application"
 	"github.com/coroot/coroot/api/views/applications"
 	"github.com/coroot/coroot/api/views/aws"
-	"github.com/coroot/coroot/api/views/configs"
+	"github.com/coroot/coroot/api/views/inspections"
 	"github.com/coroot/coroot/api/views/integrations"
 	"github.com/coroot/coroot/api/views/logs"
 	"github.com/coroot/coroot/api/views/overview"
@@ -39,8 +39,8 @@ func Logs(ctx context.Context, ch *clickhouse.Client, app *model.Application, q 
 	return logs.Render(ctx, ch, app, q, w)
 }
 
-func Configs(checkConfigs model.CheckConfigs) *configs.View {
-	return configs.Render(checkConfigs)
+func Inspections(checkConfigs model.CheckConfigs) *inspections.View {
+	return inspections.Render(checkConfigs)
 }
 
 func Categories(p *db.Project) *applications.CategoriesView {

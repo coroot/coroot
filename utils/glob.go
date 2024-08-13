@@ -13,7 +13,7 @@ func GlobValidate(patterns []string) bool {
 	return true
 }
 
-func GlobMatch(s string, patterns []string) bool {
+func GlobMatch(s string, patterns ...string) bool {
 	for _, p := range patterns {
 		if ok, err := filepath.Match(p, s); err == nil && ok {
 			return true

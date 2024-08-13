@@ -21,10 +21,10 @@ type Project struct {
 	Name string
 
 	Prometheus IntegrationsPrometheus
-	Settings   Settings
+	Settings   ProjectSettings
 }
 
-type Settings struct {
+type ProjectSettings struct {
 	ApplicationCategories       map[model.ApplicationCategory][]string                    `json:"application_categories"`
 	ApplicationCategorySettings map[model.ApplicationCategory]ApplicationCategorySettings `json:"application_category_settings"`
 	Integrations                Integrations                                              `json:"integrations"`
@@ -73,7 +73,7 @@ func (p *Project) applyDefaults() {
 
 func (p *Project) GetCustomApplicationName(instance string) string {
 	for customAppName, cfg := range p.Settings.CustomApplications {
-		if utils.GlobMatch(instance, cfg.InstancePattens) {
+		if utils.GlobMatch(instance, cfg.InstancePattens...) {
 			return customAppName
 		}
 	}
