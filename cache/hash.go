@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"hash/fnv"
 
+	"github.com/coroot/coroot/cache/chunk"
 	"github.com/coroot/coroot/constructor"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/timeseries"
@@ -31,7 +32,7 @@ func chunkJitter(projectId db.ProjectId, queryHash string) timeseries.Duration {
 	queryKey := fmt.Sprintf("%s-%s", projectId, queryHash)
 	h := fnv.New32a()
 	_, _ = h.Write([]byte(queryKey))
-	return timeseries.Duration(h.Sum32()%uint32(chunkSize/timeseries.Minute)) * timeseries.Minute
+	return timeseries.Duration(h.Sum32()%uint32(chunk.Size/timeseries.Minute)) * timeseries.Minute
 }
 
 func QueryId(projectId db.ProjectId, query string) (string, timeseries.Duration) {
