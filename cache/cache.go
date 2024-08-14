@@ -17,10 +17,6 @@ import (
 	"k8s.io/klog"
 )
 
-const (
-	chunkSize = timeseries.Hour
-)
-
 type PrometheusClientFactory func(project *db.Project) (*prom.Client, error)
 
 func DefaultPrometheusClientFactory(p *db.Project) (*prom.Client, error) {

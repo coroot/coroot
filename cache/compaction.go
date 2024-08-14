@@ -36,7 +36,6 @@ func (ct CompactionTask) String() string {
 
 func calcCompactionTasks(compactor Compactor, projectID db.ProjectId, queryHash string, chunks map[string]*chunk.Meta) []*CompactionTask {
 	tasks := map[timeseries.Time]*CompactionTask{}
-	jitter := chunkJitter(projectID, queryHash)
 	for _, ch := range chunks {
 		if timeseries.Duration(ch.PointsCount)*ch.Step != compactor.SrcChunkDuration {
 			continue
@@ -44,7 +43,7 @@ func calcCompactionTasks(compactor Compactor, projectID db.ProjectId, queryHash 
 		if !ch.Finalized {
 			continue
 		}
-		dstChunkTs := ch.From.Add(-jitter).Truncate(compactor.DstChunkDuration).Add(jitter)
+		dstChunkTs := ch.From.Truncate(compactor.DstChunkDuration).Add(ch.Jitter())
 		task := tasks[dstChunkTs]
 		if task == nil {
 			task = &CompactionTask{
