@@ -82,7 +82,7 @@ export default {
                     this.error = error;
                     return;
                 }
-                this.$events.emit('project-deleted');
+                this.$events.emit('projects');
                 this.$router.push({ name: 'index' });
             });
         },

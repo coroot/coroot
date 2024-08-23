@@ -13,7 +13,7 @@ import (
 	"github.com/coroot/coroot/auditor"
 	"github.com/coroot/coroot/cache"
 	"github.com/coroot/coroot/clickhouse"
-	cloud_pricing "github.com/coroot/coroot/cloud-pricing"
+	pricing "github.com/coroot/coroot/cloud-pricing"
 	"github.com/coroot/coroot/collector"
 	"github.com/coroot/coroot/constructor"
 	"github.com/coroot/coroot/db"
@@ -27,17 +27,24 @@ import (
 )
 
 type Api struct {
-	cache   *cache.Cache
-	db      *db.DB
-	coll    *collector.Collector
-	pricing *cloud_pricing.Manager
+	cache     *cache.Cache
+	db        *db.DB
+	collector *collector.Collector
+	pricing   *pricing.Manager
+	roles     rbac.RoleManager
 
 	authSecret        string
-	authAnonymousRole db.UserRole
+	authAnonymousRole rbac.RoleName
 }
 
-func NewApi(cache *cache.Cache, db *db.DB, coll *collector.Collector, pricing *cloud_pricing.Manager) *Api {
-	return &Api{cache: cache, db: db, coll: coll, pricing: pricing}
+func NewApi(cache *cache.Cache, db *db.DB, collector *collector.Collector, pricing *pricing.Manager, roles rbac.RoleManager) *Api {
+	return &Api{
+		cache:     cache,
+		db:        db,
+		collector: collector,
+		pricing:   pricing,
+		roles:     roles,
+	}
 }
 
 func (api *Api) User(w http.ResponseWriter, r *http.Request, u *db.User) {
@@ -73,11 +80,11 @@ func (api *Api) User(w http.ResponseWriter, r *http.Request, u *db.User) {
 		Name string       `json:"name"`
 	}
 	type User struct {
-		Name      string      `json:"name"`
-		Email     string      `json:"email"`
-		Role      db.UserRole `json:"role"`
-		Anonymous bool        `json:"anonymous"`
-		Projects  []Project   `json:"projects"`
+		Name      string        `json:"name"`
+		Email     string        `json:"email"`
+		Role      rbac.RoleName `json:"role"`
+		Anonymous bool          `json:"anonymous"`
+		Projects  []Project     `json:"projects"`
 	}
 	res := User{
 		Name:      u.Name,
@@ -103,8 +110,15 @@ func (api *Api) User(w http.ResponseWriter, r *http.Request, u *db.User) {
 }
 
 func (api *Api) Users(w http.ResponseWriter, r *http.Request, u *db.User) {
-	if !u.IsAllowed(rbac.Users().Edit()) {
+	if !api.IsAllowed(u, rbac.Actions.Users().Edit()) {
 		http.Error(w, "You are not allowed to edit users.", http.StatusForbidden)
+		return
+	}
+
+	roles, err := api.roles.GetRoles()
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 
@@ -120,6 +134,10 @@ func (api *Api) Users(w http.ResponseWriter, r *http.Request, u *db.User) {
 		}
 		switch form.Action {
 		case forms.UserActionCreate:
+			if !form.Role.Valid(roles) {
+				http.Error(w, fmt.Sprintf("Unknown role: %s", form.Name), http.StatusBadRequest)
+				return
+			}
 			if err := api.db.AddUser(form.Email, form.Password, form.Name, form.Role); err != nil {
 				klog.Errorln(err)
 				if errors.Is(err, db.ErrConflict) {
@@ -130,6 +148,10 @@ func (api *Api) Users(w http.ResponseWriter, r *http.Request, u *db.User) {
 				return
 			}
 		case forms.UserActionUpdate:
+			if !form.Role.Valid(roles) {
+				http.Error(w, fmt.Sprintf("Unknown role: %s", form.Name), http.StatusBadRequest)
+				return
+			}
 			if err := api.db.UpdateUser(form.Id, form.Email, form.Password, form.Name, form.Role); err != nil {
 				klog.Errorln(err)
 				http.Error(w, "", http.StatusInternalServerError)
@@ -151,29 +173,36 @@ func (api *Api) Users(w http.ResponseWriter, r *http.Request, u *db.User) {
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
-	type User struct {
-		Id       int         `json:"id"`
-		Email    string      `json:"email"`
-		Name     string      `json:"name"`
-		Role     db.UserRole `json:"role"`
-		Readonly bool        `json:"readonly"`
+	utils.WriteJson(w, views.Users(users, roles))
+}
+
+func (api *Api) Roles(w http.ResponseWriter, r *http.Request, u *db.User) {
+	if r.Method == http.MethodPost {
+		http.Error(w, "", http.StatusMethodNotAllowed)
+		return
 	}
-	var res []User
-	for _, user := range users {
-		var role db.UserRole
-		if len(user.Roles) > 0 {
-			role = user.Roles[0]
-		}
-		res = append(res, User{Id: user.Id, Email: user.Email, Name: user.Name, Role: role, Readonly: user.Email == db.AdminUserLogin})
+	qaSample := rbac.NewRole("QA",
+		rbac.NewPermission(rbac.ScopeProjectAll, rbac.ActionAll, rbac.Object{"project_id": "staging"}),
+	)
+	dbaSample := rbac.NewRole("DBA",
+		rbac.NewPermission(rbac.ScopeProjectInstrumentations, rbac.ActionEdit, nil),
+		rbac.NewPermission(rbac.ScopeApplication, rbac.ActionView, rbac.Object{"application_category": "databases"}),
+		rbac.NewPermission(rbac.ScopeNode, rbac.ActionView, rbac.Object{"node_name": "db*"}),
+	)
+	roles, err := api.roles.GetRoles()
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
 	}
-	utils.WriteJson(w, res)
+	utils.WriteJson(w, views.Roles(append(roles, qaSample, dbaSample)))
 }
 
 func (api *Api) Project(w http.ResponseWriter, r *http.Request, u *db.User) {
 	vars := mux.Vars(r)
 	projectId := vars["project"]
 
-	isAllowed := u.IsAllowed(rbac.Project(projectId).Settings().Edit())
+	isAllowed := api.IsAllowed(u, rbac.Actions.Project(projectId).Settings().Edit())
 
 	switch r.Method {
 
@@ -277,12 +306,12 @@ func (api *Api) Overview(w http.ResponseWriter, r *http.Request, u *db.User) {
 
 	switch view {
 	case "traces":
-		if !u.IsAllowed(rbac.Project(projectId).Traces().View()) {
+		if !api.IsAllowed(u, rbac.Actions.Project(projectId).Traces().View()) {
 			http.Error(w, "You are not allowed to view traces.", http.StatusForbidden)
 			return
 		}
 	case "costs":
-		if !u.IsAllowed(rbac.Project(projectId).Costs().View()) {
+		if !api.IsAllowed(u, rbac.Actions.Project(projectId).Costs().View()) {
 			http.Error(w, "You are not allowed to view costs.", http.StatusForbidden)
 			return
 		}
@@ -326,7 +355,7 @@ func (api *Api) Categories(w http.ResponseWriter, r *http.Request, u *db.User) {
 	projectId := vars["project"]
 
 	if r.Method == http.MethodPost {
-		if !u.IsAllowed(rbac.Project(projectId).ApplicationCategories().Edit()) {
+		if !api.IsAllowed(u, rbac.Actions.Project(projectId).ApplicationCategories().Edit()) {
 			http.Error(w, "You are not allowed to configure application categories.", http.StatusForbidden)
 			return
 		}
@@ -358,7 +387,7 @@ func (api *Api) CustomApplications(w http.ResponseWriter, r *http.Request, u *db
 	projectId := vars["project"]
 
 	if r.Method == http.MethodPost {
-		if !u.IsAllowed(rbac.Project(projectId).CustomApplications().Edit()) {
+		if !api.IsAllowed(u, rbac.Actions.Project(projectId).CustomApplications().Edit()) {
 			http.Error(w, "You are not allowed to configure custom applications.", http.StatusForbidden)
 			return
 		}
@@ -389,7 +418,7 @@ func (api *Api) Integrations(w http.ResponseWriter, r *http.Request, u *db.User)
 	projectId := vars["project"]
 
 	if r.Method == http.MethodPut {
-		if !u.IsAllowed(rbac.Project(projectId).Integrations().Edit()) {
+		if !api.IsAllowed(u, rbac.Actions.Project(projectId).Integrations().Edit()) {
 			http.Error(w, "You are not allowed to configure notification integrations.", http.StatusForbidden)
 			return
 		}
@@ -435,7 +464,7 @@ func (api *Api) Integration(w http.ResponseWriter, r *http.Request, u *db.User) 
 		return
 	}
 
-	isAllowed := u.IsAllowed(rbac.Project(projectId).Integrations().Edit())
+	isAllowed := api.IsAllowed(u, rbac.Actions.Project(projectId).Integrations().Edit())
 
 	if r.Method == http.MethodGet {
 		form.Get(project, !isAllowed)
@@ -500,7 +529,7 @@ func (api *Api) Integration(w http.ResponseWriter, r *http.Request, u *db.User) 
 	}
 
 	cfg := project.Settings.Integrations.Clickhouse
-	err = api.coll.UpdateClickhouseClient(r.Context(), project.Id, cfg)
+	err = api.collector.UpdateClickhouseClient(r.Context(), project.Id, cfg)
 	if err != nil {
 		klog.Errorln("clickhouse error:", err)
 		http.Error(w, "Clickhouse error: "+err.Error(), http.StatusInternalServerError)
@@ -558,7 +587,7 @@ func (api *Api) Application(w http.ResponseWriter, r *http.Request, u *db.User) 
 		return
 	}
 
-	if !u.IsAllowed(rbac.Project(projectId).Application(app.Category, app.Id.Namespace, app.Id.Kind, app.Id.Name).View()) {
+	if !api.IsAllowed(u, rbac.Actions.Project(projectId).Application(app.Category, app.Id.Namespace, app.Id.Kind, app.Id.Name).View()) {
 		http.Error(w, "You are not allowed to view this application.", http.StatusForbidden)
 		return
 	}
@@ -628,7 +657,7 @@ func (api *Api) Inspection(w http.ResponseWriter, r *http.Request, u *db.User) {
 		return
 
 	case http.MethodPost:
-		if !u.IsAllowed(rbac.Project(projectId).Inspections().Edit()) {
+		if !api.IsAllowed(u, rbac.Actions.Project(projectId).Inspections().Edit()) {
 			http.Error(w, "You are not allowed to configure inspections.", http.StatusForbidden)
 			return
 		}
@@ -711,7 +740,7 @@ func (api *Api) Instrumentation(w http.ResponseWriter, r *http.Request, u *db.Us
 		return
 	}
 
-	isAllowed := u.IsAllowed(rbac.Project(projectId).Instrumentations().Edit())
+	isAllowed := api.IsAllowed(u, rbac.Actions.Project(projectId).Instrumentations().Edit())
 
 	if r.Method == http.MethodPost {
 		if !isAllowed {
@@ -761,7 +790,7 @@ func (api *Api) Profiling(w http.ResponseWriter, r *http.Request, u *db.User) {
 	}
 
 	if r.Method == http.MethodPost {
-		if !u.IsAllowed(rbac.Project(projectId).Inspections().Edit()) {
+		if !api.IsAllowed(u, rbac.Actions.Project(projectId).Inspections().Edit()) {
 			http.Error(w, "You are not allowed to configure profiling settings.", http.StatusForbidden)
 			return
 		}
@@ -818,7 +847,7 @@ func (api *Api) Tracing(w http.ResponseWriter, r *http.Request, u *db.User) {
 	}
 
 	if r.Method == http.MethodPost {
-		if !u.IsAllowed(rbac.Project(projectId).Inspections().Edit()) {
+		if !api.IsAllowed(u, rbac.Actions.Project(projectId).Inspections().Edit()) {
 			http.Error(w, "You are not allowed to configure tracing settings.", http.StatusForbidden)
 			return
 		}
@@ -875,7 +904,7 @@ func (api *Api) Logs(w http.ResponseWriter, r *http.Request, u *db.User) {
 	}
 
 	if r.Method == http.MethodPost {
-		if !u.IsAllowed(rbac.Project(projectId).Inspections().Edit()) {
+		if !api.IsAllowed(u, rbac.Actions.Project(projectId).Inspections().Edit()) {
 			http.Error(w, "You are not allowed to configure logs settings.", http.StatusForbidden)
 			return
 		}
@@ -925,7 +954,7 @@ func (api *Api) Node(w http.ResponseWriter, r *http.Request, u *db.User) {
 	vars := mux.Vars(r)
 	projectId := vars["project"]
 	nodeName := vars["node"]
-	if !u.IsAllowed(rbac.Project(projectId).Node(nodeName).View()) {
+	if !api.IsAllowed(u, rbac.Actions.Project(projectId).Node(nodeName).View()) {
 		http.Error(w, "You are not allowed to view this node.", http.StatusForbidden)
 		return
 	}

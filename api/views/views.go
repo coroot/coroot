@@ -12,10 +12,13 @@ import (
 	"github.com/coroot/coroot/api/views/logs"
 	"github.com/coroot/coroot/api/views/overview"
 	"github.com/coroot/coroot/api/views/profiling"
+	"github.com/coroot/coroot/api/views/roles"
 	"github.com/coroot/coroot/api/views/tracing"
+	"github.com/coroot/coroot/api/views/users"
 	"github.com/coroot/coroot/clickhouse"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
+	"github.com/coroot/coroot/rbac"
 	"github.com/coroot/coroot/timeseries"
 )
 
@@ -57,4 +60,11 @@ func Integrations(p *db.Project) *integrations.View {
 
 func AWS(w *model.World) *aws.View {
 	return aws.Render(w)
+}
+
+func Users(us []*db.User, rs []rbac.Role) *users.View {
+	return users.Render(us, rs)
+}
+func Roles(rs []rbac.Role) *roles.View {
+	return roles.Render(rs)
 }

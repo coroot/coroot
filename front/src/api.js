@@ -113,6 +113,14 @@ export default class Api {
         }
     }
 
+    roles(form, cb) {
+        if (form) {
+            this.post(`roles`, form, cb);
+        } else {
+            this.get(`roles`, {}, cb);
+        }
+    }
+
     getProject(projectId, cb) {
         this.get(`project/${projectId || ''}`, {}, cb);
     }

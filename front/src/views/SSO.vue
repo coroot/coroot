@@ -38,7 +38,7 @@
                 </tr>
             </tbody>
         </v-simple-table>
-        <v-btn color="primary" disabled class="mt-2">Save and Enable</v-btn>
+        <v-btn color="primary" small disabled class="mt-2">Save and Enable</v-btn>
     </div>
 </template>
 

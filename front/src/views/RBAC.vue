@@ -1,6 +1,6 @@
 <template>
     <div>
-        <v-alert color="info" outlined text>
+        <v-alert v-if="disabled" color="info" outlined text>
             Coroot Community Edition includes three predefined roles: Admin, Editor, and Viewer.
             <br />
             For more granular Role-Based Access Control (RBAC), upgrade to Coroot Enterprise.
@@ -11,41 +11,46 @@
                 <tr>
                     <th>Action</th>
                     <th v-for="r in roles" class="text-no-wrap">
-                        <span :class="{ 'grey--text': r.custom }">{{ r.name }}</span>
-                        <span v-if="r.custom">*</span>
-                        <v-btn v-if="r.editable" @click="edit(r)" small icon>
-                            <v-icon x-small>mdi-pencil</v-icon>
-                        </v-btn>
+                        <span>{{ r.name }}</span>
+                        <span v-if="disabled && r.custom">*</span>
+                        <v-btn v-if="r.custom" @click="edit(r)" small icon><v-icon x-small>mdi-pencil</v-icon></v-btn>
                     </th>
                 </tr>
             </thead>
             <tbody>
-                <tr v-for="a in matrix">
+                <tr v-for="a in actions">
                     <td>{{ a.name }}</td>
                     <td v-for="r in a.roles">
-                        <v-icon v-if="r === '*'" small color="green">mdi-check-bold</v-icon>
-                        <v-icon v-else-if="r === ''" small color="red">mdi-close-thick</v-icon>
+                        <v-icon v-if="!r.objects" small color="red">mdi-close-thick</v-icon>
+                        <v-icon v-else-if="!r.objects.length" small color="green">mdi-check-bold</v-icon>
                         <v-tooltip v-else bottom>
                             <template #activator="{ on }">
                                 <v-icon v-on="on" small color="green">mdi-list-status</v-icon>
                             </template>
-                            <v-card class="pa-2">{{ r }}</v-card>
+                            <v-card class="pa-2">
+                                <div v-for="o in r.objects">{{ o }}</div>
+                            </v-card>
                         </v-tooltip>
                     </td>
                 </tr>
             </tbody>
         </v-simple-table>
-        <v-btn color="primary" disabled class="mt-3">Add role</v-btn>
-        <div class="mt-2 grey--text">* - examples of fine-grained custom roles</div>
+        <v-btn color="primary" @click="add()" small :disabled="disabled" class="mt-3">Add role</v-btn>
+        <div v-if="disabled" class="mt-2 grey--text">* - examples of fine-grained custom roles</div>
 
         <v-dialog v-model="form.active" max-width="800">
             <v-card class="pa-4">
                 <div class="d-flex align-center font-weight-medium mb-4">
-                    Edit role '{{ form.name }}'
+                    {{ form.title }}
+                    <v-btn v-if="form.action === 'edit'" :disabled="disabled" @click="form.action = 'delete'" icon small>
+                        <v-icon small>mdi-trash-can-outline</v-icon>
+                    </v-btn>
                     <v-spacer />
                     <v-btn icon @click="form.active = false"><v-icon>mdi-close</v-icon></v-btn>
                 </div>
-                <v-form ref="form" class="form">
+                <v-form v-model="form.valid" :disabled="disabled" ref="form" class="form">
+                    <div class="font-weight-medium">Name</div>
+                    <v-text-field v-model="form.name" outlined dense :rules="[$validators.notEmpty]" />
                     <div class="font-weight-medium">Permission policies</div>
                     <v-simple-table dense class="mb-4 mt-2">
                         <thead>
@@ -57,49 +62,66 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <tr v-for="p in form.permissions">
+                            <tr v-for="(p, i) in form.permissions">
                                 <td>
                                     <v-select
                                         v-model="p.scope"
-                                        :items="scopes"
+                                        :items="scopes.map((s) => s.name)"
                                         outlined
                                         dense
                                         hide-details
                                         :menu-props="{ offsetY: true }"
-                                        disabled
+                                        :rules="[$validators.notEmpty]"
                                     />
                                 </td>
                                 <td>
                                     <v-select
                                         v-model="p.action"
-                                        :items="actions"
+                                        :items="(scopes.find((s) => s.name === p.scope) || {}).actions"
                                         outlined
                                         dense
                                         hide-details
                                         :menu-props="{ offsetY: true }"
-                                        disabled
+                                        :rules="[$validators.notEmpty]"
                                     />
                                 </td>
                                 <td>
-                                    <v-text-field v-model="p.object" outlined dense hide-details disabled />
+                                    <v-text-field v-model="p.object" outlined dense hide-details />
                                 </td>
                                 <td>
-                                    <v-btn small icon disabled>
+                                    <v-btn small icon :disabled="disabled" @click="form.permissions.splice(i, 1)">
                                         <v-icon small>mdi-trash-can-outline</v-icon>
                                     </v-btn>
                                 </td>
                             </tr>
                         </tbody>
                         <tfoot>
-                            <v-btn color="primary" small class="ml-1 mt-1" disabled>Add policy</v-btn>
+                            <v-btn
+                                color="primary"
+                                small
+                                class="ml-1 mt-2"
+                                :disabled="disabled"
+                                @click="form.permissions.push({ scope: '', action: '', object: '' })"
+                            >
+                                Add policy
+                            </v-btn>
                         </tfoot>
                     </v-simple-table>
-                    <div class="mb-2 caption grey--text">
+                    <div v-if="disabled" class="mb-2 caption grey--text">
                         This form is disabled because adjusting role permissions is not supported in the Coroot Community Edition.
                     </div>
+                    <v-alert v-if="form.error" color="red" icon="mdi-alert-octagon-outline" outlined text>{{ form.error }}</v-alert>
+                    <v-alert v-if="form.message" color="green" outlined text>{{ form.message }}</v-alert>
                     <div class="d-flex align-center">
                         <v-spacer />
-                        <v-btn color="primary" disabled>Save</v-btn>
+                        <template v-if="form.action === 'delete'">
+                            <div>Are you sure you want to delete the role?</div>
+                            <v-btn color="error" :disabled="disabled" @click="post" :loading="form.loading" small class="ml-2">Delete</v-btn>
+                            <v-btn color="info" @click="form.action = 'edit'" small class="ml-2">Cancel</v-btn>
+                        </template>
+                        <template v-else>
+                            <v-btn color="primary" :disabled="disabled || !form.valid" @click="post" :loading="form.loading">Save</v-btn>
+                        </template>
                     </div>
                 </v-form>
             </v-card>
@@ -111,88 +133,84 @@
 export default {
     data() {
         return {
+            loading: false,
+            error: '',
+            disabled: true,
+            roles: [],
+            actions: [],
+            scopes: [],
             form: {
                 active: false,
+                valid: true,
+                loading: false,
+                error: '',
+                message: '',
+                title: '',
+                action: '',
+                id: '',
                 name: '',
                 permissions: [],
             },
         };
     },
-    computed: {
-        actions() {
-            return ['*', 'view', 'edit'];
-        },
-        scopes() {
-            return [
-                '*',
-                'users',
-                'project.*',
-                'project.settings',
-                'project.integrations',
-                'project.application_categories',
-                'project.custom_applications',
-                'project.inspections',
-                'project.instrumentations',
-                'project.traces',
-                'project.costs',
-                'project.application',
-                'project.node',
-            ];
-        },
-        roles() {
-            return [
-                { name: 'Admin', editable: false, permissions: [{ scope: '*', action: '*', object: '*' }] },
-                {
-                    name: 'Editor',
-                    editable: true,
-                    permissions: [
-                        { scope: '*', action: 'view', object: '*' },
-                        { scope: 'project.application_categories', action: 'edit', object: '*' },
-                        { scope: 'project.custom_applications', action: 'edit', object: '*' },
-                        { scope: 'project.inspections', action: 'edit', object: '*' },
-                    ],
-                },
-                { name: 'Viewer', editable: true, permissions: [{ scope: '*', action: 'view' }], object: '*' },
-                { name: 'QA', editable: true, custom: true, permissions: [{ scope: 'project.*', action: '*', object: '{"project": "staging" }' }] },
-                {
-                    name: 'DBA',
-                    editable: true,
-                    custom: true,
-                    permissions: [
-                        { scope: 'project.instrumentations', action: 'edit', object: '*' },
-                        { scope: 'project.traces', action: 'view', object: '*' },
-                        { scope: 'project.costs', action: 'view', object: '*' },
-                        { scope: 'project.application', action: 'view', object: '{"application_category": "databases"}' },
-                        { scope: 'project.node', action: 'view', object: '{"node_name": "db*"}' },
-                    ],
-                },
-            ];
-        },
-        matrix() {
-            return [
-                { name: 'users:edit', roles: { Admin: '*', Editor: '', Viewer: '', QA: '', DBA: '' } },
-                { name: 'project.settings:edit', roles: { Admin: '*', Editor: '', Viewer: '', QA: 'project: staging', DBA: '' } },
-                { name: 'project.integrations:edit', roles: { Admin: '*', Editor: '', Viewer: '', QA: 'project: staging', DBA: '' } },
-                { name: 'project.application_categories:edit', roles: { Admin: '*', Editor: '*', Viewer: '', QA: 'project: staging', DBA: '' } },
-                { name: 'project.custom_applications:edit', roles: { Admin: '*', Editor: '*', Viewer: '', QA: 'project: staging', DBA: '' } },
-                { name: 'project.inspections:edit', roles: { Admin: '*', Editor: '*', Viewer: '', QA: 'project: staging', DBA: '' } },
-                { name: 'project.instrumentations:edit', roles: { Admin: '*', Editor: '', Viewer: '', QA: 'project: staging', DBA: '*' } },
-                { name: 'project.traces:view', roles: { Admin: '*', Editor: '*', Viewer: '*', QA: 'project: staging', DBA: '*' } },
-                { name: 'project.costs:view', roles: { Admin: '*', Editor: '*', Viewer: '*', QA: 'project: staging', DBA: '*' } },
-                {
-                    name: 'project.application:view',
-                    roles: { Admin: '*', Editor: '*', Viewer: '*', QA: 'project: staging', DBA: 'application_category: databases' },
-                },
-                { name: 'project.node:view', roles: { Admin: '*', Editor: '*', Viewer: '*', QA: 'project: staging', DBA: 'node_name: db*' } },
-            ];
-        },
+
+    mounted() {
+        this.get();
     },
 
     methods: {
-        edit(role) {
+        get() {
+            this.loading = true;
+            this.error = '';
+            this.$api.roles(null, (data, error) => {
+                this.loading = false;
+                if (error) {
+                    this.error = error;
+                    return;
+                }
+                this.disabled = !data.configurable;
+                this.roles = data.roles || [];
+                this.actions = data.actions || [];
+                this.scopes = data.scopes || [];
+            });
+        },
+        post() {
+            const { action, id, name, permissions } = this.form;
+            this.form.loading = true;
+            const form = { action, id, name, permissions };
+            this.$api.roles(form, (data, error) => {
+                this.form.loading = false;
+                if (error) {
+                    this.form.error = error;
+                    return;
+                }
+                this.$events.emit('roles');
+                this.form.active = false;
+                this.get();
+            });
+        },
+        add() {
+            this.form.message = '';
+            this.form.error = '';
             this.form.active = true;
+            this.form.title = 'Add role';
+            this.form.action = 'add';
+            this.form.name = '';
+            this.form.permissions = [{ scope: '', action: '', object: '' }];
+            this.$refs.form && this.$refs.form.resetValidation();
+        },
+        edit(role) {
+            this.form.message = '';
+            this.form.error = '';
+            this.form.active = true;
+            this.form.title = 'Edit role';
+            this.form.action = 'edit';
+            this.form.id = role.name;
             this.form.name = role.name;
-            this.form.permissions = [...role.permissions];
+            this.form.permissions = (role.permissions || []).map(({ scope, action, object }) => {
+                return { scope, action, object: object ? JSON.stringify(object) : '*' };
+            });
+            this.$refs.form && this.$refs.form.resetValidation();
         },
     },
 };
@@ -202,6 +220,9 @@ export default {
 .form:deep(table) {
     table-layout: fixed;
     min-width: 600px;
+}
+.form:deep(tr:hover) {
+    background-color: unset !important;
 }
 .form:deep(th) {
     height: unset !important;

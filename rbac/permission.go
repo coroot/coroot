@@ -1,22 +1,28 @@
 package rbac
 
-import "github.com/coroot/coroot/utils"
+import (
+	"github.com/coroot/coroot/utils"
+)
 
 type Permission struct {
-	scope  scope
-	action action
-	object object
+	Scope  Scope  `json:"scope"`
+	Action Verb   `json:"action"`
+	Object Object `json:"object"`
+}
+
+func NewPermission(scope Scope, action Verb, object Object) Permission {
+	return Permission{Scope: scope, Action: action, Object: object}
 }
 
 func (p Permission) allows(action Action) bool {
-	if !utils.GlobMatch(string(action.scope), string(p.scope)) {
+	if !utils.GlobMatch(string(action.Scope), string(p.Scope)) {
 		return false
 	}
-	if !utils.GlobMatch(string(action.action), string(p.action)) {
+	if !utils.GlobMatch(string(action.Action), string(p.Action)) {
 		return false
 	}
-	for k, av := range action.object {
-		pv := p.object[k]
+	for k, av := range action.Object {
+		pv := p.Object[k]
 		if pv == "" {
 			pv = "*"
 		}
@@ -25,6 +31,26 @@ func (p Permission) allows(action Action) bool {
 		}
 	}
 	return true
+}
+
+func (p Permission) allowsForObject(action Action) (bool, Object) {
+	if !utils.GlobMatch(string(action.Scope), string(p.Scope)) {
+		return false, nil
+	}
+	if !utils.GlobMatch(string(action.Action), string(p.Action)) {
+		return false, nil
+	}
+	object := Object{}
+	for k, v := range p.Object {
+		_, ok := action.Object[k]
+		if ok {
+			object[k] = v
+		}
+	}
+	if len(object) == 0 {
+		object = nil
+	}
+	return true, object
 }
 
 type PermissionSet []Permission
@@ -38,18 +64,17 @@ func (ps PermissionSet) Allows(action Action) bool {
 	return false
 }
 
-func AdminPermissionSet() PermissionSet {
-	return PermissionSet{{scope: "*", action: "*"}}
-}
-
-func EditorPermissionSet() PermissionSet {
-	return append(ViewerPermissionSet(),
-		Permission{scope: scopeProjectApplicationCategories, action: actionEdit},
-		Permission{scope: scopeProjectCustomApplications, action: actionEdit},
-		Permission{scope: scopeProjectInspections, action: actionEdit},
-	)
-}
-
-func ViewerPermissionSet() PermissionSet {
-	return PermissionSet{{scope: "*", action: actionView}}
+func (ps PermissionSet) AllowsForObjects(action Action) []Object {
+	var objects []Object
+	for _, p := range ps {
+		ok, obj := p.allowsForObject(action)
+		if !ok {
+			continue
+		}
+		if obj == nil {
+			return []Object{}
+		}
+		objects = append(objects, obj)
+	}
+	return objects
 }

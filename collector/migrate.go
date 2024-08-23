@@ -14,7 +14,7 @@ const (
 	ttlDays = "7"
 )
 
-func (c *Collector) Migrate(ctx context.Context, cfg *db.IntegrationClickhouse) error {
+func (c *Collector) migrate(ctx context.Context, cfg *db.IntegrationClickhouse) error {
 	if cfg == nil {
 		return nil
 	}

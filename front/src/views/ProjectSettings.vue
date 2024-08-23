@@ -73,7 +73,7 @@ export default {
                     this.error = error;
                     return;
                 }
-                this.$events.emit('project-saved');
+                this.$events.emit('projects');
                 this.message = 'Settings were successfully updated.';
                 if (!this.projectId) {
                     const projectId = data.trim();

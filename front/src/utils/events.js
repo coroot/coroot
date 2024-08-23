@@ -5,8 +5,8 @@ export default new Vue({
         return {
             events: {
                 refresh: 0,
-                'project-saved': 0,
-                'project-deleted': 0,
+                projects: 0,
+                roles: 0,
             },
         };
     },
