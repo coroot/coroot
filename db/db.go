@@ -32,10 +32,6 @@ type DB struct {
 	db  *sql.DB
 }
 
-func NewDB(typ Type, db *sql.DB) *DB {
-	return &DB{typ: typ, db: db}
-}
-
 func Open(dataDir string, pgConnString string) (*DB, error) {
 	var db *sql.DB
 	var err error
@@ -51,7 +47,7 @@ func Open(dataDir string, pgConnString string) (*DB, error) {
 		return nil, err
 	}
 	db.SetMaxOpenConns(1)
-	return NewDB(typ, db), nil
+	return &DB{typ: typ, db: db}, nil
 }
 
 func (db *DB) Type() Type {
@@ -62,11 +58,11 @@ func (db *DB) DB() *sql.DB {
 	return db.db
 }
 
-func (db *DB) Migrate(tables ...Table) error {
-	return NewMigrator(db.typ, db.db).Migrate(tables...)
+func (db *DB) Migrator() *Migrator {
+	return NewMigrator(db.typ, db.db)
 }
 
-func (db *DB) MigrateDefault(extraTables ...Table) error {
+func (db *DB) Migrate(extraTables ...Table) error {
 	defaultTables := []Table{
 		&Project{},
 		&CheckConfigs{},
@@ -77,7 +73,7 @@ func (db *DB) MigrateDefault(extraTables ...Table) error {
 		&Setting{},
 		&User{},
 	}
-	return NewMigrator(db.typ, db.db).Migrate(append(defaultTables, extraTables...)...)
+	return db.Migrator().Migrate(append(defaultTables, extraTables...)...)
 }
 
 func (db *DB) IsUniqueViolationError(err error) bool {

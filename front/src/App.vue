@@ -177,7 +177,7 @@ export default {
     },
 
     created() {
-        this.$events.watch(this, this.getUser, 'project-saved', 'project-deleted');
+        this.$events.watch(this, this.getUser, 'projects');
         this.getUser();
     },
 

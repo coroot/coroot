@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"slices"
 
 	"github.com/coroot/coroot/rbac"
 	"golang.org/x/crypto/bcrypt"
@@ -17,37 +16,11 @@ const (
 	AnonymousUserName        = "Anonymous"
 )
 
-type UserRole string
-
-const (
-	UserRoleAdmin  UserRole = "Admin"
-	UserRoleEditor UserRole = "Editor"
-	UserRoleViewer UserRole = "Viewer"
-)
-
-var UserRoles = []UserRole{UserRoleAdmin, UserRoleEditor, UserRoleViewer}
-
-func (r UserRole) Valid() bool {
-	return slices.Contains(UserRoles, r)
-}
-
-func (r UserRole) Permissions() rbac.PermissionSet {
-	switch r {
-	case UserRoleAdmin:
-		return rbac.AdminPermissionSet()
-	case UserRoleEditor:
-		return rbac.EditorPermissionSet()
-	case UserRoleViewer:
-		return rbac.ViewerPermissionSet()
-	}
-	return nil
-}
-
 type User struct {
 	Id        int
 	Email     string
 	Name      string
-	Roles     []UserRole
+	Roles     []rbac.RoleName
 	Anonymous bool
 }
 
@@ -66,17 +39,8 @@ func (u *User) Migrate(m *Migrator) error {
 	return nil
 }
 
-func (u *User) IsAllowed(action rbac.Action) bool {
-	for _, r := range u.Roles {
-		if r.Permissions().Allows(action) {
-			return true
-		}
-	}
-	return false
-}
-
-func AnonymousUser(role UserRole) *User {
-	return &User{Name: AnonymousUserName, Roles: []UserRole{role}, Anonymous: true}
+func AnonymousUser(role rbac.RoleName) *User {
+	return &User{Name: AnonymousUserName, Roles: []rbac.RoleName{role}, Anonymous: true}
 }
 
 func (db *DB) CreateAdminIfNotExists(password string) error {
@@ -88,7 +52,7 @@ func (db *DB) CreateAdminIfNotExists(password string) error {
 	if !errors.Is(err, sql.ErrNoRows) {
 		return err
 	}
-	return db.AddUser(AdminUserLogin, password, AdminUserName, UserRoleAdmin)
+	return db.AddUser(AdminUserLogin, password, AdminUserName, rbac.RoleAdmin)
 }
 
 func (db *DB) SetAdminPassword(password string) error {
@@ -186,12 +150,12 @@ func (db *DB) GetUser(id int) (*User, error) {
 	return &u, nil
 }
 
-func (db *DB) AddUser(email, password, name string, role UserRole) error {
+func (db *DB) AddUser(email, password, name string, role rbac.RoleName) error {
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return err
 	}
-	roles, err := json.Marshal([]UserRole{role})
+	roles, err := json.Marshal([]rbac.RoleName{role})
 	if err != nil {
 		return err
 	}
@@ -202,8 +166,8 @@ func (db *DB) AddUser(email, password, name string, role UserRole) error {
 	return err
 }
 
-func (db *DB) UpdateUser(id int, email, password, name string, role UserRole) error {
-	roles, err := json.Marshal([]UserRole{role})
+func (db *DB) UpdateUser(id int, email, password, name string, role rbac.RoleName) error {
+	roles, err := json.Marshal([]rbac.RoleName{role})
 	if err != nil {
 		return err
 	}

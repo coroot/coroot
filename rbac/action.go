@@ -1,29 +1,36 @@
 package rbac
 
-type action string
-type scope string
+type Verb string
+type Scope string
+type Object map[string]string
 
 const (
-	actionView action = "view"
-	actionEdit action = "edit"
+	ActionAll  Verb = "*"
+	ActionView Verb = "view"
+	ActionEdit Verb = "edit"
 
-	scopeUsers                        scope = "users"
-	scopeProjectSettings              scope = "project.settings"
-	scopeProjectIntegrations          scope = "project.integrations"
-	scopeProjectApplicationCategories scope = "project.application_categories"
-	scopeProjectCustomApplications    scope = "project.custom_applications"
-	scopeProjectInspections           scope = "project.inspections"
-	scopeProjectInstrumentations      scope = "project.instrumentations"
-	scopeProjectTraces                scope = "project.traces"
-	scopeProjectCosts                 scope = "project.costs"
-	scopeApplication                  scope = "project.application"
-	scopeNode                         scope = "project.node"
+	ScopeAll                          Scope = "*"
+	ScopeUsers                        Scope = "users"
+	ScopeRoles                        Scope = "roles"
+	ScopeProjectAll                   Scope = "project.*"
+	ScopeProjectSettings              Scope = "project.settings"
+	ScopeProjectIntegrations          Scope = "project.integrations"
+	ScopeProjectApplicationCategories Scope = "project.application_categories"
+	ScopeProjectCustomApplications    Scope = "project.custom_applications"
+	ScopeProjectInspections           Scope = "project.inspections"
+	ScopeProjectInstrumentations      Scope = "project.instrumentations"
+	ScopeProjectTraces                Scope = "project.traces"
+	ScopeProjectCosts                 Scope = "project.costs"
+	ScopeApplication                  Scope = "project.application"
+	ScopeNode                         Scope = "project.node"
 )
 
-type object map[string]string
-
 type Action struct {
-	scope  scope
-	action action
-	object object
+	Scope  Scope
+	Action Verb
+	Object Object
+}
+
+func NewAction(scope Scope, action Verb, object Object) Action {
+	return Action{Scope: scope, Action: action, Object: object}
 }

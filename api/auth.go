@@ -13,6 +13,7 @@ import (
 
 	"github.com/coroot/coroot/api/forms"
 	"github.com/coroot/coroot/db"
+	"github.com/coroot/coroot/rbac"
 	"github.com/coroot/coroot/utils"
 	"k8s.io/klog"
 )
@@ -30,9 +31,17 @@ const (
 
 func (api *Api) AuthInit(anonymousRole string, adminPassword string) error {
 	if anonymousRole != "" {
-		role := db.UserRole(anonymousRole)
-		if !role.Valid() {
-			return fmt.Errorf("anonymous role must one of %s, got '%s'", db.UserRoles, role)
+		role := rbac.RoleName(anonymousRole)
+		roles, err := api.roles.GetRoles()
+		if err != nil {
+			return err
+		}
+		if !role.Valid(roles) {
+			var names []rbac.RoleName
+			for _, r := range roles {
+				names = append(names, r.Name)
+			}
+			return fmt.Errorf("anonymous role must one of %s, got '%s'", names, role)
 		}
 		api.authAnonymousRole = role
 		klog.Infoln("anonymous access enabled with the role:", role)
@@ -196,10 +205,30 @@ func (api *Api) getUser(r *http.Request) *db.User {
 		klog.Errorln(err)
 		return nil
 	}
+
 	user, err := api.db.GetUser(sess.Id)
 	if err != nil {
 		klog.Errorln(err)
 		return nil
 	}
 	return user
+}
+
+func (api *Api) IsAllowed(u *db.User, action rbac.Action) bool {
+	roles, err := api.roles.GetRoles()
+	if err != nil {
+		klog.Errorln(err)
+		return false
+	}
+	for _, rn := range u.Roles {
+		for _, r := range roles {
+			if r.Name != rn {
+				continue
+			}
+			if r.Permissions.Allows(action) {
+				return true
+			}
+		}
+	}
+	return false
 }

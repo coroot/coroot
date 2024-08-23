@@ -3,7 +3,7 @@ package forms
 import (
 	"strings"
 
-	"github.com/coroot/coroot/db"
+	"github.com/coroot/coroot/rbac"
 )
 
 type LoginForm struct {
@@ -34,12 +34,12 @@ const (
 )
 
 type UserForm struct {
-	Action   UserAction  `json:"action"`
-	Id       int         `json:"id"`
-	Email    string      `json:"email"`
-	Name     string      `json:"name"`
-	Role     db.UserRole `json:"role"`
-	Password string      `json:"password"`
+	Action   UserAction    `json:"action"`
+	Id       int           `json:"id"`
+	Email    string        `json:"email"`
+	Name     string        `json:"name"`
+	Role     rbac.RoleName `json:"role"`
+	Password string        `json:"password"`
 }
 
 func (f *UserForm) Valid() bool {
@@ -48,5 +48,5 @@ func (f *UserForm) Valid() bool {
 	}
 	f.Email = strings.TrimSpace(f.Email)
 	f.Name = strings.TrimSpace(f.Name)
-	return f.Email != "" && f.Name != "" && f.Role.Valid()
+	return f.Email != "" && f.Name != ""
 }

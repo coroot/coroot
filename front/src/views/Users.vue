@@ -61,6 +61,7 @@
                         :disabled="form.readonly"
                         outlined
                         dense
+                        :menu-props="{ offsetY: true }"
                         :rules="[$validators.notEmpty]"
                     />
 
@@ -92,6 +93,7 @@ export default {
     data() {
         return {
             users: [],
+            roles: [],
             loading: false,
             error: '',
             message: '',
@@ -118,13 +120,8 @@ export default {
     },
 
     mounted() {
+        this.$events.watch(this, this.get, 'roles');
         this.get();
-    },
-
-    computed: {
-        roles() {
-            return ['Admin', 'Editor', 'Viewer'];
-        },
     },
 
     methods: {
@@ -137,7 +134,8 @@ export default {
                     this.error = error;
                     return;
                 }
-                this.users = data;
+                this.users = data.users || [];
+                this.roles = data.roles || [];
             });
         },
         post() {

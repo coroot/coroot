@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"embed"
 	"fmt"
 	"net/http"
@@ -13,21 +12,18 @@ import (
 	"strings"
 	"syscall"
 	"text/template"
-	"time"
 
 	"github.com/coroot/coroot/api"
 	"github.com/coroot/coroot/cache"
 	cloud_pricing "github.com/coroot/coroot/cloud-pricing"
 	"github.com/coroot/coroot/collector"
 	"github.com/coroot/coroot/db"
-	"github.com/coroot/coroot/prom"
+	"github.com/coroot/coroot/rbac"
 	"github.com/coroot/coroot/stats"
-	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 	"github.com/coroot/coroot/watchers"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
-	"github.com/jpillora/backoff"
 	"golang.org/x/term"
 	"gopkg.in/alecthomas/kingpin.v2"
 	"k8s.io/klog"
@@ -75,7 +71,7 @@ func main() {
 	if err != nil {
 		klog.Exitln(err)
 	}
-	if err = database.MigrateDefault(); err != nil {
+	if err = database.Migrate(); err != nil {
 		klog.Exitln(err)
 	}
 
@@ -90,8 +86,12 @@ func main() {
 		return
 	}
 
-	bootstrapPrometheus(database, *bootstrapPrometheusUrl, *bootstrapRefreshInterval, *bootstrapPrometheusExtraSelector)
-	bootstrapClickhouse(database, *bootstrapClickhouseAddr, *bootstrapClickhouseUser, *bootstrapClickhousePassword, *bootstrapClickhouseDatabase)
+	if err = database.BootstrapPrometheusIntegration(*bootstrapPrometheusUrl, *bootstrapRefreshInterval, *bootstrapPrometheusExtraSelector); err != nil {
+		klog.Exitln(err)
+	}
+	if err = database.BootstrapClickhouseIntegration(*bootstrapClickhouseAddr, *bootstrapClickhouseUser, *bootstrapClickhousePassword, *bootstrapClickhouseDatabase); err != nil {
+		klog.Exitln(err)
+	}
 
 	cacheConfig := cache.Config{
 		Path: path.Join(*dataDir, "cache"),
@@ -100,11 +100,7 @@ func main() {
 			Interval: *cacheGcInterval,
 		},
 	}
-	if err = utils.CreateDirectoryIfNotExists(cacheConfig.Path); err != nil {
-		klog.Exitln(err)
-	}
-	cacheState, err := db.Open(cacheConfig.Path, "")
-	promCache, err := cache.NewCache(cacheConfig, database, cacheState, cache.DefaultPrometheusClientFactory)
+	promCache, err := cache.NewCache(cacheConfig, database, cache.DefaultPrometheusClientFactory)
 	if err != nil {
 		klog.Exitln(err)
 	}
@@ -117,8 +113,6 @@ func main() {
 		coll.Close()
 		os.Exit(0)
 	}()
-
-	migrateClickhouse(database, coll)
 
 	pricing, err := cloud_pricing.NewManager(path.Join(*dataDir, "cloud-pricing"))
 	if err != nil {
@@ -134,7 +128,7 @@ func main() {
 
 	watchers.Start(database, promCache, pricing, !*doNotCheckSLO, !*doNotCheckForDeployments)
 
-	a := api.NewApi(promCache, database, coll, pricing)
+	a := api.NewApi(promCache, database, coll, pricing, rbac.NewStaticRoleManager())
 	err = a.AuthInit(*authAnonymousRole, *authBootstrapAdminPassword)
 	if err != nil {
 		klog.Exitln(err)
@@ -160,6 +154,7 @@ func main() {
 
 	r.HandleFunc("/api/user", a.Auth(a.User)).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/users", a.Auth(a.Users)).Methods(http.MethodGet, http.MethodPost)
+	r.HandleFunc("/api/roles", a.Auth(a.Roles)).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/project/", a.Auth(a.Project)).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/project/{project}", a.Auth(a.Project)).Methods(http.MethodGet, http.MethodPost, http.MethodDelete)
 	r.HandleFunc("/api/project/{project}/status", a.Auth(a.Status)).Methods(http.MethodGet)
@@ -185,7 +180,7 @@ func main() {
 	if *developerMode {
 		r.PathPrefix("/static/").Handler(http.StripPrefix(*urlBasePath+"static/", http.FileServer(http.Dir("./static"))))
 	} else {
-		r.PathPrefix("/static/").Handler(http.StripPrefix(*urlBasePath, http.FileServer(&StaticFSWrapper{FileSystem: http.FS(static), modTime: time.Now()})))
+		r.PathPrefix("/static/").Handler(http.StripPrefix(*urlBasePath, http.FileServer(utils.NewStaticFSWrapper(static))))
 	}
 
 	indexHtml := readIndexHtml(*urlBasePath, version, instanceUuid, !*doNotCheckForUpdates, *developerMode)
@@ -197,13 +192,6 @@ func main() {
 
 	klog.Infoln("listening on", *listen)
 	klog.Fatalln(http.ListenAndServe(*listen, router))
-}
-
-type Options struct {
-	BasePath        string
-	Version         string
-	Uuid            string
-	CheckForUpdates bool
 }
 
 func readIndexHtml(basePath, version, instanceUuid string, checkForUpdates bool, developerMode bool) []byte {
@@ -220,7 +208,12 @@ func readIndexHtml(basePath, version, instanceUuid string, checkForUpdates bool,
 		klog.Exitln(err)
 	}
 	buf := bytes.Buffer{}
-	err = tpl.Execute(&buf, Options{
+	err = tpl.Execute(&buf, struct {
+		BasePath        string
+		Version         string
+		Uuid            string
+		CheckForUpdates bool
+	}{
 		BasePath:        basePath,
 		Version:         version,
 		Uuid:            instanceUuid,
@@ -290,132 +283,4 @@ func setAdminPassword(db *db.DB) error {
 		return err
 	}
 	return nil
-}
-
-func getOrCreateDefaultProject(database *db.DB) *db.Project {
-	projects, err := database.GetProjects()
-	if err != nil {
-		klog.Exitln(err)
-	}
-	switch len(projects) {
-	case 0:
-		p := db.Project{Name: "default"}
-		klog.Infof("creating default project")
-		if p.Id, err = database.SaveProject(p); err != nil {
-			klog.Exitln(err)
-		}
-		return &p
-	case 1:
-		return projects[0]
-	}
-	return nil
-}
-
-func bootstrapPrometheus(database *db.DB, url string, refreshInterval time.Duration, extraSelector string) {
-	if url == "" || refreshInterval == 0 {
-		return
-	}
-	if !prom.IsSelectorValid(extraSelector) {
-		klog.Exitf("invalid Prometheus extra selector: %s", extraSelector)
-	}
-	p := getOrCreateDefaultProject(database)
-	if p == nil {
-		return
-	}
-	if p.Prometheus.Url != "" {
-		return
-	}
-	p.Prometheus = db.IntegrationsPrometheus{
-		Url:             url,
-		RefreshInterval: timeseries.Duration(int64((refreshInterval).Seconds())),
-		ExtraSelector:   extraSelector,
-	}
-	if err := database.SaveProjectIntegration(p, db.IntegrationTypePrometheus); err != nil {
-		klog.Exitln(err)
-	}
-}
-
-func bootstrapClickhouse(database *db.DB, addr, user, password, databaseName string) {
-	if addr == "" || user == "" || databaseName == "" {
-		return
-	}
-	p := getOrCreateDefaultProject(database)
-	if p == nil {
-		return
-	}
-	var save bool
-	if cfg := p.Settings.Integrations.Clickhouse; cfg == nil {
-		p.Settings.Integrations.Clickhouse = &db.IntegrationClickhouse{
-			Protocol: "native",
-			Addr:     addr,
-			Auth: utils.BasicAuth{
-				User:     user,
-				Password: password,
-			},
-			Database: databaseName,
-		}
-		save = true
-	}
-	if !save {
-		return
-	}
-	if err := database.SaveProjectIntegration(p, db.IntegrationTypeClickhouse); err != nil {
-		klog.Exitln(err)
-	}
-}
-
-func migrateClickhouse(database *db.DB, coll *collector.Collector) {
-	projects, err := database.GetProjects()
-	if err != nil {
-		klog.Exitln(err)
-	}
-	for _, p := range projects {
-		cfg := p.Settings.Integrations.Clickhouse
-		if cfg == nil {
-			continue
-		}
-		go func(c *db.IntegrationClickhouse) {
-			b := backoff.Backoff{Factor: 2, Min: time.Minute, Max: 10 * time.Minute}
-			for {
-				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-				err = coll.Migrate(ctx, c)
-				cancel()
-				if err == nil {
-					return
-				}
-				d := b.Duration()
-				klog.Errorf("failed to create clickhouse tables, next attempt in %s: %s", d.String(), err)
-				time.Sleep(d)
-			}
-		}(cfg)
-	}
-}
-
-type StaticFSWrapper struct {
-	http.FileSystem
-	modTime time.Time
-}
-
-func (f *StaticFSWrapper) Open(name string) (http.File, error) {
-	file, err := f.FileSystem.Open(name)
-	return &StaticFileWrapper{File: file, modTime: f.modTime}, err
-}
-
-type StaticFileWrapper struct {
-	http.File
-	modTime time.Time
-}
-
-func (f *StaticFileWrapper) Stat() (os.FileInfo, error) {
-	fileInfo, err := f.File.Stat()
-	return &StaticFileInfoWrapper{FileInfo: fileInfo, modTime: f.modTime}, err
-}
-
-type StaticFileInfoWrapper struct {
-	os.FileInfo
-	modTime time.Time
-}
-
-func (f *StaticFileInfoWrapper) ModTime() time.Time {
-	return f.modTime
 }
