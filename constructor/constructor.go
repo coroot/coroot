@@ -72,7 +72,11 @@ func (p *Profile) stage(name string, f func()) {
 
 func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, step timeseries.Duration, prof *Profile) (*model.World, error) {
 	start := time.Now()
-	w := model.NewWorld(from, to, step)
+	rawStep, err := c.prom.GetStep(from, to)
+	if err != nil {
+		return nil, err
+	}
+	w := model.NewWorld(from, to, step, rawStep)
 	w.CustomApplications = c.project.Settings.CustomApplications
 	w.Categories = maps.Keys(c.project.Settings.ApplicationCategories)
 
@@ -80,7 +84,6 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 		prof = &Profile{}
 	}
 
-	var err error
 	prof.stage("get_check_configs", func() {
 		w.CheckConfigs, err = c.db.GetCheckConfigs(c.project.Id)
 	})
@@ -90,7 +93,7 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 
 	var metrics map[string][]model.MetricValues
 	prof.stage("query", func() {
-		metrics, err = c.queryCache(ctx, from, to, step, w.CheckConfigs, prof.Queries)
+		metrics, err = c.queryCache(ctx, from, to, step, rawStep, w.CheckConfigs, prof.Queries)
 	})
 	if err != nil {
 		if !errors.Is(err, ErrUnknownQuery) {
@@ -139,27 +142,24 @@ type cacheQuery struct {
 	statsName string
 }
 
-func (c *Constructor) queryCache(ctx context.Context, from, to timeseries.Time, step timeseries.Duration, checkConfigs model.CheckConfigs, stats map[string]QueryStats) (map[string][]model.MetricValues, error) {
-	rawTo := to
-	rawFrom := to.Add(-model.MaxAlertRuleWindow)
-	var rawStep timeseries.Duration
+func (c *Constructor) queryCache(ctx context.Context, from, to timeseries.Time, step, rawStep timeseries.Duration, checkConfigs model.CheckConfigs, stats map[string]QueryStats) (map[string][]model.MetricValues, error) {
 	loadRawSLIs := !c.options[OptionDoNotLoadRawSLIs]
-
-	var err error
-	rawStep, err = c.prom.GetStep(from, to)
-	if err != nil {
-		return nil, err
+	rawFrom := from
+	if t := to.Add(-model.MaxAlertRuleWindow); t.Before(rawFrom) {
+		rawFrom = t
 	}
 	rawFrom = rawFrom.Truncate(rawStep)
-	rawTo = rawTo.Truncate(rawStep)
+	rawTo := to.Truncate(rawStep)
 
 	from = from.Truncate(step)
 	to = to.Truncate(step)
 	queries := map[string]cacheQuery{}
 	addQuery := func(name, statsName, query string, sli bool) {
-		queries[name] = cacheQuery{query: query, from: from, to: to, step: step, statsName: statsName}
 		if sli && loadRawSLIs {
 			queries[name+"_raw"] = cacheQuery{query: query, from: rawFrom, to: rawTo, step: rawStep, statsName: statsName + "_raw"}
+		}
+		if !sli {
+			queries[name] = cacheQuery{query: query, from: from, to: to, step: step, statsName: statsName}
 		}
 	}
 

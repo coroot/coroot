@@ -7,6 +7,7 @@ import (
 	"github.com/coroot/coroot/api/views/application"
 	"github.com/coroot/coroot/api/views/applications"
 	"github.com/coroot/coroot/api/views/aws"
+	"github.com/coroot/coroot/api/views/incident"
 	"github.com/coroot/coroot/api/views/inspections"
 	"github.com/coroot/coroot/api/views/integrations"
 	"github.com/coroot/coroot/api/views/logs"
@@ -28,6 +29,10 @@ func Overview(ctx context.Context, ch *clickhouse.Client, w *model.World, view, 
 
 func Application(w *model.World, app *model.Application) *application.View {
 	return application.Render(w, app)
+}
+
+func Incident(w *model.World, app *model.Application, i *model.ApplicationIncident) *incident.View {
+	return incident.Render(w, app, i)
 }
 
 func Profiling(ctx context.Context, ch *clickhouse.Client, app *model.Application, q url.Values, wCtx timeseries.Context) *profiling.View {

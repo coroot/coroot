@@ -11,50 +11,46 @@ import (
 )
 
 func (c *Constructor) loadSLIs(w *model.World, metrics map[string][]model.MetricValues) {
-	builtinAvailabilityCur := builtinAvailability(metrics[qRecordingRuleInboundRequestsTotal])
 	builtinAvailabilityRaw := builtinAvailability(metrics[qRecordingRuleInboundRequestsTotal+"_raw"])
-	builtinLatencyCur := builtinLatency(metrics[qRecordingRuleInboundRequestsHistogram])
 	builtinLatencyRaw := builtinLatency(metrics[qRecordingRuleInboundRequestsHistogram+"_raw"])
 
-	customAvailabilityCur := map[model.ApplicationId]availabilitySlis{}
 	customAvailabilityRaw := map[model.ApplicationId]availabilitySlis{}
-	customLatencyCur := map[model.ApplicationId][]model.HistogramBucket{}
 	customLatencyRaw := map[model.ApplicationId][]model.HistogramBucket{}
-	loadCustomSLIs(metrics, customAvailabilityCur, customAvailabilityRaw, customLatencyCur, customLatencyRaw)
+	loadCustomSLIs(metrics, customAvailabilityRaw, customLatencyRaw)
 
 	for _, app := range w.Applications {
 		availabilityCfg, _ := w.CheckConfigs.GetAvailability(app.Id)
 		if availabilityCfg.Custom {
-			cur, raw := customAvailabilityCur[app.Id], customAvailabilityRaw[app.Id]
+			raw := customAvailabilityRaw[app.Id]
 			app.AvailabilitySLIs = append(app.AvailabilitySLIs, &model.AvailabilitySLI{
 				Config:        availabilityCfg,
-				TotalRequests: cur.total, TotalRequestsRaw: raw.total,
-				FailedRequests: cur.failed, FailedRequestsRaw: raw.failed,
+				TotalRequests: aggregateSLI(w.Ctx, raw.total), TotalRequestsRaw: raw.total,
+				FailedRequests: aggregateSLI(w.Ctx, raw.failed), FailedRequestsRaw: raw.failed,
 			})
 		} else {
-			cur, raw := builtinAvailabilityCur[app.Id], builtinAvailabilityRaw[app.Id]
-			if !cur.total.IsEmpty() || !raw.total.IsEmpty() {
+			raw := builtinAvailabilityRaw[app.Id]
+			if !raw.total.IsEmpty() {
 				app.AvailabilitySLIs = append(app.AvailabilitySLIs, &model.AvailabilitySLI{
 					Config:        availabilityCfg,
-					TotalRequests: cur.total, TotalRequestsRaw: raw.total,
-					FailedRequests: cur.failed, FailedRequestsRaw: raw.failed,
+					TotalRequests: aggregateSLI(w.Ctx, raw.total), TotalRequestsRaw: raw.total,
+					FailedRequests: aggregateSLI(w.Ctx, raw.failed), FailedRequestsRaw: raw.failed,
 				})
 			}
 		}
 
 		latencyCfg, _ := w.CheckConfigs.GetLatency(app.Id, app.Category)
 		if latencyCfg.Custom {
-			cur, raw := customLatencyCur[app.Id], customLatencyRaw[app.Id]
+			raw := customLatencyRaw[app.Id]
 			app.LatencySLIs = append(app.LatencySLIs, &model.LatencySLI{
 				Config:    latencyCfg,
-				Histogram: cur, HistogramRaw: raw,
+				Histogram: aggregateHistogram(w.Ctx, raw), HistogramRaw: raw,
 			})
 		} else {
-			cur, raw := builtinLatencyCur[app.Id], builtinLatencyRaw[app.Id]
-			if len(cur) > 0 || len(raw) > 0 {
+			raw := builtinLatencyRaw[app.Id]
+			if len(raw) > 0 {
 				app.LatencySLIs = append(app.LatencySLIs, &model.LatencySLI{
 					Config:    latencyCfg,
-					Histogram: cur, HistogramRaw: raw,
+					Histogram: aggregateHistogram(w.Ctx, raw), HistogramRaw: raw,
 				})
 			}
 		}
@@ -62,8 +58,8 @@ func (c *Constructor) loadSLIs(w *model.World, metrics map[string][]model.Metric
 }
 
 func loadCustomSLIs(metrics map[string][]model.MetricValues,
-	availabilityCur, availabilityRaw map[model.ApplicationId]availabilitySlis,
-	latencyCur, latencyRaw map[model.ApplicationId][]model.HistogramBucket,
+	availabilityRaw map[model.ApplicationId]availabilitySlis,
+	latencyRaw map[model.ApplicationId][]model.HistogramBucket,
 ) {
 	for queryName, values := range metrics {
 		if len(values) == 0 || !strings.HasPrefix(queryName, qApplicationCustomSLI) {
@@ -75,24 +71,14 @@ func loadCustomSLIs(metrics map[string][]model.MetricValues,
 		}
 		appId, _ := model.NewApplicationIdFromString(parts[1])
 		switch parts[2] {
-		case "total_requests":
-			a := availabilityCur[appId]
-			a.total = values[0].Values
-			availabilityCur[appId] = a
 		case "total_requests_raw":
 			a := availabilityRaw[appId]
 			a.total = values[0].Values
 			availabilityRaw[appId] = a
-		case "failed_requests":
-			a := availabilityCur[appId]
-			a.failed = values[0].Values
-			availabilityCur[appId] = a
 		case "failed_requests_raw":
 			a := availabilityRaw[appId]
 			a.failed = values[0].Values
 			availabilityRaw[appId] = a
-		case "requests_histogram":
-			latencyCur[appId] = histogramBuckets(values)
 		case "requests_histogram_raw":
 			latencyRaw[appId] = histogramBuckets(values)
 		}
@@ -172,4 +158,43 @@ func histogramBuckets(values []model.MetricValues) []model.HistogramBucket {
 		return buckets[i].Le < buckets[j].Le
 	})
 	return buckets
+}
+
+func aggregateHistogram(ctx timeseries.Context, raw []model.HistogramBucket) []model.HistogramBucket {
+	res := make([]model.HistogramBucket, 0, len(raw))
+	for _, b := range raw {
+		res = append(res, model.HistogramBucket{
+			Le:         b.Le,
+			TimeSeries: aggregateSLI(ctx, b.TimeSeries),
+		})
+	}
+	return res
+}
+
+func aggregateSLI(ctx timeseries.Context, raw *timeseries.TimeSeries) *timeseries.TimeSeries {
+	from := ctx.From.Truncate(ctx.Step)
+	to := ctx.To.Truncate(ctx.Step)
+	resPoints := int(to.Sub(from)/ctx.Step + 1)
+	res := timeseries.New(from, resPoints, ctx.Step)
+	var sum, count float32
+	tNext := from
+	iter := raw.IterFrom(from)
+	for iter.Next() {
+		tRaw, vRaw := iter.Value()
+		if t := tRaw.Truncate(ctx.Step); t > tNext {
+			if count > 0 {
+				res.Set(tNext, sum/count)
+			}
+			sum, count = 0., 0.
+			tNext = t
+		}
+		if !timeseries.IsNaN(vRaw) {
+			sum += vRaw
+			count++
+		}
+	}
+	if count > 0 {
+		res.Set(tNext, sum/count)
+	}
+	return res
 }

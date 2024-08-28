@@ -21,17 +21,22 @@ var (
 		{LongWindow: timeseries.Day, ShortWindow: 2 * timeseries.Hour, BurnRateThreshold: 3, Severity: WARNING},
 		//{LongWindow: 3 * timeseries.Day, ShortWindow: 6 * timeseries.Hour, BurnRateThreshold: 1, Severity: WARNING},
 	}
-	MaxAlertRuleWindow timeseries.Duration
+	MaxAlertRuleWindow      timeseries.Duration
+	MaxAlertRuleShortWindow timeseries.Duration
 )
 
 func init() {
 	MaxAlertRuleWindow = timeseries.Hour
+	MaxAlertRuleShortWindow = 5 * timeseries.Minute
 	for _, r := range AlertRules {
 		if r.ShortWindow > r.LongWindow {
 			panic("invalid rule")
 		}
 		if r.LongWindow > MaxAlertRuleWindow {
 			MaxAlertRuleWindow = r.LongWindow
+		}
+		if r.ShortWindow > MaxAlertRuleShortWindow {
+			MaxAlertRuleShortWindow = r.ShortWindow
 		}
 	}
 }

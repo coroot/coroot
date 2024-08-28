@@ -72,8 +72,8 @@ export default class Api {
     }
 
     get(url, args, cb) {
-        const { from, to } = this.router.currentRoute.query;
-        const params = { ...args, from, to };
+        const { from, to, incident } = this.router.currentRoute.query;
+        const params = { ...args, from, to, incident };
         this.request({ method: 'get', url, params }, cb);
     }
 
@@ -187,6 +187,10 @@ export default class Api {
 
     getApplication(appId, cb) {
         this.get(this.projectPath(`app/${appId}`), {}, cb);
+    }
+
+    getIncident(key, cb) {
+        this.get(this.projectPath(`incident/${key}`), {}, cb);
     }
 
     getInspectionConfig(appId, type, cb) {

@@ -16,9 +16,10 @@ const (
 )
 
 type Context struct {
-	From Time     `json:"from"`
-	To   Time     `json:"to"`
-	Step Duration `json:"step"`
+	From    Time     `json:"from"`
+	To      Time     `json:"to"`
+	Step    Duration `json:"step"`
+	RawStep Duration `json:"raw_step"`
 }
 
 type Duration int64
