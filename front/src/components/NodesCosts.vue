@@ -110,6 +110,9 @@ export default {
 .table:deep(tr:hover) {
     background-color: unset !important;
 }
+.table:deep(th) {
+    white-space: nowrap;
+}
 .table:deep(th),
 .table:deep(td) {
     padding: 4px 8px !important;

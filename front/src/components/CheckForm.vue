@@ -6,7 +6,7 @@
                     Configure the "{{ check.title }}" inspection
                     <v-btn v-if="form && !form.default" small icon @click="confirmation = true"><v-icon small>mdi-trash-can-outline</v-icon></v-btn>
                     <v-overlay :value="confirmation" absolute opacity="0.8">
-                        <div>Are you sure you want to delete the "{{ check.title }}" inspection?</div>
+                        <div>Are you sure you want to delete your override for the "{{ check.title }}" inspection?</div>
                         <div class="mt-5 d-flex">
                             <v-spacer />
                             <v-btn @click="confirmation = false" small color="info">Cancel</v-btn>

@@ -244,8 +244,7 @@ func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, 
 			sli = *app.LatencySLIs[0]
 		}
 		events := model.EventsToAnnotations(app.Events, w.Ctx)
-		incidents := model.IncidentsToAnnotations(app.Incidents, w.Ctx)
-		v.Heatmap = model.NewHeatmap(w.Ctx, "Latency & Errors heatmap, requests per second").AddAnnotation(events...).AddAnnotation(incidents...)
+		v.Heatmap = model.NewHeatmap(w.Ctx, "Latency & Errors heatmap, requests per second").AddAnnotation(events...)
 		for _, h := range model.HistogramSeries(histogram[1:], sli.Config.ObjectiveBucket, sli.Config.ObjectiveBucket) {
 			v.Heatmap.AddSeries(h.Name, h.Title, h.Data, h.Threshold, h.Value)
 		}

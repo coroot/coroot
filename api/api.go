@@ -600,6 +600,49 @@ func (api *Api) Application(w http.ResponseWriter, r *http.Request, u *db.User) 
 	utils.WriteJson(w, withContext(project, cacheStatus, world, views.Application(world, app)))
 }
 
+func (api *Api) Incident(w http.ResponseWriter, r *http.Request, u *db.User) {
+	vars := mux.Vars(r)
+	projectId := vars["project"]
+	incidentKey := vars["incident"]
+	incident, err := api.db.GetIncidentByKey(db.ProjectId(projectId), incidentKey)
+	if err != nil {
+		klog.Warningln("failed to get incident:", err)
+		http.Error(w, "failed to get incident", http.StatusInternalServerError)
+		return
+	}
+	if incident == nil {
+		klog.Warningln("incident not found:", vars["key"])
+		http.Error(w, "Incident not found", http.StatusNotFound)
+		return
+	}
+	values := r.URL.Query()
+	values.Add("incident", incidentKey)
+	r.URL.RawQuery = values.Encode()
+
+	world, project, cacheStatus, err := api.loadWorldByRequest(r)
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	if project == nil || world == nil {
+		utils.WriteJson(w, withContext(project, cacheStatus, world, nil))
+		return
+	}
+	app := world.GetApplication(incident.ApplicationId)
+	if app == nil {
+		klog.Warningln("application not found:", incident.ApplicationId)
+		http.Error(w, "Application not found", http.StatusNotFound)
+		return
+	}
+	if !api.IsAllowed(u, rbac.Actions.Project(projectId).Application(app.Category, app.Id.Namespace, app.Id.Kind, app.Id.Name).View()) {
+		http.Error(w, "You are not allowed to view this application.", http.StatusForbidden)
+		return
+	}
+	auditor.Audit(world, project, app)
+	utils.WriteJson(w, withContext(project, cacheStatus, world, views.Incident(world, app, incident)))
+}
+
 func (api *Api) Inspection(w http.ResponseWriter, r *http.Request, u *db.User) {
 	vars := mux.Vars(r)
 	projectId := vars["project"]
@@ -1033,9 +1076,12 @@ func (api *Api) loadWorldByRequest(r *http.Request) (*model.World, *db.Project, 
 		if incident, err := api.db.GetIncidentByKey(projectId, incidentKey); err != nil {
 			klog.Warningln("failed to get incident:", err)
 		} else {
-			from = incident.OpenedAt.Add(-timeseries.Hour)
-			if incident.Resolved() && incident.ResolvedAt.Add(timeseries.Hour).Before(to) {
-				to = incident.ResolvedAt.Add(timeseries.Hour)
+			margin := model.MaxAlertRuleShortWindow + 15*timeseries.Minute
+			from = incident.OpenedAt.Add(-margin)
+			if incident.Resolved() {
+				if t := incident.ResolvedAt.Add(margin); t.Before(to) {
+					to = t
+				}
 			}
 		}
 	}
@@ -1043,7 +1089,7 @@ func (api *Api) loadWorldByRequest(r *http.Request) (*model.World, *db.Project, 
 	world, cacheStatus, err := api.loadWorld(r.Context(), project, from, to)
 	if world == nil {
 		step := increaseStepForBigDurations(to.Sub(from), 15*timeseries.Second)
-		world = model.NewWorld(from, to.Add(-step), step)
+		world = model.NewWorld(from, to.Add(-step), step, step)
 	}
 	return world, project, cacheStatus, err
 }

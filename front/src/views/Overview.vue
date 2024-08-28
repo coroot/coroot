@@ -9,7 +9,7 @@
             <template v-for="(name, id) in views">
                 <v-tab
                     v-if="name"
-                    :to="{ params: { view: id === 'health' ? undefined : id }, query: $utils.contextQuery() }"
+                    :to="{ params: { view: id === 'health' ? undefined : id }, query: id === 'incidents' ? undefined : $utils.contextQuery() }"
                     exact-path
                     :class="{ disabled: loading }"
                 >
@@ -25,6 +25,16 @@
         <template v-if="!view">
             <Health v-if="health" :applications="health" />
             <NoData v-else-if="!loading && !error" />
+        </template>
+
+        <template v-else-if="view === 'incidents'">
+            <template v-if="$route.query.incident">
+                <Incident />
+            </template>
+            <template v-else>
+                <Incidents v-if="incidents" :incidents="incidents" />
+                <NoData v-else-if="!loading" />
+            </template>
         </template>
 
         <template v-else-if="view === 'map'">
@@ -72,9 +82,11 @@ import Deployments from './Deployments.vue';
 import Health from './Health.vue';
 import Traces from './Traces.vue';
 import AgentInstallation from './AgentInstallation.vue';
+import Incidents from './Incidents.vue';
+import Incident from './Incident.vue';
 
 export default {
-    components: { Deployments, NoData, ServiceMap, Table, NodesCosts, ApplicationsCosts, Health, Traces, AgentInstallation },
+    components: { Incident, Incidents, Deployments, NoData, ServiceMap, Table, NodesCosts, ApplicationsCosts, Health, Traces, AgentInstallation },
     props: {
         view: String,
     },
@@ -82,6 +94,7 @@ export default {
     data() {
         return {
             health: null,
+            incidents: null,
             map: null,
             nodes: null,
             deployments: null,
@@ -97,6 +110,7 @@ export default {
         views() {
             return {
                 health: 'Health',
+                incidents: 'Incidents',
                 map: 'Service Map',
                 traces: 'Traces',
                 nodes: 'Nodes',
@@ -116,7 +130,11 @@ export default {
             this.get();
         },
         $route(curr, prev) {
-            if (curr.query.from === prev.query.from && curr.query.to === prev.query.to && curr.query.query !== prev.query.query) {
+            if (
+                curr.query.from === prev.query.from &&
+                curr.query.to === prev.query.to &&
+                (curr.query.query !== prev.query.query || curr.query.incident !== prev.query.incident)
+            ) {
                 this.get();
             }
         },
@@ -124,6 +142,9 @@ export default {
 
     methods: {
         get() {
+            if (this.view === 'incidents' && this.$route.query.incident) {
+                return;
+            }
             const view = this.view || 'health';
             const query = this.$route.query.query || '';
             this.loading = true;
@@ -135,6 +156,7 @@ export default {
                     return;
                 }
                 this.categories = data.categories;
+                this.incidents = data.incidents;
                 this.health = data.health;
                 this.map = data.map;
                 this.nodes = data.nodes;

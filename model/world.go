@@ -35,9 +35,9 @@ type nsAndName struct {
 	name string
 }
 
-func NewWorld(from, to timeseries.Time, step timeseries.Duration) *World {
+func NewWorld(from, to timeseries.Time, step, rawStep timeseries.Duration) *World {
 	return &World{
-		Ctx:                timeseries.Context{From: from, To: to, Step: step},
+		Ctx:                timeseries.Context{From: from, To: to, Step: step, RawStep: rawStep},
 		Applications:       map[ApplicationId]*Application{},
 		AWS:                AWS{DiscoveryErrors: map[string]bool{}},
 		CustomApplications: map[string]CustomApplication{},

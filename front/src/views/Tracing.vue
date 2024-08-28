@@ -21,18 +21,20 @@
                     :menu-props="{ offsetY: true }"
                     class="mt-4"
                 />
-                <div class="grey--text my-3">
-                    <v-icon size="20" style="vertical-align: baseline">mdi-lightbulb-on-outline</v-icon>
-                    Select a chart area to see traces for a specific time range, duration, or status.
-                </div>
-                <div class="d-flex flex-column flex-md-row" style="gap: 8px; row-gap: 8px">
-                    <v-btn depressed small color="primary" :disabled="loading" class="text-body-2" @click="setSelection('errors')">
-                        <v-icon left small class="mr-0">mdi-filter</v-icon>Show error traces
-                    </v-btn>
-                    <v-btn depressed small color="primary" :disabled="loading" class="text-body-2" @click="setSelection('slo violations')">
-                        <v-icon left small class="mr-0">mdi-filter</v-icon>Show latency SLO violations
-                    </v-btn>
-                </div>
+                <template v-if="!compact">
+                    <div class="grey--text my-3">
+                        <v-icon size="20" style="vertical-align: baseline">mdi-lightbulb-on-outline</v-icon>
+                        Select a chart area to see traces for a specific time range, duration, or status.
+                    </div>
+                    <div class="d-flex flex-column flex-md-row" style="gap: 8px; row-gap: 8px">
+                        <v-btn depressed small color="primary" :disabled="loading" class="text-body-2" @click="setSelection('errors')">
+                            <v-icon left small class="mr-0">mdi-filter</v-icon>Show error traces
+                        </v-btn>
+                        <v-btn depressed small color="primary" :disabled="loading" class="text-body-2" @click="setSelection('slo violations')">
+                            <v-icon left small class="mr-0">mdi-filter</v-icon>Show latency SLO violations
+                        </v-btn>
+                    </div>
+                </template>
             </template>
             <v-progress-linear v-if="loading" indeterminate height="4" style="position: absolute; bottom: 0; left: 0" />
         </v-card>
@@ -134,6 +136,7 @@ import TracingTrace from '../components/TracingTrace.vue';
 export default {
     props: {
         appId: String,
+        compact: Boolean,
     },
 
     components: { Heatmap, Led, TracingTrace },
