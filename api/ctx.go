@@ -20,12 +20,11 @@ type Context struct {
 }
 
 type Status struct {
-	Status               model.Status                                  `json:"status"`
-	Error                string                                        `json:"error"`
-	Prometheus           Prometheus                                    `json:"prometheus"`
-	NodeAgent            NodeAgent                                     `json:"node_agent"`
-	KubeStateMetrics     *KubeStateMetrics                             `json:"kube_state_metrics"`
-	ApplicationExporters map[model.ApplicationType]ApplicationExporter `json:"application_exporters"`
+	Status           model.Status      `json:"status"`
+	Error            string            `json:"error"`
+	Prometheus       Prometheus        `json:"prometheus"`
+	NodeAgent        NodeAgent         `json:"node_agent"`
+	KubeStateMetrics *KubeStateMetrics `json:"kube_state_metrics"`
 }
 
 type Prometheus struct {
@@ -43,12 +42,6 @@ type NodeAgent struct {
 type KubeStateMetrics struct {
 	Status       model.Status `json:"status"`
 	Applications int          `json:"applications"`
-}
-
-type ApplicationExporter struct {
-	Status       model.Status                 `json:"status"`
-	Muted        bool                         `json:"muted"`
-	Applications map[model.ApplicationId]bool `json:"applications"`
 }
 
 type Search struct {
@@ -78,8 +71,7 @@ func withContext(p *db.Project, cacheStatus *cache.Status, w *model.World, data 
 
 func renderStatus(p *db.Project, cacheStatus *cache.Status, w *model.World) Status {
 	res := Status{
-		Status:               model.OK,
-		ApplicationExporters: map[model.ApplicationType]ApplicationExporter{},
+		Status: model.OK,
 	}
 
 	if p == nil {
@@ -105,7 +97,7 @@ func renderStatus(p *db.Project, cacheStatus *cache.Status, w *model.World) Stat
 		res.Prometheus.Error = cacheStatus.Error
 		res.Prometheus.Action = "configure"
 	case cacheStatus != nil && cacheStatus.LagMax > 5*refreshInterval:
-		msg := fmt.Sprintf("Prometheus cache is %s behind.", utils.FormatDuration(cacheStatus.LagAvg, 1))
+		msg := fmt.Sprintf("Prometheus cache is %s behind. (this could be expected after a restart/upgrade)", utils.FormatDuration(cacheStatus.LagAvg, 1))
 		res.Prometheus.Status = model.WARNING
 		if w == nil {
 			msg += " Please wait until synchronization is complete."
@@ -130,6 +122,7 @@ func renderStatus(p *db.Project, cacheStatus *cache.Status, w *model.World) Stat
 		res.NodeAgent.Status = model.OK
 		res.NodeAgent.Nodes = len(w.Nodes)
 	}
+
 	if is.KubeStateMetrics.Required {
 		res.KubeStateMetrics = &KubeStateMetrics{}
 		if is.KubeStateMetrics.Installed {
@@ -138,27 +131,6 @@ func renderStatus(p *db.Project, cacheStatus *cache.Status, w *model.World) Stat
 		} else {
 			res.KubeStateMetrics.Status = model.WARNING
 			res.Status = model.WARNING
-		}
-	}
-	for _, app := range w.Applications {
-		for appType, ok := range app.InstrumentationStatus() {
-			ex := res.ApplicationExporters[appType]
-			if ex.Applications == nil {
-				ex.Muted = p.Settings.ConfigurationHintsMuted[appType]
-				ex.Status = model.OK
-				ex.Applications = map[model.ApplicationId]bool{}
-			}
-			switch {
-			case ex.Muted:
-				ex.Status = model.UNKNOWN
-			case !ok:
-				ex.Status = model.WARNING
-				if res.Status < model.INFO {
-					res.Status = model.INFO
-				}
-			}
-			ex.Applications[app.Id] = ok
-			res.ApplicationExporters[appType] = ex
 		}
 	}
 

@@ -10,6 +10,7 @@ const (
 	ClusterRoleNone ClusterRole = iota
 	ClusterRolePrimary
 	ClusterRoleReplica
+	ClusterRoleArbiter
 )
 
 func (r ClusterRole) String() string {
@@ -18,6 +19,8 @@ func (r ClusterRole) String() string {
 		return "primary"
 	case ClusterRoleReplica:
 		return "replica"
+	case ClusterRoleArbiter:
+		return "arbiter"
 	}
 	return ""
 }
@@ -35,6 +38,7 @@ type Instance struct {
 
 	Jvms   map[string]*Jvm
 	DotNet map[string]*DotNet
+	Python *Python
 
 	Volumes []*Volume
 
@@ -50,9 +54,11 @@ type Instance struct {
 	clusterRole      *timeseries.TimeSeries
 	ClusterComponent *Application
 
-	Postgres *Postgres
-	Redis    *Redis
-	Mongodb  *Mongodb
+	Postgres  *Postgres
+	Redis     *Redis
+	Mongodb   *Mongodb
+	Memcached *Memcached
+	Mysql     *Mysql
 }
 
 func NewInstance(name string, owner ApplicationId) *Instance {
@@ -72,6 +78,12 @@ func (instance *Instance) ApplicationTypes() map[ApplicationType]bool {
 			res[t] = true
 		}
 	}
+	if t := instance.Rds.ApplicationType(); t != ApplicationTypeUnknown {
+		res[t] = true
+	}
+	if t := instance.Elasticache.ApplicationType(); t != ApplicationTypeUnknown {
+		res[t] = true
+	}
 	return res
 }
 
@@ -79,8 +91,14 @@ func (instance *Instance) InstrumentedType() ApplicationType {
 	switch {
 	case instance.Postgres != nil:
 		return ApplicationTypePostgres
+	case instance.Mysql != nil:
+		return ApplicationTypeMysql
 	case instance.Redis != nil:
 		return ApplicationTypeRedis
+	case instance.Mongodb != nil:
+		return ApplicationTypeMongodb
+	case instance.Memcached != nil:
+		return ApplicationTypeMemcached
 	}
 	return ApplicationTypeUnknown
 }
@@ -138,6 +156,13 @@ func (instance *Instance) UpdateClusterRole(role string, v *timeseries.TimeSerie
 		v = v.Map(func(t timeseries.Time, v float32) float32 {
 			if v == 1 {
 				return float32(ClusterRoleReplica)
+			}
+			return timeseries.NaN
+		})
+	case "arbiter":
+		v = v.Map(func(t timeseries.Time, v float32) float32 {
+			if v == 1 {
+				return float32(ClusterRoleArbiter)
 			}
 			return timeseries.NaN
 		})

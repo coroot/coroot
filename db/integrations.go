@@ -3,6 +3,8 @@ package db
 import (
 	"fmt"
 
+	"github.com/coroot/coroot/model"
+
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 )
@@ -12,6 +14,7 @@ type IntegrationType string
 const (
 	IntegrationTypePrometheus IntegrationType = "prometheus"
 	IntegrationTypeClickhouse IntegrationType = "clickhouse"
+	IntegrationTypeAWS        IntegrationType = "aws"
 	IntegrationTypeSlack      IntegrationType = "slack"
 	IntegrationTypePagerduty  IntegrationType = "pagerduty"
 	IntegrationTypeTeams      IntegrationType = "teams"
@@ -29,6 +32,8 @@ type Integrations struct {
 	Webhook   *IntegrationWebhook   `json:"webhook,omitempty"`
 
 	Clickhouse *IntegrationClickhouse `json:"clickhouse,omitempty"`
+
+	AWS *model.AWSConfig `json:"aws"`
 }
 
 type IntegrationInfo struct {

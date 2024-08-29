@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"sort"
 
+	"golang.org/x/exp/maps"
+
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
@@ -15,19 +17,27 @@ type ApplicationStatus struct {
 	Id       model.ApplicationId       `json:"id"`
 	Category model.ApplicationCategory `json:"category"`
 	Status   model.Status              `json:"status"`
+	Type     *ApplicationType          `json:"type"`
 
-	Errors    ApplicationParam `json:"errors"`
-	Latency   ApplicationParam `json:"latency"`
-	Upstreams ApplicationParam `json:"upstreams"`
-	Instances ApplicationParam `json:"instances"`
-	Restarts  ApplicationParam `json:"restarts"`
-	CPU       ApplicationParam `json:"cpu"`
-	Memory    ApplicationParam `json:"memory"`
-	DiskIO    ApplicationParam `json:"disk_io"`
-	DiskUsage ApplicationParam `json:"disk_usage"`
-	Network   ApplicationParam `json:"network"`
-	DNS       ApplicationParam `json:"dns"`
-	Logs      ApplicationParam `json:"logs"`
+	Errors     ApplicationParam `json:"errors"`
+	Latency    ApplicationParam `json:"latency"`
+	Upstreams  ApplicationParam `json:"upstreams"`
+	Instances  ApplicationParam `json:"instances"`
+	Restarts   ApplicationParam `json:"restarts"`
+	CPU        ApplicationParam `json:"cpu"`
+	Memory     ApplicationParam `json:"memory"`
+	DiskIOLoad ApplicationParam `json:"disk_io_load"`
+	DiskUsage  ApplicationParam `json:"disk_usage"`
+	Network    ApplicationParam `json:"network"`
+	DNS        ApplicationParam `json:"dns"`
+	Logs       ApplicationParam `json:"logs"`
+}
+
+type ApplicationType struct {
+	Name   model.ApplicationType `json:"name"`
+	Icon   string                `json:"icon"`
+	Report model.AuditReportName `json:"report"`
+	Status model.Status          `json:"status"`
 }
 
 type ApplicationParam struct {
@@ -46,9 +56,14 @@ func renderHealth(w *model.World) []*ApplicationStatus {
 		default:
 			continue
 		}
-		a := &ApplicationStatus{Id: app.Id, Category: app.Category}
-		sloIsViolating := false
 
+		a := &ApplicationStatus{
+			Id:       app.Id,
+			Category: app.Category,
+			Type:     getApplicationType(app),
+		}
+
+		sloIsViolating := false
 		for _, r := range app.Reports {
 			for _, ch := range r.Checks {
 				switch ch.Id {
@@ -107,15 +122,12 @@ func renderHealth(w *model.World) []*ApplicationStatus {
 						a.Memory.Status = model.WARNING
 						a.Memory.Value = "leak"
 					}
-				case model.Checks.StorageIO.Id:
+				case model.Checks.StorageIOLoad.Id:
 					if ch.Status != model.UNKNOWN {
-						a.DiskIO.Status = ch.Status
-						if !sloIsViolating {
-							a.DiskIO.Status = model.OK
-						}
+						a.DiskIOLoad.Status = ch.Status
 					}
 					if ch.Value() > 0 {
-						a.DiskIO.Value = formatPercent(ch.Value())
+						a.DiskIOLoad.Value = utils.FormatFloat(ch.Value())
 					}
 				case model.Checks.StorageSpace.Id:
 					a.DiskUsage.Status = ch.Status
@@ -212,15 +224,32 @@ func renderHealth(w *model.World) []*ApplicationStatus {
 		}
 
 		calcApplicationStatus(a)
+
 		if a.Status == model.UNKNOWN {
 			continue
 		}
+
+		if t := a.Type; t != nil {
+			if t.Status > a.Status {
+				a.Status = t.Status
+			}
+			if a.Status == model.OK && t.Status == model.UNKNOWN && t.Report != "" {
+				a.Status = model.UNKNOWN
+			}
+		}
+
 		res = append(res, a)
 	}
 
 	sort.Slice(res, func(i, j int) bool {
 		if res[i].Status == res[j].Status {
 			return res[i].Id.Name < res[j].Id.Name
+		}
+		if res[i].Status == model.OK {
+			return false
+		}
+		if res[j].Status == model.OK {
+			return true
 		}
 		return res[i].Status > res[j].Status
 	})
@@ -275,4 +304,40 @@ func formatPercent(v float32) string {
 		return "<1%"
 	}
 	return fmt.Sprintf("%.0f%%", v)
+}
+
+func getApplicationType(app *model.Application) *ApplicationType {
+	types := maps.Keys(app.ApplicationTypes())
+	if len(types) == 0 {
+		return nil
+	}
+
+	var t model.ApplicationType
+	if len(types) == 1 {
+		t = types[0]
+	} else {
+		sort.Slice(types, func(i, j int) bool {
+			ti, tj := types[i], types[j]
+			tiw, tjw := ti.Weight(), tj.Weight()
+			if tiw == tjw {
+				return ti < tj
+			}
+			return tiw < tjw
+		})
+		t = types[0]
+	}
+
+	report := t.AuditReport()
+	hasReport := false
+	var status model.Status
+	for _, r := range app.Reports {
+		if r.Name == report {
+			status = r.Status
+			hasReport = true
+		}
+	}
+	if !hasReport {
+		report = ""
+	}
+	return &ApplicationType{Name: t, Icon: t.Icon(), Report: report, Status: status}
 }

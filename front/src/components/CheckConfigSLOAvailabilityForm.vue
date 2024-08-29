@@ -33,8 +33,17 @@
         </template>
 
         Objective:
-        <div>
-            <v-text-field outlined dense v-model.number="config.objective_percentage" :rules="[$validators.isFloat]" hide-details class="input">
+        <div class="d-flex" style="gap: 4px">
+            <v-checkbox v-model="trackSLO" @change="changeTrackSLO" hide-details class="mt-0 pt-0" />
+            <v-text-field
+                :disabled="!trackSLO"
+                outlined
+                dense
+                v-model.number="config.objective_percentage"
+                :rules="[$validators.isFloat]"
+                hide-details
+                class="input"
+            >
                 <template #append><span class="grey--text">%</span></template>
             </v-text-field>
             of requests should not fail
@@ -49,6 +58,16 @@ export default {
     components: { MetricSelector },
     props: {
         form: Object,
+    },
+    data() {
+        return {
+            trackSLO: this.form.configs[0].objective_percentage > 0,
+        };
+    },
+    methods: {
+        changeTrackSLO() {
+            this.config.objective_percentage = this.trackSLO ? 99 : 0;
+        },
     },
     computed: {
         config() {

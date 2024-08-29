@@ -1,7 +1,6 @@
 package overview
 
 import (
-	"sort"
 	"strconv"
 	"strings"
 
@@ -49,6 +48,7 @@ func renderNodes(w *model.World) *model.Table {
 		}
 
 		network := model.NewTableCell()
+		var rxTotalBytes, txTotalBytes float32
 		ips := utils.NewStringSet()
 		for _, iface := range n.NetInterfaces {
 			if iface.Up.Last() != 1 {
@@ -60,15 +60,19 @@ func renderNodes(w *model.World) *model.Table {
 			for _, ip := range iface.Addresses {
 				ips.Add(ip)
 			}
-			network.NetInterfaces = append(network.NetInterfaces, model.NetInterface{
-				Name: iface.Name,
-				Rx:   utils.HumanBits(iface.RxBytes.Last() * 8),
-				Tx:   utils.HumanBits(iface.TxBytes.Last() * 8),
-			})
+			if rx := iface.RxBytes.Last(); !timeseries.IsNaN(rx) {
+				rxTotalBytes += rx
+			}
+			if tx := iface.TxBytes.Last(); !timeseries.IsNaN(tx) {
+				txTotalBytes += tx
+			}
 		}
-		sort.Slice(network.NetInterfaces, func(i, j int) bool {
-			return network.NetInterfaces[i].Name < network.NetInterfaces[j].Name
-		})
+		if rxTotalBytes > 0 || txTotalBytes > 0 {
+			network.Bandwidth = &model.Bandwidth{
+				Rx: utils.HumanBits(rxTotalBytes * 8),
+				Tx: utils.HumanBits(txTotalBytes * 8),
+			}
+		}
 
 		az := n.AvailabilityZone.Value()
 		if az == "" {

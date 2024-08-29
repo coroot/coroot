@@ -42,6 +42,8 @@
                 { value: 'usage_costs', text: 'Usage costs', align: 'end' },
                 { value: 'allocation_costs', text: 'Allocation costs', align: 'end' },
                 { value: 'over_provisioning_costs', text: 'Overprovisioning costs', align: 'end' },
+                { value: 'cross_az_traffic_costs', text: 'Cross-AZ traffic', align: 'end' },
+                { value: 'internet_egress_costs', text: 'Internet egress traffic', align: 'end' },
             ]"
             :footer-props="{ itemsPerPageOptions: [5, 10, 20, 50, 100, -1] }"
         >
@@ -61,6 +63,18 @@
                 </template>
                 <template v-else>—</template>
             </template>
+            <template #item.cross_az_traffic_costs="{ item }">
+                <template v-if="item.cross_az_traffic_costs > 0">
+                    ${{ item.cross_az_traffic_costs.toFixed(2) }}<span class="caption grey--text">/mo</span>
+                </template>
+                <template v-else>—</template>
+            </template>
+            <template #item.internet_egress_costs="{ item }">
+                <template v-if="item.internet_egress_costs > 0">
+                    ${{ item.internet_egress_costs.toFixed(2) }}<span class="caption grey--text">/mo</span>
+                </template>
+                <template v-else>—</template>
+            </template>
             <template #foot>
                 <tfoot>
                     <tr v-for="item in [categoriesTotal]">
@@ -77,6 +91,18 @@
                         <td class="font-weight-medium text-right">
                             <template v-if="item.over_provisioning_costs > 0">
                                 ${{ item.over_provisioning_costs.toFixed(2) }}<span class="caption grey--text">/mo</span>
+                            </template>
+                            <template v-else>—</template>
+                        </td>
+                        <td class="font-weight-medium text-right">
+                            <template v-if="item.cross_az_traffic_costs > 0">
+                                ${{ item.cross_az_traffic_costs.toFixed(2) }}<span class="caption grey--text">/mo</span>
+                            </template>
+                            <template v-else>—</template>
+                        </td>
+                        <td class="font-weight-medium text-right">
+                            <template v-if="item.internet_egress_costs > 0">
+                                ${{ item.internet_egress_costs.toFixed(2) }}<span class="caption grey--text">/mo</span>
                             </template>
                             <template v-else>—</template>
                         </td>
@@ -101,6 +127,8 @@
                 { value: 'usage_costs', text: 'Usage costs', align: 'end', filterable: false },
                 { value: 'allocation_costs', text: 'Allocation costs', align: 'end', filterable: false },
                 { value: 'over_provisioning_costs', text: 'Overprovisioning costs', align: 'end', filterable: false },
+                { value: 'cross_az_traffic_costs', text: 'Cross-AZ traffic', align: 'end', filterable: false },
+                { value: 'internet_egress_costs', text: 'Internet egress traffic', align: 'end', filterable: false },
             ]"
             :footer-props="{ itemsPerPageOptions: [10, 20, 50, 100, -1] }"
             :search="search"
@@ -119,6 +147,18 @@
             <template #item.over_provisioning_costs="{ item }">
                 <template v-if="item.over_provisioning_costs > 0">
                     ${{ item.over_provisioning_costs.toFixed(2) }}<span class="caption grey--text">/mo</span>
+                </template>
+                <template v-else>—</template>
+            </template>
+            <template #item.cross_az_traffic_costs="{ item }">
+                <template v-if="item.cross_az_traffic_costs > 0">
+                    ${{ item.cross_az_traffic_costs.toFixed(2) }}<span class="caption grey--text">/mo</span>
+                </template>
+                <template v-else>—</template>
+            </template>
+            <template #item.internet_egress_costs="{ item }">
+                <template v-if="item.internet_egress_costs > 0">
+                    ${{ item.internet_egress_costs.toFixed(2) }}<span class="caption grey--text">/mo</span>
                 </template>
                 <template v-else>—</template>
             </template>
@@ -224,23 +264,38 @@ export default {
             this.applications.forEach((a) => {
                 let c = cs.get(a.category);
                 if (!c) {
-                    c = { name: a.category, usage_costs: 0, allocation_costs: 0, over_provisioning_costs: 0 };
+                    c = {
+                        name: a.category,
+                        usage_costs: 0,
+                        allocation_costs: 0,
+                        over_provisioning_costs: 0,
+                        cross_az_traffic_costs: 0,
+                        internet_egress_costs: 0,
+                    };
                 }
                 c.usage_costs += a.usage_costs;
                 c.allocation_costs += a.allocation_costs;
                 if (a.over_provisioning_costs > 0) {
                     c.over_provisioning_costs += a.over_provisioning_costs;
                 }
+                if (a.cross_az_traffic_costs > 0) {
+                    c.cross_az_traffic_costs += a.cross_az_traffic_costs;
+                }
+                if (a.internet_egress_costs > 0) {
+                    c.internet_egress_costs += a.internet_egress_costs;
+                }
                 cs.set(c.name, c);
             });
             return Array.from(cs.values());
         },
         categoriesTotal() {
-            const res = { usage_costs: 0, allocation_costs: 0, over_provisioning_costs: 0 };
+            const res = { usage_costs: 0, allocation_costs: 0, over_provisioning_costs: 0, cross_az_traffic_costs: 0, internet_egress_costs: 0 };
             this.categories.forEach((c) => {
                 res.usage_costs += c.usage_costs;
                 res.allocation_costs += c.allocation_costs;
                 res.over_provisioning_costs += c.over_provisioning_costs;
+                res.cross_az_traffic_costs += c.cross_az_traffic_costs;
+                res.internet_egress_costs += c.internet_egress_costs;
             });
             return res;
         },
@@ -292,6 +347,9 @@ export default {
 }
 .table:deep(tr:hover) {
     background-color: unset !important;
+}
+.table:deep(th) {
+    white-space: nowrap;
 }
 .table:deep(th),
 .table:deep(td) {

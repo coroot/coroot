@@ -14,12 +14,16 @@ func TestIncrease(t *testing.T) {
 
 func TestIterFrom(t *testing.T) {
 	ts := NewWithData(60, 15, []float32{1, 2, 3})
+
 	iter := ts.IterFrom(30)
-	assert.False(t, iter.Next())
+	assert.True(t, iter.Next())
+	tt, v := iter.Value()
+	assert.Equal(t, Time(60), tt)
+	assert.Equal(t, float32(1), v)
 
 	iter = ts.IterFrom(60)
 	assert.True(t, iter.Next())
-	tt, v := iter.Value()
+	tt, v = iter.Value()
 	assert.Equal(t, Time(60), tt)
 	assert.Equal(t, float32(1), v)
 

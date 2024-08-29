@@ -42,6 +42,8 @@ export default {
                     return this.check.threshold + '%';
                 case 'second':
                     return this.$format.duration(this.check.threshold * 1000, 'ms');
+                case 'seconds/second':
+                    return this.check.threshold + ' seconds/second';
             }
             return this.check.threshold;
         },

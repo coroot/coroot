@@ -1,19 +1,18 @@
 <template>
     <div>
+        <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
+            {{ error }}
+        </v-alert>
+        <v-alert v-if="message" color="green" outlined text>
+            {{ message }}
+        </v-alert>
         <v-form>
             <div class="subtitle-1">Base url</div>
             <div class="caption">This URL is used for things like creating links in alerts.</div>
-
             <div class="d-flex">
                 <v-text-field v-model="form.base_url" :rules="[$validators.isUrl]" outlined dense />
                 <v-btn @click="save" color="primary" :loading="saving" class="ml-2" height="38">Save</v-btn>
             </div>
-            <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
-                {{ error }}
-            </v-alert>
-            <v-alert v-if="message" color="green" outlined text>
-                {{ message }}
-            </v-alert>
         </v-form>
 
         <v-simple-table>

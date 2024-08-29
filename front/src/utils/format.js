@@ -28,7 +28,7 @@ export function duration(ms, precision) {
         }
         const v = names[n];
         if (v) {
-            res += v + n + ' ';
+            res += v + n;
             if (stop) {
                 break;
             }
@@ -39,4 +39,18 @@ export function duration(ms, precision) {
 
 export function date(ms, format) {
     return UPlot.fmtDate(format)(new Date(ms));
+}
+
+export function timeSinceNow(ms, precision) {
+    return duration(Date.now() - ms, precision);
+}
+
+export function percent(p) {
+    if (p > 10) {
+        return p.toFixed(0);
+    }
+    if (p > 1) {
+        return p.toFixed(1);
+    }
+    return p.toFixed(2);
 }

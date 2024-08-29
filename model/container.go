@@ -28,7 +28,8 @@ type Container struct {
 
 	ApplicationTypes map[ApplicationType]bool
 
-	Image string
+	Image              string
+	PeriodicSystemdJob bool
 
 	Status   ContainerStatus
 	Reason   string

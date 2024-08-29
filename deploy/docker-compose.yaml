@@ -4,16 +4,22 @@ name: coroot
 
 volumes:
   prometheus_data: {}
+  clickhouse_data: {}
+  clickhouse_logs: {}
   coroot_data: {}
+  node_agent_data: {}
+  cluster_agent_data: {}
 
 services:
   coroot:
+    restart: always
     image: ghcr.io/coroot/coroot
     volumes:
       - coroot_data:/data
     ports:
       - 8080:8080
     command:
+      - '--data-dir=/data'
       - '--bootstrap-prometheus-url=http://prometheus:9090'
       - '--bootstrap-refresh-interval=15s'
       - '--bootstrap-clickhouse-address=clickhouse:9000'
@@ -22,6 +28,7 @@ services:
       - prometheus
 
   node-agent:
+    restart: always
     image: ghcr.io/coroot/coroot-node-agent
     privileged: true
     pid: "host"
@@ -29,11 +36,26 @@ services:
       - /sys/kernel/tracing:/sys/kernel/tracing
       - /sys/kernel/debug:/sys/kernel/debug
       - /sys/fs/cgroup:/host/sys/fs/cgroup
+      - node_agent_data:/data
     command:
       - '--collector-endpoint=http://coroot:8080'
       - '--cgroupfs-root=/host/sys/fs/cgroup'
+      - '--wal-dir=/data'
+
+  cluster-agent:
+    restart: always
+    image: ghcr.io/coroot/coroot-cluster-agent
+    volumes:
+      - cluster_agent_data:/data
+    command:
+      - '--coroot-url=http://coroot:8080'
+      - '--metrics-scrape-interval=15s'
+      - '--metrics-wal-dir=/data'
+    depends_on:
+      - coroot
 
   prometheus:
+    restart: always
     image: prom/prometheus:v2.45.4
     volumes:
       - prometheus_data:/prometheus
@@ -48,7 +70,11 @@ services:
       - '127.0.0.1:9090:9090'
 
   clickhouse:
+    restart: always
     image: clickhouse/clickhouse-server:24.3
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - clickhouse_logs:/var/log/clickhouse-server
     ports:
       - '127.0.0.1:9000:9000'
     ulimits:

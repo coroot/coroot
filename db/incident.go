@@ -68,8 +68,8 @@ type IncidentNotificationDetailsReport struct {
 func (db *DB) GetIncidentByKey(projectId ProjectId, key string) (*model.ApplicationIncident, error) {
 	i := &model.ApplicationIncident{Key: key}
 	err := db.db.QueryRow(
-		"SELECT opened_at, resolved_at, severity FROM incident WHERE project_id = $1 AND key = $2 LIMIT 1",
-		projectId, key).Scan(&i.OpenedAt, &i.ResolvedAt, &i.Severity)
+		"SELECT application_id, opened_at, resolved_at, severity FROM incident WHERE project_id = $1 AND key = $2 LIMIT 1",
+		projectId, key).Scan(&i.ApplicationId, &i.OpenedAt, &i.ResolvedAt, &i.Severity)
 	return i, err
 }
 
@@ -84,13 +84,12 @@ func (db *DB) GetApplicationIncidents(projectId ProjectId, from, to timeseries.T
 		_ = rows.Close()
 	}()
 	res := map[model.ApplicationId][]*model.ApplicationIncident{}
-	var appId model.ApplicationId
 	for rows.Next() {
 		var i model.ApplicationIncident
-		if err := rows.Scan(&appId, &i.Key, &i.OpenedAt, &i.ResolvedAt, &i.Severity); err != nil {
+		if err := rows.Scan(&i.ApplicationId, &i.Key, &i.OpenedAt, &i.ResolvedAt, &i.Severity); err != nil {
 			return nil, err
 		}
-		res[appId] = append(res[appId], &i)
+		res[i.ApplicationId] = append(res[i.ApplicationId], &i)
 	}
 	return res, err
 }

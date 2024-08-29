@@ -27,15 +27,18 @@ const (
 type CheckUnit string
 
 const (
-	CheckUnitPercent = "percent"
-	CheckUnitSecond  = "second"
-	CheckUnitByte    = "byte"
+	CheckUnitPercent          = "percent"
+	CheckUnitSecond           = "second"
+	CheckUnitByte             = "byte"
+	CheckUnitSecondsPerSecond = "seconds/second"
 )
 
 func (u CheckUnit) FormatValue(v float32) string {
 	switch u {
 	case CheckUnitSecond:
 		return utils.FormatDuration(timeseries.Duration(v), 1)
+	case CheckUnitSecondsPerSecond:
+		return utils.FormatDuration(timeseries.Duration(v), 1) + "/second"
 	case CheckUnitByte:
 		value, unit := utils.FormatBytes(v)
 		return value + unit
@@ -66,7 +69,7 @@ var Checks = struct {
 	MemoryOOM              CheckConfig
 	MemoryLeakPercent      CheckConfig
 	StorageSpace           CheckConfig
-	StorageIO              CheckConfig
+	StorageIOLoad          CheckConfig
 	NetworkRTT             CheckConfig
 	NetworkConnectivity    CheckConfig
 	NetworkTCPConnections  CheckConfig
@@ -77,6 +80,7 @@ var Checks = struct {
 	RedisLatency           CheckConfig
 	MongodbAvailability    CheckConfig
 	MongodbReplicationLag  CheckConfig
+	MemcachedAvailability  CheckConfig
 	PostgresAvailability   CheckConfig
 	PostgresLatency        CheckConfig
 	PostgresErrors         CheckConfig
@@ -86,9 +90,14 @@ var Checks = struct {
 	JvmAvailability        CheckConfig
 	JvmSafepointTime       CheckConfig
 	DotNetAvailability     CheckConfig
+	PythonGILWaitingTime   CheckConfig
 	DnsLatency             CheckConfig
 	DnsServerErrors        CheckConfig
 	DnsNxdomainErrors      CheckConfig
+	MysqlAvailability      CheckConfig
+	MysqlReplicationStatus CheckConfig
+	MysqlReplicationLag    CheckConfig
+	MysqlConnections       CheckConfig
 }{
 	index: map[CheckId]*CheckConfig{},
 
@@ -138,13 +147,13 @@ var Checks = struct {
 		MessageTemplate:         `memory usage is growing by {{.Value}} %% per hour`,
 		ConditionFormatTemplate: "memory usage is growing by > <threshold> % per hour",
 	},
-	StorageIO: CheckConfig{
+	StorageIOLoad: CheckConfig{
 		Type:                    CheckTypeItemBased,
-		Title:                   "Disk I/O",
-		DefaultThreshold:        80,
-		Unit:                    CheckUnitPercent,
-		MessageTemplate:         `high I/O utilization of {{.Items "volume"}}`,
-		ConditionFormatTemplate: "the I/O utilization of a volume > <threshold>",
+		Title:                   "Disk I/O load",
+		DefaultThreshold:        5,
+		Unit:                    CheckUnitSecondsPerSecond,
+		MessageTemplate:         `high I/O load of {{.Items "volume"}}`,
+		ConditionFormatTemplate: "the I/O load of a volume > <threshold>",
 	},
 	StorageSpace: CheckConfig{
 		Type:                    CheckTypeItemBased,
@@ -229,6 +238,13 @@ var Checks = struct {
 		ConditionFormatTemplate: "replication lag > <threshold>",
 		Unit:                    CheckUnitSecond,
 	},
+	MemcachedAvailability: CheckConfig{
+		Type:                    CheckTypeItemBased,
+		Title:                   "Memcached availability",
+		DefaultThreshold:        0,
+		MessageTemplate:         `{{.ItemsWithToBe "memcached instance"}} unavailable`,
+		ConditionFormatTemplate: "the number of unavailable memcached instances > <threshold>",
+	},
 	PostgresAvailability: CheckConfig{
 		Type:                    CheckTypeItemBased,
 		Title:                   "Postgres availability",
@@ -296,6 +312,14 @@ var Checks = struct {
 		MessageTemplate:         `{{.ItemsWithToBe ".NET instance"}} unavailable`,
 		ConditionFormatTemplate: "the number of unavailable .NET instances > <threshold>",
 	},
+	PythonGILWaitingTime: CheckConfig{
+		Type:                    CheckTypeItemBased,
+		Title:                   "Python GIL (Global Interpreter Lock) waiting time",
+		DefaultThreshold:        0.05,
+		MessageTemplate:         `high GIL waiting times on {{.Items "Python instance"}}`,
+		ConditionFormatTemplate: "the time Python threads have been waiting for acquiring the GIL (Global Interpreter Lock) > <threshold>",
+		Unit:                    CheckUnitSecond,
+	},
 	DnsLatency: CheckConfig{
 		Type:                    CheckTypeValueBased,
 		Title:                   "DNS latency",
@@ -317,6 +341,37 @@ var Checks = struct {
 		DefaultThreshold:        0,
 		MessageTemplate:         `the app received an empty DNS response {{.Count "time"}}`,
 		ConditionFormatTemplate: "the number of the NXDOMAIN DNS errors (for previously valid requests) > <threshold>",
+	},
+	MysqlAvailability: CheckConfig{
+		Type:                    CheckTypeItemBased,
+		Title:                   "Mysql availability",
+		DefaultThreshold:        0,
+		MessageTemplate:         `{{.ItemsWithToBe "mysql instance"}} unavailable`,
+		ConditionFormatTemplate: "the number of unavailable mysql instances > <threshold>",
+	},
+	MysqlReplicationStatus: CheckConfig{
+		Type:                    CheckTypeItemBased,
+		Title:                   "Mysql replication status",
+		DefaultThreshold:        0,
+		MessageTemplate:         `{{.ItemsWithHave "mysql replica"}} issues with IO or SQL replication threads`,
+		ConditionFormatTemplate: "IO or SQL replication thread is not running ",
+		Unit:                    CheckUnitSecond,
+	},
+	MysqlReplicationLag: CheckConfig{
+		Type:                    CheckTypeItemBased,
+		Title:                   "Mysql replication lag",
+		DefaultThreshold:        30,
+		MessageTemplate:         `{{.ItemsWithToBe "mysql replica"}} far behind the primary`,
+		ConditionFormatTemplate: "replication lag > <threshold>",
+		Unit:                    CheckUnitSecond,
+	},
+	MysqlConnections: CheckConfig{
+		Type:                    CheckTypeItemBased,
+		Title:                   "Mysql connections",
+		DefaultThreshold:        90,
+		MessageTemplate:         `{{.ItemsWithHave "mysql instance"}} too many connections`,
+		ConditionFormatTemplate: "the number of connections > <threshold> of `max_connections`",
+		Unit:                    CheckUnitPercent,
 	},
 }
 

@@ -40,7 +40,7 @@ export default class Utils {
         if (!r) {
             return {};
         }
-        const { from, to } = r.query || {};
-        return { from, to };
+        const { from, to, incident } = r.query || {};
+        return { from, to, incident };
     }
 }

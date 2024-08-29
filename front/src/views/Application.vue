@@ -14,26 +14,19 @@
 
             <v-tabs v-if="app.reports && app.reports.length" height="40" show-arrows slider-size="2">
                 <v-tab v-for="r in app.reports" :key="r.name" :to="{ params: { report: r.name }, query: $utils.contextQuery() }" exact-path>
-                    <Led v-if="r && (r.checks || r.configuration_hint)" :status="r.status" />
+                    <Led v-if="r && (r.checks || r.instrumentation)" :status="r.status" />
                     {{ r.name }}
                 </v-tab>
             </v-tabs>
 
-            <v-card v-if="r && !r.custom && r.checks" outlined class="my-4 pa-4 pb-2">
+            <v-card v-if="r && !r.custom && (r.checks || r.instrumentation)" outlined class="my-4 pa-4 pb-2">
+                <ApplicationInstrumentation v-if="r.instrumentation" :appId="id" :type="r.instrumentation" :active="r.status !== 'unknown'" />
                 <Check v-for="check in r.checks" :key="check.id" :appId="id" :check="check" class="mb-2" />
             </v-card>
 
-            <v-alert v-if="r && r.configuration_hint" color="info" outlined text class="my-4">
-                {{ r.configuration_hint.message }}
-                <template v-if="r.configuration_hint.read_more_link">
-                    ( <a :href="r.configuration_hint.read_more_link" target="_blank">Read more <v-icon small>mdi-open-in-new</v-icon></a
-                    >)
-                </template>
-            </v-alert>
-
             <Dashboard v-if="r" :name="r.name" :widgets="r.widgets" />
         </div>
-        <NoData v-else-if="!loading" />
+        <NoData v-else-if="!loading && !error" />
     </div>
 </template>
 
@@ -43,6 +36,7 @@ import Dashboard from '../components/Dashboard';
 import NoData from '../components/NoData';
 import Check from '../components/Check';
 import Led from '../components/Led';
+import ApplicationInstrumentation from '../components/ApplicationInstrumentation.vue';
 
 export default {
     props: {
@@ -50,7 +44,7 @@ export default {
         report: String,
     },
 
-    components: { AppMap, Dashboard, NoData, Check, Led },
+    components: { AppMap, Dashboard, NoData, Check, Led, ApplicationInstrumentation },
 
     data() {
         return {

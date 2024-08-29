@@ -16,6 +16,7 @@
                 profiles, and sends them to Coroot. To ingest telemetry data, the agent must have the address of the Coroot instance and the
                 capability to establish TCP connections with it.
             </p>
+
             <div class="subtitle-1">Coroot URL:</div>
             <v-form v-model="valid">
                 <v-text-field
@@ -42,7 +43,7 @@
                         <pre>
 curl -sfL https://raw.githubusercontent.com/coroot/coroot-node-agent/main/install.sh | \
   COLLECTOR_ENDPOINT={{ coroot_url }} \
-  API_KEY={{ apiKey }} \
+  API_KEY={{ api_key }} \
   SCRAPE_INTERVAL={{ scrape_interval }} \
   sh -
                         </pre>
@@ -72,7 +73,7 @@ docker run --detach --name coroot-node-agent \
   ghcr.io/coroot/coroot-node-agent:latest \
   --cgroupfs-root=/host/sys/fs/cgroup \
   --collector-endpoint={{ coroot_url }} \
-  --api-key={{ apiKey }} \
+  --api-key={{ api_key }} \
   --scrape-interval={{ scrape_interval }}
                         </pre>
                     </Code>
@@ -119,30 +120,30 @@ export default {
     data() {
         const local = ['127.0.0.1', 'localhost'].some((v) => location.origin.includes(v));
         return {
+            error: '',
             dialog: false,
             tab: null,
             coroot_url: !local ? location.origin : '',
+            api_key: '',
             scrape_interval: '15s',
             valid: false,
         };
     },
 
-    computed: {
-        apiKey() {
-            return this.$route.params.projectId;
+    watch: {
+        dialog() {
+            this.dialog && this.get();
         },
-    },
-
-    mounted() {
-        this.get();
     },
 
     methods: {
         get() {
-            this.$api.getIntegrations('prometheus', (data, error) => {
+            this.$api.getProject(this.$route.params.projectId, (data, error) => {
                 if (error) {
+                    this.error = error;
                     return;
                 }
+                this.api_key = data.api_key;
                 if (data.refresh_interval) {
                     this.scrape_interval = data.refresh_interval / 1000 + 's';
                 }

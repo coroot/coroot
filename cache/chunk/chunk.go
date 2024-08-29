@@ -17,6 +17,8 @@ const (
 	V1 uint8 = 1
 	V2 uint8 = 2
 	V3 uint8 = 3
+
+	Size = timeseries.Hour
 )
 
 type Meta struct {
@@ -29,6 +31,10 @@ type Meta struct {
 
 func (m *Meta) To() timeseries.Time {
 	return m.From.Add(timeseries.Duration(m.PointsCount-1) * m.Step)
+}
+
+func (m *Meta) Jitter() timeseries.Duration {
+	return m.From.Sub(m.From.Truncate(Size))
 }
 
 type metricMeta struct {

@@ -21,14 +21,14 @@ type Project struct {
 	Name string
 
 	Prometheus IntegrationsPrometheus
-	Settings   Settings
+	Settings   ProjectSettings
 }
 
-type Settings struct {
-	ConfigurationHintsMuted     map[model.ApplicationType]bool                            `json:"configuration_hints_muted"`
+type ProjectSettings struct {
 	ApplicationCategories       map[model.ApplicationCategory][]string                    `json:"application_categories"`
 	ApplicationCategorySettings map[model.ApplicationCategory]ApplicationCategorySettings `json:"application_category_settings"`
 	Integrations                Integrations                                              `json:"integrations"`
+	CustomApplications          map[string]model.CustomApplication                        `json:"custom_applications"`
 }
 
 type ApplicationCategorySettings struct {
@@ -69,6 +69,15 @@ func (p *Project) applyDefaults() {
 			cfg.Deployments = cfg.Enabled
 		}
 	}
+}
+
+func (p *Project) GetCustomApplicationName(instance string) string {
+	for customAppName, cfg := range p.Settings.CustomApplications {
+		if utils.GlobMatch(instance, cfg.InstancePattens...) {
+			return customAppName
+		}
+	}
+	return ""
 }
 
 func (db *DB) GetProjects() ([]*Project, error) {
@@ -194,22 +203,6 @@ func (db *DB) DeleteProject(id ProjectId) error {
 	return tx.Commit()
 }
 
-func (db *DB) ToggleConfigurationHint(id ProjectId, appType model.ApplicationType, mute bool) error {
-	p, err := db.GetProject(id)
-	if err != nil {
-		return err
-	}
-	if mute {
-		if p.Settings.ConfigurationHintsMuted == nil {
-			p.Settings.ConfigurationHintsMuted = map[model.ApplicationType]bool{}
-		}
-		p.Settings.ConfigurationHintsMuted[appType] = true
-	} else {
-		delete(p.Settings.ConfigurationHintsMuted, appType)
-	}
-	return db.saveProjectSettings(p)
-}
-
 func (db *DB) SaveApplicationCategory(id ProjectId, category, newName model.ApplicationCategory, customPatterns []string, notifyAboutDeployments bool) error {
 	p, err := db.GetProject(id)
 	if err != nil {
@@ -250,6 +243,37 @@ func (db *DB) SaveApplicationCategory(id ProjectId, category, newName model.Appl
 		}
 	}
 
+	return db.saveProjectSettings(p)
+}
+
+func (db *DB) SaveCustomApplication(id ProjectId, name, newName string, instancePatterns []string) error {
+	p, err := db.GetProject(id)
+	if err != nil {
+		return err
+	}
+
+	var patterns []string
+	for _, p := range instancePatterns {
+		p = strings.TrimSpace(p)
+		if len(p) == 0 {
+			continue
+		}
+		patterns = append(patterns, p)
+	}
+	if len(patterns) == 0 { // delete
+		delete(p.Settings.CustomApplications, name)
+	} else {
+		if p.Settings.CustomApplications == nil {
+			p.Settings.CustomApplications = map[string]model.CustomApplication{}
+		}
+		if name != newName { // rename
+			delete(p.Settings.CustomApplications, name)
+			p.Settings.CustomApplications[newName] = p.Settings.CustomApplications[name]
+			delete(p.Settings.CustomApplications, name)
+			name = newName
+		}
+		p.Settings.CustomApplications[name] = model.CustomApplication{InstancePattens: patterns}
+	}
 	return db.saveProjectSettings(p)
 }
 

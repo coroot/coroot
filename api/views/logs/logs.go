@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/coroot/coroot/clickhouse"
-	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
@@ -70,7 +69,7 @@ type Query struct {
 	Limit    int             `json:"limit"`
 }
 
-func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, appSettings *db.ApplicationSettings, query url.Values, w *model.World) *View {
+func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, query url.Values, w *model.World) *View {
 	v := &View{}
 
 	var q Query
@@ -105,7 +104,7 @@ func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, 
 	if v.View == "" {
 		v.View = viewMessages
 	}
-	renderEntries(ctx, v, ch, app, appSettings, w, q, patterns)
+	renderEntries(ctx, v, ch, app, w, q, patterns)
 
 	if v.Status == model.UNKNOWN {
 		v.View = viewPatterns
@@ -123,7 +122,7 @@ func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, 
 	return v
 }
 
-func renderEntries(ctx context.Context, v *View, ch *clickhouse.Client, app *model.Application, appSettings *db.ApplicationSettings, w *model.World, q Query, patterns map[string]map[string]*Pattern) {
+func renderEntries(ctx context.Context, v *View, ch *clickhouse.Client, app *model.Application, w *model.World, q Query, patterns map[string]map[string]*Pattern) {
 	services, err := ch.GetServicesFromLogs(ctx)
 	if err != nil {
 		klog.Errorln(err)
@@ -142,8 +141,8 @@ func renderEntries(ctx context.Context, v *View, ch *clickhouse.Client, app *mod
 		}
 	}
 	otelService := ""
-	if appSettings != nil && appSettings.Logs != nil {
-		otelService = appSettings.Logs.Service
+	if app.Settings != nil && app.Settings.Logs != nil {
+		otelService = app.Settings.Logs.Service
 	} else {
 		otelService = model.GuessService(otelServices, app.Id)
 	}

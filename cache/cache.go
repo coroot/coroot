@@ -13,12 +13,9 @@ import (
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/prom"
 	"github.com/coroot/coroot/timeseries"
+	"github.com/coroot/coroot/utils"
 	"github.com/prometheus/client_golang/prometheus"
 	"k8s.io/klog"
-)
-
-const (
-	chunkSize = timeseries.Hour
 )
 
 type PrometheusClientFactory func(project *db.Project) (*prom.Client, error)
@@ -76,8 +73,17 @@ func newQueryData() *queryData {
 	}
 }
 
-func NewCache(cfg Config, database, state *db.DB, promClientFactory PrometheusClientFactory) (*Cache, error) {
-	if err := state.Migrate(&PrometheusQueryState{}); err != nil {
+func NewCache(cfg Config, database *db.DB, promClientFactory PrometheusClientFactory) (*Cache, error) {
+	err := utils.CreateDirectoryIfNotExists(cfg.Path)
+	if err != nil {
+		return nil, err
+	}
+	state, err := db.Open(cfg.Path, "")
+	if err != nil {
+		return nil, err
+	}
+	err = state.Migrator().Migrate(&PrometheusQueryState{})
+	if err != nil {
 		return nil, err
 	}
 

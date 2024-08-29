@@ -144,7 +144,7 @@ export default {
         get() {
             this.loading = true;
             this.loadingError = '';
-            this.$api.getProfile(this.appId, this.$route.query.query, (data, error) => {
+            this.$api.getProfiling(this.appId, this.$route.query.query, (data, error) => {
                 this.loading = false;
                 const errMsg = 'Failed to load profile';
                 if (error) {
@@ -168,7 +168,7 @@ export default {
             this.saving = true;
             this.error = '';
             this.message = '';
-            this.$api.saveProfileSettings(this.appId, this.form, (data, error) => {
+            this.$api.saveProfilingSettings(this.appId, this.form, (data, error) => {
                 this.saving = false;
                 if (error) {
                     this.error = error;

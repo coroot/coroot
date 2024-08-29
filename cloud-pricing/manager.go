@@ -149,6 +149,47 @@ func (mgr *Manager) GetNodePrice(node *model.Node) *model.NodePrice {
 	return np
 }
 
+func (mgr *Manager) GetDataTransferPrice(node *model.Node) *model.DataTransferPrice {
+	mgr.lock.Lock()
+	defer mgr.lock.Unlock()
+	if mgr.model == nil {
+		return nil
+	}
+	var pricing *CloudPricing
+
+	switch strings.ToLower(node.CloudProvider.Value()) {
+	case "aws":
+		pricing = mgr.model.AWS
+	case "gcp":
+		pricing = mgr.model.GCP
+	case "azure":
+		pricing = mgr.model.Azure
+	default:
+		return nil
+	}
+	if pricing.IntraRegionDataTransfer == nil || pricing.InternetEgress == nil {
+		return nil
+	}
+	region := Region(strings.ToLower(node.Region.Value()))
+	res := &model.DataTransferPrice{
+		InternetPerGB: map[model.InternetStartUsageAmountGB]float32{},
+	}
+	p, ok := pricing.IntraRegionDataTransfer[region]
+	if !ok {
+		return nil
+	}
+	res.InterZoneIngressPerGB = float32(p.IngressPerGB)
+	res.InterZoneEgressPerGB = float32(p.EgressPerGB)
+	internetP, ok := pricing.InternetEgress[region]
+	if !ok {
+		return nil
+	}
+	for start, price := range internetP {
+		res.InternetPerGB[model.InternetStartUsageAmountGB(start)] = float32(price)
+	}
+	return res
+}
+
 func (mgr *Manager) updateModel() error {
 	req, err := http.NewRequest("GET", dumpURL, nil)
 	if err != nil {

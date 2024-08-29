@@ -151,8 +151,11 @@ func (ts *TimeSeries) Iter() *Iterator {
 }
 
 func (ts *TimeSeries) IterFrom(from Time) *Iterator {
-	if ts.IsEmpty() || from.Before(ts.from) {
+	if ts.IsEmpty() {
 		return &Iterator{data: nil}
+	}
+	if from.Before(ts.from) {
+		from = ts.from
 	}
 	to := ts.from.Add(ts.step * Duration(len(ts.data)-1))
 	if from.After(to) {

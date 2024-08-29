@@ -24,7 +24,9 @@ export default {
 
     data() {
         return {
-            form: null,
+            form: {
+                name: '',
+            },
             valid: false,
             loading: false,
             error: '',
@@ -52,7 +54,7 @@ export default {
                     this.error = error;
                     return;
                 }
-                this.form = data;
+                this.form.name = data.name;
                 if (!this.form) {
                     return;
                 }
@@ -71,7 +73,7 @@ export default {
                     this.error = error;
                     return;
                 }
-                this.$events.emit('project-saved');
+                this.$events.emit('projects');
                 this.message = 'Settings were successfully updated.';
                 if (!this.projectId) {
                     const projectId = data.trim();

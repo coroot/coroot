@@ -20,12 +20,22 @@
         </template>
 
         Objective:
-        <div>
-            <v-text-field outlined dense v-model.number="config.objective_percentage" :rules="[$validators.notEmpty]" hide-details class="input text">
+        <div class="d-flex" style="gap: 4px">
+            <v-checkbox v-model="trackSLO" @change="changeTrackSLO" hide-details class="mt-0 pt-0" />
+            <v-text-field
+                :disabled="!trackSLO"
+                outlined
+                dense
+                v-model.number="config.objective_percentage"
+                :rules="[$validators.isFloat]"
+                hide-details
+                class="input text"
+            >
                 <template #append><span class="grey--text">%</span></template>
             </v-text-field>
             of requests should be served faster than
             <v-select
+                :disabled="!trackSLO"
                 v-model.number="config.objective_bucket"
                 :items="buckets"
                 :rules="[$validators.notEmpty]"
@@ -60,12 +70,22 @@ export default {
     props: {
         form: Object,
     },
+    data() {
+        return {
+            trackSLO: this.form.configs[0].objective_percentage > 0,
+        };
+    },
     computed: {
         config() {
             return this.form.configs[0];
         },
         buckets() {
             return buckets;
+        },
+    },
+    methods: {
+        changeTrackSLO() {
+            this.config.objective_percentage = this.trackSLO ? 99 : 0;
         },
     },
 };

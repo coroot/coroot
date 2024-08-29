@@ -58,6 +58,13 @@ var BuiltinCategoryPatterns = map[ApplicationCategory][]string{
 		"vault/*",
 		"keda/*",
 		"keycloak/*",
+		"longhorn-system/*",
+		"calico-system/*",
+		"_/esm-cache",
+		"_/*motd*",
+		"_/*apt*",
+		"_/*fwupd*",
+		"_/snap*",
 	},
 	ApplicationCategoryMonitoring: {
 		"monitoring/*",
@@ -89,7 +96,7 @@ func CalcApplicationCategory(appId ApplicationId, customPatterns map[Application
 
 	id := fmt.Sprintf("%s/%s", appId.Namespace, appId.Name)
 	for _, c := range categories {
-		if utils.GlobMatch(id, BuiltinCategoryPatterns[c]) || utils.GlobMatch(id, customPatterns[c]) {
+		if utils.GlobMatch(id, BuiltinCategoryPatterns[c]...) || utils.GlobMatch(id, customPatterns[c]...) {
 			return c
 		}
 	}

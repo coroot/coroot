@@ -20,7 +20,8 @@ import (
 var (
 	ErrInvalidForm = errors.New("invalid form")
 
-	slugRe = regexp.MustCompile("^[-_0-9a-z]{3,}$")
+	slugRe  = regexp.MustCompile("^[-_0-9a-z]{3,}$")
+	emailRe = regexp.MustCompile(`^[^@\r\n\t\f\v ]+@[^@\r\n\t\f\v ]+\.[a-z]+$`)
 )
 
 type Form interface {
@@ -45,15 +46,6 @@ func (f *ProjectForm) Valid() bool {
 	if !slugRe.MatchString(f.Name) {
 		return false
 	}
-	return true
-}
-
-type ProjectStatusForm struct {
-	Mute   *model.ApplicationType `json:"mute"`
-	UnMute *model.ApplicationType `json:"unmute"`
-}
-
-func (f *ProjectStatusForm) Valid() bool {
 	return true
 }
 
@@ -119,8 +111,35 @@ func (f *ApplicationCategoryForm) Valid() bool {
 	return true
 }
 
+type CustomApplicationForm struct {
+	Name    string `json:"name"`
+	NewName string `json:"new_name"`
+
+	InstancePatternsStr string `json:"instance_patterns"`
+	InstancePatterns    []string
+}
+
+func (f *CustomApplicationForm) Valid() bool {
+	if !slugRe.MatchString(f.NewName) {
+		return false
+	}
+	f.InstancePatterns = strings.Fields(f.InstancePatternsStr)
+	if !utils.GlobValidate(f.InstancePatterns) {
+		return false
+	}
+	return true
+}
+
+type ApplicationInstrumentationForm struct {
+	model.ApplicationInstrumentation
+}
+
+func (f *ApplicationInstrumentationForm) Valid() bool {
+	return f.Port != ""
+}
+
 type ApplicationSettingsProfilingForm struct {
-	db.ApplicationSettingsProfiling
+	model.ApplicationSettingsProfiling
 }
 
 func (f *ApplicationSettingsProfilingForm) Valid() bool {
@@ -128,7 +147,7 @@ func (f *ApplicationSettingsProfilingForm) Valid() bool {
 }
 
 type ApplicationSettingsTracingForm struct {
-	db.ApplicationSettingsTracing
+	model.ApplicationSettingsTracing
 }
 
 func (f *ApplicationSettingsTracingForm) Valid() bool {
@@ -136,7 +155,7 @@ func (f *ApplicationSettingsTracingForm) Valid() bool {
 }
 
 type ApplicationSettingsLogsForm struct {
-	db.ApplicationSettingsLogs
+	model.ApplicationSettingsLogs
 }
 
 func (f *ApplicationSettingsLogsForm) Valid() bool {
@@ -168,6 +187,8 @@ func NewIntegrationForm(t db.IntegrationType) IntegrationForm {
 		return &IntegrationFormPrometheus{}
 	case db.IntegrationTypeClickhouse:
 		return &IntegrationFormClickhouse{}
+	case db.IntegrationTypeAWS:
+		return &IntegrationFormAWS{}
 	case db.IntegrationTypeSlack:
 		return &IntegrationFormSlack{}
 	case db.IntegrationTypeTeams:
@@ -213,11 +234,11 @@ func (f *IntegrationFormPrometheus) Get(project *db.Project, masked bool) {
 	if masked {
 		f.Url = "http://<hidden>"
 		if f.BasicAuth != nil {
-			f.BasicAuth.User = "<user>"
-			f.BasicAuth.Password = "<password>"
+			f.BasicAuth.User = "<hidden>"
+			f.BasicAuth.Password = "<hidden>"
 		}
 		for i := range f.CustomHeaders {
-			f.CustomHeaders[i].Value = "<header>"
+			f.CustomHeaders[i].Value = "<hidden>"
 		}
 	}
 }
@@ -273,8 +294,8 @@ func (f *IntegrationFormClickhouse) Get(project *db.Project, masked bool) {
 	}
 	if masked {
 		f.Addr = "<hidden>"
-		f.Auth.User = "<user>"
-		f.Auth.Password = "<password>"
+		f.Auth.User = "<hidden>"
+		f.Auth.Password = "<hidden>"
 	}
 }
 
@@ -307,6 +328,42 @@ func (f *IntegrationFormClickhouse) Test(ctx context.Context, project *db.Projec
 	return nil
 }
 
+type IntegrationFormAWS struct {
+	model.AWSConfig
+}
+
+func (f *IntegrationFormAWS) Valid() bool {
+	return f.Region != "" && f.AccessKeyID != "" && f.SecretAccessKey != ""
+}
+
+func (f *IntegrationFormAWS) Get(project *db.Project, masked bool) {
+	cfg := project.Settings.Integrations.AWS
+	if cfg != nil {
+		f.AWSConfig = *cfg
+	}
+	if masked {
+		f.AccessKeyID = "<hidden>"
+		f.SecretAccessKey = "<hidden>"
+	}
+}
+
+func (f *IntegrationFormAWS) Update(ctx context.Context, project *db.Project, clear bool) error {
+	cfg := &f.AWSConfig
+	if clear {
+		cfg = nil
+	} else {
+		if err := f.Test(ctx, project); err != nil {
+			return err
+		}
+	}
+	project.Settings.Integrations.AWS = cfg
+	return nil
+}
+
+func (f *IntegrationFormAWS) Test(ctx context.Context, project *db.Project) error {
+	return nil
+}
+
 type IntegrationFormSlack struct {
 	db.IntegrationSlack
 }
@@ -327,7 +384,7 @@ func (f *IntegrationFormSlack) Get(project *db.Project, masked bool) {
 	}
 	f.IntegrationSlack = *cfg
 	if masked {
-		f.Token = "<token>"
+		f.Token = "<hidden>"
 	}
 }
 
@@ -364,7 +421,7 @@ func (f *IntegrationFormTeams) Get(project *db.Project, masked bool) {
 	}
 	f.IntegrationTeams = *cfg
 	if masked {
-		f.WebhookUrl = "<webhook_url>"
+		f.WebhookUrl = "<hidden>"
 	}
 }
 
@@ -400,7 +457,7 @@ func (f *IntegrationFormPagerduty) Get(project *db.Project, masked bool) {
 	}
 	f.IntegrationPagerduty = *cfg
 	if masked {
-		f.IntegrationKey = "<integration_key>"
+		f.IntegrationKey = "<hidden>"
 	}
 }
 
@@ -436,7 +493,7 @@ func (f *IntegrationFormOpsgenie) Get(project *db.Project, masked bool) {
 	}
 	f.IntegrationOpsgenie = *cfg
 	if masked {
-		f.ApiKey = "<api_key>"
+		f.ApiKey = "<hidden>"
 	}
 }
 
@@ -479,7 +536,7 @@ func (f *IntegrationFormWebhook) Get(project *db.Project, masked bool) {
 	}
 	f.IntegrationWebhook = *cfg
 	if masked {
-		f.Url = "<webhook_url>"
+		f.Url = "<hidden>"
 	}
 }
 

@@ -3,11 +3,16 @@ package constructor
 import (
 	"fmt"
 	"net"
+	"regexp"
 	"strings"
 
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"k8s.io/klog"
+)
+
+var (
+	jobSuffixRe = regexp.MustCompile(`-([a-z0-9]{5}|\d{10,})$`)
 )
 
 func loadKubernetesMetadata(w *model.World, metrics map[string][]model.MetricValues, servicesByClusterIP map[string]*model.Service) {
@@ -78,12 +83,14 @@ func loadApplications(w *model.World, metrics map[string][]model.MetricValues) {
 
 func podInfo(w *model.World, metrics []model.MetricValues) map[string]*model.Instance {
 	pods := map[string]*model.Instance{}
+	podOwners := map[podId]model.ApplicationId{}
+	var podsOwnedByPods []*model.Instance
 	for _, m := range metrics {
 		w.IntegrationStatus.KubeStateMetrics.Installed = true
 		pod := m.Labels["pod"]
 		ns := m.Labels["namespace"]
 		ownerName := m.Labels["created_by_name"]
-		ownerKind := m.Labels["created_by_kind"]
+		ownerKind := model.ApplicationKind(m.Labels["created_by_kind"])
 		nodeName := m.Labels["node"]
 		uid := m.Labels["uid"]
 		if uid == "" {
@@ -96,18 +103,21 @@ func podInfo(w *model.World, metrics []model.MetricValues) map[string]*model.Ins
 		switch {
 		case ownerKind == "" || ownerKind == "<none>" || ownerKind == "Node":
 			appId = model.NewApplicationId(ns, model.ApplicationKindStaticPods, strings.TrimSuffix(pod, "-"+nodeName))
+		case ownerKind == model.ApplicationKindSparkApplication || ownerKind == model.ApplicationKindArgoWorkflow:
+			appId = model.NewApplicationId(ns, ownerKind, jobSuffixRe.ReplaceAllString(ownerName, ""))
 		case ownerName != "":
-			appId = model.NewApplicationId(ns, model.ApplicationKind(ownerKind), ownerName)
+			appId = model.NewApplicationId(ns, ownerKind, ownerName)
 		default:
 			continue
 		}
+		podOwners[podId{name: pod, ns: ns}] = appId
 		instance := pods[uid]
 		if instance == nil {
-			instance = w.GetOrCreateApplication(appId).GetOrCreateInstance(pod, node)
+			instance = w.GetOrCreateApplication(appId, false).GetOrCreateInstance(pod, node)
 			if instance.Pod == nil {
 				instance.Pod = &model.Pod{}
 			}
-			if model.ApplicationKind(ownerKind) == model.ApplicationKindReplicaSet {
+			if ownerKind == model.ApplicationKindReplicaSet {
 				instance.Pod.ReplicaSet = ownerName
 			}
 			pods[uid] = instance
@@ -124,6 +134,19 @@ func podInfo(w *model.World, metrics []model.MetricValues) map[string]*model.Ins
 			if ip := net.ParseIP(podIp); ip != nil {
 				isActive := m.Values.Last() == 1
 				instance.TcpListens[model.Listen{IP: podIp, Port: "0", Proxied: false}] = isActive
+			}
+		}
+		if appId.Kind == model.ApplicationKindPod {
+			podsOwnedByPods = append(podsOwnedByPods, instance)
+		}
+	}
+	for _, instance := range podsOwnedByPods {
+		id := podId{name: instance.OwnerId.Name, ns: instance.OwnerId.Namespace}
+		if ownerOfOwner, ok := podOwners[id]; ok {
+			if app := w.GetApplication(ownerOfOwner); app != nil {
+				delete(w.Applications, instance.OwnerId)
+				instance.OwnerId = ownerOfOwner
+				app.Instances = append(app.Instances, instance)
 			}
 		}
 	}
@@ -171,6 +194,10 @@ func podLabels(metrics []model.MetricValues, pods map[string]*model.Instance) {
 				cluster = m.Labels["label_app_kubernetes_io_instance"] + "-" + m.Labels["label_app_kubernetes_io_name"]
 			}
 		case strings.HasPrefix(m.Labels["label_helm_sh_chart"], "mysql"):
+			if m.Labels["label_app_kubernetes_io_name"] != "" && m.Labels["label_app_kubernetes_io_instance"] != "" {
+				cluster = m.Labels["label_app_kubernetes_io_instance"] + "-" + m.Labels["label_app_kubernetes_io_name"]
+			}
+		case strings.HasPrefix(m.Labels["label_helm_sh_chart"], "mariadb"):
 			if m.Labels["label_app_kubernetes_io_name"] != "" && m.Labels["label_app_kubernetes_io_instance"] != "" {
 				cluster = m.Labels["label_app_kubernetes_io_instance"] + "-" + m.Labels["label_app_kubernetes_io_name"]
 			}

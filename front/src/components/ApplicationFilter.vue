@@ -102,7 +102,7 @@ export default {
         autoSelectNamespaceThreshold: Number,
         configureTo: {
             type: Object,
-            default: () => ({ name: 'project_settings', params: { tab: 'categories' } }),
+            default: () => ({ name: 'project_settings', params: { tab: 'applications' } }),
         },
     },
 
@@ -161,7 +161,7 @@ export default {
             const search = this.search;
             const applications = this.applications.filter((a) => {
                 if (search) {
-                    return a.id.includes(search);
+                    return a.id.includes(search) || (a.type && a.type.name.includes(search));
                 }
                 if (selectedNamespaces.size) {
                     return selectedNamespaces.has(this.$utils.appId(a.id).ns);

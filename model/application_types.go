@@ -1,5 +1,7 @@
 package model
 
+import "strings"
+
 type ApplicationType string
 
 const (
@@ -20,6 +22,13 @@ const (
 	ApplicationTypeRDS           ApplicationType = "aws-rds"
 	ApplicationTypeElastiCache   ApplicationType = "aws-elasticache"
 	ApplicationTypeNats          ApplicationType = "nats"
+	ApplicationTypeDotNet        ApplicationType = "dotnet"
+	ApplicationTypeGolang        ApplicationType = "golang"
+	ApplicationTypePHP           ApplicationType = "php"
+	ApplicationTypeJava          ApplicationType = "java"
+	ApplicationTypeNodeJS        ApplicationType = "nodejs"
+	ApplicationTypePython        ApplicationType = "python"
+	ApplicationTypeEnvoy         ApplicationType = "envoy"
 )
 
 func (at ApplicationType) IsDatabase() bool {
@@ -38,4 +47,68 @@ func (at ApplicationType) IsQueue() bool {
 		return true
 	}
 	return false
+}
+
+func (at ApplicationType) IsCredentialsRequired() bool {
+	switch at {
+	case ApplicationTypePostgres, ApplicationTypeMysql:
+		return true
+	}
+	return false
+}
+
+func (at ApplicationType) IsLanguage() bool {
+	switch at {
+	case ApplicationTypeGolang, ApplicationTypeDotNet, ApplicationTypePHP, ApplicationTypeJava, ApplicationTypeNodeJS:
+		return true
+	}
+	return false
+}
+
+func (at ApplicationType) Weight() int {
+	switch {
+	case at.IsDatabase():
+		return 1
+	case at.IsQueue():
+		return 2
+	case at.IsLanguage():
+		return 4
+	case at == ApplicationTypeEnvoy: // when using service meshes, Envoy is deployed as a sidecar to each container
+		return 5
+	}
+	return 3
+}
+
+func (at ApplicationType) AuditReport() AuditReportName {
+	switch at {
+	case ApplicationTypePostgres:
+		return AuditReportPostgres
+	case ApplicationTypeMysql:
+		return AuditReportMysql
+	case ApplicationTypeRedis:
+		return AuditReportRedis
+	case ApplicationTypeMongodb, ApplicationTypeMongos:
+		return AuditReportMongodb
+	case ApplicationTypeMemcached:
+		return AuditReportMemcached
+	case ApplicationTypeJava:
+		return AuditReportJvm
+	case ApplicationTypeDotNet:
+		return AuditReportDotNet
+	case ApplicationTypePython:
+		return AuditReportPython
+	}
+	return ""
+}
+
+func (at ApplicationType) Icon() string {
+	switch {
+	case strings.HasPrefix(string(at), "kube"):
+		return "kubernetes"
+	case at == ApplicationTypePgbouncer:
+		return "postgres"
+	case at == ApplicationTypeMongos:
+		return "mongodb"
+	}
+	return string(at)
 }

@@ -25,7 +25,7 @@ func loadRdsMetadata(w *model.World, metrics map[string][]model.MetricValues, pj
 			} else {
 				id = model.NewApplicationId("", model.ApplicationKindRds, instanceParts[1])
 			}
-			instance = w.GetOrCreateApplication(id).GetOrCreateInstance(instanceParts[1], nil)
+			instance = w.GetOrCreateApplication(id, false).GetOrCreateInstance(instanceParts[1], nil)
 			rdsInstancesById[rdsId] = instance
 			instance.Rds = &model.Rds{}
 		}

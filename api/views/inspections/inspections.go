@@ -1,4 +1,4 @@
-package configs
+package inspections
 
 import (
 	"github.com/coroot/coroot/model"
@@ -34,7 +34,7 @@ func Render(configs model.CheckConfigs) *View {
 	v.addReport(model.AuditReportDeployments, cs.DeploymentStatus)
 	v.addReport(model.AuditReportCPU, cs.CPUNode, cs.CPUContainer)
 	v.addReport(model.AuditReportMemory, cs.MemoryOOM, cs.MemoryLeakPercent)
-	v.addReport(model.AuditReportStorage, cs.StorageIO, cs.StorageSpace)
+	v.addReport(model.AuditReportStorage, cs.StorageIOLoad, cs.StorageSpace)
 	v.addReport(model.AuditReportNetwork, cs.NetworkRTT)
 	v.addReport(model.AuditReportLogs, cs.LogErrors)
 	v.addReport(model.AuditReportPostgres, cs.PostgresAvailability, cs.PostgresLatency, cs.PostgresErrors, cs.PostgresReplicationLag, cs.PostgresConnections)

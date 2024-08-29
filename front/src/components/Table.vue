@@ -19,12 +19,9 @@
                         <span style="font-size: 14px">{{ c.progress.percent }}%</span>
                     </v-progress-linear>
 
-                    <div v-else-if="c.net_interfaces" v-for="iface in c.net_interfaces">
-                        <span class="text-no-wrap"> <v-icon small color="green">mdi-arrow-down-thick</v-icon>{{ iface.Rx }} </span>
-                        <span class="text-no-wrap">
-                            <v-icon small color="blue">mdi-arrow-up-thick</v-icon>{{ iface.Tx }}
-                            <span class="caption grey--text">({{ iface.Name }})</span>
-                        </span>
+                    <div v-else-if="c.bandwidth">
+                        <span class="text-no-wrap"> <v-icon small color="green">mdi-arrow-down-thick</v-icon>{{ c.bandwidth.Rx }} </span>
+                        <span class="text-no-wrap"> <v-icon small color="blue">mdi-arrow-up-thick</v-icon>{{ c.bandwidth.Tx }} </span>
                     </div>
 
                     <v-sparkline
@@ -38,9 +35,19 @@
                         style="min-width: 100px"
                     />
 
-                    <div v-else-if="c.values" v-for="v in c.values">
-                        {{ v }}
-                    </div>
+                    <template v-else-if="c.values">
+                        <v-menu v-if="c.values.length > 1" offset-y tile>
+                            <template #activator="{ on }">
+                                <span v-on="on" class="text-no-wrap"> {{ c.values[0] }}, ...</span>
+                            </template>
+                            <v-list dense>
+                                <v-list-item v-for="v in c.values" style="font-size: 14px; min-height: 32px">
+                                    <v-list-item-title>{{ v }}</v-list-item-title>
+                                </v-list-item>
+                            </v-list>
+                        </v-menu>
+                        <span v-else>{{ c.values[0] }}</span>
+                    </template>
 
                     <div v-else-if="c.deployment_summaries" v-for="s in c.deployment_summaries" class="d-flex">
                         <span class="text-no-wrap">{{ s.ok ? '&#127881;' : '&#128148;' }} {{ s.message }}</span>
@@ -60,13 +67,15 @@
                                 v-if="c.value && c.link"
                                 :to="{ ...{ query: $route.query }, ...c.link }"
                                 :class="{ truncated: !!c.max_width }"
-                                :style="{ 'max-width': c.max_width || undefined }"
+                                :style="{ 'max-width': !!c.max_width ? c.max_width + 'ch' : undefined }"
+                                :title="c.value"
                                 >{{ c.value }}</router-link
                             >
                             <span
                                 v-else
                                 :class="{ 'grey--text': c.is_stub, truncated: !!c.max_width }"
-                                :style="{ 'max-width': c.max_width || undefined }"
+                                :style="{ 'max-width': !!c.max_width ? c.max_width + 'ch' : undefined }"
+                                :title="c.value"
                                 >{{ (smallScreen && c.short_value ? c.short_value : c.value) || '&mdash;' }}</span
                             >
                             <span v-if="c.unit && c.value" class="caption grey--text ml-1">{{ c.unit }}</span>

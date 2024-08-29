@@ -8,7 +8,7 @@
                     <img :src="`${$coroot.base_path}static/logo.svg`" height="38" class="logo" alt=":~#" />
                 </router-link>
 
-                <div v-if="$route.name !== 'welcome'">
+                <div v-if="user">
                     <v-menu dark offset-y tile attach=".v-app-bar">
                         <template #activator="{ on, attrs }">
                             <v-btn v-on="on" plain outlined class="ml-3 px-2" height="40">
@@ -70,14 +70,36 @@
                     <TimePicker :small="$vuetify.breakpoint.xsOnly" />
                 </div>
 
-                <v-btn v-if="project" :to="{ name: 'project_settings' }" plain outlined height="40" class="ml-3 px-2">
+                <v-btn v-if="user" :to="{ name: project ? 'project_settings' : 'project_new' }" plain outlined height="40" class="ml-3 px-2">
                     <v-icon>mdi-cog</v-icon>
                     <Led v-if="status" :status="status.status !== 'ok' ? 'warning' : 'ok'" absolute />
                 </v-btn>
 
-                <div class="ml-1">
-                    <ThemeSelector />
-                </div>
+                <!-- v-menu.eager is necessary to apply the selected theme -->
+                <v-menu dark offset-y left tile eager attach=".v-app-bar">
+                    <template #activator="{ on }">
+                        <v-btn v-on="on" plain outlined height="40" class="px-2 ml-1">
+                            <v-icon>mdi-account</v-icon>
+                        </v-btn>
+                    </template>
+                    <v-list dense>
+                        <v-list-item v-if="user">
+                            <div>
+                                <div>{{ user.name }}</div>
+                                <div v-if="user.email" class="caption grey--text">login: {{ user.email }}</div>
+                                <div v-if="user.role" class="caption grey--text">role: {{ user.role }}</div>
+                            </div>
+                        </v-list-item>
+                        <v-divider v-if="user" class="my-2" />
+                        <v-subheader class="px-4">Theme</v-subheader>
+                        <ThemeSelector />
+                        <template v-if="user && !user.anonymous">
+                            <v-divider class="my-2" />
+                            <v-list-item @click="changePassword = true">Change password</v-list-item>
+                            <v-list-item :to="{ name: 'logout' }">Sing out</v-list-item>
+                        </template>
+                    </v-list>
+                </v-menu>
             </v-container>
         </v-app-bar>
 
@@ -124,7 +146,10 @@
                         </template>
                     </div>
                 </v-alert>
+
                 <router-view />
+
+                <ChangePassword v-if="user" v-model="changePassword" />
             </v-container>
         </v-main>
     </v-app>
@@ -137,24 +162,32 @@ import Led from './components/Led.vue';
 import CheckForUpdates from './components/CheckForUpdates.vue';
 import ThemeSelector from './components/ThemeSelector.vue';
 import AgentInstallation from './views/AgentInstallation.vue';
+import ChangePassword from './views/auth/ChangePassword.vue';
 import './app.css';
 
 export default {
-    components: { Search, TimePicker, Led, CheckForUpdates, ThemeSelector, AgentInstallation },
+    components: { Search, TimePicker, Led, CheckForUpdates, ThemeSelector, AgentInstallation, ChangePassword },
 
     data() {
         return {
-            projects: [],
+            user: null,
             context: this.$api.context,
+            changePassword: false,
         };
     },
 
     created() {
-        this.$events.watch(this, this.getProjects, 'project-saved', 'project-deleted');
-        this.getProjects();
+        this.$events.watch(this, this.getUser, 'projects');
+        this.getUser();
     },
 
     computed: {
+        projects() {
+            if (!this.user) {
+                return [];
+            }
+            return this.user.projects || [];
+        },
         project() {
             const id = this.$route.params.projectId;
             if (!id) {
@@ -163,12 +196,13 @@ export default {
             return this.projects.find((p) => p.id === id);
         },
         status() {
-            return this.context.status;
+            return this.project ? this.context.status : null;
         },
     },
 
     watch: {
         $route(curr, prev) {
+            this.getUser();
             if (curr.query.from !== prev.query.from || curr.query.to !== prev.query.to) {
                 this.$events.emit('refresh');
             }
@@ -176,18 +210,18 @@ export default {
                 this.$events.emit('refresh');
                 this.lastProject(curr.params.projectId);
             }
-            this.getProjects();
         },
     },
 
     methods: {
-        getProjects() {
-            this.$api.getProjects((data, error) => {
+        getUser() {
+            this.$api.user(null, (data, error) => {
                 if (error) {
+                    this.user = null;
                     return;
                 }
-                this.projects = data || [];
-                if (this.$route.name === 'index') {
+                this.user = data;
+                if (this.user && this.$route.name === 'index') {
                     if (!this.projects.length) {
                         this.$router.replace({ name: 'welcome' });
                         return;

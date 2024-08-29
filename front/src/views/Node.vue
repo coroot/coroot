@@ -19,7 +19,7 @@
             </div>
             <Dashboard v-else :name="name" :widgets="node.widgets" class="mt-3" />
         </template>
-        <NoData v-else-if="!loading" />
+        <NoData v-else-if="!loading && !error" />
     </div>
 </template>
 

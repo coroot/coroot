@@ -66,26 +66,25 @@ type Progress struct {
 	Color   string `json:"color"`
 }
 
-type NetInterface struct {
-	Name string
-	Rx   string
-	Tx   string
+type Bandwidth struct {
+	Rx string
+	Tx string
 }
 
 type TableCell struct {
-	Icon          *Icon                  `json:"icon"`
-	Value         string                 `json:"value"`
-	ShortValue    string                 `json:"short_value"`
-	Values        []string               `json:"values"`
-	Tags          []string               `json:"tags"`
-	Unit          string                 `json:"unit"`
-	Status        *Status                `json:"status"`
-	Link          *RouterLink            `json:"link"`
-	Progress      *Progress              `json:"progress"`
-	NetInterfaces []NetInterface         `json:"net_interfaces"`
-	Chart         *timeseries.TimeSeries `json:"chart"`
-	IsStub        bool                   `json:"is_stub"`
-	MaxWidth      int                    `json:"max_width"`
+	Icon       *Icon                  `json:"icon"`
+	Value      string                 `json:"value"`
+	ShortValue string                 `json:"short_value"`
+	Values     []string               `json:"values"`
+	Tags       []string               `json:"tags"`
+	Unit       string                 `json:"unit"`
+	Status     *Status                `json:"status"`
+	Link       *RouterLink            `json:"link"`
+	Progress   *Progress              `json:"progress"`
+	Bandwidth  *Bandwidth             `json:"bandwidth"`
+	Chart      *timeseries.TimeSeries `json:"chart"`
+	IsStub     bool                   `json:"is_stub"`
+	MaxWidth   int                    `json:"max_width"`
 
 	DeploymentSummaries []ApplicationDeploymentSummary `json:"deployment_summaries"`
 }

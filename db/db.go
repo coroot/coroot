@@ -6,12 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"path"
+	"strings"
 
 	"github.com/lib/pq"
 	_ "github.com/lib/pq"
 	"github.com/mattn/go-sqlite3"
 	_ "github.com/mattn/go-sqlite3"
-	"k8s.io/klog"
 )
 
 type Type string
@@ -24,6 +24,7 @@ const (
 var (
 	ErrNotFound = errors.New("not found")
 	ErrConflict = errors.New("conflict")
+	ErrInvalid  = errors.New("invalid")
 )
 
 type DB struct {
@@ -31,20 +32,14 @@ type DB struct {
 	db  *sql.DB
 }
 
-func NewDB(typ Type, db *sql.DB) *DB {
-	return &DB{typ: typ, db: db}
-}
-
 func Open(dataDir string, pgConnString string) (*DB, error) {
 	var db *sql.DB
 	var err error
 	var typ Type
 	if pgConnString != "" {
-		klog.Infoln("using postgres database")
 		typ = TypePostgres
 		db, err = postgres(pgConnString)
 	} else {
-		klog.Infoln("using sqlite database")
 		typ = TypeSqlite
 		db, err = sqlite(path.Join(dataDir, "db.sqlite"))
 	}
@@ -52,7 +47,7 @@ func Open(dataDir string, pgConnString string) (*DB, error) {
 		return nil, err
 	}
 	db.SetMaxOpenConns(1)
-	return NewDB(typ, db), nil
+	return &DB{typ: typ, db: db}, nil
 }
 
 func (db *DB) Type() Type {
@@ -63,11 +58,11 @@ func (db *DB) DB() *sql.DB {
 	return db.db
 }
 
-func (db *DB) Migrate(tables ...Table) error {
-	return NewMigrator(db.typ, db.db).Migrate(tables...)
+func (db *DB) Migrator() *Migrator {
+	return NewMigrator(db.typ, db.db)
 }
 
-func (db *DB) MigrateDefault(extraTables ...Table) error {
+func (db *DB) Migrate(extraTables ...Table) error {
 	defaultTables := []Table{
 		&Project{},
 		&CheckConfigs{},
@@ -75,8 +70,10 @@ func (db *DB) MigrateDefault(extraTables ...Table) error {
 		&IncidentNotification{},
 		&ApplicationDeployment{},
 		&ApplicationSettings{},
+		&Setting{},
+		&User{},
 	}
-	return NewMigrator(db.typ, db.db).Migrate(append(defaultTables, extraTables...)...)
+	return db.Migrator().Migrate(append(defaultTables, extraTables...)...)
 }
 
 func (db *DB) IsUniqueViolationError(err error) bool {
@@ -130,6 +127,10 @@ func (m *Migrator) Migrate(tables ...Table) error {
 }
 
 func (m *Migrator) Exec(query string, args ...any) error {
+	switch m.typ {
+	case TypePostgres:
+		query = strings.ReplaceAll(query, "INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT", "SERIAL PRIMARY KEY")
+	}
 	_, err := m.db.Exec(query, args...)
 	return err
 }

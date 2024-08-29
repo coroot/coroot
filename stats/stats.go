@@ -73,6 +73,7 @@ type Stats struct {
 		UsersByScreenSize map[string]int             `json:"users_by_screen_size"`
 		UsersByTheme      map[string]int             `json:"users_by_theme"`
 		Users             *utils.StringSet           `json:"users"`
+		UsersByRole       map[string]int             `json:"users_by_role"`
 		PageViews         map[string]int             `json:"page_views"`
 		SentNotifications map[db.IntegrationType]int `json:"sent_notifications"`
 	} `json:"ux"`
@@ -250,6 +251,17 @@ func (c *Collector) collect() Stats {
 	c.memUsage = nil
 
 	c.lock.Unlock()
+
+	users, err := c.db.GetUsers()
+	if err != nil {
+		klog.Errorln("failed to get users:", err)
+	}
+	stats.UX.UsersByRole = map[string]int{}
+	for _, u := range users {
+		for _, r := range u.Roles {
+			stats.UX.UsersByRole[string(r)]++
+		}
+	}
 
 	projects, err := c.db.GetProjects()
 	if err != nil {

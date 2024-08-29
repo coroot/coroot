@@ -9,7 +9,9 @@ import (
 
 	"github.com/ClickHouse/ch-go"
 	"github.com/ClickHouse/ch-go/chpool"
+	"github.com/coroot/coroot/cache"
 	"github.com/coroot/coroot/db"
+	"github.com/jpillora/backoff"
 	"golang.org/x/exp/maps"
 	"k8s.io/klog"
 )
@@ -27,7 +29,8 @@ var (
 )
 
 type Collector struct {
-	db *db.DB
+	db    *db.DB
+	cache *cache.Cache
 
 	projects     map[db.ProjectId]*db.Project
 	projectsLock sync.RWMutex
@@ -43,9 +46,10 @@ type Collector struct {
 	profileBatchesLock sync.Mutex
 }
 
-func New(database *db.DB) *Collector {
+func New(database *db.DB, cache *cache.Cache) *Collector {
 	c := &Collector{
 		db:                database,
+		cache:             cache,
 		clickhouseClients: map[db.ProjectId]*chpool.Pool{},
 		traceBatches:      map[db.ProjectId]*TracesBatch{},
 		profileBatches:    map[db.ProjectId]*ProfilesBatch{},
@@ -60,6 +64,27 @@ func New(database *db.DB) *Collector {
 			c.updateProjects()
 		}
 	}()
+
+	for _, p := range c.projects {
+		cfg := p.Settings.Integrations.Clickhouse
+		if cfg == nil {
+			continue
+		}
+		go func(cfg *db.IntegrationClickhouse) {
+			b := backoff.Backoff{Factor: 2, Min: time.Minute, Max: 10 * time.Minute}
+			for {
+				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				err := c.migrate(ctx, cfg)
+				cancel()
+				if err == nil {
+					return
+				}
+				d := b.Duration()
+				klog.Errorf("failed to create clickhouse tables, next attempt in %s: %s", d.String(), err)
+				time.Sleep(d)
+			}
+		}(cfg)
+	}
 
 	return c
 }
@@ -125,7 +150,7 @@ func (c *Collector) Close() {
 
 func (c *Collector) UpdateClickhouseClient(ctx context.Context, projectId db.ProjectId, cfg *db.IntegrationClickhouse) error {
 	c.deleteClickhouseClient(projectId)
-	return c.Migrate(ctx, cfg)
+	return c.migrate(ctx, cfg)
 }
 
 func (c *Collector) deleteClickhouseClient(projectId db.ProjectId) {

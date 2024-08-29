@@ -195,7 +195,7 @@ func (c *Cache) updaterWorker(projects *sync.Map, projectId db.ProjectId, promCl
 
 func (c *Cache) download(to timeseries.Time, promClient *prom.Client, projectId db.ProjectId, step timeseries.Duration, state *PrometheusQueryState) {
 	hash, jitter := QueryId(projectId, state.Query)
-	pointsCount := int(chunkSize / step)
+	pointsCount := int(chunk.Size / step)
 	from := state.LastTs
 	if to.Sub(from) > BackFillInterval {
 		from = to.Add(-BackFillInterval)
@@ -302,7 +302,7 @@ func (c *Cache) processRecordingRules(to timeseries.Time, project *db.Project, s
 		return
 	}
 	cacheClient := c.GetCacheClient(project.Id)
-	pointsCount := int(chunkSize / step)
+	pointsCount := int(chunk.Size / step)
 	for _, i := range intervals {
 		ctr := constructor.New(c.db, project, cacheClient, nil, constructor.OptionLoadPerConnectionHistograms, constructor.OptionDoNotLoadRawSLIs)
 		world, err := ctr.LoadWorld(context.TODO(), i.chunkTs, i.toTs, step, nil)
@@ -334,15 +334,11 @@ func (c *Cache) processRecordingRules(to timeseries.Time, project *db.Project, s
 
 type interval struct {
 	chunkTs, toTs timeseries.Time
-	chunkDuration timeseries.Duration
 }
 
 func (i interval) String() string {
 	format := "2006-01-02T15:04:05"
-	return fmt.Sprintf(
-		`(%s, %d, %s)`,
-		i.chunkTs.ToStandard().Format(format), i.chunkDuration, i.toTs.ToStandard().Format(format),
-	)
+	return fmt.Sprintf(`(%s %s)`, i.chunkTs.ToStandard().Format(format), i.toTs.ToStandard().Format(format))
 }
 
 func calcIntervals(lastSavedTime timeseries.Time, scrapeInterval timeseries.Duration, now timeseries.Time, jitter timeseries.Duration) []interval {
@@ -351,10 +347,9 @@ func calcIntervals(lastSavedTime timeseries.Time, scrapeInterval timeseries.Dura
 	if to <= from {
 		return nil
 	}
-	from = from.Truncate(scrapeInterval)
 	var res []interval
-	for f := from.Add(-jitter).Truncate(chunkSize).Add(jitter); f < to; f = f.Add(chunkSize) {
-		i := interval{chunkTs: f, chunkDuration: chunkSize, toTs: f.Add(chunkSize)}
+	for f := from.Add(-jitter).Truncate(chunk.Size).Add(jitter).Truncate(scrapeInterval); f < to; f = f.Add(chunk.Size) {
+		i := interval{chunkTs: f, toTs: f.Add(chunk.Size)}
 		if i.toTs > to {
 			i.toTs = to
 		}
