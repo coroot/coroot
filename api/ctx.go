@@ -9,7 +9,7 @@ import (
 	"github.com/coroot/coroot/utils"
 )
 
-type WithContext struct {
+type DataWithContext struct {
 	Context Context `json:"context"`
 	Data    any     `json:"data"`
 }
@@ -59,8 +59,8 @@ type Node struct {
 	Status model.Status `json:"status"`
 }
 
-func withContext(p *db.Project, cacheStatus *cache.Status, w *model.World, data any) WithContext {
-	return WithContext{
+func WithContext(p *db.Project, cacheStatus *cache.Status, w *model.World, data any) DataWithContext {
+	return DataWithContext{
 		Context: Context{
 			Status: renderStatus(p, cacheStatus, w),
 			Search: renderSearch(w),

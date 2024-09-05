@@ -193,6 +193,10 @@ export default class Api {
         this.get(this.projectPath(`incident/${key}`), {}, cb);
     }
 
+    getRCA(appId, cb) {
+        this.get(this.projectPath(`app/${appId}/rca`), {}, cb);
+    }
+
     getInspectionConfig(appId, type, cb) {
         this.get(this.projectPath(`app/${appId}/inspection/${type}/config`), {}, cb);
     }

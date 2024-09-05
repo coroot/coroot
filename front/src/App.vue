@@ -46,7 +46,9 @@
                             </v-btn>
                         </template>
                         <v-list dense>
-                            <v-list-item href="https://coroot.com/docs/coroot-community-edition" target="_blank">Documentation</v-list-item>
+                            <v-list-item href="https://coroot.com/docs/coroot-community-edition" target="_blank">
+                                <v-icon small class="mr-1">mdi-book-open-outline</v-icon>Documentation</v-list-item
+                            >
                             <v-list-item href="https://github.com/coroot/coroot" target="_blank">
                                 <v-icon small class="mr-1">mdi-github</v-icon>GitHub
                             </v-list-item>
@@ -55,9 +57,6 @@
                                 target="_blank"
                             >
                                 <v-icon small class="mr-1">mdi-slack</v-icon>Slack chat
-                            </v-list-item>
-                            <v-list-item href="https://coroot.com/cloud" target="_blank">
-                                <v-icon small class="mr-1">mdi-cloud-outline</v-icon>Coroot cloud
                             </v-list-item>
                             <v-divider />
                             <v-list-item href="https://github.com/coroot/coroot/releases" target="_blank">

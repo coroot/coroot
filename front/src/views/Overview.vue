@@ -1,22 +1,20 @@
 <template>
     <div>
-        <h1 class="text-h5 my-5">
-            Overview
-            <v-progress-circular v-if="loading" indeterminate color="green" />
-        </h1>
-
-        <v-tabs height="40" show-arrows slider-size="2" class="mb-3">
-            <template v-for="(name, id) in views">
-                <v-tab
-                    v-if="name"
-                    :to="{ params: { view: id === 'health' ? undefined : id }, query: id === 'incidents' ? undefined : $utils.contextQuery() }"
-                    exact-path
-                    :class="{ disabled: loading }"
-                >
-                    {{ name }}
-                </v-tab>
-            </template>
-        </v-tabs>
+        <div class="my-6">
+            <v-tabs height="40" show-arrows slider-size="2">
+                <template v-for="(name, id) in views">
+                    <v-tab
+                        v-if="name"
+                        :to="{ params: { view: id === 'health' ? undefined : id }, query: id === 'incidents' ? undefined : $utils.contextQuery() }"
+                        exact-path
+                        :class="{ disabled: loading }"
+                    >
+                        {{ name }}
+                    </v-tab>
+                </template>
+            </v-tabs>
+            <v-progress-linear indeterminate v-if="loading" color="green" class="mt-2" />
+        </div>
 
         <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
             {{ error }}
@@ -33,7 +31,7 @@
             </template>
             <template v-else>
                 <Incidents v-if="incidents" :incidents="incidents" />
-                <NoData v-else-if="!loading" />
+                <NoData v-else-if="!loading && !error" />
             </template>
         </template>
 
@@ -156,7 +154,7 @@ export default {
                     return;
                 }
                 this.categories = data.categories;
-                this.incidents = data.incidents;
+                this.incidents = data.incidents || [];
                 this.health = data.health;
                 this.map = data.map;
                 this.nodes = data.nodes;

@@ -290,7 +290,7 @@ func (api *Api) Status(w http.ResponseWriter, r *http.Request, u *db.User) {
 		return
 	}
 	now := timeseries.Now()
-	world, cacheStatus, err := api.loadWorld(r.Context(), project, now.Add(-timeseries.Hour), now)
+	world, cacheStatus, err := api.LoadWorld(r.Context(), project, now.Add(-timeseries.Hour), now)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
@@ -317,14 +317,14 @@ func (api *Api) Overview(w http.ResponseWriter, r *http.Request, u *db.User) {
 		}
 	}
 
-	world, project, cacheStatus, err := api.loadWorldByRequest(r)
+	world, project, cacheStatus, err := api.LoadWorldByRequest(r)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 	if project == nil || world == nil {
-		utils.WriteJson(w, withContext(project, cacheStatus, world, nil))
+		utils.WriteJson(w, WithContext(project, cacheStatus, world, nil))
 		return
 	}
 	var ch *clickhouse.Client
@@ -335,7 +335,7 @@ func (api *Api) Overview(w http.ResponseWriter, r *http.Request, u *db.User) {
 		}
 	}
 	auditor.Audit(world, project, nil)
-	utils.WriteJson(w, withContext(project, cacheStatus, world, views.Overview(r.Context(), ch, world, view, r.URL.Query().Get("query"))))
+	utils.WriteJson(w, WithContext(project, cacheStatus, world, views.Overview(r.Context(), ch, world, view, r.URL.Query().Get("query"))))
 }
 
 func (api *Api) Inspections(w http.ResponseWriter, r *http.Request, u *db.User) {
@@ -470,7 +470,7 @@ func (api *Api) Integration(w http.ResponseWriter, r *http.Request, u *db.User) 
 		form.Get(project, !isAllowed)
 		switch t {
 		case db.IntegrationTypeAWS:
-			world, _, _, err := api.loadWorldByRequest(r)
+			world, _, _, err := api.LoadWorldByRequest(r)
 			if err != nil {
 				klog.Errorln(err)
 			}
@@ -570,14 +570,14 @@ func (api *Api) Application(w http.ResponseWriter, r *http.Request, u *db.User) 
 		http.Error(w, "invalid application id: "+vars["app"], http.StatusBadRequest)
 		return
 	}
-	world, project, cacheStatus, err := api.loadWorldByRequest(r)
+	world, project, cacheStatus, err := api.LoadWorldByRequest(r)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 	if project == nil || world == nil {
-		utils.WriteJson(w, withContext(project, cacheStatus, world, nil))
+		utils.WriteJson(w, WithContext(project, cacheStatus, world, nil))
 		return
 	}
 	app := world.GetApplication(appId)
@@ -597,7 +597,21 @@ func (api *Api) Application(w http.ResponseWriter, r *http.Request, u *db.User) 
 		app.AddReport(model.AuditReportProfiling, &model.Widget{Profiling: &model.Profiling{ApplicationId: app.Id}, Width: "100%"})
 		app.AddReport(model.AuditReportTracing, &model.Widget{Tracing: &model.Tracing{ApplicationId: app.Id}, Width: "100%"})
 	}
-	utils.WriteJson(w, withContext(project, cacheStatus, world, views.Application(world, app)))
+	utils.WriteJson(w, WithContext(project, cacheStatus, world, views.Application(world, app)))
+}
+
+func (api *Api) RCA(w http.ResponseWriter, r *http.Request, u *db.User) {
+	world, project, cacheStatus, err := api.LoadWorldByRequest(r)
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	if project == nil || world == nil {
+		utils.WriteJson(w, WithContext(project, cacheStatus, world, nil))
+		return
+	}
+	utils.WriteJson(w, WithContext(project, cacheStatus, world, "not implemented"))
 }
 
 func (api *Api) Incident(w http.ResponseWriter, r *http.Request, u *db.User) {
@@ -619,14 +633,14 @@ func (api *Api) Incident(w http.ResponseWriter, r *http.Request, u *db.User) {
 	values.Add("incident", incidentKey)
 	r.URL.RawQuery = values.Encode()
 
-	world, project, cacheStatus, err := api.loadWorldByRequest(r)
+	world, project, cacheStatus, err := api.LoadWorldByRequest(r)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 	if project == nil || world == nil {
-		utils.WriteJson(w, withContext(project, cacheStatus, world, nil))
+		utils.WriteJson(w, WithContext(project, cacheStatus, world, nil))
 		return
 	}
 	app := world.GetApplication(incident.ApplicationId)
@@ -640,7 +654,7 @@ func (api *Api) Incident(w http.ResponseWriter, r *http.Request, u *db.User) {
 		return
 	}
 	auditor.Audit(world, project, app)
-	utils.WriteJson(w, withContext(project, cacheStatus, world, views.Incident(world, app, incident)))
+	utils.WriteJson(w, WithContext(project, cacheStatus, world, views.Incident(world, app, incident)))
 }
 
 func (api *Api) Inspection(w http.ResponseWriter, r *http.Request, u *db.User) {
@@ -766,7 +780,7 @@ func (api *Api) Instrumentation(w http.ResponseWriter, r *http.Request, u *db.Us
 		http.Error(w, "invalid application id: "+vars["app"], http.StatusBadRequest)
 		return
 	}
-	world, _, _, err := api.loadWorldByRequest(r)
+	world, _, _, err := api.LoadWorldByRequest(r)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
@@ -851,14 +865,14 @@ func (api *Api) Profiling(w http.ResponseWriter, r *http.Request, u *db.User) {
 		return
 	}
 
-	world, project, cacheStatus, err := api.loadWorldByRequest(r)
+	world, project, cacheStatus, err := api.LoadWorldByRequest(r)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 	if project == nil || world == nil {
-		utils.WriteJson(w, withContext(project, cacheStatus, world, nil))
+		utils.WriteJson(w, WithContext(project, cacheStatus, world, nil))
 		return
 	}
 	app := world.GetApplication(appId)
@@ -876,7 +890,7 @@ func (api *Api) Profiling(w http.ResponseWriter, r *http.Request, u *db.User) {
 	}
 	q := r.URL.Query()
 	auditor.Audit(world, project, nil)
-	utils.WriteJson(w, withContext(project, cacheStatus, world, views.Profiling(r.Context(), ch, app, q, world.Ctx)))
+	utils.WriteJson(w, WithContext(project, cacheStatus, world, views.Profiling(r.Context(), ch, app, q, world.Ctx)))
 }
 
 func (api *Api) Tracing(w http.ResponseWriter, r *http.Request, u *db.User) {
@@ -908,14 +922,14 @@ func (api *Api) Tracing(w http.ResponseWriter, r *http.Request, u *db.User) {
 		return
 	}
 
-	world, project, cacheStatus, err := api.loadWorldByRequest(r)
+	world, project, cacheStatus, err := api.LoadWorldByRequest(r)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 	if project == nil || world == nil {
-		utils.WriteJson(w, withContext(project, cacheStatus, world, nil))
+		utils.WriteJson(w, WithContext(project, cacheStatus, world, nil))
 		return
 	}
 	app := world.GetApplication(appId)
@@ -933,7 +947,7 @@ func (api *Api) Tracing(w http.ResponseWriter, r *http.Request, u *db.User) {
 		}
 	}
 	auditor.Audit(world, project, nil)
-	utils.WriteJson(w, withContext(project, cacheStatus, world, views.Tracing(r.Context(), ch, app, q, world)))
+	utils.WriteJson(w, WithContext(project, cacheStatus, world, views.Tracing(r.Context(), ch, app, q, world)))
 }
 
 func (api *Api) Logs(w http.ResponseWriter, r *http.Request, u *db.User) {
@@ -965,14 +979,14 @@ func (api *Api) Logs(w http.ResponseWriter, r *http.Request, u *db.User) {
 		return
 	}
 
-	world, project, cacheStatus, err := api.loadWorldByRequest(r)
+	world, project, cacheStatus, err := api.LoadWorldByRequest(r)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 	if project == nil || world == nil {
-		utils.WriteJson(w, withContext(project, cacheStatus, world, nil))
+		utils.WriteJson(w, WithContext(project, cacheStatus, world, nil))
 		return
 	}
 	app := world.GetApplication(appId)
@@ -990,7 +1004,7 @@ func (api *Api) Logs(w http.ResponseWriter, r *http.Request, u *db.User) {
 	}
 	auditor.Audit(world, project, nil)
 	q := r.URL.Query()
-	utils.WriteJson(w, withContext(project, cacheStatus, world, views.Logs(r.Context(), ch, app, q, world)))
+	utils.WriteJson(w, WithContext(project, cacheStatus, world, views.Logs(r.Context(), ch, app, q, world)))
 }
 
 func (api *Api) Node(w http.ResponseWriter, r *http.Request, u *db.User) {
@@ -1001,14 +1015,14 @@ func (api *Api) Node(w http.ResponseWriter, r *http.Request, u *db.User) {
 		http.Error(w, "You are not allowed to view this node.", http.StatusForbidden)
 		return
 	}
-	world, project, cacheStatus, err := api.loadWorldByRequest(r)
+	world, project, cacheStatus, err := api.LoadWorldByRequest(r)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 	if project == nil || world == nil {
-		utils.WriteJson(w, withContext(project, cacheStatus, world, nil))
+		utils.WriteJson(w, WithContext(project, cacheStatus, world, nil))
 		return
 	}
 	node := world.GetNode(nodeName)
@@ -1018,10 +1032,10 @@ func (api *Api) Node(w http.ResponseWriter, r *http.Request, u *db.User) {
 		return
 	}
 	auditor.Audit(world, project, nil)
-	utils.WriteJson(w, withContext(project, cacheStatus, world, auditor.AuditNode(world, node)))
+	utils.WriteJson(w, WithContext(project, cacheStatus, world, auditor.AuditNode(world, node)))
 }
 
-func (api *Api) loadWorld(ctx context.Context, project *db.Project, from, to timeseries.Time) (*model.World, *cache.Status, error) {
+func (api *Api) LoadWorld(ctx context.Context, project *db.Project, from, to timeseries.Time) (*model.World, *cache.Status, error) {
 	cacheClient := api.cache.GetCacheClient(project.Id)
 
 	cacheStatus, err := cacheClient.GetStatus()
@@ -1055,7 +1069,7 @@ func (api *Api) loadWorld(ctx context.Context, project *db.Project, from, to tim
 	return world, cacheStatus, err
 }
 
-func (api *Api) loadWorldByRequest(r *http.Request) (*model.World, *db.Project, *cache.Status, error) {
+func (api *Api) LoadWorldByRequest(r *http.Request) (*model.World, *db.Project, *cache.Status, error) {
 	projectId := db.ProjectId(mux.Vars(r)["project"])
 	project, err := api.db.GetProject(projectId)
 	if err != nil {
@@ -1086,7 +1100,7 @@ func (api *Api) loadWorldByRequest(r *http.Request) (*model.World, *db.Project, 
 		}
 	}
 
-	world, cacheStatus, err := api.loadWorld(r.Context(), project, from, to)
+	world, cacheStatus, err := api.LoadWorld(r.Context(), project, from, to)
 	if world == nil {
 		step := increaseStepForBigDurations(to.Sub(from), 15*timeseries.Second)
 		world = model.NewWorld(from, to.Add(-step), step, step)
