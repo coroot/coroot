@@ -166,6 +166,7 @@ func main() {
 	r.HandleFunc("/api/project/{project}/integrations", a.Auth(a.Integrations)).Methods(http.MethodGet, http.MethodPut)
 	r.HandleFunc("/api/project/{project}/integrations/{type}", a.Auth(a.Integration)).Methods(http.MethodGet, http.MethodPut, http.MethodDelete, http.MethodPost)
 	r.HandleFunc("/api/project/{project}/app/{app}", a.Auth(a.Application)).Methods(http.MethodGet)
+	r.HandleFunc("/api/project/{project}/app/{app}/rca", a.Auth(a.RCA)).Methods(http.MethodGet)
 	r.HandleFunc("/api/project/{project}/app/{app}/inspection/{type}/config", a.Auth(a.Inspection)).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/project/{project}/app/{app}/instrumentation/{type}", a.Auth(a.Instrumentation)).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/project/{project}/app/{app}/profiling", a.Auth(a.Profiling)).Methods(http.MethodGet, http.MethodPost)

@@ -9,24 +9,24 @@
         <CheckForm v-model="editing.active" :appId="editing.appId" :check="editing.check" />
 
         <div v-if="incident">
-            <v-card outlined class="my-5 pa-4 pb-2">
-                <div class="d-flex flex-wrap" style="gap: 16px">
+            <v-card outlined class="my-6 pa-4 pb-2">
+                <div class="d-flex flex-wrap" style="gap: 16px; row-gap: 8px">
                     <div>
-                        Incident:
-                        <span class="ml-1 font-weight-medium">i-{{ $route.query.incident }}</span>
+                        <span class="field-name">Incident</span>:
+                        <span>i-{{ $route.query.incident }}</span>
                     </div>
 
                     <div>
-                        Started:
-                        <span class="ml-1 font-weight-medium">
+                        <span class="field-name">Started</span>:
+                        <span>
                             {{ $format.date(incident.opened_at, '{MMM} {DD}, {HH}:{mm}:{ss}') }}
-                            ({{ $format.timeSinceNow(incident.opened_at, 'm') }} ago)
                         </span>
+                        <span> ({{ $format.timeSinceNow(incident.opened_at) }} ago) </span>
                     </div>
 
                     <div>
-                        Resolved:
-                        <span class="ml-1 font-weight-medium">
+                        <span class="field-name">Resolved</span>:
+                        <span>
                             <template v-if="incident.resolved_at">
                                 {{ $format.date(incident.resolved_at, '{MMM} {DD}, {HH}:{mm}:{ss}') }}
                             </template>
@@ -35,13 +35,13 @@
                     </div>
 
                     <div>
-                        Duration:
-                        <span class="ml-1 font-weight-medium">{{ $format.duration(incident.duration, 'm') }}</span>
+                        <span class="field-name">Duration</span>:
+                        <span>{{ $format.durationPretty(incident.duration) }}</span>
                     </div>
 
                     <div>
-                        Severity:
-                        <span class="ml-1 font-weight-medium">
+                        <span class="field-name">Severity</span>:
+                        <span>
                             <v-icon :color="incident.severity === 'critical' ? 'error' : 'warning'" small style="margin-bottom: 2px">
                                 mdi-alert-circle
                             </v-icon>
@@ -50,7 +50,7 @@
                     </div>
 
                     <div>
-                        Application:
+                        <span class="field-name">Application</span>:
                         <router-link
                             :to="{ name: 'application', params: { id: incident.application_id }, query: $utils.contextQuery() }"
                             class="name"
@@ -119,17 +119,21 @@
             <template v-else-if="view === 'traces'">
                 <Tracing :appId="incident.application_id" compact />
             </template>
+
+            <template v-else-if="view === 'rca'">
+                <RCA :appId="incident.application_id" />
+            </template>
         </div>
         <NoData v-else-if="!loading && !error" />
     </div>
 </template>
 
 <script>
-import NoData from '../components/NoData';
+import NoData from '@/components/NoData';
 import Widget from '@/components/Widget.vue';
-import { date } from '@/utils/format';
 import CheckForm from '@/components/CheckForm.vue';
 import Tracing from '@/views/Tracing.vue';
+import RCA from '@/views/RCA.vue';
 
 export default {
     computed: {
@@ -140,19 +144,19 @@ export default {
             return [
                 { name: 'overview', title: 'overview', icon: 'mdi-format-list-checkbox' },
                 { name: 'traces', title: 'traces', icon: 'mdi-chart-timeline' },
+                { name: 'rca', title: 'root cause analysis', icon: 'mdi-creation' },
             ];
         },
     },
     props: {},
 
-    components: { Tracing, CheckForm, Widget, NoData },
+    components: { Tracing, CheckForm, Widget, RCA, NoData },
 
     data() {
         return {
             incident: null,
             loading: false,
             error: '',
-            r: null,
             editing: {
                 active: false,
             },
@@ -164,18 +168,7 @@ export default {
         this.$events.watch(this, this.get, 'refresh');
     },
 
-    watch: {
-        id() {
-            this.app = null;
-            this.get();
-        },
-        report() {
-            this.showReport();
-        },
-    },
-
     methods: {
-        date,
         get() {
             this.loading = true;
             this.$api.getIncident(this.$route.query.incident, (data, error) => {
@@ -225,5 +218,11 @@ export default {
     opacity: 100%;
     border-bottom: 2px solid red !important;
     background-color: unset !important;
+}
+
+.field-name {
+    font-weight: 700;
+    color: var(--text-color-dimmed);
+    font-size: 14px;
 }
 </style>
