@@ -151,7 +151,9 @@ func (b *LogsBatch) Add(req *v1.ExportLogsServiceRequest) {
 				if scopeVersion != "" {
 					logAttributes[semconv.AttributeOtelScopeVersion] = scopeVersion
 				}
-
+				if int64(lr.GetTimeUnixNano()) < 0 {
+					continue
+				}
 				b.Timestamp.Append(time.Unix(0, int64(lr.GetTimeUnixNano())))
 				b.TraceId.Append(hex.EncodeToString(lr.GetTraceId()))
 				b.SpanId.Append(hex.EncodeToString(lr.GetSpanId()))
