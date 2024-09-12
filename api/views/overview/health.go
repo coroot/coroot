@@ -5,12 +5,11 @@ import (
 	"reflect"
 	"sort"
 
-	"golang.org/x/exp/maps"
-
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 	"github.com/dustin/go-humanize/english"
+	"golang.org/x/exp/maps"
 )
 
 type ApplicationStatus struct {

@@ -105,7 +105,7 @@ func renderCosts(w *model.World) *Costs {
 		internetEgress := timeseries.NewAggregate(timeseries.NanSum)
 
 		for _, i := range n.Instances {
-			owner := applicationsIndex[i.OwnerId]
+			owner := applicationsIndex[i.Owner.Id]
 			if owner == nil {
 				continue
 			}
@@ -164,8 +164,8 @@ func renderCosts(w *model.World) *Costs {
 			if _, ok := desiredInstances[owner.Id]; !ok && owner.IsK8s() {
 				desiredInstances[owner.Id] = owner.DesiredInstances.Last()
 			}
-			nodeApps[i.OwnerId] = append(nodeApps[i.OwnerId], ii)
-			applications[i.OwnerId] = append(applications[i.OwnerId], ii)
+			nodeApps[i.Owner.Id] = append(nodeApps[i.Owner.Id], ii)
+			applications[i.Owner.Id] = append(applications[i.Owner.Id], ii)
 		}
 
 		nodeCpuUsagePercent := n.CpuUsagePercent.Last()

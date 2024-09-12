@@ -66,10 +66,10 @@ func renderServiceMap(w *model.World) []*Application {
 			}
 		}
 		for _, d := range a.Downstreams {
-			if d.IsObsolete() || d.Instance.OwnerId == app.Id {
+			if d.IsObsolete() || d.Instance.Owner == a {
 				continue
 			}
-			downstreams[d.Instance.OwnerId] = true
+			downstreams[d.Instance.Owner.Id] = true
 		}
 
 		for id, s := range upstreams {

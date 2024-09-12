@@ -9,7 +9,7 @@ require (
 	github.com/PagerDuty/go-pagerduty v1.6.0
 	github.com/atc0005/go-teams-notify/v2 v2.7.0
 	github.com/buger/jsonparser v1.1.1
-	github.com/coroot/logparser v1.1.3
+	github.com/coroot/logparser v1.1.4
 	github.com/dustin/go-humanize v1.0.1
 	github.com/golang/snappy v0.0.4
 	github.com/google/pprof v0.0.0-20230111200839-76d1ae5aea2b
@@ -23,7 +23,6 @@ require (
 	github.com/matoous/go-nanoid v1.5.0
 	github.com/mattn/go-sqlite3 v1.14.15
 	github.com/opsgenie/opsgenie-go-sdk-v2 v1.2.14
-	github.com/pierrec/lz4 v2.6.1+incompatible
 	github.com/prometheus/client_golang v1.14.0
 	github.com/prometheus/common v0.39.0
 	github.com/prometheus/procfs v0.8.0
@@ -54,7 +53,6 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dennwc/varint v1.0.0 // indirect
 	github.com/dmarkham/enumer v1.5.9 // indirect
-	github.com/frankban/quicktest v1.14.3 // indirect
 	github.com/go-faster/city v1.0.1 // indirect
 	github.com/go-faster/errors v0.7.1 // indirect
 	github.com/go-kit/log v0.2.1 // indirect

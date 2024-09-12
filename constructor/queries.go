@@ -2,6 +2,7 @@ package constructor
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
@@ -13,6 +14,7 @@ const (
 	qApplicationCustomSLI                  = "application_custom_sli"
 	qRecordingRuleInboundRequestsTotal     = "rr_application_inbound_requests_total"
 	qRecordingRuleInboundRequestsHistogram = "rr_application_inbound_requests_histogram"
+	qRecordingRuleApplicationLogMessages   = "rr_application_log_messages"
 )
 
 var QUERIES = map[string]string{
@@ -297,6 +299,32 @@ var RecordingRules = map[string]func(p *db.Project, w *model.World) []model.Metr
 				if !ts.IsEmpty() {
 					ls := model.Labels{"application": appId, "le": fmt.Sprintf("%f", le)}
 					res = append(res, model.MetricValues{Labels: ls, LabelsHash: promModel.LabelsToSignature(ls), Values: ts})
+				}
+			}
+		}
+		return res
+	},
+	qRecordingRuleApplicationLogMessages: func(p *db.Project, w *model.World) []model.MetricValues {
+		var res []model.MetricValues
+		for _, app := range w.Applications {
+			appId := app.Id.String()
+			for level, msgs := range app.LogMessages {
+				if len(msgs.Patterns) == 0 {
+					if msgs.Messages.Reduce(timeseries.NanSum) > 0 {
+						ls := model.Labels{"application": appId, "level": string(level)}
+						res = append(res, model.MetricValues{Labels: ls, LabelsHash: promModel.LabelsToSignature(ls), Values: msgs.Messages})
+					}
+				} else {
+					for _, pattern := range msgs.Patterns {
+						if pattern.Messages.Reduce(timeseries.NanSum) > 0 {
+							ls := model.Labels{"application": appId, "level": string(level)}
+							ls["multiline"] = fmt.Sprintf("%t", pattern.Multiline)
+							ls["similar"] = strings.Join(pattern.SimilarPatternHashes.Items(), " ")
+							ls["sample"] = pattern.Sample
+							ls["words"] = pattern.Pattern.String()
+							res = append(res, model.MetricValues{Labels: ls, LabelsHash: promModel.LabelsToSignature(ls), Values: pattern.Messages})
+						}
+					}
 				}
 			}
 		}

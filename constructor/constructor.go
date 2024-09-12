@@ -9,10 +9,9 @@ import (
 	"sync"
 	"time"
 
-	cloud_pricing "github.com/coroot/coroot/cloud-pricing"
+	pricing "github.com/coroot/coroot/cloud-pricing"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
-	"github.com/coroot/coroot/prom"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 	"golang.org/x/exp/maps"
@@ -28,18 +27,24 @@ type Option int
 const (
 	OptionLoadPerConnectionHistograms Option = iota
 	OptionDoNotLoadRawSLIs
+	OptionLoadContainerLogs
 )
+
+type Cache interface {
+	QueryRange(ctx context.Context, query string, from, to timeseries.Time, step timeseries.Duration, fillFunc timeseries.FillFunc) ([]model.MetricValues, error)
+	GetStep(from, to timeseries.Time) (timeseries.Duration, error)
+}
 
 type Constructor struct {
 	db      *db.DB
 	project *db.Project
-	prom    prom.Querier
-	pricing *cloud_pricing.Manager
+	cache   Cache
+	pricing *pricing.Manager
 	options map[Option]bool
 }
 
-func New(db *db.DB, project *db.Project, prom prom.Querier, pricing *cloud_pricing.Manager, options ...Option) *Constructor {
-	c := &Constructor{db: db, project: project, prom: prom, pricing: pricing, options: map[Option]bool{}}
+func New(db *db.DB, project *db.Project, cache Cache, pricing *pricing.Manager, options ...Option) *Constructor {
+	c := &Constructor{db: db, project: project, cache: cache, pricing: pricing, options: map[Option]bool{}}
 	for _, o := range options {
 		c.options[o] = true
 	}
@@ -72,9 +77,12 @@ func (p *Profile) stage(name string, f func()) {
 
 func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, step timeseries.Duration, prof *Profile) (*model.World, error) {
 	start := time.Now()
-	rawStep, err := c.prom.GetStep(from, to)
+	rawStep, err := c.cache.GetStep(from, to)
 	if err != nil {
 		return nil, err
+	}
+	if rawStep == 0 {
+		return model.NewWorld(from, to, step, step), nil
 	}
 	w := model.NewWorld(from, to, step, rawStep)
 	w.CustomApplications = c.project.Settings.CustomApplications
@@ -108,6 +116,7 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 	ecInstancesById := map[string]*model.Instance{}
 	servicesByClusterIP := map[string]*model.Service{}
 	ip2fqdn := map[string]*utils.StringSet{}
+	containers := containerCache{}
 
 	// order is important
 	prof.stage("load_job_statuses", func() { loadPromJobStatuses(metrics, pjs) })
@@ -121,12 +130,17 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 	prof.stage("load_rds", func() { c.loadRds(w, metrics, pjs, rdsInstancesById) })
 	prof.stage("load_elasticache", func() { c.loadElasticache(w, metrics, pjs, ecInstancesById) })
 	prof.stage("load_fargate_containers", func() { loadFargateContainers(w, metrics, pjs) })
-	prof.stage("load_containers", func() { c.loadContainers(w, metrics, pjs, nodesByID, servicesByClusterIP, ip2fqdn) })
+	prof.stage("load_containers", func() { c.loadContainers(w, metrics, pjs, nodesByID, containers, servicesByClusterIP, ip2fqdn) })
+	prof.stage("load_jvm", func() { c.loadJVM(metrics, containers) })
+	prof.stage("load_dotnet", func() { c.loadDotNet(metrics, containers) })
+	prof.stage("load_python", func() { c.loadPython(metrics, containers) })
 	prof.stage("enrich_instances", func() { enrichInstances(w, metrics, rdsInstancesById, ecInstancesById) })
 	prof.stage("join_db_cluster", func() { joinDBClusterComponents(w) })
 	prof.stage("calc_app_categories", func() { c.calcApplicationCategories(w) })
 	prof.stage("load_app_settings", func() { c.loadApplicationSettings(w) })
-	prof.stage("load_sli", func() { c.loadSLIs(w, metrics) })
+	prof.stage("load_app_sli", func() { c.loadSLIs(w, metrics) })
+	prof.stage("load_container_logs", func() { c.loadContainerLogs(metrics, containers, pjs) })
+	prof.stage("load_app_logs", func() { c.loadApplicationLogs(w, metrics) })
 	prof.stage("load_app_deployments", func() { c.loadApplicationDeployments(w) })
 	prof.stage("load_app_incidents", func() { c.loadApplicationIncidents(w) })
 	prof.stage("calc_app_events", func() { calcAppEvents(w) })
@@ -140,6 +154,7 @@ type cacheQuery struct {
 	from, to  timeseries.Time
 	step      timeseries.Duration
 	statsName string
+	fillFunc  timeseries.FillFunc
 }
 
 func (c *Constructor) queryCache(ctx context.Context, from, to timeseries.Time, step, rawStep timeseries.Duration, checkConfigs model.CheckConfigs, stats map[string]QueryStats) (map[string][]model.MetricValues, error) {
@@ -167,6 +182,17 @@ func (c *Constructor) queryCache(ctx context.Context, from, to timeseries.Time, 
 		if !c.options[OptionLoadPerConnectionHistograms] && strings.HasPrefix(n, "container_") && strings.HasSuffix(n, "_histogram") {
 			continue
 		}
+		if !c.options[OptionLoadContainerLogs] && n == "container_log_messages" {
+			queries[qRecordingRuleApplicationLogMessages] = cacheQuery{
+				query:     qRecordingRuleApplicationLogMessages,
+				from:      from,
+				to:        to,
+				step:      step,
+				statsName: qRecordingRuleApplicationLogMessages,
+				fillFunc:  timeseries.FillSum,
+			}
+			continue
+		}
 		addQuery(n, n, q, false)
 		if n == "container_memory_rss" || n == "fargate_container_memory_rss" {
 			name := n + "_for_trend"
@@ -180,9 +206,8 @@ func (c *Constructor) queryCache(ctx context.Context, from, to timeseries.Time, 
 		}
 	}
 
-	for name := range RecordingRules {
-		addQuery(name, name, name, true)
-	}
+	addQuery(qRecordingRuleInboundRequestsTotal, qRecordingRuleInboundRequestsTotal, qRecordingRuleInboundRequestsTotal, true)
+	addQuery(qRecordingRuleInboundRequestsHistogram, qRecordingRuleInboundRequestsHistogram, qRecordingRuleInboundRequestsHistogram, true)
 
 	for appId := range checkConfigs {
 		qName := fmt.Sprintf("%s/%s/", qApplicationCustomSLI, appId)
@@ -206,7 +231,10 @@ func (c *Constructor) queryCache(ctx context.Context, from, to timeseries.Time, 
 		wg.Add(1)
 		go func(name string, q cacheQuery) {
 			defer wg.Done()
-			metrics, err := c.prom.QueryRange(ctx, q.query, q.from, q.to, q.step)
+			if q.fillFunc == nil {
+				q.fillFunc = timeseries.FillAny
+			}
+			metrics, err := c.cache.QueryRange(ctx, q.query, q.from, q.to, q.step, q.fillFunc)
 			if stats != nil {
 				queryTime := float32(time.Since(now).Seconds())
 				lock.Lock()
@@ -391,7 +419,7 @@ func joinDBClusterComponents(w *model.World) {
 			}
 			cluster.DesiredInstances = merge(cluster.DesiredInstances, app.DesiredInstances, timeseries.NanSum)
 			for _, instance := range app.Instances {
-				instance.OwnerId = cluster.Id
+				instance.Owner = cluster
 				instance.ClusterComponent = app
 			}
 			cluster.Instances = append(cluster.Instances, app.Instances...)
@@ -472,7 +500,7 @@ func getActualServiceInstance(instance *model.Instance, applicationTypes ...mode
 		}
 	}
 	for _, u := range instance.Upstreams {
-		if ri := u.RemoteInstance; ri != nil && ri.OwnerId.Kind == model.ApplicationKindExternalService {
+		if ri := u.RemoteInstance; ri != nil && ri.Owner.Id.Kind == model.ApplicationKindExternalService {
 			return ri
 		}
 	}

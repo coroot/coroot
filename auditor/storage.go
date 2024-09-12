@@ -23,11 +23,12 @@ func (a *appAuditor) storage() {
 	spaceChart := report.GetOrCreateChartGroup("Disk space <selector>, bytes", nil)
 
 	seenVolumes := false
+	isK8s := a.app.IsK8s()
 	for _, i := range a.app.Instances {
 		for _, v := range i.Volumes {
 			fullName := i.Name + ":" + v.MountPoint
 			if i.Node != nil {
-				if a.app.IsK8s() && v.Name.Value() == "" {
+				if isK8s && v.Name.Value() == "" {
 					continue
 				}
 				seenVolumes = true

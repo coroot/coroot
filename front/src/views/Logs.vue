@@ -181,7 +181,7 @@
                         <div v-for="p in patterns" class="pattern" @click="pattern = p">
                             <div class="sample">{{ p.sample }}</div>
                             <div class="line">
-                                <v-sparkline :value="p.messages" smooth height="30" fill :color="p.color" padding="4" />
+                                <v-sparkline v-if="p.messages" :value="p.messages" smooth height="30" fill :color="p.color" padding="4" />
                             </div>
                             <div class="percent">{{ p.percent }}</div>
                         </div>
@@ -328,7 +328,7 @@ export default {
             if (!ch) {
                 return null;
             }
-            if (ch.flags !== 'severity' || !ch.series) {
+            if (!ch.series) {
                 return ch;
             }
             ch.series.forEach((s) => {
@@ -371,12 +371,17 @@ export default {
             return this.data.patterns.map((p) => {
                 const percent = (p.sum * 100) / total;
                 const newline = p.sample.indexOf('\n');
+                let messages = null;
+                if (p.chart && p.chart.series && p.chart.series[0]) {
+                    p.chart.series[0].color = (severity(p.severity) || {}).color;
+                    messages = p.chart.series[0].data.map((v) => (v === null ? 0 : v));
+                }
                 return {
                     severity: p.severity,
                     color: palette.get(severity(p.severity).color),
                     sample: p.sample,
                     multiline: newline > 0 ? newline : 0,
-                    messages: p.messages.map((v) => (v === null ? 0 : v)),
+                    messages: messages,
                     sum: p.sum,
                     percent: (percent < 1 ? '<1' : Math.trunc(percent)) + '%',
                     hash: p.hash,

@@ -45,8 +45,8 @@ func TestChunk(t *testing.T) {
 	assert.Equal(t, Meta{Path: chunk2, From: 300, PointsCount: 10, Step: 30, Finalized: false}, *meta2)
 
 	res := map[uint64]model.MetricValues{}
-	require.NoError(t, Read(chunk1, 60, 10, 30, res))
-	require.NoError(t, Read(chunk2, 60, 10, 30, res))
+	require.NoError(t, Read(chunk1, 60, 10, 30, res, timeseries.FillAny))
+	require.NoError(t, Read(chunk2, 60, 10, 30, res, timeseries.FillAny))
 
 	assert.Equal(t, model.Labels{"a": "bb"}, res[111].Labels)
 	assert.Equal(t, model.Labels{"a": "ccc"}, res[222].Labels)

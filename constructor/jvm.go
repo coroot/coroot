@@ -7,33 +7,48 @@ import (
 	"github.com/coroot/coroot/timeseries"
 )
 
-func jvm(instance *model.Instance, queryName string, m model.MetricValues) {
-	if m.Labels["jvm"] == "" {
-		return
+func (c *Constructor) loadJVM(metrics map[string][]model.MetricValues, containers containerCache) {
+	load := func(queryName string, f func(jvm *model.Jvm, metric model.MetricValues)) {
+		for _, metric := range metrics[queryName] {
+			v := containers[metric.NodeContainerId]
+			if v.instance == nil {
+				continue
+			}
+			name := metric.Labels["jvm"]
+			if name == "" {
+				continue
+			}
+			if v.instance.Jvms == nil {
+				v.instance.Jvms = map[string]*model.Jvm{}
+			}
+			name = jvmName(name)
+			jvm := v.instance.Jvms[name]
+			if jvm == nil {
+				jvm = &model.Jvm{GcTime: map[string]*timeseries.TimeSeries{}}
+				v.instance.Jvms[name] = jvm
+			}
+			f(jvm, metric)
+		}
 	}
-	if instance.Jvms == nil {
-		instance.Jvms = map[string]*model.Jvm{}
-	}
-	name := jvmName(m.Labels["jvm"])
-	j := instance.Jvms[name]
-	if j == nil {
-		j = &model.Jvm{GcTime: map[string]*timeseries.TimeSeries{}}
-		instance.Jvms[name] = j
-	}
-	switch queryName {
-	case "container_jvm_info":
-		j.JavaVersion.Update(m.Values, m.Labels["java_version"])
-	case "container_jvm_heap_size_bytes":
-		j.HeapSize = merge(j.HeapSize, m.Values, timeseries.Any)
-	case "container_jvm_heap_used_bytes":
-		j.HeapUsed = merge(j.HeapUsed, m.Values, timeseries.Any)
-	case "container_jvm_gc_time_seconds":
-		j.GcTime[m.Labels["gc"]] = merge(j.GcTime[m.Labels["gc"]], m.Values, timeseries.Any)
-	case "container_jvm_safepoint_sync_time_seconds":
-		j.SafepointSyncTime = merge(j.SafepointSyncTime, m.Values, timeseries.Any)
-	case "container_jvm_safepoint_time_seconds":
-		j.SafepointTime = merge(j.SafepointTime, m.Values, timeseries.Any)
-	}
+	load("container_jvm_info", func(jvm *model.Jvm, metric model.MetricValues) {
+		jvm.JavaVersion.Update(metric.Values, metric.Labels["java_version"])
+	})
+	load("container_jvm_heap_size_bytes", func(jvm *model.Jvm, metric model.MetricValues) {
+		jvm.HeapSize = merge(jvm.HeapSize, metric.Values, timeseries.Any)
+	})
+	load("container_jvm_heap_used_bytes", func(jvm *model.Jvm, metric model.MetricValues) {
+		jvm.HeapUsed = merge(jvm.HeapUsed, metric.Values, timeseries.Any)
+	})
+	load("container_jvm_gc_time_seconds", func(jvm *model.Jvm, metric model.MetricValues) {
+		gc := metric.Labels["gc"]
+		jvm.GcTime[gc] = merge(jvm.GcTime[gc], metric.Values, timeseries.Any)
+	})
+	load("container_jvm_safepoint_time_seconds", func(jvm *model.Jvm, metric model.MetricValues) {
+		jvm.SafepointTime = merge(jvm.SafepointTime, metric.Values, timeseries.Any)
+	})
+	load("container_jvm_safepoint_sync_time_seconds", func(jvm *model.Jvm, metric model.MetricValues) {
+		jvm.SafepointSyncTime = merge(jvm.SafepointSyncTime, metric.Values, timeseries.Any)
+	})
 }
 
 func jvmName(s string) string {

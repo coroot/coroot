@@ -141,11 +141,11 @@ func podInfo(w *model.World, metrics []model.MetricValues) map[string]*model.Ins
 		}
 	}
 	for _, instance := range podsOwnedByPods {
-		id := podId{name: instance.OwnerId.Name, ns: instance.OwnerId.Namespace}
+		id := podId{name: instance.Owner.Id.Name, ns: instance.Owner.Id.Namespace}
 		if ownerOfOwner, ok := podOwners[id]; ok {
 			if app := w.GetApplication(ownerOfOwner); app != nil {
-				delete(w.Applications, instance.OwnerId)
-				instance.OwnerId = ownerOfOwner
+				delete(w.Applications, instance.Owner.Id)
+				instance.Owner = app
 				app.Instances = append(app.Instances, instance)
 			}
 		}
