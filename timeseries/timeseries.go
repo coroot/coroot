@@ -98,43 +98,94 @@ func (ts *TimeSeries) Set(t Time, v float32) {
 	}
 }
 
-func (ts *TimeSeries) Fill(from Time, step Duration, data []float32) bool {
-	changed := false
-	to := ts.from.Add(Duration(ts.Len()-1) * ts.step)
+type FillFunc func(ts *TimeSeries, from Time, step Duration, data []float32) bool
 
-	tNext := Time(0)
-	iNext := -1
-	var v float32
-	t := from.Add(-step)
-	for i := range data {
-		t = t.Add(step)
-		if t > to {
-			break
+func FillAny(ts *TimeSeries, from Time, step Duration, data []float32) bool {
+	changed := false
+	maxIndex := len(ts.data) - 1
+	tSrc, iSrc := from, 0
+	if ts.from.Sub(tSrc) >= ts.step {
+		tSrc = tSrc.Add(ts.from.Sub(tSrc.Truncate(ts.step)).Truncate(ts.step))
+		if tSrc > ts.from {
+			tSrc = tSrc.Add(-ts.step)
 		}
-		if t < ts.from {
-			continue
-		}
-		if t < tNext {
-			continue
-		}
-		if iNext == -1 {
-			iNext = int((t - ts.from) / Time(ts.step))
-			tNext = t.Truncate(ts.step)
-		}
-		l := len(ts.data) - 1
-		if iNext <= l {
-			v = data[i]
-			if !IsNaN(v) {
-				ts.data[iNext] = v
-				changed = true
-				if iNext == l {
-					ts.last = v
-				}
-			}
-			tNext = tNext.Add(ts.step)
-			iNext++
-		}
+		iSrc = int((tSrc - from) / Time(step))
 	}
+	tDst, iDst := ts.from, 0
+	if tSrc > tDst {
+		tDst = tSrc.Truncate(ts.step)
+		if tDst < tSrc {
+			tDst = tDst.Add(ts.step)
+		}
+		iDst = int((tDst - ts.from) / Time(ts.step))
+	}
+	vv := NaN
+	for _, v := range data[iSrc:] {
+		if tSrc > tDst {
+			ts.data[iDst] = vv
+			vv = NaN
+			iDst++
+			if iDst > maxIndex {
+				break
+			}
+			tDst += Time(ts.step)
+		}
+		if !IsNaN(v) {
+			vv = v
+			changed = true
+		}
+		tSrc += Time(step)
+	}
+	if iDst <= maxIndex {
+		ts.data[iDst] = vv
+	}
+	ts.last = ts.data[maxIndex]
+	return changed
+}
+
+func FillSum(ts *TimeSeries, from Time, step Duration, data []float32) bool {
+	changed := false
+	maxIndex := len(ts.data) - 1
+	tSrc, iSrc := from, 0
+	if ts.from.Sub(tSrc) >= ts.step {
+		tSrc = tSrc.Add(ts.from.Sub(tSrc.Truncate(ts.step)).Truncate(ts.step))
+		if tSrc > ts.from {
+			tSrc = tSrc.Add(-ts.step)
+		}
+		iSrc = int((tSrc - from) / Time(step))
+	}
+	tDst, iDst := ts.from, 0
+	if tSrc > tDst {
+		tDst = tSrc.Truncate(ts.step)
+		if tDst < tSrc {
+			tDst = tDst.Add(ts.step)
+		}
+		iDst = int((tDst - ts.from) / Time(ts.step))
+	}
+	vv := float32(0)
+	if !IsNaN(ts.data[iDst]) {
+		vv = ts.data[iDst]
+	}
+	for _, v := range data[iSrc:] {
+		if tSrc > tDst {
+			ts.data[iDst] = vv
+			vv = 0
+			iDst++
+			if iDst > maxIndex {
+				break
+			}
+			tDst += Time(ts.step)
+		}
+		if !IsNaN(v) {
+			vv += v
+			changed = true
+		}
+		tSrc += Time(step)
+	}
+	if iDst <= maxIndex {
+		ts.data[iDst] = vv
+	}
+	ts.last = ts.data[maxIndex]
 	return changed
 }
 

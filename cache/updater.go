@@ -304,7 +304,7 @@ func (c *Cache) processRecordingRules(to timeseries.Time, project *db.Project, s
 	cacheClient := c.GetCacheClient(project.Id)
 	pointsCount := int(chunk.Size / step)
 	for _, i := range intervals {
-		ctr := constructor.New(c.db, project, cacheClient, nil, constructor.OptionLoadPerConnectionHistograms, constructor.OptionDoNotLoadRawSLIs)
+		ctr := constructor.New(c.db, project, cacheClient, nil, constructor.OptionLoadPerConnectionHistograms, constructor.OptionDoNotLoadRawSLIs, constructor.OptionLoadContainerLogs)
 		world, err := ctr.LoadWorld(context.TODO(), i.chunkTs, i.toTs, step, nil)
 		if err != nil {
 			klog.Errorln("failed to load world:", err)

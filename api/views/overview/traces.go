@@ -8,16 +8,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/coroot/coroot/utils"
-
-	"github.com/coroot/coroot/timeseries"
-
-	"golang.org/x/exp/maps"
-
-	"k8s.io/klog"
-
 	"github.com/coroot/coroot/clickhouse"
 	"github.com/coroot/coroot/model"
+	"github.com/coroot/coroot/timeseries"
+	"github.com/coroot/coroot/utils"
+	"golang.org/x/exp/maps"
+	"k8s.io/klog"
 )
 
 const (

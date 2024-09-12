@@ -8,11 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"golang.org/x/exp/maps"
-
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
+	"golang.org/x/exp/maps"
 )
 
 var (

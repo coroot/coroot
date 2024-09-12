@@ -110,7 +110,7 @@ func Render(world *model.World, app *model.Application) *View {
 			}
 		}
 		for _, connection := range app.Downstreams {
-			if connection.Instance.OwnerId != app.Id {
+			if connection.Instance.Owner != app {
 				switch {
 				case connection.RemoteInstance != nil && connection.RemoteInstance.Name == instance.Name:
 				case connection.RemoteInstance == nil:
@@ -118,7 +118,7 @@ func Render(world *model.World, app *model.Application) *View {
 					continue
 				}
 				status, reason := connection.Status()
-				i.addClient(connection.Instance.OwnerId, status, reason, "to", connection)
+				i.addClient(connection.Instance.Owner.Id, status, reason, "to", connection)
 			}
 		}
 		appMap.Instances = append(appMap.Instances, i)

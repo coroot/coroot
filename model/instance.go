@@ -26,8 +26,8 @@ func (r ClusterRole) String() string {
 }
 
 type Instance struct {
-	Name    string
-	OwnerId ApplicationId
+	Name  string
+	Owner *Application
 
 	Node *Node
 
@@ -61,10 +61,10 @@ type Instance struct {
 	Mysql     *Mysql
 }
 
-func NewInstance(name string, owner ApplicationId) *Instance {
+func NewInstance(name string, owner *Application) *Instance {
 	return &Instance{
 		Name:        name,
-		OwnerId:     owner,
+		Owner:       owner,
 		LogMessages: map[LogLevel]*LogMessages{},
 		Containers:  map[string]*Container{},
 		TcpListens:  map[Listen]bool{},

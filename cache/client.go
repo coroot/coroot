@@ -23,7 +23,7 @@ type Client struct {
 	projectId db.ProjectId
 }
 
-func (c *Client) QueryRange(ctx context.Context, query string, from, to timeseries.Time, step timeseries.Duration) ([]model.MetricValues, error) {
+func (c *Client) QueryRange(ctx context.Context, query string, from, to timeseries.Time, step timeseries.Duration, fillFunc timeseries.FillFunc) ([]model.MetricValues, error) {
 	c.cache.lock.RLock()
 	defer c.cache.lock.RUnlock()
 	projData := c.cache.byProject[c.projectId]
@@ -43,7 +43,7 @@ func (c *Client) QueryRange(ctx context.Context, query string, from, to timeseri
 		if ch.From > to || ch.To() < from {
 			continue
 		}
-		err := chunk.Read(ch.Path, from, resPoints, step, res)
+		err := chunk.Read(ch.Path, from, resPoints, step, res, fillFunc)
 		if err != nil {
 			return nil, err
 		}

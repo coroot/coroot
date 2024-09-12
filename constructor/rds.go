@@ -117,7 +117,7 @@ func (c *Constructor) loadRds(w *model.World, metrics map[string][]model.MetricV
 					}
 				}
 			case "aws_rds_log_messages_total":
-				logMessage(instance, m.Labels, timeseries.Increase(m.Values, pjs.get(m.Labels)))
+				logMessage(instance, m, pjs)
 			case "aws_rds_net_rx_bytes_per_second", "aws_rds_net_tx_bytes_per_second":
 				name := m.Labels["interface"]
 				var stat *model.InterfaceStats

@@ -27,8 +27,14 @@ func (ls Labels) String() string {
 	return fmt.Sprintf("{%s}", strings.Join(parts, ","))
 }
 
+type NodeContainerId struct {
+	NodeId
+	ContainerId string
+}
+
 type MetricValues struct {
 	Labels     Labels
 	LabelsHash uint64
 	Values     *timeseries.TimeSeries
+	NodeContainerId
 }

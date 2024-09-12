@@ -5,13 +5,12 @@ import (
 	"net/http"
 	"sort"
 
-	"golang.org/x/exp/maps"
-
 	"github.com/coroot/coroot/constructor"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
+	"golang.org/x/exp/maps"
 	"inet.af/netaddr"
 	"k8s.io/klog"
 )
