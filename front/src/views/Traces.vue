@@ -2,16 +2,20 @@
     <div v-if="view" class="traces">
         <v-alert v-if="view.message" color="info" outlined text class="message">
             <template v-if="view.message === 'not_found'">
-                This page only shows traces from OpenTelemetry integrations, not from eBPF. To add OpenTelemetry SDKs to your apps, check out the docs
-                for
-                <a href="https://coroot.com/docs/coroot-community-edition/tracing/opentelemetry-go" target="_blank">Go</a>,
-                <a href="https://coroot.com/docs/coroot-community-edition/tracing/opentelemetry-java" target="_blank">Java</a>,
-                <a href="https://coroot.com/docs/coroot-community-edition/tracing/opentelemetry-python" target="_blank">Python</a>.
-            </template>
+                This page only shows traces from OpenTelemetry integrations, not from eBPF.
+                <div class="mt-2">
+                    <OpenTelemetryIntegration color="primary">Integrate OpenTelemetry</OpenTelemetryIntegration>
+                </div></template
+            >
             <template v-if="view.message === 'no_clickhouse'"> Clickhouse integration is not configured. </template>
         </v-alert>
 
         <template v-else>
+            <div class="mt-4 d-flex">
+                <v-spacer />
+                <OpenTelemetryIntegration small color="primary">Integrate OpenTelemetry</OpenTelemetryIntegration>
+            </div>
+
             <v-alert v-if="view.error" color="error" icon="mdi-alert-octagon-outline" outlined text>
                 {{ view.error }}
             </v-alert>
@@ -394,6 +398,7 @@ import { palette } from '../utils/colors';
 import Heatmap from '../components/Heatmap.vue';
 import TracingTrace from '../components/TracingTrace.vue';
 import FlameGraph from '../components/FlameGraph.vue';
+import OpenTelemetryIntegration from '@/views/OpenTelemetryIntegration.vue';
 
 export default {
     props: {
@@ -401,7 +406,7 @@ export default {
         loading: Boolean,
     },
 
-    components: { FlameGraph, TracingTrace, Heatmap },
+    components: { OpenTelemetryIntegration, FlameGraph, TracingTrace, Heatmap },
 
     data() {
         return {
