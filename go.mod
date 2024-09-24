@@ -3,7 +3,7 @@ module github.com/coroot/coroot
 go 1.21
 
 require (
-	github.com/ClickHouse/ch-go v0.61.5
+	github.com/ClickHouse/ch-go v0.62.0
 	github.com/ClickHouse/clickhouse-go/v2 v2.8.3
 	github.com/DataDog/golz4 v1.3.0
 	github.com/PagerDuty/go-pagerduty v1.6.0
@@ -18,7 +18,7 @@ require (
 	github.com/grafana/pyroscope-go/godeltaprof v0.1.6
 	github.com/hako/durafmt v0.0.0-20210608085754-5c1018a4e16b
 	github.com/jpillora/backoff v1.0.0
-	github.com/klauspost/compress v1.17.7
+	github.com/klauspost/compress v1.17.9
 	github.com/lib/pq v1.10.7
 	github.com/matoous/go-nanoid v1.5.0
 	github.com/mattn/go-sqlite3 v1.14.15
@@ -88,7 +88,7 @@ require (
 	go4.org/intern v0.0.0-20211027215823-ae77deb06f29 // indirect
 	go4.org/unsafe/assume-no-moving-gc v0.0.0-20230525183740-e7c30c78aeb2 // indirect
 	golang.org/x/mod v0.16.0 // indirect
-	golang.org/x/sync v0.6.0 // indirect
+	golang.org/x/sync v0.7.0 // indirect
 	golang.org/x/sys v0.18.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/tools v0.19.0 // indirect

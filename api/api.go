@@ -329,7 +329,7 @@ func (api *Api) Overview(w http.ResponseWriter, r *http.Request, u *db.User) {
 	}
 	var ch *clickhouse.Client
 	if cfg := project.Settings.Integrations.Clickhouse; cfg != nil {
-		ch, err = GetClickhouseClient(cfg)
+		ch, err = api.getClickhouseClient(project)
 		if err != nil {
 			klog.Warningln(err)
 		}
@@ -883,7 +883,7 @@ func (api *Api) Profiling(w http.ResponseWriter, r *http.Request, u *db.User) {
 	}
 	var ch *clickhouse.Client
 	if cfg := project.Settings.Integrations.Clickhouse; cfg != nil {
-		ch, err = GetClickhouseClient(cfg)
+		ch, err = api.getClickhouseClient(project)
 		if err != nil {
 			klog.Warningln(err)
 		}
@@ -941,7 +941,7 @@ func (api *Api) Tracing(w http.ResponseWriter, r *http.Request, u *db.User) {
 	q := r.URL.Query()
 	var ch *clickhouse.Client
 	if cfg := project.Settings.Integrations.Clickhouse; cfg != nil {
-		ch, err = GetClickhouseClient(cfg)
+		ch, err = api.getClickhouseClient(project)
 		if err != nil {
 			klog.Warningln(err)
 		}
@@ -997,7 +997,7 @@ func (api *Api) Logs(w http.ResponseWriter, r *http.Request, u *db.User) {
 	}
 	var ch *clickhouse.Client
 	if cfg := project.Settings.Integrations.Clickhouse; cfg != nil {
-		ch, err = GetClickhouseClient(cfg)
+		ch, err = api.getClickhouseClient(project)
 		if err != nil {
 			klog.Warningln(err)
 		}
@@ -1131,11 +1131,16 @@ func maxDuration(d1, d2 timeseries.Duration) timeseries.Duration {
 	return d2
 }
 
-func GetClickhouseClient(cfg *db.IntegrationClickhouse) (*clickhouse.Client, error) {
+func (api *Api) getClickhouseClient(project *db.Project) (*clickhouse.Client, error) {
+	cfg := project.Settings.Integrations.Clickhouse
 	config := clickhouse.NewClientConfig(cfg.Addr, cfg.Auth.User, cfg.Auth.Password)
 	config.Protocol = cfg.Protocol
 	config.Database = cfg.Database
 	config.TlsEnable = cfg.TlsEnable
 	config.TlsSkipVerify = cfg.TlsSkipVerify
-	return clickhouse.NewClient(config)
+	distributed, err := api.collector.IsClickhouseDistributed(project.Id)
+	if err != nil {
+		return nil, err
+	}
+	return clickhouse.NewClient(config, distributed)
 }

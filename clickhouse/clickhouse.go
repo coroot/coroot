@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	"github.com/coroot/coroot/collector"
 )
 
 type ClientConfig struct {
@@ -32,11 +34,12 @@ func NewClientConfig(address, user, password string) ClientConfig {
 }
 
 type Client struct {
-	config ClientConfig
-	conn   clickhouse.Conn
+	config               ClientConfig
+	conn                 clickhouse.Conn
+	useDistributedTables bool
 }
 
-func NewClient(config ClientConfig) (*Client, error) {
+func NewClient(config ClientConfig, distributed bool) (*Client, error) {
 	opts := &clickhouse.Options{
 		Addr: []string{config.Address},
 		Auth: clickhouse.Auth{
@@ -71,9 +74,14 @@ func NewClient(config ClientConfig) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Client{config: config, conn: conn}, nil
+	return &Client{config: config, conn: conn, useDistributedTables: distributed}, nil
 }
 
 func (c *Client) Ping(ctx context.Context) error {
 	return c.conn.Ping(ctx)
+}
+
+func (c *Client) Query(ctx context.Context, query string, args ...interface{}) (driver.Rows, error) {
+	query = collector.ReplaceTables(query, c.useDistributedTables)
+	return c.conn.Query(ctx, query, args...)
 }

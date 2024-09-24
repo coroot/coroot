@@ -9,7 +9,7 @@ import (
 )
 
 func (c *Client) GetProfileTypes(ctx context.Context) (map[string][]model.ProfileType, error) {
-	rows, err := c.conn.Query(ctx, qProfileTypes)
+	rows, err := c.Query(ctx, qProfileTypes)
 	if err != nil {
 		return nil, err
 	}
@@ -39,7 +39,7 @@ func (c *Client) getProfile(ctx context.Context, from, to timeseries.Time, servi
 	if avg {
 		query = qProfileAvg
 	}
-	rows, err := c.conn.Query(ctx, query,
+	rows, err := c.Query(ctx, query,
 		clickhouse.Named("service", services),
 		clickhouse.Named("type", typ),
 		clickhouse.DateNamed("from", from.ToStandard(), clickhouse.NanoSeconds),
@@ -68,7 +68,7 @@ func (c *Client) getProfile(ctx context.Context, from, to timeseries.Time, servi
 
 func (c *Client) getDiffProfile(ctx context.Context, from, to timeseries.Time, services []string, typ model.ProfileType) (*model.FlameGraphNode, error) {
 	query := qProfileDiff
-	rows, err := c.conn.Query(ctx, query,
+	rows, err := c.Query(ctx, query,
 		clickhouse.Named("service", services),
 		clickhouse.Named("type", typ),
 		clickhouse.DateNamed("from", from.Add(-to.Sub(from)).ToStandard(), clickhouse.NanoSeconds),

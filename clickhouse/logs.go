@@ -16,8 +16,8 @@ import (
 )
 
 func (c *Client) GetServicesFromLogs(ctx context.Context) (map[string][]string, error) {
-	q := "SELECT DISTINCT ServiceName, SeverityText FROM otel_logs"
-	rows, err := c.conn.Query(ctx, q)
+	q := "SELECT DISTINCT ServiceName, SeverityText FROM @@table_otel_logs@@"
+	rows, err := c.Query(ctx, q)
 	if err != nil {
 		return nil, err
 	}
@@ -79,10 +79,10 @@ func (c *Client) GetContainerLogs(ctx context.Context, from, to timeseries.Time,
 
 func (c *Client) getLogsHistogram(ctx context.Context, filters []string, args []any, from, to timeseries.Time, step timeseries.Duration) (map[string]*timeseries.TimeSeries, error) {
 	q := fmt.Sprintf("SELECT SeverityText, toStartOfInterval(Timestamp, INTERVAL %d second), count(1)", step)
-	q += " FROM otel_logs"
+	q += " FROM @@table_otel_logs@@"
 	q += " WHERE " + strings.Join(filters, " AND ")
 	q += " GROUP BY 1, 2"
-	rows, err := c.conn.Query(ctx, q, args...)
+	rows, err := c.Query(ctx, q, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +111,7 @@ func (c *Client) getLogs(ctx context.Context, filters []string, args []any, seve
 	var qs []string
 	for _, severity := range severities {
 		q := "SELECT Timestamp, SeverityText, Body, TraceId, ResourceAttributes, LogAttributes"
-		q += " FROM otel_logs"
+		q += " FROM @@table_otel_logs@@"
 		q += " WHERE " + strings.Join(append(filters, fmt.Sprintf("SeverityText = '%s'", severity)), " AND ")
 		q += " ORDER BY toUnixTimestamp(Timestamp) DESC LIMIT " + fmt.Sprint(limit)
 		qs = append(qs, q)
@@ -120,7 +120,7 @@ func (c *Client) getLogs(ctx context.Context, filters []string, args []any, seve
 	q += " FROM (" + strings.Join(qs, " UNION ALL ") + ") l"
 	q += " ORDER BY Timestamp DESC LIMIT " + fmt.Sprint(limit)
 
-	rows, err := c.conn.Query(ctx, q, args...)
+	rows, err := c.Query(ctx, q, args...)
 	if err != nil {
 		return nil, err
 	}

@@ -26,8 +26,8 @@ func init() {
 }
 
 func (c *Client) GetServicesFromTraces(ctx context.Context) ([]string, error) {
-	q := "SELECT DISTINCT ServiceName FROM otel_traces"
-	rows, err := c.conn.Query(ctx, q)
+	q := "SELECT DISTINCT ServiceName FROM @@table_otel_traces@@"
+	rows, err := c.Query(ctx, q)
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +133,7 @@ func (c *Client) GetParentSpans(ctx context.Context, spans []*model.TraceSpan) (
 	}
 	var q SpanQuery
 	return c.getSpans(ctx, q,
-		"@traceIds as traceIds, (SELECT min(Start) FROM otel_traces_trace_id_ts WHERE TraceId IN (traceIds)) as start, (SELECT max(End) + 1 FROM otel_traces_trace_id_ts WHERE TraceId IN (traceIds)) as end",
+		"@traceIds as traceIds, (SELECT min(Start) FROM @@table_otel_traces_trace_id_ts@@ WHERE TraceId IN (traceIds)) as start, (SELECT max(End) + 1 FROM @@table_otel_traces_trace_id_ts@@ WHERE TraceId IN (traceIds)) as end",
 		"",
 		[]string{"Timestamp BETWEEN start AND end", "TraceId IN (traceIds)", "(TraceId, SpanId) IN (@ids)"},
 		[]any{
@@ -146,7 +146,7 @@ func (c *Client) GetParentSpans(ctx context.Context, spans []*model.TraceSpan) (
 func (c *Client) GetSpansByTraceId(ctx context.Context, traceId string) ([]*model.TraceSpan, error) {
 	var q SpanQuery
 	return c.getSpans(ctx, q,
-		"(SELECT min(Start) FROM otel_traces_trace_id_ts WHERE TraceId = @traceId) as start, (SELECT max(End) + 1 FROM otel_traces_trace_id_ts WHERE TraceId = @traceId) as end",
+		"(SELECT min(Start) FROM @@table_otel_traces_trace_id_ts@@ WHERE TraceId = @traceId) as start, (SELECT max(End) + 1 FROM @@table_otel_traces_trace_id_ts@@ WHERE TraceId = @traceId) as end",
 		"Timestamp",
 		[]string{"TraceId = @traceId", "Timestamp BETWEEN start AND end"},
 		[]any{
@@ -169,12 +169,12 @@ func (c *Client) getSpansHistogram(ctx context.Context, q SpanQuery, filters []s
 		clickhouse.DateNamed("to", to.ToStandard(), clickhouse.NanoSeconds),
 	)
 
-	query := "SELECT toStartOfInterval(Timestamp, INTERVAL @step second), roundDown(Duration/1000000, @buckets), count(1), count(if(StatusCode = 'STATUS_CODE_ERROR', 1, NULL))"
-	query += " FROM otel_traces"
+	query := "SELECT toStartOfInterval(Timestamp, INTERVAL @step second), roundDown(Duration/1000000, @buckets), count(1), countIf(StatusCode = 'STATUS_CODE_ERROR')"
+	query += " FROM @@table_otel_traces@@"
 	query += " WHERE " + strings.Join(filters, " AND ")
 	query += " GROUP BY 1, 2"
 
-	rows, err := c.conn.Query(ctx, query, filterArgs...)
+	rows, err := c.Query(ctx, query, filterArgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -245,12 +245,12 @@ func (c *Client) getSpansSummary(ctx context.Context, q SpanQuery, filters []str
 		filterArgs = append(filterArgs, durFilterArgs...)
 	}
 
-	query := "SELECT ServiceName, SpanName, roundDown(Duration/1000000, @buckets), count(1), count(if(StatusCode = 'STATUS_CODE_ERROR', 1, NULL))"
-	query += " FROM otel_traces"
+	query := "SELECT ServiceName, SpanName, roundDown(Duration/1000000, @buckets), count(1), countIf(StatusCode = 'STATUS_CODE_ERROR')"
+	query += " FROM @@table_otel_traces@@"
 	query += " WHERE " + strings.Join(filters, " AND ")
 	query += " GROUP BY 1, 2, 3"
 
-	rows, err := c.conn.Query(ctx, query, filterArgs...)
+	rows, err := c.Query(ctx, query, filterArgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -329,7 +329,7 @@ func (c *Client) getSpans(ctx context.Context, q SpanQuery, with string, orderBy
 		query += "WITH " + with
 	}
 	query += " SELECT Timestamp, TraceId, SpanId, ParentSpanId, SpanName, ServiceName, Duration, StatusCode, StatusMessage, ResourceAttributes, SpanAttributes, Events.Timestamp, Events.Name, Events.Attributes"
-	query += " FROM otel_traces"
+	query += " FROM @@table_otel_traces@@"
 	query += " WHERE " + strings.Join(filters, " AND ")
 	if orderBy != "" {
 		query += " ORDER BY " + orderBy
@@ -338,7 +338,7 @@ func (c *Client) getSpans(ctx context.Context, q SpanQuery, with string, orderBy
 		query += " LIMIT " + fmt.Sprint(q.Limit)
 	}
 
-	rows, err := c.conn.Query(ctx, query, filterArgs...)
+	rows, err := c.Query(ctx, query, filterArgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -374,13 +374,13 @@ func (c *Client) getSpans(ctx context.Context, q SpanQuery, with string, orderBy
 
 func (c *Client) getTraces(ctx context.Context, filters []string, filterArgs []any) ([]*model.Trace, error) {
 	query := fmt.Sprintf(`
-WITH t AS (SELECT TraceId, Timestamp as start, timestampAdd(Timestamp, INTERVAL Duration NANOSECOND) as end FROM otel_traces WHERE %s ORDER BY Timestamp LIMIT 1000)
+WITH t AS (SELECT TraceId, Timestamp as start, timestampAdd(Timestamp, INTERVAL Duration NANOSECOND) as end FROM @@table_otel_traces@@ WHERE %s ORDER BY Timestamp LIMIT 1000)
 SELECT Timestamp, TraceId, SpanId, ParentSpanId, SpanName, ServiceName, Duration, StatusCode, StatusMessage, ResourceAttributes, SpanAttributes, Events.Timestamp, Events.Name, Events.Attributes
-FROM otel_traces
+FROM @@table_otel_traces@@
 WHERE 
 	Timestamp BETWEEN (SELECT min(start) FROM t) AND (SELECT max(end) FROM t) AND 
-	TraceId IN (select TraceId from t)`, strings.Join(filters, " AND "))
-	rows, err := c.conn.Query(ctx, query, filterArgs...)
+	TraceId GLOBAL IN (select TraceId from t)`, strings.Join(filters, " AND "))
+	rows, err := c.Query(ctx, query, filterArgs...)
 	if err != nil {
 		return nil, err
 	}

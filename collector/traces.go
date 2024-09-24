@@ -17,8 +17,14 @@ import (
 )
 
 func (c *Collector) Traces(w http.ResponseWriter, r *http.Request) {
-	projectId := db.ProjectId(r.Header.Get(ApiKeyHeader))
-	_, err := c.getClickhouseClient(projectId)
+	project, err := c.getProject(db.ProjectId(r.Header.Get(ApiKeyHeader)))
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	_, err = c.getClickhouseClient(project.Id)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, err.Error(), http.StatusNotFound)
@@ -53,7 +59,7 @@ func (c *Collector) Traces(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	c.getTracesBatch(projectId).Add(req)
+	c.getTracesBatch(project.Id).Add(req)
 
 	resp := &v1.ExportTraceServiceResponse{}
 	w.Header().Set("Content-Type", contentType)
@@ -246,7 +252,7 @@ func (b *TracesBatch) save() {
 		{Name: "Links.TraceState", Data: b.LinksTraceState},
 		{Name: "Links.Attributes", Data: b.LinksAttributes},
 	}
-	err := b.exec(ch.Query{Body: input.Into("otel_traces"), Input: input})
+	err := b.exec(ch.Query{Body: input.Into("@@table_otel_traces@@"), Input: input})
 	if err != nil {
 		klog.Errorln(err)
 	}

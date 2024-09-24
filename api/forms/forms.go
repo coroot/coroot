@@ -318,7 +318,7 @@ func (f *IntegrationFormClickhouse) Test(ctx context.Context, project *db.Projec
 	config.Database = f.Database
 	config.TlsEnable = f.TlsEnable
 	config.TlsSkipVerify = f.TlsSkipVerify
-	client, err := clickhouse.NewClient(config)
+	client, err := clickhouse.NewClient(config, false)
 	if err != nil {
 		return err
 	}
