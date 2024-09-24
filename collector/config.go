@@ -16,8 +16,7 @@ import (
 )
 
 func (c *Collector) Config(w http.ResponseWriter, r *http.Request) {
-	projectId := db.ProjectId(r.Header.Get(ApiKeyHeader))
-	project, err := c.getProject(projectId)
+	project, err := c.getProject(db.ProjectId(r.Header.Get(ApiKeyHeader)))
 	if err != nil {
 		klog.Errorln(err)
 		if errors.Is(err, ErrProjectNotFound) {
