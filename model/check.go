@@ -83,7 +83,6 @@ var Checks = struct {
 	MemcachedAvailability  CheckConfig
 	PostgresAvailability   CheckConfig
 	PostgresLatency        CheckConfig
-	PostgresErrors         CheckConfig
 	PostgresReplicationLag CheckConfig
 	PostgresConnections    CheckConfig
 	LogErrors              CheckConfig
@@ -259,13 +258,6 @@ var Checks = struct {
 		Unit:                    CheckUnitSecond,
 		MessageTemplate:         `{{.ItemsWithToBe "postgres instance"}} performing slowly`,
 		ConditionFormatTemplate: "the average query execution time of a postgres instance > <threshold>",
-	},
-	PostgresErrors: CheckConfig{
-		Type:                    CheckTypeEventBased,
-		Title:                   "Postgres errors",
-		DefaultThreshold:        0,
-		MessageTemplate:         `{{.Count "error"}} occurred`,
-		ConditionFormatTemplate: "the number of postgres errors > <threshold>",
 	},
 	PostgresReplicationLag: CheckConfig{
 		Type:                    CheckTypeItemBased,
