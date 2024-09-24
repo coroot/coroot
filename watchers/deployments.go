@@ -296,20 +296,22 @@ func calcMetricsSnapshot(app *model.Application, from, to timeseries.Time, step 
 	restarts := timeseries.NewAggregate(timeseries.NanSum)
 	logErrors := timeseries.NewAggregate(timeseries.NanSum)
 	logWarnings := timeseries.NewAggregate(timeseries.NanSum)
+
+	for level, msgs := range app.LogMessages {
+		switch level {
+		case model.LogLevelCritical, model.LogLevelError:
+			logErrors.Add(msgs.Messages)
+		case model.LogLevelWarning:
+			logWarnings.Add(msgs.Messages)
+		}
+	}
+
 	for _, i := range app.Instances {
 		for _, c := range i.Containers {
 			cpuUsage.Add(c.CpuUsage)
 			memUsage.Add(c.MemoryRss)
 			restarts.Add(c.Restarts)
 			oomKills.Add(c.OOMKills)
-			for level, msgs := range i.LogMessages {
-				switch level {
-				case model.LogLevelCritical, model.LogLevelError:
-					logErrors.Add(msgs.Messages)
-				case model.LogLevelWarning:
-					logWarnings.Add(msgs.Messages)
-				}
-			}
 		}
 	}
 	ms.CPUUsage = sumRate(cpuUsage.Get(), from, to, step)

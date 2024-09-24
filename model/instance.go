@@ -48,8 +48,6 @@ type Instance struct {
 
 	Containers map[string]*Container
 
-	LogMessages map[LogLevel]*LogMessages
-
 	ClusterName      LabelLastValue
 	clusterRole      *timeseries.TimeSeries
 	ClusterComponent *Application
@@ -63,11 +61,10 @@ type Instance struct {
 
 func NewInstance(name string, owner *Application) *Instance {
 	return &Instance{
-		Name:        name,
-		Owner:       owner,
-		LogMessages: map[LogLevel]*LogMessages{},
-		Containers:  map[string]*Container{},
-		TcpListens:  map[Listen]bool{},
+		Name:       name,
+		Owner:      owner,
+		Containers: map[string]*Container{},
+		TcpListens: map[Listen]bool{},
 	}
 }
 
