@@ -15,9 +15,17 @@ const (
 )
 
 func getCluster(ctx context.Context, chPool *chpool.Pool) (string, error) {
+	var exists chproto.ColUInt8
+	q := ch.Query{Body: "EXISTS system.zookeeper", Result: chproto.Results{{Name: "result", Data: &exists}}}
+	if err := chPool.Do(ctx, q); err != nil {
+		return "", err
+	}
+	if exists.Row(0) != 1 {
+		return "", nil
+	}
 	var clusterCol chproto.ColStr
 	clusters := map[string]bool{}
-	q := ch.Query{
+	q = ch.Query{
 		Body: "SHOW CLUSTERS",
 		Result: chproto.Results{
 			{Name: "cluster", Data: &clusterCol},
