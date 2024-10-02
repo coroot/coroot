@@ -36,6 +36,7 @@ func (a *appAuditor) jvm() {
 			}
 
 			if heapChart != nil {
+				heapChart.GetOrCreateChart("overview").Feature().AddSeries(fullName, j.HeapUsed)
 				heapChart.GetOrCreateChart(fullName).Stacked().
 					AddSeries("used", j.HeapUsed, "blue").
 					SetThreshold("total", j.HeapSize)
