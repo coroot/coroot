@@ -59,7 +59,12 @@ func HistogramSeries(buckets []HistogramBucket, objectiveBucket, objectivePercen
 			h.Data = b.TimeSeries
 		} else {
 			from = buckets[i-1].Le
-			h.Data = timeseries.Sub(b.TimeSeries, buckets[i-1].TimeSeries)
+			h.Data = timeseries.Sub(b.TimeSeries, buckets[i-1].TimeSeries).MapInPlace(func(t timeseries.Time, v float32) float32 {
+				if v < 0 {
+					v = 0.
+				}
+				return v
+			})
 		}
 		h.Color = "green"
 		if objectiveBucket > 0 && objectivePercentage > 0 {
