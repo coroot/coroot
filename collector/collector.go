@@ -161,6 +161,9 @@ func (c *Collector) Close() {
 func (c *Collector) UpdateClickhouseClient(ctx context.Context, projectId db.ProjectId, cfg *db.IntegrationClickhouse) error {
 	c.updateProjects()
 	c.deleteClickhouseClient(projectId)
+	if cfg == nil {
+		return nil
+	}
 	client, err := c.clickhouseConnect(ctx, cfg)
 	if err != nil {
 		return err
