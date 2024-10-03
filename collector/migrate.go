@@ -2,6 +2,7 @@ package collector
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/ClickHouse/ch-go"
@@ -50,7 +51,7 @@ func getCluster(ctx context.Context, chPool *chpool.Pool) (string, error) {
 	case clusters["default"]:
 		return "default", nil
 	}
-	return "", nil
+	return "", fmt.Errorf(`multiple ClickHouse clusters found, but neither "coroot" nor "default" cluster found`)
 }
 
 func (c *Collector) migrate(ctx context.Context, client *chClient) error {
