@@ -111,17 +111,16 @@ func renderServiceMap(w *model.World) []*Application {
 		if len(a.Upstreams) == 0 && len(a.Downstreams) > 0 {
 			downstreamCategories := utils.NewStringSet()
 			ca := appsById[a.Id]
-			if ca == nil || !ca.Category.Default() {
-				continue
-			}
-			for _, dId := range a.Downstreams {
-				d := appsById[dId.Id]
-				if d != nil {
-					downstreamCategories.Add(string(d.Category))
+			if ca != nil && ca.Category.Default() {
+				for _, dId := range a.Downstreams {
+					d := appsById[dId.Id]
+					if d != nil {
+						downstreamCategories.Add(string(d.Category))
+					}
 				}
-			}
-			if downstreamCategories.Len() == 1 {
-				ca.Category = model.ApplicationCategory(downstreamCategories.Items()[0])
+				if downstreamCategories.Len() == 1 {
+					ca.Category = model.ApplicationCategory(downstreamCategories.Items()[0])
+				}
 			}
 		}
 		appsUsed = append(appsUsed, a)
