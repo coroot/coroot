@@ -59,10 +59,13 @@ export default class Api {
             })
             .catch((error) => {
                 const err = error.response && error.response.data && error.response.data.trim();
+                if (error.response && error.response.status === 302) {
+                    window.location = err;
+                }
                 if (error.response && error.response.status === 401) {
                     const r = this.router.currentRoute;
                     const action = err || undefined;
-                    if (r.name !== 'login' || r.query.action !== action) {
+                    if (!r.meta.anonymous || r.query.action !== action) {
                         const next = r.fullPath !== '/' && r.name !== 'login' ? r.fullPath : undefined;
                         this.router.push({ name: 'login', query: { action, next } }).catch((err) => err);
                     }
@@ -118,6 +121,14 @@ export default class Api {
             this.post(`roles`, form, cb);
         } else {
             this.get(`roles`, {}, cb);
+        }
+    }
+
+    sso(form, cb) {
+        if (form) {
+            this.post(`sso`, form, cb);
+        } else {
+            this.get(`sso`, {}, cb);
         }
     }
 

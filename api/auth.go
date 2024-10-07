@@ -50,12 +50,13 @@ func (api *Api) AuthInit(anonymousRole string, adminPassword string) error {
 	var secret string
 	err := api.db.GetSetting(AuthSecretSettingName, &secret)
 	if err != nil {
-		return err
-	}
-	if secret == "" {
-		secret = utils.RandomString(HashFunc.Size())
-		err = api.db.SetSetting(AuthSecretSettingName, secret)
-		if err != nil {
+		if errors.Is(err, db.ErrNotFound) {
+			secret = utils.RandomString(HashFunc.Size())
+			err = api.db.SetSetting(AuthSecretSettingName, secret)
+			if err != nil {
+				return err
+			}
+		} else {
 			return err
 		}
 	}
@@ -71,7 +72,7 @@ func (api *Api) AuthInit(anonymousRole string, adminPassword string) error {
 
 func (api *Api) Auth(h func(http.ResponseWriter, *http.Request, *db.User)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if user := api.getUser(r); user != nil {
+		if user := api.GetUser(r); user != nil {
 			h(w, r, user)
 			return
 		}
@@ -140,7 +141,7 @@ func (api *Api) Login(w http.ResponseWriter, r *http.Request) {
 		}
 		userId = id
 	}
-	err := api.setSessionCookie(w, userId)
+	err := api.SetSessionCookie(w, userId, SessionCookieTTL)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
@@ -156,7 +157,7 @@ func (api *Api) Logout(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (api *Api) setSessionCookie(w http.ResponseWriter, userId int) error {
+func (api *Api) SetSessionCookie(w http.ResponseWriter, userId int, ttl time.Duration) error {
 	data, err := json.Marshal(Session{Id: userId})
 	if err != nil {
 		return err
@@ -168,13 +169,13 @@ func (api *Api) setSessionCookie(w http.ResponseWriter, userId int) error {
 		Name:     SessionCookieName,
 		Value:    value,
 		Path:     "/",
-		Expires:  time.Now().Add(SessionCookieTTL),
+		Expires:  time.Now().Add(ttl),
 		HttpOnly: true,
 	})
 	return nil
 }
 
-func (api *Api) getUser(r *http.Request) *db.User {
+func (api *Api) GetUser(r *http.Request) *db.User {
 	if api.authAnonymousRole != "" {
 		return db.AnonymousUser(api.authAnonymousRole)
 	}
