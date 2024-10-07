@@ -198,6 +198,25 @@ func (api *Api) Roles(w http.ResponseWriter, r *http.Request, u *db.User) {
 	utils.WriteJson(w, views.Roles(append(roles, qaSample, dbaSample)))
 }
 
+func (api *Api) SSO(w http.ResponseWriter, r *http.Request, u *db.User) {
+	roles, err := api.roles.GetRoles()
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	res := struct {
+		Roles       []rbac.RoleName `json:"roles"`
+		DefaultRole rbac.RoleName   `json:"default_role"`
+	}{
+		DefaultRole: rbac.RoleViewer,
+	}
+	for _, role := range roles {
+		res.Roles = append(res.Roles, role.Name)
+	}
+	utils.WriteJson(w, res)
+}
+
 func (api *Api) Project(w http.ResponseWriter, r *http.Request, u *db.User) {
 	vars := mux.Vars(r)
 	projectId := vars["project"]

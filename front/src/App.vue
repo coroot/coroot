@@ -214,6 +214,9 @@ export default {
 
     methods: {
         getUser() {
+            if (this.$route.meta.anonymous) {
+                return;
+            }
             this.$api.user(null, (data, error) => {
                 if (error) {
                     this.user = null;
