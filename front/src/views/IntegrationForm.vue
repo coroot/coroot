@@ -4,7 +4,7 @@
             <div class="d-flex align-center font-weight-medium mb-4">
                 <div>
                     Configure {{ title }} integration
-                    <a :href="`https://coroot.com/docs/coroot-community-edition/alerting/${type}`" target="_blank">
+                    <a :href="`https://coroot.com/docs/coroot/alerting/${type}`" target="_blank">
                         <v-icon>mdi-information-outline</v-icon>
                     </a>
                     <v-progress-circular v-if="loading" indeterminate color="green" size="30" />

@@ -222,7 +222,7 @@
 
                 <div class="grey--text my-4">
                     To configure an application to send logs follow the
-                    <a href="https://coroot.com/docs/coroot-community-edition/logs" target="_blank">documentation</a>.
+                    <a href="https://coroot.com/docs/coroot/logs" target="_blank">documentation</a>.
                 </div>
 
                 <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text class="my-3">

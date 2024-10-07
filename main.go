@@ -121,17 +121,17 @@ func main() {
 
 	instanceUuid := getInstanceUuid(*dataDir)
 
-	var statsCollector *stats.Collector
-	if !*disableStats {
-		statsCollector = stats.NewCollector(instanceUuid, version, database, promCache, pricing)
-	}
-
 	watchers.Start(database, promCache, pricing, !*doNotCheckSLO, !*doNotCheckForDeployments)
 
 	a := api.NewApi(promCache, database, coll, pricing, rbac.NewStaticRoleManager())
 	err = a.AuthInit(*authAnonymousRole, *authBootstrapAdminPassword)
 	if err != nil {
 		klog.Exitln(err)
+	}
+
+	var statsCollector *stats.Collector
+	if !*disableStats {
+		statsCollector = stats.NewCollector(instanceUuid, version, database, promCache, pricing)
 	}
 
 	router := mux.NewRouter()
