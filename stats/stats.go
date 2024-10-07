@@ -62,6 +62,7 @@ type Stats struct {
 	Infra struct {
 		Projects            int            `json:"projects"`
 		Nodes               int            `json:"nodes"`
+		CPUCores            int            `json:"cpu_cores"`
 		Applications        int            `json:"applications"`
 		Instances           int            `json:"instances"`
 		Deployments         int            `json:"deployments"`
@@ -363,6 +364,9 @@ func (c *Collector) collect() Stats {
 
 		stats.Infra.Nodes += len(w.Nodes)
 		for _, n := range w.Nodes {
+			if cores := n.CpuCapacity.Last(); cores > 0 {
+				stats.Infra.CPUCores += int(cores)
+			}
 			stats.Integration.NodeAgentVersions.Add(n.AgentVersion.Value())
 			stats.Stack.Clouds.Add(strings.ToLower(n.CloudProvider.Value()))
 			if n.Price != nil {

@@ -24,7 +24,7 @@
         <template v-if="tab === 'prometheus'">
             <h1 class="text-h5 my-5">
                 Prometheus integration
-                <a href="https://coroot.com/docs/coroot-community-edition/getting-started/project-configuration" target="_blank">
+                <a href="https://coroot.com/docs/coroot/configuration/prometheus" target="_blank">
                     <v-icon>mdi-information-outline</v-icon>
                 </a>
             </h1>
@@ -32,12 +32,17 @@
         </template>
 
         <template v-if="tab === 'clickhouse'">
-            <h1 class="text-h5 my-5">ClickHouse integration</h1>
+            <h1 class="text-h5 my-5">
+                ClickHouse integration
+                <a href="https://coroot.com/docs/coroot/configuration/clickhouse" target="_blank">
+                    <v-icon>mdi-information-outline</v-icon>
+                </a>
+            </h1>
             <p>
                 Coroot stores
-                <a href="https://coroot.com/docs/coroot-community-edition/logs" target="_blank">logs</a>,
-                <a href="https://coroot.com/docs/coroot-community-edition/tracing" target="_blank">traces</a>, and
-                <a href="https://coroot.com/docs/coroot-community-edition/profiling" target="_blank">profiles</a> in the ClickHouse database.
+                <a href="https://coroot.com/docs/coroot/logs" target="_blank">logs</a>,
+                <a href="https://coroot.com/docs/coroot/tracing" target="_blank">traces</a>, and
+                <a href="https://coroot.com/docs/coroot/profiling" target="_blank">profiles</a> in the ClickHouse database.
             </p>
             <IntegrationClickhouse />
         </template>
@@ -50,7 +55,7 @@
         <template v-if="tab === 'inspections'">
             <h1 class="text-h5 my-5">
                 Inspection configs
-                <a href="https://coroot.com/docs/coroot-community-edition/inspections/overview" target="_blank">
+                <a href="https://coroot.com/docs/coroot/inspections/overview" target="_blank">
                     <v-icon>mdi-information-outline</v-icon>
                 </a>
             </h1>
@@ -60,10 +65,7 @@
         <template v-if="tab === 'applications'">
             <h2 class="text-h5 my-5" id="categories">
                 Application categories
-                <a
-                    href="https://coroot.com/docs/coroot-community-edition/getting-started/project-configuration#application-categories"
-                    target="_blank"
-                >
+                <a href="https://coroot.com/docs/coroot/configuration/application-categories" target="_blank">
                     <v-icon>mdi-information-outline</v-icon>
                 </a>
             </h2>
@@ -74,7 +76,12 @@
             </p>
             <ApplicationCategories />
 
-            <h2 class="text-h5 mt-10 mb-5" id="custom-applications">Custom applications</h2>
+            <h2 class="text-h5 mt-10 mb-5" id="custom-applications">
+                Custom applications
+                <a href="https://coroot.com/docs/coroot/configuration/custom-applications" target="_blank">
+                    <v-icon>mdi-information-outline</v-icon>
+                </a>
+            </h2>
 
             <p>Coroot groups individual containers into applications using the following approach:</p>
 
@@ -100,7 +107,7 @@
         <template v-if="tab === 'notifications'">
             <h1 class="text-h5 my-5">
                 Notification integrations
-                <a href="https://coroot.com/docs/coroot-community-edition/getting-started/alerting" target="_blank">
+                <a href="https://coroot.com/docs/coroot/alerting/slo-monitoring" target="_blank">
                     <v-icon>mdi-information-outline</v-icon>
                 </a>
             </h1>
@@ -108,11 +115,26 @@
         </template>
 
         <template v-if="tab === 'organization'">
-            <h1 class="text-h5 my-5">Users</h1>
+            <h1 class="text-h5 my-5">
+                Users
+                <a href="https://coroot.com/docs/coroot/configuration/authentication" target="_blank">
+                    <v-icon>mdi-information-outline</v-icon>
+                </a>
+            </h1>
             <Users />
-            <h1 class="text-h5 mt-10 mb-5">Role-Based Access Control (RBAC)</h1>
+            <h1 class="text-h5 mt-10 mb-5">
+                Role-Based Access Control (RBAC)
+                <a href="https://coroot.com/docs/coroot/configuration/rbac" target="_blank">
+                    <v-icon>mdi-information-outline</v-icon>
+                </a>
+            </h1>
             <RBAC />
-            <h1 class="text-h5 mt-10 mb-5">Single Sign-On (SAML)</h1>
+            <h1 class="text-h5 mt-10 mb-5">
+                Single Sign-On (SAML)
+                <a href="https://coroot.com/docs/coroot/configuration/authentication" target="_blank">
+                    <v-icon>mdi-information-outline</v-icon>
+                </a>
+            </h1>
             <SSO />
         </template>
     </div>

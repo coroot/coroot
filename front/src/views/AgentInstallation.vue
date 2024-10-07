@@ -97,7 +97,7 @@ docker rm -f coroot-node-agent
                     </p>
                     <p>
                         To learn more about how to use Coroot's Helm chart, refer to the
-                        <a href="https://coroot.com/docs/coroot-community-edition/getting-started/installation" target="_blank">documentation</a>.
+                        <a href="https://coroot.com/docs/coroot/installation/kubernetes" target="_blank">documentation</a>.
                     </p>
                 </v-tab-item>
             </v-tabs-items>

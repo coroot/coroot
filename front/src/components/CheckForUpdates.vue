@@ -3,9 +3,7 @@
         <v-spacer />
         <div style="color: white">Coroot {{ latestVersion }} is available &#127881;</div>
         <a href="https://github.com/coroot/coroot/releases" target="_blank" class="ml-2 mr-1 link">Changelog</a>
-        (<a href="https://coroot.com/docs/coroot-community-edition/getting-started/installation#upgrade" target="_blank" class="link">
-            how to upgrade</a
-        >)
+        (<a href="https://coroot.com/docs/" target="_blank" class="link"> how to upgrade</a>)
         <v-spacer />
         <v-btn x-small icon @click="dismiss"><v-icon class="mr-0">mdi-close</v-icon></v-btn>
     </v-system-bar>
