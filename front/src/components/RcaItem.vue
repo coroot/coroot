@@ -71,7 +71,11 @@
                     <v-btn icon @click="details = false"><v-icon>mdi-close</v-icon></v-btn>
                 </div>
                 <div class="d-flex flex-wrap">
-                    <div v-for="w in hyp.widgets" class="my-5" :style="{ width: $vuetify.breakpoint.mdAndUp ? w.width || '50%' : '100%' }">
+                    <div
+                        v-for="w in hyp.widgets"
+                        class="my-5"
+                        :style="{ width: $vuetify.breakpoint.mdAndUp && hyp.widgets.length > 1 ? w.width || '50%' : '100%' }"
+                    >
                         <Widget :w="w" />
                     </div>
                 </div>
