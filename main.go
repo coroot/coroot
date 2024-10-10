@@ -216,11 +216,13 @@ func readIndexHtml(basePath, version, instanceUuid string, checkForUpdates bool,
 		Version         string
 		Uuid            string
 		CheckForUpdates bool
+		Edition         string
 	}{
 		BasePath:        basePath,
 		Version:         version,
 		Uuid:            instanceUuid,
 		CheckForUpdates: checkForUpdates,
+		Edition:         "Community",
 	})
 	if err != nil {
 		klog.Exitln(err)

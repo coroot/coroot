@@ -74,3 +74,19 @@ export function percent(p) {
     }
     return p.toFixed(2);
 }
+
+export function float(f) {
+    if (f === 0) {
+        return '0';
+    }
+    if (f >= 1) {
+        return f.toFixed(0);
+    }
+    if (f >= 0.1) {
+        return f.toFixed(1);
+    }
+    if (f >= 0.01) {
+        return f.toFixed(2);
+    }
+    return f.toFixed(3);
+}

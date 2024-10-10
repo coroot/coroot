@@ -35,7 +35,7 @@ const router = new VueRouter({
         { path: '/sso/saml', name: 'saml', component: Saml, meta: { anonymous: true } },
         { path: '/p/settings/:tab?', name: 'project_new', component: Project, props: true },
         { path: '/p/:projectId/settings/:tab?', name: 'project_settings', component: Project, props: true, meta: { stats: { param: 'tab' } } },
-        { path: '/p/:projectId/:view?', name: 'overview', component: Overview, props: true, meta: { stats: { param: 'view' } } },
+        { path: '/p/:projectId/:view?/:app?', name: 'overview', component: Overview, props: true, meta: { stats: { param: 'view' } } },
         { path: '/p/:projectId/app/:id/:report?', name: 'application', component: Application, props: true, meta: { stats: { param: 'report' } } },
         { path: '/p/:projectId/node/:name', name: 'node', component: Node, props: true },
         { path: '/welcome', name: 'welcome', component: Welcome },
