@@ -59,6 +59,7 @@
                                 <v-icon small class="mr-1">mdi-slack</v-icon>Slack chat
                             </v-list-item>
                             <v-divider />
+                            <v-list-item> Coroot Edition: {{ $coroot.edition }} </v-list-item>
                             <v-list-item href="https://github.com/coroot/coroot/releases" target="_blank">
                                 Version: {{ $coroot.version }}
                             </v-list-item>
@@ -202,7 +203,7 @@ export default {
     watch: {
         $route(curr, prev) {
             this.getUser();
-            if (curr.query.from !== prev.query.from || curr.query.to !== prev.query.to) {
+            if (curr.query.from !== prev.query.from || curr.query.to !== prev.query.to || curr.query.incident !== prev.query.incident) {
                 this.$events.emit('refresh');
             }
             if (curr.params.projectId !== prev.params.projectId) {
