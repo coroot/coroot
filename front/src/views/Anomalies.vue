@@ -58,15 +58,16 @@
             </template>
 
             <template #item.errors="{ item }">
-                <div class="chart" v-if="item.errors">
-                    <router-link :to="{ name: 'overview', params: { view: 'anomalies', app: item.id }, query: $utils.contextQuery() }">
+                <div v-if="item.errors">
+                    <router-link :to="{ name: 'overview', params: { view: 'anomalies', app: item.id }, query: $utils.contextQuery() }" class="chart">
+                        <div v-if="item.errors.msg" class="value">{{ item.errors.msg }}</div>
                         <v-sparkline
                             v-if="item.errors.chart"
                             :value="item.errors.chart.map((v) => (v === null ? 0 : v))"
                             fill
                             smooth
                             padding="4"
-                            :color="`${item.errors.anomaly ? 'red' : 'grey'} ${$vuetify.theme.dark ? '' : 'lighten-2'}`"
+                            :color="`${item.errors.msg ? 'red' : 'grey'} ${$vuetify.theme.dark ? '' : 'lighten-2'}`"
                             height="30"
                             :width="sparklineWidth"
                         />
@@ -75,15 +76,16 @@
             </template>
 
             <template #item.latency="{ item }">
-                <div v-if="item.latency" class="chart">
-                    <router-link :to="{ name: 'overview', params: { view: 'anomalies', app: item.id }, query: $utils.contextQuery() }">
+                <div v-if="item.latency">
+                    <router-link :to="{ name: 'overview', params: { view: 'anomalies', app: item.id }, query: $utils.contextQuery() }" class="chart">
+                        <div v-if="item.latency.msg" class="value">{{ item.latency.msg }}</div>
                         <v-sparkline
                             v-if="item.latency.chart"
                             :value="item.latency.chart.map((v) => (v === null ? 0 : v))"
                             fill
                             smooth
                             padding="4"
-                            :color="`${item.latency.anomaly ? 'blue' : 'grey'} ${$vuetify.theme.dark ? '' : 'lighten-2'}`"
+                            :color="`${item.latency.msg ? 'red' : 'grey'} ${$vuetify.theme.dark ? '' : 'lighten-2'}`"
                             height="30"
                             :width="sparklineWidth"
                         />
@@ -196,6 +198,18 @@ export default {
     width: 100%;
     color: inherit;
 }
+.table .chart .value {
+    opacity: 60%;
+    position: absolute;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
 .table:deep(td:has(.chart)) {
     padding: 0 !important;
 }

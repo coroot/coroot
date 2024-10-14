@@ -7,8 +7,8 @@
         </v-alert>
 
         <v-alert v-if="rca === 'not implemented'" color="info" outlined text class="mt-5">
-            Automated Root Cause Analysis is available only in Coroot Enterprise.
-            <a href="https://coroot.com/contact/" target="_blank" class="font-weight-bold">Contact us</a> for a free trial.
+            AI-powered Root Cause Analysis is available only in Coroot Enterprise (from $1 per CPU core/month).
+            <a href="https://coroot.com/account" target="_blank" class="font-weight-bold">Start</a> your free trial today.
         </v-alert>
 
         <div v-else-if="rca">
