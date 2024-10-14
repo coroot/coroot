@@ -1,8 +1,8 @@
 <template>
     <div>
         <v-alert v-if="disabled" color="info" outlined text>
-            Single Sign-On through SAML is available only in Coroot Enterprise.
-            <a href="https://coroot.com/contact/" target="_blank" class="font-weight-bold">Contact us</a> for a free trial.
+            Single Sign-On through SAML is available only in Coroot Enterprise (from $1 per CPU core/month).
+            <a href="https://coroot.com/account" target="_blank" class="font-weight-bold">Start</a> your free trial today.
         </v-alert>
         <v-simple-table dense class="params">
             <tbody>
