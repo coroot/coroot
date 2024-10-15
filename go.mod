@@ -15,7 +15,7 @@ require (
 	github.com/google/pprof v0.0.0-20230111200839-76d1ae5aea2b
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.0
-	github.com/grafana/pyroscope-go/godeltaprof v0.1.6
+	github.com/grafana/pyroscope-go/godeltaprof v0.1.8
 	github.com/hako/durafmt v0.0.0-20210608085754-5c1018a4e16b
 	github.com/jpillora/backoff v1.0.0
 	github.com/klauspost/compress v1.17.9
