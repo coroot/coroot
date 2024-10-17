@@ -473,6 +473,10 @@ func (ch *Check) Inc(amount int64) {
 	ch.count += amount
 }
 
+func (ch *Check) ResetCounter() {
+	ch.count = 0
+}
+
 func (ch *Check) Desired() int64 {
 	return ch.desired
 }

@@ -221,6 +221,13 @@ func (app *Application) IsStandalone() bool {
 }
 
 func (app *Application) IsK8s() bool {
+	switch app.Id.Kind {
+	case ApplicationKindCronJob, ApplicationKindJob, ApplicationKindDeployment, ApplicationKindDaemonSet,
+		ApplicationKindPod, ApplicationKindReplicaSet, ApplicationKindStatefulSet, ApplicationKindStaticPods,
+		ApplicationKindArgoWorkflow, ApplicationKindSparkApplication:
+		return true
+	}
+
 	for _, i := range app.Instances {
 		if i.Pod != nil {
 			return true
