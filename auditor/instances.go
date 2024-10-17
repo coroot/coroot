@@ -147,6 +147,7 @@ func (a *appAuditor) instances() {
 	if a.app.PeriodicJob() {
 		availabilityCheck.SetStatus(model.OK, "not checked for periodic jobs")
 		restartsCheck.SetStatus(model.OK, "not checked for periodic jobs")
+		restartsCheck.ResetCounter()
 	} else if desired > 0 {
 		availabilityCheck.SetDesired(int64(desired))
 		available := float32(availabilityCheck.Count())
