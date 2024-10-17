@@ -47,7 +47,13 @@ func (c *Constructor) getInstanceAndContainer(w *model.World, node *model.Node, 
 		id    instanceId
 		appId model.ApplicationId
 	)
-	if len(parts) == 7 && parts[1] == "nomad" {
+	if len(parts) == 5 && parts[1] == "k8s-cronjob" {
+		w.IntegrationStatus.KubeStateMetrics.Required = true
+		ns, job := parts[2], parts[3]
+		containerName = parts[4]
+		appId = model.NewApplicationId(ns, model.ApplicationKindCronJob, job)
+		id = instanceId{ns: ns, name: fmt.Sprintf("%s@%s", job, nodeName), node: nodeId}
+	} else if len(parts) == 7 && parts[1] == "nomad" {
 		ns, job, group, allocId, task := parts[2], parts[3], parts[4], parts[5], parts[6]
 		containerName = task
 		appId = model.NewApplicationId(ns, model.ApplicationKindNomadJobGroup, job+"."+group)

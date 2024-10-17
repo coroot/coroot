@@ -113,7 +113,11 @@ func podInfo(w *model.World, metrics []model.MetricValues) map[string]*model.Ins
 		podOwners[podId{name: pod, ns: ns}] = appId
 		instance := pods[uid]
 		if instance == nil {
-			instance = w.GetOrCreateApplication(appId, false).GetOrCreateInstance(pod, node)
+			app := w.GetOrCreateApplication(appId, false)
+			if appId.Kind == model.ApplicationKindCronJob {
+				continue
+			}
+			instance = app.GetOrCreateInstance(pod, node)
 			if instance.Pod == nil {
 				instance.Pod = &model.Pod{}
 			}
@@ -161,7 +165,7 @@ func podLabels(metrics []model.MetricValues, pods map[string]*model.Instance) {
 		}
 		instance := pods[uid]
 		if instance == nil {
-			klog.Warningln("unknown pod:", uid, m.Labels["pod"], m.Labels["namespace"])
+			//klog.Warningln("unknown pod:", uid, m.Labels["pod"], m.Labels["namespace"])
 			continue
 		}
 		cluster, role := "", ""
@@ -228,7 +232,7 @@ func podStatus(queryName string, metrics []model.MetricValues, pods map[string]*
 		}
 		instance := pods[uid]
 		if instance == nil {
-			klog.Warningln("unknown pod:", uid, m.Labels["pod"], m.Labels["namespace"])
+			//klog.Warningln("unknown pod:", uid, m.Labels["pod"], m.Labels["namespace"])
 			continue
 		}
 		switch queryName {
@@ -260,7 +264,7 @@ func podContainer(queryName string, metrics []model.MetricValues, pods map[strin
 		}
 		instance := pods[uid]
 		if instance == nil {
-			klog.Warningln("unknown pod:", uid, m.Labels["pod"], m.Labels["namespace"])
+			//klog.Warningln("unknown pod:", uid, m.Labels["pod"], m.Labels["namespace"])
 			continue
 		}
 		containerId := fmt.Sprintf("/k8s/%s/%s/%s", m.Labels["namespace"], m.Labels["pod"], m.Labels["container"])
