@@ -14,7 +14,7 @@ func (c *Constructor) loadFargateNodes(metrics map[string][]model.MetricValues, 
 			continue
 		}
 		for _, m := range metrics[queryName] {
-			id := model.NewNodeIdFromLabels(m.Labels)
+			id := model.NewNodeIdFromLabels(m)
 			if id.MachineID == "" && id.SystemUUID == "" {
 				continue
 			}

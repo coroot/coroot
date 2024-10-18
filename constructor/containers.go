@@ -117,7 +117,7 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]model.
 		for _, m := range ms {
 			v, ok := containers[m.NodeContainerId]
 			if !ok {
-				nodeId := model.NewNodeIdFromLabels(m.Labels)
+				nodeId := model.NewNodeIdFromLabels(m)
 				v.instance, v.container = c.getInstanceAndContainer(w, nodesByID[nodeId], instances, m.ContainerId)
 				containers[m.NodeContainerId] = v
 			}
