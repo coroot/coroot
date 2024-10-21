@@ -1,8 +1,7 @@
 FROM golang:1.21-bullseye AS backend-builder
 RUN apt update && apt install -y liblz4-dev
 WORKDIR /tmp/src
-COPY go.mod .
-COPY go.sum .
+COPY go.mod go.sum .
 RUN go mod download
 COPY . .
 ARG VERSION=unknown
@@ -10,7 +9,9 @@ RUN go build -mod=readonly -ldflags "-X main.version=$VERSION" -o coroot .
 
 
 FROM debian:bullseye
-RUN apt update && apt install -y ca-certificates && apt clean
+RUN apt update && apt install -y ca-certificates && \
+    apt clean && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /opt/coroot
 COPY --from=backend-builder /tmp/src/coroot /opt/coroot/coroot
