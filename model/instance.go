@@ -42,7 +42,7 @@ type Instance struct {
 
 	Volumes []*Volume
 
-	Upstreams []*Connection
+	Upstreams map[ConnectionKey]*Connection
 
 	TcpListens map[Listen]bool
 
@@ -64,6 +64,7 @@ func NewInstance(name string, owner *Application) *Instance {
 		Name:       name,
 		Owner:      owner,
 		Containers: map[string]*Container{},
+		Upstreams:  map[ConnectionKey]*Connection{},
 		TcpListens: map[Listen]bool{},
 	}
 }
@@ -106,23 +107,6 @@ func (instance *Instance) GetOrCreateContainer(id, name string) *Container {
 		c = NewContainer(id, name)
 		instance.Containers[name] = c
 	}
-	return c
-}
-
-func (instance *Instance) AddUpstreamConnection(actualIP, actualPort, serviceIP, servicePort, container string) *Connection {
-	c := &Connection{
-		Instance:          instance,
-		ActualRemoteIP:    actualIP,
-		ActualRemotePort:  actualPort,
-		ServiceRemoteIP:   serviceIP,
-		ServiceRemotePort: servicePort,
-		Container:         container,
-
-		RequestsCount:     map[Protocol]map[string]*timeseries.TimeSeries{},
-		RequestsLatency:   map[Protocol]*timeseries.TimeSeries{},
-		RequestsHistogram: map[Protocol]map[float32]*timeseries.TimeSeries{},
-	}
-	instance.Upstreams = append(instance.Upstreams, c)
 	return c
 }
 
