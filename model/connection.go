@@ -37,6 +37,11 @@ func (p Protocol) ToApplicationType() ApplicationType {
 	return ApplicationTypeUnknown
 }
 
+type ConnectionKey struct {
+	Destination       string
+	ActualDestination string
+}
+
 type Connection struct {
 	ActualRemotePort string
 	ActualRemoteIP   string
