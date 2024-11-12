@@ -14,6 +14,8 @@ const (
 	ApplicationTypeMemcached     ApplicationType = "memcached"
 	ApplicationTypeRedis         ApplicationType = "redis"
 	ApplicationTypeKeyDB         ApplicationType = "keydb"
+	ApplicationTypeValkey        ApplicationType = "valkey"
+	ApplicationTypeDragonfly     ApplicationType = "dragonfly"
 	ApplicationTypeMongodb       ApplicationType = "mongodb"
 	ApplicationTypeMongos        ApplicationType = "mongos"
 	ApplicationTypeRabbitmq      ApplicationType = "rabbitmq"
@@ -35,10 +37,21 @@ func (at ApplicationType) IsDatabase() bool {
 	switch at {
 	case ApplicationTypeCassandra, ApplicationTypeMemcached,
 		ApplicationTypeZookeeper, ApplicationTypeElasticsearch, ApplicationTypePostgres,
-		ApplicationTypeMysql, ApplicationTypeRedis, ApplicationTypeKeyDB, ApplicationTypeMongodb:
+		ApplicationTypeMysql, ApplicationTypeRedis, ApplicationTypeKeyDB, ApplicationTypeValkey, ApplicationTypeDragonfly,
+		ApplicationTypeMongodb:
 		return true
 	}
 	return false
+}
+
+func (at ApplicationType) InstrumentationType() ApplicationType {
+	switch at {
+	case ApplicationTypeMongos:
+		return ApplicationTypeMongodb
+	case ApplicationTypeValkey, ApplicationTypeKeyDB, ApplicationTypeDragonfly:
+		return ApplicationTypeRedis
+	}
+	return at
 }
 
 func (at ApplicationType) IsQueue() bool {
@@ -109,6 +122,8 @@ func (at ApplicationType) Icon() string {
 		return "postgres"
 	case at == ApplicationTypeMongos:
 		return "mongodb"
+	case at == ApplicationTypeValkey || at == ApplicationTypeKeyDB || at == ApplicationTypeDragonfly:
+		return "redis"
 	}
 	return string(at)
 }

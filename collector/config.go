@@ -89,11 +89,12 @@ func (c *Collector) Config(w http.ResponseWriter, r *http.Request) {
 		}
 
 		for t := range app.ApplicationTypes() {
+			it := t.InstrumentationType()
 			var instrumentation *model.ApplicationInstrumentation
-			if app.Settings != nil && app.Settings.Instrumentation != nil && app.Settings.Instrumentation[t] != nil {
-				instrumentation = app.Settings.Instrumentation[t]
+			if app.Settings != nil && app.Settings.Instrumentation != nil && app.Settings.Instrumentation[it] != nil {
+				instrumentation = app.Settings.Instrumentation[it]
 			} else {
-				instrumentation = model.GetDefaultInstrumentation(t)
+				instrumentation = model.GetDefaultInstrumentation(it)
 			}
 			if instrumentation == nil || instrumentation.Disabled {
 				continue
