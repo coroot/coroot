@@ -837,7 +837,7 @@ func (api *Api) Instrumentation(w http.ResponseWriter, r *http.Request, u *db.Us
 		return
 	}
 
-	t := model.ApplicationType(vars["type"])
+	t := model.ApplicationType(vars["type"]).InstrumentationType()
 	var instrumentation *model.ApplicationInstrumentation
 	if app.Settings != nil && app.Settings.Instrumentation != nil && app.Settings.Instrumentation[t] != nil {
 		instrumentation = app.Settings.Instrumentation[t]

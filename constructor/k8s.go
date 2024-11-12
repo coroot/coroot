@@ -193,7 +193,7 @@ func podLabels(metrics []model.MetricValues, pods map[string]*model.Instance) {
 			if m.Labels["label_app_kubernetes_io_name"] != "" && m.Labels["label_app_kubernetes_io_instance"] != "" {
 				cluster = m.Labels["label_app_kubernetes_io_instance"] + "-" + m.Labels["label_app_kubernetes_io_name"]
 			}
-		case strings.HasPrefix(m.Labels["label_helm_sh_chart"], "redis"):
+		case strings.HasPrefix(m.Labels["label_helm_sh_chart"], "redis") || strings.HasPrefix(m.Labels["label_helm_sh_chart"], "valkey"):
 			if m.Labels["label_app_kubernetes_io_name"] != "" && m.Labels["label_app_kubernetes_io_instance"] != "" {
 				cluster = m.Labels["label_app_kubernetes_io_instance"] + "-" + m.Labels["label_app_kubernetes_io_name"]
 			}
