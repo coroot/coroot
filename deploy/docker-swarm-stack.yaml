@@ -11,6 +11,7 @@ services:
   coroot:
     restart: always
     image: ghcr.io/coroot/coroot
+    pull_policy: always
     volumes:
       - coroot_data:/data
     ports:
@@ -30,6 +31,7 @@ services:
   cluster-agent:
     restart: always
     image: ghcr.io/coroot/coroot-cluster-agent
+    pull_policy: always
     volumes:
       - cluster_agent_data:/data
     command:
@@ -66,4 +68,3 @@ services:
       nofile:
         soft: 262144
         hard: 262144
-
