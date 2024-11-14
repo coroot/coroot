@@ -14,6 +14,7 @@ services:
   coroot:
     restart: always
     image: ghcr.io/coroot/coroot
+    pull_policy: always
     volumes:
       - coroot_data:/data
     ports:
@@ -30,6 +31,7 @@ services:
   node-agent:
     restart: always
     image: ghcr.io/coroot/coroot-node-agent
+    pull_policy: always
     privileged: true
     pid: "host"
     volumes:
@@ -45,6 +47,7 @@ services:
   cluster-agent:
     restart: always
     image: ghcr.io/coroot/coroot-cluster-agent
+    pull_policy: always
     volumes:
       - cluster_agent_data:/data
     command:
