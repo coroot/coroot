@@ -105,12 +105,14 @@ type IntegrationsPrometheus struct {
 }
 
 type IntegrationClickhouse struct {
-	Protocol      string          `json:"protocol"`
-	Addr          string          `json:"addr"`
-	Auth          utils.BasicAuth `json:"auth"`
-	Database      string          `json:"database"`
-	TlsEnable     bool            `json:"tls_enable"`
-	TlsSkipVerify bool            `json:"tls_skip_verify"`
+	Global          bool            `json:"global"`
+	Protocol        string          `json:"protocol"`
+	Addr            string          `json:"addr"`
+	Auth            utils.BasicAuth `json:"auth"`
+	Database        string          `json:"database"`
+	InitialDatabase string          `json:"-"`
+	TlsEnable       bool            `json:"tls_enable"`
+	TlsSkipVerify   bool            `json:"tls_skip_verify"`
 }
 
 type IntegrationSlack struct {

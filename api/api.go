@@ -27,23 +27,25 @@ import (
 )
 
 type Api struct {
-	cache     *cache.Cache
-	db        *db.DB
-	collector *collector.Collector
-	pricing   *pricing.Manager
-	roles     rbac.RoleManager
+	cache            *cache.Cache
+	db               *db.DB
+	collector        *collector.Collector
+	pricing          *pricing.Manager
+	roles            rbac.RoleManager
+	globalClickHouse *db.IntegrationClickhouse
 
 	authSecret        string
 	authAnonymousRole rbac.RoleName
 }
 
-func NewApi(cache *cache.Cache, db *db.DB, collector *collector.Collector, pricing *pricing.Manager, roles rbac.RoleManager) *Api {
+func NewApi(cache *cache.Cache, db *db.DB, collector *collector.Collector, pricing *pricing.Manager, roles rbac.RoleManager, globalClickHouse *db.IntegrationClickhouse) *Api {
 	return &Api{
-		cache:     cache,
-		db:        db,
-		collector: collector,
-		pricing:   pricing,
-		roles:     roles,
+		cache:            cache,
+		db:               db,
+		collector:        collector,
+		pricing:          pricing,
+		roles:            roles,
+		globalClickHouse: globalClickHouse,
 	}
 }
 
@@ -347,11 +349,8 @@ func (api *Api) Overview(w http.ResponseWriter, r *http.Request, u *db.User) {
 		return
 	}
 	var ch *clickhouse.Client
-	if cfg := project.Settings.Integrations.Clickhouse; cfg != nil {
-		ch, err = api.getClickhouseClient(project)
-		if err != nil {
-			klog.Warningln(err)
-		}
+	if ch, err = api.getClickhouseClient(project); err != nil {
+		klog.Warningln(err)
 	}
 	auditor.Audit(world, project, nil)
 	utils.WriteJson(w, WithContext(project, cacheStatus, world, views.Overview(r.Context(), ch, world, view, r.URL.Query().Get("query"))))
@@ -474,9 +473,8 @@ func (api *Api) Integration(w http.ResponseWriter, r *http.Request, u *db.User) 
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
-
 	t := db.IntegrationType(vars["type"])
-	form := forms.NewIntegrationForm(t)
+	form := forms.NewIntegrationForm(t, api.globalClickHouse)
 	if form == nil {
 		klog.Warningln("unknown integration type:", t)
 		http.Error(w, "", http.StatusBadRequest)
@@ -546,13 +544,14 @@ func (api *Api) Integration(w http.ResponseWriter, r *http.Request, u *db.User) 
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
-
-	cfg := project.Settings.Integrations.Clickhouse
-	err = api.collector.UpdateClickhouseClient(r.Context(), project.Id, cfg)
-	if err != nil {
-		klog.Errorln("clickhouse error:", err)
-		http.Error(w, "Clickhouse error: "+err.Error(), http.StatusInternalServerError)
-		return
+	if api.globalClickHouse == nil {
+		cfg := project.Settings.Integrations.Clickhouse
+		err = api.collector.UpdateClickhouseClient(r.Context(), project.Id, cfg)
+		if err != nil {
+			klog.Errorln("clickhouse error:", err)
+			http.Error(w, "Clickhouse error: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 }
 
@@ -901,11 +900,8 @@ func (api *Api) Profiling(w http.ResponseWriter, r *http.Request, u *db.User) {
 		return
 	}
 	var ch *clickhouse.Client
-	if cfg := project.Settings.Integrations.Clickhouse; cfg != nil {
-		ch, err = api.getClickhouseClient(project)
-		if err != nil {
-			klog.Warningln(err)
-		}
+	if ch, err = api.getClickhouseClient(project); err != nil {
+		klog.Warningln(err)
 	}
 	q := r.URL.Query()
 	auditor.Audit(world, project, nil)
@@ -959,11 +955,8 @@ func (api *Api) Tracing(w http.ResponseWriter, r *http.Request, u *db.User) {
 	}
 	q := r.URL.Query()
 	var ch *clickhouse.Client
-	if cfg := project.Settings.Integrations.Clickhouse; cfg != nil {
-		ch, err = api.getClickhouseClient(project)
-		if err != nil {
-			klog.Warningln(err)
-		}
+	if ch, err = api.getClickhouseClient(project); err != nil {
+		klog.Warningln(err)
 	}
 	auditor.Audit(world, project, nil)
 	utils.WriteJson(w, WithContext(project, cacheStatus, world, views.Tracing(r.Context(), ch, app, q, world)))
@@ -1015,11 +1008,8 @@ func (api *Api) Logs(w http.ResponseWriter, r *http.Request, u *db.User) {
 		return
 	}
 	var ch *clickhouse.Client
-	if cfg := project.Settings.Integrations.Clickhouse; cfg != nil {
-		ch, err = api.getClickhouseClient(project)
-		if err != nil {
-			klog.Warningln(err)
-		}
+	if ch, err = api.getClickhouseClient(project); err != nil {
+		klog.Warningln(err)
 	}
 	auditor.Audit(world, project, nil)
 	q := r.URL.Query()
@@ -1151,7 +1141,10 @@ func maxDuration(d1, d2 timeseries.Duration) timeseries.Duration {
 }
 
 func (api *Api) getClickhouseClient(project *db.Project) (*clickhouse.Client, error) {
-	cfg := project.Settings.Integrations.Clickhouse
+	cfg := collector.ClickHouseConfig(project, api.globalClickHouse)
+	if cfg == nil {
+		return nil, nil
+	}
 	config := clickhouse.NewClientConfig(cfg.Addr, cfg.Auth.User, cfg.Auth.Password)
 	config.Protocol = cfg.Protocol
 	config.Database = cfg.Database

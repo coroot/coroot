@@ -10,10 +10,20 @@ import (
 	"math"
 	"strconv"
 
+	"github.com/coroot/coroot/db"
 	"github.com/golang/snappy"
 	"github.com/klauspost/compress/zstd"
 	v1 "go.opentelemetry.io/proto/otlp/common/v1"
 )
+
+func ClickHouseConfig(project *db.Project, globalClickHouse *db.IntegrationClickhouse) *db.IntegrationClickhouse {
+	if globalClickHouse != nil {
+		gc := *globalClickHouse
+		gc.Database = "coroot_" + string(project.Id)
+		return &gc
+	}
+	return project.Settings.Integrations.Clickhouse
+}
 
 func attributesToMap(kv []*v1.KeyValue) map[string]string {
 	res := make(map[string]string, len(kv))
