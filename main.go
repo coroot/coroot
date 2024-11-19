@@ -52,6 +52,14 @@ func main() {
 	bootstrapClickhouseUser := kingpin.Flag("bootstrap-clickhouse-user", "Clickhouse user").Envar("BOOTSTRAP_CLICKHOUSE_USER").Default("default").String()
 	bootstrapClickhousePassword := kingpin.Flag("bootstrap-clickhouse-password", "Clickhouse password").Envar("BOOTSTRAP_CLICKHOUSE_PASSWORD").String()
 	bootstrapClickhouseDatabase := kingpin.Flag("bootstrap-clickhouse-database", "Clickhouse database").Envar("BOOTSTRAP_CLICKHOUSE_DATABASE").Default("default").String()
+
+	globalClickhouseAddr := kingpin.Flag("global-clickhouse-address", "").Envar("GLOBAL_CLICKHOUSE_ADDRESS").String()
+	globalClickhouseUser := kingpin.Flag("global-clickhouse-user", "").Envar("GLOBAL_CLICKHOUSE_USER").Default("default").String()
+	globalClickhousePassword := kingpin.Flag("global-clickhouse-password", "").Envar("GLOBAL_CLICKHOUSE_PASSWORD").String()
+	globalClickhouseInitialDatabase := kingpin.Flag("global-clickhouse-initial-database", "").Envar("GLOBAL_CLICKHOUSE_INITIAL_DATABASE").Default("default").String()
+	globalClickhouseTlsEnabled := kingpin.Flag("global-clickhouse-tls-enabled", "").Envar("GLOBAL_CLICKHOUSE_TLS_ENABLES").Default("false").Bool()
+	globalClickhouseTlsSkipVerify := kingpin.Flag("global-clickhouse-tls-skip-verify", "").Envar("GLOBAL_CLICKHOUSE_TLS_SKIP_VERIFY").Default("false").Bool()
+
 	developerMode := kingpin.Flag("developer-mode", "If enabled, Coroot will not use embedded static assets").Envar("DEVELOPER_MODE").Default("false").Bool()
 	authAnonymousRole := kingpin.Flag("auth-anonymous-role", "Disable authentication and assign one of the following roles to the anonymous user: Admin, Editor, or Viewer.").Envar("AUTH_ANONYMOUS_ROLE").String()
 	authBootstrapAdminPassword := kingpin.Flag("auth-bootstrap-admin-password", "Password for the default Admin user").Envar("AUTH_BOOTSTRAP_ADMIN_PASSWORD").Default(db.AdminUserDefaultPassword).String()
@@ -67,6 +75,21 @@ func main() {
 		klog.Exitln(err)
 	}
 
+	var globalClickHouse *db.IntegrationClickhouse
+	if *globalClickhouseAddr != "" {
+		globalClickHouse = &db.IntegrationClickhouse{
+			Global:          true,
+			Protocol:        "native",
+			Addr:            *globalClickhouseAddr,
+			InitialDatabase: *globalClickhouseInitialDatabase,
+			TlsEnable:       *globalClickhouseTlsEnabled,
+			TlsSkipVerify:   *globalClickhouseTlsSkipVerify,
+			Auth: utils.BasicAuth{
+				User:     *globalClickhouseUser,
+				Password: *globalClickhousePassword,
+			},
+		}
+	}
 	database, err := db.Open(*dataDir, *pgConnString)
 	if err != nil {
 		klog.Exitln(err)
@@ -89,8 +112,11 @@ func main() {
 	if err = database.BootstrapPrometheusIntegration(*bootstrapPrometheusUrl, *bootstrapRefreshInterval, *bootstrapPrometheusExtraSelector); err != nil {
 		klog.Exitln(err)
 	}
-	if err = database.BootstrapClickhouseIntegration(*bootstrapClickhouseAddr, *bootstrapClickhouseUser, *bootstrapClickhousePassword, *bootstrapClickhouseDatabase); err != nil {
-		klog.Exitln(err)
+
+	if globalClickHouse == nil {
+		if err = database.BootstrapClickhouseIntegration(*bootstrapClickhouseAddr, *bootstrapClickhouseUser, *bootstrapClickhousePassword, *bootstrapClickhouseDatabase); err != nil {
+			klog.Exitln(err)
+		}
 	}
 
 	cacheConfig := cache.Config{
@@ -105,7 +131,7 @@ func main() {
 		klog.Exitln(err)
 	}
 
-	coll := collector.New(database, promCache)
+	coll := collector.New(database, promCache, globalClickHouse)
 	go func() {
 		ch := make(chan os.Signal, 1)
 		signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)
@@ -123,7 +149,7 @@ func main() {
 
 	watchers.Start(database, promCache, pricing, !*doNotCheckSLO, !*doNotCheckForDeployments)
 
-	a := api.NewApi(promCache, database, coll, pricing, rbac.NewStaticRoleManager())
+	a := api.NewApi(promCache, database, coll, pricing, rbac.NewStaticRoleManager(), globalClickHouse)
 	err = a.AuthInit(*authAnonymousRole, *authBootstrapAdminPassword)
 	if err != nil {
 		klog.Exitln(err)

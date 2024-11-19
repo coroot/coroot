@@ -3,6 +3,7 @@ package forms
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"net/url"
@@ -10,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/coroot/coroot/clickhouse"
+	"github.com/coroot/coroot/collector"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/notifications"
@@ -181,12 +183,12 @@ type IntegrationForm interface {
 	Test(ctx context.Context, project *db.Project) error
 }
 
-func NewIntegrationForm(t db.IntegrationType) IntegrationForm {
+func NewIntegrationForm(t db.IntegrationType, globalClickHouse *db.IntegrationClickhouse) IntegrationForm {
 	switch t {
 	case db.IntegrationTypePrometheus:
 		return &IntegrationFormPrometheus{}
 	case db.IntegrationTypeClickhouse:
-		return &IntegrationFormClickhouse{}
+		return &IntegrationFormClickhouse{global: globalClickHouse}
 	case db.IntegrationTypeAWS:
 		return &IntegrationFormAWS{}
 	case db.IntegrationTypeSlack:
@@ -269,6 +271,7 @@ func (f *IntegrationFormPrometheus) Test(ctx context.Context, project *db.Projec
 
 type IntegrationFormClickhouse struct {
 	db.IntegrationClickhouse
+	global *db.IntegrationClickhouse
 }
 
 func (f *IntegrationFormClickhouse) Valid() bool {
@@ -279,7 +282,7 @@ func (f *IntegrationFormClickhouse) Valid() bool {
 }
 
 func (f *IntegrationFormClickhouse) Get(project *db.Project, masked bool) {
-	cfg := project.Settings.Integrations.Clickhouse
+	cfg := collector.ClickHouseConfig(project, f.global)
 	if cfg != nil {
 		f.IntegrationClickhouse = *cfg
 	}
@@ -300,6 +303,9 @@ func (f *IntegrationFormClickhouse) Get(project *db.Project, masked bool) {
 }
 
 func (f *IntegrationFormClickhouse) Update(ctx context.Context, project *db.Project, clear bool) error {
+	if f.global != nil {
+		return fmt.Errorf("global ClickHouse configuration is used and cannot be changed")
+	}
 	cfg := &f.IntegrationClickhouse
 	if clear {
 		cfg = nil
