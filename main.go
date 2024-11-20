@@ -20,6 +20,7 @@ import (
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/rbac"
 	"github.com/coroot/coroot/stats"
+	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 	"github.com/coroot/coroot/watchers"
 	"github.com/google/uuid"
@@ -60,6 +61,13 @@ func main() {
 	globalClickhouseTlsEnabled := kingpin.Flag("global-clickhouse-tls-enabled", "").Envar("GLOBAL_CLICKHOUSE_TLS_ENABLES").Default("false").Bool()
 	globalClickhouseTlsSkipVerify := kingpin.Flag("global-clickhouse-tls-skip-verify", "").Envar("GLOBAL_CLICKHOUSE_TLS_SKIP_VERIFY").Default("false").Bool()
 
+	globalPrometheusUrl := kingpin.Flag("global-prometheus-url", "").Envar("GLOBAL_PROMETHEUS_URL").String()
+	globalPrometheusTlsSkipVerify := kingpin.Flag("global-prometheus-tls-skip-verify", "").Envar("GLOBAL_PROMETHEUS_TLS_SKIP_VERIFY").Bool()
+	globalRefreshInterval := kingpin.Flag("global-refresh-interval", "").Envar("GLOBAL_REFRESH_INTERVAL").Duration()
+	globalPrometheusUser := kingpin.Flag("global-prometheus-user", "").Envar("GLOBAL_PROMETHEUS_USER").String()
+	globalPrometheusPassword := kingpin.Flag("global-prometheus-password", "").Envar("GLOBAL_PROMETHEUS_PASSWORD").String()
+	globalPrometheusCustomHeaders := kingpin.Flag("global-prometheus-custom-headers", "").Envar("GLOBAL_PROMETHEUS_CUSTOM_HEADER").StringMap()
+
 	developerMode := kingpin.Flag("developer-mode", "If enabled, Coroot will not use embedded static assets").Envar("DEVELOPER_MODE").Default("false").Bool()
 	authAnonymousRole := kingpin.Flag("auth-anonymous-role", "Disable authentication and assign one of the following roles to the anonymous user: Admin, Editor, or Viewer.").Envar("AUTH_ANONYMOUS_ROLE").String()
 	authBootstrapAdminPassword := kingpin.Flag("auth-bootstrap-admin-password", "Password for the default Admin user").Envar("AUTH_BOOTSTRAP_ADMIN_PASSWORD").Default(db.AdminUserDefaultPassword).String()
@@ -73,6 +81,29 @@ func main() {
 
 	if err := utils.CreateDirectoryIfNotExists(*dataDir); err != nil {
 		klog.Exitln(err)
+	}
+
+	var globalPrometheus *db.IntegrationsPrometheus
+	if *globalPrometheusUrl != "" {
+		if *globalRefreshInterval == 0 {
+			klog.Exitln("--global-refresh-interval is required")
+		}
+		var basicAuth *utils.BasicAuth
+		if *globalPrometheusUser != "" && *globalPrometheusPassword != "" {
+			basicAuth = &utils.BasicAuth{User: *globalPrometheusUser, Password: *globalPrometheusPassword}
+		}
+		var customHeaders []utils.Header
+		for k, v := range *globalPrometheusCustomHeaders {
+			customHeaders = append(customHeaders, utils.Header{Key: k, Value: v})
+		}
+		globalPrometheus = &db.IntegrationsPrometheus{
+			Global:          true,
+			Url:             *globalPrometheusUrl,
+			RefreshInterval: timeseries.Duration((*globalRefreshInterval).Seconds()),
+			TlsSkipVerify:   *globalPrometheusTlsSkipVerify,
+			BasicAuth:       basicAuth,
+			CustomHeaders:   customHeaders,
+		}
 	}
 
 	var globalClickHouse *db.IntegrationClickhouse
@@ -108,9 +139,10 @@ func main() {
 		}
 		return
 	}
-
-	if err = database.BootstrapPrometheusIntegration(*bootstrapPrometheusUrl, *bootstrapRefreshInterval, *bootstrapPrometheusExtraSelector); err != nil {
-		klog.Exitln(err)
+	if globalPrometheus != nil {
+		if err = database.BootstrapPrometheusIntegration(*bootstrapPrometheusUrl, *bootstrapRefreshInterval, *bootstrapPrometheusExtraSelector); err != nil {
+			klog.Exitln(err)
+		}
 	}
 
 	if globalClickHouse == nil {
@@ -126,12 +158,12 @@ func main() {
 			Interval: *cacheGcInterval,
 		},
 	}
-	promCache, err := cache.NewCache(cacheConfig, database, cache.DefaultPrometheusClientFactory)
+	promCache, err := cache.NewCache(cacheConfig, database, cache.DefaultPrometheusClientFactory, globalPrometheus)
 	if err != nil {
 		klog.Exitln(err)
 	}
 
-	coll := collector.New(database, promCache, globalClickHouse)
+	coll := collector.New(database, promCache, globalClickHouse, globalPrometheus)
 	go func() {
 		ch := make(chan os.Signal, 1)
 		signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)
@@ -149,7 +181,7 @@ func main() {
 
 	watchers.Start(database, promCache, pricing, !*doNotCheckSLO, !*doNotCheckForDeployments)
 
-	a := api.NewApi(promCache, database, coll, pricing, rbac.NewStaticRoleManager(), globalClickHouse)
+	a := api.NewApi(promCache, database, coll, pricing, rbac.NewStaticRoleManager(), globalClickHouse, globalPrometheus)
 	err = a.AuthInit(*authAnonymousRole, *authBootstrapAdminPassword)
 	if err != nil {
 		klog.Exitln(err)

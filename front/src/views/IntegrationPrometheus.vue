@@ -1,5 +1,8 @@
 <template>
     <v-form v-model="valid" ref="form" style="max-width: 800px">
+        <v-alert v-if="form.global" color="primary" outlined text
+            >This project uses a global Prometheus configuration that can't be changed through the UI</v-alert
+        >
         <div class="subtitle-1">Prometheus URL</div>
         <div class="caption">Coroot works on top of the telemetry data stored in your Prometheus server.</div>
         <v-text-field
@@ -11,25 +14,41 @@
             hide-details="auto"
             class="flex-grow-1"
             single-line
+            :disabled="form.global"
         />
-        <v-checkbox v-model="form.tls_skip_verify" :disabled="!form.url.startsWith('https')" label="Skip TLS verify" hide-details class="my-2" />
+        <v-checkbox
+            v-model="form.tls_skip_verify"
+            :disabled="!form.url.startsWith('https') || form.global"
+            label="Skip TLS verify"
+            hide-details
+            class="my-2"
+        />
 
-        <v-checkbox v-model="basic_auth" label="HTTP basic auth" class="my-2" hide-details />
+        <v-checkbox v-model="basic_auth" label="HTTP basic auth" class="my-2" hide-details :disabled="form.global" />
         <div v-if="basic_auth" class="d-flex gap">
-            <v-text-field outlined dense v-model="form.basic_auth.user" label="username" hide-details single-line />
-            <v-text-field v-model="form.basic_auth.password" label="password" type="password" outlined dense hide-details single-line />
+            <v-text-field outlined dense v-model="form.basic_auth.user" label="username" hide-details single-line :disabled="form.global" />
+            <v-text-field
+                v-model="form.basic_auth.password"
+                label="password"
+                type="password"
+                outlined
+                dense
+                hide-details
+                single-line
+                :disabled="form.global"
+            />
         </div>
 
-        <v-checkbox v-model="custom_headers" label="Custom HTTP headers" class="my-2" hide-details />
+        <v-checkbox v-model="custom_headers" label="Custom HTTP headers" class="my-2" hide-details :disabled="form.global" />
         <template v-if="custom_headers">
             <div v-for="(h, i) in form.custom_headers" :key="i" class="d-flex gap mb-2 align-center">
-                <v-text-field outlined dense v-model="h.key" label="header" hide-details single-line />
-                <v-text-field outlined dense v-model="h.value" type="password" label="value" hide-details single-line />
-                <v-btn @click="form.custom_headers.splice(i, 1)" icon small>
+                <v-text-field outlined dense v-model="h.key" label="header" hide-details single-line :disabled="form.global" />
+                <v-text-field outlined dense v-model="h.value" type="password" label="value" hide-details single-line :disabled="form.global" />
+                <v-btn @click="form.custom_headers.splice(i, 1)" icon small :disabled="form.global">
                     <v-icon small>mdi-trash-can-outline</v-icon>
                 </v-btn>
             </div>
-            <v-btn color="primary" @click="form.custom_headers.push({ key: '', value: '' })">Add header</v-btn>
+            <v-btn color="primary" @click="form.custom_headers.push({ key: '', value: '' })" :disabled="form.global">Add header</v-btn>
         </template>
 
         <div class="subtitle-1 mt-3">Refresh interval</div>
@@ -40,11 +59,11 @@
             >
             of the Prometheus server.
         </div>
-        <v-select v-model="form.refresh_interval" :items="refreshIntervals" outlined dense :menu-props="{ offsetY: true }" />
+        <v-select v-model="form.refresh_interval" :items="refreshIntervals" outlined dense :menu-props="{ offsetY: true }" :disabled="form.global" />
 
         <div class="subtitle-1">Extra selector</div>
         <div class="caption">An additional metric selector that will be added to every Prometheus query (e.g. <var>{cluster="us-west-1"}</var>)</div>
-        <v-text-field outlined dense v-model="form.extra_selector" :rules="[$validators.isPrometheusSelector]" single-line />
+        <v-text-field outlined dense v-model="form.extra_selector" :rules="[$validators.isPrometheusSelector]" single-line :disabled="form.global" />
 
         <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
             {{ error }}
@@ -52,7 +71,7 @@
         <v-alert v-if="message" color="green" outlined text>
             {{ message }}
         </v-alert>
-        <v-btn block color="primary" @click="save" :disabled="!valid" :loading="loading">Save</v-btn>
+        <v-btn block color="primary" @click="save" :disabled="!valid || form.global" :loading="loading">Save</v-btn>
     </v-form>
 </template>
 

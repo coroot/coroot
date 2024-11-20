@@ -39,6 +39,7 @@ type Collector struct {
 	db               *db.DB
 	cache            *cache.Cache
 	globalClickHouse *db.IntegrationClickhouse
+	globalPrometheus *db.IntegrationsPrometheus
 
 	projects     map[db.ProjectId]*db.Project
 	projectsLock sync.RWMutex
@@ -54,11 +55,12 @@ type Collector struct {
 	profileBatchesLock sync.Mutex
 }
 
-func New(database *db.DB, cache *cache.Cache, globalClickHouse *db.IntegrationClickhouse) *Collector {
+func New(database *db.DB, cache *cache.Cache, globalClickHouse *db.IntegrationClickhouse, globalPrometheus *db.IntegrationsPrometheus) *Collector {
 	c := &Collector{
 		db:                database,
 		cache:             cache,
 		globalClickHouse:  globalClickHouse,
+		globalPrometheus:  globalPrometheus,
 		clickhouseClients: map[db.ProjectId]*chClient{},
 		traceBatches:      map[db.ProjectId]*TracesBatch{},
 		profileBatches:    map[db.ProjectId]*ProfilesBatch{},
@@ -75,7 +77,7 @@ func New(database *db.DB, cache *cache.Cache, globalClickHouse *db.IntegrationCl
 	}()
 
 	for _, p := range c.projects {
-		cfg := ClickHouseConfig(p, c.globalClickHouse)
+		cfg := p.ClickHouseConfig(c.globalClickHouse)
 		if cfg == nil {
 			continue
 		}
@@ -255,7 +257,7 @@ func (c *Collector) getClickhouseClient(projectId db.ProjectId) (*chClient, erro
 		return nil, err
 	}
 
-	cfg := ClickHouseConfig(project, c.globalClickHouse)
+	cfg := project.ClickHouseConfig(c.globalClickHouse)
 	if cfg == nil {
 		return nil, ErrClickhouseNotConfigured
 	}

@@ -33,12 +33,14 @@ type Api struct {
 	pricing          *pricing.Manager
 	roles            rbac.RoleManager
 	globalClickHouse *db.IntegrationClickhouse
+	globalPrometheus *db.IntegrationsPrometheus
 
 	authSecret        string
 	authAnonymousRole rbac.RoleName
 }
 
-func NewApi(cache *cache.Cache, db *db.DB, collector *collector.Collector, pricing *pricing.Manager, roles rbac.RoleManager, globalClickHouse *db.IntegrationClickhouse) *Api {
+func NewApi(cache *cache.Cache, db *db.DB, collector *collector.Collector, pricing *pricing.Manager, roles rbac.RoleManager,
+	globalClickHouse *db.IntegrationClickhouse, globalPrometheus *db.IntegrationsPrometheus) *Api {
 	return &Api{
 		cache:            cache,
 		db:               db,
@@ -46,6 +48,7 @@ func NewApi(cache *cache.Cache, db *db.DB, collector *collector.Collector, prici
 		pricing:          pricing,
 		roles:            roles,
 		globalClickHouse: globalClickHouse,
+		globalPrometheus: globalPrometheus,
 	}
 }
 
@@ -317,7 +320,7 @@ func (api *Api) Status(w http.ResponseWriter, r *http.Request, u *db.User) {
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
-	utils.WriteJson(w, renderStatus(project, cacheStatus, world))
+	utils.WriteJson(w, renderStatus(project, cacheStatus, world, api.globalPrometheus))
 }
 
 func (api *Api) Overview(w http.ResponseWriter, r *http.Request, u *db.User) {
@@ -345,7 +348,7 @@ func (api *Api) Overview(w http.ResponseWriter, r *http.Request, u *db.User) {
 		return
 	}
 	if project == nil || world == nil {
-		utils.WriteJson(w, WithContext(project, cacheStatus, world, nil))
+		utils.WriteJson(w, api.WithContext(project, cacheStatus, world, nil))
 		return
 	}
 	var ch *clickhouse.Client
@@ -353,7 +356,7 @@ func (api *Api) Overview(w http.ResponseWriter, r *http.Request, u *db.User) {
 		klog.Warningln(err)
 	}
 	auditor.Audit(world, project, nil)
-	utils.WriteJson(w, WithContext(project, cacheStatus, world, views.Overview(r.Context(), ch, world, view, r.URL.Query().Get("query"))))
+	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Overview(r.Context(), ch, world, view, r.URL.Query().Get("query"))))
 }
 
 func (api *Api) Inspections(w http.ResponseWriter, r *http.Request, u *db.User) {
@@ -474,7 +477,7 @@ func (api *Api) Integration(w http.ResponseWriter, r *http.Request, u *db.User) 
 		return
 	}
 	t := db.IntegrationType(vars["type"])
-	form := forms.NewIntegrationForm(t, api.globalClickHouse)
+	form := forms.NewIntegrationForm(t, api.globalClickHouse, api.globalPrometheus)
 	if form == nil {
 		klog.Warningln("unknown integration type:", t)
 		http.Error(w, "", http.StatusBadRequest)
@@ -595,7 +598,7 @@ func (api *Api) Application(w http.ResponseWriter, r *http.Request, u *db.User) 
 		return
 	}
 	if project == nil || world == nil {
-		utils.WriteJson(w, WithContext(project, cacheStatus, world, nil))
+		utils.WriteJson(w, api.WithContext(project, cacheStatus, world, nil))
 		return
 	}
 	app := world.GetApplication(appId)
@@ -615,7 +618,7 @@ func (api *Api) Application(w http.ResponseWriter, r *http.Request, u *db.User) 
 		app.AddReport(model.AuditReportProfiling, &model.Widget{Profiling: &model.Profiling{ApplicationId: app.Id}, Width: "100%"})
 		app.AddReport(model.AuditReportTracing, &model.Widget{Tracing: &model.Tracing{ApplicationId: app.Id}, Width: "100%"})
 	}
-	utils.WriteJson(w, WithContext(project, cacheStatus, world, views.Application(world, app)))
+	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Application(world, app)))
 }
 
 func (api *Api) RCA(w http.ResponseWriter, r *http.Request, u *db.User) {
@@ -626,10 +629,10 @@ func (api *Api) RCA(w http.ResponseWriter, r *http.Request, u *db.User) {
 		return
 	}
 	if project == nil || world == nil {
-		utils.WriteJson(w, WithContext(project, cacheStatus, world, nil))
+		utils.WriteJson(w, api.WithContext(project, cacheStatus, world, nil))
 		return
 	}
-	utils.WriteJson(w, WithContext(project, cacheStatus, world, "not implemented"))
+	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, "not implemented"))
 }
 
 func (api *Api) Incident(w http.ResponseWriter, r *http.Request, u *db.User) {
@@ -658,7 +661,7 @@ func (api *Api) Incident(w http.ResponseWriter, r *http.Request, u *db.User) {
 		return
 	}
 	if project == nil || world == nil {
-		utils.WriteJson(w, WithContext(project, cacheStatus, world, nil))
+		utils.WriteJson(w, api.WithContext(project, cacheStatus, world, nil))
 		return
 	}
 	app := world.GetApplication(incident.ApplicationId)
@@ -672,7 +675,7 @@ func (api *Api) Incident(w http.ResponseWriter, r *http.Request, u *db.User) {
 		return
 	}
 	auditor.Audit(world, project, app)
-	utils.WriteJson(w, WithContext(project, cacheStatus, world, views.Incident(world, app, incident)))
+	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Incident(world, app, incident)))
 }
 
 func (api *Api) Inspection(w http.ResponseWriter, r *http.Request, u *db.User) {
@@ -890,7 +893,7 @@ func (api *Api) Profiling(w http.ResponseWriter, r *http.Request, u *db.User) {
 		return
 	}
 	if project == nil || world == nil {
-		utils.WriteJson(w, WithContext(project, cacheStatus, world, nil))
+		utils.WriteJson(w, api.WithContext(project, cacheStatus, world, nil))
 		return
 	}
 	app := world.GetApplication(appId)
@@ -905,7 +908,7 @@ func (api *Api) Profiling(w http.ResponseWriter, r *http.Request, u *db.User) {
 	}
 	q := r.URL.Query()
 	auditor.Audit(world, project, nil)
-	utils.WriteJson(w, WithContext(project, cacheStatus, world, views.Profiling(r.Context(), ch, app, q, world.Ctx)))
+	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Profiling(r.Context(), ch, app, q, world.Ctx)))
 }
 
 func (api *Api) Tracing(w http.ResponseWriter, r *http.Request, u *db.User) {
@@ -944,7 +947,7 @@ func (api *Api) Tracing(w http.ResponseWriter, r *http.Request, u *db.User) {
 		return
 	}
 	if project == nil || world == nil {
-		utils.WriteJson(w, WithContext(project, cacheStatus, world, nil))
+		utils.WriteJson(w, api.WithContext(project, cacheStatus, world, nil))
 		return
 	}
 	app := world.GetApplication(appId)
@@ -959,7 +962,7 @@ func (api *Api) Tracing(w http.ResponseWriter, r *http.Request, u *db.User) {
 		klog.Warningln(err)
 	}
 	auditor.Audit(world, project, nil)
-	utils.WriteJson(w, WithContext(project, cacheStatus, world, views.Tracing(r.Context(), ch, app, q, world)))
+	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Tracing(r.Context(), ch, app, q, world)))
 }
 
 func (api *Api) Logs(w http.ResponseWriter, r *http.Request, u *db.User) {
@@ -998,7 +1001,7 @@ func (api *Api) Logs(w http.ResponseWriter, r *http.Request, u *db.User) {
 		return
 	}
 	if project == nil || world == nil {
-		utils.WriteJson(w, WithContext(project, cacheStatus, world, nil))
+		utils.WriteJson(w, api.WithContext(project, cacheStatus, world, nil))
 		return
 	}
 	app := world.GetApplication(appId)
@@ -1013,7 +1016,7 @@ func (api *Api) Logs(w http.ResponseWriter, r *http.Request, u *db.User) {
 	}
 	auditor.Audit(world, project, nil)
 	q := r.URL.Query()
-	utils.WriteJson(w, WithContext(project, cacheStatus, world, views.Logs(r.Context(), ch, app, q, world)))
+	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Logs(r.Context(), ch, app, q, world)))
 }
 
 func (api *Api) Node(w http.ResponseWriter, r *http.Request, u *db.User) {
@@ -1031,7 +1034,7 @@ func (api *Api) Node(w http.ResponseWriter, r *http.Request, u *db.User) {
 		return
 	}
 	if project == nil || world == nil {
-		utils.WriteJson(w, WithContext(project, cacheStatus, world, nil))
+		utils.WriteJson(w, api.WithContext(project, cacheStatus, world, nil))
 		return
 	}
 	node := world.GetNode(nodeName)
@@ -1041,7 +1044,7 @@ func (api *Api) Node(w http.ResponseWriter, r *http.Request, u *db.User) {
 		return
 	}
 	auditor.Audit(world, project, nil)
-	utils.WriteJson(w, WithContext(project, cacheStatus, world, auditor.AuditNode(world, node)))
+	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, auditor.AuditNode(world, node)))
 }
 
 func (api *Api) LoadWorld(ctx context.Context, project *db.Project, from, to timeseries.Time) (*model.World, *cache.Status, error) {
@@ -1141,7 +1144,7 @@ func maxDuration(d1, d2 timeseries.Duration) timeseries.Duration {
 }
 
 func (api *Api) getClickhouseClient(project *db.Project) (*clickhouse.Client, error) {
-	cfg := collector.ClickHouseConfig(project, api.globalClickHouse)
+	cfg := project.ClickHouseConfig(api.globalClickHouse)
 	if cfg == nil {
 		return nil, nil
 	}
