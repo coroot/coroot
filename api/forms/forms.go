@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/coroot/coroot/clickhouse"
-	"github.com/coroot/coroot/collector"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/notifications"
@@ -183,10 +182,10 @@ type IntegrationForm interface {
 	Test(ctx context.Context, project *db.Project) error
 }
 
-func NewIntegrationForm(t db.IntegrationType, globalClickHouse *db.IntegrationClickhouse) IntegrationForm {
+func NewIntegrationForm(t db.IntegrationType, globalClickHouse *db.IntegrationClickhouse, globalPrometheus *db.IntegrationsPrometheus) IntegrationForm {
 	switch t {
 	case db.IntegrationTypePrometheus:
-		return &IntegrationFormPrometheus{}
+		return &IntegrationFormPrometheus{global: globalPrometheus}
 	case db.IntegrationTypeClickhouse:
 		return &IntegrationFormClickhouse{global: globalClickHouse}
 	case db.IntegrationTypeAWS:
@@ -207,6 +206,7 @@ func NewIntegrationForm(t db.IntegrationType, globalClickHouse *db.IntegrationCl
 
 type IntegrationFormPrometheus struct {
 	db.IntegrationsPrometheus
+	global *db.IntegrationsPrometheus
 }
 
 func (f *IntegrationFormPrometheus) Valid() bool {
@@ -227,12 +227,12 @@ func (f *IntegrationFormPrometheus) Valid() bool {
 }
 
 func (f *IntegrationFormPrometheus) Get(project *db.Project, masked bool) {
-	cfg := project.Prometheus
+	cfg := project.PrometheusConfig(f.global)
 	if cfg.Url == "" {
 		f.RefreshInterval = db.DefaultRefreshInterval
 		return
 	}
-	f.IntegrationsPrometheus = cfg
+	f.IntegrationsPrometheus = *cfg
 	if masked {
 		f.Url = "http://<hidden>"
 		if f.BasicAuth != nil {
@@ -246,6 +246,9 @@ func (f *IntegrationFormPrometheus) Get(project *db.Project, masked bool) {
 }
 
 func (f *IntegrationFormPrometheus) Update(ctx context.Context, project *db.Project, clear bool) error {
+	if f.global != nil {
+		return fmt.Errorf("global Prometheus configuration is used and cannot be changed")
+	}
 	if err := f.Test(ctx, project); err != nil {
 		return err
 	}
@@ -282,7 +285,7 @@ func (f *IntegrationFormClickhouse) Valid() bool {
 }
 
 func (f *IntegrationFormClickhouse) Get(project *db.Project, masked bool) {
-	cfg := collector.ClickHouseConfig(project, f.global)
+	cfg := project.ClickHouseConfig(f.global)
 	if cfg != nil {
 		f.IntegrationClickhouse = *cfg
 	}
