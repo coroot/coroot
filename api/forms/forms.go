@@ -3,6 +3,7 @@ package forms
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"net/url"
@@ -181,12 +182,12 @@ type IntegrationForm interface {
 	Test(ctx context.Context, project *db.Project) error
 }
 
-func NewIntegrationForm(t db.IntegrationType) IntegrationForm {
+func NewIntegrationForm(t db.IntegrationType, globalClickHouse *db.IntegrationClickhouse, globalPrometheus *db.IntegrationsPrometheus) IntegrationForm {
 	switch t {
 	case db.IntegrationTypePrometheus:
-		return &IntegrationFormPrometheus{}
+		return &IntegrationFormPrometheus{global: globalPrometheus}
 	case db.IntegrationTypeClickhouse:
-		return &IntegrationFormClickhouse{}
+		return &IntegrationFormClickhouse{global: globalClickHouse}
 	case db.IntegrationTypeAWS:
 		return &IntegrationFormAWS{}
 	case db.IntegrationTypeSlack:
@@ -205,6 +206,7 @@ func NewIntegrationForm(t db.IntegrationType) IntegrationForm {
 
 type IntegrationFormPrometheus struct {
 	db.IntegrationsPrometheus
+	global *db.IntegrationsPrometheus
 }
 
 func (f *IntegrationFormPrometheus) Valid() bool {
@@ -225,12 +227,12 @@ func (f *IntegrationFormPrometheus) Valid() bool {
 }
 
 func (f *IntegrationFormPrometheus) Get(project *db.Project, masked bool) {
-	cfg := project.Prometheus
+	cfg := project.PrometheusConfig(f.global)
 	if cfg.Url == "" {
 		f.RefreshInterval = db.DefaultRefreshInterval
 		return
 	}
-	f.IntegrationsPrometheus = cfg
+	f.IntegrationsPrometheus = *cfg
 	if masked {
 		f.Url = "http://<hidden>"
 		if f.BasicAuth != nil {
@@ -244,6 +246,9 @@ func (f *IntegrationFormPrometheus) Get(project *db.Project, masked bool) {
 }
 
 func (f *IntegrationFormPrometheus) Update(ctx context.Context, project *db.Project, clear bool) error {
+	if f.global != nil {
+		return fmt.Errorf("global Prometheus configuration is used and cannot be changed")
+	}
 	if err := f.Test(ctx, project); err != nil {
 		return err
 	}
@@ -269,6 +274,7 @@ func (f *IntegrationFormPrometheus) Test(ctx context.Context, project *db.Projec
 
 type IntegrationFormClickhouse struct {
 	db.IntegrationClickhouse
+	global *db.IntegrationClickhouse
 }
 
 func (f *IntegrationFormClickhouse) Valid() bool {
@@ -279,7 +285,7 @@ func (f *IntegrationFormClickhouse) Valid() bool {
 }
 
 func (f *IntegrationFormClickhouse) Get(project *db.Project, masked bool) {
-	cfg := project.Settings.Integrations.Clickhouse
+	cfg := project.ClickHouseConfig(f.global)
 	if cfg != nil {
 		f.IntegrationClickhouse = *cfg
 	}
@@ -300,6 +306,9 @@ func (f *IntegrationFormClickhouse) Get(project *db.Project, masked bool) {
 }
 
 func (f *IntegrationFormClickhouse) Update(ctx context.Context, project *db.Project, clear bool) error {
+	if f.global != nil {
+		return fmt.Errorf("global ClickHouse configuration is used and cannot be changed")
+	}
 	cfg := &f.IntegrationClickhouse
 	if clear {
 		cfg = nil

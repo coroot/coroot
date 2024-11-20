@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/coroot/coroot/model"
@@ -78,6 +79,25 @@ func (p *Project) GetCustomApplicationName(instance string) string {
 		}
 	}
 	return ""
+}
+
+func (p *Project) PrometheusConfig(globalPrometheus *IntegrationsPrometheus) *IntegrationsPrometheus {
+	if globalPrometheus != nil {
+		gp := *globalPrometheus
+		gp.ExtraSelector = fmt.Sprintf(`{coroot_project_id="%s"}`, p.Id)
+		gp.ExtraLabels = map[string]string{"coroot_project_id": string(p.Id)}
+		return &gp
+	}
+	return &p.Prometheus
+}
+
+func (p *Project) ClickHouseConfig(globalClickHouse *IntegrationClickhouse) *IntegrationClickhouse {
+	if globalClickHouse != nil {
+		gc := *globalClickHouse
+		gc.Database = "coroot_" + string(p.Id)
+		return &gc
+	}
+	return p.Settings.Integrations.Clickhouse
 }
 
 func (db *DB) GetProjects() ([]*Project, error) {

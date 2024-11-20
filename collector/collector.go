@@ -4,11 +4,13 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/ClickHouse/ch-go"
 	"github.com/ClickHouse/ch-go/chpool"
+	chproto "github.com/ClickHouse/ch-go/proto"
 	"github.com/coroot/coroot/cache"
 	"github.com/coroot/coroot/db"
 	"github.com/jpillora/backoff"
@@ -34,8 +36,10 @@ type chClient struct {
 }
 
 type Collector struct {
-	db    *db.DB
-	cache *cache.Cache
+	db               *db.DB
+	cache            *cache.Cache
+	globalClickHouse *db.IntegrationClickhouse
+	globalPrometheus *db.IntegrationsPrometheus
 
 	projects     map[db.ProjectId]*db.Project
 	projectsLock sync.RWMutex
@@ -51,10 +55,12 @@ type Collector struct {
 	profileBatchesLock sync.Mutex
 }
 
-func New(database *db.DB, cache *cache.Cache) *Collector {
+func New(database *db.DB, cache *cache.Cache, globalClickHouse *db.IntegrationClickhouse, globalPrometheus *db.IntegrationsPrometheus) *Collector {
 	c := &Collector{
 		db:                database,
 		cache:             cache,
+		globalClickHouse:  globalClickHouse,
+		globalPrometheus:  globalPrometheus,
 		clickhouseClients: map[db.ProjectId]*chClient{},
 		traceBatches:      map[db.ProjectId]*TracesBatch{},
 		profileBatches:    map[db.ProjectId]*ProfilesBatch{},
@@ -71,7 +77,7 @@ func New(database *db.DB, cache *cache.Cache) *Collector {
 	}()
 
 	for _, p := range c.projects {
-		cfg := p.Settings.Integrations.Clickhouse
+		cfg := p.ClickHouseConfig(c.globalClickHouse)
 		if cfg == nil {
 			continue
 		}
@@ -198,14 +204,41 @@ func (c *Collector) clickhouseConnect(ctx context.Context, cfg *db.IntegrationCl
 			InsecureSkipVerify: cfg.TlsSkipVerify,
 		}
 	}
-	pool, err := chpool.Dial(context.Background(), chpool.Options{
-		ClientOptions: opts,
-	})
+	pool, err := chpool.Dial(context.Background(), chpool.Options{ClientOptions: opts})
 	if err != nil {
 		return nil, err
 	}
 	cluster, err := getCluster(ctx, pool)
 	if err != nil {
+		if cfg.Global && strings.Contains(err.Error(), "UNKNOWN_DATABASE") {
+			pool.Close()
+			opts.Database = cfg.InitialDatabase
+			pool, err = chpool.Dial(context.Background(), chpool.Options{ClientOptions: opts})
+			if err != nil {
+				return nil, err
+			}
+			cluster, err = getCluster(ctx, pool)
+			if err != nil {
+				return nil, err
+			}
+			q := "CREATE DATABASE " + cfg.Database
+			if cluster != "" {
+				q += " ON CLUSTER " + cluster
+			}
+			var result chproto.Results
+			err = pool.Do(ctx, ch.Query{
+				Body: q,
+				OnResult: func(ctx context.Context, block chproto.Block) error {
+					return nil
+				},
+				Result: result.Auto(),
+			})
+			pool.Close()
+			if err != nil {
+				return nil, err
+			}
+			return c.clickhouseConnect(ctx, cfg)
+		}
 		return nil, err
 	}
 	return &chClient{pool: pool, cluster: cluster}, err
@@ -224,7 +257,7 @@ func (c *Collector) getClickhouseClient(projectId db.ProjectId) (*chClient, erro
 		return nil, err
 	}
 
-	cfg := project.Settings.Integrations.Clickhouse
+	cfg := project.ClickHouseConfig(c.globalClickHouse)
 	if cfg == nil {
 		return nil, ErrClickhouseNotConfigured
 	}

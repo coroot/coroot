@@ -96,21 +96,25 @@ func (integrations Integrations) GetInfo() []IntegrationInfo {
 }
 
 type IntegrationsPrometheus struct {
+	Global          bool                `json:"global"`
 	Url             string              `json:"url"`
 	RefreshInterval timeseries.Duration `json:"refresh_interval"`
 	TlsSkipVerify   bool                `json:"tls_skip_verify"`
 	BasicAuth       *utils.BasicAuth    `json:"basic_auth"`
 	ExtraSelector   string              `json:"extra_selector"`
 	CustomHeaders   []utils.Header      `json:"custom_headers"`
+	ExtraLabels     map[string]string   `json:"-"`
 }
 
 type IntegrationClickhouse struct {
-	Protocol      string          `json:"protocol"`
-	Addr          string          `json:"addr"`
-	Auth          utils.BasicAuth `json:"auth"`
-	Database      string          `json:"database"`
-	TlsEnable     bool            `json:"tls_enable"`
-	TlsSkipVerify bool            `json:"tls_skip_verify"`
+	Global          bool            `json:"global"`
+	Protocol        string          `json:"protocol"`
+	Addr            string          `json:"addr"`
+	Auth            utils.BasicAuth `json:"auth"`
+	Database        string          `json:"database"`
+	InitialDatabase string          `json:"-"`
+	TlsEnable       bool            `json:"tls_enable"`
+	TlsSkipVerify   bool            `json:"tls_skip_verify"`
 }
 
 type IntegrationSlack struct {
