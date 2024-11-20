@@ -139,7 +139,7 @@ func main() {
 		}
 		return
 	}
-	if globalPrometheus != nil {
+	if globalPrometheus == nil {
 		if err = database.BootstrapPrometheusIntegration(*bootstrapPrometheusUrl, *bootstrapRefreshInterval, *bootstrapPrometheusExtraSelector); err != nil {
 			klog.Exitln(err)
 		}
