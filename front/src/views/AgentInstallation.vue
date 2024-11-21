@@ -42,7 +42,7 @@
                     <Code :disabled="!valid">
                         <pre>
 curl -sfL https://raw.githubusercontent.com/coroot/coroot-node-agent/main/install.sh | \
-  COLLECTOR_ENDPOINT={{ coroot_url }} \
+  COLLECTOR_ENDPOINT={{ coroot_url || '&lt;COROOT_URL_HERE&gt;' }} \
   API_KEY={{ api_key }} \
   SCRAPE_INTERVAL={{ scrape_interval }} \
   sh -
@@ -72,7 +72,7 @@ docker run --detach --name coroot-node-agent \
   -v /sys/fs/cgroup:/host/sys/fs/cgroup:ro \
   ghcr.io/coroot/coroot-node-agent:latest \
   --cgroupfs-root=/host/sys/fs/cgroup \
-  --collector-endpoint={{ coroot_url }} \
+  --collector-endpoint={{ coroot_url || '&lt;COROOT_URL_HERE&gt;' }} \
   --api-key={{ api_key }} \
   --scrape-interval={{ scrape_interval }}
                         </pre>
@@ -91,14 +91,30 @@ docker rm -f coroot-node-agent
                     </Code>
                 </v-tab-item>
                 <v-tab-item transition="none">
-                    <p>
-                        To integrate Coroot with a Kubernetes cluster, simply install a dedicated Coroot instance using the official Helm chart. It
-                        automatically includes a DaemonSet, ensuring the agent is installed on new cluster nodes without manual intervention.
-                    </p>
-                    <p>
-                        To learn more about how to use Coroot's Helm chart, refer to the
-                        <a href="https://coroot.com/docs/coroot/installation/kubernetes" target="_blank">documentation</a>.
-                    </p>
+                    <p>Add the Coroot helm chart repo:</p>
+
+                    <Code>
+                        <pre>
+helm repo add coroot https://coroot.github.io/helm-charts
+helm repo update coroot
+                        </pre>
+                    </Code>
+
+                    <p>Next, install the Coroot Operator:</p>
+
+                    <Code>
+                        <pre>
+helm install -n coroot --create-namespace coroot-operator coroot/coroot-operator
+                        </pre>
+                    </Code>
+
+                    <p>Install Coroot's agents (node-agent and cluster-agent):</p>
+
+                    <Code :disabled="!valid">
+                        <pre>
+helm install -n coroot coroot coroot/{{ helm_chart }} --set "apiKey={{ api_key }},agentsOnly.corootURL={{ coroot_url || '&lt;COROOT_URL_HERE&gt;' }}"
+                        </pre>
+                    </Code>
                 </v-tab-item>
             </v-tabs-items>
         </v-card>
@@ -124,6 +140,7 @@ export default {
             dialog: false,
             tab: null,
             coroot_url: !local ? location.origin : '',
+            helm_chart: window.coroot.edition === 'Enterprise' ? 'coroot-ee' : 'coroot-ce',
             api_key: '',
             scrape_interval: '15s',
             valid: false,
