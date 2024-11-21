@@ -11,7 +11,7 @@ import (
 	"k8s.io/klog"
 )
 
-func (db *DB) getOrCreateDefaultProject() (*Project, error) {
+func (db *DB) GetOrCreateDefaultProject() (*Project, error) {
 	projects, err := db.GetProjects()
 	if err != nil {
 		return nil, err
@@ -30,19 +30,15 @@ func (db *DB) getOrCreateDefaultProject() (*Project, error) {
 	return nil, nil
 }
 
-func (db *DB) BootstrapPrometheusIntegration(url string, refreshInterval time.Duration, extraSelector string) error {
+func (db *DB) BootstrapPrometheusIntegration(p *Project, url string, refreshInterval time.Duration, extraSelector string) error {
+	if p == nil {
+		return nil
+	}
 	if url == "" || refreshInterval == 0 {
 		return nil
 	}
 	if !prom.IsSelectorValid(extraSelector) {
 		return fmt.Errorf("invalid Prometheus extra selector: %s", extraSelector)
-	}
-	p, err := db.getOrCreateDefaultProject()
-	if err != nil {
-		return err
-	}
-	if p == nil {
-		return nil
 	}
 	if p.Prometheus.Url != "" {
 		return nil
@@ -52,22 +48,14 @@ func (db *DB) BootstrapPrometheusIntegration(url string, refreshInterval time.Du
 		RefreshInterval: timeseries.Duration(int64((refreshInterval).Seconds())),
 		ExtraSelector:   extraSelector,
 	}
-	err = db.SaveProjectIntegration(p, IntegrationTypePrometheus)
-	if err != nil {
-		return err
-	}
-	return nil
+	return db.SaveProjectIntegration(p, IntegrationTypePrometheus)
 }
 
-func (db *DB) BootstrapClickhouseIntegration(addr, user, password, databaseName string) error {
-	if addr == "" || user == "" || databaseName == "" {
+func (db *DB) BootstrapClickhouseIntegration(p *Project, addr, user, password, databaseName string) error {
+	if p == nil {
 		return nil
 	}
-	p, err := db.getOrCreateDefaultProject()
-	if err != nil {
-		return err
-	}
-	if p == nil {
+	if addr == "" || user == "" || databaseName == "" {
 		return nil
 	}
 	var save bool
@@ -86,9 +74,5 @@ func (db *DB) BootstrapClickhouseIntegration(addr, user, password, databaseName 
 	if !save {
 		return nil
 	}
-	err = db.SaveProjectIntegration(p, IntegrationTypeClickhouse)
-	if err != nil {
-		return err
-	}
-	return nil
+	return db.SaveProjectIntegration(p, IntegrationTypeClickhouse)
 }

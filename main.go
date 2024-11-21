@@ -139,14 +139,20 @@ func main() {
 		}
 		return
 	}
+
+	defaultProject, err := database.GetOrCreateDefaultProject()
+	if err != nil {
+		klog.Exitln(err)
+	}
+
 	if globalPrometheus == nil {
-		if err = database.BootstrapPrometheusIntegration(*bootstrapPrometheusUrl, *bootstrapRefreshInterval, *bootstrapPrometheusExtraSelector); err != nil {
+		if err = database.BootstrapPrometheusIntegration(defaultProject, *bootstrapPrometheusUrl, *bootstrapRefreshInterval, *bootstrapPrometheusExtraSelector); err != nil {
 			klog.Exitln(err)
 		}
 	}
 
 	if globalClickHouse == nil {
-		if err = database.BootstrapClickhouseIntegration(*bootstrapClickhouseAddr, *bootstrapClickhouseUser, *bootstrapClickhousePassword, *bootstrapClickhouseDatabase); err != nil {
+		if err = database.BootstrapClickhouseIntegration(defaultProject, *bootstrapClickhouseAddr, *bootstrapClickhouseUser, *bootstrapClickhousePassword, *bootstrapClickhouseDatabase); err != nil {
 			klog.Exitln(err)
 		}
 	}
