@@ -108,7 +108,7 @@ func (a *appAuditor) cpu(ncs nodeConsumersByNode) {
 		}
 	}
 
-	if cfg := a.p.Settings.Integrations.Clickhouse; cfg != nil && usageChart != nil {
+	if a.clickHouseEnabled && usageChart != nil {
 		for _, ch := range usageChart.Charts {
 			ch.DrillDownLink = model.NewRouterLink("profile", "application").
 				SetParam("id", a.app.Id).

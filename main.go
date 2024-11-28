@@ -195,7 +195,7 @@ func main() {
 
 	var statsCollector *stats.Collector
 	if !*disableStats {
-		statsCollector = stats.NewCollector(instanceUuid, version, database, promCache, pricing)
+		statsCollector = stats.NewCollector(instanceUuid, version, database, promCache, pricing, globalClickHouse)
 	}
 
 	router := mux.NewRouter()
