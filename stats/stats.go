@@ -114,9 +114,11 @@ type Collector struct {
 
 	cpuUsage []float32
 	memUsage []float32
+
+	globalClickHouse *db.IntegrationClickhouse
 }
 
-func NewCollector(instanceUuid, version string, db *db.DB, cache *cache.Cache, pricing *cloud_pricing.Manager) *Collector {
+func NewCollector(instanceUuid, version string, db *db.DB, cache *cache.Cache, pricing *cloud_pricing.Manager, globalClickHouse *db.IntegrationClickhouse) *Collector {
 	c := &Collector{
 		db:      db,
 		cache:   cache,
@@ -132,6 +134,8 @@ func NewCollector(instanceUuid, version string, db *db.DB, cache *cache.Cache, p
 		pageViews:         map[string]int{},
 
 		heapProfiler: godeltaprof.NewHeapProfiler(),
+
+		globalClickHouse: globalClickHouse,
 	}
 
 	if err := c.heapProfiler.Profile(io.Discard); err != nil {
@@ -290,7 +294,7 @@ func (c *Collector) collect() Stats {
 		if stats.Integration.PrometheusRefreshInterval == 0 || int(p.Prometheus.RefreshInterval) < stats.Integration.PrometheusRefreshInterval {
 			stats.Integration.PrometheusRefreshInterval = int(p.Prometheus.RefreshInterval)
 		}
-		if cfg := p.Settings.Integrations.Clickhouse; cfg != nil && cfg.Addr != "" {
+		if cfg := p.ClickHouseConfig(c.globalClickHouse); cfg != nil && cfg.Addr != "" {
 			stats.Integration.Clickhouse = true
 			stats.Integration.Tracing = true
 			stats.Integration.Logs = true
@@ -350,7 +354,7 @@ func (c *Collector) collect() Stats {
 		loadTime = append(loadTime, time.Since(t))
 
 		t = time.Now()
-		auditor.Audit(w, p, nil)
+		auditor.Audit(w, p, nil, p.ClickHouseConfig(c.globalClickHouse) != nil)
 		auditTime = append(auditTime, time.Since(t))
 
 		stats.Integration.NodeAgent = stats.Integration.NodeAgent || w.IntegrationStatus.NodeAgent.Installed
