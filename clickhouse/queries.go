@@ -11,7 +11,8 @@ FROM @@table_profiling_samples@@
 WHERE 
     ServiceName IN (@service) AND 
     Type = @type AND 
-    Start < @to AND End > @from
+    Start < @to AND End > @from AND
+    (empty(@containers) OR has(@containers, Labels['container.id']))
 GROUP BY StackHash
 `
 	qSamplesDiff = `
@@ -23,7 +24,8 @@ FROM @@table_profiling_samples@@
 WHERE 
     ServiceName IN (@service) AND 
     Type = @type AND 
-    Start < @to AND End > @from
+    Start < @to AND End > @from AND
+    (empty(@containers) OR has(@containers, Labels['container.id']))
 GROUP BY StackHash
 `
 	qStacks = `
@@ -43,12 +45,13 @@ FROM @@table_profiling_samples@@
 WHERE 
     ServiceName IN (@service) AND 
     Type = @type AND 
-    Start < @to AND End > @from
+    Start < @to AND End > @from AND
+    (empty(@containers) OR has(@containers, Labels['container.id']))
 `
 )
 
 var (
-	qProfileTypes = "SELECT DISTINCT ServiceName, Type FROM @@table_profiling_profiles@@"
+	qProfileTypes = "SELECT DISTINCT ServiceName, Type FROM @@table_profiling_profiles@@ WHERE LastSeen >= @from"
 	qProfile      = fmt.Sprintf("WITH samples AS (%s), stacks AS (%s) SELECT value, stack FROM samples JOIN stacks USING(hash)", qSamples, qStacks)
 	qProfileAvg   = fmt.Sprintf("WITH samples AS (%s), stacks AS (%s), profiles AS (%s) SELECT toInt64(value/count), stack FROM samples JOIN stacks USING(hash), profiles", qSamples, qStacks, qProfiles)
 	qProfileDiff  = fmt.Sprintf("WITH samples AS (%s), stacks AS (%s) SELECT base, comp, stack FROM samples JOIN stacks USING(hash)", qSamplesDiff, qStacks)
