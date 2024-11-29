@@ -68,6 +68,8 @@ var BuiltinCategoryPatterns = map[ApplicationCategory][]string{
 		"keptn-system/*",
 		"kyverno/*",
 		"litmus/*",
+		"openshift*/*",
+		"_/crio*",
 	},
 	ApplicationCategoryMonitoring: {
 		"monitoring/*",
