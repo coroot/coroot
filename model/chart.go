@@ -77,7 +77,6 @@ type Chart struct {
 	Annotations   []Annotation `json:"annotations"`
 	DrillDownLink *RouterLink  `json:"drill_down_link"`
 	HideLegend    bool         `json:"hide_legend"`
-	Flags         string       `json:"flags"`
 }
 
 func NewChart(ctx timeseries.Context, title string) *Chart {

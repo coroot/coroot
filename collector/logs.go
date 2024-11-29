@@ -17,8 +17,14 @@ import (
 )
 
 func (c *Collector) Logs(w http.ResponseWriter, r *http.Request) {
-	projectId := db.ProjectId(r.Header.Get(ApiKeyHeader))
-	_, err := c.getClickhouseClient(projectId)
+	project, err := c.getProject(db.ProjectId(r.Header.Get(ApiKeyHeader)))
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	_, err = c.getClickhouseClient(project.Id)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, err.Error(), http.StatusNotFound)
@@ -53,7 +59,7 @@ func (c *Collector) Logs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	c.getLogsBatch(projectId).Add(req)
+	c.getLogsBatch(project.Id).Add(req)
 
 	resp := &v1.ExportLogsServiceResponse{}
 	w.Header().Set("Content-Type", contentType)
@@ -151,7 +157,9 @@ func (b *LogsBatch) Add(req *v1.ExportLogsServiceRequest) {
 				if scopeVersion != "" {
 					logAttributes[semconv.AttributeOtelScopeVersion] = scopeVersion
 				}
-
+				if int64(lr.GetTimeUnixNano()) < 0 {
+					continue
+				}
 				b.Timestamp.Append(time.Unix(0, int64(lr.GetTimeUnixNano())))
 				b.TraceId.Append(hex.EncodeToString(lr.GetTraceId()))
 				b.SpanId.Append(hex.EncodeToString(lr.GetSpanId()))
@@ -188,7 +196,7 @@ func (b *LogsBatch) save() {
 		chproto.InputColumn{Name: "LogAttributes", Data: b.LogAttributes},
 		chproto.InputColumn{Name: "Body", Data: b.Body},
 	}
-	err := b.exec(ch.Query{Body: input.Into("otel_logs"), Input: input})
+	err := b.exec(ch.Query{Body: input.Into("@@table_otel_logs@@"), Input: input})
 	if err != nil {
 		klog.Errorln(err)
 	}

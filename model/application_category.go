@@ -65,6 +65,9 @@ var BuiltinCategoryPatterns = map[ApplicationCategory][]string{
 		"_/*apt*",
 		"_/*fwupd*",
 		"_/snap*",
+		"keptn-system/*",
+		"kyverno/*",
+		"litmus/*",
 	},
 	ApplicationCategoryMonitoring: {
 		"monitoring/*",
@@ -76,6 +79,8 @@ var BuiltinCategoryPatterns = map[ApplicationCategory][]string{
 		"coroot/*",
 		"*/*coroot*",
 		"metrics-server/*",
+		"loki/*",
+		"observability/*",
 	},
 }
 

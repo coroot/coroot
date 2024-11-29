@@ -115,11 +115,11 @@ func (a *appAuditor) network() {
 						dnAz = u.RemoteInstance.Node.AvailabilityZone.Value()
 					}
 					dInstanceName = u.RemoteInstance.Name
-					if u.RemoteInstance.OwnerId.Kind == model.ApplicationKindExternalService {
+					if u.RemoteInstance.Owner.Id.Kind == model.ApplicationKindExternalService {
 						if u.Service != nil {
 							dInstanceName += " (" + u.Service.Name + ")"
 						} else {
-							h, _, _ := net.SplitHostPort(u.RemoteInstance.OwnerId.Name)
+							h, _, _ := net.SplitHostPort(u.RemoteInstance.Owner.Id.Name)
 							if _, err := netaddr.ParseIP(h); h != "" && err != nil {
 								dnName = h
 							}

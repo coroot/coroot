@@ -3,6 +3,8 @@ package model
 import (
 	"time"
 
+	"github.com/coroot/coroot/utils"
+
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/logparser"
 )
@@ -32,11 +34,11 @@ type LogMessages struct {
 }
 
 type LogPattern struct {
-	Pattern   *logparser.Pattern
-	Level     LogLevel
-	Sample    string
-	Multiline bool
-	Messages  *timeseries.TimeSeries
+	Pattern              *logparser.Pattern
+	Sample               string
+	Multiline            bool
+	Messages             *timeseries.TimeSeries
+	SimilarPatternHashes *utils.StringSet
 }
 
 type LogEntry struct {

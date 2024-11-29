@@ -182,7 +182,7 @@ func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, 
 	case (source == "" || source == model.TraceSourceAgent) && ebpfSpansFound:
 		source = model.TraceSourceAgent
 		listens := getAppListens(app)
-		appClients := getAppClients(app, w)
+		appClients := getAppClients(app)
 		wg := sync.WaitGroup{}
 		wg.Add(2)
 		go func() {
@@ -338,10 +338,10 @@ func getClientsByAppClients(spans []*model.TraceSpan, appClients map[string]*mod
 	return res
 }
 
-func getAppClients(app *model.Application, w *model.World) map[string]*model.Application {
+func getAppClients(app *model.Application) map[string]*model.Application {
 	res := map[string]*model.Application{}
 	for _, d := range app.Downstreams {
-		client := w.GetApplication(d.Instance.OwnerId)
+		client := d.Instance.Owner
 		if client == nil || client == app {
 			continue
 		}

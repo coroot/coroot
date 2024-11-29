@@ -61,13 +61,13 @@
             <template #item.opened_at="{ item }">
                 <div class="d-flex text-no-wrap" :class="{ 'grey--text': item.resolved_at }">
                     {{ $format.date(item.opened_at, '{MMM} {DD}, {HH}:{mm}:{ss}') }}
-                    ({{ $format.timeSinceNow(item.opened_at, 'm') }} ago)
+                    ({{ $format.timeSinceNow(item.opened_at) }} ago)
                 </div>
             </template>
 
             <template #item.duration="{ item }">
                 <div class="d-flex text-no-wrap" :class="{ 'grey--text': item.resolved_at }">
-                    {{ $format.duration(item.duration, 'm') }}
+                    {{ $format.durationPretty(item.duration) }}
                 </div>
             </template>
 
@@ -116,6 +116,15 @@
                         </v-list-item>
                         <v-list-item @click="edit(item.application_id, 'SLOLatency', 'Latency')">
                             <v-icon small class="mr-1">mdi-timer-outline</v-icon> Adjust Latency SLO
+                        </v-list-item>
+                        <v-list-item
+                            :to="{
+                                name: 'overview',
+                                params: { view: 'incidents' },
+                                query: { incident: item.key, view: 'rca' },
+                            }"
+                        >
+                            <v-icon small class="mr-1">mdi-creation</v-icon> Investigate with AI
                         </v-list-item>
                     </v-list>
                 </v-menu>
@@ -211,9 +220,6 @@ export default {
         },
         setFilter(filter) {
             this.filter = filter;
-        },
-        link(id, query) {
-            return { name: 'application', params: { id }, query: { ...query, ...this.$utils.contextQuery() } };
         },
         edit(app_id, check_id, check_title) {
             this.editing = { active: true, appId: app_id, check: { id: check_id, title: check_title } };

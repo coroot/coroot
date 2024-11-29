@@ -74,7 +74,7 @@ func incidentDetails(app *model.Application, incident *model.ApplicationIncident
 }
 
 func incidentUrl(baseUrl string, n *db.IncidentNotification) string {
-	return fmt.Sprintf("%s/p/%s/app/%s?incident=%s", baseUrl, n.ProjectId, n.ApplicationId.String(), n.IncidentKey)
+	return fmt.Sprintf("%s/p/%s/incidents?incident=%s", baseUrl, n.ProjectId, n.IncidentKey)
 }
 
 func deploymentUrl(baseUrl string, projectId db.ProjectId, d *model.ApplicationDeployment) string {

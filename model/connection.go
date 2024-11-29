@@ -9,11 +9,16 @@ import (
 type Protocol string
 
 const (
-	ProtocolPostgres  = "postgres"
-	ProtocolMongodb   = "mongo"
-	ProtocolRedis     = "redis"
-	ProtocolMysql     = "mysql"
-	ProtocolMemcached = "memcached"
+	ProtocolHttp      Protocol = "http"
+	ProtocolPostgres  Protocol = "postgres"
+	ProtocolMongodb   Protocol = "mongo"
+	ProtocolRedis     Protocol = "redis"
+	ProtocolMysql     Protocol = "mysql"
+	ProtocolMemcached Protocol = "memcached"
+	ProtocolKafka     Protocol = "kafka"
+	ProtocolCassandra Protocol = "cassandra"
+	ProtocolRabbitmq  Protocol = "rabbitmq"
+	ProtocolNats      Protocol = "nats"
 )
 
 func (p Protocol) ToApplicationType() ApplicationType {
@@ -30,6 +35,11 @@ func (p Protocol) ToApplicationType() ApplicationType {
 		return ApplicationTypeMemcached
 	}
 	return ApplicationTypeUnknown
+}
+
+type ConnectionKey struct {
+	Destination       string
+	ActualDestination string
 }
 
 type Connection struct {

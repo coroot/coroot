@@ -2,6 +2,7 @@ package chunk
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -77,10 +78,7 @@ func Write(f io.Writer, from timeseries.Time, pointsCount int, step timeseries.D
 	var metaOffset, metaSize int
 	buf := make([]float32, pointsCount)
 	for i := range metrics {
-		metaSize = 0
-		for k, v := range metrics[i].Labels {
-			metaSize += len(k) + len(v) + 2
-		}
+		metaSize = metadataSize(metrics[i])
 		m := metricMeta{
 			Hash:       metrics[i].LabelsHash,
 			MetaOffset: uint32(metaOffset),
@@ -109,9 +107,10 @@ func Write(f io.Writer, from timeseries.Time, pointsCount int, step timeseries.D
 			return err
 		}
 	}
-
-	if err = writeLabelsV2(metrics, w); err != nil {
-		return nil
+	for _, m := range metrics {
+		if err = writeLabels(w, m); err != nil {
+			return err
+		}
 	}
 
 	if err = w.Flush(); err != nil {
@@ -137,11 +136,7 @@ func ReadMeta(path string) (*Meta, error) {
 	return &Meta{Path: path, From: h.From, PointsCount: h.PointsCount, Step: h.Step, Finalized: h.Finalized}, err
 }
 
-func Read(path string, from timeseries.Time, pointsCount int, step timeseries.Duration, dest map[uint64]model.MetricValues) error {
-	st, err := os.Stat(path)
-	if err != nil {
-		return err
-	}
+func Read(path string, from timeseries.Time, pointsCount int, step timeseries.Duration, dest map[uint64]model.MetricValues, fillFunc timeseries.FillFunc) error {
 	f, err := os.Open(path)
 	if err != nil {
 		return err
@@ -150,18 +145,158 @@ func Read(path string, from timeseries.Time, pointsCount int, step timeseries.Du
 
 	reader := bufio.NewReader(f)
 	h := header{}
-	if err := binary.Read(reader, binary.LittleEndian, &h); err != nil {
+	if err = binary.Read(reader, binary.LittleEndian, &h); err != nil {
 		return err
 	}
 	switch h.Version {
-	case V1:
-		return readV1(reader, int(st.Size()), &h, from, pointsCount, step, dest)
-	case V2:
-		return readV2(reader, &h, from, pointsCount, step, dest)
 	case V3:
-		return readV3(reader, &h, from, pointsCount, step, dest)
+		return readV3(reader, &h, from, pointsCount, step, dest, fillFunc)
 	default:
 		return fmt.Errorf("unknown version: %d", h.Version)
+	}
+}
+
+func readV3(reader io.Reader, header *header, from timeseries.Time, pointsCount int, step timeseries.Duration, dest map[uint64]model.MetricValues, fillFunc timeseries.FillFunc) error {
+	r := lz4.NewDecompressReader(reader)
+	defer r.Close()
+	buf := make([]byte, metricMetaSize+4*header.PointsCount)
+	var labelsToRead []*metricMeta
+	var maxLabelSize uint32
+	var err error
+	for i := uint32(0); i < header.DataSizeOrMetricsCount; i++ {
+		if _, err = io.ReadFull(r, buf); err != nil {
+			return err
+		}
+		m := metricMeta{
+			Hash:       binary.LittleEndian.Uint64(buf),
+			MetaOffset: binary.LittleEndian.Uint32(buf[8:]),
+			MetaSize:   binary.LittleEndian.Uint32(buf[12:]),
+		}
+		mv, ok := dest[m.Hash]
+		if !ok {
+			mv.Values = timeseries.New(from, pointsCount, step)
+			labelsToRead = append(labelsToRead, &m)
+			if m.MetaSize > maxLabelSize {
+				maxLabelSize = m.MetaSize
+			}
+		}
+		if !fillFunc(mv.Values, header.From, header.Step, asFloats32(buf[metricMetaSize:])) && !ok {
+			continue
+		}
+		dest[m.Hash] = mv
+	}
+	if len(labelsToRead) > 0 {
+		buf = make([]byte, maxLabelSize)
+		offset := uint32(0)
+		for _, m := range labelsToRead {
+			mv, ok := dest[m.Hash]
+			if !ok {
+				continue
+			}
+			toSkip := m.MetaOffset - offset
+			if toSkip > 0 {
+				if _, err := io.CopyN(io.Discard, r, int64(toSkip)); err != nil {
+					return err
+				}
+			}
+			if _, err = io.ReadFull(r, buf[:m.MetaSize]); err != nil {
+				return err
+			}
+			offset = m.MetaOffset + m.MetaSize
+			mv.LabelsHash = m.Hash
+			mv.Labels = make(model.Labels)
+			readLabels(buf[:m.MetaSize], &mv)
+			dest[m.Hash] = mv
+		}
+	}
+	return nil
+}
+
+var (
+	machineId   = []byte("machine_id")
+	systemUuid  = []byte("system_uuid")
+	containerId = []byte("container_id")
+)
+
+func metadataSize(mv model.MetricValues) int {
+	s := 0
+	if mv.MachineID != "" {
+		s += len(machineId) + len(mv.MachineID) + 2
+	}
+	if mv.SystemUUID != "" {
+		s += len(systemUuid) + len(mv.SystemUUID) + 2
+	}
+	if mv.ContainerId != "" {
+		s += len(containerId) + len(mv.ContainerId) + 2
+	}
+	for k, v := range mv.Labels {
+		s += len(k) + len(v) + 2
+	}
+	return s
+}
+
+func writeLabels(dst io.Writer, mv model.MetricValues) error {
+	if mv.MachineID != "" {
+		if _, err := dst.Write(append(machineId, byte(0))); err != nil {
+			return err
+		}
+		if _, err := dst.Write(append([]byte(mv.MachineID), byte(0))); err != nil {
+			return err
+		}
+	}
+	if mv.SystemUUID != "" {
+		if _, err := dst.Write(append(systemUuid, byte(0))); err != nil {
+			return err
+		}
+		if _, err := dst.Write(append([]byte(mv.SystemUUID), byte(0))); err != nil {
+			return err
+		}
+	}
+	if mv.ContainerId != "" {
+		if _, err := dst.Write(append(containerId, byte(0))); err != nil {
+			return err
+		}
+		if _, err := dst.Write(append([]byte(mv.ContainerId), byte(0))); err != nil {
+			return err
+		}
+	}
+	for k, v := range mv.Labels {
+		if _, err := dst.Write(append([]byte(k), byte(0))); err != nil {
+			return err
+		}
+		if _, err := dst.Write(append([]byte(v), byte(0))); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func readLabels(src []byte, mv *model.MetricValues) {
+	var key []byte
+	isValue := false
+	f := 0
+	for {
+		i := bytes.IndexByte(src[f:], 0)
+		if i == -1 {
+			break
+		}
+		i += f
+		if isValue {
+			if bytes.Equal(key, machineId) {
+				mv.MachineID = string(src[f:i])
+			} else if bytes.Equal(key, systemUuid) {
+				mv.SystemUUID = string(src[f:i])
+			} else if bytes.Equal(key, containerId) {
+				mv.ContainerId = string(src[f:i])
+			} else {
+				mv.Labels[string(key)] = string(src[f:i])
+			}
+			isValue = false
+		} else {
+			key = src[f:i]
+			isValue = true
+		}
+		f = i + 1
 	}
 }
 
@@ -169,14 +304,6 @@ func asBytes32(f []float32) []byte {
 	return unsafe.Slice((*byte)(unsafe.Pointer(&f[0])), len(f)*4)
 }
 
-func asBytes64(f []float64) []byte {
-	return unsafe.Slice((*byte)(unsafe.Pointer(&f[0])), len(f)*8)
-}
-
 func asFloats32(b []byte) []float32 {
 	return unsafe.Slice((*float32)(unsafe.Pointer(&b[0])), len(b)/4)
-}
-
-func asFloats64(b []byte) []float64 {
-	return unsafe.Slice((*float64)(unsafe.Pointer(&b[0])), len(b)/8)
 }

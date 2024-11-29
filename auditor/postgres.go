@@ -2,7 +2,6 @@ package auditor
 
 import (
 	"fmt"
-	"regexp"
 
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
@@ -12,8 +11,6 @@ import (
 const pgActiveLockedState = "active (locked)"
 
 var (
-	pgLogErrRegexp = regexp.MustCompile(`.*(ERROR|FATAL|PANIC)\s*:\s*(.+)`)
-
 	pgConnectionStateColors = map[string]string{
 		"idle":                "grey-lighten2",
 		pgActiveLockedState:   "red-lighten2",
@@ -41,7 +38,6 @@ func (a *appAuditor) postgres() {
 
 	availabilityCheck := report.CreateCheck(model.Checks.PostgresAvailability)
 	latencyCheck := report.CreateCheck(model.Checks.PostgresLatency)
-	errorsCheck := report.CreateCheck(model.Checks.PostgresErrors)
 	replicationCheck := report.CreateCheck(model.Checks.PostgresReplicationLag)
 	connectionsCheck := report.CreateCheck(model.Checks.PostgresConnections)
 
@@ -73,34 +69,8 @@ func (a *appAuditor) postgres() {
 		qps := sumQueries(i.Postgres.QueriesByDB)
 		report.GetOrCreateChart("Queries per second", nil).AddSeries(i.Name, qps)
 
-		errorsTotal := timeseries.NewAggregate(timeseries.NanSum)
-		errorsByPattern := map[string]model.SeriesData{}
-		for level, msgs := range i.LogMessages {
-			if !level.IsError() {
-				continue
-			}
-			errorsTotal.Add(msgs.Messages)
-			for _, p := range msgs.Patterns {
-				if groups := pgLogErrRegexp.FindStringSubmatch(p.Sample); len(groups) == 3 {
-					errorsByPattern[groups[1]+": "+groups[2]] = p.Messages
-				} else {
-					errorsByPattern[p.Sample] = p.Messages
-				}
-			}
-		}
-		errors := errorsTotal.Get()
-
 		pgQueries(report, i)
 
-		report.
-			GetOrCreateChartInGroup("Errors <selector>", "overview", nil).
-			Column().
-			Feature().
-			AddSeries(i.Name, errors)
-		report.
-			GetOrCreateChartInGroup("Errors <selector>", i.Name, nil).
-			Column().
-			AddMany(errorsByPattern, 5, timeseries.NanSum)
 		pgConnections(report, i, connectionsCheck)
 		pgLocks(report, i)
 		primaryLsnTs := primaryLsn.Get()
@@ -132,21 +102,15 @@ func (a *appAuditor) postgres() {
 				status.SetStatus(model.OK, v)
 			}
 		}
-		errorsCell := model.NewTableCell()
-		if total := errors.Reduce(timeseries.NanSum); !timeseries.IsNaN(total) {
-			errorsCheck.Inc(int64(total))
-			errorsCell.SetValue(fmt.Sprintf("%.0f", total))
-		}
 		lagCell := checkReplicationLag(i.Name, primaryLsnTs, lag, role, replicationCheck)
 		report.
-			GetOrCreateTable("Instance", "Role", "Status", "Queries", "Latency", "Errors", "Replication lag").
+			GetOrCreateTable("Instance", "Role", "Status", "Queries", "Latency", "Replication lag").
 			AddRow(
 				model.NewTableCell(i.Name).AddTag("version: %s", i.Postgres.Version.Value()),
 				roleCell,
 				status,
 				model.NewTableCell(utils.FormatFloat(qps.Last())).SetUnit("/s"),
 				model.NewTableCell(utils.FormatFloat(i.Postgres.Avg.Last()*1000)).SetUnit("ms"),
-				errorsCell,
 				lagCell,
 			)
 	}

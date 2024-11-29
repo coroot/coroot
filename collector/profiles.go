@@ -16,8 +16,14 @@ import (
 )
 
 func (c *Collector) Profiles(w http.ResponseWriter, r *http.Request) {
-	projectId := db.ProjectId(r.Header.Get(ApiKeyHeader))
-	_, err := c.getClickhouseClient(projectId)
+	project, err := c.getProject(db.ProjectId(r.Header.Get(ApiKeyHeader)))
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	_, err = c.getClickhouseClient(project.Id)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, err.Error(), http.StatusNotFound)
@@ -50,7 +56,7 @@ func (c *Collector) Profiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	c.getProfilesBatch(projectId).Add(serviceName, labels, p)
+	c.getProfilesBatch(project.Id).Add(serviceName, labels, p)
 }
 
 type ProfilesBatch struct {
@@ -163,7 +169,7 @@ func (b *ProfilesBatch) save() {
 		chproto.InputColumn{Name: "LastSeen", Data: b.End},
 		chproto.InputColumn{Name: "Stack", Data: b.Stack},
 	}
-	err := b.exec(ch.Query{Body: stacksInput.Into("profiling_stacks"), Input: stacksInput})
+	err := b.exec(ch.Query{Body: stacksInput.Into("@@table_profiling_stacks@@"), Input: stacksInput})
 	if err != nil {
 		klog.Errorln(err)
 	}
@@ -177,7 +183,7 @@ func (b *ProfilesBatch) save() {
 		chproto.InputColumn{Name: "StackHash", Data: b.StackHash},
 		chproto.InputColumn{Name: "Value", Data: b.Value},
 	}
-	err = b.exec(ch.Query{Body: samplesInput.Into("profiling_samples"), Input: samplesInput})
+	err = b.exec(ch.Query{Body: samplesInput.Into("@@table_profiling_samples@@"), Input: samplesInput})
 	if err != nil {
 		klog.Errorln(err)
 	}

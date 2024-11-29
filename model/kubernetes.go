@@ -61,17 +61,17 @@ type Service struct {
 	Connections []*Connection
 }
 
-func (svc *Service) GetDestinationApplicationId() (ApplicationId, bool) {
-	apps := map[ApplicationId]bool{}
+func (svc *Service) GetDestinationApplication() *Application {
+	apps := map[ApplicationId]*Application{}
 	for _, c := range svc.Connections {
 		if c.RemoteInstance != nil {
-			apps[c.RemoteInstance.OwnerId] = true
+			apps[c.RemoteInstance.Owner.Id] = c.RemoteInstance.Owner
 		}
 	}
 	if len(apps) == 1 {
-		for id := range apps {
-			return id, true
+		for _, app := range apps {
+			return app
 		}
 	}
-	return ApplicationId{}, false
+	return nil
 }

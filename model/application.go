@@ -15,7 +15,9 @@ type Application struct {
 	Custom   bool
 	Category ApplicationCategory
 
-	Instances   []*Instance
+	Instances       []*Instance
+	instancesByName map[string][]*Instance
+
 	Downstreams []*Connection
 
 	DesiredInstances *timeseries.TimeSeries
@@ -27,6 +29,8 @@ type Application struct {
 	Deployments []*ApplicationDeployment
 	Incidents   []*ApplicationIncident
 
+	LogMessages map[LogLevel]*LogMessages
+
 	Status  Status
 	Reports []*AuditReport
 
@@ -34,7 +38,11 @@ type Application struct {
 }
 
 func NewApplication(id ApplicationId) *Application {
-	app := &Application{Id: id}
+	app := &Application{
+		Id:              id,
+		instancesByName: map[string][]*Instance{},
+		LogMessages:     map[LogLevel]*LogMessages{},
+	}
 	return app
 }
 
@@ -48,10 +56,7 @@ func (app *Application) SLOStatus() Status {
 }
 
 func (app *Application) GetInstance(name, node string) *Instance {
-	for _, i := range app.Instances {
-		if i.Name != name {
-			continue
-		}
+	for _, i := range app.instancesByName[name] {
 		switch app.Id.Kind {
 		case ApplicationKindStatefulSet:
 			if node == "" || i.NodeName() == "" || i.NodeName() == node {
@@ -71,8 +76,9 @@ func (app *Application) GetOrCreateInstance(name string, node *Node) *Instance {
 	}
 	instance := app.GetInstance(name, nodeName)
 	if instance == nil {
-		instance = NewInstance(name, app.Id)
+		instance = NewInstance(name, app)
 		app.Instances = append(app.Instances, instance)
+		app.instancesByName[name] = append(app.instancesByName[name], instance)
 		if node != nil {
 			instance.Node = node
 			node.Instances = append(node.Instances, instance)
@@ -200,13 +206,13 @@ func (app *Application) IsPython() bool {
 
 func (app *Application) IsStandalone() bool {
 	for _, d := range app.Downstreams {
-		if d.Instance.OwnerId != app.Id && !d.IsObsolete() {
+		if d.Instance.Owner != app && !d.IsObsolete() {
 			return false
 		}
 	}
 	for _, i := range app.Instances {
 		for _, u := range i.Upstreams {
-			if u.RemoteInstance != nil && u.RemoteInstance.OwnerId != app.Id && !u.IsObsolete() {
+			if u.RemoteInstance != nil && u.RemoteInstance.Owner != app && !u.IsObsolete() {
 				return false
 			}
 		}
@@ -215,6 +221,13 @@ func (app *Application) IsStandalone() bool {
 }
 
 func (app *Application) IsK8s() bool {
+	switch app.Id.Kind {
+	case ApplicationKindCronJob, ApplicationKindJob, ApplicationKindDeployment, ApplicationKindDaemonSet,
+		ApplicationKindPod, ApplicationKindReplicaSet, ApplicationKindStatefulSet, ApplicationKindStaticPods,
+		ApplicationKindArgoWorkflow, ApplicationKindSparkApplication:
+		return true
+	}
+
 	for _, i := range app.Instances {
 		if i.Pod != nil {
 			return true
@@ -238,10 +251,10 @@ func (app *Application) hasClientsInAWS() bool {
 func (app *Application) GetClientsConnections() map[ApplicationId][]*Connection {
 	res := map[ApplicationId][]*Connection{}
 	for _, d := range app.Downstreams {
-		if d.Instance.OwnerId == app.Id {
+		if d.Instance.Owner == app {
 			continue
 		}
-		res[d.Instance.OwnerId] = append(res[d.Instance.OwnerId], d)
+		res[d.Instance.Owner.Id] = append(res[d.Instance.Owner.Id], d)
 	}
 	return res
 }

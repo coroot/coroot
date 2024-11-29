@@ -18,18 +18,20 @@ import (
 	"k8s.io/klog"
 )
 
-type PrometheusClientFactory func(project *db.Project) (*prom.Client, error)
+type PrometheusClientFactory func(project *db.Project, globalPrometheus *db.IntegrationsPrometheus) (*prom.Client, error)
 
-func DefaultPrometheusClientFactory(p *db.Project) (*prom.Client, error) {
-	if p.Prometheus.Url == "" {
+func DefaultPrometheusClientFactory(p *db.Project, globalPrometheus *db.IntegrationsPrometheus) (*prom.Client, error) {
+	cfg := p.PrometheusConfig(globalPrometheus)
+	if cfg.Url == "" {
 		return nil, fmt.Errorf("prometheus is not configured")
 	}
-	cfg := prom.NewClientConfig(p.Prometheus.Url, p.Prometheus.RefreshInterval)
-	cfg.BasicAuth = p.Prometheus.BasicAuth
-	cfg.TlsSkipVerify = p.Prometheus.TlsSkipVerify
-	cfg.ExtraSelector = p.Prometheus.ExtraSelector
-	cfg.CustomHeaders = p.Prometheus.CustomHeaders
-	client, err := prom.NewClient(cfg)
+
+	c := prom.NewClientConfig(cfg.Url, cfg.RefreshInterval)
+	c.BasicAuth = cfg.BasicAuth
+	c.TlsSkipVerify = cfg.TlsSkipVerify
+	c.ExtraSelector = cfg.ExtraSelector
+	c.CustomHeaders = cfg.CustomHeaders
+	client, err := prom.NewClient(c)
 	if err != nil {
 		return nil, err
 	}
@@ -45,6 +47,7 @@ type Cache struct {
 	stateLock sync.Mutex
 
 	promClientFactory PrometheusClientFactory
+	globalPrometheus  *db.IntegrationsPrometheus
 
 	updates chan db.ProjectId
 
@@ -73,7 +76,7 @@ func newQueryData() *queryData {
 	}
 }
 
-func NewCache(cfg Config, database *db.DB, promClientFactory PrometheusClientFactory) (*Cache, error) {
+func NewCache(cfg Config, database *db.DB, promClientFactory PrometheusClientFactory, globalPrometheus *db.IntegrationsPrometheus) (*Cache, error) {
 	err := utils.CreateDirectoryIfNotExists(cfg.Path)
 	if err != nil {
 		return nil, err
@@ -94,6 +97,7 @@ func NewCache(cfg Config, database *db.DB, promClientFactory PrometheusClientFac
 		state:     state.DB(),
 
 		promClientFactory: promClientFactory,
+		globalPrometheus:  globalPrometheus,
 
 		updates: make(chan db.ProjectId),
 

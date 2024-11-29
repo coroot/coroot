@@ -38,7 +38,7 @@ func (c *Cache) updater() {
 		}
 		ids := map[db.ProjectId]bool{}
 		for _, project := range projects {
-			promClient, _ := c.promClientFactory(project)
+			promClient, _ := c.promClientFactory(project, c.globalPrometheus)
 			if promClient == nil {
 				continue
 			}
@@ -143,7 +143,7 @@ func (c *Cache) updaterWorker(projects *sync.Map, projectId db.ProjectId, promCl
 			}
 		}
 
-		if promClient, _ = c.promClientFactory(project); promClient != nil {
+		if promClient, _ = c.promClientFactory(project, c.globalPrometheus); promClient != nil {
 			si, err := getScrapeInterval(promClient)
 			if err != nil {
 				klog.Errorln(err)
@@ -304,7 +304,7 @@ func (c *Cache) processRecordingRules(to timeseries.Time, project *db.Project, s
 	cacheClient := c.GetCacheClient(project.Id)
 	pointsCount := int(chunk.Size / step)
 	for _, i := range intervals {
-		ctr := constructor.New(c.db, project, cacheClient, nil, constructor.OptionLoadPerConnectionHistograms, constructor.OptionDoNotLoadRawSLIs)
+		ctr := constructor.New(c.db, project, cacheClient, nil, constructor.OptionLoadPerConnectionHistograms, constructor.OptionDoNotLoadRawSLIs, constructor.OptionLoadContainerLogs)
 		world, err := ctr.LoadWorld(context.TODO(), i.chunkTs, i.toTs, step, nil)
 		if err != nil {
 			klog.Errorln("failed to load world:", err)

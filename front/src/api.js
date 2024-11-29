@@ -59,10 +59,13 @@ export default class Api {
             })
             .catch((error) => {
                 const err = error.response && error.response.data && error.response.data.trim();
+                if (error.response && error.response.status === 302) {
+                    window.location = err;
+                }
                 if (error.response && error.response.status === 401) {
                     const r = this.router.currentRoute;
                     const action = err || undefined;
-                    if (r.name !== 'login' || r.query.action !== action) {
+                    if (!r.meta.anonymous || r.query.action !== action) {
                         const next = r.fullPath !== '/' && r.name !== 'login' ? r.fullPath : undefined;
                         this.router.push({ name: 'login', query: { action, next } }).catch((err) => err);
                     }
@@ -72,8 +75,8 @@ export default class Api {
     }
 
     get(url, args, cb) {
-        const { from, to, incident } = this.router.currentRoute.query;
-        const params = { ...args, from, to, incident };
+        const { from, to, incident, rcaFrom, rcaTo } = this.router.currentRoute.query;
+        const params = { ...args, from, to, incident, rcaFrom, rcaTo };
         this.request({ method: 'get', url, params }, cb);
     }
 
@@ -118,6 +121,14 @@ export default class Api {
             this.post(`roles`, form, cb);
         } else {
             this.get(`roles`, {}, cb);
+        }
+    }
+
+    sso(form, cb) {
+        if (form) {
+            this.post(`sso`, form, cb);
+        } else {
+            this.get(`sso`, {}, cb);
         }
     }
 
@@ -191,6 +202,10 @@ export default class Api {
 
     getIncident(key, cb) {
         this.get(this.projectPath(`incident/${key}`), {}, cb);
+    }
+
+    getRCA(appId, cb) {
+        this.get(this.projectPath(`app/${appId}/rca`), {}, cb);
     }
 
     getInspectionConfig(appId, type, cb) {

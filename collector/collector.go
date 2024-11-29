@@ -4,11 +4,13 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/ClickHouse/ch-go"
 	"github.com/ClickHouse/ch-go/chpool"
+	chproto "github.com/ClickHouse/ch-go/proto"
 	"github.com/coroot/coroot/cache"
 	"github.com/coroot/coroot/db"
 	"github.com/jpillora/backoff"
@@ -28,14 +30,21 @@ var (
 	ErrClickhouseNotConfigured = errors.New("clickhouse integration is not configured")
 )
 
+type chClient struct {
+	pool    *chpool.Pool
+	cluster string
+}
+
 type Collector struct {
-	db    *db.DB
-	cache *cache.Cache
+	db               *db.DB
+	cache            *cache.Cache
+	globalClickHouse *db.IntegrationClickhouse
+	globalPrometheus *db.IntegrationsPrometheus
 
 	projects     map[db.ProjectId]*db.Project
 	projectsLock sync.RWMutex
 
-	clickhouseClients     map[db.ProjectId]*chpool.Pool
+	clickhouseClients     map[db.ProjectId]*chClient
 	clickhouseClientsLock sync.RWMutex
 
 	traceBatches       map[db.ProjectId]*TracesBatch
@@ -46,11 +55,13 @@ type Collector struct {
 	profileBatchesLock sync.Mutex
 }
 
-func New(database *db.DB, cache *cache.Cache) *Collector {
+func New(database *db.DB, cache *cache.Cache, globalClickHouse *db.IntegrationClickhouse, globalPrometheus *db.IntegrationsPrometheus) *Collector {
 	c := &Collector{
 		db:                database,
 		cache:             cache,
-		clickhouseClients: map[db.ProjectId]*chpool.Pool{},
+		globalClickHouse:  globalClickHouse,
+		globalPrometheus:  globalPrometheus,
+		clickhouseClients: map[db.ProjectId]*chClient{},
 		traceBatches:      map[db.ProjectId]*TracesBatch{},
 		profileBatches:    map[db.ProjectId]*ProfilesBatch{},
 		logBatches:        map[db.ProjectId]*LogsBatch{},
@@ -66,7 +77,7 @@ func New(database *db.DB, cache *cache.Cache) *Collector {
 	}()
 
 	for _, p := range c.projects {
-		cfg := p.Settings.Integrations.Clickhouse
+		cfg := p.ClickHouseConfig(c.globalClickHouse)
 		if cfg == nil {
 			continue
 		}
@@ -74,7 +85,13 @@ func New(database *db.DB, cache *cache.Cache) *Collector {
 			b := backoff.Backoff{Factor: 2, Min: time.Minute, Max: 10 * time.Minute}
 			for {
 				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-				err := c.migrate(ctx, cfg)
+				client, err := c.clickhouseConnect(ctx, cfg)
+				if err == nil {
+					err = c.migrate(ctx, client)
+				}
+				if client != nil {
+					client.pool.Close()
+				}
 				cancel()
 				if err == nil {
 					return
@@ -106,22 +123,21 @@ func (c *Collector) updateProjects() {
 func (c *Collector) getProject(id db.ProjectId) (*db.Project, error) {
 	c.projectsLock.RLock()
 	defer c.projectsLock.RUnlock()
-	if id != "" {
-		p := c.projects[id]
-		if p == nil {
-			return nil, ErrProjectNotFound
+	if id == "" {
+		if len(c.projects) == 1 {
+			return maps.Values(c.projects)[0], nil
 		}
-		return p, nil
-	}
-	if len(c.projects) == 1 {
-		return maps.Values(c.projects)[0], nil
-	}
-	for _, p := range c.projects {
-		if p.Name == "default" {
-			return p, nil
+		for _, p := range c.projects {
+			if p.Name == "default" {
+				return p, nil
+			}
 		}
 	}
-	return nil, ErrProjectNotFound
+	p := c.projects[id]
+	if p == nil {
+		return nil, ErrProjectNotFound
+	}
+	return p, nil
 }
 
 func (c *Collector) Close() {
@@ -144,13 +160,22 @@ func (c *Collector) Close() {
 	c.clickhouseClientsLock.Lock()
 	defer c.clickhouseClientsLock.Unlock()
 	for _, cl := range c.clickhouseClients {
-		cl.Close()
+		cl.pool.Close()
 	}
 }
 
 func (c *Collector) UpdateClickhouseClient(ctx context.Context, projectId db.ProjectId, cfg *db.IntegrationClickhouse) error {
+	c.updateProjects()
 	c.deleteClickhouseClient(projectId)
-	return c.migrate(ctx, cfg)
+	if cfg == nil {
+		return nil
+	}
+	client, err := c.clickhouseConnect(ctx, cfg)
+	if err != nil {
+		return err
+	}
+	defer client.pool.Close()
+	return c.migrate(ctx, client)
 }
 
 func (c *Collector) deleteClickhouseClient(projectId db.ProjectId) {
@@ -158,29 +183,12 @@ func (c *Collector) deleteClickhouseClient(projectId db.ProjectId) {
 	defer c.clickhouseClientsLock.Unlock()
 	client := c.clickhouseClients[projectId]
 	if client != nil {
-		client.Close()
+		client.pool.Close()
 	}
 	delete(c.clickhouseClients, projectId)
 }
 
-func (c *Collector) getClickhouseClient(projectId db.ProjectId) (*chpool.Pool, error) {
-	c.clickhouseClientsLock.RLock()
-	client := c.clickhouseClients[projectId]
-	c.clickhouseClientsLock.RUnlock()
-
-	if client != nil {
-		return client, nil
-	}
-
-	project, err := c.getProject(projectId)
-	if err != nil {
-		return nil, err
-	}
-
-	cfg := project.Settings.Integrations.Clickhouse
-	if cfg == nil {
-		return nil, ErrClickhouseNotConfigured
-	}
+func (c *Collector) clickhouseConnect(ctx context.Context, cfg *db.IntegrationClickhouse) (*chClient, error) {
 	opts := ch.Options{
 		Address:          cfg.Addr,
 		Database:         cfg.Database,
@@ -196,10 +204,64 @@ func (c *Collector) getClickhouseClient(projectId db.ProjectId) (*chpool.Pool, e
 			InsecureSkipVerify: cfg.TlsSkipVerify,
 		}
 	}
-	client, err = chpool.Dial(context.Background(), chpool.Options{
-		ClientOptions: opts,
-	})
+	pool, err := chpool.Dial(context.Background(), chpool.Options{ClientOptions: opts})
 	if err != nil {
+		return nil, err
+	}
+	cluster, err := getCluster(ctx, pool)
+	if err != nil {
+		if cfg.Global && strings.Contains(err.Error(), "UNKNOWN_DATABASE") {
+			pool.Close()
+			opts.Database = cfg.InitialDatabase
+			pool, err = chpool.Dial(context.Background(), chpool.Options{ClientOptions: opts})
+			if err != nil {
+				return nil, err
+			}
+			cluster, err = getCluster(ctx, pool)
+			if err != nil {
+				return nil, err
+			}
+			q := "CREATE DATABASE " + cfg.Database
+			if cluster != "" {
+				q += " ON CLUSTER " + cluster
+			}
+			var result chproto.Results
+			err = pool.Do(ctx, ch.Query{
+				Body: q,
+				OnResult: func(ctx context.Context, block chproto.Block) error {
+					return nil
+				},
+				Result: result.Auto(),
+			})
+			pool.Close()
+			if err != nil {
+				return nil, err
+			}
+			return c.clickhouseConnect(ctx, cfg)
+		}
+		return nil, err
+	}
+	return &chClient{pool: pool, cluster: cluster}, err
+}
+
+func (c *Collector) getClickhouseClient(projectId db.ProjectId) (*chClient, error) {
+	c.clickhouseClientsLock.RLock()
+	client := c.clickhouseClients[projectId]
+	c.clickhouseClientsLock.RUnlock()
+
+	if client != nil {
+		return client, nil
+	}
+	project, err := c.getProject(projectId)
+	if err != nil {
+		return nil, err
+	}
+
+	cfg := project.ClickHouseConfig(c.globalClickHouse)
+	if cfg == nil {
+		return nil, ErrClickhouseNotConfigured
+	}
+	if client, err = c.clickhouseConnect(context.TODO(), cfg); err != nil {
 		return nil, err
 	}
 
@@ -215,7 +277,8 @@ func (c *Collector) clickhouseDo(ctx context.Context, projectId db.ProjectId, qu
 	if err != nil {
 		return err
 	}
-	err = client.Do(ctx, query)
+	query.Body = ReplaceTables(query.Body, client.cluster != "")
+	err = client.pool.Do(ctx, query)
 	if err != nil {
 		c.deleteClickhouseClient(projectId)
 		return err
@@ -260,4 +323,12 @@ func (c *Collector) getProfilesBatch(projectId db.ProjectId) *ProfilesBatch {
 		c.profileBatches[projectId] = b
 	}
 	return b
+}
+
+func (c *Collector) IsClickhouseDistributed(projectId db.ProjectId) (bool, error) {
+	client, err := c.getClickhouseClient(projectId)
+	if err != nil {
+		return false, err
+	}
+	return client.cluster != "", nil
 }

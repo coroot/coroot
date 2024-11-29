@@ -27,23 +27,28 @@ import (
 )
 
 type Api struct {
-	cache     *cache.Cache
-	db        *db.DB
-	collector *collector.Collector
-	pricing   *pricing.Manager
-	roles     rbac.RoleManager
+	cache            *cache.Cache
+	db               *db.DB
+	collector        *collector.Collector
+	pricing          *pricing.Manager
+	roles            rbac.RoleManager
+	globalClickHouse *db.IntegrationClickhouse
+	globalPrometheus *db.IntegrationsPrometheus
 
 	authSecret        string
 	authAnonymousRole rbac.RoleName
 }
 
-func NewApi(cache *cache.Cache, db *db.DB, collector *collector.Collector, pricing *pricing.Manager, roles rbac.RoleManager) *Api {
+func NewApi(cache *cache.Cache, db *db.DB, collector *collector.Collector, pricing *pricing.Manager, roles rbac.RoleManager,
+	globalClickHouse *db.IntegrationClickhouse, globalPrometheus *db.IntegrationsPrometheus) *Api {
 	return &Api{
-		cache:     cache,
-		db:        db,
-		collector: collector,
-		pricing:   pricing,
-		roles:     roles,
+		cache:            cache,
+		db:               db,
+		collector:        collector,
+		pricing:          pricing,
+		roles:            roles,
+		globalClickHouse: globalClickHouse,
+		globalPrometheus: globalPrometheus,
 	}
 }
 
@@ -198,6 +203,25 @@ func (api *Api) Roles(w http.ResponseWriter, r *http.Request, u *db.User) {
 	utils.WriteJson(w, views.Roles(append(roles, qaSample, dbaSample)))
 }
 
+func (api *Api) SSO(w http.ResponseWriter, r *http.Request, u *db.User) {
+	roles, err := api.roles.GetRoles()
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	res := struct {
+		Roles       []rbac.RoleName `json:"roles"`
+		DefaultRole rbac.RoleName   `json:"default_role"`
+	}{
+		DefaultRole: rbac.RoleViewer,
+	}
+	for _, role := range roles {
+		res.Roles = append(res.Roles, role.Name)
+	}
+	utils.WriteJson(w, res)
+}
+
 func (api *Api) Project(w http.ResponseWriter, r *http.Request, u *db.User) {
 	vars := mux.Vars(r)
 	projectId := vars["project"]
@@ -290,13 +314,13 @@ func (api *Api) Status(w http.ResponseWriter, r *http.Request, u *db.User) {
 		return
 	}
 	now := timeseries.Now()
-	world, cacheStatus, err := api.loadWorld(r.Context(), project, now.Add(-timeseries.Hour), now)
+	world, cacheStatus, err := api.LoadWorld(r.Context(), project, now.Add(-timeseries.Hour), now)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
-	utils.WriteJson(w, renderStatus(project, cacheStatus, world))
+	utils.WriteJson(w, renderStatus(project, cacheStatus, world, api.globalPrometheus))
 }
 
 func (api *Api) Overview(w http.ResponseWriter, r *http.Request, u *db.User) {
@@ -317,25 +341,22 @@ func (api *Api) Overview(w http.ResponseWriter, r *http.Request, u *db.User) {
 		}
 	}
 
-	world, project, cacheStatus, err := api.loadWorldByRequest(r)
+	world, project, cacheStatus, err := api.LoadWorldByRequest(r)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 	if project == nil || world == nil {
-		utils.WriteJson(w, withContext(project, cacheStatus, world, nil))
+		utils.WriteJson(w, api.WithContext(project, cacheStatus, world, nil))
 		return
 	}
 	var ch *clickhouse.Client
-	if cfg := project.Settings.Integrations.Clickhouse; cfg != nil {
-		ch, err = GetClickhouseClient(cfg)
-		if err != nil {
-			klog.Warningln(err)
-		}
+	if ch, err = api.getClickhouseClient(project); err != nil {
+		klog.Warningln(err)
 	}
-	auditor.Audit(world, project, nil)
-	utils.WriteJson(w, withContext(project, cacheStatus, world, views.Overview(r.Context(), ch, world, view, r.URL.Query().Get("query"))))
+	auditor.Audit(world, project, nil, project.ClickHouseConfig(api.globalClickHouse) != nil)
+	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Overview(r.Context(), ch, world, view, r.URL.Query().Get("query"))))
 }
 
 func (api *Api) Inspections(w http.ResponseWriter, r *http.Request, u *db.User) {
@@ -455,9 +476,8 @@ func (api *Api) Integration(w http.ResponseWriter, r *http.Request, u *db.User) 
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
-
 	t := db.IntegrationType(vars["type"])
-	form := forms.NewIntegrationForm(t)
+	form := forms.NewIntegrationForm(t, api.globalClickHouse, api.globalPrometheus)
 	if form == nil {
 		klog.Warningln("unknown integration type:", t)
 		http.Error(w, "", http.StatusBadRequest)
@@ -470,7 +490,7 @@ func (api *Api) Integration(w http.ResponseWriter, r *http.Request, u *db.User) 
 		form.Get(project, !isAllowed)
 		switch t {
 		case db.IntegrationTypeAWS:
-			world, _, _, err := api.loadWorldByRequest(r)
+			world, _, _, err := api.LoadWorldByRequest(r)
 			if err != nil {
 				klog.Errorln(err)
 			}
@@ -527,13 +547,14 @@ func (api *Api) Integration(w http.ResponseWriter, r *http.Request, u *db.User) 
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
-
-	cfg := project.Settings.Integrations.Clickhouse
-	err = api.collector.UpdateClickhouseClient(r.Context(), project.Id, cfg)
-	if err != nil {
-		klog.Errorln("clickhouse error:", err)
-		http.Error(w, "Clickhouse error: "+err.Error(), http.StatusInternalServerError)
-		return
+	if api.globalClickHouse == nil {
+		cfg := project.Settings.Integrations.Clickhouse
+		err = api.collector.UpdateClickhouseClient(r.Context(), project.Id, cfg)
+		if err != nil {
+			klog.Errorln("clickhouse error:", err)
+			http.Error(w, "Clickhouse error: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 }
 
@@ -570,14 +591,14 @@ func (api *Api) Application(w http.ResponseWriter, r *http.Request, u *db.User) 
 		http.Error(w, "invalid application id: "+vars["app"], http.StatusBadRequest)
 		return
 	}
-	world, project, cacheStatus, err := api.loadWorldByRequest(r)
+	world, project, cacheStatus, err := api.LoadWorldByRequest(r)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 	if project == nil || world == nil {
-		utils.WriteJson(w, withContext(project, cacheStatus, world, nil))
+		utils.WriteJson(w, api.WithContext(project, cacheStatus, world, nil))
 		return
 	}
 	app := world.GetApplication(appId)
@@ -592,12 +613,27 @@ func (api *Api) Application(w http.ResponseWriter, r *http.Request, u *db.User) 
 		return
 	}
 
-	auditor.Audit(world, project, app)
-	if cfg := project.Settings.Integrations.Clickhouse; cfg != nil {
+	auditor.Audit(world, project, app, project.ClickHouseConfig(api.globalClickHouse) != nil)
+
+	if project.ClickHouseConfig(api.globalClickHouse) != nil {
 		app.AddReport(model.AuditReportProfiling, &model.Widget{Profiling: &model.Profiling{ApplicationId: app.Id}, Width: "100%"})
 		app.AddReport(model.AuditReportTracing, &model.Widget{Tracing: &model.Tracing{ApplicationId: app.Id}, Width: "100%"})
 	}
-	utils.WriteJson(w, withContext(project, cacheStatus, world, views.Application(world, app)))
+	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Application(world, app)))
+}
+
+func (api *Api) RCA(w http.ResponseWriter, r *http.Request, u *db.User) {
+	world, project, cacheStatus, err := api.LoadWorldByRequest(r)
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	if project == nil || world == nil {
+		utils.WriteJson(w, api.WithContext(project, cacheStatus, world, nil))
+		return
+	}
+	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, "not implemented"))
 }
 
 func (api *Api) Incident(w http.ResponseWriter, r *http.Request, u *db.User) {
@@ -619,14 +655,14 @@ func (api *Api) Incident(w http.ResponseWriter, r *http.Request, u *db.User) {
 	values.Add("incident", incidentKey)
 	r.URL.RawQuery = values.Encode()
 
-	world, project, cacheStatus, err := api.loadWorldByRequest(r)
+	world, project, cacheStatus, err := api.LoadWorldByRequest(r)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 	if project == nil || world == nil {
-		utils.WriteJson(w, withContext(project, cacheStatus, world, nil))
+		utils.WriteJson(w, api.WithContext(project, cacheStatus, world, nil))
 		return
 	}
 	app := world.GetApplication(incident.ApplicationId)
@@ -639,8 +675,8 @@ func (api *Api) Incident(w http.ResponseWriter, r *http.Request, u *db.User) {
 		http.Error(w, "You are not allowed to view this application.", http.StatusForbidden)
 		return
 	}
-	auditor.Audit(world, project, app)
-	utils.WriteJson(w, withContext(project, cacheStatus, world, views.Incident(world, app, incident)))
+	auditor.Audit(world, project, app, project.ClickHouseConfig(api.globalClickHouse) != nil)
+	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Incident(world, app, incident)))
 }
 
 func (api *Api) Inspection(w http.ResponseWriter, r *http.Request, u *db.User) {
@@ -766,7 +802,7 @@ func (api *Api) Instrumentation(w http.ResponseWriter, r *http.Request, u *db.Us
 		http.Error(w, "invalid application id: "+vars["app"], http.StatusBadRequest)
 		return
 	}
-	world, _, _, err := api.loadWorldByRequest(r)
+	world, _, _, err := api.LoadWorldByRequest(r)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
@@ -804,7 +840,7 @@ func (api *Api) Instrumentation(w http.ResponseWriter, r *http.Request, u *db.Us
 		return
 	}
 
-	t := model.ApplicationType(vars["type"])
+	t := model.ApplicationType(vars["type"]).InstrumentationType()
 	var instrumentation *model.ApplicationInstrumentation
 	if app.Settings != nil && app.Settings.Instrumentation != nil && app.Settings.Instrumentation[t] != nil {
 		instrumentation = app.Settings.Instrumentation[t]
@@ -851,14 +887,14 @@ func (api *Api) Profiling(w http.ResponseWriter, r *http.Request, u *db.User) {
 		return
 	}
 
-	world, project, cacheStatus, err := api.loadWorldByRequest(r)
+	world, project, cacheStatus, err := api.LoadWorldByRequest(r)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 	if project == nil || world == nil {
-		utils.WriteJson(w, withContext(project, cacheStatus, world, nil))
+		utils.WriteJson(w, api.WithContext(project, cacheStatus, world, nil))
 		return
 	}
 	app := world.GetApplication(appId)
@@ -868,15 +904,12 @@ func (api *Api) Profiling(w http.ResponseWriter, r *http.Request, u *db.User) {
 		return
 	}
 	var ch *clickhouse.Client
-	if cfg := project.Settings.Integrations.Clickhouse; cfg != nil {
-		ch, err = GetClickhouseClient(cfg)
-		if err != nil {
-			klog.Warningln(err)
-		}
+	if ch, err = api.getClickhouseClient(project); err != nil {
+		klog.Warningln(err)
 	}
 	q := r.URL.Query()
-	auditor.Audit(world, project, nil)
-	utils.WriteJson(w, withContext(project, cacheStatus, world, views.Profiling(r.Context(), ch, app, q, world.Ctx)))
+	auditor.Audit(world, project, nil, project.ClickHouseConfig(api.globalClickHouse) != nil)
+	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Profiling(r.Context(), ch, app, q, world.Ctx)))
 }
 
 func (api *Api) Tracing(w http.ResponseWriter, r *http.Request, u *db.User) {
@@ -908,14 +941,14 @@ func (api *Api) Tracing(w http.ResponseWriter, r *http.Request, u *db.User) {
 		return
 	}
 
-	world, project, cacheStatus, err := api.loadWorldByRequest(r)
+	world, project, cacheStatus, err := api.LoadWorldByRequest(r)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 	if project == nil || world == nil {
-		utils.WriteJson(w, withContext(project, cacheStatus, world, nil))
+		utils.WriteJson(w, api.WithContext(project, cacheStatus, world, nil))
 		return
 	}
 	app := world.GetApplication(appId)
@@ -926,14 +959,11 @@ func (api *Api) Tracing(w http.ResponseWriter, r *http.Request, u *db.User) {
 	}
 	q := r.URL.Query()
 	var ch *clickhouse.Client
-	if cfg := project.Settings.Integrations.Clickhouse; cfg != nil {
-		ch, err = GetClickhouseClient(cfg)
-		if err != nil {
-			klog.Warningln(err)
-		}
+	if ch, err = api.getClickhouseClient(project); err != nil {
+		klog.Warningln(err)
 	}
-	auditor.Audit(world, project, nil)
-	utils.WriteJson(w, withContext(project, cacheStatus, world, views.Tracing(r.Context(), ch, app, q, world)))
+	auditor.Audit(world, project, nil, project.ClickHouseConfig(api.globalClickHouse) != nil)
+	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Tracing(r.Context(), ch, app, q, world)))
 }
 
 func (api *Api) Logs(w http.ResponseWriter, r *http.Request, u *db.User) {
@@ -965,14 +995,14 @@ func (api *Api) Logs(w http.ResponseWriter, r *http.Request, u *db.User) {
 		return
 	}
 
-	world, project, cacheStatus, err := api.loadWorldByRequest(r)
+	world, project, cacheStatus, err := api.LoadWorldByRequest(r)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 	if project == nil || world == nil {
-		utils.WriteJson(w, withContext(project, cacheStatus, world, nil))
+		utils.WriteJson(w, api.WithContext(project, cacheStatus, world, nil))
 		return
 	}
 	app := world.GetApplication(appId)
@@ -982,15 +1012,12 @@ func (api *Api) Logs(w http.ResponseWriter, r *http.Request, u *db.User) {
 		return
 	}
 	var ch *clickhouse.Client
-	if cfg := project.Settings.Integrations.Clickhouse; cfg != nil {
-		ch, err = GetClickhouseClient(cfg)
-		if err != nil {
-			klog.Warningln(err)
-		}
+	if ch, err = api.getClickhouseClient(project); err != nil {
+		klog.Warningln(err)
 	}
-	auditor.Audit(world, project, nil)
+	auditor.Audit(world, project, nil, project.ClickHouseConfig(api.globalClickHouse) != nil)
 	q := r.URL.Query()
-	utils.WriteJson(w, withContext(project, cacheStatus, world, views.Logs(r.Context(), ch, app, q, world)))
+	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Logs(r.Context(), ch, app, q, world)))
 }
 
 func (api *Api) Node(w http.ResponseWriter, r *http.Request, u *db.User) {
@@ -1001,14 +1028,14 @@ func (api *Api) Node(w http.ResponseWriter, r *http.Request, u *db.User) {
 		http.Error(w, "You are not allowed to view this node.", http.StatusForbidden)
 		return
 	}
-	world, project, cacheStatus, err := api.loadWorldByRequest(r)
+	world, project, cacheStatus, err := api.LoadWorldByRequest(r)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 	if project == nil || world == nil {
-		utils.WriteJson(w, withContext(project, cacheStatus, world, nil))
+		utils.WriteJson(w, api.WithContext(project, cacheStatus, world, nil))
 		return
 	}
 	node := world.GetNode(nodeName)
@@ -1017,11 +1044,11 @@ func (api *Api) Node(w http.ResponseWriter, r *http.Request, u *db.User) {
 		http.Error(w, "Node not found", http.StatusNotFound)
 		return
 	}
-	auditor.Audit(world, project, nil)
-	utils.WriteJson(w, withContext(project, cacheStatus, world, auditor.AuditNode(world, node)))
+	auditor.Audit(world, project, nil, project.ClickHouseConfig(api.globalClickHouse) != nil)
+	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, auditor.AuditNode(world, node)))
 }
 
-func (api *Api) loadWorld(ctx context.Context, project *db.Project, from, to timeseries.Time) (*model.World, *cache.Status, error) {
+func (api *Api) LoadWorld(ctx context.Context, project *db.Project, from, to timeseries.Time) (*model.World, *cache.Status, error) {
 	cacheClient := api.cache.GetCacheClient(project.Id)
 
 	cacheStatus, err := cacheClient.GetStatus()
@@ -1055,7 +1082,7 @@ func (api *Api) loadWorld(ctx context.Context, project *db.Project, from, to tim
 	return world, cacheStatus, err
 }
 
-func (api *Api) loadWorldByRequest(r *http.Request) (*model.World, *db.Project, *cache.Status, error) {
+func (api *Api) LoadWorldByRequest(r *http.Request) (*model.World, *db.Project, *cache.Status, error) {
 	projectId := db.ProjectId(mux.Vars(r)["project"])
 	project, err := api.db.GetProject(projectId)
 	if err != nil {
@@ -1086,7 +1113,7 @@ func (api *Api) loadWorldByRequest(r *http.Request) (*model.World, *db.Project, 
 		}
 	}
 
-	world, cacheStatus, err := api.loadWorld(r.Context(), project, from, to)
+	world, cacheStatus, err := api.LoadWorld(r.Context(), project, from, to)
 	if world == nil {
 		step := increaseStepForBigDurations(to.Sub(from), 15*timeseries.Second)
 		world = model.NewWorld(from, to.Add(-step), step, step)
@@ -1117,11 +1144,19 @@ func maxDuration(d1, d2 timeseries.Duration) timeseries.Duration {
 	return d2
 }
 
-func GetClickhouseClient(cfg *db.IntegrationClickhouse) (*clickhouse.Client, error) {
+func (api *Api) getClickhouseClient(project *db.Project) (*clickhouse.Client, error) {
+	cfg := project.ClickHouseConfig(api.globalClickHouse)
+	if cfg == nil {
+		return nil, nil
+	}
 	config := clickhouse.NewClientConfig(cfg.Addr, cfg.Auth.User, cfg.Auth.Password)
 	config.Protocol = cfg.Protocol
 	config.Database = cfg.Database
 	config.TlsEnable = cfg.TlsEnable
 	config.TlsSkipVerify = cfg.TlsSkipVerify
-	return clickhouse.NewClient(config)
+	distributed, err := api.collector.IsClickhouseDistributed(project.Id)
+	if err != nil {
+		return nil, err
+	}
+	return clickhouse.NewClient(config, distributed)
 }

@@ -62,6 +62,7 @@ type Stats struct {
 	Infra struct {
 		Projects            int            `json:"projects"`
 		Nodes               int            `json:"nodes"`
+		CPUCores            int            `json:"cpu_cores"`
 		Applications        int            `json:"applications"`
 		Instances           int            `json:"instances"`
 		Deployments         int            `json:"deployments"`
@@ -113,9 +114,11 @@ type Collector struct {
 
 	cpuUsage []float32
 	memUsage []float32
+
+	globalClickHouse *db.IntegrationClickhouse
 }
 
-func NewCollector(instanceUuid, version string, db *db.DB, cache *cache.Cache, pricing *cloud_pricing.Manager) *Collector {
+func NewCollector(instanceUuid, version string, db *db.DB, cache *cache.Cache, pricing *cloud_pricing.Manager, globalClickHouse *db.IntegrationClickhouse) *Collector {
 	c := &Collector{
 		db:      db,
 		cache:   cache,
@@ -131,6 +134,8 @@ func NewCollector(instanceUuid, version string, db *db.DB, cache *cache.Cache, p
 		pageViews:         map[string]int{},
 
 		heapProfiler: godeltaprof.NewHeapProfiler(),
+
+		globalClickHouse: globalClickHouse,
 	}
 
 	if err := c.heapProfiler.Profile(io.Discard); err != nil {
@@ -289,7 +294,7 @@ func (c *Collector) collect() Stats {
 		if stats.Integration.PrometheusRefreshInterval == 0 || int(p.Prometheus.RefreshInterval) < stats.Integration.PrometheusRefreshInterval {
 			stats.Integration.PrometheusRefreshInterval = int(p.Prometheus.RefreshInterval)
 		}
-		if cfg := p.Settings.Integrations.Clickhouse; cfg != nil && cfg.Addr != "" {
+		if cfg := p.ClickHouseConfig(c.globalClickHouse); cfg != nil && cfg.Addr != "" {
 			stats.Integration.Clickhouse = true
 			stats.Integration.Tracing = true
 			stats.Integration.Logs = true
@@ -349,7 +354,7 @@ func (c *Collector) collect() Stats {
 		loadTime = append(loadTime, time.Since(t))
 
 		t = time.Now()
-		auditor.Audit(w, p, nil)
+		auditor.Audit(w, p, nil, p.ClickHouseConfig(c.globalClickHouse) != nil)
 		auditTime = append(auditTime, time.Since(t))
 
 		stats.Integration.NodeAgent = stats.Integration.NodeAgent || w.IntegrationStatus.NodeAgent.Installed
@@ -363,6 +368,9 @@ func (c *Collector) collect() Stats {
 
 		stats.Infra.Nodes += len(w.Nodes)
 		for _, n := range w.Nodes {
+			if cores := n.CpuCapacity.Last(); cores > 0 {
+				stats.Infra.CPUCores += int(cores)
+			}
 			stats.Integration.NodeAgentVersions.Add(n.AgentVersion.Value())
 			stats.Stack.Clouds.Add(strings.ToLower(n.CloudProvider.Value()))
 			if n.Price != nil {

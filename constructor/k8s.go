@@ -113,7 +113,11 @@ func podInfo(w *model.World, metrics []model.MetricValues) map[string]*model.Ins
 		podOwners[podId{name: pod, ns: ns}] = appId
 		instance := pods[uid]
 		if instance == nil {
-			instance = w.GetOrCreateApplication(appId, false).GetOrCreateInstance(pod, node)
+			app := w.GetOrCreateApplication(appId, false)
+			if appId.Kind == model.ApplicationKindCronJob {
+				continue
+			}
+			instance = app.GetOrCreateInstance(pod, node)
 			if instance.Pod == nil {
 				instance.Pod = &model.Pod{}
 			}
@@ -141,11 +145,11 @@ func podInfo(w *model.World, metrics []model.MetricValues) map[string]*model.Ins
 		}
 	}
 	for _, instance := range podsOwnedByPods {
-		id := podId{name: instance.OwnerId.Name, ns: instance.OwnerId.Namespace}
+		id := podId{name: instance.Owner.Id.Name, ns: instance.Owner.Id.Namespace}
 		if ownerOfOwner, ok := podOwners[id]; ok {
 			if app := w.GetApplication(ownerOfOwner); app != nil {
-				delete(w.Applications, instance.OwnerId)
-				instance.OwnerId = ownerOfOwner
+				delete(w.Applications, instance.Owner.Id)
+				instance.Owner = app
 				app.Instances = append(app.Instances, instance)
 			}
 		}
@@ -161,7 +165,7 @@ func podLabels(metrics []model.MetricValues, pods map[string]*model.Instance) {
 		}
 		instance := pods[uid]
 		if instance == nil {
-			klog.Warningln("unknown pod:", uid, m.Labels["pod"], m.Labels["namespace"])
+			//klog.Warningln("unknown pod:", uid, m.Labels["pod"], m.Labels["namespace"])
 			continue
 		}
 		cluster, role := "", ""
@@ -189,7 +193,7 @@ func podLabels(metrics []model.MetricValues, pods map[string]*model.Instance) {
 			if m.Labels["label_app_kubernetes_io_name"] != "" && m.Labels["label_app_kubernetes_io_instance"] != "" {
 				cluster = m.Labels["label_app_kubernetes_io_instance"] + "-" + m.Labels["label_app_kubernetes_io_name"]
 			}
-		case strings.HasPrefix(m.Labels["label_helm_sh_chart"], "redis"):
+		case strings.HasPrefix(m.Labels["label_helm_sh_chart"], "redis") || strings.HasPrefix(m.Labels["label_helm_sh_chart"], "valkey"):
 			if m.Labels["label_app_kubernetes_io_name"] != "" && m.Labels["label_app_kubernetes_io_instance"] != "" {
 				cluster = m.Labels["label_app_kubernetes_io_instance"] + "-" + m.Labels["label_app_kubernetes_io_name"]
 			}
@@ -201,6 +205,12 @@ func podLabels(metrics []model.MetricValues, pods map[string]*model.Instance) {
 			if m.Labels["label_app_kubernetes_io_name"] != "" && m.Labels["label_app_kubernetes_io_instance"] != "" {
 				cluster = m.Labels["label_app_kubernetes_io_instance"] + "-" + m.Labels["label_app_kubernetes_io_name"]
 			}
+		case strings.HasPrefix(m.Labels["label_helm_sh_chart"], "clickhouse"):
+			if m.Labels["label_app_kubernetes_io_name"] != "" && m.Labels["label_app_kubernetes_io_instance"] != "" {
+				cluster = m.Labels["label_app_kubernetes_io_instance"] + "-" + m.Labels["label_app_kubernetes_io_name"]
+			}
+		case m.Labels["label_app_kubernetes_io_managed_by"] == "coroot-operator" && m.Labels["label_app_kubernetes_io_component"] == "clickhouse":
+			cluster = m.Labels["label_app_kubernetes_io_part_of"] + "-" + m.Labels["label_app_kubernetes_io_component"]
 		default:
 			continue
 		}
@@ -222,7 +232,7 @@ func podStatus(queryName string, metrics []model.MetricValues, pods map[string]*
 		}
 		instance := pods[uid]
 		if instance == nil {
-			klog.Warningln("unknown pod:", uid, m.Labels["pod"], m.Labels["namespace"])
+			//klog.Warningln("unknown pod:", uid, m.Labels["pod"], m.Labels["namespace"])
 			continue
 		}
 		switch queryName {
@@ -254,7 +264,7 @@ func podContainer(queryName string, metrics []model.MetricValues, pods map[strin
 		}
 		instance := pods[uid]
 		if instance == nil {
-			klog.Warningln("unknown pod:", uid, m.Labels["pod"], m.Labels["namespace"])
+			//klog.Warningln("unknown pod:", uid, m.Labels["pod"], m.Labels["namespace"])
 			continue
 		}
 		containerId := fmt.Sprintf("/k8s/%s/%s/%s", m.Labels["namespace"], m.Labels["pod"], m.Labels["container"])

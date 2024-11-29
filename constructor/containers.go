@@ -9,7 +9,6 @@ import (
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
-	"github.com/coroot/logparser"
 	"k8s.io/klog"
 )
 
@@ -48,7 +47,13 @@ func (c *Constructor) getInstanceAndContainer(w *model.World, node *model.Node, 
 		id    instanceId
 		appId model.ApplicationId
 	)
-	if len(parts) == 7 && parts[1] == "nomad" {
+	if len(parts) == 5 && parts[1] == "k8s-cronjob" {
+		w.IntegrationStatus.KubeStateMetrics.Required = true
+		ns, job := parts[2], parts[3]
+		containerName = parts[4]
+		appId = model.NewApplicationId(ns, model.ApplicationKindCronJob, job)
+		id = instanceId{ns: ns, name: fmt.Sprintf("%s@%s", job, nodeName), node: nodeId}
+	} else if len(parts) == 7 && parts[1] == "nomad" {
 		ns, job, group, allocId, task := parts[2], parts[3], parts[4], parts[5], parts[6]
 		containerName = task
 		appId = model.NewApplicationId(ns, model.ApplicationKindNomadJobGroup, job+"."+group)
@@ -86,7 +91,12 @@ func (c *Constructor) getInstanceAndContainer(w *model.World, node *model.Node, 
 	return instance, instance.GetOrCreateContainer(containerId, containerName)
 }
 
-func (c *Constructor) loadContainers(w *model.World, metrics map[string][]model.MetricValues, pjs promJobStatuses, nodesByID map[model.NodeId]*model.Node, servicesByClusterIP map[string]*model.Service, ip2fqdn map[string]*utils.StringSet) {
+type containerCache map[model.NodeContainerId]struct {
+	instance  *model.Instance
+	container *model.Container
+}
+
+func (c *Constructor) loadContainers(w *model.World, metrics map[string][]model.MetricValues, pjs promJobStatuses, nodesByID map[model.NodeId]*model.Node, containers containerCache, servicesByClusterIP map[string]*model.Service, ip2fqdn map[string]*utils.StringSet) {
 	instances := map[instanceId]*model.Instance{}
 	for _, a := range w.Applications {
 		for _, i := range a.Instances {
@@ -99,176 +109,216 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]model.
 	}
 
 	servicesByActualDestIP := map[string]*model.Service{}
-
-	connectionCache := map[connectionKey]*model.Connection{}
 	rttByInstance := map[instanceId]map[string]*timeseries.TimeSeries{}
-	for queryName := range metrics {
-		if !strings.HasPrefix(queryName, "container_") {
-			continue
-		}
-		for _, m := range metrics[queryName] {
-			nodeId := model.NewNodeIdFromLabels(m.Labels)
-			instance, container := c.getInstanceAndContainer(w, nodesByID[nodeId], instances, m.Labels["container_id"])
-			if instance == nil || container == nil {
+
+	loadContainer := func(queryName string, f func(instance *model.Instance, container *model.Container, metric model.MetricValues)) {
+		ms := metrics[queryName]
+		for _, m := range ms {
+			v, ok := containers[m.NodeContainerId]
+			if !ok {
+				nodeId := model.NewNodeIdFromLabels(m)
+				v.instance, v.container = c.getInstanceAndContainer(w, nodesByID[nodeId], instances, m.ContainerId)
+				containers[m.NodeContainerId] = v
+			}
+			if v.instance == nil || v.container == nil {
 				continue
 			}
-			switch queryName {
-			case "container_info":
-				if image := m.Labels["image"]; image != "" {
-					container.Image = image
-				}
-				if strings.HasSuffix(m.Labels["systemd_triggered_by"], ".timer") {
-					container.PeriodicSystemdJob = true
-				}
-			case "container_net_latency":
-				id := instanceId{ns: instance.OwnerId.Namespace, name: instance.Name, node: instance.NodeId()}
-				rtts := rttByInstance[id]
-				if rtts == nil {
-					rtts = map[string]*timeseries.TimeSeries{}
-				}
-				rtts[m.Labels["destination_ip"]] = merge(rtts[m.Labels["destination_ip"]], m.Values, timeseries.Any)
-				rttByInstance[id] = rtts
-			case "container_net_tcp_successful_connects":
-				if c := getOrCreateConnection(instance, container.Name, m, connectionCache, servicesByClusterIP, servicesByActualDestIP); c != nil {
-					c.SuccessfulConnections = merge(c.SuccessfulConnections, m.Values, timeseries.Any)
-				}
-			case "container_net_tcp_connection_time_seconds":
-				if c := getOrCreateConnection(instance, container.Name, m, connectionCache, servicesByClusterIP, servicesByActualDestIP); c != nil {
-					c.ConnectionTime = merge(c.ConnectionTime, m.Values, timeseries.Any)
-				}
-			case "container_net_tcp_bytes_sent":
-				if c := getOrCreateConnection(instance, container.Name, m, connectionCache, servicesByClusterIP, servicesByActualDestIP); c != nil {
-					c.BytesSent = merge(c.BytesSent, m.Values, timeseries.Any)
-				}
-			case "container_net_tcp_bytes_received":
-				if c := getOrCreateConnection(instance, container.Name, m, connectionCache, servicesByClusterIP, servicesByActualDestIP); c != nil {
-					c.BytesReceived = merge(c.BytesReceived, m.Values, timeseries.Any)
-				}
-			case "container_net_tcp_failed_connects":
-				if c := getOrCreateConnection(instance, container.Name, m, connectionCache, servicesByClusterIP, servicesByActualDestIP); c != nil {
-					c.FailedConnections = merge(c.FailedConnections, m.Values, timeseries.Any)
-				}
-			case "container_net_tcp_active_connections":
-				if c := getOrCreateConnection(instance, container.Name, m, connectionCache, servicesByClusterIP, servicesByActualDestIP); c != nil {
-					c.Active = merge(c.Active, m.Values, timeseries.Any)
-				}
-			case "container_net_tcp_listen_info":
-				ip, port, err := net.SplitHostPort(m.Labels["listen_addr"])
-				if err != nil {
-					klog.Warningf("failed to split %s to ip:port pair: %s", m.Labels["listen_addr"], err)
-					continue
-				}
-				isActive := m.Values.Last() == 1
-				l := model.Listen{IP: ip, Port: port, Proxied: m.Labels["proxy"] != ""}
-				if !instance.TcpListens[l] {
-					instance.TcpListens[l] = isActive
-				}
-			case "container_net_tcp_retransmits":
-				if c := getOrCreateConnection(instance, container.Name, m, connectionCache, servicesByClusterIP, servicesByActualDestIP); c != nil {
-					c.Retransmissions = merge(c.Retransmissions, m.Values, timeseries.Any)
-				}
-			case "container_http_requests_count", "container_postgres_queries_count", "container_redis_queries_count",
-				"container_memcached_queries_count", "container_mysql_queries_count", "container_mongo_queries_count",
-				"container_kafka_requests_count", "container_cassandra_queries_count",
-				"container_rabbitmq_messages", "container_nats_messages":
-				if c := getOrCreateConnection(instance, container.Name, m, connectionCache, servicesByClusterIP, servicesByActualDestIP); c != nil {
-					protocol := model.Protocol(strings.SplitN(queryName, "_", 3)[1])
-					status := m.Labels["status"]
-					if protocol == "rabbitmq" || protocol == "nats" {
-						protocol += model.Protocol("-" + m.Labels["method"])
-					}
-					if c.RequestsCount[protocol] == nil {
-						c.RequestsCount[protocol] = map[string]*timeseries.TimeSeries{}
-					}
-					c.RequestsCount[protocol][status] = merge(c.RequestsCount[protocol][status], m.Values, timeseries.NanSum)
-				}
-			case "container_http_requests_latency", "container_postgres_queries_latency", "container_redis_queries_latency",
-				"container_memcached_queries_latency", "container_mysql_queries_latency", "container_mongo_queries_latency",
-				"container_kafka_requests_latency", "container_cassandra_queries_latency":
-				if c := getOrCreateConnection(instance, container.Name, m, connectionCache, servicesByClusterIP, servicesByActualDestIP); c != nil {
-					protocol := model.Protocol(strings.SplitN(queryName, "_", 3)[1])
-					c.RequestsLatency[protocol] = merge(c.RequestsLatency[protocol], m.Values, timeseries.Any)
-				}
-			case "container_http_requests_histogram", "container_postgres_queries_histogram", "container_redis_queries_histogram",
-				"container_memcached_queries_histogram", "container_mysql_queries_histogram", "container_mongo_queries_histogram",
-				"container_kafka_requests_histogram", "container_cassandra_queries_histogram":
-				if c := getOrCreateConnection(instance, container.Name, m, connectionCache, servicesByClusterIP, servicesByActualDestIP); c != nil {
-					protocol := model.Protocol(strings.SplitN(queryName, "_", 3)[1])
-					le, err := strconv.ParseFloat(m.Labels["le"], 32)
-					if err != nil {
-						klog.Warningln(err)
-						continue
-					}
-					if c.RequestsHistogram[protocol] == nil {
-						c.RequestsHistogram[protocol] = map[float32]*timeseries.TimeSeries{}
-					}
-					c.RequestsHistogram[protocol][float32(le)] = merge(c.RequestsHistogram[protocol][float32(le)], m.Values, timeseries.NanSum)
-				}
-			case "container_dns_requests_total":
-				r := model.DNSRequest{
-					Type:   m.Labels["request_type"],
-					Domain: m.Labels["domain"],
-				}
-				if r.Type == "" || r.Domain == "" {
-					continue
-				}
-				status := m.Labels["status"]
-				byStatus := container.DNSRequests[r]
-				if byStatus == nil {
-					byStatus = map[string]*timeseries.TimeSeries{}
-					container.DNSRequests[r] = byStatus
-				}
-				byStatus[status] = merge(byStatus[status], m.Values, timeseries.Any)
-			case "container_dns_requests_latency":
-				le, err := strconv.ParseFloat(m.Labels["le"], 32)
-				if err != nil {
-					klog.Warningln(err)
-					continue
-				}
-				container.DNSRequestsHistogram[float32(le)] = merge(container.DNSRequestsHistogram[float32(le)], m.Values, timeseries.Any)
-			case "container_cpu_limit":
-				container.CpuLimit = merge(container.CpuLimit, m.Values, timeseries.Any)
-			case "container_cpu_usage":
-				container.CpuUsage = merge(container.CpuUsage, m.Values, timeseries.Any)
-			case "container_cpu_delay":
-				container.CpuDelay = merge(container.CpuDelay, m.Values, timeseries.Any)
-			case "container_throttled_time":
-				container.ThrottledTime = merge(container.ThrottledTime, m.Values, timeseries.Any)
-			case "container_memory_rss":
-				container.MemoryRss = merge(container.MemoryRss, m.Values, timeseries.Any)
-			case "container_memory_rss_for_trend":
-				container.MemoryRssForTrend = merge(container.MemoryRssForTrend, m.Values, timeseries.Any)
-			case "container_memory_cache":
-				container.MemoryCache = merge(container.MemoryCache, m.Values, timeseries.Any)
-			case "container_memory_limit":
-				container.MemoryLimit = merge(container.MemoryLimit, m.Values, timeseries.Any)
-			case "container_oom_kills_total":
-				container.OOMKills = merge(container.OOMKills, timeseries.Increase(m.Values, pjs.get(m.Labels)), timeseries.Any)
-			case "container_restarts":
-				container.Restarts = merge(container.Restarts, timeseries.Increase(m.Values, pjs.get(m.Labels)), timeseries.Any)
-			case "container_application_type":
-				container.ApplicationTypes[model.ApplicationType(m.Labels["application_type"])] = true
-			case "container_log_messages":
-				logMessage(instance, m.Labels, timeseries.Increase(m.Values, pjs.get(m.Labels)))
-			case "container_volume_size":
-				v := getOrCreateInstanceVolume(instance, m)
-				v.CapacityBytes = merge(v.CapacityBytes, m.Values, timeseries.Any)
-			case "container_volume_used":
-				v := getOrCreateInstanceVolume(instance, m)
-				v.UsedBytes = merge(v.UsedBytes, m.Values, timeseries.Any)
-			case "container_jvm_info", "container_jvm_heap_size_bytes", "container_jvm_heap_used_bytes",
-				"container_jvm_gc_time_seconds", "container_jvm_safepoint_sync_time_seconds", "container_jvm_safepoint_time_seconds":
-				jvm(instance, queryName, m)
-			case "container_dotnet_info", "container_dotnet_memory_allocated_bytes_total", "container_dotnet_exceptions_total",
-				"container_dotnet_memory_heap_size_bytes", "container_dotnet_gc_count_total", "container_dotnet_heap_fragmentation_percent",
-				"container_dotnet_monitor_lock_contentions_total", "container_dotnet_thread_pool_completed_items_total",
-				"container_dotnet_thread_pool_queue_length", "container_dotnet_thread_pool_size":
-				dotnet(instance, queryName, m)
-			case "container_python_thread_lock_wait_time_seconds":
-				python(instance, queryName, m)
-			}
+			f(v.instance, v.container, m)
 		}
 	}
+
+	loadContainer("container_info", func(instance *model.Instance, container *model.Container, metric model.MetricValues) {
+		if image := metric.Labels["image"]; image != "" {
+			container.Image = image
+		}
+		if strings.HasSuffix(metric.Labels["systemd_triggered_by"], ".timer") {
+			container.PeriodicSystemdJob = true
+		}
+	})
+	loadContainer("container_application_type", func(instance *model.Instance, container *model.Container, metric model.MetricValues) {
+		container.ApplicationTypes[model.ApplicationType(metric.Labels["application_type"])] = true
+	})
+
+	loadContainer("container_cpu_limit", func(instance *model.Instance, container *model.Container, metric model.MetricValues) {
+		container.CpuLimit = merge(container.CpuLimit, metric.Values, timeseries.Any)
+	})
+	loadContainer("container_cpu_usage", func(instance *model.Instance, container *model.Container, metric model.MetricValues) {
+		container.CpuUsage = merge(container.CpuUsage, metric.Values, timeseries.Any)
+	})
+	loadContainer("container_cpu_delay", func(instance *model.Instance, container *model.Container, metric model.MetricValues) {
+		container.CpuDelay = merge(container.CpuDelay, metric.Values, timeseries.Any)
+	})
+	loadContainer("container_throttled_time", func(instance *model.Instance, container *model.Container, metric model.MetricValues) {
+		container.ThrottledTime = merge(container.ThrottledTime, metric.Values, timeseries.Any)
+	})
+	loadContainer("container_memory_rss", func(instance *model.Instance, container *model.Container, metric model.MetricValues) {
+		container.MemoryRss = merge(container.MemoryRss, metric.Values, timeseries.Any)
+	})
+	loadContainer("container_memory_rss_for_trend", func(instance *model.Instance, container *model.Container, metric model.MetricValues) {
+		container.MemoryRssForTrend = merge(container.MemoryRssForTrend, metric.Values, timeseries.Any)
+	})
+	loadContainer("container_memory_cache", func(instance *model.Instance, container *model.Container, metric model.MetricValues) {
+		container.MemoryCache = merge(container.MemoryCache, metric.Values, timeseries.Any)
+	})
+	loadContainer("container_memory_limit", func(instance *model.Instance, container *model.Container, metric model.MetricValues) {
+		container.MemoryLimit = merge(container.MemoryLimit, metric.Values, timeseries.Any)
+	})
+	loadContainer("container_oom_kills_total", func(instance *model.Instance, container *model.Container, metric model.MetricValues) {
+		container.OOMKills = merge(container.OOMKills, timeseries.Increase(metric.Values, pjs.get(metric.Labels)), timeseries.Any)
+	})
+	loadContainer("container_restarts", func(instance *model.Instance, container *model.Container, metric model.MetricValues) {
+		container.Restarts = merge(container.Restarts, timeseries.Increase(metric.Values, pjs.get(metric.Labels)), timeseries.Any)
+	})
+	loadContainer("container_net_latency", func(instance *model.Instance, container *model.Container, metric model.MetricValues) {
+		id := instanceId{ns: instance.Owner.Id.Namespace, name: instance.Name, node: instance.NodeId()}
+		rtts := rttByInstance[id]
+		if rtts == nil {
+			rtts = map[string]*timeseries.TimeSeries{}
+		}
+		dest := metric.Labels["destination_ip"]
+		rtts[dest] = merge(rtts[dest], metric.Values, timeseries.Any)
+		rttByInstance[id] = rtts
+	})
+	loadContainer("container_net_tcp_listen_info", func(instance *model.Instance, container *model.Container, metric model.MetricValues) {
+		ip, port, err := net.SplitHostPort(metric.Labels["listen_addr"])
+		if err != nil {
+			klog.Warningf("failed to split %s to ip:port pair: %s", metric.Labels["listen_addr"], err)
+			return
+		}
+		isActive := metric.Values.Last() == 1
+		l := model.Listen{IP: ip, Port: port, Proxied: metric.Labels["proxy"] != ""}
+		if !instance.TcpListens[l] {
+			instance.TcpListens[l] = isActive
+		}
+	})
+
+	loadConnection := func(queryName string, f func(connection *model.Connection, metric model.MetricValues)) {
+		loadContainer(queryName, func(instance *model.Instance, container *model.Container, metric model.MetricValues) {
+			conn := getOrCreateConnection(instance, container.Name, metric, servicesByClusterIP, servicesByActualDestIP)
+			if conn != nil {
+				f(conn, metric)
+			}
+		})
+	}
+	loadConnection("container_net_tcp_successful_connects", func(connection *model.Connection, metric model.MetricValues) {
+		connection.SuccessfulConnections = merge(connection.SuccessfulConnections, metric.Values, timeseries.Any)
+	})
+	loadConnection("container_net_tcp_connection_time_seconds", func(connection *model.Connection, metric model.MetricValues) {
+		connection.ConnectionTime = merge(connection.ConnectionTime, metric.Values, timeseries.Any)
+	})
+	loadConnection("container_net_tcp_bytes_sent", func(connection *model.Connection, metric model.MetricValues) {
+		connection.BytesSent = merge(connection.BytesSent, metric.Values, timeseries.Any)
+	})
+	loadConnection("container_net_tcp_bytes_received", func(connection *model.Connection, metric model.MetricValues) {
+		connection.BytesReceived = merge(connection.BytesReceived, metric.Values, timeseries.Any)
+	})
+	loadConnection("container_net_tcp_failed_connects", func(connection *model.Connection, metric model.MetricValues) {
+		connection.FailedConnections = merge(connection.FailedConnections, metric.Values, timeseries.Any)
+	})
+	loadConnection("container_net_tcp_active_connections", func(connection *model.Connection, metric model.MetricValues) {
+		connection.Active = merge(connection.Active, metric.Values, timeseries.Any)
+	})
+	loadConnection("container_net_tcp_retransmits", func(connection *model.Connection, metric model.MetricValues) {
+		connection.Retransmissions = merge(connection.Retransmissions, metric.Values, timeseries.Any)
+	})
+
+	loadL7RequestsCount := func(queryName string, protocol model.Protocol) {
+		loadConnection(queryName, func(connection *model.Connection, metric model.MetricValues) {
+			switch protocol {
+			case model.ProtocolRabbitmq, model.ProtocolNats:
+				protocol += model.Protocol("-" + metric.Labels["method"])
+			}
+			if connection.RequestsCount[protocol] == nil {
+				connection.RequestsCount[protocol] = map[string]*timeseries.TimeSeries{}
+			}
+			status := metric.Labels["status"]
+			connection.RequestsCount[protocol][status] = merge(connection.RequestsCount[protocol][status], metric.Values, timeseries.NanSum)
+		})
+	}
+	loadL7RequestsCount("container_http_requests_count", model.ProtocolHttp)
+	loadL7RequestsCount("container_postgres_queries_count", model.ProtocolPostgres)
+	loadL7RequestsCount("container_mysql_queries_count", model.ProtocolMysql)
+	loadL7RequestsCount("container_mongo_queries_count", model.ProtocolMongodb)
+	loadL7RequestsCount("container_redis_queries_count", model.ProtocolRedis)
+	loadL7RequestsCount("container_memcached_queries_count", model.ProtocolMemcached)
+	loadL7RequestsCount("container_kafka_requests_count", model.ProtocolKafka)
+	loadL7RequestsCount("container_cassandra_queries_count", model.ProtocolCassandra)
+	loadL7RequestsCount("container_rabbitmq_messages", model.ProtocolRabbitmq)
+	loadL7RequestsCount("container_nats_messages", model.ProtocolNats)
+
+	loadL7RequestsLatency := func(queryName string, protocol model.Protocol) {
+		loadConnection(queryName, func(connection *model.Connection, metric model.MetricValues) {
+			connection.RequestsLatency[protocol] = merge(connection.RequestsLatency[protocol], metric.Values, timeseries.Any)
+		})
+	}
+	loadL7RequestsLatency("container_http_requests_latency", model.ProtocolHttp)
+	loadL7RequestsLatency("container_postgres_queries_latency", model.ProtocolPostgres)
+	loadL7RequestsLatency("container_mysql_queries_latency", model.ProtocolMysql)
+	loadL7RequestsLatency("container_mongo_queries_latency", model.ProtocolMongodb)
+	loadL7RequestsLatency("container_redis_queries_latency", model.ProtocolRedis)
+	loadL7RequestsLatency("container_memcached_queries_latency", model.ProtocolMemcached)
+	loadL7RequestsLatency("container_kafka_requests_latency", model.ProtocolKafka)
+	loadL7RequestsLatency("container_cassandra_queries_latency", model.ProtocolCassandra)
+
+	loadL7RequestsHistogram := func(queryName string, protocol model.Protocol) {
+		loadConnection(queryName, func(connection *model.Connection, metric model.MetricValues) {
+			le, err := strconv.ParseFloat(metric.Labels["le"], 32)
+			if err != nil {
+				klog.Warningln(err)
+				return
+			}
+			if connection.RequestsHistogram[protocol] == nil {
+				connection.RequestsHistogram[protocol] = map[float32]*timeseries.TimeSeries{}
+			}
+			connection.RequestsHistogram[protocol][float32(le)] = merge(connection.RequestsHistogram[protocol][float32(le)], metric.Values, timeseries.NanSum)
+		})
+	}
+	loadL7RequestsHistogram("container_http_requests_histogram", model.ProtocolHttp)
+	loadL7RequestsHistogram("container_postgres_queries_histogram", model.ProtocolPostgres)
+	loadL7RequestsHistogram("container_mysql_queries_histogram", model.ProtocolMysql)
+	loadL7RequestsHistogram("container_mongo_queries_histogram", model.ProtocolMongodb)
+	loadL7RequestsHistogram("container_redis_queries_histogram", model.ProtocolRedis)
+	loadL7RequestsHistogram("container_memcached_queries_histogram", model.ProtocolMemcached)
+	loadL7RequestsHistogram("container_kafka_requests_histogram", model.ProtocolKafka)
+	loadL7RequestsHistogram("container_cassandra_queries_histogram", model.ProtocolCassandra)
+
+	loadContainer("container_dns_requests_total", func(instance *model.Instance, container *model.Container, metric model.MetricValues) {
+		r := model.DNSRequest{
+			Type:   metric.Labels["request_type"],
+			Domain: metric.Labels["domain"],
+		}
+		if r.Type == "" || r.Domain == "" {
+			return
+		}
+		status := metric.Labels["status"]
+		byStatus := container.DNSRequests[r]
+		if byStatus == nil {
+			byStatus = map[string]*timeseries.TimeSeries{}
+			container.DNSRequests[r] = byStatus
+		}
+		byStatus[status] = merge(byStatus[status], metric.Values, timeseries.Any)
+	})
+	loadContainer("container_dns_requests_latency", func(instance *model.Instance, container *model.Container, metric model.MetricValues) {
+		le, err := strconv.ParseFloat(metric.Labels["le"], 32)
+		if err != nil {
+			klog.Warningln(err)
+			return
+		}
+		container.DNSRequestsHistogram[float32(le)] = merge(container.DNSRequestsHistogram[float32(le)], metric.Values, timeseries.Any)
+	})
+
+	loadVolume := func(queryName string, f func(volume *model.Volume, metric model.MetricValues)) {
+		loadContainer(queryName, func(instance *model.Instance, container *model.Container, metric model.MetricValues) {
+			v := getOrCreateInstanceVolume(instance, metric)
+			f(v, metric)
+		})
+	}
+	loadVolume("container_volume_size", func(volume *model.Volume, metric model.MetricValues) {
+		volume.CapacityBytes = merge(volume.CapacityBytes, metric.Values, timeseries.Any)
+	})
+	loadVolume("container_volume_used", func(volume *model.Volume, metric model.MetricValues) {
+		volume.UsedBytes = merge(volume.UsedBytes, metric.Values, timeseries.Any)
+	})
 
 	instancesByListen := map[model.Listen]*model.Instance{}
 	for _, app := range w.Applications {
@@ -289,8 +339,14 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]model.
 	for _, app := range w.Applications { // lookup remote instance by listen
 		for _, instance := range app.Instances {
 			for _, u := range instance.Upstreams {
-				l := model.Listen{IP: u.ActualRemoteIP, Port: u.ActualRemotePort, Proxied: true}
-				if ip := net.ParseIP(u.ActualRemoteIP); ip.IsLoopback() && instance.Node != nil {
+				remoteIP := u.ActualRemoteIP
+				remotePort := u.ActualRemotePort
+				if remoteIP == "" {
+					remoteIP = u.ServiceRemoteIP
+					remotePort = u.ServiceRemotePort
+				}
+				l := model.Listen{IP: remoteIP, Port: remotePort, Proxied: true}
+				if ip := net.ParseIP(remoteIP); ip.IsLoopback() && instance.Node != nil {
 					l.IP = instance.NodeName()
 				}
 				if u.RemoteInstance = instancesByListen[l]; u.RemoteInstance == nil {
@@ -300,7 +356,7 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]model.
 						u.RemoteInstance = instancesByListen[l]
 					}
 				}
-				if upstreams, ok := rttByInstance[instanceId{ns: instance.OwnerId.Namespace, name: instance.Name, node: instance.NodeId()}]; ok {
+				if upstreams, ok := rttByInstance[instanceId{ns: instance.Owner.Id.Namespace, name: instance.Name, node: instance.NodeId()}]; ok {
 					u.Rtt = merge(u.Rtt, upstreams[u.ActualRemoteIP], timeseries.Any)
 				}
 				if svc := servicesByClusterIP[u.ServiceRemoteIP]; svc != nil {
@@ -323,22 +379,23 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]model.
 				}
 				appId := model.NewApplicationId("external", model.ApplicationKindExternalService, "")
 				svc := getServiceForConnection(u, servicesByClusterIP, servicesByActualDestIP)
-				instanceName := u.ActualRemoteIP + ":" + u.ActualRemotePort
+				instanceName := u.ServiceRemoteIP + ":" + u.ServiceRemotePort
 				if svc != nil {
 					u.Service = svc
-					if id, ok := svc.GetDestinationApplicationId(); ok {
-						if a := w.GetApplication(id); a != nil {
-							a.Downstreams = append(a.Downstreams, u)
-						}
+					if a := svc.GetDestinationApplication(); a != nil {
+						a.Downstreams = append(a.Downstreams, u)
+						u.RemoteApplication = a
 						continue
 					} else {
 						appId.Name = svc.Name
 					}
 				} else {
-					if fqdns := ip2fqdn[u.ActualRemoteIP]; fqdns != nil && fqdns.Len() > 0 {
-						appId.Name = fqdns.Items()[0] + ":" + u.ActualRemotePort
+					if u.ActualRemoteIP == "" && net.ParseIP(u.ServiceRemoteIP) == nil {
+						appId.Name = u.ServiceRemoteIP
+					} else if fqdns := ip2fqdn[u.ServiceRemoteIP]; fqdns != nil && fqdns.Len() > 0 {
+						appId.Name = fqdns.Items()[0] + ":" + u.ServiceRemotePort
 					} else {
-						appId.Name = externalServiceName(u.ActualRemotePort)
+						appId.Name = externalServiceName(u.ServiceRemotePort)
 					}
 				}
 				customApp := c.project.GetCustomApplicationName(instanceName)
@@ -351,14 +408,13 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]model.
 			}
 		}
 	}
+
 	for _, app := range w.Applications {
 		for _, instance := range app.Instances {
 			for _, u := range instance.Upstreams {
 				if u.RemoteInstance != nil {
-					if a := w.GetApplication(u.RemoteInstance.OwnerId); a != nil {
-						u.RemoteApplication = a
-						a.Downstreams = append(a.Downstreams, u)
-					}
+					u.RemoteApplication = u.RemoteInstance.Owner
+					u.RemoteInstance.Owner.Downstreams = append(u.RemoteInstance.Owner.Downstreams, u)
 				} else if u.RemoteApplication != nil {
 					u.RemoteApplication.Downstreams = append(u.RemoteApplication.Downstreams, u)
 				}
@@ -374,31 +430,19 @@ func getServiceForConnection(c *model.Connection, byClusterIP map[string]*model.
 	return byActualDestIP[c.ActualRemoteIP]
 }
 
-type connectionKey struct {
-	instanceId
-	destination, actualDestination string
-}
-
-func getOrCreateConnection(instance *model.Instance, container string, m model.MetricValues, cache map[connectionKey]*model.Connection, servicesByClusterIP, servicesByActualDestIP map[string]*model.Service) *model.Connection {
-	if instance.OwnerId.Name == "docker" { // ignore docker-proxy's connections
+func getOrCreateConnection(instance *model.Instance, container string, m model.MetricValues, servicesByClusterIP, servicesByActualDestIP map[string]*model.Service) *model.Connection {
+	if instance.Owner.Id.Name == "docker" { // ignore docker-proxy's connections
 		return nil
 	}
 
 	dest := m.Labels["destination"]
 	actualDest := m.Labels["actual_destination"]
-	if actualDest == "" {
-		actualDest = dest
+
+	connKey := model.ConnectionKey{
+		Destination:       dest,
+		ActualDestination: actualDest,
 	}
-	connKey := connectionKey{
-		instanceId: instanceId{
-			ns:   instance.OwnerId.Namespace,
-			name: instance.Name,
-			node: instance.NodeId(),
-		},
-		destination:       dest,
-		actualDestination: actualDest,
-	}
-	connection := cache[connKey]
+	connection := instance.Upstreams[connKey]
 	if connection == nil {
 		var actualIP, actualPort, serviceIP, servicePort string
 		var err error
@@ -414,11 +458,21 @@ func getOrCreateConnection(instance *model.Instance, container string, m model.M
 				return nil
 			}
 		}
-		connection = instance.AddUpstreamConnection(actualIP, actualPort, serviceIP, servicePort, container)
-		cache[connKey] = connection
+		connection = &model.Connection{
+			Instance:          instance,
+			ActualRemoteIP:    actualIP,
+			ActualRemotePort:  actualPort,
+			ServiceRemoteIP:   serviceIP,
+			ServiceRemotePort: servicePort,
+			Container:         container,
+
+			RequestsCount:     map[model.Protocol]map[string]*timeseries.TimeSeries{},
+			RequestsLatency:   map[model.Protocol]*timeseries.TimeSeries{},
+			RequestsHistogram: map[model.Protocol]map[float32]*timeseries.TimeSeries{},
+		}
+		instance.Upstreams[connKey] = connection
 		updateServiceEndpoints(connection, servicesByClusterIP, servicesByActualDestIP)
 	}
-
 	return connection
 }
 
@@ -439,36 +493,11 @@ func getOrCreateInstanceVolume(instance *model.Instance, m model.MetricValues) *
 	return volume
 }
 
-func logMessage(instance *model.Instance, ls model.Labels, values *timeseries.TimeSeries) {
-	level := model.LogLevel(ls["level"])
-	msgs := instance.LogMessages[level]
-	if msgs == nil {
-		msgs = &model.LogMessages{}
-		instance.LogMessages[level] = msgs
-	}
-	msgs.Messages = merge(msgs.Messages, values, timeseries.NanSum)
-
-	if hash := ls["pattern_hash"]; hash != "" {
-		if msgs.Patterns == nil {
-			msgs.Patterns = map[string]*model.LogPattern{}
-		}
-		p := msgs.Patterns[hash]
-		if p == nil {
-			sample := ls["sample"]
-			p = &model.LogPattern{
-				Level:     level,
-				Sample:    sample,
-				Multiline: strings.Contains(sample, "\n"),
-				Pattern:   logparser.NewPattern(sample),
-			}
-			msgs.Patterns[hash] = p
-		}
-		p.Messages = merge(p.Messages, values, timeseries.NanSum)
-	}
-}
-
 func updateServiceEndpoints(c *model.Connection, servicesByClusterIP, servicesByActualDestIP map[string]*model.Service) {
-	if c.ActualRemoteIP == "" && c.ServiceRemoteIP == "" {
+	if c.ActualRemoteIP == "" {
+		return
+	}
+	if c.ServiceRemoteIP == "" {
 		return
 	}
 	if s := servicesByClusterIP[c.ServiceRemoteIP]; s != nil {
@@ -501,7 +530,7 @@ func externalServiceName(port string) string {
 	case "80", "443", "8080":
 		service = "http"
 	default:
-		service = ":" + port
+		return "external:" + port
 	}
 	return "external-" + service
 }

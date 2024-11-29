@@ -17,7 +17,7 @@ func getNodeConsumers(node *model.Node) *nodeConsumers {
 	}
 	for _, i := range node.Instances {
 		for _, c := range i.Containers {
-			app := i.OwnerId.Name
+			app := i.Owner.Id.Name
 			if nc.cpu[app] == nil {
 				nc.cpu[app] = timeseries.NewAggregate(timeseries.NanSum)
 			}

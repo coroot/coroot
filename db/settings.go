@@ -6,10 +6,6 @@ import (
 	"errors"
 )
 
-const (
-	SettingAuthSecret = "auth_secret"
-)
-
 type Setting struct {
 	Name  string
 	Value string
@@ -32,7 +28,7 @@ func (db *DB) GetSetting(name string, value any) error {
 	err := db.db.QueryRow("SELECT value FROM settings WHERE name = $1", name).Scan(&v)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil
+			return ErrNotFound
 		}
 		return err
 	}
@@ -44,7 +40,11 @@ func (db *DB) GetSetting(name string, value any) error {
 }
 
 func (db *DB) SetSetting(name string, value any) error {
-	res, err := db.db.Exec("UPDATE settings SET value = $1 WHERE name = $2", value, name)
+	v, err := json.Marshal(value)
+	if err != nil {
+		return err
+	}
+	res, err := db.db.Exec("UPDATE settings SET value = $1 WHERE name = $2", v, name)
 	if err != nil {
 		return err
 	}
@@ -54,10 +54,6 @@ func (db *DB) SetSetting(name string, value any) error {
 	}
 	if n > 0 {
 		return nil
-	}
-	v, err := json.Marshal(value)
-	if err != nil {
-		return err
 	}
 	_, err = db.db.Exec("INSERT INTO settings(name, value) VALUES ($1, $2)", name, v)
 	return err

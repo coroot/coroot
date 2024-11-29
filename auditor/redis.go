@@ -7,7 +7,10 @@ import (
 
 func (a *appAuditor) redis() {
 	appTypes := a.app.ApplicationTypes()
-	isRedis := appTypes[model.ApplicationTypeRedis] || appTypes[model.ApplicationTypeKeyDB]
+	isRedis := appTypes[model.ApplicationTypeRedis] ||
+		appTypes[model.ApplicationTypeKeyDB] ||
+		appTypes[model.ApplicationTypeValkey] ||
+		appTypes[model.ApplicationTypeDragonfly]
 
 	if !isRedis && !a.app.IsRedis() {
 		return
