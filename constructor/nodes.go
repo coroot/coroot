@@ -28,6 +28,7 @@ func initNodesList(w *model.World, metrics map[string][]model.MetricValues, node
 			nodesBySystemUUID[node.Id.SystemUUID] = node
 		}
 		node.Name.Update(m.Values, name)
+		node.KernelVersion.Update(m.Values, m.Labels["kernel_version"])
 	}
 	for _, m := range metrics["kube_node_info"] {
 		name := m.Labels["node"]
@@ -44,6 +45,9 @@ func initNodesList(w *model.World, metrics map[string][]model.MetricValues, node
 			nodesBySystemUUID[node.Id.SystemUUID] = node
 		}
 		node.K8sName.Update(m.Values, name)
+		if node.KernelVersion.Value() == "" {
+			node.KernelVersion.Update(m.Values, m.Labels["kernel_version"])
+		}
 	}
 }
 
