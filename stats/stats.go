@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"runtime/pprof"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -21,16 +22,14 @@ import (
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 	"github.com/grafana/pyroscope-go/godeltaprof"
-	"github.com/prometheus/procfs"
 	"k8s.io/klog"
 )
 
 const (
-	collectUrl       = "https://coroot.com/ce/usage-statistics"
-	collectInterval  = time.Hour
-	sendTimeout      = time.Minute
-	worldWindow      = timeseries.Hour
-	procStatInterval = time.Minute
+	collectUrl      = "https://coroot.com/ce/usage-statistics"
+	collectInterval = time.Hour
+	sendTimeout     = time.Minute
+	worldWindow     = timeseries.Hour
 )
 
 type Stats struct {
@@ -80,9 +79,8 @@ type Stats struct {
 		SentNotifications map[db.IntegrationType]int `json:"sent_notifications"`
 	} `json:"ux"`
 	Performance struct {
-		Constructor constructor.Profile `json:"constructor"`
-		CPUUsage    []float32           `json:"cpu_usage"`
-		MemoryUsage []float32           `json:"memory_usage"`
+		Constructor    constructor.Profile                      `json:"constructor"`
+		ResourcesUsage map[model.ApplicationId][]ResourcesUsage `json:"resources_usage"`
 	} `json:"performance"`
 	Profile struct {
 		From   int64  `json:"from"`
@@ -90,6 +88,11 @@ type Stats struct {
 		CPU    string `json:"cpu"`
 		Memory string `json:"memory"`
 	} `json:"profile"`
+}
+
+type ResourcesUsage struct {
+	Cpu    float32 `json:"cpu"`
+	Memory float32 `json:"memory"`
 }
 
 type InspectionOverride struct {
@@ -112,9 +115,6 @@ type Collector struct {
 	lock              sync.Mutex
 
 	heapProfiler *godeltaprof.HeapProfiler
-
-	cpuUsage []float32
-	memUsage []float32
 
 	globalClickHouse *db.IntegrationClickhouse
 }
@@ -150,8 +150,6 @@ func NewCollector(instanceUuid, version string, db *db.DB, cache *cache.Cache, p
 			c.send()
 		}
 	}()
-
-	c.startProcessStatsCollector()
 
 	return c
 }
@@ -251,11 +249,6 @@ func (c *Collector) collect() Stats {
 	}
 	c.usersByTheme = map[string]*utils.StringSet{}
 
-	stats.Performance.CPUUsage = c.cpuUsage
-	stats.Performance.MemoryUsage = c.memUsage
-	c.cpuUsage = nil
-	c.memUsage = nil
-
 	c.lock.Unlock()
 
 	users, err := c.db.GetUsers()
@@ -286,6 +279,7 @@ func (c *Collector) collect() Stats {
 	stats.Stack.InstrumentedServices = utils.NewStringSet()
 	stats.Performance.Constructor.Stages = map[string]float32{}
 	stats.Performance.Constructor.Queries = map[string]constructor.QueryStats{}
+	stats.Performance.ResourcesUsage = map[model.ApplicationId][]ResourcesUsage{}
 	stats.Infra.DeploymentSummaries = map[string]int{}
 	var loadTime, auditTime []time.Duration
 	now := timeseries.Now()
@@ -381,7 +375,25 @@ func (c *Collector) collect() Stats {
 			}
 		}
 
+		corootComponents := map[model.ApplicationId]*model.Application{}
 		for _, a := range w.Applications {
+			switch {
+			case strings.HasSuffix(a.Id.Name, "node-agent"):
+			case strings.HasSuffix(a.Id.Name, "cluster-agent"):
+			case strings.HasSuffix(a.Id.Name, "operator") && strings.Contains(a.Id.Name, "coroot"):
+			case strings.HasSuffix(a.Id.Name, "coroot"):
+				for _, i := range a.Instances {
+					for _, u := range i.Upstreams { // prometheus and clickhouse
+						if u.RemoteInstance != nil {
+							corootComponents[u.RemoteInstance.Owner.Id] = u.RemoteInstance.Owner
+						}
+					}
+				}
+			default:
+				continue
+			}
+			corootComponents[a.Id] = a
+
 			if a.IsStandalone() || a.Category.Auxiliary() {
 				continue
 			}
@@ -407,6 +419,11 @@ func (c *Collector) collect() Stats {
 				}
 			}
 		}
+		for _, a := range corootComponents {
+			if usage := lastUsage(a); len(usage) > 0 {
+				stats.Performance.ResourcesUsage[a.Id] = append(stats.Performance.ResourcesUsage[a.Id], usage...)
+			}
+		}
 	}
 	stats.Integration.ApplicationCategories = applicationCategories.Len()
 
@@ -418,40 +435,6 @@ func (c *Collector) collect() Stats {
 	return stats
 }
 
-func (c *Collector) startProcessStatsCollector() {
-	fs, err := procfs.NewDefaultFS()
-	if err != nil {
-		klog.Errorln(err)
-		return
-	}
-	p, err := fs.Self()
-	if err != nil {
-		klog.Errorln(err)
-		return
-	}
-
-	go func() {
-		ticker := time.NewTicker(procStatInterval)
-		prevCpu := 0.0
-		for range ticker.C {
-			ps, err := p.Stat()
-			if err != nil {
-				klog.Errorln(err)
-				continue
-			}
-			currCpu := ps.CPUTime()
-			if prevCpu > 0 {
-				delta := currCpu - prevCpu
-				if delta >= 0 {
-					c.cpuUsage = append(c.cpuUsage, float32(delta/procStatInterval.Seconds()))
-				}
-			}
-			prevCpu = currCpu
-			c.memUsage = append(c.memUsage, float32(ps.ResidentMemory()))
-		}
-	}()
-}
-
 func avgDuration(durations []time.Duration) float32 {
 	if len(durations) == 0 {
 		return 0
@@ -461,4 +444,29 @@ func avgDuration(durations []time.Duration) float32 {
 		total += d
 	}
 	return float32(total.Seconds() / float64(len(durations)))
+}
+
+func lastUsage(app *model.Application) []ResourcesUsage {
+	var res []ResourcesUsage
+	for _, i := range app.Instances {
+		if len(i.Containers) == 0 {
+			continue
+		}
+		var cpuSum, memSum float32
+		for _, c := range i.Containers {
+			if v := c.CpuUsage.Last(); !timeseries.IsNaN(v) {
+				cpuSum += v
+			}
+			if v := c.MemoryRss.Last(); !timeseries.IsNaN(v) {
+				memSum += v
+			}
+		}
+		if cpuSum > 0 {
+			res = append(res, ResourcesUsage{Cpu: cpuSum, Memory: memSum / 1024 / 1024})
+		}
+	}
+	sort.Slice(res, func(i, j int) bool {
+		return res[i].Cpu > res[j].Cpu
+	})
+	return res
 }
