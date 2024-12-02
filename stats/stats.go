@@ -60,13 +60,14 @@ type Stats struct {
 		InstrumentedServices *utils.StringSet `json:"instrumented_services"`
 	} `json:"stack"`
 	Infra struct {
-		Projects            int            `json:"projects"`
-		Nodes               int            `json:"nodes"`
-		CPUCores            int            `json:"cpu_cores"`
-		Applications        int            `json:"applications"`
-		Instances           int            `json:"instances"`
-		Deployments         int            `json:"deployments"`
-		DeploymentSummaries map[string]int `json:"deployment_summaries"`
+		Projects            int              `json:"projects"`
+		Nodes               int              `json:"nodes"`
+		CPUCores            int              `json:"cpu_cores"`
+		Applications        int              `json:"applications"`
+		Instances           int              `json:"instances"`
+		Deployments         int              `json:"deployments"`
+		DeploymentSummaries map[string]int   `json:"deployment_summaries"`
+		KernelVersions      *utils.StringSet `json:"kernel_versions"`
 	} `json:"infra"`
 	UX struct {
 		WorldLoadTimeAvg  float32                    `json:"world_load_time_avg"`
@@ -277,6 +278,7 @@ func (c *Collector) collect() Stats {
 
 	applicationCategories := utils.NewStringSet()
 	stats.Integration.NodeAgentVersions = utils.NewStringSet()
+	stats.Infra.KernelVersions = utils.NewStringSet()
 	stats.Integration.InspectionOverrides = map[model.CheckId]InspectionOverride{}
 	stats.Integration.AlertingIntegrations = utils.NewStringSet()
 	stats.Stack.Clouds = utils.NewStringSet()
@@ -372,6 +374,7 @@ func (c *Collector) collect() Stats {
 				stats.Infra.CPUCores += int(cores)
 			}
 			stats.Integration.NodeAgentVersions.Add(n.AgentVersion.Value())
+			stats.Infra.KernelVersions.Add(n.KernelVersion.Value())
 			stats.Stack.Clouds.Add(strings.ToLower(n.CloudProvider.Value()))
 			if n.Price != nil {
 				stats.Integration.CloudCosts = true
