@@ -166,7 +166,7 @@
 
         <div v-else>
             <div class="text-right">
-                <router-link :to="{ name: 'application', params: { id: application.id } }">
+                <router-link :to="{ name: 'overview', params: { view: 'applications', id: application.id } }">
                     {{ $utils.appId(application.id).name }}
                     <v-icon small>mdi-open-in-new</v-icon>
                 </router-link>

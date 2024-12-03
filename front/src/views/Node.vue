@@ -1,7 +1,7 @@
 <template>
     <div>
-        <h1 class="text-h5 my-5">
-            <router-link :to="{ name: 'overview', params: { view: 'nodes' }, query: $utils.contextQuery() }">Nodes</router-link> / {{ name }}
+        <h1 class="text-h5 ml-4">
+            {{ name }}
             <v-progress-linear v-if="loading" indeterminate color="green" />
         </h1>
 
