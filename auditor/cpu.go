@@ -110,7 +110,8 @@ func (a *appAuditor) cpu(ncs nodeConsumersByNode) {
 
 	if a.clickHouseEnabled && usageChart != nil {
 		for _, ch := range usageChart.Charts {
-			ch.DrillDownLink = model.NewRouterLink("profile", "application").
+			ch.DrillDownLink = model.NewRouterLink("profile", "overview").
+				SetParam("view", "applications").
 				SetParam("id", a.app.Id).
 				SetParam("report", model.AuditReportProfiling).
 				SetArg("query", model.ProfileCategoryCPU)

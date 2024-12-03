@@ -15,7 +15,7 @@
             <template v-if="rca.latency_chart || rca.errors_chart">
                 <div class="text-h6">
                     Service Level Indicators of
-                    <router-link :to="{ name: 'application', params: { id: appId }, query: $utils.contextQuery() }" class="name">
+                    <router-link :to="{ name: 'overview', params: { view: 'applications', id: appId }, query: $utils.contextQuery() }" class="name">
                         {{ $utils.appId(appId).name }}
                     </router-link>
                 </div>
@@ -78,7 +78,9 @@
                             <td>
                                 <div class="d-flex flex-wrap">
                                     <template v-for="(s, i) in c.affected_services">
-                                        <router-link :to="{ name: 'application', params: { id: s }, query: $utils.contextQuery() }">
+                                        <router-link
+                                            :to="{ name: 'overview', params: { view: 'applications', id: s }, query: $utils.contextQuery() }"
+                                        >
                                             {{ $utils.appId(s).name }}
                                         </router-link>
                                         <span v-if="i + 1 < c.affected_services.length" class="mr-1">,</span>

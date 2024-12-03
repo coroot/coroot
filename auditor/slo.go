@@ -190,7 +190,8 @@ func sloRequestsChart(app *model.Application, report *model.AuditReport, clickHo
 		}
 	}
 	if clickHouseEnabled {
-		hm.DrillDownLink = model.NewRouterLink("tracing", "application").
+		hm.DrillDownLink = model.NewRouterLink("tracing", "overview").
+			SetParam("view", "applications").
 			SetParam("id", app.Id).
 			SetParam("report", model.AuditReportTracing)
 	}
@@ -233,7 +234,9 @@ func clientRequests(app *model.Application, report *model.AuditReport) {
 		if clientsByName[id.Name] > 1 {
 			client.Value += " (ns: " + id.Namespace + ")"
 		}
-		client.Link = model.NewRouterLink(id.Name, "application").SetParam("id", id)
+		client.Link = model.NewRouterLink(id.Name, "overview").
+			SetParam("view", "applications").
+			SetParam("id", id)
 		client.SetUnit(strings.Join(s.protocols.Items(), ", "))
 
 		chart := model.NewTableCell().SetChart(s.rps)
