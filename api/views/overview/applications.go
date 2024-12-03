@@ -45,7 +45,7 @@ type ApplicationParam struct {
 	Chart  *timeseries.TimeSeries `json:"chart"`
 }
 
-func renderHealth(w *model.World) []*ApplicationStatus {
+func renderApplications(w *model.World) []*ApplicationStatus {
 	var res []*ApplicationStatus
 	for _, app := range w.Applications {
 		switch {

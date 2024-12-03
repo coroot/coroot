@@ -6,7 +6,7 @@
             {{ error }}
         </v-alert>
 
-        <ApplicationFilter :applications="applications" :configureTo="categoriesTo" @filter="setFilter" class="my-4" />
+        <ApplicationFilter :applications="applications" @filter="setFilter" class="my-4" />
 
         <v-data-table
             dense
@@ -32,7 +32,7 @@
             <template #item.application="{ item }">
                 <div class="application">
                     <div class="name">
-                        <router-link :to="{ name: 'overview', params: { view: 'anomalies', app: item.id }, query: $utils.contextQuery() }">
+                        <router-link :to="{ name: 'overview', params: { view: 'anomalies', id: item.id }, query: $utils.contextQuery() }">
                             {{ $utils.appId(item.id).name }}
                         </router-link>
                     </div>
@@ -59,7 +59,7 @@
 
             <template #item.errors="{ item }">
                 <div v-if="item.errors">
-                    <router-link :to="{ name: 'overview', params: { view: 'anomalies', app: item.id }, query: $utils.contextQuery() }" class="chart">
+                    <router-link :to="{ name: 'overview', params: { view: 'anomalies', id: item.id }, query: $utils.contextQuery() }" class="chart">
                         <div v-if="item.errors.msg" class="value">{{ item.errors.msg }}</div>
                         <v-sparkline
                             v-if="item.errors.chart"
@@ -77,7 +77,7 @@
 
             <template #item.latency="{ item }">
                 <div v-if="item.latency">
-                    <router-link :to="{ name: 'overview', params: { view: 'anomalies', app: item.id }, query: $utils.contextQuery() }" class="chart">
+                    <router-link :to="{ name: 'overview', params: { view: 'anomalies', id: item.id }, query: $utils.contextQuery() }" class="chart">
                         <div v-if="item.latency.msg" class="value">{{ item.latency.msg }}</div>
                         <v-sparkline
                             v-if="item.latency.chart"
@@ -100,10 +100,6 @@
 import ApplicationFilter from '../components/ApplicationFilter.vue';
 
 export default {
-    props: {
-        categoriesTo: Object,
-    },
-
     components: { ApplicationFilter },
 
     data() {
@@ -126,6 +122,7 @@ export default {
         this.get();
         this.$events.watch(this, this.get, 'refresh');
     },
+
     computed: {
         applications() {
             if (!this.anomalyApplications) {
@@ -144,6 +141,7 @@ export default {
             return this.anomalyApplications.filter((i) => this.filter.has(i.id));
         },
     },
+
     methods: {
         calcWidth() {
             this.sparklineWidth = (this.$refs.table.$el.clientWidth * this.sparklineWidthPercent) / 100;
@@ -157,7 +155,7 @@ export default {
                     this.error = error;
                     return;
                 }
-                this.anomalyApplications = data;
+                this.anomalyApplications = data || [];
             });
         },
         setFilter(filter) {

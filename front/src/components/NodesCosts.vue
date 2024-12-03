@@ -29,7 +29,7 @@
             :footer-props="{ itemsPerPageOptions: [10, 20, 50, 100, -1] }"
         >
             <template #item.name="{ item }">
-                <router-link :to="{ name: 'node', params: { name: item.name } }" class="name">{{ item.name }}</router-link>
+                <router-link :to="{ name: 'overview', params: { view: 'nodes', id: item.name } }" class="name">{{ item.name }}</router-link>
                 <div v-if="$vuetify.breakpoint.mdAndUp" class="caption grey--text name">{{ item.description }}</div>
             </template>
             <template #item.fake="{}">

@@ -1,6 +1,12 @@
 <template>
     <div>
-        <ApplicationFilter :applications="applications" :configureTo="categoriesTo" @filter="setFilter" class="my-4" />
+        <v-progress-linear indeterminate v-if="loading" color="green" />
+
+        <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
+            {{ error }}
+        </v-alert>
+
+        <ApplicationFilter :applications="applications" @filter="setFilter" class="my-4" />
 
         <div class="legend mb-3">
             <div v-for="s in statuses" class="item">
@@ -46,13 +52,7 @@
             <template #item.incident="{ item }">
                 <div class="incident" :class="{ 'grey--text': item.resolved_at }">
                     <div class="status" :class="item.color" />
-                    <router-link
-                        :to="{
-                            name: 'overview',
-                            params: { view: 'incidents' },
-                            query: { incident: item.key },
-                        }"
-                    >
+                    <router-link :to="{ name: 'overview', params: { view: 'incidents' }, query: { ...$utils.contextQuery(), incident: item.key } }">
                         <span class="key" style="font-family: monospace">i-{{ item.key }}</span>
                     </router-link>
                 </div>
@@ -144,25 +144,27 @@ const statuses = {
 };
 
 export default {
-    props: {
-        incidents: Array,
-        categoriesTo: Object,
-    },
-
     components: { CheckForm, ApplicationFilter },
 
     data() {
         return {
+            incidents: [],
             filter: new Set(),
             showResolved: false,
             editing: {
                 active: false,
             },
+            loading: false,
+            error: '',
         };
     },
+
     mounted() {
+        this.get();
+        this.$events.watch(this, this.get, 'refresh');
         this.showResolved = this.$route.query.show_resolved === '1';
     },
+
     watch: {
         items() {
             if (this.items.some((i) => i.resolved_at) && !this.showResolved) {
@@ -214,6 +216,18 @@ export default {
         },
     },
     methods: {
+        get() {
+            this.loading = true;
+            this.error = '';
+            this.$api.getOverview('incidents', '', (data, error) => {
+                this.loading = false;
+                if (error) {
+                    this.error = error;
+                    return;
+                }
+                this.incidents = data.incidents || [];
+            });
+        },
         changeShowResolved() {
             this.showResolved = !this.showResolved;
             this.$router.push({ query: { ...this.$route.query, show_resolved: this.showResolved ? '1' : '0' } }).catch((err) => err);
