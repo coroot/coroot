@@ -379,9 +379,13 @@ func (c *Collector) collect() Stats {
 		for _, a := range w.Applications {
 			switch {
 			case strings.HasSuffix(a.Id.Name, "node-agent"):
+				corootComponents[a.Id] = a
 			case strings.HasSuffix(a.Id.Name, "cluster-agent"):
+				corootComponents[a.Id] = a
 			case strings.HasSuffix(a.Id.Name, "operator") && strings.Contains(a.Id.Name, "coroot"):
+				corootComponents[a.Id] = a
 			case strings.HasSuffix(a.Id.Name, "coroot"):
+				corootComponents[a.Id] = a
 				for _, i := range a.Instances {
 					for _, u := range i.Upstreams { // prometheus and clickhouse
 						if u.RemoteInstance != nil {
@@ -389,10 +393,7 @@ func (c *Collector) collect() Stats {
 						}
 					}
 				}
-			default:
-				continue
 			}
-			corootComponents[a.Id] = a
 
 			if a.IsStandalone() || a.Category.Auxiliary() {
 				continue
