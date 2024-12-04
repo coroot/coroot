@@ -3,7 +3,6 @@ package model
 import (
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
@@ -109,10 +108,12 @@ func (app *Application) Labels() Labels {
 		}
 		if eps.Len() > 0 {
 			name := "external endpoint"
+			value := eps.Items()[0]
 			if eps.Len() > 1 {
 				name += "s"
+				value += ",..."
 			}
-			res[name] = strings.Join(eps.Items(), ", ")
+			res[name] = value
 		}
 	default:
 		res["ns"] = app.Id.Namespace
