@@ -66,6 +66,12 @@ export default {
         };
     },
 
+    watch: {
+        instance(v) {
+            this.instanceInternal = v;
+        },
+    },
+
     computed: {
         unit() {
             return this.profile.type.split(':')[2] || '';

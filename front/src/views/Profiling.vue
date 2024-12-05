@@ -140,7 +140,7 @@ export default {
             this.get();
         },
         changeInstance(i) {
-            this.setQuery({ instance: i });
+            this.setQuery({ instance: i || undefined });
             this.get();
         },
         setSelection(s) {
