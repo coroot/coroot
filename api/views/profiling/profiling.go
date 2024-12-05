@@ -149,7 +149,22 @@ func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, 
 	v.Instances = maps.Keys(containers)
 	sort.Strings(v.Instances)
 	v.Profile = &model.Profile{Type: q.Type, Diff: q.Mode == "diff"}
-	v.Profile.FlameGraph, err = ch.GetProfile(ctx, q.From, q.To, maps.Keys(services), containers[q.Instance], q.Type, v.Profile.Diff)
+	pq := clickhouse.ProfileQuery{
+		Type:     q.Type,
+		From:     q.From,
+		To:       q.To,
+		Diff:     v.Profile.Diff,
+		Services: maps.Keys(services),
+	}
+	if q.Instance != "" {
+		if model.Profiles[q.Type].Ebpf {
+			pq.Containers = containers[q.Instance]
+		} else {
+			pq.Namespace = app.Id.Namespace
+			pq.Pod = q.Instance
+		}
+	}
+	v.Profile.FlameGraph, err = ch.GetProfile(ctx, pq)
 	if err != nil {
 		klog.Errorln(err)
 		v.Status = model.WARNING
