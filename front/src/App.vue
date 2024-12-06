@@ -101,7 +101,7 @@
                         <template v-if="user && !user.anonymous">
                             <v-divider class="my-2" />
                             <v-list-item @click="changePassword = true">Change password</v-list-item>
-                            <v-list-item :to="{ name: 'logout' }">Sing out</v-list-item>
+                            <v-list-item :to="{ name: 'logout' }">Sign out</v-list-item>
                         </template>
                     </v-list>
                 </v-menu>
