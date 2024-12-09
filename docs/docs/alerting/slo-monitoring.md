@@ -38,5 +38,5 @@ When an application significantly violates its SLOs, Coroot triggers an incident
 * [Microsoft Teams](/alerting/teams)
 * [Pagerduty](/alerting/pagerduty)
 * [OpsGenie](/alerting/opsgenie)
-* [Webhook](/aletring/webhook)
+* [Webhook](/alerting/webhook)
 
