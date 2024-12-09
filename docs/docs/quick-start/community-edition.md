@@ -20,10 +20,17 @@ helm repo add coroot https://coroot.github.io/helm-charts
 helm repo update coroot
 ```
 
-Install the chart into the coroot namespace:
+Next, install the Coroot Operator:
 
 ```bash
-helm install --namespace coroot --create-namespace coroot coroot/coroot
+helm install -n coroot --create-namespace coroot-operator coroot/coroot-operator
+```
+
+Install the Coroot Community Edition. This chart creates a minimal [Coroot Custom Resource](/installation/k8s-operator):
+
+```bash
+helm install -n coroot coroot coroot/coroot-ce \
+  --set "clickhouse.shards=2,clickhouse.replicas=2"
 ```
 
 Forward the Coroot port to your machine:
@@ -77,7 +84,7 @@ Access Coroot through any node in your Docker Swarm cluster using its published 
   <TabItem value="ubuntu" label="Ubuntu & Debian">
 
 Coroot requires a Prometheus server with the Remote Write Receiver enabled, along with a ClickHouse server. 
-For detailed steps on installing all the necessary components on an Ubuntu/Debian node, refer to the full instructions.
+For detailed steps on installing all the necessary components on an Ubuntu/Debian node, refer to the [full instructions](/installation/ubuntu).
 
 To install Coroot, run the following command:
 
@@ -104,7 +111,7 @@ Access Coroot at: http://COROOT_NODE_IP:8080.
 <TabItem value="rhel" label="RHEL & CentOS">
 
 Coroot requires a Prometheus server with the Remote Write Receiver enabled, along with a ClickHouse server. 
-For detailed steps on installing all the necessary components on an Ubuntu/Debian node, refer to the full instructions.
+For detailed steps on installing all the necessary components on an Ubuntu/Debian node, refer to the [full instructions](/installation/rhel).
 
 To install Coroot, run the following command:
 

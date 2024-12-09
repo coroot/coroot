@@ -23,12 +23,14 @@ Next, install the Coroot Operator:
 helm install -n coroot --create-namespace coroot-operator coroot/coroot-operator
 ```
 
-Install the Coroot Community Edition:
+Install the Coroot Community Edition. This chart creates a minimal [Coroot Custom Resource](/installation/k8s-operator):
 
 ```bash
 helm install -n coroot coroot coroot/coroot-ce \
   --set "clickhouse.shards=2,clickhouse.replicas=2"
 ```
+
+The helm chart 
 
 Forward the Coroot port to your machine:
 
@@ -72,7 +74,7 @@ Next, install the Coroot Operator:
 helm install -n coroot --create-namespace coroot-operator coroot/coroot-operator
 ```
 
-Install the Coroot Enterprise Edition:
+Install the Coroot Enterprise Edition.This chart creates a minimal [Coroot Custom Resource](/installation/k8s-operator):
 
 ```
 helm install -n coroot coroot coroot/coroot-ee \
