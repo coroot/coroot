@@ -32,7 +32,7 @@ Next, install the Coroot Operator:
 helm install -n coroot --create-namespace coroot-operator coroot/coroot-operator
 ```
 
-Install the Coroot Enterprise Edition:
+Install the Coroot Enterprise Edition. This chart creates a minimal [Coroot Custom Resource](/installation/k8s-operator):
 
 ```bash
 helm install -n coroot coroot coroot/coroot-ee \
@@ -92,7 +92,7 @@ Access Coroot through any node in your Docker Swarm cluster using its published 
   <TabItem value="ubuntu" label="Ubuntu & Debian">
 
 Coroot requires a Prometheus server with the Remote Write Receiver enabled, along with a ClickHouse server. 
-For detailed steps on installing all the necessary components on an Ubuntu/Debian node, refer to the full instructions.
+For detailed steps on installing all the necessary components on an Ubuntu/Debian node, refer to the [full instructions](/installation/ubuntu?edition=ee).
 
 To install Coroot, run the following command:
 
@@ -118,7 +118,7 @@ Access Coroot at: http://COROOT_NODE_IP:8080.
 <TabItem value="rhel" label="RHEL & CentOS">
 
 Coroot requires a Prometheus server with the Remote Write Receiver enabled, along with a ClickHouse server. 
-For detailed steps on installing all the necessary components on an Ubuntu/Debian node, refer to the full instructions.
+For detailed steps on installing all the necessary components on an Ubuntu/Debian node, refer to the [full instructions](/installation/rhel?edition=ee).
 
 To install Coroot, run the following command:
 
