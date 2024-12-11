@@ -30,6 +30,8 @@ var (
 type DB struct {
 	typ Type
 	db  *sql.DB
+
+	primaryLockConn *sql.Conn
 }
 
 func Open(dataDir string, pgConnString string) (*DB, error) {
@@ -39,14 +41,17 @@ func Open(dataDir string, pgConnString string) (*DB, error) {
 	if pgConnString != "" {
 		typ = TypePostgres
 		db, err = postgres(pgConnString)
+		if err != nil {
+			return nil, err
+		}
 	} else {
 		typ = TypeSqlite
 		db, err = sqlite(path.Join(dataDir, "db.sqlite"))
+		if err != nil {
+			return nil, err
+		}
+		db.SetMaxOpenConns(1)
 	}
-	if err != nil {
-		return nil, err
-	}
-	db.SetMaxOpenConns(1)
 	return &DB{typ: typ, db: db}, nil
 }
 
