@@ -125,6 +125,7 @@ func main() {
 	if err != nil {
 		klog.Exitln(err)
 	}
+	klog.Infoln("database type:", database.Type())
 	if err = database.Migrate(); err != nil {
 		klog.Exitln(err)
 	}
