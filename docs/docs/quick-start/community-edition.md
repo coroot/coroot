@@ -36,7 +36,7 @@ helm install -n coroot coroot coroot/coroot-ce \
 Forward the Coroot port to your machine:
 
 ```bash
-kubectl port-forward -n coroot service/coroot 8080:8080
+kubectl port-forward -n coroot service/coroot-coroot 8080:8080
 ```
 
 Then, you can access Coroot at http://localhost:8080

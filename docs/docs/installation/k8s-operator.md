@@ -110,4 +110,9 @@ spec:
 #    user: # Username for accessing the external ClickHouse.
 #    password: # Password for accessing the external ClickHouse.
 #    database: # Name of the database to be used.
+
+#  replicas: 1 # Number of Coroot StatefulSet pods.
+
+#  postgres: # Store configuration in a Postgres db instead of SQLite (required if replicas > 1).
+#    connectionString: "postgres://coroot:password@127.0.0.1:5432/coroot?sslmode=disable"
 ```
