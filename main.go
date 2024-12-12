@@ -58,7 +58,7 @@ func main() {
 	globalClickhouseUser := kingpin.Flag("global-clickhouse-user", "").Envar("GLOBAL_CLICKHOUSE_USER").Default("default").String()
 	globalClickhousePassword := kingpin.Flag("global-clickhouse-password", "").Envar("GLOBAL_CLICKHOUSE_PASSWORD").String()
 	globalClickhouseInitialDatabase := kingpin.Flag("global-clickhouse-initial-database", "").Envar("GLOBAL_CLICKHOUSE_INITIAL_DATABASE").Default("default").String()
-	globalClickhouseTlsEnabled := kingpin.Flag("global-clickhouse-tls-enabled", "").Envar("GLOBAL_CLICKHOUSE_TLS_ENABLES").Default("false").Bool()
+	globalClickhouseTlsEnabled := kingpin.Flag("global-clickhouse-tls-enabled", "").Envar("GLOBAL_CLICKHOUSE_TLS_ENABLED").Default("false").Bool()
 	globalClickhouseTlsSkipVerify := kingpin.Flag("global-clickhouse-tls-skip-verify", "").Envar("GLOBAL_CLICKHOUSE_TLS_SKIP_VERIFY").Default("false").Bool()
 
 	globalPrometheusUrl := kingpin.Flag("global-prometheus-url", "").Envar("GLOBAL_PROMETHEUS_URL").String()
