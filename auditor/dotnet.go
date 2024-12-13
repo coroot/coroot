@@ -17,15 +17,15 @@ func (a *appAuditor) dotnet() {
 	table := report.GetOrCreateTable("Instance", "Status", "Runtime version")
 	heapChart := report.GetOrCreateChartGroup(
 		"Heap size <selector>, bytes",
-		model.NewDocLink("inspections", "dotnet", "heap"),
+		model.NewDocLink("inspections", "dotnet", "heap-size"),
 	)
 	gcChart := report.GetOrCreateChartGroup(
 		"GC <selector>, collections/second",
-		model.NewDocLink("inspections", "dotnet", "gc"),
+		model.NewDocLink("inspections", "dotnet", "gc-activity"),
 	)
 	allocationChart := report.GetOrCreateChart(
 		"Memory allocation rate, bytes/second",
-		model.NewDocLink("inspections", "dotnet", "allocations"),
+		model.NewDocLink("inspections", "dotnet", "memory-allocation-rate"),
 	)
 	exceptionsChart := report.GetOrCreateChart(
 		"Exceptions, per second",
@@ -33,23 +33,23 @@ func (a *appAuditor) dotnet() {
 	)
 	heapFragmentationChart := report.GetOrCreateChart(
 		"Heap fragmentation, %",
-		model.NewDocLink("inspections", "dotnet", "fragmentation"),
+		model.NewDocLink("inspections", "dotnet", "heap-fragmentation"),
 	)
 	threadPoolQueueChart := report.GetOrCreateChart(
 		"Thread pool queue size, items",
-		model.NewDocLink("inspections", "dotnet", "thread_pool_length"),
+		model.NewDocLink("inspections", "dotnet", "threadpool-queue-length"),
 	)
 	threadPoolSizeChart := report.GetOrCreateChart(
 		"Thread pool size, threads",
-		model.NewDocLink("inspections", "dotnet", "thread_pool_size"),
+		model.NewDocLink("inspections", "dotnet", "threadpool-size"),
 	)
 	threadPoolCompletedItemsChart := report.GetOrCreateChart(
 		"Thread pool completed work items, per second",
-		model.NewDocLink("inspections", "dotnet", "thread_pool_completed"),
+		model.NewDocLink("inspections", "dotnet", "threadpool-completed-work-items"),
 	)
 	monitorLockContentions := report.GetOrCreateChart(
 		"Monitor's lock contentions, per second",
-		model.NewDocLink("inspections", "dotnet", "monitor_lock"),
+		model.NewDocLink("inspections", "dotnet", "monitors-lock-contentions"),
 	)
 
 	for _, i := range a.app.Instances {
