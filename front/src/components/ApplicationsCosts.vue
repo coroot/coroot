@@ -3,7 +3,7 @@
         <h2 class="text-h6 font-weight-regular d-md-flex align-center mb-3">
             <v-btn v-if="category !== null" icon @click="back"><v-icon>mdi-arrow-left</v-icon></v-btn>
             Applications
-            <a href="https://coroot.com/docs/coroot/costs/overview#applications" target="_blank" class="ml-1">
+            <a href="https://docs.coroot.com/costs/overview#applications" target="_blank" class="ml-1">
                 <v-icon>mdi-information-outline</v-icon>
             </a>
             <v-chip v-if="category" @click:close="category = ''" label close color="primary" class="ml-3"> category: {{ category }} </v-chip>

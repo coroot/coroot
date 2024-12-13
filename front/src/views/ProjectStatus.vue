@@ -42,7 +42,6 @@
                     <template v-if="loading">checking...</template>
                     <template v-else>no kube-state-metrics installed</template>
                 </template>
-                (<a href="https://coroot.com/docs/metric-exporters/kube-state-metrics" target="_blank">docs</a>)
             </div>
         </div>
     </div>

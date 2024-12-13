@@ -2,7 +2,7 @@
     <div>
         <h2 class="text-h6 font-weight-regular">
             Nodes
-            <a href="https://coroot.com/docs/coroot/costs/overview#nodes" target="_blank">
+            <a href="https://docs.coroot.com/costs/overview#nodes" target="_blank">
                 <v-icon>mdi-information-outline</v-icon>
             </a>
         </h2>
