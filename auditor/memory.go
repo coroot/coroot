@@ -14,19 +14,19 @@ func (a *appAuditor) memory(ncs nodeConsumersByNode) {
 
 	usageChart := report.GetOrCreateChartGroup(
 		"Memory usage (RSS) <selector>, bytes",
-		model.NewDocLink("inspections", "memory", "usage"),
+		model.NewDocLink("inspections", "memory", "memory-usage"),
 	)
 	oomChart := report.GetOrCreateChart(
 		"Out of memory events",
-		model.NewDocLink("inspections", "memory", "oom"),
+		model.NewDocLink("inspections", "memory", "out-of-memory-events"),
 	).Column()
 	nodesChart := report.GetOrCreateChart(
 		"Node memory usage (unreclaimable), %",
-		model.NewDocLink("inspections", "memory", "node_usage"),
+		model.NewDocLink("inspections", "memory", "node-memory-usage-unreclaimable"),
 	)
 	consumersChart := report.GetOrCreateChartGroup(
 		"Memory consumers <selector>, bytes",
-		model.NewDocLink("inspections", "memory", "consumers"),
+		model.NewDocLink("inspections", "memory", "memory-consumers"),
 	)
 
 	seenContainers := false

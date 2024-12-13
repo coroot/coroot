@@ -51,7 +51,7 @@
                             </v-btn>
                         </template>
                         <v-list dense>
-                            <v-list-item href="https://coroot.com/docs/" target="_blank">
+                            <v-list-item href="https://docs.coroot.com/" target="_blank">
                                 <v-icon small class="mr-1">mdi-book-open-outline</v-icon>Documentation</v-list-item
                             >
                             <v-list-item href="https://github.com/coroot/coroot" target="_blank">

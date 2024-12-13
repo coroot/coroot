@@ -45,9 +45,9 @@
                     <p>Instrument your apps with the relevant OpenTelemetry SDK:</p>
 
                     <ul class="my-2">
-                        <li><a href="https://coroot.com/docs/coroot/tracing/opentelemetry-go" target="_blank">Go</a></li>
-                        <li><a href="https://coroot.com/docs/coroot/tracing/opentelemetry-java" target="_blank">Java</a></li>
-                        <li><a href="https://coroot.com/docs/coroot/tracing/opentelemetry-python" target="_blank">Python</a></li>
+                        <li><a href="https://docs.coroot.com/tracing/opentelemetry-go" target="_blank">Go</a></li>
+                        <li><a href="https://docs.coroot.com/tracing/opentelemetry-java" target="_blank">Java</a></li>
+                        <li><a href="https://docs.coroot.com/tracing/opentelemetry-python" target="_blank">Python</a></li>
                         <li><a href="https://opentelemetry.io/docs/languages/cpp/getting-started/" target="_blank">C++</a></li>
                         <li><a href="https://opentelemetry.io/docs/languages/net/getting-started/" target="_blank">.NET</a></li>
                         <li><a href="https://opentelemetry.io/docs/languages/js/getting-started/" target="_blank">JavaScript</a></li>

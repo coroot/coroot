@@ -59,7 +59,7 @@
 
                 <div class="grey--text my-4">
                     To configure an application to send profiles follow the
-                    <a href="https://coroot.com/docs/coroot/profiling" target="_blank">documentation</a>.
+                    <a href="https://docs.coroot.com/profiling" target="_blank">documentation</a>.
                 </div>
 
                 <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text class="my-3">
