@@ -4,10 +4,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/coroot/coroot/utils"
-
 	"github.com/coroot/coroot/prom"
 	"github.com/coroot/coroot/timeseries"
+	"github.com/coroot/coroot/utils"
 	"k8s.io/klog"
 )
 
@@ -75,4 +74,22 @@ func (db *DB) BootstrapClickhouseIntegration(p *Project, addr, user, password, d
 		return nil
 	}
 	return db.SaveProjectIntegration(p, IntegrationTypeClickhouse)
+}
+
+func (db *DB) BootstrapApiKeys() error {
+	projects, err := db.GetProjects()
+	if err != nil {
+		return err
+	}
+	for _, p := range projects {
+		if p.Settings.ApiKeys != nil {
+			continue
+		}
+		p.Settings.ApiKeys = append(p.Settings.ApiKeys, ApiKey{Key: string(p.Id), Description: "default"})
+		err = db.SaveProjectSettings(p)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

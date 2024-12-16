@@ -159,5 +159,5 @@ func (db *DB) SaveIntegrationsBaseUrl(id ProjectId, baseUrl string) error {
 		return err
 	}
 	p.Settings.Integrations.BaseUrl = baseUrl
-	return db.saveProjectSettings(p)
+	return db.SaveProjectSettings(p)
 }

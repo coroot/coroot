@@ -16,6 +16,10 @@
                 <h2 class="text-h5 mt-10 mb-5">Status</h2>
                 <ProjectStatus :projectId="projectId" />
 
+                <h2 class="text-h5 mt-10 mb-5">API keys</h2>
+                <p>The API keys below authorize Coroot's agents and other applications to write telemetry data for this project.</p>
+                <ProjectApiKeys />
+
                 <h2 class="text-h5 mt-10 mb-5">Danger zone</h2>
                 <ProjectDelete :projectId="projectId" />
             </template>
@@ -142,6 +146,7 @@
 <script>
 import ProjectSettings from './ProjectSettings.vue';
 import ProjectStatus from './ProjectStatus.vue';
+import ProjectApiKeys from './ProjectApiKeys.vue';
 import ProjectDelete from './ProjectDelete.vue';
 import Inspections from './Inspections.vue';
 import ApplicationCategories from './ApplicationCategories.vue';
@@ -168,6 +173,7 @@ export default {
         Inspections,
         ProjectSettings,
         ProjectStatus,
+        ProjectApiKeys,
         ProjectDelete,
         ApplicationCategories,
         Integrations,

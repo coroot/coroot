@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"sort"
 	"time"
 
@@ -233,7 +234,7 @@ func (api *Api) Project(w http.ResponseWriter, r *http.Request, u *db.User) {
 	case http.MethodGet:
 		type ProjectSettings struct {
 			Name            string              `json:"name"`
-			ApiKey          string              `json:"api_key"`
+			ApiKeys         any                 `json:"api_keys"`
 			RefreshInterval timeseries.Duration `json:"refresh_interval"`
 		}
 		res := ProjectSettings{}
@@ -249,9 +250,11 @@ func (api *Api) Project(w http.ResponseWriter, r *http.Request, u *db.User) {
 				return
 			}
 			res.Name = project.Name
+			res.RefreshInterval = project.Prometheus.RefreshInterval
 			if isAllowed {
-				res.ApiKey = string(project.Id)
-				res.RefreshInterval = project.Prometheus.RefreshInterval
+				res.ApiKeys = project.Settings.ApiKeys
+			} else {
+				res.ApiKeys = "permission denied"
 			}
 		}
 		utils.WriteJson(w, res)
@@ -357,6 +360,70 @@ func (api *Api) Overview(w http.ResponseWriter, r *http.Request, u *db.User) {
 	}
 	auditor.Audit(world, project, nil, project.ClickHouseConfig(api.globalClickHouse) != nil)
 	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Overview(r.Context(), ch, world, view, r.URL.Query().Get("query"))))
+}
+
+func (api *Api) ApiKeys(w http.ResponseWriter, r *http.Request, u *db.User) {
+	vars := mux.Vars(r)
+	projectId := vars["project"]
+
+	project, err := api.db.GetProject(db.ProjectId(projectId))
+	if err != nil {
+		klog.Errorln("failed to get project:", err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+
+	isAllowed := api.IsAllowed(u, rbac.Actions.Project(projectId).Settings().Edit())
+
+	if r.Method == http.MethodGet {
+		res := struct {
+			Editable bool        `json:"editable"`
+			Keys     []db.ApiKey `json:"keys"`
+		}{
+			Editable: isAllowed,
+			Keys:     project.Settings.ApiKeys,
+		}
+		if !isAllowed {
+			for i := range res.Keys {
+				res.Keys[i].Key = ""
+			}
+		}
+		utils.WriteJson(w, res)
+		return
+	}
+
+	if !isAllowed {
+		http.Error(w, "You are not allowed to configure API keys.", http.StatusForbidden)
+		return
+	}
+	var form forms.ApiKeyForm
+	if err = forms.ReadAndValidate(r, &form); err != nil {
+		klog.Warningln("bad request:", err)
+		http.Error(w, "", http.StatusBadRequest)
+		return
+	}
+	switch form.Action {
+	case "generate":
+		form.Key = utils.RandomString(32)
+		project.Settings.ApiKeys = append(project.Settings.ApiKeys, form.ApiKey)
+	case "delete":
+		project.Settings.ApiKeys = slices.DeleteFunc(project.Settings.ApiKeys, func(k db.ApiKey) bool {
+			return k.Key == form.Key
+		})
+	case "edit":
+		for i, k := range project.Settings.ApiKeys {
+			if k.Key == form.Key {
+				project.Settings.ApiKeys[i].Description = form.Description
+			}
+		}
+	default:
+		return
+	}
+	if err = api.db.SaveProjectSettings(project); err != nil {
+		klog.Errorln("failed to save project api keys:", err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
 }
 
 func (api *Api) Inspections(w http.ResponseWriter, r *http.Request, u *db.User) {
@@ -1154,7 +1221,7 @@ func (api *Api) getClickhouseClient(project *db.Project) (*clickhouse.Client, er
 	config.Database = cfg.Database
 	config.TlsEnable = cfg.TlsEnable
 	config.TlsSkipVerify = cfg.TlsSkipVerify
-	distributed, err := api.collector.IsClickhouseDistributed(project.Id)
+	distributed, err := api.collector.IsClickhouseDistributed(project)
 	if err != nil {
 		return nil, err
 	}
