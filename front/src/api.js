@@ -153,6 +153,15 @@ export default class Api {
         this.get(this.projectPath(`status`), {}, cb);
     }
 
+    apiKeys(form, cb) {
+        const url = this.projectPath('api_keys');
+        if (form) {
+            this.post(url, form, cb);
+        } else {
+            this.get(url, {}, cb);
+        }
+    }
+
     getOverview(view, query, cb) {
         this.get(this.projectPath(`overview/${view}`), { query }, cb);
     }

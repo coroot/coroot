@@ -145,6 +145,10 @@ func main() {
 	if err != nil {
 		klog.Exitln(err)
 	}
+	err = database.BootstrapApiKeys()
+	if err != nil {
+		klog.Exitln(err)
+	}
 
 	if globalPrometheus == nil {
 		if err = database.BootstrapPrometheusIntegration(defaultProject, *bootstrapPrometheusUrl, *bootstrapRefreshInterval, *bootstrapPrometheusExtraSelector); err != nil {
@@ -224,6 +228,7 @@ func main() {
 	r.HandleFunc("/api/project/", a.Auth(a.Project)).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/project/{project}", a.Auth(a.Project)).Methods(http.MethodGet, http.MethodPost, http.MethodDelete)
 	r.HandleFunc("/api/project/{project}/status", a.Auth(a.Status)).Methods(http.MethodGet)
+	r.HandleFunc("/api/project/{project}/api_keys", a.Auth(a.ApiKeys)).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/project/{project}/overview/{view}", a.Auth(a.Overview)).Methods(http.MethodGet)
 	r.HandleFunc("/api/project/{project}/incident/{incident}", a.Auth(a.Incident)).Methods(http.MethodGet)
 	r.HandleFunc("/api/project/{project}/inspections", a.Auth(a.Inspections)).Methods(http.MethodGet)

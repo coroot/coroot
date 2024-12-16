@@ -30,10 +30,16 @@ type ProjectSettings struct {
 	ApplicationCategorySettings map[model.ApplicationCategory]ApplicationCategorySettings `json:"application_category_settings"`
 	Integrations                Integrations                                              `json:"integrations"`
 	CustomApplications          map[string]model.CustomApplication                        `json:"custom_applications"`
+	ApiKeys                     []ApiKey                                                  `json:"api_keys"`
 }
 
 type ApplicationCategorySettings struct {
 	NotifyOfDeployments bool `json:"notify_of_deployments"`
+}
+
+type ApiKey struct {
+	Key         string `json:"key"`
+	Description string `json:"description"`
 }
 
 func (p *Project) Migrate(m *Migrator) error {
@@ -186,6 +192,10 @@ func (db *DB) SaveProject(p Project) (ProjectId, error) {
 		if db.IsUniqueViolationError(err) {
 			return "", ErrConflict
 		}
+		if err == nil {
+			p.Settings.ApiKeys = []ApiKey{{Key: utils.RandomString(32), Description: "default"}}
+			err = db.SaveProjectSettings(&p)
+		}
 		return p.Id, err
 	}
 	if _, err := db.db.Exec("UPDATE project SET name = $1 WHERE id = $2", p.Name, p.Id); err != nil {
@@ -221,6 +231,15 @@ func (db *DB) DeleteProject(id ProjectId) error {
 		return err
 	}
 	return tx.Commit()
+}
+
+func (db *DB) SaveProjectSettings(p *Project) error {
+	settings, err := json.Marshal(p.Settings)
+	if err != nil {
+		return err
+	}
+	_, err = db.db.Exec("UPDATE project SET settings = $1 WHERE id = $2", string(settings), p.Id)
+	return err
 }
 
 func (db *DB) SaveApplicationCategory(id ProjectId, category, newName model.ApplicationCategory, customPatterns []string, notifyAboutDeployments bool) error {
@@ -263,7 +282,7 @@ func (db *DB) SaveApplicationCategory(id ProjectId, category, newName model.Appl
 		}
 	}
 
-	return db.saveProjectSettings(p)
+	return db.SaveProjectSettings(p)
 }
 
 func (db *DB) SaveCustomApplication(id ProjectId, name, newName string, instancePatterns []string) error {
@@ -294,16 +313,7 @@ func (db *DB) SaveCustomApplication(id ProjectId, name, newName string, instance
 		}
 		p.Settings.CustomApplications[name] = model.CustomApplication{InstancePattens: patterns}
 	}
-	return db.saveProjectSettings(p)
-}
-
-func (db *DB) saveProjectSettings(p *Project) error {
-	settings, err := json.Marshal(p.Settings)
-	if err != nil {
-		return err
-	}
-	_, err = db.db.Exec("UPDATE project SET settings = $1 WHERE id = $2", string(settings), p.Id)
-	return err
+	return db.SaveProjectSettings(p)
 }
 
 func (db *DB) SaveProjectIntegration(p *Project, typ IntegrationType) error {
@@ -318,10 +328,5 @@ func (db *DB) SaveProjectIntegration(p *Project, typ IntegrationType) error {
 		_, err = db.db.Exec("UPDATE project SET prometheus = $1 WHERE id = $2", string(prometheus), p.Id)
 		return err
 	}
-	settings, err := json.Marshal(p.Settings)
-	if err != nil {
-		return err
-	}
-	_, err = db.db.Exec("UPDATE project SET settings = $1 WHERE id = $2", string(settings), p.Id)
-	return err
+	return db.SaveProjectSettings(p)
 }
