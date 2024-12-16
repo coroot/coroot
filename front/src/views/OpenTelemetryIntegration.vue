@@ -20,18 +20,34 @@
             </p>
 
             <v-form v-model="valid">
-                <div class="subtitle-2">Coroot URL (must be accessible by instrumented applications or the OpenTelemetry collector):</div>
-
+                <div class="subtitle-2 mt-2">Coroot URL (must be accessible by instrumented applications or the OpenTelemetry collector):</div>
                 <v-text-field
                     v-model="coroot_url"
                     :rules="[$validators.notEmpty, $validators.isUrl]"
                     placeholder="http://coroot:8080"
                     outlined
                     dense
+                    hide-details
+                />
+
+                <div class="subtitle-2 mt-2">
+                    API Key (can be managed in the
+                    <router-link :to="{ name: 'project_settings' }"><span @click="dialog = false">project settings</span></router-link
+                    >):
+                </div>
+                <v-select
+                    v-model="api_key"
+                    :rules="[$validators.notEmpty]"
+                    :items="api_keys === 'permission denied' ? [] : api_keys.map((k) => ({ value: k.key, text: `${k.key} (${k.description})` }))"
+                    outlined
+                    dense
+                    hide-details
+                    :menu-props="{ offsetY: true }"
+                    :no-data-text="api_keys === 'permission denied' ? 'Only project Admins can access API keys.' : 'No keys available'"
                 />
 
                 <template v-if="tab === 0">
-                    <div class="subtitle-2">Service name:</div>
+                    <div class="subtitle-2 mt-2">Service name:</div>
                     <v-text-field v-model="service_name" :rules="[$validators.notEmpty, $validators.isSlug]" placeholder="catalog" outlined dense />
                 </template>
             </v-form>
@@ -134,6 +150,7 @@ export default {
             tab: null,
             coroot_url: !local ? location.origin : '',
             service_name: '',
+            api_keys: [],
             api_key: '',
             valid: false,
         };
@@ -152,7 +169,7 @@ export default {
                     this.error = error;
                     return;
                 }
-                this.api_key = data.api_key;
+                this.api_keys = data.api_keys || [];
             });
         },
     },

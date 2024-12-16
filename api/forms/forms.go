@@ -50,6 +50,15 @@ func (f *ProjectForm) Valid() bool {
 	return true
 }
 
+type ApiKeyForm struct {
+	Action string `json:"action"`
+	db.ApiKey
+}
+
+func (f *ApiKeyForm) Valid() bool {
+	return true
+}
+
 type CheckConfigForm struct {
 	Configs []*model.CheckConfigSimple `json:"configs"`
 }

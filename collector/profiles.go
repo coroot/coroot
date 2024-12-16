@@ -9,21 +9,20 @@ import (
 
 	"github.com/ClickHouse/ch-go"
 	chproto "github.com/ClickHouse/ch-go/proto"
-	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/google/pprof/profile"
 	"k8s.io/klog"
 )
 
 func (c *Collector) Profiles(w http.ResponseWriter, r *http.Request) {
-	project, err := c.getProject(db.ProjectId(r.Header.Get(ApiKeyHeader)))
+	project, err := c.getProject(r.Header.Get(ApiKeyHeader))
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
 
-	_, err = c.getClickhouseClient(project.Id)
+	_, err = c.getClickhouseClient(project)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, err.Error(), http.StatusNotFound)
@@ -56,7 +55,7 @@ func (c *Collector) Profiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	c.getProfilesBatch(project.Id).Add(serviceName, labels, p)
+	c.getProfilesBatch(project).Add(serviceName, labels, p)
 }
 
 type ProfilesBatch struct {
