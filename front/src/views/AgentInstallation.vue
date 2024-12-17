@@ -17,14 +17,28 @@
                 capability to establish TCP connections with it.
             </p>
 
-            <div class="subtitle-1">Coroot URL:</div>
             <v-form v-model="valid">
+                <div class="subtitle-1">Coroot URL:</div>
                 <v-text-field
                     v-model="coroot_url"
                     :rules="[$validators.notEmpty, $validators.isUrl]"
                     placeholder="http://coroot:8080"
                     outlined
                     dense
+                />
+                <div class="subtitle-1">
+                    API Key (can be managed in the
+                    <router-link :to="{ name: 'project_settings' }"><span @click="dialog = false">project settings</span></router-link
+                    >):
+                </div>
+                <v-select
+                    v-model="api_key"
+                    :rules="[$validators.notEmpty]"
+                    :items="api_keys === 'permission denied' ? [] : api_keys.map((k) => ({ value: k.key, text: `${k.key} (${k.description})` }))"
+                    outlined
+                    dense
+                    :menu-props="{ offsetY: true }"
+                    :no-data-text="api_keys === 'permission denied' ? 'Only project Admins can access API keys.' : 'No keys available'"
                 />
             </v-form>
 
@@ -43,7 +57,7 @@
                         <pre>
 curl -sfL https://raw.githubusercontent.com/coroot/coroot-node-agent/main/install.sh | \
   COLLECTOR_ENDPOINT={{ coroot_url || '&lt;COROOT_URL_HERE&gt;' }} \
-  API_KEY={{ api_key }} \
+  API_KEY={{ api_key || '&lt;API_KEY_HERE&gt;' }} \
   SCRAPE_INTERVAL={{ scrape_interval }} \
   sh -
                         </pre>
@@ -141,6 +155,7 @@ export default {
             tab: null,
             coroot_url: !local ? location.origin : '',
             helm_chart: window.coroot.edition === 'Enterprise' ? 'coroot-ee' : 'coroot-ce',
+            api_keys: [],
             api_key: '',
             scrape_interval: '15s',
             valid: false,
@@ -160,7 +175,7 @@ export default {
                     this.error = error;
                     return;
                 }
-                this.api_key = data.api_key;
+                this.api_keys = data.api_keys || [];
                 if (data.refresh_interval) {
                     this.scrape_interval = data.refresh_interval / 1000 + 's';
                 }

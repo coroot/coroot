@@ -16,6 +16,10 @@
                 <h2 class="text-h5 mt-10 mb-5">Status</h2>
                 <ProjectStatus :projectId="projectId" />
 
+                <h2 class="text-h5 mt-10 mb-5">API keys</h2>
+                <p>The API keys below authorize Coroot's agents and other applications to write telemetry data for this project.</p>
+                <ProjectApiKeys />
+
                 <h2 class="text-h5 mt-10 mb-5">Danger zone</h2>
                 <ProjectDelete :projectId="projectId" />
             </template>
@@ -24,7 +28,7 @@
         <template v-if="tab === 'prometheus'">
             <h1 class="text-h5 my-5">
                 Prometheus integration
-                <a href="https://coroot.com/docs/coroot/configuration/prometheus" target="_blank">
+                <a href="https://docs.coroot.com/configuration/prometheus" target="_blank">
                     <v-icon>mdi-information-outline</v-icon>
                 </a>
             </h1>
@@ -34,15 +38,14 @@
         <template v-if="tab === 'clickhouse'">
             <h1 class="text-h5 my-5">
                 ClickHouse integration
-                <a href="https://coroot.com/docs/coroot/configuration/clickhouse" target="_blank">
+                <a href="https://docs.coroot.com/configuration/clickhouse" target="_blank">
                     <v-icon>mdi-information-outline</v-icon>
                 </a>
             </h1>
             <p>
                 Coroot stores
-                <a href="https://coroot.com/docs/coroot/logs" target="_blank">logs</a>,
-                <a href="https://coroot.com/docs/coroot/tracing" target="_blank">traces</a>, and
-                <a href="https://coroot.com/docs/coroot/profiling" target="_blank">profiles</a> in the ClickHouse database.
+                <a href="https://docs.coroot.com/logs" target="_blank">logs</a>, <a href="https://docs.coroot.com/tracing" target="_blank">traces</a>,
+                and <a href="https://docs.coroot.com/profiling" target="_blank">profiles</a> in the ClickHouse database.
             </p>
             <IntegrationClickhouse />
         </template>
@@ -55,7 +58,7 @@
         <template v-if="tab === 'inspections'">
             <h1 class="text-h5 my-5">
                 Inspection configs
-                <a href="https://coroot.com/docs/coroot/inspections/overview" target="_blank">
+                <a href="https://docs.coroot.com/inspections" target="_blank">
                     <v-icon>mdi-information-outline</v-icon>
                 </a>
             </h1>
@@ -65,7 +68,7 @@
         <template v-if="tab === 'applications'">
             <h2 class="text-h5 my-5" id="categories">
                 Application categories
-                <a href="https://coroot.com/docs/coroot/configuration/application-categories" target="_blank">
+                <a href="https://docs.coroot.com/configuration/application-categories" target="_blank">
                     <v-icon>mdi-information-outline</v-icon>
                 </a>
             </h2>
@@ -78,7 +81,7 @@
 
             <h2 class="text-h5 mt-10 mb-5" id="custom-applications">
                 Custom applications
-                <a href="https://coroot.com/docs/coroot/configuration/custom-applications" target="_blank">
+                <a href="https://docs.coroot.com/configuration/custom-applications" target="_blank">
                     <v-icon>mdi-information-outline</v-icon>
                 </a>
             </h2>
@@ -107,7 +110,7 @@
         <template v-if="tab === 'notifications'">
             <h1 class="text-h5 my-5">
                 Notification integrations
-                <a href="https://coroot.com/docs/coroot/alerting/slo-monitoring" target="_blank">
+                <a href="https://docs.coroot.com/alerting/slo-monitoring" target="_blank">
                     <v-icon>mdi-information-outline</v-icon>
                 </a>
             </h1>
@@ -117,21 +120,21 @@
         <template v-if="tab === 'organization'">
             <h1 class="text-h5 my-5">
                 Users
-                <a href="https://coroot.com/docs/coroot/configuration/authentication" target="_blank">
+                <a href="https://docs.coroot.com/configuration/authentication" target="_blank">
                     <v-icon>mdi-information-outline</v-icon>
                 </a>
             </h1>
             <Users />
             <h1 class="text-h5 mt-10 mb-5">
                 Role-Based Access Control (RBAC)
-                <a href="https://coroot.com/docs/coroot/configuration/rbac" target="_blank">
+                <a href="https://docs.coroot.com/configuration/rbac" target="_blank">
                     <v-icon>mdi-information-outline</v-icon>
                 </a>
             </h1>
             <RBAC />
             <h1 class="text-h5 mt-10 mb-5">
                 Single Sign-On (SAML)
-                <a href="https://coroot.com/docs/coroot/configuration/authentication" target="_blank">
+                <a href="https://docs.coroot.com/configuration/authentication/#single-sign-on-sso" target="_blank">
                     <v-icon>mdi-information-outline</v-icon>
                 </a>
             </h1>
@@ -143,6 +146,7 @@
 <script>
 import ProjectSettings from './ProjectSettings.vue';
 import ProjectStatus from './ProjectStatus.vue';
+import ProjectApiKeys from './ProjectApiKeys.vue';
 import ProjectDelete from './ProjectDelete.vue';
 import Inspections from './Inspections.vue';
 import ApplicationCategories from './ApplicationCategories.vue';
@@ -169,6 +173,7 @@ export default {
         Inspections,
         ProjectSettings,
         ProjectStatus,
+        ProjectApiKeys,
         ProjectDelete,
         ApplicationCategories,
         Integrations,

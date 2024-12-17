@@ -8,8 +8,21 @@ import (
 	"github.com/coroot/coroot/timeseries"
 )
 
-func (c *Client) GetProfileTypes(ctx context.Context) (map[string][]model.ProfileType, error) {
-	rows, err := c.Query(ctx, qProfileTypes)
+type ProfileQuery struct {
+	Type       model.ProfileType
+	From       timeseries.Time
+	To         timeseries.Time
+	Diff       bool
+	Services   []string
+	Containers []string
+	Namespace  string
+	Pod        string
+}
+
+func (c *Client) GetProfileTypes(ctx context.Context, from timeseries.Time) (map[string][]model.ProfileType, error) {
+	rows, err := c.Query(ctx, qProfileTypes,
+		clickhouse.DateNamed("from", from.ToStandard(), clickhouse.NanoSeconds),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -26,24 +39,26 @@ func (c *Client) GetProfileTypes(ctx context.Context) (map[string][]model.Profil
 	return res, nil
 }
 
-func (c *Client) GetProfile(ctx context.Context, from, to timeseries.Time, services []string, typ model.ProfileType, diff bool) (*model.FlameGraphNode, error) {
-	avg := model.Profiles[typ].Aggregation == model.ProfileAggregationAvg
-	if diff {
-		return c.getDiffProfile(ctx, from, to, services, typ)
+func (c *Client) GetProfile(ctx context.Context, q ProfileQuery) (*model.FlameGraphNode, error) {
+	if q.Diff {
+		return c.getDiffProfile(ctx, q)
 	}
-	return c.getProfile(ctx, from, to, services, typ, avg)
+	return c.getProfile(ctx, q)
 }
 
-func (c *Client) getProfile(ctx context.Context, from, to timeseries.Time, services []string, typ model.ProfileType, avg bool) (*model.FlameGraphNode, error) {
+func (c *Client) getProfile(ctx context.Context, q ProfileQuery) (*model.FlameGraphNode, error) {
 	query := qProfile
-	if avg {
+	if model.Profiles[q.Type].Aggregation == model.ProfileAggregationAvg {
 		query = qProfileAvg
 	}
 	rows, err := c.Query(ctx, query,
-		clickhouse.Named("service", services),
-		clickhouse.Named("type", typ),
-		clickhouse.DateNamed("from", from.ToStandard(), clickhouse.NanoSeconds),
-		clickhouse.DateNamed("to", to.ToStandard(), clickhouse.NanoSeconds),
+		clickhouse.Named("type", q.Type),
+		clickhouse.DateNamed("from", q.From.ToStandard(), clickhouse.NanoSeconds),
+		clickhouse.DateNamed("to", q.To.ToStandard(), clickhouse.NanoSeconds),
+		clickhouse.Named("services", q.Services),
+		clickhouse.Named("containers", q.Containers),
+		clickhouse.Named("namespace", q.Namespace),
+		clickhouse.Named("pod", q.Pod),
 	)
 	if err != nil {
 		return nil, err
@@ -66,14 +81,17 @@ func (c *Client) getProfile(ctx context.Context, from, to timeseries.Time, servi
 	return root, nil
 }
 
-func (c *Client) getDiffProfile(ctx context.Context, from, to timeseries.Time, services []string, typ model.ProfileType) (*model.FlameGraphNode, error) {
+func (c *Client) getDiffProfile(ctx context.Context, q ProfileQuery) (*model.FlameGraphNode, error) {
 	query := qProfileDiff
 	rows, err := c.Query(ctx, query,
-		clickhouse.Named("service", services),
-		clickhouse.Named("type", typ),
-		clickhouse.DateNamed("from", from.Add(-to.Sub(from)).ToStandard(), clickhouse.NanoSeconds),
-		clickhouse.DateNamed("middle", from.ToStandard(), clickhouse.NanoSeconds),
-		clickhouse.DateNamed("to", to.ToStandard(), clickhouse.NanoSeconds),
+		clickhouse.Named("type", q.Type),
+		clickhouse.DateNamed("from", q.From.Add(-q.To.Sub(q.From)).ToStandard(), clickhouse.NanoSeconds),
+		clickhouse.DateNamed("middle", q.From.ToStandard(), clickhouse.NanoSeconds),
+		clickhouse.DateNamed("to", q.To.ToStandard(), clickhouse.NanoSeconds),
+		clickhouse.Named("services", q.Services),
+		clickhouse.Named("containers", q.Containers),
+		clickhouse.Named("namespace", q.Namespace),
+		clickhouse.Named("pod", q.Pod),
 	)
 	if err != nil {
 		return nil, err

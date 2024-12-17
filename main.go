@@ -58,7 +58,7 @@ func main() {
 	globalClickhouseUser := kingpin.Flag("global-clickhouse-user", "").Envar("GLOBAL_CLICKHOUSE_USER").Default("default").String()
 	globalClickhousePassword := kingpin.Flag("global-clickhouse-password", "").Envar("GLOBAL_CLICKHOUSE_PASSWORD").String()
 	globalClickhouseInitialDatabase := kingpin.Flag("global-clickhouse-initial-database", "").Envar("GLOBAL_CLICKHOUSE_INITIAL_DATABASE").Default("default").String()
-	globalClickhouseTlsEnabled := kingpin.Flag("global-clickhouse-tls-enabled", "").Envar("GLOBAL_CLICKHOUSE_TLS_ENABLES").Default("false").Bool()
+	globalClickhouseTlsEnabled := kingpin.Flag("global-clickhouse-tls-enabled", "").Envar("GLOBAL_CLICKHOUSE_TLS_ENABLED").Default("false").Bool()
 	globalClickhouseTlsSkipVerify := kingpin.Flag("global-clickhouse-tls-skip-verify", "").Envar("GLOBAL_CLICKHOUSE_TLS_SKIP_VERIFY").Default("false").Bool()
 
 	globalPrometheusUrl := kingpin.Flag("global-prometheus-url", "").Envar("GLOBAL_PROMETHEUS_URL").String()
@@ -126,6 +126,7 @@ func main() {
 	if err != nil {
 		klog.Exitln(err)
 	}
+	klog.Infoln("database type:", database.Type())
 	if err = database.Migrate(); err != nil {
 		klog.Exitln(err)
 	}
@@ -142,6 +143,10 @@ func main() {
 	}
 
 	defaultProject, err := database.GetOrCreateDefaultProject()
+	if err != nil {
+		klog.Exitln(err)
+	}
+	err = database.BootstrapApiKeys()
 	if err != nil {
 		klog.Exitln(err)
 	}
@@ -224,6 +229,7 @@ func main() {
 	r.HandleFunc("/api/project/", a.Auth(a.Project)).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/project/{project}", a.Auth(a.Project)).Methods(http.MethodGet, http.MethodPost, http.MethodDelete)
 	r.HandleFunc("/api/project/{project}/status", a.Auth(a.Status)).Methods(http.MethodGet)
+	r.HandleFunc("/api/project/{project}/api_keys", a.Auth(a.ApiKeys)).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/project/{project}/overview/{view}", a.Auth(a.Overview)).Methods(http.MethodGet)
 	r.HandleFunc("/api/project/{project}/incident/{incident}", a.Auth(a.Incident)).Methods(http.MethodGet)
 	r.HandleFunc("/api/project/{project}/inspections", a.Auth(a.Inspections)).Methods(http.MethodGet)

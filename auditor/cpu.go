@@ -13,23 +13,23 @@ func (a *appAuditor) cpu(ncs nodeConsumersByNode) {
 
 	usageChart := report.GetOrCreateChartGroup(
 		"CPU usage <selector>, cores",
-		model.NewDocLink("inspections", "cpu", "usage"),
+		model.NewDocLink("inspections", "cpu", "cpu-usage"),
 	)
 	delayChart := report.GetOrCreateChartGroup(
 		"CPU delay <selector>, seconds/second",
-		model.NewDocLink("inspections", "cpu", "delay"),
+		model.NewDocLink("inspections", "cpu", "cpu-delay"),
 	)
 	throttlingChart := report.GetOrCreateChartGroup(
 		"Throttled time <selector>, seconds/second",
-		model.NewDocLink("inspections", "cpu", "throttled_time"),
+		model.NewDocLink("inspections", "cpu", "throttled-time"),
 	)
 	nodesChart := report.GetOrCreateChartGroup(
 		"Node CPU usage <selector>, %",
-		model.NewDocLink("inspections", "cpu", "node_usage"),
+		model.NewDocLink("inspections", "cpu", "node-cpu-usage"),
 	)
 	consumersChart := report.GetOrCreateChartGroup(
 		"CPU consumers on <selector>, cores",
-		model.NewDocLink("inspections", "cpu", "consumers"),
+		model.NewDocLink("inspections", "cpu", "cpu-consumers"),
 	)
 
 	seenContainers, seenRelatedNodes := false, false
@@ -110,7 +110,8 @@ func (a *appAuditor) cpu(ncs nodeConsumersByNode) {
 
 	if a.clickHouseEnabled && usageChart != nil {
 		for _, ch := range usageChart.Charts {
-			ch.DrillDownLink = model.NewRouterLink("profile", "application").
+			ch.DrillDownLink = model.NewRouterLink("profile", "overview").
+				SetParam("view", "applications").
 				SetParam("id", a.app.Id).
 				SetParam("report", model.AuditReportProfiling).
 				SetArg("query", model.ProfileCategoryCPU)

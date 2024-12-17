@@ -145,9 +145,10 @@
                                         <td>
                                             <router-link
                                                 v-if="k === 'host.name'"
-                                                :to="{ name: 'node', params: { name: v }, query: $utils.contextQuery() }"
-                                                >{{ v }}</router-link
+                                                :to="{ name: 'overview', params: { view: 'nodes', id: v }, query: $utils.contextQuery() }"
                                             >
+                                                {{ v }}
+                                            </router-link>
                                             <pre v-else>{{ v }}</pre>
                                         </td>
                                     </tr>

@@ -1,12 +1,14 @@
 <template>
     <div>
-        <ApplicationFilter
-            :applications="applications"
-            :autoSelectNamespaceThreshold="maxApplications"
-            :configureTo="categoriesTo"
-            @filter="setFilter"
-            class="my-4"
-        />
+        <v-progress-linear indeterminate v-if="loading" color="green" />
+
+        <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
+            {{ error }}
+        </v-alert>
+
+        <NoData v-else-if="!loading && !applications.length" />
+
+        <ApplicationFilter v-else :applications="applications" :autoSelectNamespaceThreshold="maxApplications" @filter="setFilter" class="my-4" />
 
         <div v-if="tooManyApplications" class="text-center red--text mt-5">
             Too many applications ({{ tooManyApplications }}) to render. Please choose a different category or namespace.
@@ -23,7 +25,7 @@
                     <div :ref="a.id" class="app" :class="{ selected: a.hi(hi) }" @mouseenter="hi = a.id" @mouseleave="hi = null">
                         <div class="d-flex">
                             <div class="flex-grow-1 name">
-                                <router-link :to="{ name: 'application', params: { id: a.id }, query: $utils.contextQuery() }">
+                                <router-link :to="{ name: 'overview', params: { view: 'applications', id: a.id }, query: $utils.contextQuery() }">
                                     <AppHealth :app="a" />
                                 </router-link>
                             </div>
@@ -70,10 +72,11 @@
 </template>
 
 <script>
-import Labels from './Labels';
-import AppHealth from './AppHealth';
-import ApplicationFilter from './ApplicationFilter.vue';
+import Labels from '@/components/Labels.vue';
+import AppHealth from '@/components/AppHealth.vue';
+import ApplicationFilter from '@/components/ApplicationFilter.vue';
 import AppPreferences from '@/components/AppPreferences.vue';
+import NoData from '@/components/NoData.vue';
 
 function findBackLinks(index, a, discovered, finished, found) {
     if (!a) {
@@ -110,16 +113,14 @@ function calcLevel(index, a, level, backLinks) {
 }
 
 export default {
-    props: {
-        applications: Array,
-        categoriesTo: Object,
-        categories: Array,
-    },
-
-    components: { AppPreferences, ApplicationFilter, AppHealth, Labels },
+    components: { NoData, AppPreferences, ApplicationFilter, AppHealth, Labels },
 
     data() {
         return {
+            applications: [],
+            categories: [],
+            loading: false,
+            error: '',
             levels: [],
             arrows: [],
             hi: null,
@@ -129,6 +130,8 @@ export default {
     },
 
     mounted() {
+        this.get();
+        this.$events.watch(this, this.get, 'refresh');
         this.calc();
     },
 
@@ -152,6 +155,19 @@ export default {
         },
     },
     methods: {
+        get() {
+            this.loading = true;
+            this.error = '';
+            this.$api.getOverview('map', '', (data, error) => {
+                this.loading = false;
+                if (error) {
+                    this.error = error;
+                    return;
+                }
+                this.applications = data.map || [];
+                this.categories = data.categories || [];
+            });
+        },
         setFilter(filter) {
             this.filter = filter;
             this.calc();

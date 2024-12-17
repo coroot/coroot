@@ -19,12 +19,12 @@ func AuditNode(w *model.World, node *model.Node) *model.AuditReport {
 	report.Status = model.OK
 
 	cpuByModeChart(
-		report.GetOrCreateChart("CPU usage, %", model.NewDocLink("inspections", "cpu", "node_usage")),
+		report.GetOrCreateChart("CPU usage, %", model.NewDocLink("inspections", "cpu", "node-cpu-usage")),
 		node.CpuUsageByMode,
 	)
 
 	ncs := getNodeConsumers(node)
-	report.GetOrCreateChart("CPU consumers, cores", model.NewDocLink("inspections", "cpu", "consumers")).
+	report.GetOrCreateChart("CPU consumers, cores", model.NewDocLink("inspections", "cpu", "cpu-consumers")).
 		Stacked().
 		Sorted().
 		SetThreshold("total", node.CpuCapacity).
@@ -42,7 +42,7 @@ func AuditNode(w *model.World, node *model.Node) *model.AuditReport {
 		AddSeries("cache", node.MemoryCachedBytes, "amber").
 		AddSeries("used", used, "red")
 
-	report.GetOrCreateChart("Memory consumers, bytes", model.NewDocLink("inspections", "memory", "consumers")).
+	report.GetOrCreateChart("Memory consumers, bytes", model.NewDocLink("inspections", "memory", "memory-consumers")).
 		Stacked().
 		Sorted().
 		SetThreshold("total", node.MemoryTotalBytes).

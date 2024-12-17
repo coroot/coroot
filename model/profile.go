@@ -41,6 +41,7 @@ type ProfileMeta struct {
 	Name        string
 	Aggregation ProfileAggregation
 	Featured    bool
+	Ebpf        bool
 }
 
 type Profile struct {
@@ -55,6 +56,7 @@ var (
 			Category:    ProfileCategoryCPU,
 			Name:        "CPU (eBPF)",
 			Aggregation: ProfileAggregationSum,
+			Ebpf:        true,
 		},
 		ProfileTypeGoCPU: {
 			Category:    ProfileCategoryCPU,

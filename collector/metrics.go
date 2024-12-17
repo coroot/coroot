@@ -10,7 +10,6 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/coroot/coroot/db"
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/snappy"
 	"github.com/prometheus/prometheus/prompb"
@@ -61,8 +60,7 @@ func addLabelsIfNeeded(r *http.Request, extraLabels map[string]string) (io.Reade
 }
 
 func (c *Collector) Metrics(w http.ResponseWriter, r *http.Request) {
-	projectId := db.ProjectId(r.Header.Get(ApiKeyHeader))
-	project, err := c.getProject(projectId)
+	project, err := c.getProject(r.Header.Get(ApiKeyHeader))
 	if err != nil {
 		klog.Errorln(err)
 		if errors.Is(err, ErrProjectNotFound) {

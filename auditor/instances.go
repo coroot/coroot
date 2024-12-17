@@ -130,7 +130,9 @@ func (a *appAuditor) instances() {
 		}
 
 		node := model.NewTableCell().SetStatus(i.Node.Status(), i.NodeName())
-		node.Link = model.NewRouterLink(i.NodeName(), "node").SetParam("name", i.NodeName())
+		node.Link = model.NewRouterLink(i.NodeName(), "overview").
+			SetParam("view", "nodes").
+			SetParam("id", i.NodeName())
 
 		report.GetOrCreateTable("Instance", "Status", "Restarts", "IP", "Node").AddRow(
 			model.NewTableCell(i.Name),

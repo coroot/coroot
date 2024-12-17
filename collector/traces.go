@@ -9,7 +9,6 @@ import (
 
 	"github.com/ClickHouse/ch-go"
 	chproto "github.com/ClickHouse/ch-go/proto"
-	"github.com/coroot/coroot/db"
 	semconv "go.opentelemetry.io/collector/semconv/v1.18.0"
 	v1 "go.opentelemetry.io/proto/otlp/collector/trace/v1"
 	"google.golang.org/protobuf/proto"
@@ -17,14 +16,14 @@ import (
 )
 
 func (c *Collector) Traces(w http.ResponseWriter, r *http.Request) {
-	project, err := c.getProject(db.ProjectId(r.Header.Get(ApiKeyHeader)))
+	project, err := c.getProject(r.Header.Get(ApiKeyHeader))
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
 
-	_, err = c.getClickhouseClient(project.Id)
+	_, err = c.getClickhouseClient(project)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, err.Error(), http.StatusNotFound)
@@ -59,7 +58,7 @@ func (c *Collector) Traces(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	c.getTracesBatch(project.Id).Add(req)
+	c.getTracesBatch(project).Add(req)
 
 	resp := &v1.ExportTraceServiceResponse{}
 	w.Header().Set("Content-Type", contentType)

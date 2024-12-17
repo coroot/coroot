@@ -51,7 +51,7 @@
                             </v-btn>
                         </template>
                         <v-list dense>
-                            <v-list-item href="https://coroot.com/docs/" target="_blank">
+                            <v-list-item href="https://docs.coroot.com/" target="_blank">
                                 <v-icon small class="mr-1">mdi-book-open-outline</v-icon>Documentation</v-list-item
                             >
                             <v-list-item href="https://github.com/coroot/coroot" target="_blank">
@@ -101,7 +101,7 @@
                         <template v-if="user && !user.anonymous">
                             <v-divider class="my-2" />
                             <v-list-item @click="changePassword = true">Change password</v-list-item>
-                            <v-list-item :to="{ name: 'logout' }">Sing out</v-list-item>
+                            <v-list-item :to="{ name: 'logout' }">Sign out</v-list-item>
                         </template>
                     </v-list>
                 </v-menu>

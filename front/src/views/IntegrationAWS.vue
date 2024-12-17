@@ -132,7 +132,7 @@
             :footer-props="{ itemsPerPageOptions: [10, 20, 50, 100, -1] }"
         >
             <template #item.application_id="{ item }">
-                <router-link :to="{ name: 'application', params: { id: item.application_id } }" class="text-no-wrap">
+                <router-link :to="{ name: 'overview', params: { view: 'applications', id: item.application_id } }" class="text-no-wrap">
                     {{ $utils.appId(item.application_id).name }}
                 </router-link>
             </template>

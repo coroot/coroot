@@ -27,7 +27,11 @@
                         <v-list-item-title>Applications</v-list-item-title>
                     </v-list-item-content>
                 </v-list-item>
-                <v-list-item v-for="a in results.apps" :key="a.id" :to="{ name: 'application', params: { id: a.id }, query: $utils.contextQuery() }">
+                <v-list-item
+                    v-for="a in results.apps"
+                    :key="a.id"
+                    :to="{ name: 'overview', params: { view: 'applications', id: a.id }, query: $utils.contextQuery() }"
+                >
                     <v-list-item-title class="ml-3">
                         <Led :status="a.status" />
                         <span>{{ a.name }}</span>
@@ -42,7 +46,11 @@
                         <v-list-item-title>Nodes</v-list-item-title>
                     </v-list-item-content>
                 </v-list-item>
-                <v-list-item v-for="n in results.nodes" :key="n.name" :to="{ name: 'node', params: { name: n.name }, query: $utils.contextQuery() }">
+                <v-list-item
+                    v-for="n in results.nodes"
+                    :key="n.name"
+                    :to="{ name: 'overview', params: { view: 'nodes', id: n.name }, query: $utils.contextQuery() }"
+                >
                     <v-list-item-title class="ml-3">
                         <Led :status="n.status" />
                         <span>{{ n.name }}</span>

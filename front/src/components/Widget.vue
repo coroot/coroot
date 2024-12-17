@@ -45,7 +45,7 @@ export default {
             if (!l) {
                 return null;
             }
-            return `https://coroot.com/docs/coroot/${l.group}/${l.item}${l.hash ? '#' + l.hash : ''}`;
+            return `https://docs.coroot.com/${l.group}/${l.item}${l.hash ? '#' + l.hash : ''}`;
         },
     },
 

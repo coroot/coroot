@@ -1,0 +1,10 @@
+---
+label: Quick-Start Guide
+position: 1
+link:
+  type: generated-index
+  slug: /quick-start/
+  description: >
+    This guide provides a quick overview of launching Coroot with default options. For more details and customization options check out the Installation section.
+
+    

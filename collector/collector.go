@@ -120,10 +120,11 @@ func (c *Collector) updateProjects() {
 	}
 }
 
-func (c *Collector) getProject(id db.ProjectId) (*db.Project, error) {
+func (c *Collector) getProject(apiKey string) (*db.Project, error) {
 	c.projectsLock.RLock()
 	defer c.projectsLock.RUnlock()
-	if id == "" {
+
+	if apiKey == "" {
 		if len(c.projects) == 1 {
 			return maps.Values(c.projects)[0], nil
 		}
@@ -133,11 +134,16 @@ func (c *Collector) getProject(id db.ProjectId) (*db.Project, error) {
 			}
 		}
 	}
-	p := c.projects[id]
-	if p == nil {
-		return nil, ErrProjectNotFound
+
+	for _, p := range c.projects {
+		for _, k := range p.Settings.ApiKeys {
+			if k.Key == apiKey {
+				return p, nil
+			}
+		}
 	}
-	return p, nil
+
+	return nil, ErrProjectNotFound
 }
 
 func (c *Collector) Close() {
@@ -244,89 +250,85 @@ func (c *Collector) clickhouseConnect(ctx context.Context, cfg *db.IntegrationCl
 	return &chClient{pool: pool, cluster: cluster}, err
 }
 
-func (c *Collector) getClickhouseClient(projectId db.ProjectId) (*chClient, error) {
+func (c *Collector) getClickhouseClient(project *db.Project) (*chClient, error) {
 	c.clickhouseClientsLock.RLock()
-	client := c.clickhouseClients[projectId]
+	client := c.clickhouseClients[project.Id]
 	c.clickhouseClientsLock.RUnlock()
-
 	if client != nil {
 		return client, nil
-	}
-	project, err := c.getProject(projectId)
-	if err != nil {
-		return nil, err
 	}
 
 	cfg := project.ClickHouseConfig(c.globalClickHouse)
 	if cfg == nil {
 		return nil, ErrClickhouseNotConfigured
 	}
+	var err error
 	if client, err = c.clickhouseConnect(context.TODO(), cfg); err != nil {
 		return nil, err
 	}
 
 	c.clickhouseClientsLock.Lock()
-	c.clickhouseClients[projectId] = client
+	c.clickhouseClients[project.Id] = client
 	c.clickhouseClientsLock.Unlock()
 
 	return client, nil
 }
 
-func (c *Collector) clickhouseDo(ctx context.Context, projectId db.ProjectId, query ch.Query) error {
-	client, err := c.getClickhouseClient(projectId)
+func (c *Collector) clickhouseDo(ctx context.Context, project *db.Project, query ch.Query) error {
+	client, err := c.getClickhouseClient(project)
 	if err != nil {
 		return err
 	}
 	query.Body = ReplaceTables(query.Body, client.cluster != "")
 	err = client.pool.Do(ctx, query)
 	if err != nil {
-		c.deleteClickhouseClient(projectId)
+		c.deleteClickhouseClient(project.Id)
 		return err
 	}
 	return nil
 }
 
-func (c *Collector) getTracesBatch(projectId db.ProjectId) *TracesBatch {
+func (c *Collector) getTracesBatch(project *db.Project) *TracesBatch {
 	c.traceBatchesLock.Lock()
 	defer c.traceBatchesLock.Unlock()
-	b := c.traceBatches[projectId]
+	b := c.traceBatches[project.Id]
 	if b == nil {
 		b = NewTracesBatch(batchLimit, batchTimeout, func(query ch.Query) error {
-			return c.clickhouseDo(context.TODO(), projectId, query)
+			return c.clickhouseDo(context.TODO(), project, query)
 		})
-		c.traceBatches[projectId] = b
+		c.traceBatches[project.Id] = b
 	}
 	return b
 }
 
-func (c *Collector) getLogsBatch(projectId db.ProjectId) *LogsBatch {
+func (c *Collector) getLogsBatch(project *db.Project) *LogsBatch {
 	c.logBatchesLock.Lock()
 	defer c.logBatchesLock.Unlock()
-	b := c.logBatches[projectId]
+	b := c.logBatches[project.Id]
 	if b == nil {
 		b = NewLogsBatch(batchLimit, batchTimeout, func(query ch.Query) error {
-			return c.clickhouseDo(context.TODO(), projectId, query)
+			return c.clickhouseDo(context.TODO(), project, query)
 		})
-		c.logBatches[projectId] = b
+		c.logBatches[project.Id] = b
 	}
 	return b
 }
 
-func (c *Collector) getProfilesBatch(projectId db.ProjectId) *ProfilesBatch {
+func (c *Collector) getProfilesBatch(project *db.Project) *ProfilesBatch {
 	c.profileBatchesLock.Lock()
 	defer c.profileBatchesLock.Unlock()
-	b := c.profileBatches[projectId]
+	b := c.profileBatches[project.Id]
 	if b == nil {
 		b = NewProfilesBatch(batchLimit, batchTimeout, func(query ch.Query) error {
-			return c.clickhouseDo(context.TODO(), projectId, query)
+			return c.clickhouseDo(context.TODO(), project, query)
 		})
-		c.profileBatches[projectId] = b
+		c.profileBatches[project.Id] = b
 	}
 	return b
 }
 
-func (c *Collector) IsClickhouseDistributed(projectId db.ProjectId) (bool, error) {
-	client, err := c.getClickhouseClient(projectId)
+func (c *Collector) IsClickhouseDistributed(project *db.Project) (bool, error) {
+	client, err := c.getClickhouseClient(project)
 	if err != nil {
 		return false, err
 	}

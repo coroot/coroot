@@ -1,7 +1,7 @@
 <template>
     <div>
-        <h1 class="text-h5 my-5">
-            <router-link :to="{ name: 'overview', params: { view: 'nodes' }, query: $utils.contextQuery() }">Nodes</router-link> / {{ name }}
+        <h1 class="text-h5 ml-4">
+            {{ name }}
             <v-progress-linear v-if="loading" indeterminate color="green" />
         </h1>
 
@@ -11,11 +11,7 @@
 
         <template v-if="node">
             <div v-if="node.status === 'unknown'" class="text-center">
-                This node is present in the Kubernetes cluster, but it seems that coroot-node-agent is not installed (<a
-                    href="https://coroot.com/docs/metric-exporters/node-agent/installation"
-                    target="_blank"
-                    >docs</a
-                >).
+                This node is present in the Kubernetes cluster, but it seems that coroot-node-agent is not installed.
             </div>
             <Dashboard v-else :name="name" :widgets="node.widgets" class="mt-3" />
         </template>

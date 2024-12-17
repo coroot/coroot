@@ -35,7 +35,15 @@
             <div v-if="!loading && loadingError" class="pa-3 text-center red--text">
                 {{ loadingError }}
             </div>
-            <FlameGraph v-if="view.profile" :profile="view.profile" :limit="0.5" class="pt-2" />
+            <FlameGraph
+                v-if="view.profile"
+                :profile="view.profile"
+                :instances="view.instances || []"
+                :instance="query.instance || ''"
+                @change:instance="changeInstance"
+                :limit="0.5"
+                class="pt-2"
+            />
         </div>
 
         <v-dialog v-model="configure" max-width="800">
@@ -51,7 +59,7 @@
 
                 <div class="grey--text my-4">
                     To configure an application to send profiles follow the
-                    <a href="https://coroot.com/docs/coroot/profiling" target="_blank">documentation</a>.
+                    <a href="https://docs.coroot.com/profiling" target="_blank">documentation</a>.
                 </div>
 
                 <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text class="my-3">
@@ -129,6 +137,10 @@ export default {
     methods: {
         changeType(t) {
             this.setQuery({ type: t });
+            this.get();
+        },
+        changeInstance(i) {
+            this.setQuery({ instance: i || undefined });
             this.get();
         },
         setSelection(s) {

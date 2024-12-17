@@ -55,7 +55,8 @@ func NewNodeIdFromLabels(mv MetricValues) NodeId {
 }
 
 type Node struct {
-	AgentVersion LabelLastValue
+	AgentVersion  LabelLastValue
+	KernelVersion LabelLastValue
 
 	Name    LabelLastValue
 	K8sName LabelLastValue
