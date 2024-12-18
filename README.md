@@ -1,6 +1,6 @@
 <img width="200" src="https://coroot.com/static/logo_u.png">
 
-![](https://github.com/coroot/coroot/actions/workflows/build.yml/badge.svg)
+![](https://github.com/coroot/coroot/actions/workflows/ci.yml/badge.svg)
 [![Go Report Card](https://goreportcard.com/badge/github.com/coroot/coroot)](https://goreportcard.com/report/github.com/coroot/coroot)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![](https://img.shields.io/badge/slack-coroot-brightgreen.svg?logo=slack)](https://join.slack.com/t/coroot-community/shared_invite/zt-1gsnfo0wj-I~Zvtx5CAAb8vr~r~vecyw)
