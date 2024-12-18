@@ -91,7 +91,7 @@ var QUERIES = map[string]string{
 
 	"container_http_requests_count":         `rate(container_http_requests_total[$RANGE])`,
 	"container_http_requests_latency":       `rate(container_http_requests_duration_seconds_total_sum [$RANGE]) / rate(container_http_requests_duration_seconds_total_count [$RANGE])`,
-	"container_http_requests_histogram":     `rate(container_http_requests_duration_seconds_total_bucket[$RANGE])`,
+	"container_http_requests_histogram":     `rate(container_http_requests_duration_seconds_total_bucket[$RANGE]) > 0.1`,
 	"container_postgres_queries_count":      `rate(container_postgres_queries_total[$RANGE])`,
 	"container_postgres_queries_latency":    `rate(container_postgres_queries_duration_seconds_total_sum [$RANGE]) / rate(container_postgres_queries_duration_seconds_total_count [$RANGE])`,
 	"container_postgres_queries_histogram":  `rate(container_postgres_queries_duration_seconds_total_bucket[$RANGE])`,
@@ -115,7 +115,7 @@ var QUERIES = map[string]string{
 	"container_cassandra_queries_histogram": `rate(container_cassandra_queries_duration_seconds_total_bucket[$RANGE])`,
 	"container_rabbitmq_messages":           `rate(container_rabbitmq_messages_total[$RANGE])`,
 	"container_nats_messages":               `rate(container_nats_messages_total[$RANGE])`,
-	"container_dns_requests_total":          `rate(container_dns_requests_total[$RANGE])`,
+	"container_dns_requests_total":          `rate(container_dns_requests_total[$RANGE]) > 0.1`,
 	"container_dns_requests_latency":        `rate(container_dns_requests_duration_seconds_total_bucket[$RANGE])`,
 
 	"kube_pod_init_container_info":                     `kube_pod_init_container_info`,
