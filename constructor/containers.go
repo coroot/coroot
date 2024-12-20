@@ -245,6 +245,8 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]model.
 	loadL7RequestsCount("container_cassandra_queries_count", model.ProtocolCassandra)
 	loadL7RequestsCount("container_rabbitmq_messages", model.ProtocolRabbitmq)
 	loadL7RequestsCount("container_nats_messages", model.ProtocolNats)
+	loadL7RequestsCount("container_clickhouse_queries_count", model.ProtocolClickhouse)
+	loadL7RequestsCount("container_zookeeper_requests_count", model.ProtocolZookeeper)
 
 	loadL7RequestsLatency := func(queryName string, protocol model.Protocol) {
 		loadConnection(queryName, func(connection *model.Connection, metric model.MetricValues) {
@@ -259,6 +261,8 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]model.
 	loadL7RequestsLatency("container_memcached_queries_latency", model.ProtocolMemcached)
 	loadL7RequestsLatency("container_kafka_requests_latency", model.ProtocolKafka)
 	loadL7RequestsLatency("container_cassandra_queries_latency", model.ProtocolCassandra)
+	loadL7RequestsLatency("container_clickhouse_queries_latency", model.ProtocolClickhouse)
+	loadL7RequestsLatency("container_zookeeper_requests_latency", model.ProtocolZookeeper)
 
 	loadL7RequestsHistogram := func(queryName string, protocol model.Protocol) {
 		loadConnection(queryName, func(connection *model.Connection, metric model.MetricValues) {
@@ -281,6 +285,8 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]model.
 	loadL7RequestsHistogram("container_memcached_queries_histogram", model.ProtocolMemcached)
 	loadL7RequestsHistogram("container_kafka_requests_histogram", model.ProtocolKafka)
 	loadL7RequestsHistogram("container_cassandra_queries_histogram", model.ProtocolCassandra)
+	loadL7RequestsHistogram("container_clickhouse_queries_histogram", model.ProtocolClickhouse)
+	loadL7RequestsHistogram("container_zookeeper_requests_histogram", model.ProtocolZookeeper)
 
 	loadContainer("container_dns_requests_total", func(instance *model.Instance, container *model.Container, metric model.MetricValues) {
 		r := model.DNSRequest{
