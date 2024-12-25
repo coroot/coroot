@@ -34,25 +34,24 @@ type DB struct {
 	primaryLockConn *sql.Conn
 }
 
-func Open(dataDir string, pgConnString string) (*DB, error) {
-	var db *sql.DB
-	var err error
-	var typ Type
-	if pgConnString != "" {
-		typ = TypePostgres
-		db, err = postgres(pgConnString)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		typ = TypeSqlite
-		db, err = sqlite(path.Join(dataDir, "db.sqlite"))
-		if err != nil {
-			return nil, err
-		}
-		db.SetMaxOpenConns(1)
+func NewSqlite(dataDir string) (*DB, error) {
+	db, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?mode=rwc", path.Join(dataDir, "db.sqlite")))
+	if err != nil {
+		return nil, err
 	}
-	return &DB{typ: typ, db: db}, nil
+	if _, err = db.Exec("PRAGMA foreign_keys = ON"); err != nil {
+		return nil, err
+	}
+	db.SetMaxOpenConns(1)
+	return &DB{typ: TypeSqlite, db: db}, nil
+}
+
+func NewPostgres(dsn string) (*DB, error) {
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		return nil, err
+	}
+	return &DB{typ: TypePostgres, db: db}, nil
 }
 
 func (db *DB) Type() Type {
@@ -91,21 +90,6 @@ func (db *DB) IsUniqueViolationError(err error) bool {
 		return ok && e.Code == sqlite3.ErrConstraint
 	}
 	return false
-}
-
-func sqlite(path string) (*sql.DB, error) {
-	db, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?mode=rwc", path))
-	if err != nil {
-		return nil, err
-	}
-	if _, err := db.Exec("PRAGMA foreign_keys = ON"); err != nil {
-		return nil, err
-	}
-	return db, nil
-}
-
-func postgres(dsn string) (*sql.DB, error) {
-	return sql.Open("postgres", dsn)
 }
 
 type Table interface {

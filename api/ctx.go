@@ -69,7 +69,7 @@ func (api *Api) WithContext(p *db.Project, cacheStatus *cache.Status, w *model.W
 	}
 }
 
-func renderStatus(p *db.Project, cacheStatus *cache.Status, w *model.World, globalPrometheus *db.IntegrationsPrometheus) Status {
+func renderStatus(p *db.Project, cacheStatus *cache.Status, w *model.World, globalPrometheus *db.IntegrationPrometheus) Status {
 	res := Status{
 		Status: model.OK,
 	}

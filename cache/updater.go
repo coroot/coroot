@@ -38,7 +38,7 @@ func (c *Cache) updater() {
 		}
 		ids := map[db.ProjectId]bool{}
 		for _, project := range projects {
-			promClient, _ := c.promClientFactory(project, c.globalPrometheus)
+			promClient, _ := c.getPrometheusClient(project)
 			if promClient == nil {
 				continue
 			}
@@ -143,7 +143,7 @@ func (c *Cache) updaterWorker(projects *sync.Map, projectId db.ProjectId, promCl
 			}
 		}
 
-		if promClient, _ = c.promClientFactory(project, c.globalPrometheus); promClient != nil {
+		if promClient, _ = c.getPrometheusClient(project); promClient != nil {
 			si, err := getScrapeInterval(promClient)
 			if err != nil {
 				klog.Errorln(err)

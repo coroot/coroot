@@ -1,8 +1,9 @@
 <template>
     <v-form v-model="valid" ref="form" style="max-width: 800px">
-        <v-alert v-if="form.global" color="primary" outlined text
-            >This project uses a global Prometheus configuration that can't be changed through the UI</v-alert
-        >
+        <v-alert v-if="form.global" color="primary" outlined text>
+            This project uses a global Prometheus configuration that can't be changed through the UI
+        </v-alert>
+
         <div class="subtitle-1">Prometheus URL</div>
         <div class="caption">Coroot works on top of the telemetry data stored in your Prometheus server.</div>
         <v-text-field
