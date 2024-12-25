@@ -6,7 +6,7 @@
                 <div>Once you delete a project, there is no going back. Please be certain.</div>
             </div>
             <div>
-                <v-btn block @click="dialog = true" color="red" outlined>Delete this project</v-btn>
+                <v-btn block @click="dialog = true" :disabled="readonly" color="red" outlined>Delete this project</v-btn>
             </div>
         </div>
         <v-dialog v-model="dialog" max-width="600">
@@ -46,6 +46,7 @@ export default {
 
     data() {
         return {
+            readonly: false,
             name: '',
             dialog: false,
             loading: false,
@@ -54,11 +55,14 @@ export default {
         };
     },
 
+    mounted() {
+        this.get();
+    },
+
     watch: {
-        dialog() {
-            this.project = null;
+        dialog(v) {
             this.confirmation = '';
-            this.dialog && this.get();
+            v && this.get();
         },
     },
 
@@ -72,6 +76,7 @@ export default {
                     this.error = error;
                     return;
                 }
+                this.readonly = data.readonly;
                 this.name = data.name;
             });
         },

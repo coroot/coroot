@@ -21,7 +21,7 @@ type Project struct {
 	Id   ProjectId
 	Name string
 
-	Prometheus IntegrationsPrometheus
+	Prometheus IntegrationPrometheus
 	Settings   ProjectSettings
 }
 
@@ -31,6 +31,7 @@ type ProjectSettings struct {
 	Integrations                Integrations                                              `json:"integrations"`
 	CustomApplications          map[string]model.CustomApplication                        `json:"custom_applications"`
 	ApiKeys                     []ApiKey                                                  `json:"api_keys"`
+	Configurable                bool                                                      `json:"configurable"`
 }
 
 type ApplicationCategorySettings struct {
@@ -87,7 +88,7 @@ func (p *Project) GetCustomApplicationName(instance string) string {
 	return ""
 }
 
-func (p *Project) PrometheusConfig(globalPrometheus *IntegrationsPrometheus) *IntegrationsPrometheus {
+func (p *Project) PrometheusConfig(globalPrometheus *IntegrationPrometheus) *IntegrationPrometheus {
 	if globalPrometheus != nil {
 		gp := *globalPrometheus
 		gp.ExtraSelector = fmt.Sprintf(`{coroot_project_id="%s"}`, p.Id)

@@ -26,7 +26,6 @@ require (
 	github.com/opsgenie/opsgenie-go-sdk-v2 v1.2.14
 	github.com/prometheus/client_golang v1.20.5
 	github.com/prometheus/common v0.60.1
-	github.com/prometheus/procfs v0.15.1
 	github.com/prometheus/prometheus v0.300.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/slack-go/slack v0.11.3
@@ -41,6 +40,7 @@ require (
 	gonum.org/v1/gonum v0.12.0
 	google.golang.org/protobuf v1.34.2
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
+	gopkg.in/yaml.v3 v3.0.1
 	inet.af/netaddr v0.0.0-20230525184311-b8eac61e914a
 	k8s.io/klog v1.0.0
 )
@@ -73,6 +73,7 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/prometheus/client_model v0.6.1 // indirect
+	github.com/prometheus/procfs v0.15.1 // indirect
 	github.com/segmentio/asm v1.2.0 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
 	go.opentelemetry.io/otel v1.31.0 // indirect
@@ -91,5 +92,4 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20240903143218-8af14fe29dc1 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240903143218-8af14fe29dc1 // indirect
 	google.golang.org/grpc v1.67.1 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

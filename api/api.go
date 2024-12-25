@@ -34,14 +34,14 @@ type Api struct {
 	pricing          *pricing.Manager
 	roles            rbac.RoleManager
 	globalClickHouse *db.IntegrationClickhouse
-	globalPrometheus *db.IntegrationsPrometheus
+	globalPrometheus *db.IntegrationPrometheus
 
 	authSecret        string
 	authAnonymousRole rbac.RoleName
 }
 
 func NewApi(cache *cache.Cache, db *db.DB, collector *collector.Collector, pricing *pricing.Manager, roles rbac.RoleManager,
-	globalClickHouse *db.IntegrationClickhouse, globalPrometheus *db.IntegrationsPrometheus) *Api {
+	globalClickHouse *db.IntegrationClickhouse, globalPrometheus *db.IntegrationPrometheus) *Api {
 	return &Api{
 		cache:            cache,
 		db:               db,
@@ -233,6 +233,7 @@ func (api *Api) Project(w http.ResponseWriter, r *http.Request, u *db.User) {
 
 	case http.MethodGet:
 		type ProjectSettings struct {
+			Readonly        bool                `json:"readonly"`
 			Name            string              `json:"name"`
 			ApiKeys         any                 `json:"api_keys"`
 			RefreshInterval timeseries.Duration `json:"refresh_interval"`
@@ -249,6 +250,7 @@ func (api *Api) Project(w http.ResponseWriter, r *http.Request, u *db.User) {
 				http.Error(w, "", http.StatusInternalServerError)
 				return
 			}
+			res.Readonly = !project.Settings.Configurable
 			res.Name = project.Name
 			res.RefreshInterval = project.Prometheus.RefreshInterval
 			if isAllowed {
@@ -380,7 +382,7 @@ func (api *Api) ApiKeys(w http.ResponseWriter, r *http.Request, u *db.User) {
 			Editable bool        `json:"editable"`
 			Keys     []db.ApiKey `json:"keys"`
 		}{
-			Editable: isAllowed,
+			Editable: isAllowed && project.Settings.Configurable,
 			Keys:     project.Settings.ApiKeys,
 		}
 		if !isAllowed {

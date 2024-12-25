@@ -191,7 +191,7 @@ type IntegrationForm interface {
 	Test(ctx context.Context, project *db.Project) error
 }
 
-func NewIntegrationForm(t db.IntegrationType, globalClickHouse *db.IntegrationClickhouse, globalPrometheus *db.IntegrationsPrometheus) IntegrationForm {
+func NewIntegrationForm(t db.IntegrationType, globalClickHouse *db.IntegrationClickhouse, globalPrometheus *db.IntegrationPrometheus) IntegrationForm {
 	switch t {
 	case db.IntegrationTypePrometheus:
 		return &IntegrationFormPrometheus{global: globalPrometheus}
@@ -214,15 +214,15 @@ func NewIntegrationForm(t db.IntegrationType, globalClickHouse *db.IntegrationCl
 }
 
 type IntegrationFormPrometheus struct {
-	db.IntegrationsPrometheus
-	global *db.IntegrationsPrometheus
+	db.IntegrationPrometheus
+	global *db.IntegrationPrometheus
 }
 
 func (f *IntegrationFormPrometheus) Valid() bool {
-	if _, err := url.Parse(f.IntegrationsPrometheus.Url); err != nil {
+	if _, err := url.Parse(f.IntegrationPrometheus.Url); err != nil {
 		return false
 	}
-	if !prom.IsSelectorValid(f.IntegrationsPrometheus.ExtraSelector) {
+	if !prom.IsSelectorValid(f.IntegrationPrometheus.ExtraSelector) {
 		return false
 	}
 	var validHeaders []utils.Header
@@ -241,7 +241,7 @@ func (f *IntegrationFormPrometheus) Get(project *db.Project, masked bool) {
 		f.RefreshInterval = db.DefaultRefreshInterval
 		return
 	}
-	f.IntegrationsPrometheus = *cfg
+	f.IntegrationPrometheus = *cfg
 	if masked {
 		f.Url = "http://<hidden>"
 		if f.BasicAuth != nil {
@@ -261,7 +261,7 @@ func (f *IntegrationFormPrometheus) Update(ctx context.Context, project *db.Proj
 	if err := f.Test(ctx, project); err != nil {
 		return err
 	}
-	project.Prometheus = f.IntegrationsPrometheus
+	project.Prometheus = f.IntegrationPrometheus
 	return nil
 }
 
