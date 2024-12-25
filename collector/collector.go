@@ -39,7 +39,7 @@ type Collector struct {
 	db               *db.DB
 	cache            *cache.Cache
 	globalClickHouse *db.IntegrationClickhouse
-	globalPrometheus *db.IntegrationsPrometheus
+	globalPrometheus *db.IntegrationPrometheus
 
 	projects     map[db.ProjectId]*db.Project
 	projectsLock sync.RWMutex
@@ -55,7 +55,7 @@ type Collector struct {
 	profileBatchesLock sync.Mutex
 }
 
-func New(database *db.DB, cache *cache.Cache, globalClickHouse *db.IntegrationClickhouse, globalPrometheus *db.IntegrationsPrometheus) *Collector {
+func New(database *db.DB, cache *cache.Cache, globalClickHouse *db.IntegrationClickhouse, globalPrometheus *db.IntegrationPrometheus) *Collector {
 	c := &Collector{
 		db:                database,
 		cache:             cache,

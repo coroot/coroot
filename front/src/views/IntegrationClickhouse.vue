@@ -1,8 +1,8 @@
 <template>
     <v-form v-if="form" v-model="valid" ref="form" style="max-width: 800px">
-        <v-alert v-if="form.global" color="primary" outlined text
-            >This project uses a global ClickHouse configuration that can't be changed through the UI</v-alert
-        >
+        <v-alert v-if="form.global" color="primary" outlined text>
+            This project uses a global ClickHouse configuration that can't be changed through the UI
+        </v-alert>
 
         <div class="subtitle-1">Protocol</div>
         <v-radio-group v-model="form.protocol" row dense class="mt-0" :disabled="form.global">

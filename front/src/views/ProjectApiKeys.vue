@@ -12,7 +12,7 @@
                 <tr v-for="k in keys">
                     <td>{{ k.description }}</td>
                     <td>
-                        <template v-if="editable"> {{ k.key }} <CopyButton :text="k.key" /> </template>
+                        <template v-if="k.key"> {{ k.key }} <CopyButton :text="k.key" /> </template>
                         <template v-else>
                             <span class="grey--text">Only project Admins can access API keys.</span>
                         </template>
@@ -25,7 +25,7 @@
             </tbody>
         </v-simple-table>
 
-        <v-btn color="primary" class="mt-4" small @click="open('generate', {})">Generate API key</v-btn>
+        <v-btn color="primary" class="mt-4" small @click="open('generate', {})" :disabled="!editable">Generate API key</v-btn>
 
         <v-dialog v-model="dialog" max-width="600">
             <v-card v-if="loading" class="pa-10">
