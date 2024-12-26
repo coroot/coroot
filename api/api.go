@@ -975,6 +975,8 @@ func (api *Api) Profiling(w http.ResponseWriter, r *http.Request, u *db.User) {
 	var ch *clickhouse.Client
 	if ch, err = api.getClickhouseClient(project); err != nil {
 		klog.Warningln(err)
+		http.Error(w, "ClickHouse is not available", http.StatusInternalServerError)
+		return
 	}
 	q := r.URL.Query()
 	auditor.Audit(world, project, nil, project.ClickHouseConfig(api.globalClickHouse) != nil)
@@ -1030,6 +1032,8 @@ func (api *Api) Tracing(w http.ResponseWriter, r *http.Request, u *db.User) {
 	var ch *clickhouse.Client
 	if ch, err = api.getClickhouseClient(project); err != nil {
 		klog.Warningln(err)
+		http.Error(w, "ClickHouse is not available", http.StatusInternalServerError)
+		return
 	}
 	auditor.Audit(world, project, nil, project.ClickHouseConfig(api.globalClickHouse) != nil)
 	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Tracing(r.Context(), ch, app, q, world)))
@@ -1080,13 +1084,17 @@ func (api *Api) Logs(w http.ResponseWriter, r *http.Request, u *db.User) {
 		http.Error(w, "Application not found", http.StatusNotFound)
 		return
 	}
-	var ch *clickhouse.Client
-	if ch, err = api.getClickhouseClient(project); err != nil {
-		klog.Warningln(err)
+	ch, chErr := api.getClickhouseClient(project)
+	if chErr != nil {
+		klog.Warningln(chErr)
 	}
 	auditor.Audit(world, project, nil, project.ClickHouseConfig(api.globalClickHouse) != nil)
 	q := r.URL.Query()
-	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Logs(r.Context(), ch, app, q, world)))
+	res := views.Logs(r.Context(), ch, app, q, world)
+	if chErr != nil {
+		res.Message = "Failed to load logs: ClickHouse is not available"
+	}
+	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, res))
 }
 
 func (api *Api) Node(w http.ResponseWriter, r *http.Request, u *db.User) {
