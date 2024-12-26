@@ -144,7 +144,7 @@ func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, 
 		q.Type = v.Profiles[0].Type
 	}
 
-	chart, containers := getChart(app, q.Type, wCtx)
+	chart, containers := getChart(app, q.Type, wCtx, q.Instance)
 	v.Chart = chart
 	v.Instances = maps.Keys(containers)
 	sort.Strings(v.Instances)
@@ -183,7 +183,7 @@ func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, 
 	return v
 }
 
-func getChart(app *model.Application, typ model.ProfileType, ctx timeseries.Context) (*model.Chart, map[string][]string) {
+func getChart(app *model.Application, typ model.ProfileType, ctx timeseries.Context, instance string) (*model.Chart, map[string][]string) {
 	var chart *model.Chart
 	var containerToSeriesF func(c *model.Container) *timeseries.TimeSeries
 	category := model.Profiles[typ].Category
@@ -204,7 +204,9 @@ func getChart(app *model.Application, typ model.ProfileType, ctx timeseries.Cont
 			agg.Add(containerToSeriesF(c))
 			containers[i.Name] = append(containers[i.Name], c.Id)
 		}
-		chart.AddSeries(i.Name, agg)
+		if instance == "" || i.Name == instance {
+			chart.AddSeries(i.Name, agg)
+		}
 	}
 	events := model.EventsToAnnotations(app.Events, ctx)
 	incidents := model.IncidentsToAnnotations(app.Incidents, ctx)
