@@ -189,10 +189,10 @@ func getChart(app *model.Application, typ model.ProfileType, ctx timeseries.Cont
 	category := model.Profiles[typ].Category
 	switch category {
 	case model.ProfileCategoryCPU:
-		chart = model.NewChart(ctx, "CPU usage by instance, cores").Stacked()
+		chart = model.NewChart(ctx, "CPU usage by instance, cores")
 		containerToSeriesF = func(c *model.Container) *timeseries.TimeSeries { return c.CpuUsage }
 	case model.ProfileCategoryMemory:
-		chart = model.NewChart(ctx, "Memory (RSS) usage by instance, bytes").Stacked()
+		chart = model.NewChart(ctx, "Memory (RSS) usage by instance, bytes")
 		containerToSeriesF = func(c *model.Container) *timeseries.TimeSeries { return c.MemoryRss }
 	default:
 		return nil, nil
