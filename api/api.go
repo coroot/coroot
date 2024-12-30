@@ -1150,7 +1150,7 @@ func (api *Api) LoadWorld(ctx context.Context, project *db.Project, from, to tim
 	duration := to.Sub(from)
 	if cacheTo.Before(to) {
 		to = cacheTo
-		from = to.Add(-duration)
+		duration = to.Sub(from)
 	}
 	step = increaseStepForBigDurations(duration, step)
 
