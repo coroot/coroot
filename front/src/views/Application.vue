@@ -73,6 +73,7 @@ export default {
     methods: {
         get() {
             this.loading = true;
+            this.error = '';
             this.$api.getApplication(this.id, (data, error) => {
                 this.loading = false;
                 if (error) {
