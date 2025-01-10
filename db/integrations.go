@@ -95,7 +95,7 @@ func (integrations Integrations) GetInfo() []IntegrationInfo {
 	return res
 }
 
-type IntegrationsPrometheus struct {
+type IntegrationPrometheus struct {
 	Global          bool                `json:"global"`
 	Url             string              `json:"url"`
 	RefreshInterval timeseries.Duration `json:"refresh_interval"`

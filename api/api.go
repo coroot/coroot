@@ -34,14 +34,14 @@ type Api struct {
 	pricing          *pricing.Manager
 	roles            rbac.RoleManager
 	globalClickHouse *db.IntegrationClickhouse
-	globalPrometheus *db.IntegrationsPrometheus
+	globalPrometheus *db.IntegrationPrometheus
 
 	authSecret        string
 	authAnonymousRole rbac.RoleName
 }
 
 func NewApi(cache *cache.Cache, db *db.DB, collector *collector.Collector, pricing *pricing.Manager, roles rbac.RoleManager,
-	globalClickHouse *db.IntegrationClickhouse, globalPrometheus *db.IntegrationsPrometheus) *Api {
+	globalClickHouse *db.IntegrationClickhouse, globalPrometheus *db.IntegrationPrometheus) *Api {
 	return &Api{
 		cache:            cache,
 		db:               db,
@@ -233,6 +233,7 @@ func (api *Api) Project(w http.ResponseWriter, r *http.Request, u *db.User) {
 
 	case http.MethodGet:
 		type ProjectSettings struct {
+			Readonly        bool                `json:"readonly"`
 			Name            string              `json:"name"`
 			ApiKeys         any                 `json:"api_keys"`
 			RefreshInterval timeseries.Duration `json:"refresh_interval"`
@@ -249,6 +250,7 @@ func (api *Api) Project(w http.ResponseWriter, r *http.Request, u *db.User) {
 				http.Error(w, "", http.StatusInternalServerError)
 				return
 			}
+			res.Readonly = !project.Settings.Configurable
 			res.Name = project.Name
 			res.RefreshInterval = project.Prometheus.RefreshInterval
 			if isAllowed {
@@ -380,7 +382,7 @@ func (api *Api) ApiKeys(w http.ResponseWriter, r *http.Request, u *db.User) {
 			Editable bool        `json:"editable"`
 			Keys     []db.ApiKey `json:"keys"`
 		}{
-			Editable: isAllowed,
+			Editable: isAllowed && project.Settings.Configurable,
 			Keys:     project.Settings.ApiKeys,
 		}
 		if !isAllowed {
@@ -973,6 +975,8 @@ func (api *Api) Profiling(w http.ResponseWriter, r *http.Request, u *db.User) {
 	var ch *clickhouse.Client
 	if ch, err = api.getClickhouseClient(project); err != nil {
 		klog.Warningln(err)
+		http.Error(w, "ClickHouse is not available", http.StatusInternalServerError)
+		return
 	}
 	q := r.URL.Query()
 	auditor.Audit(world, project, nil, project.ClickHouseConfig(api.globalClickHouse) != nil)
@@ -1028,6 +1032,8 @@ func (api *Api) Tracing(w http.ResponseWriter, r *http.Request, u *db.User) {
 	var ch *clickhouse.Client
 	if ch, err = api.getClickhouseClient(project); err != nil {
 		klog.Warningln(err)
+		http.Error(w, "ClickHouse is not available", http.StatusInternalServerError)
+		return
 	}
 	auditor.Audit(world, project, nil, project.ClickHouseConfig(api.globalClickHouse) != nil)
 	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Tracing(r.Context(), ch, app, q, world)))
@@ -1078,13 +1084,17 @@ func (api *Api) Logs(w http.ResponseWriter, r *http.Request, u *db.User) {
 		http.Error(w, "Application not found", http.StatusNotFound)
 		return
 	}
-	var ch *clickhouse.Client
-	if ch, err = api.getClickhouseClient(project); err != nil {
-		klog.Warningln(err)
+	ch, chErr := api.getClickhouseClient(project)
+	if chErr != nil {
+		klog.Warningln(chErr)
 	}
 	auditor.Audit(world, project, nil, project.ClickHouseConfig(api.globalClickHouse) != nil)
 	q := r.URL.Query()
-	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Logs(r.Context(), ch, app, q, world)))
+	res := views.Logs(r.Context(), ch, app, q, world)
+	if chErr != nil {
+		res.Message = "Failed to load logs: ClickHouse is not available"
+	}
+	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, res))
 }
 
 func (api *Api) Node(w http.ResponseWriter, r *http.Request, u *db.User) {
@@ -1140,7 +1150,7 @@ func (api *Api) LoadWorld(ctx context.Context, project *db.Project, from, to tim
 	duration := to.Sub(from)
 	if cacheTo.Before(to) {
 		to = cacheTo
-		from = to.Add(-duration)
+		duration = to.Sub(from)
 	}
 	step = increaseStepForBigDurations(duration, step)
 

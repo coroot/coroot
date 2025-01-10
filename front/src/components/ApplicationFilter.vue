@@ -155,7 +155,7 @@ export default {
             const selectedCategories = new Set(this.selectedCategories);
             const selectedNamespaces = new Set(this.selectedNamespaces);
             const search = this.search;
-            const applications = this.applications.filter((a) => {
+            const applications = (this.applications || []).filter((a) => {
                 if (search) {
                     return a.id.includes(search) || (a.type && a.type.name.includes(search));
                 }
