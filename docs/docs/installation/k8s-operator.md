@@ -77,7 +77,7 @@ spec:
 #    licenseKey: COROOT-1111-111 # License key for Coroot Enterprise Edition.
 
 #  agentsOnly: # Configures the operator to install only the node-agent and cluster-agent.
-#    corootUrl: http://COROOT_IP:PORT/ # URL of the Coroot instance to which agents send metrics, logs, traces, and profiles.
+#    corootURL: http://COROOT_IP:PORT/ # URL of the Coroot instance to which agents send metrics, logs, traces, and profiles.
 
 #  apiKey: # The API key used by agents when sending telemetry to Coroot.
 
