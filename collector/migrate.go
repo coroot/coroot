@@ -126,6 +126,21 @@ SETTINGS index_granularity=8192, ttl_only_drop_parts = 1
 `,
 
 		`
+CREATE TABLE IF NOT EXISTS otel_logs_service_name_severity_text @on_cluster (
+    ServiceName LowCardinality(String) CODEC(ZSTD(1)),
+    SeverityText LowCardinality(String) CODEC(ZSTD(1)),
+    LastSeen DateTime64(9) CODEC(Delta, ZSTD(1))
+)
+ENGINE @replacing_merge_tree
+PRIMARY KEY (ServiceName, SeverityText)
+TTL toDateTime(LastSeen) + toIntervalDay(@ttl_days)
+PARTITION BY toDate(LastSeen)`,
+
+		`
+CREATE MATERIALIZED VIEW IF NOT EXISTS otel_logs_service_name_severity_text_mv @on_cluster TO otel_logs_service_name_severity_text AS
+SELECT ServiceName, SeverityText, max(Timestamp) AS LastSeen FROM otel_logs group by ServiceName, SeverityText`,
+
+		`
 CREATE TABLE IF NOT EXISTS otel_traces @on_cluster (
      Timestamp DateTime64(9) CODEC(Delta, ZSTD(1)),
      TraceId String CODEC(ZSTD(1)),
@@ -163,6 +178,8 @@ PARTITION BY toDate(Timestamp)
 ORDER BY (ServiceName, SpanName, toUnixTimestamp(Timestamp), TraceId)
 SETTINGS index_granularity=8192, ttl_only_drop_parts = 1`,
 
+		`ALTER TABLE otel_traces @on_cluster ADD COLUMN IF NOT EXISTS NetSockPeerAddr LowCardinality(String) MATERIALIZED SpanAttributes['net.sock.peer.addr'] CODEC(ZSTD(1))`,
+
 		`
 CREATE TABLE IF NOT EXISTS otel_traces_trace_id_ts @on_cluster (
      TraceId String CODEC(ZSTD(1)),
@@ -184,7 +201,19 @@ FROM otel_traces
 WHERE TraceId!=''
 GROUP BY TraceId`,
 
-		`ALTER TABLE otel_traces @on_cluster ADD COLUMN IF NOT EXISTS NetSockPeerAddr LowCardinality(String) MATERIALIZED SpanAttributes['net.sock.peer.addr'] CODEC(ZSTD(1))`,
+		`
+CREATE TABLE IF NOT EXISTS otel_traces_service_name @on_cluster (
+    ServiceName LowCardinality(String) CODEC(ZSTD(1)),
+    LastSeen DateTime64(9) CODEC(Delta, ZSTD(1))
+)
+ENGINE @replacing_merge_tree
+PRIMARY KEY (ServiceName)
+TTL toDateTime(LastSeen) + toIntervalDay(@ttl_days)
+PARTITION BY toDate(LastSeen)`,
+
+		`
+CREATE MATERIALIZED VIEW IF NOT EXISTS otel_traces_service_name_mv @on_cluster TO otel_traces_service_name AS
+SELECT ServiceName, max(Timestamp) AS LastSeen FROM otel_traces group by ServiceName`,
 
 		`
 CREATE TABLE IF NOT EXISTS profiling_stacks @on_cluster (
@@ -233,11 +262,17 @@ SELECT ServiceName, Type, max(End) AS LastSeen FROM profiling_samples group by S
 		`CREATE TABLE IF NOT EXISTS otel_logs_distributed ON CLUSTER @cluster AS otel_logs
 			ENGINE = Distributed(@cluster, currentDatabase(), otel_logs, rand())`,
 
+		`CREATE TABLE IF NOT EXISTS otel_logs_service_name_severity_text_distributed ON CLUSTER @cluster AS otel_logs_service_name_severity_text
+			ENGINE = Distributed(@cluster, currentDatabase(), otel_logs_service_name_severity_text)`,
+
 		`CREATE TABLE IF NOT EXISTS otel_traces_distributed ON CLUSTER @cluster AS otel_traces
 			ENGINE = Distributed(@cluster, currentDatabase(), otel_traces, cityHash64(TraceId))`,
 
 		`CREATE TABLE IF NOT EXISTS otel_traces_trace_id_ts_distributed ON CLUSTER @cluster AS otel_traces_trace_id_ts
 			ENGINE = Distributed(@cluster, currentDatabase(), otel_traces_trace_id_ts)`,
+
+		`CREATE TABLE IF NOT EXISTS otel_traces_service_name_distributed ON CLUSTER @cluster AS otel_traces_service_name
+			ENGINE = Distributed(@cluster, currentDatabase(), otel_traces_service_name)`,
 
 		`CREATE TABLE IF NOT EXISTS profiling_stacks_distributed ON CLUSTER @cluster AS profiling_stacks
 		ENGINE = Distributed(@cluster, currentDatabase(), profiling_stacks, Hash)`,
@@ -251,7 +286,11 @@ SELECT ServiceName, Type, max(End) AS LastSeen FROM profiling_samples group by S
 )
 
 func ReplaceTables(query string, distributed bool) string {
-	tbls := []string{"otel_logs", "otel_traces", "otel_traces_trace_id_ts", "profiling_stacks", "profiling_samples", "profiling_profiles"}
+	tbls := []string{
+		"otel_logs", "otel_logs_service_name_severity_text",
+		"otel_traces", "otel_traces_trace_id_ts", "otel_traces_service_name",
+		"profiling_stacks", "profiling_samples", "profiling_profiles",
+	}
 	for _, t := range tbls {
 		placeholder := "@@table_" + t + "@@"
 		if distributed {

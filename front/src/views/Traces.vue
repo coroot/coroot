@@ -20,7 +20,7 @@
                 <OpenTelemetryIntegration small color="primary">Integrate OpenTelemetry</OpenTelemetryIntegration>
             </div>
 
-            <v-alert v-if="view.error" color="error" icon="mdi-alert-octagon-outline" outlined text>
+            <v-alert v-if="view.error" color="error" icon="mdi-alert-octagon-outline" outlined text class="mt-2">
                 {{ view.error }}
             </v-alert>
 
@@ -421,7 +421,6 @@ export default {
     },
 
     mounted() {
-        this.get();
         this.$events.watch(this, this.get, 'refresh');
     },
 
