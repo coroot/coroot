@@ -115,7 +115,7 @@ func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, 
 }
 
 func renderEntries(ctx context.Context, v *View, ch *clickhouse.Client, app *model.Application, w *model.World, q Query) {
-	services, err := ch.GetServicesFromLogs(ctx)
+	services, err := ch.GetServicesFromLogs(ctx, w.Ctx.From)
 	if err != nil {
 		klog.Errorln(err)
 		v.Status = model.WARNING

@@ -79,7 +79,7 @@ func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, 
 
 	v := &View{}
 
-	services, err := ch.GetServicesFromTraces(ctx)
+	services, err := ch.GetServicesFromTraces(ctx, w.Ctx.From)
 	if err != nil {
 		klog.Errorln(err)
 		v.Status = model.WARNING
@@ -145,7 +145,7 @@ func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, 
 				Ctx:              w.Ctx,
 				ExcludePeerAddrs: ignoredPeerAddrs,
 			}
-			sq.Filters = append(sq.Filters, clickhouse.NewSpanFilter("ServiceName", "=", otelService))
+			sq.AddFilter("ServiceName", "=", otelService)
 			histogram, e = ch.GetSpansByServiceNameHistogram(ctx, sq)
 			if e != nil {
 				err = e
@@ -165,7 +165,7 @@ func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, 
 				Limit:            limit,
 				ExcludePeerAddrs: ignoredPeerAddrs,
 			}
-			sq.Filters = append(sq.Filters, clickhouse.NewSpanFilter("ServiceName", "=", otelService))
+			sq.AddFilter("ServiceName", "=", otelService)
 			spans, e = ch.GetSpansByServiceName(ctx, sq)
 			if e != nil {
 				err = e
