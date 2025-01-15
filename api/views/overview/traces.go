@@ -90,12 +90,12 @@ func renderTraces(ctx context.Context, ch *clickhouse.Client, w *model.World, qu
 	sq := clickhouse.SpanQuery{Ctx: w.Ctx}
 
 	for _, f := range q.Filters {
-		sq.Filters = append(sq.Filters, clickhouse.NewSpanFilter(f.Field, f.Op, f.Value))
+		sq.AddFilter(f.Field, f.Op, f.Value)
 	}
 
 	if !q.IncludeAux {
 		sq.ExcludePeerAddrs = getMonitoringAndControlPlanePodIps(w)
-		sq.Filters = append(sq.Filters, clickhouse.NewSpanFilter("SpanName", "!~", "GET /(health[z]*|metrics|debug/.+|actuator/.+)"))
+		sq.AddFilter("SpanName", "!~", "GET /(health[z]*|metrics|debug/.+|actuator/.+)")
 	}
 
 	histogram, err := ch.GetRootSpansHistogram(ctx, sq)
@@ -111,7 +111,7 @@ func renderTraces(ctx context.Context, ch *clickhouse.Client, w *model.World, qu
 		}
 		res.Heatmap.AddSeries("errors", "errors", histogram[0].TimeSeries, "", "err")
 	} else {
-		services, err := ch.GetServicesFromTraces(ctx)
+		services, err := ch.GetServicesFromTraces(ctx, w.Ctx.From)
 		if err != nil {
 			klog.Errorln(err)
 			res.Error = fmt.Sprintf("Clickhouse error: %s", err)

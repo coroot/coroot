@@ -84,7 +84,7 @@ func New(database *db.DB, cache *cache.Cache, globalClickHouse *db.IntegrationCl
 		go func(cfg *db.IntegrationClickhouse) {
 			b := backoff.Backoff{Factor: 2, Min: time.Minute, Max: 10 * time.Minute}
 			for {
-				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 				client, err := c.clickhouseConnect(ctx, cfg)
 				if err == nil {
 					err = c.migrate(ctx, client)

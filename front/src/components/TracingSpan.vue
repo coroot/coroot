@@ -57,7 +57,7 @@
                         <tr>
                             <td>status</td>
                             <td>
-                                <div class="d-flex">
+                                <div class="d-flex" style="gap: 4px">
                                     <v-icon v-if="span.status.error" color="error" small>mdi-alert-circle</v-icon>
                                     <v-icon v-else color="success" small>mdi-check-circle</v-icon>
                                     <pre>{{ span.status.message }}</pre>

@@ -127,7 +127,7 @@ func (m *Migrator) Exec(query string, args ...any) error {
 func (m *Migrator) AddColumnIfNotExists(table, column, dataType string) error {
 	switch m.typ {
 	case TypeSqlite:
-		rows, err := m.db.Query("SELECT name FROM pragma_table_info('project');")
+		rows, err := m.db.Query(fmt.Sprintf("SELECT name FROM pragma_table_info('%s');", table))
 		if err != nil {
 			return nil
 		}
