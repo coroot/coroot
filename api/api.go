@@ -276,6 +276,7 @@ func (api *Api) Project(w http.ResponseWriter, r *http.Request, u *db.User) {
 			Id:   db.ProjectId(projectId),
 			Name: form.Name,
 		}
+		project.Settings.Configurable = true
 		id, err := api.db.SaveProject(project)
 		if err != nil {
 			if errors.Is(err, db.ErrConflict) {
