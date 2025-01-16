@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"io"
 	"net"
 	"net/url"
 	"os"
@@ -148,7 +149,11 @@ func (cfg *Config) load() error {
 			return err
 		}
 		defer f.Close()
-		if err = yaml.NewDecoder(f).Decode(cfg); err != nil {
+		data, err := io.ReadAll(f)
+		if err != nil {
+			return err
+		}
+		if err = yaml.Unmarshal(data, cfg); err != nil {
 			return err
 		}
 	}
