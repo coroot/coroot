@@ -4,7 +4,7 @@
             <v-tabs :value="view" height="40" show-arrows slider-size="2">
                 <template v-for="(name, view) in views">
                     <v-tab
-                        v-if="name"
+                        v-if="name && view"
                         :to="{
                             params: { view, id: undefined, report: undefined },
                             query: view === 'incidents' ? { ...$utils.contextQuery(), incident: undefined } : $utils.contextQuery(),
@@ -93,6 +93,7 @@ export default {
     computed: {
         views() {
             return {
+                '': this.$route.query, // a bit of a hack to enable reactivity for tabs
                 applications: 'Applications',
                 incidents: 'Incidents',
                 map: 'Service Map',
