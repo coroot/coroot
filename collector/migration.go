@@ -4,6 +4,11 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
+
+	"github.com/coroot/coroot/db"
+	"github.com/jpillora/backoff"
+	"k8s.io/klog"
 
 	"github.com/ClickHouse/ch-go"
 	"github.com/ClickHouse/ch-go/chpool"
@@ -52,6 +57,60 @@ func getCluster(ctx context.Context, chPool *chpool.Pool) (string, error) {
 		return "default", nil
 	}
 	return "", fmt.Errorf(`multiple ClickHouse clusters found, but neither "coroot" nor "default" cluster found`)
+}
+
+func (c *Collector) migrateProjects() {
+	b := backoff.Backoff{Factor: 2, Min: time.Minute, Max: 10 * time.Minute}
+	for {
+		t := time.Now()
+		c.projectsLock.Lock()
+		projects := maps.Values(c.projects)
+		c.projectsLock.Unlock()
+		var failed bool
+		for _, p := range projects {
+			c.migrationDoneLock.Lock()
+			done := c.migrationDone[p.Id]
+			c.migrationDoneLock.Unlock()
+			if done {
+				continue
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+			err := c.migrateProject(ctx, p)
+			cancel()
+			if err != nil {
+				klog.Errorf("failed to create or update clickhouse tables for project %s: %s", p.Id, err)
+				failed = true
+				continue
+			}
+		}
+		if failed {
+			d := b.Duration()
+			klog.Errorf("clickhouse tables migration failed, next attempt in %s", d.String())
+			time.Sleep(d)
+			continue
+		}
+		klog.Infof("clickhouse tables migration done in %s", time.Since(t).Truncate(time.Millisecond))
+		return
+	}
+}
+
+func (c *Collector) migrateProject(ctx context.Context, p *db.Project) error {
+	cfg := p.ClickHouseConfig(c.globalClickHouse)
+	if cfg == nil {
+		return nil
+	}
+	client, err := c.clickhouseConnect(ctx, cfg)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+	err = c.migrate(ctx, client)
+	if err == nil {
+		c.migrationDoneLock.Lock()
+		c.migrationDone[p.Id] = true
+		c.migrationDoneLock.Unlock()
+	}
+	return err
 }
 
 func (c *Collector) migrate(ctx context.Context, client *chClient) error {
