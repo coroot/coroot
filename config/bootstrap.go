@@ -45,7 +45,7 @@ func (cfg *Config) Bootstrap(database *db.DB) error {
 		if pp == nil {
 			pp = &db.Project{Name: p.Name}
 			klog.Infoln("creating project:", pp.Name)
-			pp.Id, err = database.SaveProject(*pp)
+			err = database.SaveProject(pp)
 			if err != nil {
 				return err
 			}
@@ -73,12 +73,12 @@ func getOrCreateDefaultProject(database *db.DB) (*db.Project, error) {
 	}
 	switch len(projects) {
 	case 0:
-		p := db.Project{Name: "default"}
+		p := &db.Project{Name: "default"}
 		klog.Infoln("creating project:", p.Name)
-		if p.Id, err = database.SaveProject(p); err != nil {
+		if err = database.SaveProject(p); err != nil {
 			return nil, err
 		}
-		return &p, nil
+		return p, nil
 	case 1:
 		return projects[0], nil
 	}

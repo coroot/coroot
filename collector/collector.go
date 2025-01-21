@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -13,7 +14,6 @@ import (
 	chproto "github.com/ClickHouse/ch-go/proto"
 	"github.com/coroot/coroot/cache"
 	"github.com/coroot/coroot/db"
-	"github.com/jpillora/backoff"
 	"golang.org/x/exp/maps"
 	"k8s.io/klog"
 )
@@ -35,6 +35,12 @@ type chClient struct {
 	cluster string
 }
 
+func (c *chClient) Close() {
+	if c != nil && c.pool != nil {
+		c.pool.Close()
+	}
+}
+
 type Collector struct {
 	db               *db.DB
 	cache            *cache.Cache
@@ -43,6 +49,9 @@ type Collector struct {
 
 	projects     map[db.ProjectId]*db.Project
 	projectsLock sync.RWMutex
+
+	migrationDone     map[db.ProjectId]bool
+	migrationDoneLock sync.RWMutex
 
 	clickhouseClients     map[db.ProjectId]*chClient
 	clickhouseClientsLock sync.RWMutex
@@ -61,6 +70,7 @@ func New(database *db.DB, cache *cache.Cache, globalClickHouse *db.IntegrationCl
 		cache:             cache,
 		globalClickHouse:  globalClickHouse,
 		globalPrometheus:  globalPrometheus,
+		migrationDone:     map[db.ProjectId]bool{},
 		clickhouseClients: map[db.ProjectId]*chClient{},
 		traceBatches:      map[db.ProjectId]*TracesBatch{},
 		profileBatches:    map[db.ProjectId]*ProfilesBatch{},
@@ -69,39 +79,14 @@ func New(database *db.DB, cache *cache.Cache, globalClickHouse *db.IntegrationCl
 
 	c.updateProjects()
 	go func() {
-		ticker := time.NewTicker(5 * time.Second)
+		ticker := time.NewTicker(10 * time.Second)
 		defer ticker.Stop()
 		for range ticker.C {
 			c.updateProjects()
 		}
 	}()
 
-	for _, p := range c.projects {
-		cfg := p.ClickHouseConfig(c.globalClickHouse)
-		if cfg == nil {
-			continue
-		}
-		go func(cfg *db.IntegrationClickhouse) {
-			b := backoff.Backoff{Factor: 2, Min: time.Minute, Max: 10 * time.Minute}
-			for {
-				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-				client, err := c.clickhouseConnect(ctx, cfg)
-				if err == nil {
-					err = c.migrate(ctx, client)
-				}
-				if client != nil {
-					client.pool.Close()
-				}
-				cancel()
-				if err == nil {
-					return
-				}
-				d := b.Duration()
-				klog.Errorf("failed to create clickhouse tables, next attempt in %s: %s", d.String(), err)
-				time.Sleep(d)
-			}
-		}(cfg)
-	}
+	go c.migrateProjects()
 
 	return c
 }
@@ -166,31 +151,29 @@ func (c *Collector) Close() {
 	c.clickhouseClientsLock.Lock()
 	defer c.clickhouseClientsLock.Unlock()
 	for _, cl := range c.clickhouseClients {
-		cl.pool.Close()
+		cl.Close()
 	}
 }
 
-func (c *Collector) UpdateClickhouseClient(ctx context.Context, projectId db.ProjectId, cfg *db.IntegrationClickhouse) error {
-	c.updateProjects()
-	c.deleteClickhouseClient(projectId)
-	if cfg == nil {
+func (c *Collector) MigrateClickhouseDatabase(ctx context.Context, project *db.Project) error {
+	if c.globalClickHouse == nil {
 		return nil
 	}
-	client, err := c.clickhouseConnect(ctx, cfg)
-	if err != nil {
-		return err
-	}
-	defer client.pool.Close()
-	return c.migrate(ctx, client)
+	c.updateProjects()
+	return c.migrateProject(ctx, project)
+}
+
+func (c *Collector) UpdateClickhouseClient(ctx context.Context, project *db.Project) error {
+	c.updateProjects()
+	c.deleteClickhouseClient(project.Id)
+	return c.migrateProject(ctx, project)
 }
 
 func (c *Collector) deleteClickhouseClient(projectId db.ProjectId) {
 	c.clickhouseClientsLock.Lock()
 	defer c.clickhouseClientsLock.Unlock()
 	client := c.clickhouseClients[projectId]
-	if client != nil {
-		client.pool.Close()
-	}
+	client.Close()
 	delete(c.clickhouseClients, projectId)
 }
 
@@ -275,6 +258,12 @@ func (c *Collector) getClickhouseClient(project *db.Project) (*chClient, error) 
 }
 
 func (c *Collector) clickhouseDo(ctx context.Context, project *db.Project, query ch.Query) error {
+	c.migrationDoneLock.RLock()
+	done := c.migrationDone[project.Id]
+	c.migrationDoneLock.RUnlock()
+	if !done {
+		return fmt.Errorf("clickhouse tables not ready for project %s", project.Id)
+	}
 	client, err := c.getClickhouseClient(project)
 	if err != nil {
 		return err

@@ -272,12 +272,13 @@ func (api *Api) Project(w http.ResponseWriter, r *http.Request, u *db.User) {
 			http.Error(w, "", http.StatusBadRequest)
 			return
 		}
-		project := db.Project{
+		isNew := projectId == ""
+		project := &db.Project{
 			Id:   db.ProjectId(projectId),
 			Name: form.Name,
 		}
 		project.Settings.Configurable = true
-		id, err := api.db.SaveProject(project)
+		err := api.db.SaveProject(project)
 		if err != nil {
 			if errors.Is(err, db.ErrConflict) {
 				http.Error(w, "This project name is already being used.", http.StatusConflict)
@@ -287,7 +288,15 @@ func (api *Api) Project(w http.ResponseWriter, r *http.Request, u *db.User) {
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
-		http.Error(w, string(id), http.StatusOK)
+		if isNew && api.globalClickHouse != nil {
+			err = api.collector.MigrateClickhouseDatabase(r.Context(), project)
+			if err != nil {
+				klog.Errorln("failed to migrate clickhouse database:", err)
+				http.Error(w, "Failed to create or update clickhouse database", http.StatusInternalServerError)
+				return
+			}
+		}
+		http.Error(w, string(project.Id), http.StatusOK)
 
 	case http.MethodDelete:
 		if !isAllowed {
@@ -618,8 +627,7 @@ func (api *Api) Integration(w http.ResponseWriter, r *http.Request, u *db.User) 
 		return
 	}
 	if api.globalClickHouse == nil {
-		cfg := project.Settings.Integrations.Clickhouse
-		err = api.collector.UpdateClickhouseClient(r.Context(), project.Id, cfg)
+		err = api.collector.UpdateClickhouseClient(r.Context(), project)
 		if err != nil {
 			klog.Errorln("clickhouse error:", err)
 			http.Error(w, "Clickhouse error: "+err.Error(), http.StatusInternalServerError)
