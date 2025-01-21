@@ -183,7 +183,7 @@ func (db *DB) GetProject(id ProjectId) (*Project, error) {
 	return &p, nil
 }
 
-func (db *DB) SaveProject(p Project) (ProjectId, error) {
+func (db *DB) SaveProject(p *Project) error {
 	if p.Prometheus.RefreshInterval == 0 {
 		p.Prometheus.RefreshInterval = DefaultRefreshInterval
 	}
@@ -191,18 +191,18 @@ func (db *DB) SaveProject(p Project) (ProjectId, error) {
 		p.Id = ProjectId(utils.NanoId(8))
 		_, err := db.db.Exec("INSERT INTO project (id, name) VALUES ($1, $2)", p.Id, p.Name)
 		if db.IsUniqueViolationError(err) {
-			return "", ErrConflict
+			return ErrConflict
 		}
 		if err == nil {
 			p.Settings.ApiKeys = []ApiKey{{Key: utils.RandomString(32), Description: "default"}}
-			err = db.SaveProjectSettings(&p)
+			err = db.SaveProjectSettings(p)
 		}
-		return p.Id, err
+		return err
 	}
 	if _, err := db.db.Exec("UPDATE project SET name = $1 WHERE id = $2", p.Name, p.Id); err != nil {
-		return "", err
+		return err
 	}
-	return p.Id, nil
+	return nil
 }
 
 func (db *DB) DeleteProject(id ProjectId) error {
