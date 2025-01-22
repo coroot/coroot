@@ -31,10 +31,10 @@ func (a *appAuditor) memory(ncs nodeConsumersByNode) {
 
 	seenContainers := false
 	limitByContainer := map[string]*timeseries.Aggregate{}
-	totalRss := timeseries.NewAggregate(timeseries.NanSum)
 	for _, i := range a.app.Instances {
 		oom := timeseries.NewAggregate(timeseries.NanSum)
 		instanceRss := timeseries.NewAggregate(timeseries.NanSum)
+		instanceRssForTrend := timeseries.NewAggregate(timeseries.NanSum)
 		for _, c := range i.Containers {
 			seenContainers = true
 			if limitByContainer[c.Name] == nil {
@@ -45,9 +45,24 @@ func (a *appAuditor) memory(ncs nodeConsumersByNode) {
 				usageChart.GetOrCreateChart("container: "+c.Name).AddSeries(i.Name, c.MemoryRss)
 			}
 			oom.Add(c.OOMKills)
-			totalRss.Add(c.MemoryRssForTrend)
+			instanceRssForTrend.Add(c.MemoryRssForTrend)
 			instanceRss.Add(c.MemoryRss)
 		}
+		if a.app.PeriodicJob() {
+			leakCheck.SetStatus(model.UNKNOWN, "not checked for periodic jobs")
+		} else {
+			v := instanceRssForTrend.Get().MapInPlace(timeseries.ZeroToNan)
+			if v.Reduce(timeseries.NanCount) > float32(v.Len())*0.8 { // we require 80% of the data to be present
+				if lr := timeseries.NewLinearRegression(v); lr != nil {
+					s := lr.Calc(a.w.Ctx.To.Add(-timeseries.Hour))
+					e := lr.Calc(a.w.Ctx.To)
+					if s > 0 && e > 0 {
+						leakCheck.SetValue((e - s) / s * 100)
+					}
+				}
+			}
+		}
+
 		if usageChart != nil && len(usageChart.Charts) > 1 {
 			usageChart.GetOrCreateChart("total").AddSeries(i.Name, instanceRss).Feature()
 		}
@@ -99,24 +114,9 @@ func (a *appAuditor) memory(ncs nodeConsumersByNode) {
 				SetArg("query", model.ProfileCategoryMemory)
 		}
 	}
-
 	if !seenContainers {
 		oomCheck.SetStatus(model.UNKNOWN, "no data")
 		leakCheck.SetStatus(model.UNKNOWN, "no data")
 		return
-	}
-	if a.app.PeriodicJob() {
-		leakCheck.SetStatus(model.UNKNOWN, "not checked for periodic jobs")
-	} else {
-		v := totalRss.Get().MapInPlace(timeseries.ZeroToNan)
-		if v.Reduce(timeseries.NanCount) > float32(v.Len())*0.8 { // we require 80% of the data to be present
-			if lr := timeseries.NewLinearRegression(v); lr != nil {
-				s := lr.Calc(a.w.Ctx.To.Add(-timeseries.Hour))
-				e := lr.Calc(a.w.Ctx.To)
-				if s > 0 && e > 0 {
-					leakCheck.SetValue((e - s) / s * 100)
-				}
-			}
-		}
 	}
 }
