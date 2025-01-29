@@ -103,6 +103,7 @@ type IntegrationPrometheus struct {
 	BasicAuth       *utils.BasicAuth    `json:"basic_auth"`
 	ExtraSelector   string              `json:"extra_selector"`
 	CustomHeaders   []utils.Header      `json:"custom_headers"`
+	RemoteWriteUrl  string              `json:"remote_write_url"`
 	ExtraLabels     map[string]string   `json:"-"`
 }
 

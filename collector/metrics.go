@@ -71,19 +71,28 @@ func (c *Collector) Metrics(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	cfg := project.PrometheusConfig(c.globalPrometheus)
-	u, err := url.Parse(cfg.Url)
-	if err != nil {
-		klog.Errorln(err)
-		http.Error(w, "", http.StatusInternalServerError)
-		return
+
+	var u *url.URL
+	if cfg.RemoteWriteUrl == "" {
+		u, err = url.Parse(cfg.Url)
+		if err != nil {
+			klog.Errorln(err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		u = u.JoinPath("/api/v1/write")
+	} else {
+		u, err = url.Parse(cfg.RemoteWriteUrl)
+		if err != nil {
+			klog.Errorln(err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
 	}
 
 	if cfg.BasicAuth != nil {
 		u.User = url.UserPassword(cfg.BasicAuth.User, cfg.BasicAuth.Password)
 	}
-
-	u = u.JoinPath("/api/v1/write")
-
 	body, err := addLabelsIfNeeded(r, cfg.ExtraLabels)
 	if err != nil {
 		klog.Errorln(err)
