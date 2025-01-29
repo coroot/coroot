@@ -222,6 +222,11 @@ func (f *IntegrationFormPrometheus) Valid() bool {
 	if _, err := url.Parse(f.IntegrationPrometheus.Url); err != nil {
 		return false
 	}
+	if f.RemoteWriteUrl != "" {
+		if _, err := url.Parse(f.IntegrationPrometheus.RemoteWriteUrl); err != nil {
+			return false
+		}
+	}
 	if !prom.IsSelectorValid(f.IntegrationPrometheus.ExtraSelector) {
 		return false
 	}
@@ -250,6 +255,9 @@ func (f *IntegrationFormPrometheus) Get(project *db.Project, masked bool) {
 		}
 		for i := range f.CustomHeaders {
 			f.CustomHeaders[i].Value = "<hidden>"
+		}
+		if f.RemoteWriteUrl != "" {
+			f.RemoteWriteUrl = "<hidden>"
 		}
 	}
 }

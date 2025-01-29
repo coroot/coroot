@@ -85,6 +85,18 @@ type Prometheus struct {
 	Password        string            `yaml:"password"`
 	ExtraSelector   string            `yaml:"extra_selector"`
 	CustomHeaders   map[string]string `yaml:"custom_headers"`
+	RemoteWriteUrl  string            `yaml:"remote_write_url"`
+}
+
+func validateUrl(urlString string) error {
+	u, err := url.Parse(urlString)
+	if err != nil {
+		return fmt.Errorf("invalid url: %w", err)
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return fmt.Errorf("invalid url '%s': missing protocol scheme (http:// or https://)", urlString)
+	}
+	return nil
 }
 
 func (p *Prometheus) Validate() error {
@@ -94,12 +106,13 @@ func (p *Prometheus) Validate() error {
 	if p.Url == "" {
 		return fmt.Errorf("url is required")
 	}
-	u, err := url.Parse(p.Url)
-	if err != nil {
-		return fmt.Errorf("invalid url: %w", err)
+	if err := validateUrl(p.Url); err != nil {
+		return err
 	}
-	if u.Scheme != "http" && u.Scheme != "https" {
-		return fmt.Errorf("invalid url '%s': missing protocol scheme (http:// or https://)", p.Url)
+	if p.RemoteWriteUrl != "" {
+		if err := validateUrl(p.RemoteWriteUrl); err != nil {
+			return err
+		}
 	}
 	if p.RefreshInterval <= 0 {
 		return fmt.Errorf("invalid refresh-interval: %d", p.RefreshInterval)
@@ -276,6 +289,7 @@ func (cfg *Config) GetGlobalPrometheus() *db.IntegrationPrometheus {
 		RefreshInterval: timeseries.DurationFromStandard(prometheus.RefreshInterval),
 		TlsSkipVerify:   prometheus.TlsSkipVerify,
 		ExtraSelector:   prometheus.ExtraSelector,
+		RemoteWriteUrl:  prometheus.RemoteWriteUrl,
 	}
 	if prometheus.User != "" && prometheus.Password != "" {
 		p.BasicAuth = &utils.BasicAuth{
@@ -299,6 +313,7 @@ func (cfg *Config) GetBootstrapPrometheus() *db.IntegrationPrometheus {
 		RefreshInterval: timeseries.DurationFromStandard(prometheus.RefreshInterval),
 		TlsSkipVerify:   prometheus.TlsSkipVerify,
 		ExtraSelector:   prometheus.ExtraSelector,
+		RemoteWriteUrl:  prometheus.RemoteWriteUrl,
 	}
 	if prometheus.User != "" && prometheus.Password != "" {
 		p.BasicAuth = &utils.BasicAuth{
