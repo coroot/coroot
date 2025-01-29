@@ -81,6 +81,7 @@ func main() {
 
 	globalClickhouse := cfg.GetGlobalClickhouse()
 	globalPrometheus := cfg.GetGlobalPrometheus()
+	globalCollectorFixedURL := cfg.CollectorFixedURL
 
 	cacheConfig := cache.Config{
 		Path: path.Join(cfg.DataDir, "cache"),
@@ -94,7 +95,7 @@ func main() {
 		klog.Exitln(err)
 	}
 
-	coll := collector.New(database, promCache, globalClickhouse, globalPrometheus)
+	coll := collector.New(database, promCache, globalClickhouse, globalPrometheus, globalCollectorFixedURL)
 	go func() {
 		ch := make(chan os.Signal, 1)
 		signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)

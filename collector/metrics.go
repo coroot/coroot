@@ -82,7 +82,13 @@ func (c *Collector) Metrics(w http.ResponseWriter, r *http.Request) {
 		u.User = url.UserPassword(cfg.BasicAuth.User, cfg.BasicAuth.Password)
 	}
 
-	u = u.JoinPath("/api/v1/write")
+	var requestURL string
+	if c.FixedURL != "" {
+		requestURL = c.FixedURL
+	} else {
+		u = u.JoinPath("/api/v1/write")
+		requestURL = u.String()
+	}
 
 	body, err := addLabelsIfNeeded(r, cfg.ExtraLabels)
 	if err != nil {
@@ -91,7 +97,7 @@ func (c *Collector) Metrics(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	req, err := http.NewRequestWithContext(r.Context(), r.Method, u.String(), body)
+	req, err := http.NewRequestWithContext(r.Context(), r.Method, requestURL, body)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)

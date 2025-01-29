@@ -42,6 +42,7 @@ var (
 	bootstrapClickhouseUser          = kingpin.Flag("bootstrap-clickhouse-user", "").Envar("BOOTSTRAP_CLICKHOUSE_USER").String()
 	bootstrapClickhousePassword      = kingpin.Flag("bootstrap-clickhouse-password", "").Envar("BOOTSTRAP_CLICKHOUSE_PASSWORD").String()
 	bootstrapClickhouseDatabase      = kingpin.Flag("bootstrap-clickhouse-database", "").Envar("BOOTSTRAP_CLICKHOUSE_DATABASE").String()
+	collectorFixedURL                = kingpin.Flag("collectorMetrics", "Victoria Metrics URL for metrics collection").Envar("COLLECTOR_METRICS").Default("").String()
 )
 
 func (cfg *Config) applyFlags() {
@@ -154,5 +155,8 @@ func (cfg *Config) applyFlags() {
 			Password: *bootstrapClickhousePassword,
 			Database: *bootstrapClickhouseDatabase,
 		}
+	}
+	if *collectorFixedURL != "" {
+		cfg.CollectorFixedURL = *collectorFixedURL
 	}
 }

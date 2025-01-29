@@ -40,6 +40,8 @@ type Config struct {
 
 	BootstrapClickhouse *Clickhouse `yaml:"-"`
 	BootstrapPrometheus *Prometheus `yaml:"-"`
+
+	CollectorFixedURL string `yaml:"collector_url_prometheus"`
 }
 
 type Cache struct {

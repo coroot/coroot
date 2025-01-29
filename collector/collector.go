@@ -62,9 +62,10 @@ type Collector struct {
 	logBatchesLock     sync.Mutex
 	profileBatches     map[db.ProjectId]*ProfilesBatch
 	profileBatchesLock sync.Mutex
+	FixedURL           string
 }
 
-func New(database *db.DB, cache *cache.Cache, globalClickHouse *db.IntegrationClickhouse, globalPrometheus *db.IntegrationPrometheus) *Collector {
+func New(database *db.DB, cache *cache.Cache, globalClickHouse *db.IntegrationClickhouse, globalPrometheus *db.IntegrationPrometheus, fixedURL string) *Collector {
 	c := &Collector{
 		db:                database,
 		cache:             cache,
@@ -75,6 +76,7 @@ func New(database *db.DB, cache *cache.Cache, globalClickHouse *db.IntegrationCl
 		traceBatches:      map[db.ProjectId]*TracesBatch{},
 		profileBatches:    map[db.ProjectId]*ProfilesBatch{},
 		logBatches:        map[db.ProjectId]*LogsBatch{},
+		FixedURL:          fixedURL,
 	}
 
 	c.updateProjects()
