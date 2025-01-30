@@ -28,20 +28,23 @@ var (
 	globalClickhouseTlsEnabled      = kingpin.Flag("global-clickhouse-tls-enabled", "").Envar("GLOBAL_CLICKHOUSE_TLS_ENABLED").Bool()
 	globalClickhouseTlsSkipVerify   = kingpin.Flag("global-clickhouse-tls-skip-verify", "").Envar("GLOBAL_CLICKHOUSE_TLS_SKIP_VERIFY").Bool()
 
-	globalPrometheusUrl           = kingpin.Flag("global-prometheus-url", "").Envar("GLOBAL_PROMETHEUS_URL").String()
-	globalPrometheusTlsSkipVerify = kingpin.Flag("global-prometheus-tls-skip-verify", "").Envar("GLOBAL_PROMETHEUS_TLS_SKIP_VERIFY").Bool()
-	globalRefreshInterval         = kingpin.Flag("global-refresh-interval", "").Envar("GLOBAL_REFRESH_INTERVAL").Duration()
-	globalPrometheusUser          = kingpin.Flag("global-prometheus-user", "").Envar("GLOBAL_PROMETHEUS_USER").String()
-	globalPrometheusPassword      = kingpin.Flag("global-prometheus-password", "").Envar("GLOBAL_PROMETHEUS_PASSWORD").String()
-	globalPrometheusCustomHeaders = kingpin.Flag("global-prometheus-custom-headers", "").Envar("GLOBAL_PROMETHEUS_CUSTOM_HEADER").StringMap()
+	globalPrometheusUrl            = kingpin.Flag("global-prometheus-url", "").Envar("GLOBAL_PROMETHEUS_URL").String()
+	globalPrometheusTlsSkipVerify  = kingpin.Flag("global-prometheus-tls-skip-verify", "").Envar("GLOBAL_PROMETHEUS_TLS_SKIP_VERIFY").Bool()
+	globalRefreshInterval          = kingpin.Flag("global-refresh-interval", "").Envar("GLOBAL_REFRESH_INTERVAL").Duration()
+	globalPrometheusUser           = kingpin.Flag("global-prometheus-user", "").Envar("GLOBAL_PROMETHEUS_USER").String()
+	globalPrometheusPassword       = kingpin.Flag("global-prometheus-password", "").Envar("GLOBAL_PROMETHEUS_PASSWORD").String()
+	globalPrometheusCustomHeaders  = kingpin.Flag("global-prometheus-custom-headers", "").Envar("GLOBAL_PROMETHEUS_CUSTOM_HEADER").StringMap()
+	globalPrometheusRemoteWriteUrl = kingpin.Flag("global-prometheus-remote-write-url", "").Envar("GLOBAL_PROMETHEUS_REMOTE_WRITE_URL").String()
 
-	bootstrapPrometheusUrl           = kingpin.Flag("bootstrap-prometheus-url", "").Envar("BOOTSTRAP_PROMETHEUS_URL").String()
-	bootstrapRefreshInterval         = kingpin.Flag("bootstrap-refresh-interval", "").Envar("BOOTSTRAP_REFRESH_INTERVAL").Duration()
-	bootstrapPrometheusExtraSelector = kingpin.Flag("bootstrap-prometheus-extra-selector", "").Envar("BOOTSTRAP_PROMETHEUS_EXTRA_SELECTOR").String()
-	bootstrapClickhouseAddress       = kingpin.Flag("bootstrap-clickhouse-address", "").Envar("BOOTSTRAP_CLICKHOUSE_ADDRESS").String()
-	bootstrapClickhouseUser          = kingpin.Flag("bootstrap-clickhouse-user", "").Envar("BOOTSTRAP_CLICKHOUSE_USER").String()
-	bootstrapClickhousePassword      = kingpin.Flag("bootstrap-clickhouse-password", "").Envar("BOOTSTRAP_CLICKHOUSE_PASSWORD").String()
-	bootstrapClickhouseDatabase      = kingpin.Flag("bootstrap-clickhouse-database", "").Envar("BOOTSTRAP_CLICKHOUSE_DATABASE").String()
+	bootstrapPrometheusUrl            = kingpin.Flag("bootstrap-prometheus-url", "").Envar("BOOTSTRAP_PROMETHEUS_URL").String()
+	bootstrapRefreshInterval          = kingpin.Flag("bootstrap-refresh-interval", "").Envar("BOOTSTRAP_REFRESH_INTERVAL").Duration()
+	bootstrapPrometheusExtraSelector  = kingpin.Flag("bootstrap-prometheus-extra-selector", "").Envar("BOOTSTRAP_PROMETHEUS_EXTRA_SELECTOR").String()
+	bootstrapPrometheusRemoteWriteUrl = kingpin.Flag("bootstrap-prometheus-remote-write-url", "").Envar("BOOTSTRAP_PROMETHEUS_REMOTE_WRITE_URL").String()
+
+	bootstrapClickhouseAddress  = kingpin.Flag("bootstrap-clickhouse-address", "").Envar("BOOTSTRAP_CLICKHOUSE_ADDRESS").String()
+	bootstrapClickhouseUser     = kingpin.Flag("bootstrap-clickhouse-user", "").Envar("BOOTSTRAP_CLICKHOUSE_USER").String()
+	bootstrapClickhousePassword = kingpin.Flag("bootstrap-clickhouse-password", "").Envar("BOOTSTRAP_CLICKHOUSE_PASSWORD").String()
+	bootstrapClickhouseDatabase = kingpin.Flag("bootstrap-clickhouse-database", "").Envar("BOOTSTRAP_CLICKHOUSE_DATABASE").String()
 )
 
 func (cfg *Config) applyFlags() {
@@ -130,6 +133,9 @@ func (cfg *Config) applyFlags() {
 	if *globalPrometheusPassword != "" {
 		cfg.GlobalPrometheus.Password = *globalPrometheusPassword
 	}
+	if *globalPrometheusRemoteWriteUrl != "" {
+		cfg.GlobalPrometheus.RemoteWriteUrl = *globalPrometheusRemoteWriteUrl
+	}
 	for name, value := range *globalPrometheusCustomHeaders {
 		cfg.GlobalPrometheus.CustomHeaders[name] = value
 	}
@@ -142,6 +148,7 @@ func (cfg *Config) applyFlags() {
 			Url:             *bootstrapPrometheusUrl,
 			RefreshInterval: *bootstrapRefreshInterval,
 			ExtraSelector:   *bootstrapPrometheusExtraSelector,
+			RemoteWriteUrl:  *bootstrapPrometheusRemoteWriteUrl,
 		}
 		if cfg.BootstrapPrometheus.RefreshInterval <= 0 {
 			cfg.BootstrapPrometheus.RefreshInterval = db.DefaultRefreshInterval

@@ -9,6 +9,12 @@ click on **Prometheus**, and define the Prometheus address and credentials as sh
 
 <img alt="Prometheus Configuration" src="/img/docs/prometheus_configuration.png" class="card w-1200"/>
 
+## VictoriaMetrics
+
+Coroot fully supports VictoriaMetrics as a drop-in replacement for Prometheus. In clustered mode, you may need separate 
+URLs for metric ingestion and queries. To configure this, set [GLOBAL_PROMETHEUS_REMOTE_WRITE_URL](/configuration/cli-arguments) to point to `vminsert` for ingestion, 
+while keeping [GLOBAL_PROMETHEUS_URL](/configuration/cli-arguments) directed to `vmselect` for queries.
+
 ## Multi-tenancy mode
 
 Coroot supports a multi-tenancy mode, allowing a single Prometheus server to store metrics for multiple projects (or clusters).
