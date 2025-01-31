@@ -381,7 +381,7 @@ WITH (
 ) AS t
 SELECT Timestamp, TraceId, SpanId, ParentSpanId, SpanName, ServiceName, Duration, StatusCode, StatusMessage, ResourceAttributes, SpanAttributes, Events.Timestamp, Events.Name, Events.Attributes
 FROM @@table_otel_traces@@
-WHERE Timestamp BETWEEN t.start AND t.end AND has(t.ids, TraceId)`, strings.Join(filters, " AND "))
+WHERE Timestamp BETWEEN t.start AND t.end AND has(coalesce(t.ids, []), TraceId)`, strings.Join(filters, " AND "))
 	rows, err := c.Query(ctx, query, filterArgs...)
 	if err != nil {
 		return nil, err
