@@ -34,6 +34,8 @@ type Application struct {
 	Reports []*AuditReport
 
 	Settings *ApplicationSettings
+
+	KubernetesServices []*Service
 }
 
 func NewApplication(id ApplicationId) *Application {
