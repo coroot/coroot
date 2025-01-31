@@ -6,6 +6,7 @@ type Pod struct {
 	Phase     string
 	Reason    string
 	Scheduled bool
+	IP        string
 
 	Running  *timeseries.TimeSeries
 	Ready    *timeseries.TimeSeries

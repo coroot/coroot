@@ -16,6 +16,7 @@ type Overview struct {
 	Deployments  []*Deployment               `json:"deployments"`
 	Traces       *Traces                     `json:"traces"`
 	Costs        *Costs                      `json:"costs"`
+	Risks        []*Risk                     `json:"risks"`
 	Categories   []model.ApplicationCategory `json:"categories"`
 }
 
@@ -50,6 +51,8 @@ func Render(ctx context.Context, ch *clickhouse.Client, w *model.World, view, qu
 		v.Traces = renderTraces(ctx, ch, w, query)
 	case "costs":
 		v.Costs = renderCosts(w)
+	case "risks":
+		v.Risks = renderRisks(w)
 	}
 	return v
 }

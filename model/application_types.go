@@ -5,40 +5,46 @@ import "strings"
 type ApplicationType string
 
 const (
-	ApplicationTypeUnknown       ApplicationType = ""
-	ApplicationTypePostgres      ApplicationType = "postgres"
-	ApplicationTypePgbouncer     ApplicationType = "pgbouncer"
-	ApplicationTypeMysql         ApplicationType = "mysql"
-	ApplicationTypeCassandra     ApplicationType = "cassandra"
-	ApplicationTypeElasticsearch ApplicationType = "elasticsearch"
-	ApplicationTypeMemcached     ApplicationType = "memcached"
-	ApplicationTypeRedis         ApplicationType = "redis"
-	ApplicationTypeKeyDB         ApplicationType = "keydb"
-	ApplicationTypeValkey        ApplicationType = "valkey"
-	ApplicationTypeDragonfly     ApplicationType = "dragonfly"
-	ApplicationTypeMongodb       ApplicationType = "mongodb"
-	ApplicationTypeMongos        ApplicationType = "mongos"
-	ApplicationTypeRabbitmq      ApplicationType = "rabbitmq"
-	ApplicationTypeKafka         ApplicationType = "kafka"
-	ApplicationTypeZookeeper     ApplicationType = "zookeeper"
-	ApplicationTypeRDS           ApplicationType = "aws-rds"
-	ApplicationTypeElastiCache   ApplicationType = "aws-elasticache"
-	ApplicationTypeNats          ApplicationType = "nats"
-	ApplicationTypeDotNet        ApplicationType = "dotnet"
-	ApplicationTypeGolang        ApplicationType = "golang"
-	ApplicationTypePHP           ApplicationType = "php"
-	ApplicationTypeJava          ApplicationType = "java"
-	ApplicationTypeNodeJS        ApplicationType = "nodejs"
-	ApplicationTypePython        ApplicationType = "python"
-	ApplicationTypeEnvoy         ApplicationType = "envoy"
+	ApplicationTypeUnknown         ApplicationType = ""
+	ApplicationTypePostgres        ApplicationType = "postgres"
+	ApplicationTypePgbouncer       ApplicationType = "pgbouncer"
+	ApplicationTypeMysql           ApplicationType = "mysql"
+	ApplicationTypeCassandra       ApplicationType = "cassandra"
+	ApplicationTypeElasticsearch   ApplicationType = "elasticsearch"
+	ApplicationTypeOpensearch      ApplicationType = "opensearch"
+	ApplicationTypeMemcached       ApplicationType = "memcached"
+	ApplicationTypeRedis           ApplicationType = "redis"
+	ApplicationTypeKeyDB           ApplicationType = "keydb"
+	ApplicationTypeValkey          ApplicationType = "valkey"
+	ApplicationTypeDragonfly       ApplicationType = "dragonfly"
+	ApplicationTypeMongodb         ApplicationType = "mongodb"
+	ApplicationTypeMongos          ApplicationType = "mongos"
+	ApplicationTypeRabbitmq        ApplicationType = "rabbitmq"
+	ApplicationTypeKafka           ApplicationType = "kafka"
+	ApplicationTypeZookeeper       ApplicationType = "zookeeper"
+	ApplicationTypeRDS             ApplicationType = "aws-rds"
+	ApplicationTypeElastiCache     ApplicationType = "aws-elasticache"
+	ApplicationTypeNats            ApplicationType = "nats"
+	ApplicationTypeDotNet          ApplicationType = "dotnet"
+	ApplicationTypeGolang          ApplicationType = "golang"
+	ApplicationTypePHP             ApplicationType = "php"
+	ApplicationTypeJava            ApplicationType = "java"
+	ApplicationTypeNodeJS          ApplicationType = "nodejs"
+	ApplicationTypePython          ApplicationType = "python"
+	ApplicationTypeEnvoy           ApplicationType = "envoy"
+	ApplicationTypePrometheus      ApplicationType = "prometheus"
+	ApplicationTypeVictoriaMetrics ApplicationType = "victoria-metrics"
+	ApplicationTypeVictoriaLogs    ApplicationType = "victoria-logs"
+	ApplicationTypeClickHouse      ApplicationType = "clickhouse"
 )
 
 func (at ApplicationType) IsDatabase() bool {
 	switch at {
 	case ApplicationTypeCassandra, ApplicationTypeMemcached,
-		ApplicationTypeZookeeper, ApplicationTypeElasticsearch, ApplicationTypePostgres,
+		ApplicationTypeZookeeper, ApplicationTypeElasticsearch, ApplicationTypeOpensearch, ApplicationTypePostgres,
 		ApplicationTypeMysql, ApplicationTypeRedis, ApplicationTypeKeyDB, ApplicationTypeValkey, ApplicationTypeDragonfly,
-		ApplicationTypeMongodb:
+		ApplicationTypeMongodb, ApplicationTypePrometheus, ApplicationTypeVictoriaMetrics, ApplicationTypeVictoriaLogs,
+		ApplicationTypeClickHouse:
 		return true
 	}
 	return false
@@ -124,6 +130,8 @@ func (at ApplicationType) Icon() string {
 		return "mongodb"
 	case at == ApplicationTypeValkey || at == ApplicationTypeKeyDB || at == ApplicationTypeDragonfly:
 		return "redis"
+	case at == ApplicationTypeVictoriaMetrics || at == ApplicationTypeVictoriaLogs:
+		return "victoriametrics"
 	}
 	return string(at)
 }

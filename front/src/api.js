@@ -261,6 +261,10 @@ export default class Api {
         this.get(this.projectPath(`node/${nodeName}`), {}, cb);
     }
 
+    risks(appId, form, cb) {
+        this.post(this.projectPath(`app/${appId}/risks`), form, cb);
+    }
+
     getPrometheusCompleteConfiguration() {
         return {
             remote: {

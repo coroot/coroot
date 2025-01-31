@@ -56,8 +56,11 @@ var QUERIES = map[string]string{
 	"fargate_container_cpu_usage_seconds":         `rate(container_cpu_usage_seconds_total{eks_amazonaws_com_compute_type="fargate"}[$RANGE])`,
 	"fargate_container_cpu_cfs_throttled_seconds": `rate(container_cpu_cfs_throttled_seconds_total{eks_amazonaws_com_compute_type="fargate"}[$RANGE])`,
 
-	"kube_node_info":    `kube_node_info`,
-	"kube_service_info": `kube_service_info`,
+	"kube_node_info":                            `kube_node_info`,
+	"kube_service_info":                         `kube_service_info`,
+	"kube_service_spec_type":                    `kube_service_spec_type`,
+	"kube_endpoint_address":                     `kube_endpoint_address`,
+	"kube_service_status_load_balancer_ingress": `kube_service_status_load_balancer_ingress`,
 
 	"kube_pod_info":             `kube_pod_info`,
 	"kube_pod_labels":           `kube_pod_labels`,

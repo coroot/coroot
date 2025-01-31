@@ -52,6 +52,10 @@
             <RCA v-if="id" :appId="id" />
             <Anomalies v-else />
         </template>
+
+        <template v-if="view === 'risks'">
+            <Risks />
+        </template>
     </div>
 </template>
 
@@ -68,6 +72,7 @@ import Deployments from '@/views/Deployments.vue';
 import Costs from '@/views/Costs.vue';
 import Anomalies from '@/views/Anomalies.vue';
 import RCA from '@/views/RCA.vue';
+import Risks from '@/views/Risks.vue';
 
 export default {
     components: {
@@ -83,6 +88,7 @@ export default {
         Costs,
         Anomalies,
         RCA,
+        Risks,
     },
     props: {
         view: String,
@@ -102,6 +108,7 @@ export default {
                 deployments: 'Deployments',
                 costs: 'Costs',
                 anomalies: this.$coroot.edition === 'Enterprise' ? 'Anomalies' : '',
+                risks: 'Risks',
             };
         },
     },
