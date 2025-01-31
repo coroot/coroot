@@ -172,6 +172,16 @@ func (f *ApplicationSettingsLogsForm) Valid() bool {
 	return true
 }
 
+type ApplicationSettingsRisksForm struct {
+	Action string        `json:"action"`
+	Key    model.RiskKey `json:"key"`
+	Reason string        `json:"reason"`
+}
+
+func (f *ApplicationSettingsRisksForm) Valid() bool {
+	return true
+}
+
 type IntegrationsForm struct {
 	BaseUrl string `json:"base_url"`
 }

@@ -6,6 +6,8 @@ type ApplicationSettings struct {
 	Logs      *ApplicationSettingsLogs      `json:"logs,omitempty"`
 
 	Instrumentation map[ApplicationType]*ApplicationInstrumentation `json:"instrumentation,omitempty"`
+
+	RiskOverrides []RiskOverride `json:"risk_overrides,omitempty"`
 }
 
 type ApplicationSettingsProfiling struct {

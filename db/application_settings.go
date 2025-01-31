@@ -59,6 +59,8 @@ func (db *DB) SaveApplicationSetting(projectId ProjectId, appId model.Applicatio
 			as.Instrumentation = map[model.ApplicationType]*model.ApplicationInstrumentation{}
 		}
 		as.Instrumentation[v.Type] = v
+	case []model.RiskOverride:
+		as.RiskOverrides = v
 	default:
 		return fmt.Errorf("unsupported type: %T", s)
 	}
