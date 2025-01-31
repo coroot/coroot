@@ -2,6 +2,7 @@ package model
 
 import (
 	"github.com/coroot/coroot/timeseries"
+	"github.com/coroot/coroot/utils"
 )
 
 type ApplicationKind string
@@ -53,10 +54,18 @@ type StatefulSet struct {
 	ReplicasUpdated *timeseries.TimeSeries
 }
 
+const (
+	ServiceTypeNodePort     = "NodePort"
+	ServiceTypeLoadBalancer = "LoadBalancer"
+)
+
 type Service struct {
-	Name      string
-	Namespace string
-	ClusterIP string
+	Name            string
+	Namespace       string
+	ClusterIP       string
+	Type            LabelLastValue
+	EndpointIPs     *utils.StringSet
+	LoadBalancerIPs *utils.StringSet
 
 	Connections []*Connection
 }

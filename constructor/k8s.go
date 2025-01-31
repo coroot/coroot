@@ -8,6 +8,7 @@ import (
 
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
+	"github.com/coroot/coroot/utils"
 	"k8s.io/klog"
 )
 
@@ -15,10 +16,35 @@ var (
 	jobSuffixRe = regexp.MustCompile(`-([a-z0-9]{5}|\d{10,})$`)
 )
 
+type serviceId struct {
+	name, ns string
+}
+
 func loadKubernetesMetadata(w *model.World, metrics map[string][]model.MetricValues, servicesByClusterIP map[string]*model.Service) {
-	loadServices(metrics["kube_service_info"], servicesByClusterIP)
 	pods := podInfo(w, metrics["kube_pod_info"])
 	podLabels(metrics["kube_pod_labels"], pods)
+
+	appsByPodIP := map[string]*model.Application{}
+	for _, pod := range pods {
+		if pod.Pod.IP != "" && pod.Owner != nil {
+			appsByPodIP[pod.Pod.IP] = pod.Owner
+		}
+	}
+	services := loadServices(metrics)
+	for _, s := range services {
+		if s.ClusterIP != "" {
+			servicesByClusterIP[s.ClusterIP] = s
+		}
+		apps := map[model.ApplicationId]*model.Application{}
+		for _, ip := range s.EndpointIPs.Items() {
+			if app := appsByPodIP[ip]; app != nil {
+				apps[app.Id] = app
+			}
+		}
+		for _, app := range apps {
+			app.KubernetesServices = append(app.KubernetesServices, s)
+		}
+	}
 
 	for queryName := range QUERIES {
 		switch {
@@ -33,20 +59,45 @@ func loadKubernetesMetadata(w *model.World, metrics map[string][]model.MetricVal
 	loadApplications(w, metrics)
 }
 
-func loadServices(metrics []model.MetricValues, servicesByClusterIP map[string]*model.Service) {
-	for _, m := range metrics {
+func loadServices(metrics map[string][]model.MetricValues) map[serviceId]*model.Service {
+	services := map[serviceId]*model.Service{}
+	for _, m := range metrics["kube_service_info"] {
 		name := m.Labels["service"]
-		if name == "kubernetes" {
-			name = "kube-apiserver"
+		s := &model.Service{
+			Name:            name,
+			Namespace:       m.Labels["namespace"],
+			ClusterIP:       m.Labels["cluster_ip"],
+			EndpointIPs:     &utils.StringSet{},
+			LoadBalancerIPs: &utils.StringSet{},
 		}
-		if clusterIP := m.Labels["cluster_ip"]; clusterIP != "" {
-			servicesByClusterIP[clusterIP] = &model.Service{
-				Name:      name,
-				Namespace: m.Labels["namespace"],
-				ClusterIP: clusterIP,
-			}
+		services[serviceId{name: s.Name, ns: s.Namespace}] = s
+	}
+	for _, m := range metrics["kube_service_spec_type"] {
+		if s := services[serviceId{name: m.Labels["service"], ns: m.Labels["namespace"]}]; s != nil {
+			s.Type.Update(m.Values, m.Labels["type"])
 		}
 	}
+	for _, m := range metrics["kube_service_spec_type"] {
+		if s := services[serviceId{name: m.Labels["service"], ns: m.Labels["namespace"]}]; s != nil {
+			s.Type.Update(m.Values, m.Labels["type"])
+		}
+	}
+	for _, m := range metrics["kube_service_status_load_balancer_ingress"] {
+		if s := services[serviceId{name: m.Labels["service"], ns: m.Labels["namespace"]}]; s != nil {
+			s.LoadBalancerIPs.Add(m.Labels["ip"])
+		}
+	}
+	for _, m := range metrics["kube_endpoint_address"] {
+		if s := services[serviceId{name: m.Labels["endpoint"], ns: m.Labels["namespace"]}]; s != nil {
+			s.EndpointIPs.Add(m.Labels["ip"])
+		}
+	}
+	for _, s := range services {
+		if s.Name == "kubernetes" {
+			s.Name = "kube-apiserver"
+		}
+	}
+	return services
 }
 
 func loadApplications(w *model.World, metrics map[string][]model.MetricValues) {
@@ -138,6 +189,7 @@ func podInfo(w *model.World, metrics []model.MetricValues) map[string]*model.Ins
 			if ip := net.ParseIP(podIp); ip != nil {
 				isActive := m.Values.Last() == 1
 				instance.TcpListens[model.Listen{IP: podIp, Port: "0", Proxied: false}] = isActive
+				instance.Pod.IP = podIp
 			}
 		}
 		if appId.Kind == model.ApplicationKindPod {
