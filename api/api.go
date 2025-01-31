@@ -250,9 +250,10 @@ func (api *Api) Project(w http.ResponseWriter, r *http.Request, u *db.User) {
 				http.Error(w, "", http.StatusInternalServerError)
 				return
 			}
+			prometheusCfg := project.PrometheusConfig(api.globalPrometheus)
 			res.Readonly = !project.Settings.Configurable
 			res.Name = project.Name
-			res.RefreshInterval = project.Prometheus.RefreshInterval
+			res.RefreshInterval = prometheusCfg.RefreshInterval
 			if isAllowed {
 				res.ApiKeys = project.Settings.ApiKeys
 			} else {
