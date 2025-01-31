@@ -355,6 +355,11 @@ func (api *Api) Overview(w http.ResponseWriter, r *http.Request, u *db.User) {
 			http.Error(w, "You are not allowed to view costs.", http.StatusForbidden)
 			return
 		}
+	case "risks":
+		if !api.IsAllowed(u, rbac.Actions.Project(projectId).Risks().View()) {
+			http.Error(w, "You are not allowed to view risks.", http.StatusForbidden)
+			return
+		}
 	}
 
 	world, project, cacheStatus, err := api.LoadWorldByRequest(r)
@@ -563,7 +568,6 @@ func (api *Api) Integration(w http.ResponseWriter, r *http.Request, u *db.User) 
 		http.Error(w, "", http.StatusBadRequest)
 		return
 	}
-
 	isAllowed := api.IsAllowed(u, rbac.Actions.Project(projectId).Integrations().Edit())
 
 	if r.Method == http.MethodGet {
@@ -1105,6 +1109,84 @@ func (api *Api) Logs(w http.ResponseWriter, r *http.Request, u *db.User) {
 		res.Message = "Failed to load logs: ClickHouse is not available"
 	}
 	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, res))
+}
+
+func (api *Api) Risks(w http.ResponseWriter, r *http.Request, u *db.User) {
+	vars := mux.Vars(r)
+	projectId := vars["project"]
+	appId, err := model.NewApplicationIdFromString(vars["app"])
+	if err != nil {
+		klog.Warningln(err)
+		http.Error(w, "invalid application id: "+vars["app"], http.StatusBadRequest)
+		return
+	}
+
+	world, project, cacheStatus, err := api.LoadWorldByRequest(r)
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	if project == nil || world == nil {
+		utils.WriteJson(w, api.WithContext(project, cacheStatus, world, nil))
+		return
+	}
+	app := world.GetApplication(appId)
+	if app == nil {
+		klog.Warningln("application not found:", appId)
+		http.Error(w, "Application not found", http.StatusNotFound)
+		return
+	}
+	if r.Method == http.MethodPost {
+		if !api.IsAllowed(u, rbac.Actions.Project(projectId).Risks().Edit()) {
+			http.Error(w, "You are not allowed to dismiss risks.", http.StatusForbidden)
+			return
+		}
+		var form forms.ApplicationSettingsRisksForm
+		if err := forms.ReadAndValidate(r, &form); err != nil {
+			klog.Warningln("bad request:", err)
+			http.Error(w, "invalid data", http.StatusBadRequest)
+			return
+		}
+		var overrides []model.RiskOverride
+		switch form.Action {
+		case "dismiss":
+			newRo := model.RiskOverride{
+				Key: form.Key,
+				Dismissal: &model.RiskDismissal{
+					By:        u.Name,
+					Timestamp: time.Now().Unix(),
+					Reason:    form.Reason,
+				},
+			}
+			if app.Settings != nil {
+				for _, ro := range app.Settings.RiskOverrides {
+					if ro.Key != form.Key {
+						overrides = append(overrides, ro)
+					}
+				}
+			}
+			overrides = append(overrides, newRo)
+		case "mark_as_active":
+			if app.Settings != nil {
+				for _, ro := range app.Settings.RiskOverrides {
+					if ro.Key != form.Key {
+						overrides = append(overrides, ro)
+					}
+				}
+			}
+		default:
+			klog.Warningln("unknown risk action:", form.Action)
+			http.Error(w, "", http.StatusBadRequest)
+			return
+		}
+		if err = api.db.SaveApplicationSetting(db.ProjectId(projectId), appId, overrides); err != nil {
+			klog.Errorln(err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		return
+	}
 }
 
 func (api *Api) Node(w http.ResponseWriter, r *http.Request, u *db.User) {
