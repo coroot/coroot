@@ -108,7 +108,6 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]model.
 		}
 	}
 
-	servicesByActualDestIP := map[string]*model.Service{}
 	rttByInstance := map[instanceId]map[string]*timeseries.TimeSeries{}
 
 	loadContainer := func(queryName string, f func(instance *model.Instance, container *model.Container, metric model.MetricValues)) {
@@ -194,7 +193,7 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]model.
 
 	loadConnection := func(queryName string, f func(connection *model.Connection, metric model.MetricValues)) {
 		loadContainer(queryName, func(instance *model.Instance, container *model.Container, metric model.MetricValues) {
-			conn := getOrCreateConnection(instance, container.Name, metric, servicesByClusterIP, servicesByActualDestIP)
+			conn := getOrCreateConnection(instance, container.Name, metric)
 			if conn != nil {
 				f(conn, metric)
 			}
@@ -384,7 +383,7 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]model.
 					continue
 				}
 				appId := model.NewApplicationId("external", model.ApplicationKindExternalService, "")
-				svc := getServiceForConnection(u, servicesByClusterIP, servicesByActualDestIP)
+				svc := servicesByClusterIP[u.ServiceRemoteIP]
 				instanceName := u.ServiceRemoteIP + ":" + u.ServiceRemotePort
 				if svc != nil {
 					u.Service = svc
@@ -429,14 +428,7 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]model.
 	}
 }
 
-func getServiceForConnection(c *model.Connection, byClusterIP map[string]*model.Service, byActualDestIP map[string]*model.Service) *model.Service {
-	if s := byClusterIP[c.ServiceRemoteIP]; s != nil {
-		return s
-	}
-	return byActualDestIP[c.ActualRemoteIP]
-}
-
-func getOrCreateConnection(instance *model.Instance, container string, m model.MetricValues, servicesByClusterIP, servicesByActualDestIP map[string]*model.Service) *model.Connection {
+func getOrCreateConnection(instance *model.Instance, container string, m model.MetricValues) *model.Connection {
 	if instance.Owner.Id.Name == "docker" { // ignore docker-proxy's connections
 		return nil
 	}
@@ -477,7 +469,6 @@ func getOrCreateConnection(instance *model.Instance, container string, m model.M
 			RequestsHistogram: map[model.Protocol]map[float32]*timeseries.TimeSeries{},
 		}
 		instance.Upstreams[connKey] = connection
-		updateServiceEndpoints(connection, servicesByClusterIP, servicesByActualDestIP)
 	}
 	return connection
 }
@@ -497,19 +488,6 @@ func getOrCreateInstanceVolume(instance *model.Instance, m model.MetricValues) *
 	volume.Name.Update(m.Values, m.Labels["volume"])
 	volume.Device.Update(m.Values, m.Labels["device"])
 	return volume
-}
-
-func updateServiceEndpoints(c *model.Connection, servicesByClusterIP, servicesByActualDestIP map[string]*model.Service) {
-	if c.ActualRemoteIP == "" {
-		return
-	}
-	if c.ServiceRemoteIP == "" {
-		return
-	}
-	if s := servicesByClusterIP[c.ServiceRemoteIP]; s != nil {
-		s.Connections = append(s.Connections, c)
-		servicesByActualDestIP[c.ActualRemoteIP] = s
-	}
 }
 
 func externalServiceName(port string) string {

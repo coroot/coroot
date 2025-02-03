@@ -66,19 +66,12 @@ type Service struct {
 	Type            LabelLastValue
 	EndpointIPs     *utils.StringSet
 	LoadBalancerIPs *utils.StringSet
-
-	Connections []*Connection
+	DestinationApps map[ApplicationId]*Application
 }
 
 func (svc *Service) GetDestinationApplication() *Application {
-	apps := map[ApplicationId]*Application{}
-	for _, c := range svc.Connections {
-		if c.RemoteInstance != nil {
-			apps[c.RemoteInstance.Owner.Id] = c.RemoteInstance.Owner
-		}
-	}
-	if len(apps) == 1 {
-		for _, app := range apps {
+	if len(svc.DestinationApps) == 1 {
+		for _, app := range svc.DestinationApps {
 			return app
 		}
 	}

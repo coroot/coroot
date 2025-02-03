@@ -35,13 +35,12 @@ func loadKubernetesMetadata(w *model.World, metrics map[string][]model.MetricVal
 		if s.ClusterIP != "" {
 			servicesByClusterIP[s.ClusterIP] = s
 		}
-		apps := map[model.ApplicationId]*model.Application{}
 		for _, ip := range s.EndpointIPs.Items() {
 			if app := appsByPodIP[ip]; app != nil {
-				apps[app.Id] = app
+				s.DestinationApps[app.Id] = app
 			}
 		}
-		for _, app := range apps {
+		for _, app := range s.DestinationApps {
 			app.KubernetesServices = append(app.KubernetesServices, s)
 		}
 	}
@@ -69,6 +68,7 @@ func loadServices(metrics map[string][]model.MetricValues) map[serviceId]*model.
 			ClusterIP:       m.Labels["cluster_ip"],
 			EndpointIPs:     &utils.StringSet{},
 			LoadBalancerIPs: &utils.StringSet{},
+			DestinationApps: map[model.ApplicationId]*model.Application{},
 		}
 		services[serviceId{name: s.Name, ns: s.Namespace}] = s
 	}
