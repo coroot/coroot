@@ -11,7 +11,7 @@ env:
 
 jobs:
   build-frontend:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     defaults:
       run:
         working-directory: ./front/
@@ -34,7 +34,7 @@ jobs:
 
   build-images:
     needs: build-frontend
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
 
