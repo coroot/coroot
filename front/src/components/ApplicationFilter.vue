@@ -64,7 +64,7 @@
 
             <v-tooltip bottom>
                 <template #activator="{ on }">
-                    <v-btn v-if="configureTo" :to="configureTo" v-on="on" icon x-small>
+                    <v-btn :to="{ name: 'project_settings', params: { tab: 'applications' } }" v-on="on" icon x-small>
                         <v-icon>mdi-plus</v-icon>
                     </v-btn>
                 </template>
@@ -100,10 +100,6 @@ export default {
     props: {
         applications: Array,
         autoSelectNamespaceThreshold: Number,
-        configureTo: {
-            type: Object,
-            default: () => ({ name: 'project_settings', params: { tab: 'applications' } }),
-        },
     },
 
     data() {
@@ -159,7 +155,7 @@ export default {
             const selectedCategories = new Set(this.selectedCategories);
             const selectedNamespaces = new Set(this.selectedNamespaces);
             const search = this.search;
-            const applications = this.applications.filter((a) => {
+            const applications = (this.applications || []).filter((a) => {
                 if (search) {
                     return a.id.includes(search) || (a.type && a.type.name.includes(search));
                 }

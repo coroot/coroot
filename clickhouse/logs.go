@@ -15,9 +15,10 @@ import (
 	"golang.org/x/exp/maps"
 )
 
-func (c *Client) GetServicesFromLogs(ctx context.Context) (map[string][]string, error) {
-	q := "SELECT DISTINCT ServiceName, SeverityText FROM @@table_otel_logs@@"
-	rows, err := c.Query(ctx, q)
+func (c *Client) GetServicesFromLogs(ctx context.Context, from timeseries.Time) (map[string][]string, error) {
+	rows, err := c.Query(ctx, "SELECT DISTINCT ServiceName, SeverityText FROM @@table_otel_logs_service_name_severity_text@@ WHERE LastSeen >= @from",
+		clickhouse.DateNamed("from", from.ToStandard(), clickhouse.NanoSeconds),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -171,11 +172,13 @@ func logFilters(from, to timeseries.Time, services []string, severities []string
 		})
 		if len(fields) > 0 {
 			var ands []string
-			for _, f := range fields {
+			for i, f := range fields {
 				set := utils.NewStringSet(f, strings.ToLower(f), strings.ToUpper(f), strings.Title(f))
 				var ors []string
-				for _, s := range set.Items() {
-					ors = append(ors, fmt.Sprintf("hasToken(Body, '%s')", s))
+				for j, s := range set.Items() {
+					name := fmt.Sprintf("token_%d_%d", i, j)
+					ors = append(ors, fmt.Sprintf("hasToken(Body, @%s)", name))
+					args = append(args, clickhouse.Named(name, s))
 				}
 				ands = append(ands, fmt.Sprintf("(%s)", strings.Join(ors, " OR ")))
 			}

@@ -10,22 +10,24 @@ import (
 )
 
 type appAuditor struct {
-	w        *model.World
-	p        *db.Project
-	app      *model.Application
-	reports  []*model.AuditReport
-	detailed bool
+	w                 *model.World
+	p                 *db.Project
+	app               *model.Application
+	reports           []*model.AuditReport
+	detailed          bool
+	clickHouseEnabled bool
 }
 
-func Audit(w *model.World, p *db.Project, generateDetailedReportFor *model.Application) {
+func Audit(w *model.World, p *db.Project, generateDetailedReportFor *model.Application, clickHouseEnabled bool) {
 	start := time.Now()
 	ncs := nodeConsumersByNode{}
 	for _, app := range w.Applications {
 		a := &appAuditor{
-			w:        w,
-			p:        p,
-			app:      app,
-			detailed: app == generateDetailedReportFor,
+			w:                 w,
+			p:                 p,
+			app:               app,
+			detailed:          app == generateDetailedReportFor,
+			clickHouseEnabled: clickHouseEnabled,
 		}
 		a.slo()
 		a.instances()

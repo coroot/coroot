@@ -6,7 +6,6 @@ import (
 	"sort"
 
 	"github.com/coroot/coroot/constructor"
-	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
@@ -16,7 +15,7 @@ import (
 )
 
 func (c *Collector) Config(w http.ResponseWriter, r *http.Request) {
-	project, err := c.getProject(db.ProjectId(r.Header.Get(ApiKeyHeader)))
+	project, err := c.getProject(r.Header.Get(ApiKeyHeader))
 	if err != nil {
 		klog.Errorln(err)
 		if errors.Is(err, ErrProjectNotFound) {
@@ -89,11 +88,12 @@ func (c *Collector) Config(w http.ResponseWriter, r *http.Request) {
 		}
 
 		for t := range app.ApplicationTypes() {
+			it := t.InstrumentationType()
 			var instrumentation *model.ApplicationInstrumentation
-			if app.Settings != nil && app.Settings.Instrumentation != nil && app.Settings.Instrumentation[t] != nil {
-				instrumentation = app.Settings.Instrumentation[t]
+			if app.Settings != nil && app.Settings.Instrumentation != nil && app.Settings.Instrumentation[it] != nil {
+				instrumentation = app.Settings.Instrumentation[it]
 			} else {
-				instrumentation = model.GetDefaultInstrumentation(t)
+				instrumentation = model.GetDefaultInstrumentation(it)
 			}
 			if instrumentation == nil || instrumentation.Disabled {
 				continue

@@ -1,17 +1,54 @@
 <template>
     <div>
-        <v-progress-linear v-if="loading" indeterminate color="green" class="mt-5" />
+        <v-progress-linear v-if="loading" indeterminate color="green" />
 
         <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
             {{ error }}
         </v-alert>
 
         <v-alert v-if="rca === 'not implemented'" color="info" outlined text class="mt-5">
-            Automated Root Cause Analysis is available only in Coroot Enterprise.
-            <a href="https://coroot.com/contact/" target="_blank" class="font-weight-bold">Contact us</a> for a free trial.
+            AI-powered Root Cause Analysis is available only in Coroot Enterprise (from $1 per CPU core/month).
+            <a href="https://coroot.com/account" target="_blank" class="font-weight-bold">Start</a> your free trial today.
         </v-alert>
 
-        <div v-else-if="rca" class="mt-5">
+        <div v-else-if="rca">
+            <template v-if="rca.latency_chart || rca.errors_chart">
+                <div class="text-h6">
+                    Service Level Indicators of
+                    <router-link :to="{ name: 'overview', params: { view: 'applications', id: appId }, query: $utils.contextQuery() }" class="name">
+                        {{ $utils.appId(appId).name }}
+                    </router-link>
+                </div>
+
+                <div class="grey--text mb-2 mt-1">
+                    <v-icon size="18" style="vertical-align: baseline">mdi-lightbulb-on-outline</v-icon>
+                    Select a chart area to identify the root cause of an anomaly
+                </div>
+
+                <v-row>
+                    <v-col cols="12" md="6">
+                        <Chart
+                            v-if="rca.latency_chart"
+                            :chart="rca.latency_chart"
+                            class="my-5 chart"
+                            :loading="loading"
+                            @select="explainAnomaly"
+                            :selection="selection"
+                        />
+                    </v-col>
+                    <v-col cols="12" md="6">
+                        <Chart
+                            v-if="rca.errors_chart"
+                            :chart="rca.errors_chart"
+                            class="my-5 chart"
+                            :loading="loading"
+                            @select="explainAnomaly"
+                            :selection="selection"
+                        />
+                    </v-col>
+                </v-row>
+            </template>
+
             <div v-if="rca.causes && rca.causes.length > 0">
                 <div class="mt-5 mb-3 text-h6">Possible causes</div>
 
@@ -41,7 +78,9 @@
                             <td>
                                 <div class="d-flex flex-wrap">
                                     <template v-for="(s, i) in c.affected_services">
-                                        <router-link :to="{ name: 'application', params: { id: s }, query: $utils.contextQuery() }">
+                                        <router-link
+                                            :to="{ name: 'overview', params: { view: 'applications', id: s }, query: $utils.contextQuery() }"
+                                        >
                                             {{ $utils.appId(s).name }}
                                         </router-link>
                                         <span v-if="i + 1 < c.affected_services.length" class="mr-1">,</span>
@@ -67,6 +106,7 @@
 <script>
 import RcaItem from '@/components/RcaItem.vue';
 import { palette } from '@/utils/colors';
+import Chart from '@/components/Chart.vue';
 
 export default {
     computed: {
@@ -104,21 +144,36 @@ export default {
         appId: String,
     },
 
-    components: { RcaItem },
+    components: { Chart, RcaItem },
 
     data() {
         return {
             rca: null,
             loading: false,
             error: '',
+            selection: { mode: '', from: this.$route.query.rcaFrom || 0, to: this.$route.query.rcaTo || 0 },
         };
+    },
+
+    watch: {
+        '$route.query'() {
+            this.selection.from = this.$route.query.rcaFrom || 0;
+            this.selection.to = this.$route.query.rcaTo || 0;
+        },
     },
 
     mounted() {
         this.get();
+        this.$events.watch(this, this.get, 'refresh');
     },
 
     methods: {
+        explainAnomaly(s) {
+            this.selection.from = s.selection.from;
+            this.selection.to = s.selection.to;
+            this.$router.push({ query: { ...this.$route.query, rcaFrom: s.selection.from, rcaTo: s.selection.to, ...s.ctx } });
+            this.get();
+        },
         get() {
             this.loading = true;
             this.$api.getRCA(this.appId, (data, error) => {

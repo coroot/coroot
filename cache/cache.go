@@ -18,24 +18,6 @@ import (
 	"k8s.io/klog"
 )
 
-type PrometheusClientFactory func(project *db.Project) (*prom.Client, error)
-
-func DefaultPrometheusClientFactory(p *db.Project) (*prom.Client, error) {
-	if p.Prometheus.Url == "" {
-		return nil, fmt.Errorf("prometheus is not configured")
-	}
-	cfg := prom.NewClientConfig(p.Prometheus.Url, p.Prometheus.RefreshInterval)
-	cfg.BasicAuth = p.Prometheus.BasicAuth
-	cfg.TlsSkipVerify = p.Prometheus.TlsSkipVerify
-	cfg.ExtraSelector = p.Prometheus.ExtraSelector
-	cfg.CustomHeaders = p.Prometheus.CustomHeaders
-	client, err := prom.NewClient(cfg)
-	if err != nil {
-		return nil, err
-	}
-	return client, nil
-}
-
 type Cache struct {
 	cfg       Config
 	byProject map[db.ProjectId]*projectData
@@ -44,7 +26,7 @@ type Cache struct {
 	state     *sql.DB
 	stateLock sync.Mutex
 
-	promClientFactory PrometheusClientFactory
+	globalPrometheus *db.IntegrationPrometheus
 
 	updates chan db.ProjectId
 
@@ -52,33 +34,12 @@ type Cache struct {
 	compactedChunks    *prometheus.CounterVec
 }
 
-type projectData struct {
-	step    timeseries.Duration
-	queries map[string]*queryData
-}
-
-func newProjectData() *projectData {
-	return &projectData{
-		queries: map[string]*queryData{},
-	}
-}
-
-type queryData struct {
-	chunksOnDisk map[string]*chunk.Meta
-}
-
-func newQueryData() *queryData {
-	return &queryData{
-		chunksOnDisk: map[string]*chunk.Meta{},
-	}
-}
-
-func NewCache(cfg Config, database *db.DB, promClientFactory PrometheusClientFactory) (*Cache, error) {
+func NewCache(cfg Config, database *db.DB, globalPrometheus *db.IntegrationPrometheus) (*Cache, error) {
 	err := utils.CreateDirectoryIfNotExists(cfg.Path)
 	if err != nil {
 		return nil, err
 	}
-	state, err := db.Open(cfg.Path, "")
+	state, err := db.NewSqlite(cfg.Path)
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +54,7 @@ func NewCache(cfg Config, database *db.DB, promClientFactory PrometheusClientFac
 		db:        database,
 		state:     state.DB(),
 
-		promClientFactory: promClientFactory,
+		globalPrometheus: globalPrometheus,
 
 		updates: make(chan db.ProjectId),
 
@@ -174,4 +135,43 @@ func (c *Cache) initCacheIndexFromDir() error {
 	}
 	klog.Infof("loaded from disk in %s", time.Since(t).Truncate(time.Millisecond))
 	return nil
+}
+
+func (c *Cache) getPrometheusClient(p *db.Project) (*prom.Client, error) {
+	cfg := p.PrometheusConfig(c.globalPrometheus)
+	if cfg.Url == "" {
+		return nil, fmt.Errorf("prometheus is not configured")
+	}
+
+	cc := prom.NewClientConfig(cfg.Url, cfg.RefreshInterval)
+	cc.BasicAuth = cfg.BasicAuth
+	cc.TlsSkipVerify = cfg.TlsSkipVerify
+	cc.ExtraSelector = cfg.ExtraSelector
+	cc.CustomHeaders = cfg.CustomHeaders
+	client, err := prom.NewClient(cc)
+	if err != nil {
+		return nil, err
+	}
+	return client, nil
+}
+
+type projectData struct {
+	step    timeseries.Duration
+	queries map[string]*queryData
+}
+
+func newProjectData() *projectData {
+	return &projectData{
+		queries: map[string]*queryData{},
+	}
+}
+
+type queryData struct {
+	chunksOnDisk map[string]*chunk.Meta
+}
+
+func newQueryData() *queryData {
+	return &queryData{
+		chunksOnDisk: map[string]*chunk.Meta{},
+	}
 }

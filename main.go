@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/signal"
 	"path"
-	"strings"
 	"syscall"
 	"text/template"
 
@@ -17,12 +16,12 @@ import (
 	"github.com/coroot/coroot/cache"
 	cloud_pricing "github.com/coroot/coroot/cloud-pricing"
 	"github.com/coroot/coroot/collector"
+	"github.com/coroot/coroot/config"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/rbac"
 	"github.com/coroot/coroot/stats"
 	"github.com/coroot/coroot/utils"
 	"github.com/coroot/coroot/watchers"
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"golang.org/x/term"
 	"gopkg.in/alecthomas/kingpin.v2"
@@ -35,27 +34,6 @@ var version = "unknown"
 var static embed.FS
 
 func main() {
-	listen := kingpin.Flag("listen", "Listen address - ip:port or :port").Envar("LISTEN").Default("0.0.0.0:8080").String()
-	urlBasePath := kingpin.Flag("url-base-path", "The base URL to run Coroot at a sub-path, e.g. /coroot/").Envar("URL_BASE_PATH").Default("/").String()
-	dataDir := kingpin.Flag("data-dir", `Path to the data directory`).Envar("DATA_DIR").Default("./data").String()
-	cacheTTL := kingpin.Flag("cache-ttl", "Cache TTL").Envar("CACHE_TTL").Default("720h").Duration()
-	cacheGcInterval := kingpin.Flag("cache-gc-interval", "Cache GC interval").Envar("CACHE_GC_INTERVAL").Default("10m").Duration()
-	pgConnString := kingpin.Flag("pg-connection-string", "Postgres connection string (sqlite is used if not set)").Envar("PG_CONNECTION_STRING").String()
-	disableStats := kingpin.Flag("disable-usage-statistics", "Disable usage statistics").Envar("DISABLE_USAGE_STATISTICS").Bool()
-	bootstrapPrometheusUrl := kingpin.Flag("bootstrap-prometheus-url", "If set, Coroot will create a project for this Prometheus URL").Envar("BOOTSTRAP_PROMETHEUS_URL").String()
-	bootstrapRefreshInterval := kingpin.Flag("bootstrap-refresh-interval", "Refresh interval for the project created upon bootstrap").Envar("BOOTSTRAP_REFRESH_INTERVAL").Duration()
-	bootstrapPrometheusExtraSelector := kingpin.Flag("bootstrap-prometheus-extra-selector", "Prometheus extra selector for the project created upon bootstrap").Envar("BOOTSTRAP_PROMETHEUS_EXTRA_SELECTOR").String()
-	doNotCheckSLO := kingpin.Flag("do-not-check-slo", "Don't check SLO compliance").Envar("DO_NOT_CHECK_SLO").Bool()
-	doNotCheckForDeployments := kingpin.Flag("do-not-check-for-deployments", "Don't check for new deployments").Envar("DO_NOT_CHECK_FOR_DEPLOYMENTS").Bool()
-	doNotCheckForUpdates := kingpin.Flag("do-not-check-for-updates", "Don't check for new versions").Envar("DO_NOT_CHECK_FOR_UPDATES").Bool()
-	bootstrapClickhouseAddr := kingpin.Flag("bootstrap-clickhouse-address", "If set, Coroot will add a Clickhouse integration for the default project").Envar("BOOTSTRAP_CLICKHOUSE_ADDRESS").String()
-	bootstrapClickhouseUser := kingpin.Flag("bootstrap-clickhouse-user", "Clickhouse user").Envar("BOOTSTRAP_CLICKHOUSE_USER").Default("default").String()
-	bootstrapClickhousePassword := kingpin.Flag("bootstrap-clickhouse-password", "Clickhouse password").Envar("BOOTSTRAP_CLICKHOUSE_PASSWORD").String()
-	bootstrapClickhouseDatabase := kingpin.Flag("bootstrap-clickhouse-database", "Clickhouse database").Envar("BOOTSTRAP_CLICKHOUSE_DATABASE").Default("default").String()
-	developerMode := kingpin.Flag("developer-mode", "If enabled, Coroot will not use embedded static assets").Envar("DEVELOPER_MODE").Default("false").Bool()
-	authAnonymousRole := kingpin.Flag("auth-anonymous-role", "Disable authentication and assign one of the following roles to the anonymous user: Admin, Editor, or Viewer.").Envar("AUTH_ANONYMOUS_ROLE").String()
-	authBootstrapAdminPassword := kingpin.Flag("auth-bootstrap-admin-password", "Password for the default Admin user").Envar("AUTH_BOOTSTRAP_ADMIN_PASSWORD").Default(db.AdminUserDefaultPassword).String()
-
 	kingpin.Command("run", "Run Coroot server").Default()
 	cmdSetAdminPassword := kingpin.Command("set-admin-password", "Set password for the default Admin user")
 
@@ -63,11 +41,21 @@ func main() {
 
 	klog.Infof("version: %s", version)
 
-	if err := utils.CreateDirectoryIfNotExists(*dataDir); err != nil {
+	cfg := config.Load()
+
+	var err error
+	if err = utils.CreateDirectoryIfNotExists(cfg.DataDir); err != nil {
 		klog.Exitln(err)
 	}
 
-	database, err := db.Open(*dataDir, *pgConnString)
+	var database *db.DB
+	if cfg.Postgres != nil && cfg.Postgres.ConnectionString != "" {
+		klog.Infoln("database type: postgres")
+		database, err = db.NewPostgres(cfg.Postgres.ConnectionString)
+	} else {
+		klog.Infoln("database type: sqlite")
+		database, err = db.NewSqlite(cfg.DataDir)
+	}
 	if err != nil {
 		klog.Exitln(err)
 	}
@@ -86,26 +74,27 @@ func main() {
 		return
 	}
 
-	if err = database.BootstrapPrometheusIntegration(*bootstrapPrometheusUrl, *bootstrapRefreshInterval, *bootstrapPrometheusExtraSelector); err != nil {
-		klog.Exitln(err)
-	}
-	if err = database.BootstrapClickhouseIntegration(*bootstrapClickhouseAddr, *bootstrapClickhouseUser, *bootstrapClickhousePassword, *bootstrapClickhouseDatabase); err != nil {
-		klog.Exitln(err)
-	}
-
-	cacheConfig := cache.Config{
-		Path: path.Join(*dataDir, "cache"),
-		GC: &cache.GcConfig{
-			TTL:      *cacheTTL,
-			Interval: *cacheGcInterval,
-		},
-	}
-	promCache, err := cache.NewCache(cacheConfig, database, cache.DefaultPrometheusClientFactory)
+	err = cfg.Bootstrap(database)
 	if err != nil {
 		klog.Exitln(err)
 	}
 
-	coll := collector.New(database, promCache)
+	globalClickhouse := cfg.GetGlobalClickhouse()
+	globalPrometheus := cfg.GetGlobalPrometheus()
+
+	cacheConfig := cache.Config{
+		Path: path.Join(cfg.DataDir, "cache"),
+		GC: &cache.GcConfig{
+			TTL:      cfg.Cache.TTL,
+			Interval: cfg.Cache.GCInterval,
+		},
+	}
+	promCache, err := cache.NewCache(cacheConfig, database, globalPrometheus)
+	if err != nil {
+		klog.Exitln(err)
+	}
+
+	coll := collector.New(database, promCache, globalClickhouse, globalPrometheus)
 	go func() {
 		ch := make(chan os.Signal, 1)
 		signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)
@@ -114,24 +103,24 @@ func main() {
 		os.Exit(0)
 	}()
 
-	pricing, err := cloud_pricing.NewManager(path.Join(*dataDir, "cloud-pricing"))
+	pricing, err := cloud_pricing.NewManager(path.Join(cfg.DataDir, "cloud-pricing"))
 	if err != nil {
 		klog.Exitln(err)
 	}
 
-	instanceUuid := getInstanceUuid(*dataDir)
+	watchers.Start(database, promCache, pricing, !cfg.DoNotCheckSLO, !cfg.DoNotCheckForDeployments)
 
-	watchers.Start(database, promCache, pricing, !*doNotCheckSLO, !*doNotCheckForDeployments)
-
-	a := api.NewApi(promCache, database, coll, pricing, rbac.NewStaticRoleManager())
-	err = a.AuthInit(*authAnonymousRole, *authBootstrapAdminPassword)
+	a := api.NewApi(promCache, database, coll, pricing, rbac.NewStaticRoleManager(), globalClickhouse, globalPrometheus)
+	err = a.AuthInit(cfg.Auth.AnonymousRole, cfg.Auth.BootstrapAdminPassword)
 	if err != nil {
 		klog.Exitln(err)
 	}
+
+	instanceUuid := utils.GetInstanceUuid(cfg.DataDir)
 
 	var statsCollector *stats.Collector
-	if !*disableStats {
-		statsCollector = stats.NewCollector(instanceUuid, version, database, promCache, pricing)
+	if !cfg.DisableUsageStatistics {
+		statsCollector = stats.NewCollector(instanceUuid, version, database, promCache, pricing, globalClickhouse)
 	}
 
 	router := mux.NewRouter()
@@ -145,9 +134,8 @@ func main() {
 	router.HandleFunc("/v1/config", coll.Config)
 
 	r := router
-	cleanUrlBasePath(urlBasePath)
-	if *urlBasePath != "/" {
-		r = router.PathPrefix(strings.TrimRight(*urlBasePath, "/")).Subrouter()
+	if cfg.UrlBasePath != "/" {
+		r = router.PathPrefix(cfg.UrlBasePath).Subrouter()
 	}
 	r.HandleFunc("/api/login", a.Login).Methods(http.MethodPost)
 	r.HandleFunc("/api/logout", a.Logout).Methods(http.MethodPost)
@@ -159,6 +147,7 @@ func main() {
 	r.HandleFunc("/api/project/", a.Auth(a.Project)).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/project/{project}", a.Auth(a.Project)).Methods(http.MethodGet, http.MethodPost, http.MethodDelete)
 	r.HandleFunc("/api/project/{project}/status", a.Auth(a.Status)).Methods(http.MethodGet)
+	r.HandleFunc("/api/project/{project}/api_keys", a.Auth(a.ApiKeys)).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/project/{project}/overview/{view}", a.Auth(a.Overview)).Methods(http.MethodGet)
 	r.HandleFunc("/api/project/{project}/incident/{incident}", a.Auth(a.Incident)).Methods(http.MethodGet)
 	r.HandleFunc("/api/project/{project}/inspections", a.Auth(a.Inspections)).Methods(http.MethodGet)
@@ -173,6 +162,7 @@ func main() {
 	r.HandleFunc("/api/project/{project}/app/{app}/profiling", a.Auth(a.Profiling)).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/project/{project}/app/{app}/tracing", a.Auth(a.Tracing)).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/project/{project}/app/{app}/logs", a.Auth(a.Logs)).Methods(http.MethodGet, http.MethodPost)
+	r.HandleFunc("/api/project/{project}/app/{app}/risks", a.Auth(a.Risks)).Methods(http.MethodPost)
 	r.HandleFunc("/api/project/{project}/node/{node}", a.Auth(a.Node)).Methods(http.MethodGet)
 	r.PathPrefix("/api/project/{project}/prom").HandlerFunc(a.Auth(a.Prom))
 
@@ -180,21 +170,21 @@ func main() {
 		statsCollector.RegisterRequest(r)
 	}).Methods(http.MethodPost)
 
-	if *developerMode {
-		r.PathPrefix("/static/").Handler(http.StripPrefix(*urlBasePath+"static/", http.FileServer(http.Dir("./static"))))
+	if cfg.DeveloperMode {
+		r.PathPrefix("/static/").Handler(http.StripPrefix(cfg.UrlBasePath+"static/", http.FileServer(http.Dir("./static"))))
 	} else {
-		r.PathPrefix("/static/").Handler(http.StripPrefix(*urlBasePath, http.FileServer(utils.NewStaticFSWrapper(static))))
+		r.PathPrefix("/static/").Handler(http.StripPrefix(cfg.UrlBasePath, http.FileServer(utils.NewStaticFSWrapper(static))))
 	}
 
-	indexHtml := readIndexHtml(*urlBasePath, version, instanceUuid, !*doNotCheckForUpdates, *developerMode)
+	indexHtml := readIndexHtml(cfg.UrlBasePath, version, instanceUuid, !cfg.DoNotCheckForUpdates, cfg.DeveloperMode)
 	r.PathPrefix("").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write(indexHtml)
 	})
 
-	router.PathPrefix("").Handler(http.RedirectHandler(*urlBasePath, http.StatusMovedPermanently))
+	router.PathPrefix("").Handler(http.RedirectHandler(cfg.UrlBasePath, http.StatusMovedPermanently))
 
-	klog.Infoln("listening on", *listen)
-	klog.Fatalln(http.ListenAndServe(*listen, router))
+	klog.Infoln("listening on", cfg.ListenAddress)
+	klog.Fatalln(http.ListenAndServe(cfg.ListenAddress, router))
 }
 
 func readIndexHtml(basePath, version, instanceUuid string, checkForUpdates bool, developerMode bool) []byte {
@@ -216,44 +206,18 @@ func readIndexHtml(basePath, version, instanceUuid string, checkForUpdates bool,
 		Version         string
 		Uuid            string
 		CheckForUpdates bool
+		Edition         string
 	}{
 		BasePath:        basePath,
 		Version:         version,
 		Uuid:            instanceUuid,
 		CheckForUpdates: checkForUpdates,
+		Edition:         "Community",
 	})
 	if err != nil {
 		klog.Exitln(err)
 	}
 	return buf.Bytes()
-}
-
-func cleanUrlBasePath(urlBasePath *string) {
-	bp := strings.Trim(*urlBasePath, "/")
-	if bp == "" {
-		bp = "/"
-	} else {
-		bp = "/" + bp + "/"
-	}
-	*urlBasePath = bp
-}
-
-func getInstanceUuid(dataDir string) string {
-	instanceUuid := ""
-	filePath := path.Join(dataDir, "instance.uuid")
-	data, err := os.ReadFile(filePath)
-	if err != nil && !os.IsNotExist(err) {
-		klog.Errorln("failed to read instance id:", err)
-	}
-	instanceUuid = strings.TrimSpace(string(data))
-	if _, err := uuid.Parse(instanceUuid); err != nil {
-		instanceUuid = uuid.NewString()
-		if err := os.WriteFile(filePath, []byte(instanceUuid), 0644); err != nil {
-			klog.Errorln("failed to write instance id:", err)
-			return ""
-		}
-	}
-	return instanceUuid
 }
 
 func setAdminPassword(db *db.DB) error {

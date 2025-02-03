@@ -191,8 +191,8 @@ create_env_file() {
             if [ -z $interval ]; then
                 interval=15s
             fi
-            echo "COROOT_URL='http://${host}:${port}'" >> ${FILE_ENV}
-            echo "METRICS_SCRAPE_INTERVAL='${interval}'" >> ${FILE_ENV}
+            $SUDO sh -c "echo \"COROOT_URL='http://${host}:${port}'\" >> ${FILE_ENV}"
+            $SUDO sh -c "echo \"METRICS_SCRAPE_INTERVAL='${interval}'\" >> ${FILE_ENV}"
             ;;
     esac
 }

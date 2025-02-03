@@ -1,18 +1,27 @@
 <template>
-    <div v-if="profile.flamegraph">
-        <v-text-field
-            v-model="search"
-            dense
-            hide-details
-            clearable
-            prepend-inner-icon="mdi-magnify"
-            label="Search"
-            single-line
-            outlined
-            class="search"
-        />
+    <div>
+        <v-row style="margin: -4px">
+            <v-col cols="12" sm="6" style="padding: 4px">
+                <v-select
+                    v-model="instanceInternal"
+                    :items="instances"
+                    @change="$emit('change:instance', instanceInternal)"
+                    label="Select instance"
+                    outlined
+                    dense
+                    hide-details
+                    clearable
+                    single-line
+                    :menu-props="{ offsetY: true }"
+                />
+            </v-col>
+            <v-col cols="12" sm="6" style="padding: 4px">
+                <v-text-field v-model="search" dense hide-details clearable prepend-inner-icon="mdi-magnify" label="Search" single-line outlined />
+            </v-col>
+        </v-row>
 
         <FlameGraphNode
+            v-if="profile.flamegraph"
             :node="profile.flamegraph"
             :parent="profile.flamegraph"
             :root="profile.flamegraph"
@@ -23,6 +32,7 @@
             :unit="unit"
             :limit="limit"
             :actions="actions"
+            class="mt-2"
         />
     </div>
 </template>
@@ -40,6 +50,8 @@ function maxDiff(root, node) {
 export default {
     props: {
         profile: Object,
+        instances: Array,
+        instance: String,
         limit: Number,
         actions: Array,
     },
@@ -49,8 +61,15 @@ export default {
     data() {
         return {
             zoom: undefined,
+            instanceInternal: this.instance,
             search: '',
         };
+    },
+
+    watch: {
+        instance(v) {
+            this.instanceInternal = v;
+        },
     },
 
     computed: {
@@ -68,7 +87,7 @@ export default {
 </script>
 
 <style scoped>
-.search {
-    margin-bottom: 12px;
+*:deep(.v-list-item) {
+    min-height: 32px !important;
 }
 </style>

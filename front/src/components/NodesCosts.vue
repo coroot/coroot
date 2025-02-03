@@ -2,7 +2,7 @@
     <div>
         <h2 class="text-h6 font-weight-regular">
             Nodes
-            <a href="https://coroot.com/docs/coroot/costs/overview#nodes" target="_blank">
+            <a href="https://docs.coroot.com/costs/overview#nodes" target="_blank">
                 <v-icon>mdi-information-outline</v-icon>
             </a>
         </h2>
@@ -29,7 +29,7 @@
             :footer-props="{ itemsPerPageOptions: [10, 20, 50, 100, -1] }"
         >
             <template #item.name="{ item }">
-                <router-link :to="{ name: 'node', params: { name: item.name } }" class="name">{{ item.name }}</router-link>
+                <router-link :to="{ name: 'overview', params: { view: 'nodes', id: item.name } }" class="name">{{ item.name }}</router-link>
                 <div v-if="$vuetify.breakpoint.mdAndUp" class="caption grey--text name">{{ item.description }}</div>
             </template>
             <template #item.fake="{}">

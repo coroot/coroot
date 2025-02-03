@@ -340,6 +340,28 @@ func enrichInstances(w *model.World, metrics map[string][]model.MetricValues, rd
 		}
 	}
 
+	instancesByListenAddr := map[string]*model.Instance{}
+	for l, i := range instancesByListen {
+		addr := net.JoinHostPort(l.IP, l.Port)
+		if instancesByListenAddr[addr] != nil {
+			continue
+		}
+		if ip := net.ParseIP(l.IP); ip == nil || ip.IsLoopback() {
+			continue
+		}
+		l.Proxied = true
+		if ii := instancesByListen[l]; ii != nil {
+			instancesByListenAddr[addr] = ii
+			continue
+		}
+		l.Proxied = false
+		if ii := instancesByListen[l]; ii != nil {
+			instancesByListenAddr[addr] = ii
+			continue
+		}
+		instancesByListenAddr[addr] = i
+	}
+
 	for _, queryName := range []string{"pg_up", "redis_up", "mongo_up", "memcached_up"} {
 		for _, m := range metrics[queryName] {
 			if !metricFromInternalExporter(m.Labels) {
@@ -349,11 +371,7 @@ func enrichInstances(w *model.World, metrics map[string][]model.MetricValues, rd
 			if address == "" {
 				continue
 			}
-			host, port, err := net.SplitHostPort(address)
-			if err != nil {
-				continue
-			}
-			instance := instancesByListen[model.Listen{IP: host, Port: port}]
+			instance := instancesByListenAddr[address]
 			if instance == nil {
 				continue
 			}
@@ -374,19 +392,19 @@ func enrichInstances(w *model.World, metrics map[string][]model.MetricValues, rd
 		for _, m := range metrics[queryName] {
 			switch {
 			case strings.HasPrefix(queryName, "pg_"):
-				instance := findInstance(instancesByPod, instancesByListen, rdsInstancesById, ecInstanceById, m.Labels, model.ApplicationTypePostgres)
+				instance := findInstance(instancesByPod, instancesByListenAddr, rdsInstancesById, ecInstanceById, m.Labels, model.ApplicationTypePostgres)
 				postgres(instance, queryName, m)
 			case strings.HasPrefix(queryName, "redis_"):
-				instance := findInstance(instancesByPod, instancesByListen, rdsInstancesById, ecInstanceById, m.Labels, model.ApplicationTypeRedis, model.ApplicationTypeKeyDB)
+				instance := findInstance(instancesByPod, instancesByListenAddr, rdsInstancesById, ecInstanceById, m.Labels, model.ApplicationTypeRedis, model.ApplicationTypeKeyDB)
 				redis(instance, queryName, m)
 			case strings.HasPrefix(queryName, "mongo_"):
-				instance := findInstance(instancesByPod, instancesByListen, rdsInstancesById, ecInstanceById, m.Labels, model.ApplicationTypeMongodb, model.ApplicationTypeMongos)
+				instance := findInstance(instancesByPod, instancesByListenAddr, rdsInstancesById, ecInstanceById, m.Labels, model.ApplicationTypeMongodb, model.ApplicationTypeMongos)
 				mongodb(instance, queryName, m)
 			case strings.HasPrefix(queryName, "memcached_"):
-				instance := findInstance(instancesByPod, instancesByListen, rdsInstancesById, ecInstanceById, m.Labels, model.ApplicationTypeMemcached)
+				instance := findInstance(instancesByPod, instancesByListenAddr, rdsInstancesById, ecInstanceById, m.Labels, model.ApplicationTypeMemcached)
 				memcached(instance, queryName, m)
 			case strings.HasPrefix(queryName, "mysql_"):
-				instance := findInstance(instancesByPod, instancesByListen, rdsInstancesById, ecInstanceById, m.Labels, model.ApplicationTypeMysql)
+				instance := findInstance(instancesByPod, instancesByListenAddr, rdsInstancesById, ecInstanceById, m.Labels, model.ApplicationTypeMysql)
 				mysql(instance, queryName, m)
 			}
 		}
@@ -416,6 +434,18 @@ func joinDBClusterComponents(w *model.World) {
 			cluster := toDelete[app.Id]
 			if cluster == nil {
 				continue
+			}
+			for _, svc := range app.KubernetesServices {
+				found := false
+				for _, existingSvc := range cluster.KubernetesServices {
+					if svc.Name == existingSvc.Name && svc.Namespace == existingSvc.Namespace {
+						found = true
+						break
+					}
+				}
+				if !found {
+					cluster.KubernetesServices = append(cluster.KubernetesServices, svc)
+				}
 			}
 			cluster.DesiredInstances = merge(cluster.DesiredInstances, app.DesiredInstances, timeseries.NanSum)
 			for _, instance := range app.Instances {
@@ -450,7 +480,7 @@ func guessNamespace(ls model.Labels) string {
 	return ""
 }
 
-func findInstance(instancesByPod map[podId]*model.Instance, instancesByListen map[model.Listen]*model.Instance, rdsInstancesById map[string]*model.Instance, ecInstancesById map[string]*model.Instance, ls model.Labels, applicationTypes ...model.ApplicationType) *model.Instance {
+func findInstance(instancesByPod map[podId]*model.Instance, instancesByListen map[string]*model.Instance, rdsInstancesById map[string]*model.Instance, ecInstancesById map[string]*model.Instance, ls model.Labels, applicationTypes ...model.ApplicationType) *model.Instance {
 	if rdsId := ls["rds_instance_id"]; rdsId != "" {
 		return rdsInstancesById[rdsId]
 	}
@@ -461,16 +491,9 @@ func findInstance(instancesByPod map[podId]*model.Instance, instancesByListen ma
 	if ls["address"] != "" {
 		address = ls["address"]
 	}
-	if host, port, err := net.SplitHostPort(address); err == nil {
-		if ip := net.ParseIP(host); ip != nil && !ip.IsLoopback() {
-			var instance *model.Instance
-			for _, l := range []model.Listen{{IP: host, Port: port, Proxied: true}, {IP: host, Port: port, Proxied: false}, {IP: host, Port: "0", Proxied: false}} {
-				if instance = instancesByListen[l]; instance != nil {
-					break
-				}
-			}
-			return getActualServiceInstance(instance, applicationTypes...)
-		}
+	if address != "" {
+		instance := instancesByListen[address]
+		return getActualServiceInstance(instance, applicationTypes...)
 	}
 	if ns, pod := guessNamespace(ls), guessPod(ls); ns != "" && pod != "" {
 		return getActualServiceInstance(instancesByPod[podId{name: pod, ns: ns}], applicationTypes...)

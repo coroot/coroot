@@ -1,7 +1,11 @@
 <template>
     <v-form v-if="form" v-model="valid" ref="form" style="max-width: 800px">
+        <v-alert v-if="form.global" color="primary" outlined text>
+            This project uses a global ClickHouse configuration that can't be changed through the UI
+        </v-alert>
+
         <div class="subtitle-1">Protocol</div>
-        <v-radio-group v-model="form.protocol" row dense class="mt-0">
+        <v-radio-group v-model="form.protocol" row dense class="mt-0" :disabled="form.global">
             <v-radio label="Native" value="native"></v-radio>
             <v-radio label="HTTP" value="http"></v-radio>
         </v-radio-group>
@@ -18,19 +22,38 @@
             class="flex-grow-1"
             clearable
             single-line
+            :disabled="form.global"
         />
 
         <div class="subtitle-1 mt-3">Credentials</div>
         <div class="d-flex gap">
-            <v-text-field v-model="form.auth.user" :rules="[$validators.notEmpty]" label="username" outlined dense hide-details single-line />
-            <v-text-field v-model="form.auth.password" label="password" type="password" outlined dense hide-details single-line />
+            <v-text-field
+                v-model="form.auth.user"
+                :rules="[$validators.notEmpty]"
+                label="username"
+                outlined
+                dense
+                hide-details
+                single-line
+                :disabled="form.global"
+            />
+            <v-text-field
+                v-model="form.auth.password"
+                label="password"
+                type="password"
+                outlined
+                dense
+                hide-details
+                single-line
+                :disabled="form.global"
+            />
         </div>
 
         <div class="subtitle-1 mt-3">Database</div>
-        <v-text-field v-model="form.database" :rules="[$validators.notEmpty]" outlined dense hide-details single-line />
+        <v-text-field v-model="form.database" :rules="[$validators.notEmpty]" outlined dense hide-details single-line :disabled="form.global" />
 
-        <v-checkbox v-model="form.tls_enable" label="Enable TLS" hide-details class="my-3" />
-        <v-checkbox v-model="form.tls_skip_verify" :disabled="!form.tls_enable" label="Skip TLS verify" hide-details class="my-2" />
+        <v-checkbox v-model="form.tls_enable" label="Enable TLS" hide-details class="my-3" :disabled="form.global" />
+        <v-checkbox v-model="form.tls_skip_verify" :disabled="!form.tls_enable || form.global" label="Skip TLS verify" hide-details class="my-2" />
 
         <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
             {{ error }}
@@ -40,7 +63,7 @@
         </v-alert>
         <div class="mt-3">
             <v-btn v-if="saved.addr && !form.addr" block color="error" @click="del" :loading="loading">Delete</v-btn>
-            <v-btn v-else block color="primary" @click="save" :disabled="!form.addr || !valid" :loading="loading">Test & Save</v-btn>
+            <v-btn v-else block color="primary" @click="save" :disabled="!form.addr || !valid || form.global" :loading="loading">Test & Save</v-btn>
         </div>
     </v-form>
 </template>

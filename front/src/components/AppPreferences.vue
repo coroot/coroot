@@ -7,7 +7,7 @@
         </template>
 
         <v-list dense>
-            <template v-if="app.category && app.category != 'application'">
+            <template v-if="app.category && app.category !== 'application'">
                 <v-list-item
                     link
                     :to="{

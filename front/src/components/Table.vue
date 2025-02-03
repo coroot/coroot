@@ -52,7 +52,11 @@
                     <div v-else-if="c.deployment_summaries" v-for="s in c.deployment_summaries" class="d-flex">
                         <span class="text-no-wrap">{{ s.ok ? '&#127881;' : '&#128148;' }} {{ s.message }}</span>
                         <router-link
-                            :to="{ name: 'application', params: { report: s.report }, query: { from: s.time - 1800000, to: s.time + 1800000 } }"
+                            :to="{
+                                name: 'overview',
+                                params: { view: 'applications', report: s.report },
+                                query: { from: s.time - 1800000, to: s.time + 1800000 },
+                            }"
                             class="d-flex"
                         >
                             <v-icon small>mdi-chart-box-outline</v-icon>

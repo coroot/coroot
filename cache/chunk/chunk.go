@@ -2,6 +2,7 @@ package chunk
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -77,10 +78,7 @@ func Write(f io.Writer, from timeseries.Time, pointsCount int, step timeseries.D
 	var metaOffset, metaSize int
 	buf := make([]float32, pointsCount)
 	for i := range metrics {
-		metaSize = 0
-		for k, v := range metrics[i].Labels {
-			metaSize += len(k) + len(v) + 2
-		}
+		metaSize = metadataSize(metrics[i])
 		m := metricMeta{
 			Hash:       metrics[i].LabelsHash,
 			MetaOffset: uint32(metaOffset),
@@ -109,9 +107,10 @@ func Write(f io.Writer, from timeseries.Time, pointsCount int, step timeseries.D
 			return err
 		}
 	}
-
-	if err = writeLabels(metrics, w); err != nil {
-		return nil
+	for _, m := range metrics {
+		if err = writeLabels(w, m); err != nil {
+			return err
+		}
 	}
 
 	if err = w.Flush(); err != nil {
@@ -206,41 +205,92 @@ func readV3(reader io.Reader, header *header, from timeseries.Time, pointsCount 
 			offset = m.MetaOffset + m.MetaSize
 			mv.LabelsHash = m.Hash
 			mv.Labels = make(model.Labels)
-			readLabels(buf[:m.MetaSize], mv.Labels)
-			mv.MachineID = mv.Labels["machine_id"]
-			mv.SystemUUID = mv.Labels["system_uuid"]
-			mv.ContainerId = mv.Labels["container_id"]
+			readLabels(buf[:m.MetaSize], &mv)
 			dest[m.Hash] = mv
 		}
 	}
 	return nil
 }
 
-func writeLabels(metrics []model.MetricValues, dst io.Writer) error {
-	var err error
-	for _, m := range metrics {
-		for k, v := range m.Labels {
-			if _, err = dst.Write(append([]byte(k), byte(0))); err != nil {
-				return err
-			}
-			if _, err = dst.Write(append([]byte(v), byte(0))); err != nil {
-				return err
-			}
+var (
+	machineId   = []byte("machine_id")
+	systemUuid  = []byte("system_uuid")
+	containerId = []byte("container_id")
+)
+
+func metadataSize(mv model.MetricValues) int {
+	s := 0
+	if mv.MachineID != "" {
+		s += len(machineId) + len(mv.MachineID) + 2
+	}
+	if mv.SystemUUID != "" {
+		s += len(systemUuid) + len(mv.SystemUUID) + 2
+	}
+	if mv.ContainerId != "" {
+		s += len(containerId) + len(mv.ContainerId) + 2
+	}
+	for k, v := range mv.Labels {
+		s += len(k) + len(v) + 2
+	}
+	return s
+}
+
+func writeLabels(dst io.Writer, mv model.MetricValues) error {
+	if mv.MachineID != "" {
+		if _, err := dst.Write(append(machineId, byte(0))); err != nil {
+			return err
+		}
+		if _, err := dst.Write(append([]byte(mv.MachineID), byte(0))); err != nil {
+			return err
+		}
+	}
+	if mv.SystemUUID != "" {
+		if _, err := dst.Write(append(systemUuid, byte(0))); err != nil {
+			return err
+		}
+		if _, err := dst.Write(append([]byte(mv.SystemUUID), byte(0))); err != nil {
+			return err
+		}
+	}
+	if mv.ContainerId != "" {
+		if _, err := dst.Write(append(containerId, byte(0))); err != nil {
+			return err
+		}
+		if _, err := dst.Write(append([]byte(mv.ContainerId), byte(0))); err != nil {
+			return err
+		}
+	}
+	for k, v := range mv.Labels {
+		if _, err := dst.Write(append([]byte(k), byte(0))); err != nil {
+			return err
+		}
+		if _, err := dst.Write(append([]byte(v), byte(0))); err != nil {
+			return err
 		}
 	}
 	return nil
 }
 
-func readLabels(src []byte, dst model.Labels) {
+func readLabels(src []byte, mv *model.MetricValues) {
 	var key []byte
 	isValue := false
 	f := 0
-	for i, b := range src {
-		if b != 0 {
-			continue
+	for {
+		i := bytes.IndexByte(src[f:], 0)
+		if i == -1 {
+			break
 		}
+		i += f
 		if isValue {
-			dst[string(key)] = string(src[f:i])
+			if bytes.Equal(key, machineId) {
+				mv.MachineID = string(src[f:i])
+			} else if bytes.Equal(key, systemUuid) {
+				mv.SystemUUID = string(src[f:i])
+			} else if bytes.Equal(key, containerId) {
+				mv.ContainerId = string(src[f:i])
+			} else {
+				mv.Labels[string(key)] = string(src[f:i])
+			}
 			isValue = false
 		} else {
 			key = src[f:i]

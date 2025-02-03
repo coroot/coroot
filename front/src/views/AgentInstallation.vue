@@ -17,14 +17,28 @@
                 capability to establish TCP connections with it.
             </p>
 
-            <div class="subtitle-1">Coroot URL:</div>
             <v-form v-model="valid">
+                <div class="subtitle-1">Coroot URL:</div>
                 <v-text-field
                     v-model="coroot_url"
                     :rules="[$validators.notEmpty, $validators.isUrl]"
                     placeholder="http://coroot:8080"
                     outlined
                     dense
+                />
+                <div class="subtitle-1">
+                    API Key (can be managed in the
+                    <router-link :to="{ name: 'project_settings' }"><span @click="dialog = false">project settings</span></router-link
+                    >):
+                </div>
+                <v-select
+                    v-model="api_key"
+                    :rules="[$validators.notEmpty]"
+                    :items="api_keys === 'permission denied' ? [] : api_keys.map((k) => ({ value: k.key, text: `${k.key} (${k.description})` }))"
+                    outlined
+                    dense
+                    :menu-props="{ offsetY: true }"
+                    :no-data-text="api_keys === 'permission denied' ? 'Only project Admins can access API keys.' : 'No keys available'"
                 />
             </v-form>
 
@@ -42,8 +56,8 @@
                     <Code :disabled="!valid">
                         <pre>
 curl -sfL https://raw.githubusercontent.com/coroot/coroot-node-agent/main/install.sh | \
-  COLLECTOR_ENDPOINT={{ coroot_url }} \
-  API_KEY={{ api_key }} \
+  COLLECTOR_ENDPOINT={{ coroot_url || '&lt;COROOT_URL_HERE&gt;' }} \
+  API_KEY={{ api_key || '&lt;API_KEY_HERE&gt;' }} \
   SCRAPE_INTERVAL={{ scrape_interval }} \
   sh -
                         </pre>
@@ -72,7 +86,7 @@ docker run --detach --name coroot-node-agent \
   -v /sys/fs/cgroup:/host/sys/fs/cgroup:ro \
   ghcr.io/coroot/coroot-node-agent:latest \
   --cgroupfs-root=/host/sys/fs/cgroup \
-  --collector-endpoint={{ coroot_url }} \
+  --collector-endpoint={{ coroot_url || '&lt;COROOT_URL_HERE&gt;' }} \
   --api-key={{ api_key }} \
   --scrape-interval={{ scrape_interval }}
                         </pre>
@@ -91,14 +105,30 @@ docker rm -f coroot-node-agent
                     </Code>
                 </v-tab-item>
                 <v-tab-item transition="none">
-                    <p>
-                        To integrate Coroot with a Kubernetes cluster, simply install a dedicated Coroot instance using the official Helm chart. It
-                        automatically includes a DaemonSet, ensuring the agent is installed on new cluster nodes without manual intervention.
-                    </p>
-                    <p>
-                        To learn more about how to use Coroot's Helm chart, refer to the
-                        <a href="https://coroot.com/docs/coroot/installation/kubernetes" target="_blank">documentation</a>.
-                    </p>
+                    <p>Add the Coroot helm chart repo:</p>
+
+                    <Code>
+                        <pre>
+helm repo add coroot https://coroot.github.io/helm-charts
+helm repo update coroot
+                        </pre>
+                    </Code>
+
+                    <p>Next, install the Coroot Operator:</p>
+
+                    <Code>
+                        <pre>
+helm install -n coroot --create-namespace coroot-operator coroot/coroot-operator
+                        </pre>
+                    </Code>
+
+                    <p>Install Coroot's agents (node-agent and cluster-agent):</p>
+
+                    <Code :disabled="!valid">
+                        <pre>
+helm install -n coroot coroot coroot/{{ helm_chart }} --set "apiKey={{ api_key }},agentsOnly.corootURL={{ coroot_url || '&lt;COROOT_URL_HERE&gt;' }}"
+                        </pre>
+                    </Code>
                 </v-tab-item>
             </v-tabs-items>
         </v-card>
@@ -124,6 +154,8 @@ export default {
             dialog: false,
             tab: null,
             coroot_url: !local ? location.origin : '',
+            helm_chart: window.coroot.edition === 'Enterprise' ? 'coroot-ee' : 'coroot-ce',
+            api_keys: [],
             api_key: '',
             scrape_interval: '15s',
             valid: false,
@@ -143,7 +175,7 @@ export default {
                     this.error = error;
                     return;
                 }
-                this.api_key = data.api_key;
+                this.api_keys = data.api_keys || [];
                 if (data.refresh_interval) {
                     this.scrape_interval = data.refresh_interval / 1000 + 's';
                 }

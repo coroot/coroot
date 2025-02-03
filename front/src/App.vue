@@ -5,7 +5,12 @@
         <v-app-bar app flat dark class="menu">
             <v-container class="py-0 fill-height flex-nowrap">
                 <router-link :to="project ? { name: 'overview', query: $utils.contextQuery() } : { name: 'index' }">
-                    <img :src="`${$coroot.base_path}static/logo.svg`" height="38" class="logo" alt=":~#" />
+                    <img
+                        :src="`${$coroot.base_path}static/logo${$coroot.edition === 'Enterprise' ? '-ee' : ''}.svg`"
+                        height="38"
+                        class="logo"
+                        alt=":~#"
+                    />
                 </router-link>
 
                 <div v-if="user">
@@ -46,7 +51,7 @@
                             </v-btn>
                         </template>
                         <v-list dense>
-                            <v-list-item href="https://coroot.com/docs/" target="_blank">
+                            <v-list-item href="https://docs.coroot.com/" target="_blank">
                                 <v-icon small class="mr-1">mdi-book-open-outline</v-icon>Documentation</v-list-item
                             >
                             <v-list-item href="https://github.com/coroot/coroot" target="_blank">
@@ -59,6 +64,7 @@
                                 <v-icon small class="mr-1">mdi-slack</v-icon>Slack chat
                             </v-list-item>
                             <v-divider />
+                            <v-list-item> Coroot Edition: {{ $coroot.edition }} </v-list-item>
                             <v-list-item href="https://github.com/coroot/coroot/releases" target="_blank">
                                 Version: {{ $coroot.version }}
                             </v-list-item>
@@ -95,7 +101,7 @@
                         <template v-if="user && !user.anonymous">
                             <v-divider class="my-2" />
                             <v-list-item @click="changePassword = true">Change password</v-list-item>
-                            <v-list-item :to="{ name: 'logout' }">Sing out</v-list-item>
+                            <v-list-item :to="{ name: 'logout' }">Sign out</v-list-item>
                         </template>
                     </v-list>
                 </v-menu>
@@ -202,7 +208,7 @@ export default {
     watch: {
         $route(curr, prev) {
             this.getUser();
-            if (curr.query.from !== prev.query.from || curr.query.to !== prev.query.to) {
+            if (curr.query.from !== prev.query.from || curr.query.to !== prev.query.to || curr.query.incident !== prev.query.incident) {
                 this.$events.emit('refresh');
             }
             if (curr.params.projectId !== prev.params.projectId) {

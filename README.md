@@ -1,12 +1,11 @@
 <img width="200" src="https://coroot.com/static/logo_u.png">
 
-![](https://github.com/coroot/coroot/actions/workflows/build.yml/badge.svg)
+![](https://github.com/coroot/coroot/actions/workflows/ci.yml/badge.svg)
 [![Go Report Card](https://goreportcard.com/badge/github.com/coroot/coroot)](https://goreportcard.com/report/github.com/coroot/coroot)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![](https://img.shields.io/badge/slack-coroot-brightgreen.svg?logo=slack)](https://join.slack.com/t/coroot-community/shared_invite/zt-1gsnfo0wj-I~Zvtx5CAAb8vr~r~vecyw)
 
-### [Features](#features) | [Installation](https://coroot.com/docs/coroot/quick-start/community) | [Documentation](https://coroot.com/docs/) | [Community & Support](#community--support) | [Live demo](https://community-demo.coroot.com/) 
-
+### [Features](#features) | [Installation](https://docs.coroot.com/) | [Documentation](https://docs.coroot.com/) | [Community & Support](#community--support) | [Live demo](https://demo.coroot.com/) | [Coroot Enterprise](https://coroot.com/enterprise/) 
 
 
 ## Open-source observability augmented with actionable insights
@@ -103,15 +102,15 @@ Coroot's eBPF-based instrumentation can capture requests without requiring any c
 ## Installation
 
 You can run Coroot as a Docker container or deploy it into any Kubernetes cluster.
-Check out the [Installation guide](https://coroot.com/docs/coroot/quick-start/community).
+Check out the [Installation guide](https://docs.coroot.com/).
 
 ## Documentation
 
-The Coroot documentation is available at [coroot.com/docs](https://coroot.com/docs/).
+The Coroot documentation is available at [docs.coroot.com/docs](https://docs.coroot.com/).
 
 ## Live demo
 
-A live demo of Coroot is available at [community-demo.coroot.com](https://community-demo.coroot.com/)
+A live demo of Coroot is available at [demo.coroot.com](https://demo.coroot.com/)
 
 ## Community & Support
 

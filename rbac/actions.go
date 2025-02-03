@@ -34,6 +34,8 @@ func (as ActionSet) List() []Action {
 		as.Project("").Instrumentations().Edit(),
 		as.Project("").Traces().View(),
 		as.Project("").Costs().View(),
+		as.Project("").Risks().View(),
+		as.Project("").Risks().Edit(),
 		as.Project("").Application("", "", "", "").View(),
 		as.Project("").Node("").View(),
 	}
@@ -91,6 +93,10 @@ func (as ProjectActionSet) Costs() ProjectViewAction {
 	return ProjectViewAction{project: &as, scope: ScopeProjectCosts}
 }
 
+func (as ProjectActionSet) Risks() ProjectAction {
+	return ProjectAction{project: &as, scope: ScopeProjectRisks}
+}
+
 func (as ProjectActionSet) Application(category model.ApplicationCategory, namespace string, kind model.ApplicationKind, name string) ApplicationActionSet {
 	return ApplicationActionSet{project: &as, category: category, namespace: namespace, kind: kind, name: name}
 }
@@ -114,6 +120,19 @@ type ProjectEditAction struct {
 }
 
 func (as ProjectEditAction) Edit() Action {
+	return NewAction(as.scope, ActionEdit, as.project.object())
+}
+
+type ProjectAction struct {
+	project *ProjectActionSet
+	scope   Scope
+}
+
+func (as ProjectAction) View() Action {
+	return NewAction(as.scope, ActionView, as.project.object())
+}
+
+func (as ProjectAction) Edit() Action {
 	return NewAction(as.scope, ActionEdit, as.project.object())
 }
 

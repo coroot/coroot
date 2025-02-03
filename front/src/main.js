@@ -13,8 +13,6 @@ import Api from '@/api';
 import App from '@/App';
 import Project from '@/views/Project';
 import Overview from '@/views/Overview';
-import Application from '@/views/Application';
-import Node from '@/views/Node';
 import Welcome from '@/views/Welcome';
 import Login from '@/views/auth/Login.vue';
 import Logout from '@/views/auth/Logout.vue';
@@ -34,10 +32,14 @@ const router = new VueRouter({
         { path: '/logout', name: 'logout', component: Logout, meta: { anonymous: true } },
         { path: '/sso/saml', name: 'saml', component: Saml, meta: { anonymous: true } },
         { path: '/p/settings/:tab?', name: 'project_new', component: Project, props: true },
-        { path: '/p/:projectId/settings/:tab?', name: 'project_settings', component: Project, props: true, meta: { stats: { param: 'tab' } } },
-        { path: '/p/:projectId/:view?', name: 'overview', component: Overview, props: true, meta: { stats: { param: 'view' } } },
-        { path: '/p/:projectId/app/:id/:report?', name: 'application', component: Application, props: true, meta: { stats: { param: 'report' } } },
-        { path: '/p/:projectId/node/:name', name: 'node', component: Node, props: true },
+        { path: '/p/:projectId/settings/:tab?', name: 'project_settings', component: Project, props: true, meta: { stats: { params: ['tab'] } } },
+        {
+            path: '/p/:projectId/:view?/:id?/:report?',
+            name: 'overview',
+            component: Overview,
+            props: true,
+            meta: { stats: { params: ['view', 'report'] } },
+        },
         { path: '/welcome', name: 'welcome', component: Welcome },
         { path: '/', name: 'index', component: App },
         { path: '*', redirect: { name: 'index' } },
@@ -63,11 +65,17 @@ const api = new Api(router, vuetify, config.base_path);
 router.afterEach((to) => {
     if (to.matched[0]) {
         let p = to.matched[0].path;
-        if (to.meta.stats && to.meta.stats.param) {
-            p = p.replace(':' + to.meta.stats.param, to.params[to.meta.stats.param] || '');
+        if (to.meta.stats && to.meta.stats.params) {
+            to.meta.stats.params.forEach((name) => {
+                const value = to.params[name];
+                p = p.replace(':' + name, value || '');
+            });
         }
-        p = p.replaceAll(':', '$');
-        if (to.name === 'overview' && to.params.view === 'traces' && to.query.query) {
+        p = p.replaceAll('?', '');
+        if (!to.params['id']) {
+            p = p.replace(':id', '');
+        }
+        if (to.params.view === 'traces' && to.query.query) {
             try {
                 const q = JSON.parse(to.query.query);
                 const selection = q.ts_from || q.ts_to || q.dur_from || q.dur_to;
@@ -76,7 +84,7 @@ router.afterEach((to) => {
                 //
             }
         }
-        if (to.name === 'application' && to.params.report === 'Profiling' && to.query.query) {
+        if (to.params.view === 'applications' && to.params.report === 'Profiling' && to.query.query) {
             try {
                 const q = JSON.parse(to.query.query);
                 p += `${q.type || ''}:${q.mode || ''}:${Number(q.from) || Number(q.to) ? 'ts' : ''}`;
@@ -84,11 +92,11 @@ router.afterEach((to) => {
                 //
             }
         }
-        if (to.name === 'application' && to.params.report === 'Tracing' && to.query.trace) {
+        if (to.params.view === 'applications' && to.params.report === 'Tracing' && to.query.trace) {
             const [type, id, ts, dur] = to.query.trace.split(':');
             p += `${type}:${id ? 'id' : ''}:${ts !== '-' ? 'ts' : ''}:${dur}`;
         }
-        if (to.name === 'application' && to.params.report === 'Logs' && to.query.query) {
+        if (to.params.view === 'applications' && to.params.report === 'Logs' && to.query.query) {
             try {
                 const q = JSON.parse(to.query.query);
                 p += `${q.source || ''}:${q.view || ''}:${q.severity || ''}:${q.hash ? 'hash' : ''}:${q.search ? 'search' : ''}`;

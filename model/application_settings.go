@@ -6,6 +6,8 @@ type ApplicationSettings struct {
 	Logs      *ApplicationSettingsLogs      `json:"logs,omitempty"`
 
 	Instrumentation map[ApplicationType]*ApplicationInstrumentation `json:"instrumentation,omitempty"`
+
+	RiskOverrides []RiskOverride `json:"risk_overrides,omitempty"`
 }
 
 type ApplicationSettingsProfiling struct {
@@ -38,9 +40,9 @@ func GetDefaultInstrumentation(t ApplicationType) *ApplicationInstrumentation {
 	switch t {
 	case ApplicationTypePostgres:
 		return &ApplicationInstrumentation{Type: ApplicationTypePostgres, Port: "5432"}
-	case ApplicationTypeRedis, ApplicationTypeKeyDB:
+	case ApplicationTypeRedis:
 		return &ApplicationInstrumentation{Type: ApplicationTypeRedis, Port: "6379"}
-	case ApplicationTypeMongodb, ApplicationTypeMongos:
+	case ApplicationTypeMongodb:
 		return &ApplicationInstrumentation{Type: ApplicationTypeMongodb, Port: "27017"}
 	case ApplicationTypeMemcached:
 		return &ApplicationInstrumentation{Type: ApplicationTypeMemcached, Port: "11211"}

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/coroot/coroot/model"
@@ -20,7 +21,7 @@ type Project struct {
 	Id   ProjectId
 	Name string
 
-	Prometheus IntegrationsPrometheus
+	Prometheus IntegrationPrometheus
 	Settings   ProjectSettings
 }
 
@@ -29,10 +30,17 @@ type ProjectSettings struct {
 	ApplicationCategorySettings map[model.ApplicationCategory]ApplicationCategorySettings `json:"application_category_settings"`
 	Integrations                Integrations                                              `json:"integrations"`
 	CustomApplications          map[string]model.CustomApplication                        `json:"custom_applications"`
+	ApiKeys                     []ApiKey                                                  `json:"api_keys"`
+	Configurable                bool                                                      `json:"configurable"`
 }
 
 type ApplicationCategorySettings struct {
 	NotifyOfDeployments bool `json:"notify_of_deployments"`
+}
+
+type ApiKey struct {
+	Key         string `json:"key"`
+	Description string `json:"description"`
 }
 
 func (p *Project) Migrate(m *Migrator) error {
@@ -78,6 +86,25 @@ func (p *Project) GetCustomApplicationName(instance string) string {
 		}
 	}
 	return ""
+}
+
+func (p *Project) PrometheusConfig(globalPrometheus *IntegrationPrometheus) *IntegrationPrometheus {
+	if globalPrometheus != nil {
+		gp := *globalPrometheus
+		gp.ExtraSelector = fmt.Sprintf(`{coroot_project_id="%s"}`, p.Id)
+		gp.ExtraLabels = map[string]string{"coroot_project_id": string(p.Id)}
+		return &gp
+	}
+	return &p.Prometheus
+}
+
+func (p *Project) ClickHouseConfig(globalClickHouse *IntegrationClickhouse) *IntegrationClickhouse {
+	if globalClickHouse != nil {
+		gc := *globalClickHouse
+		gc.Database = "coroot_" + string(p.Id)
+		return &gc
+	}
+	return p.Settings.Integrations.Clickhouse
 }
 
 func (db *DB) GetProjects() ([]*Project, error) {
@@ -156,7 +183,7 @@ func (db *DB) GetProject(id ProjectId) (*Project, error) {
 	return &p, nil
 }
 
-func (db *DB) SaveProject(p Project) (ProjectId, error) {
+func (db *DB) SaveProject(p *Project) error {
 	if p.Prometheus.RefreshInterval == 0 {
 		p.Prometheus.RefreshInterval = DefaultRefreshInterval
 	}
@@ -164,14 +191,18 @@ func (db *DB) SaveProject(p Project) (ProjectId, error) {
 		p.Id = ProjectId(utils.NanoId(8))
 		_, err := db.db.Exec("INSERT INTO project (id, name) VALUES ($1, $2)", p.Id, p.Name)
 		if db.IsUniqueViolationError(err) {
-			return "", ErrConflict
+			return ErrConflict
 		}
-		return p.Id, err
+		if err == nil {
+			p.Settings.ApiKeys = []ApiKey{{Key: utils.RandomString(32), Description: "default"}}
+			err = db.SaveProjectSettings(p)
+		}
+		return err
 	}
 	if _, err := db.db.Exec("UPDATE project SET name = $1 WHERE id = $2", p.Name, p.Id); err != nil {
-		return "", err
+		return err
 	}
-	return p.Id, nil
+	return nil
 }
 
 func (db *DB) DeleteProject(id ProjectId) error {
@@ -201,6 +232,15 @@ func (db *DB) DeleteProject(id ProjectId) error {
 		return err
 	}
 	return tx.Commit()
+}
+
+func (db *DB) SaveProjectSettings(p *Project) error {
+	settings, err := json.Marshal(p.Settings)
+	if err != nil {
+		return err
+	}
+	_, err = db.db.Exec("UPDATE project SET settings = $1 WHERE id = $2", string(settings), p.Id)
+	return err
 }
 
 func (db *DB) SaveApplicationCategory(id ProjectId, category, newName model.ApplicationCategory, customPatterns []string, notifyAboutDeployments bool) error {
@@ -243,7 +283,7 @@ func (db *DB) SaveApplicationCategory(id ProjectId, category, newName model.Appl
 		}
 	}
 
-	return db.saveProjectSettings(p)
+	return db.SaveProjectSettings(p)
 }
 
 func (db *DB) SaveCustomApplication(id ProjectId, name, newName string, instancePatterns []string) error {
@@ -274,16 +314,7 @@ func (db *DB) SaveCustomApplication(id ProjectId, name, newName string, instance
 		}
 		p.Settings.CustomApplications[name] = model.CustomApplication{InstancePattens: patterns}
 	}
-	return db.saveProjectSettings(p)
-}
-
-func (db *DB) saveProjectSettings(p *Project) error {
-	settings, err := json.Marshal(p.Settings)
-	if err != nil {
-		return err
-	}
-	_, err = db.db.Exec("UPDATE project SET settings = $1 WHERE id = $2", string(settings), p.Id)
-	return err
+	return db.SaveProjectSettings(p)
 }
 
 func (db *DB) SaveProjectIntegration(p *Project, typ IntegrationType) error {
@@ -298,10 +329,5 @@ func (db *DB) SaveProjectIntegration(p *Project, typ IntegrationType) error {
 		_, err = db.db.Exec("UPDATE project SET prometheus = $1 WHERE id = $2", string(prometheus), p.Id)
 		return err
 	}
-	settings, err := json.Marshal(p.Settings)
-	if err != nil {
-		return err
-	}
-	_, err = db.db.Exec("UPDATE project SET settings = $1 WHERE id = $2", string(settings), p.Id)
-	return err
+	return db.SaveProjectSettings(p)
 }

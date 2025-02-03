@@ -47,7 +47,13 @@ func (c *Constructor) getInstanceAndContainer(w *model.World, node *model.Node, 
 		id    instanceId
 		appId model.ApplicationId
 	)
-	if len(parts) == 7 && parts[1] == "nomad" {
+	if len(parts) == 5 && parts[1] == "k8s-cronjob" {
+		w.IntegrationStatus.KubeStateMetrics.Required = true
+		ns, job := parts[2], parts[3]
+		containerName = parts[4]
+		appId = model.NewApplicationId(ns, model.ApplicationKindCronJob, job)
+		id = instanceId{ns: ns, name: fmt.Sprintf("%s@%s", job, nodeName), node: nodeId}
+	} else if len(parts) == 7 && parts[1] == "nomad" {
 		ns, job, group, allocId, task := parts[2], parts[3], parts[4], parts[5], parts[6]
 		containerName = task
 		appId = model.NewApplicationId(ns, model.ApplicationKindNomadJobGroup, job+"."+group)
@@ -103,7 +109,6 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]model.
 	}
 
 	servicesByActualDestIP := map[string]*model.Service{}
-	connectionCache := map[connectionKey]*model.Connection{}
 	rttByInstance := map[instanceId]map[string]*timeseries.TimeSeries{}
 
 	loadContainer := func(queryName string, f func(instance *model.Instance, container *model.Container, metric model.MetricValues)) {
@@ -111,7 +116,7 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]model.
 		for _, m := range ms {
 			v, ok := containers[m.NodeContainerId]
 			if !ok {
-				nodeId := model.NewNodeIdFromLabels(m.Labels)
+				nodeId := model.NewNodeIdFromLabels(m)
 				v.instance, v.container = c.getInstanceAndContainer(w, nodesByID[nodeId], instances, m.ContainerId)
 				containers[m.NodeContainerId] = v
 			}
@@ -189,7 +194,7 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]model.
 
 	loadConnection := func(queryName string, f func(connection *model.Connection, metric model.MetricValues)) {
 		loadContainer(queryName, func(instance *model.Instance, container *model.Container, metric model.MetricValues) {
-			conn := getOrCreateConnection(instance, container.Name, metric, connectionCache, servicesByClusterIP, servicesByActualDestIP)
+			conn := getOrCreateConnection(instance, container.Name, metric, servicesByClusterIP, servicesByActualDestIP)
 			if conn != nil {
 				f(conn, metric)
 			}
@@ -240,6 +245,8 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]model.
 	loadL7RequestsCount("container_cassandra_queries_count", model.ProtocolCassandra)
 	loadL7RequestsCount("container_rabbitmq_messages", model.ProtocolRabbitmq)
 	loadL7RequestsCount("container_nats_messages", model.ProtocolNats)
+	loadL7RequestsCount("container_clickhouse_queries_count", model.ProtocolClickhouse)
+	loadL7RequestsCount("container_zookeeper_requests_count", model.ProtocolZookeeper)
 
 	loadL7RequestsLatency := func(queryName string, protocol model.Protocol) {
 		loadConnection(queryName, func(connection *model.Connection, metric model.MetricValues) {
@@ -254,6 +261,8 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]model.
 	loadL7RequestsLatency("container_memcached_queries_latency", model.ProtocolMemcached)
 	loadL7RequestsLatency("container_kafka_requests_latency", model.ProtocolKafka)
 	loadL7RequestsLatency("container_cassandra_queries_latency", model.ProtocolCassandra)
+	loadL7RequestsLatency("container_clickhouse_queries_latency", model.ProtocolClickhouse)
+	loadL7RequestsLatency("container_zookeeper_requests_latency", model.ProtocolZookeeper)
 
 	loadL7RequestsHistogram := func(queryName string, protocol model.Protocol) {
 		loadConnection(queryName, func(connection *model.Connection, metric model.MetricValues) {
@@ -276,6 +285,8 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]model.
 	loadL7RequestsHistogram("container_memcached_queries_histogram", model.ProtocolMemcached)
 	loadL7RequestsHistogram("container_kafka_requests_histogram", model.ProtocolKafka)
 	loadL7RequestsHistogram("container_cassandra_queries_histogram", model.ProtocolCassandra)
+	loadL7RequestsHistogram("container_clickhouse_queries_histogram", model.ProtocolClickhouse)
+	loadL7RequestsHistogram("container_zookeeper_requests_histogram", model.ProtocolZookeeper)
 
 	loadContainer("container_dns_requests_total", func(instance *model.Instance, container *model.Container, metric model.MetricValues) {
 		r := model.DNSRequest{
@@ -334,8 +345,14 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]model.
 	for _, app := range w.Applications { // lookup remote instance by listen
 		for _, instance := range app.Instances {
 			for _, u := range instance.Upstreams {
-				l := model.Listen{IP: u.ActualRemoteIP, Port: u.ActualRemotePort, Proxied: true}
-				if ip := net.ParseIP(u.ActualRemoteIP); ip.IsLoopback() && instance.Node != nil {
+				remoteIP := u.ActualRemoteIP
+				remotePort := u.ActualRemotePort
+				if remoteIP == "" {
+					remoteIP = u.ServiceRemoteIP
+					remotePort = u.ServiceRemotePort
+				}
+				l := model.Listen{IP: remoteIP, Port: remotePort, Proxied: true}
+				if ip := net.ParseIP(remoteIP); ip.IsLoopback() && instance.Node != nil {
 					l.IP = instance.NodeName()
 				}
 				if u.RemoteInstance = instancesByListen[l]; u.RemoteInstance == nil {
@@ -368,20 +385,23 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]model.
 				}
 				appId := model.NewApplicationId("external", model.ApplicationKindExternalService, "")
 				svc := getServiceForConnection(u, servicesByClusterIP, servicesByActualDestIP)
-				instanceName := u.ActualRemoteIP + ":" + u.ActualRemotePort
+				instanceName := u.ServiceRemoteIP + ":" + u.ServiceRemotePort
 				if svc != nil {
 					u.Service = svc
 					if a := svc.GetDestinationApplication(); a != nil {
 						a.Downstreams = append(a.Downstreams, u)
+						u.RemoteApplication = a
 						continue
 					} else {
 						appId.Name = svc.Name
 					}
 				} else {
-					if fqdns := ip2fqdn[u.ActualRemoteIP]; fqdns != nil && fqdns.Len() > 0 {
-						appId.Name = fqdns.Items()[0] + ":" + u.ActualRemotePort
+					if u.ActualRemoteIP == "" && net.ParseIP(u.ServiceRemoteIP) == nil {
+						appId.Name = u.ServiceRemoteIP
+					} else if fqdns := ip2fqdn[u.ServiceRemoteIP]; fqdns != nil && fqdns.Len() > 0 {
+						appId.Name = fqdns.Items()[0] + ":" + u.ServiceRemotePort
 					} else {
-						appId.Name = externalServiceName(u.ActualRemotePort)
+						appId.Name = externalServiceName(u.ServiceRemotePort)
 					}
 				}
 				customApp := c.project.GetCustomApplicationName(instanceName)
@@ -416,31 +436,19 @@ func getServiceForConnection(c *model.Connection, byClusterIP map[string]*model.
 	return byActualDestIP[c.ActualRemoteIP]
 }
 
-type connectionKey struct {
-	instanceId
-	destination, actualDestination string
-}
-
-func getOrCreateConnection(instance *model.Instance, container string, m model.MetricValues, cache map[connectionKey]*model.Connection, servicesByClusterIP, servicesByActualDestIP map[string]*model.Service) *model.Connection {
+func getOrCreateConnection(instance *model.Instance, container string, m model.MetricValues, servicesByClusterIP, servicesByActualDestIP map[string]*model.Service) *model.Connection {
 	if instance.Owner.Id.Name == "docker" { // ignore docker-proxy's connections
 		return nil
 	}
 
 	dest := m.Labels["destination"]
 	actualDest := m.Labels["actual_destination"]
-	if actualDest == "" {
-		actualDest = dest
+
+	connKey := model.ConnectionKey{
+		Destination:       dest,
+		ActualDestination: actualDest,
 	}
-	connKey := connectionKey{
-		instanceId: instanceId{
-			ns:   instance.Owner.Id.Namespace,
-			name: instance.Name,
-			node: instance.NodeId(),
-		},
-		destination:       dest,
-		actualDestination: actualDest,
-	}
-	connection := cache[connKey]
+	connection := instance.Upstreams[connKey]
 	if connection == nil {
 		var actualIP, actualPort, serviceIP, servicePort string
 		var err error
@@ -456,11 +464,21 @@ func getOrCreateConnection(instance *model.Instance, container string, m model.M
 				return nil
 			}
 		}
-		connection = instance.AddUpstreamConnection(actualIP, actualPort, serviceIP, servicePort, container)
-		cache[connKey] = connection
+		connection = &model.Connection{
+			Instance:          instance,
+			ActualRemoteIP:    actualIP,
+			ActualRemotePort:  actualPort,
+			ServiceRemoteIP:   serviceIP,
+			ServiceRemotePort: servicePort,
+			Container:         container,
+
+			RequestsCount:     map[model.Protocol]map[string]*timeseries.TimeSeries{},
+			RequestsLatency:   map[model.Protocol]*timeseries.TimeSeries{},
+			RequestsHistogram: map[model.Protocol]map[float32]*timeseries.TimeSeries{},
+		}
+		instance.Upstreams[connKey] = connection
 		updateServiceEndpoints(connection, servicesByClusterIP, servicesByActualDestIP)
 	}
-
 	return connection
 }
 
@@ -482,7 +500,10 @@ func getOrCreateInstanceVolume(instance *model.Instance, m model.MetricValues) *
 }
 
 func updateServiceEndpoints(c *model.Connection, servicesByClusterIP, servicesByActualDestIP map[string]*model.Service) {
-	if c.ActualRemoteIP == "" && c.ServiceRemoteIP == "" {
+	if c.ActualRemoteIP == "" {
+		return
+	}
+	if c.ServiceRemoteIP == "" {
 		return
 	}
 	if s := servicesByClusterIP[c.ServiceRemoteIP]; s != nil {
@@ -515,7 +536,7 @@ func externalServiceName(port string) string {
 	case "80", "443", "8080":
 		service = "http"
 	default:
-		service = ":" + port
+		return "external:" + port
 	}
 	return "external-" + service
 }

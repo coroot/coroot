@@ -59,17 +59,17 @@ type Node struct {
 	Status model.Status `json:"status"`
 }
 
-func WithContext(p *db.Project, cacheStatus *cache.Status, w *model.World, data any) DataWithContext {
+func (api *Api) WithContext(p *db.Project, cacheStatus *cache.Status, w *model.World, data any) DataWithContext {
 	return DataWithContext{
 		Context: Context{
-			Status: renderStatus(p, cacheStatus, w),
+			Status: renderStatus(p, cacheStatus, w, api.globalPrometheus),
 			Search: renderSearch(w),
 		},
 		Data: data,
 	}
 }
 
-func renderStatus(p *db.Project, cacheStatus *cache.Status, w *model.World) Status {
+func renderStatus(p *db.Project, cacheStatus *cache.Status, w *model.World, globalPrometheus *db.IntegrationPrometheus) Status {
 	res := Status{
 		Status: model.OK,
 	}
@@ -82,12 +82,13 @@ func renderStatus(p *db.Project, cacheStatus *cache.Status, w *model.World) Stat
 
 	res.Prometheus.Status = model.OK
 	res.Prometheus.Message = "ok"
-	refreshInterval := p.Prometheus.RefreshInterval
+	promCfg := p.PrometheusConfig(globalPrometheus)
+	refreshInterval := promCfg.RefreshInterval
 	if refreshInterval < cache.MinRefreshInterval {
 		refreshInterval = cache.MinRefreshInterval
 	}
 	switch {
-	case p.Prometheus.Url == "":
+	case promCfg.Url == "":
 		res.Prometheus.Status = model.WARNING
 		res.Prometheus.Message = "Prometheus is not configured"
 		res.Prometheus.Action = "configure"
@@ -97,7 +98,7 @@ func renderStatus(p *db.Project, cacheStatus *cache.Status, w *model.World) Stat
 		res.Prometheus.Error = cacheStatus.Error
 		res.Prometheus.Action = "configure"
 	case cacheStatus != nil && cacheStatus.LagMax > 5*refreshInterval:
-		msg := fmt.Sprintf("Prometheus cache is %s behind. (this could be expected after a restart/upgrade)", utils.FormatDuration(cacheStatus.LagAvg, 1))
+		msg := fmt.Sprintf("Prometheus cache is %s behind (this could be expected after a restart/upgrade)", utils.FormatDuration(cacheStatus.LagAvg, 1))
 		res.Prometheus.Status = model.WARNING
 		if w == nil {
 			msg += " Please wait until synchronization is complete."

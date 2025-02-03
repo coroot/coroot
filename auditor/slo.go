@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
@@ -14,7 +13,7 @@ type sumFromFunc func(from timeseries.Time) float32
 
 func (a *appAuditor) slo() {
 	report := a.addReport(model.AuditReportSLO)
-	sloRequestsChart(a.app, report, a.p)
+	sloRequestsChart(a.app, report, a.clickHouseEnabled)
 	availability(a.w.Ctx, a.app, report)
 	latency(a.w.Ctx, a.app, report)
 	clientRequests(a.app, report)
@@ -155,7 +154,7 @@ func calcBurnRates(now timeseries.Time, badSum, totalSum sumFromFunc, objectiveP
 	return first
 }
 
-func sloRequestsChart(app *model.Application, report *model.AuditReport, p *db.Project) {
+func sloRequestsChart(app *model.Application, report *model.AuditReport, clickHouseEnabled bool) {
 	hm := report.GetOrCreateHeatmap("Latency & Errors heatmap, requests per second")
 	if hm == nil {
 		return
@@ -190,8 +189,9 @@ func sloRequestsChart(app *model.Application, report *model.AuditReport, p *db.P
 			hm.AddSeries("errors", "errors", failed, "", "err")
 		}
 	}
-	if cfg := p.Settings.Integrations.Clickhouse; cfg != nil {
-		hm.DrillDownLink = model.NewRouterLink("tracing", "application").
+	if clickHouseEnabled {
+		hm.DrillDownLink = model.NewRouterLink("tracing", "overview").
+			SetParam("view", "applications").
 			SetParam("id", app.Id).
 			SetParam("report", model.AuditReportTracing)
 	}
@@ -234,7 +234,9 @@ func clientRequests(app *model.Application, report *model.AuditReport) {
 		if clientsByName[id.Name] > 1 {
 			client.Value += " (ns: " + id.Namespace + ")"
 		}
-		client.Link = model.NewRouterLink(id.Name, "application").SetParam("id", id)
+		client.Link = model.NewRouterLink(id.Name, "overview").
+			SetParam("view", "applications").
+			SetParam("id", id)
 		client.SetUnit(strings.Join(s.protocols.Items(), ", "))
 
 		chart := model.NewTableCell().SetChart(s.rps)

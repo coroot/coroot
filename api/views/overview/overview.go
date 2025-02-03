@@ -9,14 +9,15 @@ import (
 )
 
 type Overview struct {
-	Health      []*ApplicationStatus        `json:"health"`
-	Incidents   []incident.Summary          `json:"incidents"`
-	Map         []*Application              `json:"map"`
-	Nodes       *model.Table                `json:"nodes"`
-	Deployments []*Deployment               `json:"deployments"`
-	Traces      *Traces                     `json:"traces"`
-	Costs       *Costs                      `json:"costs"`
-	Categories  []model.ApplicationCategory `json:"categories"`
+	Applications []*ApplicationStatus        `json:"applications"`
+	Incidents    []incident.Summary          `json:"incidents"`
+	Map          []*Application              `json:"map"`
+	Nodes        *model.Table                `json:"nodes"`
+	Deployments  []*Deployment               `json:"deployments"`
+	Traces       *Traces                     `json:"traces"`
+	Costs        *Costs                      `json:"costs"`
+	Risks        []*Risk                     `json:"risks"`
+	Categories   []model.ApplicationCategory `json:"categories"`
 }
 
 func Render(ctx context.Context, ch *clickhouse.Client, w *model.World, view, query string) *Overview {
@@ -25,8 +26,8 @@ func Render(ctx context.Context, ch *clickhouse.Client, w *model.World, view, qu
 	}
 
 	switch view {
-	case "health":
-		v.Health = renderHealth(w)
+	case "applications":
+		v.Applications = renderApplications(w)
 	case "incidents":
 		for _, app := range w.Applications {
 			switch {
@@ -50,6 +51,8 @@ func Render(ctx context.Context, ch *clickhouse.Client, w *model.World, view, qu
 		v.Traces = renderTraces(ctx, ch, w, query)
 	case "costs":
 		v.Costs = renderCosts(w)
+	case "risks":
+		v.Risks = renderRisks(w)
 	}
 	return v
 }

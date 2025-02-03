@@ -24,6 +24,10 @@ type Context struct {
 
 type Duration int64
 
+func DurationFromStandard(d time.Duration) Duration {
+	return Duration(d / time.Second)
+}
+
 func (d Duration) Truncate(m Duration) Duration {
 	if m <= 0 {
 		return d

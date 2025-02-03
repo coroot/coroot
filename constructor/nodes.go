@@ -14,7 +14,7 @@ func initNodesList(w *model.World, metrics map[string][]model.MetricValues, node
 	nodesBySystemUUID := map[string]*model.Node{}
 	for _, m := range metrics["node_info"] {
 		name := m.Labels["hostname"]
-		id := model.NewNodeIdFromLabels(m.Labels)
+		id := model.NewNodeIdFromLabels(m)
 		if id.MachineID == "" && id.SystemUUID == "" {
 			klog.Infoln("invalid `node_info` metric: missing `machine_id` and `system_uuid` labels")
 			continue
@@ -28,10 +28,11 @@ func initNodesList(w *model.World, metrics map[string][]model.MetricValues, node
 			nodesBySystemUUID[node.Id.SystemUUID] = node
 		}
 		node.Name.Update(m.Values, name)
+		node.KernelVersion.Update(m.Values, m.Labels["kernel_version"])
 	}
 	for _, m := range metrics["kube_node_info"] {
 		name := m.Labels["node"]
-		id := model.NewNodeIdFromLabels(m.Labels)
+		id := model.NewNodeIdFromLabels(m)
 		if id.MachineID == "" && id.SystemUUID == "" {
 			klog.Infoln("invalid `kube_node_info` metric: missing `system_uuid` label")
 			continue
@@ -44,6 +45,9 @@ func initNodesList(w *model.World, metrics map[string][]model.MetricValues, node
 			nodesBySystemUUID[node.Id.SystemUUID] = node
 		}
 		node.K8sName.Update(m.Values, name)
+		if node.KernelVersion.Value() == "" {
+			node.KernelVersion.Update(m.Values, m.Labels["kernel_version"])
+		}
 	}
 }
 
@@ -55,7 +59,7 @@ func (c *Constructor) loadNodes(w *model.World, metrics map[string][]model.Metri
 			continue
 		}
 		for _, m := range metrics[queryName] {
-			node := nodesByID[model.NewNodeIdFromLabels(m.Labels)]
+			node := nodesByID[model.NewNodeIdFromLabels(m)]
 			if node == nil {
 				continue
 			}

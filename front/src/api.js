@@ -75,8 +75,8 @@ export default class Api {
     }
 
     get(url, args, cb) {
-        const { from, to, incident } = this.router.currentRoute.query;
-        const params = { ...args, from, to, incident };
+        const { from, to, incident, rcaFrom, rcaTo } = this.router.currentRoute.query;
+        const params = { ...args, from, to, incident, rcaFrom, rcaTo };
         this.request({ method: 'get', url, params }, cb);
     }
 
@@ -151,6 +151,15 @@ export default class Api {
 
     getStatus(cb) {
         this.get(this.projectPath(`status`), {}, cb);
+    }
+
+    apiKeys(form, cb) {
+        const url = this.projectPath('api_keys');
+        if (form) {
+            this.post(url, form, cb);
+        } else {
+            this.get(url, {}, cb);
+        }
     }
 
     getOverview(view, query, cb) {
@@ -250,6 +259,10 @@ export default class Api {
 
     getNode(nodeName, cb) {
         this.get(this.projectPath(`node/${nodeName}`), {}, cb);
+    }
+
+    risks(appId, form, cb) {
+        this.post(this.projectPath(`app/${appId}/risks`), form, cb);
     }
 
     getPrometheusCompleteConfiguration() {

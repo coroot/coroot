@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"sort"
 	"time"
 
@@ -27,23 +28,28 @@ import (
 )
 
 type Api struct {
-	cache     *cache.Cache
-	db        *db.DB
-	collector *collector.Collector
-	pricing   *pricing.Manager
-	roles     rbac.RoleManager
+	cache            *cache.Cache
+	db               *db.DB
+	collector        *collector.Collector
+	pricing          *pricing.Manager
+	roles            rbac.RoleManager
+	globalClickHouse *db.IntegrationClickhouse
+	globalPrometheus *db.IntegrationPrometheus
 
 	authSecret        string
 	authAnonymousRole rbac.RoleName
 }
 
-func NewApi(cache *cache.Cache, db *db.DB, collector *collector.Collector, pricing *pricing.Manager, roles rbac.RoleManager) *Api {
+func NewApi(cache *cache.Cache, db *db.DB, collector *collector.Collector, pricing *pricing.Manager, roles rbac.RoleManager,
+	globalClickHouse *db.IntegrationClickhouse, globalPrometheus *db.IntegrationPrometheus) *Api {
 	return &Api{
-		cache:     cache,
-		db:        db,
-		collector: collector,
-		pricing:   pricing,
-		roles:     roles,
+		cache:            cache,
+		db:               db,
+		collector:        collector,
+		pricing:          pricing,
+		roles:            roles,
+		globalClickHouse: globalClickHouse,
+		globalPrometheus: globalPrometheus,
 	}
 }
 
@@ -227,8 +233,9 @@ func (api *Api) Project(w http.ResponseWriter, r *http.Request, u *db.User) {
 
 	case http.MethodGet:
 		type ProjectSettings struct {
+			Readonly        bool                `json:"readonly"`
 			Name            string              `json:"name"`
-			ApiKey          string              `json:"api_key"`
+			ApiKeys         any                 `json:"api_keys"`
 			RefreshInterval timeseries.Duration `json:"refresh_interval"`
 		}
 		res := ProjectSettings{}
@@ -243,10 +250,14 @@ func (api *Api) Project(w http.ResponseWriter, r *http.Request, u *db.User) {
 				http.Error(w, "", http.StatusInternalServerError)
 				return
 			}
+			prometheusCfg := project.PrometheusConfig(api.globalPrometheus)
+			res.Readonly = !project.Settings.Configurable
 			res.Name = project.Name
+			res.RefreshInterval = prometheusCfg.RefreshInterval
 			if isAllowed {
-				res.ApiKey = string(project.Id)
-				res.RefreshInterval = project.Prometheus.RefreshInterval
+				res.ApiKeys = project.Settings.ApiKeys
+			} else {
+				res.ApiKeys = "permission denied"
 			}
 		}
 		utils.WriteJson(w, res)
@@ -262,11 +273,13 @@ func (api *Api) Project(w http.ResponseWriter, r *http.Request, u *db.User) {
 			http.Error(w, "", http.StatusBadRequest)
 			return
 		}
-		project := db.Project{
+		isNew := projectId == ""
+		project := &db.Project{
 			Id:   db.ProjectId(projectId),
 			Name: form.Name,
 		}
-		id, err := api.db.SaveProject(project)
+		project.Settings.Configurable = true
+		err := api.db.SaveProject(project)
 		if err != nil {
 			if errors.Is(err, db.ErrConflict) {
 				http.Error(w, "This project name is already being used.", http.StatusConflict)
@@ -276,7 +289,15 @@ func (api *Api) Project(w http.ResponseWriter, r *http.Request, u *db.User) {
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
-		http.Error(w, string(id), http.StatusOK)
+		if isNew && api.globalClickHouse != nil {
+			err = api.collector.MigrateClickhouseDatabase(r.Context(), project)
+			if err != nil {
+				klog.Errorln("failed to migrate clickhouse database:", err)
+				http.Error(w, "Failed to create or update clickhouse database", http.StatusInternalServerError)
+				return
+			}
+		}
+		http.Error(w, string(project.Id), http.StatusOK)
 
 	case http.MethodDelete:
 		if !isAllowed {
@@ -315,7 +336,7 @@ func (api *Api) Status(w http.ResponseWriter, r *http.Request, u *db.User) {
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
-	utils.WriteJson(w, renderStatus(project, cacheStatus, world))
+	utils.WriteJson(w, renderStatus(project, cacheStatus, world, api.globalPrometheus))
 }
 
 func (api *Api) Overview(w http.ResponseWriter, r *http.Request, u *db.User) {
@@ -334,6 +355,11 @@ func (api *Api) Overview(w http.ResponseWriter, r *http.Request, u *db.User) {
 			http.Error(w, "You are not allowed to view costs.", http.StatusForbidden)
 			return
 		}
+	case "risks":
+		if !api.IsAllowed(u, rbac.Actions.Project(projectId).Risks().View()) {
+			http.Error(w, "You are not allowed to view risks.", http.StatusForbidden)
+			return
+		}
 	}
 
 	world, project, cacheStatus, err := api.LoadWorldByRequest(r)
@@ -343,18 +369,79 @@ func (api *Api) Overview(w http.ResponseWriter, r *http.Request, u *db.User) {
 		return
 	}
 	if project == nil || world == nil {
-		utils.WriteJson(w, WithContext(project, cacheStatus, world, nil))
+		utils.WriteJson(w, api.WithContext(project, cacheStatus, world, nil))
 		return
 	}
 	var ch *clickhouse.Client
-	if cfg := project.Settings.Integrations.Clickhouse; cfg != nil {
-		ch, err = api.getClickhouseClient(project)
-		if err != nil {
-			klog.Warningln(err)
-		}
+	if ch, err = api.getClickhouseClient(project); err != nil {
+		klog.Warningln(err)
 	}
-	auditor.Audit(world, project, nil)
-	utils.WriteJson(w, WithContext(project, cacheStatus, world, views.Overview(r.Context(), ch, world, view, r.URL.Query().Get("query"))))
+	auditor.Audit(world, project, nil, project.ClickHouseConfig(api.globalClickHouse) != nil)
+	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Overview(r.Context(), ch, world, view, r.URL.Query().Get("query"))))
+}
+
+func (api *Api) ApiKeys(w http.ResponseWriter, r *http.Request, u *db.User) {
+	vars := mux.Vars(r)
+	projectId := vars["project"]
+
+	project, err := api.db.GetProject(db.ProjectId(projectId))
+	if err != nil {
+		klog.Errorln("failed to get project:", err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+
+	isAllowed := api.IsAllowed(u, rbac.Actions.Project(projectId).Settings().Edit())
+
+	if r.Method == http.MethodGet {
+		res := struct {
+			Editable bool        `json:"editable"`
+			Keys     []db.ApiKey `json:"keys"`
+		}{
+			Editable: isAllowed && project.Settings.Configurable,
+			Keys:     project.Settings.ApiKeys,
+		}
+		if !isAllowed {
+			for i := range res.Keys {
+				res.Keys[i].Key = ""
+			}
+		}
+		utils.WriteJson(w, res)
+		return
+	}
+
+	if !isAllowed {
+		http.Error(w, "You are not allowed to configure API keys.", http.StatusForbidden)
+		return
+	}
+	var form forms.ApiKeyForm
+	if err = forms.ReadAndValidate(r, &form); err != nil {
+		klog.Warningln("bad request:", err)
+		http.Error(w, "", http.StatusBadRequest)
+		return
+	}
+	switch form.Action {
+	case "generate":
+		form.Key = utils.RandomString(32)
+		project.Settings.ApiKeys = append(project.Settings.ApiKeys, form.ApiKey)
+	case "delete":
+		project.Settings.ApiKeys = slices.DeleteFunc(project.Settings.ApiKeys, func(k db.ApiKey) bool {
+			return k.Key == form.Key
+		})
+	case "edit":
+		for i, k := range project.Settings.ApiKeys {
+			if k.Key == form.Key {
+				project.Settings.ApiKeys[i].Description = form.Description
+			}
+		}
+	default:
+		return
+	}
+	if err = api.db.SaveProjectSettings(project); err != nil {
+		klog.Errorln("failed to save project api keys:", err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
 }
 
 func (api *Api) Inspections(w http.ResponseWriter, r *http.Request, u *db.User) {
@@ -474,15 +561,13 @@ func (api *Api) Integration(w http.ResponseWriter, r *http.Request, u *db.User) 
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
-
 	t := db.IntegrationType(vars["type"])
-	form := forms.NewIntegrationForm(t)
+	form := forms.NewIntegrationForm(t, api.globalClickHouse, api.globalPrometheus)
 	if form == nil {
 		klog.Warningln("unknown integration type:", t)
 		http.Error(w, "", http.StatusBadRequest)
 		return
 	}
-
 	isAllowed := api.IsAllowed(u, rbac.Actions.Project(projectId).Integrations().Edit())
 
 	if r.Method == http.MethodGet {
@@ -546,13 +631,13 @@ func (api *Api) Integration(w http.ResponseWriter, r *http.Request, u *db.User) 
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
-
-	cfg := project.Settings.Integrations.Clickhouse
-	err = api.collector.UpdateClickhouseClient(r.Context(), project.Id, cfg)
-	if err != nil {
-		klog.Errorln("clickhouse error:", err)
-		http.Error(w, "Clickhouse error: "+err.Error(), http.StatusInternalServerError)
-		return
+	if api.globalClickHouse == nil {
+		err = api.collector.UpdateClickhouseClient(r.Context(), project)
+		if err != nil {
+			klog.Errorln("clickhouse error:", err)
+			http.Error(w, "Clickhouse error: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 }
 
@@ -596,7 +681,7 @@ func (api *Api) Application(w http.ResponseWriter, r *http.Request, u *db.User) 
 		return
 	}
 	if project == nil || world == nil {
-		utils.WriteJson(w, WithContext(project, cacheStatus, world, nil))
+		utils.WriteJson(w, api.WithContext(project, cacheStatus, world, nil))
 		return
 	}
 	app := world.GetApplication(appId)
@@ -611,12 +696,13 @@ func (api *Api) Application(w http.ResponseWriter, r *http.Request, u *db.User) 
 		return
 	}
 
-	auditor.Audit(world, project, app)
-	if cfg := project.Settings.Integrations.Clickhouse; cfg != nil {
+	auditor.Audit(world, project, app, project.ClickHouseConfig(api.globalClickHouse) != nil)
+
+	if project.ClickHouseConfig(api.globalClickHouse) != nil {
 		app.AddReport(model.AuditReportProfiling, &model.Widget{Profiling: &model.Profiling{ApplicationId: app.Id}, Width: "100%"})
 		app.AddReport(model.AuditReportTracing, &model.Widget{Tracing: &model.Tracing{ApplicationId: app.Id}, Width: "100%"})
 	}
-	utils.WriteJson(w, WithContext(project, cacheStatus, world, views.Application(world, app)))
+	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Application(world, app)))
 }
 
 func (api *Api) RCA(w http.ResponseWriter, r *http.Request, u *db.User) {
@@ -627,10 +713,10 @@ func (api *Api) RCA(w http.ResponseWriter, r *http.Request, u *db.User) {
 		return
 	}
 	if project == nil || world == nil {
-		utils.WriteJson(w, WithContext(project, cacheStatus, world, nil))
+		utils.WriteJson(w, api.WithContext(project, cacheStatus, world, nil))
 		return
 	}
-	utils.WriteJson(w, WithContext(project, cacheStatus, world, "not implemented"))
+	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, "not implemented"))
 }
 
 func (api *Api) Incident(w http.ResponseWriter, r *http.Request, u *db.User) {
@@ -659,7 +745,7 @@ func (api *Api) Incident(w http.ResponseWriter, r *http.Request, u *db.User) {
 		return
 	}
 	if project == nil || world == nil {
-		utils.WriteJson(w, WithContext(project, cacheStatus, world, nil))
+		utils.WriteJson(w, api.WithContext(project, cacheStatus, world, nil))
 		return
 	}
 	app := world.GetApplication(incident.ApplicationId)
@@ -672,8 +758,8 @@ func (api *Api) Incident(w http.ResponseWriter, r *http.Request, u *db.User) {
 		http.Error(w, "You are not allowed to view this application.", http.StatusForbidden)
 		return
 	}
-	auditor.Audit(world, project, app)
-	utils.WriteJson(w, WithContext(project, cacheStatus, world, views.Incident(world, app, incident)))
+	auditor.Audit(world, project, app, project.ClickHouseConfig(api.globalClickHouse) != nil)
+	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Incident(world, app, incident)))
 }
 
 func (api *Api) Inspection(w http.ResponseWriter, r *http.Request, u *db.User) {
@@ -837,7 +923,7 @@ func (api *Api) Instrumentation(w http.ResponseWriter, r *http.Request, u *db.Us
 		return
 	}
 
-	t := model.ApplicationType(vars["type"])
+	t := model.ApplicationType(vars["type"]).InstrumentationType()
 	var instrumentation *model.ApplicationInstrumentation
 	if app.Settings != nil && app.Settings.Instrumentation != nil && app.Settings.Instrumentation[t] != nil {
 		instrumentation = app.Settings.Instrumentation[t]
@@ -891,7 +977,7 @@ func (api *Api) Profiling(w http.ResponseWriter, r *http.Request, u *db.User) {
 		return
 	}
 	if project == nil || world == nil {
-		utils.WriteJson(w, WithContext(project, cacheStatus, world, nil))
+		utils.WriteJson(w, api.WithContext(project, cacheStatus, world, nil))
 		return
 	}
 	app := world.GetApplication(appId)
@@ -901,15 +987,14 @@ func (api *Api) Profiling(w http.ResponseWriter, r *http.Request, u *db.User) {
 		return
 	}
 	var ch *clickhouse.Client
-	if cfg := project.Settings.Integrations.Clickhouse; cfg != nil {
-		ch, err = api.getClickhouseClient(project)
-		if err != nil {
-			klog.Warningln(err)
-		}
+	if ch, err = api.getClickhouseClient(project); err != nil {
+		klog.Warningln(err)
+		http.Error(w, "ClickHouse is not available", http.StatusInternalServerError)
+		return
 	}
 	q := r.URL.Query()
-	auditor.Audit(world, project, nil)
-	utils.WriteJson(w, WithContext(project, cacheStatus, world, views.Profiling(r.Context(), ch, app, q, world.Ctx)))
+	auditor.Audit(world, project, nil, project.ClickHouseConfig(api.globalClickHouse) != nil)
+	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Profiling(r.Context(), ch, app, q, world.Ctx)))
 }
 
 func (api *Api) Tracing(w http.ResponseWriter, r *http.Request, u *db.User) {
@@ -948,7 +1033,7 @@ func (api *Api) Tracing(w http.ResponseWriter, r *http.Request, u *db.User) {
 		return
 	}
 	if project == nil || world == nil {
-		utils.WriteJson(w, WithContext(project, cacheStatus, world, nil))
+		utils.WriteJson(w, api.WithContext(project, cacheStatus, world, nil))
 		return
 	}
 	app := world.GetApplication(appId)
@@ -959,14 +1044,13 @@ func (api *Api) Tracing(w http.ResponseWriter, r *http.Request, u *db.User) {
 	}
 	q := r.URL.Query()
 	var ch *clickhouse.Client
-	if cfg := project.Settings.Integrations.Clickhouse; cfg != nil {
-		ch, err = api.getClickhouseClient(project)
-		if err != nil {
-			klog.Warningln(err)
-		}
+	if ch, err = api.getClickhouseClient(project); err != nil {
+		klog.Warningln(err)
+		http.Error(w, "ClickHouse is not available", http.StatusInternalServerError)
+		return
 	}
-	auditor.Audit(world, project, nil)
-	utils.WriteJson(w, WithContext(project, cacheStatus, world, views.Tracing(r.Context(), ch, app, q, world)))
+	auditor.Audit(world, project, nil, project.ClickHouseConfig(api.globalClickHouse) != nil)
+	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Tracing(r.Context(), ch, app, q, world)))
 }
 
 func (api *Api) Logs(w http.ResponseWriter, r *http.Request, u *db.User) {
@@ -1005,7 +1089,7 @@ func (api *Api) Logs(w http.ResponseWriter, r *http.Request, u *db.User) {
 		return
 	}
 	if project == nil || world == nil {
-		utils.WriteJson(w, WithContext(project, cacheStatus, world, nil))
+		utils.WriteJson(w, api.WithContext(project, cacheStatus, world, nil))
 		return
 	}
 	app := world.GetApplication(appId)
@@ -1014,16 +1098,95 @@ func (api *Api) Logs(w http.ResponseWriter, r *http.Request, u *db.User) {
 		http.Error(w, "Application not found", http.StatusNotFound)
 		return
 	}
-	var ch *clickhouse.Client
-	if cfg := project.Settings.Integrations.Clickhouse; cfg != nil {
-		ch, err = api.getClickhouseClient(project)
-		if err != nil {
-			klog.Warningln(err)
-		}
+	ch, chErr := api.getClickhouseClient(project)
+	if chErr != nil {
+		klog.Warningln(chErr)
 	}
-	auditor.Audit(world, project, nil)
+	auditor.Audit(world, project, nil, project.ClickHouseConfig(api.globalClickHouse) != nil)
 	q := r.URL.Query()
-	utils.WriteJson(w, WithContext(project, cacheStatus, world, views.Logs(r.Context(), ch, app, q, world)))
+	res := views.Logs(r.Context(), ch, app, q, world)
+	if chErr != nil {
+		res.Message = "Failed to load logs: ClickHouse is not available"
+	}
+	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, res))
+}
+
+func (api *Api) Risks(w http.ResponseWriter, r *http.Request, u *db.User) {
+	vars := mux.Vars(r)
+	projectId := vars["project"]
+	appId, err := model.NewApplicationIdFromString(vars["app"])
+	if err != nil {
+		klog.Warningln(err)
+		http.Error(w, "invalid application id: "+vars["app"], http.StatusBadRequest)
+		return
+	}
+
+	world, project, cacheStatus, err := api.LoadWorldByRequest(r)
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	if project == nil || world == nil {
+		utils.WriteJson(w, api.WithContext(project, cacheStatus, world, nil))
+		return
+	}
+	app := world.GetApplication(appId)
+	if app == nil {
+		klog.Warningln("application not found:", appId)
+		http.Error(w, "Application not found", http.StatusNotFound)
+		return
+	}
+	if r.Method == http.MethodPost {
+		if !api.IsAllowed(u, rbac.Actions.Project(projectId).Risks().Edit()) {
+			http.Error(w, "You are not allowed to dismiss risks.", http.StatusForbidden)
+			return
+		}
+		var form forms.ApplicationSettingsRisksForm
+		if err := forms.ReadAndValidate(r, &form); err != nil {
+			klog.Warningln("bad request:", err)
+			http.Error(w, "invalid data", http.StatusBadRequest)
+			return
+		}
+		var overrides []model.RiskOverride
+		switch form.Action {
+		case "dismiss":
+			newRo := model.RiskOverride{
+				Key: form.Key,
+				Dismissal: &model.RiskDismissal{
+					By:        u.Name,
+					Timestamp: time.Now().Unix(),
+					Reason:    form.Reason,
+				},
+			}
+			if app.Settings != nil {
+				for _, ro := range app.Settings.RiskOverrides {
+					if ro.Key != form.Key {
+						overrides = append(overrides, ro)
+					}
+				}
+			}
+			overrides = append(overrides, newRo)
+		case "mark_as_active":
+			if app.Settings != nil {
+				for _, ro := range app.Settings.RiskOverrides {
+					if ro.Key != form.Key {
+						overrides = append(overrides, ro)
+					}
+				}
+			}
+		default:
+			klog.Warningln("unknown risk action:", form.Action)
+			http.Error(w, "", http.StatusBadRequest)
+			return
+		}
+		if err = api.db.SaveApplicationSetting(db.ProjectId(projectId), appId, overrides); err != nil {
+			klog.Errorln(err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		return
+	}
 }
 
 func (api *Api) Node(w http.ResponseWriter, r *http.Request, u *db.User) {
@@ -1041,7 +1204,7 @@ func (api *Api) Node(w http.ResponseWriter, r *http.Request, u *db.User) {
 		return
 	}
 	if project == nil || world == nil {
-		utils.WriteJson(w, WithContext(project, cacheStatus, world, nil))
+		utils.WriteJson(w, api.WithContext(project, cacheStatus, world, nil))
 		return
 	}
 	node := world.GetNode(nodeName)
@@ -1050,8 +1213,8 @@ func (api *Api) Node(w http.ResponseWriter, r *http.Request, u *db.User) {
 		http.Error(w, "Node not found", http.StatusNotFound)
 		return
 	}
-	auditor.Audit(world, project, nil)
-	utils.WriteJson(w, WithContext(project, cacheStatus, world, auditor.AuditNode(world, node)))
+	auditor.Audit(world, project, nil, project.ClickHouseConfig(api.globalClickHouse) != nil)
+	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, auditor.AuditNode(world, node)))
 }
 
 func (api *Api) LoadWorld(ctx context.Context, project *db.Project, from, to timeseries.Time) (*model.World, *cache.Status, error) {
@@ -1079,7 +1242,7 @@ func (api *Api) LoadWorld(ctx context.Context, project *db.Project, from, to tim
 	duration := to.Sub(from)
 	if cacheTo.Before(to) {
 		to = cacheTo
-		from = to.Add(-duration)
+		duration = to.Sub(from)
 	}
 	step = increaseStepForBigDurations(duration, step)
 
@@ -1151,13 +1314,16 @@ func maxDuration(d1, d2 timeseries.Duration) timeseries.Duration {
 }
 
 func (api *Api) getClickhouseClient(project *db.Project) (*clickhouse.Client, error) {
-	cfg := project.Settings.Integrations.Clickhouse
+	cfg := project.ClickHouseConfig(api.globalClickHouse)
+	if cfg == nil {
+		return nil, nil
+	}
 	config := clickhouse.NewClientConfig(cfg.Addr, cfg.Auth.User, cfg.Auth.Password)
 	config.Protocol = cfg.Protocol
 	config.Database = cfg.Database
 	config.TlsEnable = cfg.TlsEnable
 	config.TlsSkipVerify = cfg.TlsSkipVerify
-	distributed, err := api.collector.IsClickhouseDistributed(project.Id)
+	distributed, err := api.collector.IsClickhouseDistributed(project)
 	if err != nil {
 		return nil, err
 	}

@@ -3,7 +3,6 @@ package model
 import (
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
@@ -35,6 +34,8 @@ type Application struct {
 	Reports []*AuditReport
 
 	Settings *ApplicationSettings
+
+	KubernetesServices []*Service
 }
 
 func NewApplication(id ApplicationId) *Application {
@@ -109,10 +110,12 @@ func (app *Application) Labels() Labels {
 		}
 		if eps.Len() > 0 {
 			name := "external endpoint"
+			value := eps.Items()[0]
 			if eps.Len() > 1 {
 				name += "s"
+				value += ",..."
 			}
-			res[name] = strings.Join(eps.Items(), ", ")
+			res[name] = value
 		}
 	default:
 		res["ns"] = app.Id.Namespace
@@ -220,7 +223,35 @@ func (app *Application) IsStandalone() bool {
 	return true
 }
 
+func (app *Application) IsDatabase() bool {
+	if app.Id.Kind == ApplicationKindRds || app.Id.Kind == ApplicationKindElasticacheCluster {
+		return true
+	}
+	for t := range app.ApplicationTypes() {
+		if t.IsDatabase() {
+			return true
+		}
+	}
+	return false
+}
+
+func (app *Application) IsQueue() bool {
+	for t := range app.ApplicationTypes() {
+		if t.IsQueue() {
+			return true
+		}
+	}
+	return false
+}
+
 func (app *Application) IsK8s() bool {
+	switch app.Id.Kind {
+	case ApplicationKindCronJob, ApplicationKindJob, ApplicationKindDeployment, ApplicationKindDaemonSet,
+		ApplicationKindPod, ApplicationKindReplicaSet, ApplicationKindStatefulSet, ApplicationKindStaticPods,
+		ApplicationKindArgoWorkflow, ApplicationKindSparkApplication:
+		return true
+	}
+
 	for _, i := range app.Instances {
 		if i.Pod != nil {
 			return true

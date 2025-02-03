@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/coroot/coroot/model"
@@ -25,9 +26,10 @@ func init() {
 	}
 }
 
-func (c *Client) GetServicesFromTraces(ctx context.Context) ([]string, error) {
-	q := "SELECT DISTINCT ServiceName FROM @@table_otel_traces@@"
-	rows, err := c.Query(ctx, q)
+func (c *Client) GetServicesFromTraces(ctx context.Context, from timeseries.Time) ([]string, error) {
+	rows, err := c.Query(ctx, "SELECT DISTINCT ServiceName FROM @@table_otel_traces_service_name@@ WHERE LastSeen >= @from",
+		clickhouse.DateNamed("from", from.ToStandard(), clickhouse.NanoSeconds),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -133,9 +135,9 @@ func (c *Client) GetParentSpans(ctx context.Context, spans []*model.TraceSpan) (
 	}
 	var q SpanQuery
 	return c.getSpans(ctx, q,
-		"@traceIds as traceIds, (SELECT min(Start) FROM @@table_otel_traces_trace_id_ts@@ WHERE TraceId IN (traceIds)) as start, (SELECT max(End) + 1 FROM @@table_otel_traces_trace_id_ts@@ WHERE TraceId IN (traceIds)) as end",
+		"@traceIds as traceIds, (SELECT min(Start) as start, max(End)+1 as end FROM @@table_otel_traces_trace_id_ts@@ WHERE TraceId IN (traceIds)) as ts",
 		"",
-		[]string{"Timestamp BETWEEN start AND end", "TraceId IN (traceIds)", "(TraceId, SpanId) IN (@ids)"},
+		[]string{"Timestamp BETWEEN ts.start AND ts.end", "TraceId IN (traceIds)", "(TraceId, SpanId) IN (@ids)"},
 		[]any{
 			clickhouse.Named("traceIds", maps.Keys(traceIds)),
 			clickhouse.Named("ids", ids),
@@ -146,9 +148,9 @@ func (c *Client) GetParentSpans(ctx context.Context, spans []*model.TraceSpan) (
 func (c *Client) GetSpansByTraceId(ctx context.Context, traceId string) ([]*model.TraceSpan, error) {
 	var q SpanQuery
 	return c.getSpans(ctx, q,
-		"(SELECT min(Start) FROM @@table_otel_traces_trace_id_ts@@ WHERE TraceId = @traceId) as start, (SELECT max(End) + 1 FROM @@table_otel_traces_trace_id_ts@@ WHERE TraceId = @traceId) as end",
+		"(SELECT min(Start) as start, max(End)+1 as end FROM @@table_otel_traces_trace_id_ts@@ WHERE TraceId = @traceId) as ts",
 		"Timestamp",
-		[]string{"TraceId = @traceId", "Timestamp BETWEEN start AND end"},
+		[]string{"TraceId = @traceId", "Timestamp BETWEEN ts.start AND ts.end"},
 		[]any{
 			clickhouse.Named("traceId", traceId),
 		},
@@ -160,8 +162,7 @@ func (c *Client) getSpansHistogram(ctx context.Context, q SpanQuery, filters []s
 	from := q.Ctx.From
 	to := q.Ctx.To.Add(step)
 
-	tsFilter := "Timestamp BETWEEN @from AND @to"
-	filters = append(filters, tsFilter)
+	filters = append(filters, "Timestamp BETWEEN @from AND @to")
 	filterArgs = append(filterArgs,
 		clickhouse.Named("step", step),
 		clickhouse.Named("buckets", histogramBuckets[:len(histogramBuckets)-1]),
@@ -374,12 +375,13 @@ func (c *Client) getSpans(ctx context.Context, q SpanQuery, with string, orderBy
 
 func (c *Client) getTraces(ctx context.Context, filters []string, filterArgs []any) ([]*model.Trace, error) {
 	query := fmt.Sprintf(`
-WITH t AS (SELECT TraceId, Timestamp as start, timestampAdd(Timestamp, INTERVAL Duration NANOSECOND) as end FROM @@table_otel_traces@@ WHERE %s ORDER BY Timestamp LIMIT 1000)
+WITH (
+	SELECT min(Timestamp) AS start, max(Timestamp)+1 AS end, groupArray(distinct TraceId) AS ids 
+	FROM (SELECT TraceId, Timestamp FROM @@table_otel_traces@@ WHERE %s ORDER BY Timestamp LIMIT 1000)
+) AS t
 SELECT Timestamp, TraceId, SpanId, ParentSpanId, SpanName, ServiceName, Duration, StatusCode, StatusMessage, ResourceAttributes, SpanAttributes, Events.Timestamp, Events.Name, Events.Attributes
 FROM @@table_otel_traces@@
-WHERE 
-	Timestamp BETWEEN (SELECT min(start) FROM t) AND (SELECT max(end) FROM t) AND 
-	TraceId GLOBAL IN (select TraceId from t)`, strings.Join(filters, " AND "))
+WHERE Timestamp BETWEEN t.start AND t.end AND has(coalesce(t.ids, []), TraceId)`, strings.Join(filters, " AND "))
 	rows, err := c.Query(ctx, query, filterArgs...)
 	if err != nil {
 		return nil, err
@@ -629,23 +631,6 @@ type SpanFilter struct {
 	Value string
 }
 
-func NewSpanFilter(field, op, value string) SpanFilter {
-	return SpanFilter{Field: field, Op: op, Value: value}
-}
-
-func (f SpanFilter) String() string {
-	expr := "%s = '%s'"
-	switch f.Op {
-	case "!=":
-		expr = "%s != '%s'"
-	case "~":
-		expr = "match(%s, '%s')"
-	case "!~":
-		expr = "NOT match(%s, '%s')"
-	}
-	return fmt.Sprintf(expr, f.Field, f.Value)
-}
-
 type SpanQuery struct {
 	Ctx timeseries.Context
 
@@ -663,11 +648,15 @@ type SpanQuery struct {
 	Diff bool
 }
 
-func (q SpanQuery) IsSelectionDefined() bool {
+func (q *SpanQuery) AddFilter(field, op, value string) {
+	q.Filters = append(q.Filters, SpanFilter{Field: field, Op: op, Value: value})
+}
+
+func (q *SpanQuery) IsSelectionDefined() bool {
 	return q.TsFrom > q.Ctx.From || q.TsTo < q.Ctx.To || q.DurFrom > 0 || q.DurTo > 0 || q.Errors
 }
 
-func (q SpanQuery) DurationFilter() (string, []any) {
+func (q *SpanQuery) DurationFilter() (string, []any) {
 	var filter string
 	switch {
 	case q.DurFrom > 0 && q.DurTo > 0 && q.Errors:
@@ -695,15 +684,10 @@ func (q SpanQuery) DurationFilter() (string, []any) {
 	return filter, args
 }
 
-func (q SpanQuery) RootSpansFilter() ([]string, []any) {
-	filter := []string{
-		"ParentSpanId = ''",
-		"NOT startsWith(ServiceName, '/')",
-	}
-	for _, f := range q.Filters {
-		filter = append(filter, f.String())
-	}
-	var args []any
+func (q *SpanQuery) RootSpansFilter() ([]string, []any) {
+	filter, args := q.Filter()
+	filter = append(filter, "ParentSpanId = ''")
+	filter = append(filter, "NOT startsWith(ServiceName, '/')")
 	if len(q.ExcludePeerAddrs) > 0 {
 		filter = append(filter, "NetSockPeerAddr NOT IN (@addrs)")
 		args = append(args, clickhouse.Named("addrs", q.ExcludePeerAddrs))
@@ -711,17 +695,40 @@ func (q SpanQuery) RootSpansFilter() ([]string, []any) {
 	return filter, args
 }
 
-func (q SpanQuery) SpansByServiceNameFilter() ([]string, []any) {
-	filter := []string{
-		"SpanKind = 'SPAN_KIND_SERVER'",
-	}
-	for _, f := range q.Filters {
-		filter = append(filter, f.String())
-	}
-	var args []any
+func (q *SpanQuery) SpansByServiceNameFilter() ([]string, []any) {
+	filter, args := q.Filter()
+	filter = append(filter, "SpanKind = 'SPAN_KIND_SERVER'")
 	if len(q.ExcludePeerAddrs) > 0 {
 		filter = append(filter, "NetSockPeerAddr NOT IN (@addrs)")
 		args = append(args, clickhouse.Named("addrs", q.ExcludePeerAddrs))
+	}
+	return filter, args
+}
+
+func (q *SpanQuery) Filter() ([]string, []any) {
+	var filter []string
+	var args []any
+	for i, f := range q.Filters {
+		if strings.ContainsFunc(f.Field, func(r rune) bool { return !unicode.IsLetter(r) }) {
+			continue
+		}
+		var expr string
+		switch f.Op {
+		case "=":
+			expr = "%s = @%s"
+		case "!=":
+			expr = "%s != @%s"
+		case "~":
+			expr = "match(%s, @%s)"
+		case "!~":
+			expr = "NOT match(%s, @%s)"
+		default:
+			continue
+		}
+		name := fmt.Sprintf("filter_%d", i)
+		expr = fmt.Sprintf(expr, f.Field, name)
+		filter = append(filter, expr)
+		args = append(args, clickhouse.Named(name, f.Value))
 	}
 	return filter, args
 }

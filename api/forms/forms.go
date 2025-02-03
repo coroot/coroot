@@ -3,6 +3,7 @@ package forms
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"net/url"
@@ -46,6 +47,15 @@ func (f *ProjectForm) Valid() bool {
 	if !slugRe.MatchString(f.Name) {
 		return false
 	}
+	return true
+}
+
+type ApiKeyForm struct {
+	Action string `json:"action"`
+	db.ApiKey
+}
+
+func (f *ApiKeyForm) Valid() bool {
 	return true
 }
 
@@ -162,6 +172,16 @@ func (f *ApplicationSettingsLogsForm) Valid() bool {
 	return true
 }
 
+type ApplicationSettingsRisksForm struct {
+	Action string        `json:"action"`
+	Key    model.RiskKey `json:"key"`
+	Reason string        `json:"reason"`
+}
+
+func (f *ApplicationSettingsRisksForm) Valid() bool {
+	return true
+}
+
 type IntegrationsForm struct {
 	BaseUrl string `json:"base_url"`
 }
@@ -181,12 +201,12 @@ type IntegrationForm interface {
 	Test(ctx context.Context, project *db.Project) error
 }
 
-func NewIntegrationForm(t db.IntegrationType) IntegrationForm {
+func NewIntegrationForm(t db.IntegrationType, globalClickHouse *db.IntegrationClickhouse, globalPrometheus *db.IntegrationPrometheus) IntegrationForm {
 	switch t {
 	case db.IntegrationTypePrometheus:
-		return &IntegrationFormPrometheus{}
+		return &IntegrationFormPrometheus{global: globalPrometheus}
 	case db.IntegrationTypeClickhouse:
-		return &IntegrationFormClickhouse{}
+		return &IntegrationFormClickhouse{global: globalClickHouse}
 	case db.IntegrationTypeAWS:
 		return &IntegrationFormAWS{}
 	case db.IntegrationTypeSlack:
@@ -204,14 +224,20 @@ func NewIntegrationForm(t db.IntegrationType) IntegrationForm {
 }
 
 type IntegrationFormPrometheus struct {
-	db.IntegrationsPrometheus
+	db.IntegrationPrometheus
+	global *db.IntegrationPrometheus
 }
 
 func (f *IntegrationFormPrometheus) Valid() bool {
-	if _, err := url.Parse(f.IntegrationsPrometheus.Url); err != nil {
+	if _, err := url.Parse(f.IntegrationPrometheus.Url); err != nil {
 		return false
 	}
-	if !prom.IsSelectorValid(f.IntegrationsPrometheus.ExtraSelector) {
+	if f.RemoteWriteUrl != "" {
+		if _, err := url.Parse(f.IntegrationPrometheus.RemoteWriteUrl); err != nil {
+			return false
+		}
+	}
+	if !prom.IsSelectorValid(f.IntegrationPrometheus.ExtraSelector) {
 		return false
 	}
 	var validHeaders []utils.Header
@@ -225,12 +251,12 @@ func (f *IntegrationFormPrometheus) Valid() bool {
 }
 
 func (f *IntegrationFormPrometheus) Get(project *db.Project, masked bool) {
-	cfg := project.Prometheus
+	cfg := project.PrometheusConfig(f.global)
 	if cfg.Url == "" {
 		f.RefreshInterval = db.DefaultRefreshInterval
 		return
 	}
-	f.IntegrationsPrometheus = cfg
+	f.IntegrationPrometheus = *cfg
 	if masked {
 		f.Url = "http://<hidden>"
 		if f.BasicAuth != nil {
@@ -240,14 +266,20 @@ func (f *IntegrationFormPrometheus) Get(project *db.Project, masked bool) {
 		for i := range f.CustomHeaders {
 			f.CustomHeaders[i].Value = "<hidden>"
 		}
+		if f.RemoteWriteUrl != "" {
+			f.RemoteWriteUrl = "<hidden>"
+		}
 	}
 }
 
 func (f *IntegrationFormPrometheus) Update(ctx context.Context, project *db.Project, clear bool) error {
+	if f.global != nil {
+		return fmt.Errorf("global Prometheus configuration is used and cannot be changed")
+	}
 	if err := f.Test(ctx, project); err != nil {
 		return err
 	}
-	project.Prometheus = f.IntegrationsPrometheus
+	project.Prometheus = f.IntegrationPrometheus
 	return nil
 }
 
@@ -269,6 +301,7 @@ func (f *IntegrationFormPrometheus) Test(ctx context.Context, project *db.Projec
 
 type IntegrationFormClickhouse struct {
 	db.IntegrationClickhouse
+	global *db.IntegrationClickhouse
 }
 
 func (f *IntegrationFormClickhouse) Valid() bool {
@@ -279,7 +312,7 @@ func (f *IntegrationFormClickhouse) Valid() bool {
 }
 
 func (f *IntegrationFormClickhouse) Get(project *db.Project, masked bool) {
-	cfg := project.Settings.Integrations.Clickhouse
+	cfg := project.ClickHouseConfig(f.global)
 	if cfg != nil {
 		f.IntegrationClickhouse = *cfg
 	}
@@ -300,6 +333,9 @@ func (f *IntegrationFormClickhouse) Get(project *db.Project, masked bool) {
 }
 
 func (f *IntegrationFormClickhouse) Update(ctx context.Context, project *db.Project, clear bool) error {
+	if f.global != nil {
+		return fmt.Errorf("global ClickHouse configuration is used and cannot be changed")
+	}
 	cfg := &f.IntegrationClickhouse
 	if clear {
 		cfg = nil

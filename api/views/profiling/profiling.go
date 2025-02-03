@@ -16,12 +16,13 @@ import (
 )
 
 type View struct {
-	Status   model.Status   `json:"status"`
-	Message  string         `json:"message"`
-	Services []Service      `json:"services"`
-	Profiles []Meta         `json:"profiles"`
-	Profile  *model.Profile `json:"profile"`
-	Chart    *model.Chart   `json:"chart"`
+	Status    model.Status   `json:"status"`
+	Message   string         `json:"message"`
+	Services  []Service      `json:"services"`
+	Profiles  []Meta         `json:"profiles"`
+	Profile   *model.Profile `json:"profile"`
+	Chart     *model.Chart   `json:"chart"`
+	Instances []string       `json:"instances"`
 }
 
 type Service struct {
@@ -35,10 +36,11 @@ type Meta struct {
 }
 
 type Query struct {
-	Type model.ProfileType `json:"type"`
-	From timeseries.Time   `json:"from"`
-	To   timeseries.Time   `json:"to"`
-	Mode string            `json:"mode"`
+	Type     model.ProfileType `json:"type"`
+	From     timeseries.Time   `json:"from"`
+	To       timeseries.Time   `json:"to"`
+	Mode     string            `json:"mode"`
+	Instance string            `json:"instance"`
 }
 
 func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, query url.Values, wCtx timeseries.Context) *View {
@@ -67,7 +69,7 @@ func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, 
 
 	v := &View{}
 
-	profileTypes, err := ch.GetProfileTypes(ctx)
+	profileTypes, err := ch.GetProfileTypes(ctx, q.From)
 	if err != nil {
 		klog.Errorln(err)
 		v.Status = model.WARNING
@@ -142,9 +144,27 @@ func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, 
 		q.Type = v.Profiles[0].Type
 	}
 
-	v.Chart = getChart(app, q.Type, wCtx)
+	chart, containers := getChart(app, q.Type, wCtx, q.Instance)
+	v.Chart = chart
+	v.Instances = maps.Keys(containers)
+	sort.Strings(v.Instances)
 	v.Profile = &model.Profile{Type: q.Type, Diff: q.Mode == "diff"}
-	v.Profile.FlameGraph, err = ch.GetProfile(ctx, q.From, q.To, maps.Keys(services), q.Type, v.Profile.Diff)
+	pq := clickhouse.ProfileQuery{
+		Type:     q.Type,
+		From:     q.From,
+		To:       q.To,
+		Diff:     v.Profile.Diff,
+		Services: maps.Keys(services),
+	}
+	if q.Instance != "" {
+		if model.Profiles[q.Type].Ebpf {
+			pq.Containers = containers[q.Instance]
+		} else {
+			pq.Namespace = app.Id.Namespace
+			pq.Pod = q.Instance
+		}
+	}
+	v.Profile.FlameGraph, err = ch.GetProfile(ctx, pq)
 	if err != nil {
 		klog.Errorln(err)
 		v.Status = model.WARNING
@@ -163,28 +183,32 @@ func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, 
 	return v
 }
 
-func getChart(app *model.Application, typ model.ProfileType, ctx timeseries.Context) *model.Chart {
+func getChart(app *model.Application, typ model.ProfileType, ctx timeseries.Context, instance string) (*model.Chart, map[string][]string) {
 	var chart *model.Chart
 	var containerToSeriesF func(c *model.Container) *timeseries.TimeSeries
 	category := model.Profiles[typ].Category
 	switch category {
 	case model.ProfileCategoryCPU:
-		chart = model.NewChart(ctx, "CPU usage by instance, cores").Stacked()
+		chart = model.NewChart(ctx, "CPU usage by instance, cores")
 		containerToSeriesF = func(c *model.Container) *timeseries.TimeSeries { return c.CpuUsage }
 	case model.ProfileCategoryMemory:
-		chart = model.NewChart(ctx, "Memory (RSS) usage by instance, bytes").Stacked()
+		chart = model.NewChart(ctx, "Memory (RSS) usage by instance, bytes")
 		containerToSeriesF = func(c *model.Container) *timeseries.TimeSeries { return c.MemoryRss }
 	default:
-		return nil
+		return nil, nil
 	}
+	containers := map[string][]string{}
 	for _, i := range app.Instances {
 		agg := timeseries.NewAggregate(timeseries.NanSum)
 		for _, c := range i.Containers {
 			agg.Add(containerToSeriesF(c))
+			containers[i.Name] = append(containers[i.Name], c.Id)
 		}
-		chart.AddSeries(i.Name, agg)
+		if instance == "" || i.Name == instance {
+			chart.AddSeries(i.Name, agg)
+		}
 	}
 	events := model.EventsToAnnotations(app.Events, ctx)
 	incidents := model.IncidentsToAnnotations(app.Incidents, ctx)
-	return chart.AddAnnotation(events...).AddAnnotation(incidents...)
+	return chart.AddAnnotation(events...).AddAnnotation(incidents...), containers
 }

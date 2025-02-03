@@ -1,7 +1,7 @@
 <template>
     <div>
-        <h1 class="text-h5 my-5">
-            <router-link :to="{ name: 'overview', query: $utils.contextQuery() }">Applications</router-link> / {{ $utils.appId(id).name }}
+        <h1 class="text-h5">
+            {{ $utils.appId(id).name }}
             <v-progress-linear v-if="loading" indeterminate color="green" />
         </h1>
 
@@ -73,6 +73,7 @@ export default {
     methods: {
         get() {
             this.loading = true;
+            this.error = '';
             this.$api.getApplication(this.id, (data, error) => {
                 this.loading = false;
                 if (error) {

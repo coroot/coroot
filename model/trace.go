@@ -117,6 +117,8 @@ func (s *TraceSpan) Details() TraceSpanDetails {
 		res.Lang = "json"
 	case s.SpanAttributes["db.system"] == "redis":
 		res.Text = s.SpanAttributes["db.statement"]
+	case s.SpanAttributes["db.system"] == "zookeeper":
+		res.Text = s.SpanAttributes["db.statement"]
 	case s.SpanAttributes["db.statement"] != "":
 		res.Text = s.SpanAttributes["db.statement"]
 		res.Lang = "sql"

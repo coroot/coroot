@@ -3,8 +3,8 @@
         <v-alert v-if="disabled" color="info" outlined text>
             Coroot Community Edition includes three predefined roles: Admin, Editor, and Viewer.
             <br />
-            For more granular Role-Based Access Control (RBAC), upgrade to Coroot Enterprise.
-            <a href="https://coroot.com/contact/" target="_blank" class="font-weight-bold">Contact us</a> for a free trial.
+            For more granular Role-Based Access Control (RBAC), upgrade to Coroot Enterprise (from $1 per CPU core/month).
+            <a href="https://coroot.com/account" target="_blank" class="font-weight-bold">Start</a> your free trial today.
         </v-alert>
         <v-simple-table dense class="mt-5">
             <thead>
