@@ -446,6 +446,8 @@ func joinDBClusterComponents(w *model.World) {
 				if !found {
 					cluster.KubernetesServices = append(cluster.KubernetesServices, svc)
 				}
+				svc.DestinationApps[cluster.Id] = cluster
+				delete(svc.DestinationApps, id)
 			}
 			cluster.DesiredInstances = merge(cluster.DesiredInstances, app.DesiredInstances, timeseries.NanSum)
 			for _, instance := range app.Instances {
