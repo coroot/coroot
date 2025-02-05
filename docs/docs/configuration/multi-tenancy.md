@@ -11,8 +11,8 @@ Dev, Staging, or Production environment, a regional cluster, or a cluster dedica
 
 By default, Coroot requires a dedicated ClickHouse and Prometheus configuration for each project.
 
-To enable multi-tenancy mode, specify a global ClickHouse and Prometheus by using the [GLOBAL_CLICKHOUSE_ADDRESS](/configuration/cli-arguments) 
-and [GLOBAL_PROMETHEUS_URL](/configuration/cli-arguments) environment variables or their corresponding CLI arguments.  
+To enable multi-tenancy mode, specify a global ClickHouse and Prometheus by using the [GLOBAL_CLICKHOUSE_ADDRESS](/configuration/configuration) 
+and [GLOBAL_PROMETHEUS_URL](/configuration/configuration) environment variables or their corresponding CLI arguments.  
 **Note**: When these parameters are set, ClickHouse and Prometheus configurations will no longer be editable in the UI.
 
 ## ClickHouse

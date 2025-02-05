@@ -12,8 +12,8 @@ click on **Prometheus**, and define the Prometheus address and credentials as sh
 ## VictoriaMetrics
 
 Coroot fully supports VictoriaMetrics as a drop-in replacement for Prometheus. In clustered mode, you may need separate 
-URLs for metric ingestion and queries. To configure this, set [GLOBAL_PROMETHEUS_REMOTE_WRITE_URL](/configuration/cli-arguments) to point to `vminsert` for ingestion, 
-while keeping [GLOBAL_PROMETHEUS_URL](/configuration/cli-arguments) directed to `vmselect` for queries.
+URLs for metric ingestion and queries. To configure this, set [GLOBAL_PROMETHEUS_REMOTE_WRITE_URL](/configuration/configuration) to point to `vminsert` for ingestion, 
+while keeping [GLOBAL_PROMETHEUS_URL](/configuration/configuration) directed to `vmselect` for queries.
 
 ## Multi-tenancy mode
 
@@ -30,6 +30,6 @@ For faster access, Coroot maintains its own on-disk metric cache, continuously r
 As a result, Coroot treats the time series database as a source for updating its cache. 
 This allows you to configure Prometheus with a shorter retention period, such as a few hours.
 
-The retention of Coroot's metric cache can be configured using the `--cache-ttl` CLI argument of the `CACHE_TTL` environment variable. 
-Check the [CLI arguments](/configuration/cli-arguments) section for more details.
+The retention of Coroot's metric cache can be configured using the `--cache-ttl` CLI argument or the `CACHE_TTL` environment variable. 
+Check the [Configuration](/configuration/configuration) section for more details.
 
