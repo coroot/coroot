@@ -126,6 +126,17 @@ const config = {
         additionalLanguages: ['java', 'bash'],
       },
     }),
+
+  plugins: [
+    [
+      '@docusaurus/plugin-client-redirects',
+      {
+        redirects: [
+          { from: '/configuration/cli-arguments', to: '/configuration/configuration' },
+        ],
+      },
+    ],
+  ],
 };
 
 export default config;

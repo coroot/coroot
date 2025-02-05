@@ -20,6 +20,7 @@ type Config struct {
 	ListenAddress string `yaml:"listen_address"`
 	UrlBasePath   string `yaml:"url_base_path"`
 	DataDir       string `yaml:"data_dir"`
+	LicenseKey    string `yaml:"license_key"`
 
 	Cache Cache `yaml:"cache"`
 

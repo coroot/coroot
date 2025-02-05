@@ -6,7 +6,7 @@ import (
 )
 
 var (
-	configFile                 = kingpin.Flag("config", "Config file").Envar("CONFIG").String()
+	configFile                 = kingpin.Flag("config", "Configuration file").Envar("CONFIG").String()
 	listen                     = kingpin.Flag("listen", "Listen address - ip:port or :port").Envar("LISTEN").String()
 	urlBasePath                = kingpin.Flag("url-base-path", "The base URL to run Coroot at a sub-path, e.g. /coroot/").Envar("URL_BASE_PATH").String()
 	dataDir                    = kingpin.Flag("data-dir", `Path to the data directory`).Envar("DATA_DIR").String()
@@ -20,6 +20,7 @@ var (
 	authAnonymousRole          = kingpin.Flag("auth-anonymous-role", "Disable authentication and assign one of the following roles to the anonymous user: Admin, Editor, or Viewer.").Envar("AUTH_ANONYMOUS_ROLE").String()
 	authBootstrapAdminPassword = kingpin.Flag("auth-bootstrap-admin-password", "Password for the default Admin user").Envar("AUTH_BOOTSTRAP_ADMIN_PASSWORD").String()
 	developerMode              = kingpin.Flag("developer-mode", "If enabled, Coroot will not use embedded static assets").Envar("DEVELOPER_MODE").Bool()
+	licenseKey                 = kingpin.Flag("license-key", "License key for Coroot Enterprise Edition.").Envar("LICENSE_KEY").String()
 
 	globalClickhouseAddress         = kingpin.Flag("global-clickhouse-address", "").Envar("GLOBAL_CLICKHOUSE_ADDRESS").String()
 	globalClickhouseUser            = kingpin.Flag("global-clickhouse-user", "").Envar("GLOBAL_CLICKHOUSE_USER").String()
@@ -86,6 +87,9 @@ func (cfg *Config) applyFlags() {
 	}
 	if *developerMode {
 		cfg.DeveloperMode = *developerMode
+	}
+	if *licenseKey != "" {
+		cfg.LicenseKey = *licenseKey
 	}
 
 	keep := cfg.GlobalClickhouse != nil || *globalClickhouseAddress != ""
