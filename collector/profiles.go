@@ -22,13 +22,6 @@ func (c *Collector) Profiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = c.getClickhouseClient(project)
-	if err != nil {
-		klog.Errorln(err)
-		http.Error(w, err.Error(), http.StatusNotFound)
-		return
-	}
-
 	query := r.URL.Query()
 	var serviceName string
 	labels := model.Labels{}

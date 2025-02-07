@@ -23,13 +23,6 @@ func (c *Collector) Traces(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = c.getClickhouseClient(project)
-	if err != nil {
-		klog.Errorln(err)
-		http.Error(w, err.Error(), http.StatusNotFound)
-		return
-	}
-
 	contentType := r.Header.Get("Content-Type")
 	switch contentType {
 	case "application/x-protobuf":

@@ -8,56 +8,13 @@ import (
 
 	"github.com/coroot/coroot/db"
 	"github.com/jpillora/backoff"
-	"k8s.io/klog"
-
-	"github.com/ClickHouse/ch-go"
-	"github.com/ClickHouse/ch-go/chpool"
-	chproto "github.com/ClickHouse/ch-go/proto"
 	"golang.org/x/exp/maps"
+	"k8s.io/klog"
 )
 
 const (
 	ttlDays = "7"
 )
-
-func getCluster(ctx context.Context, chPool *chpool.Pool) (string, error) {
-	var exists chproto.ColUInt8
-	q := ch.Query{Body: "EXISTS system.zookeeper", Result: chproto.Results{{Name: "result", Data: &exists}}}
-	if err := chPool.Do(ctx, q); err != nil {
-		return "", err
-	}
-	if exists.Row(0) != 1 {
-		return "", nil
-	}
-	var clusterCol chproto.ColStr
-	clusters := map[string]bool{}
-	q = ch.Query{
-		Body: "SHOW CLUSTERS",
-		Result: chproto.Results{
-			{Name: "cluster", Data: &clusterCol},
-		},
-		OnResult: func(ctx context.Context, block chproto.Block) error {
-			return clusterCol.ForEach(func(i int, s string) error {
-				clusters[s] = true
-				return nil
-			})
-		},
-	}
-	if err := chPool.Do(ctx, q); err != nil {
-		return "", err
-	}
-	switch {
-	case len(clusters) == 0:
-		return "", nil
-	case len(clusters) == 1:
-		return maps.Keys(clusters)[0], nil
-	case clusters["coroot"]:
-		return "coroot", nil
-	case clusters["default"]:
-		return "default", nil
-	}
-	return "", fmt.Errorf(`multiple ClickHouse clusters found, but neither "coroot" nor "default" cluster found`)
-}
 
 func (c *Collector) migrateProjects() {
 	b := backoff.Backoff{Factor: 2, Min: time.Minute, Max: 10 * time.Minute}
@@ -99,7 +56,23 @@ func (c *Collector) migrateProject(ctx context.Context, p *db.Project) error {
 	if cfg == nil {
 		return nil
 	}
-	client, err := c.clickhouseConnect(ctx, cfg)
+	if cfg.Global {
+		initialDbCfg := *cfg
+		initialDbCfg.Database = cfg.InitialDatabase
+		if initialDbCfg.Database == "" {
+			initialDbCfg.Database = "default"
+		}
+		client, err := NewClickhouseClient(ctx, &initialDbCfg)
+		if err != nil {
+			return err
+		}
+		defer client.Close()
+		err = client.Exec(ctx, fmt.Sprintf("CREATE DATABASE IF NOT EXISTS %s @on_cluster", cfg.Database))
+		if err != nil {
+			return err
+		}
+	}
+	client, err := NewClickhouseClient(ctx, cfg)
 	if err != nil {
 		return err
 	}
@@ -113,41 +86,24 @@ func (c *Collector) migrateProject(ctx context.Context, p *db.Project) error {
 	return err
 }
 
-func (c *Collector) migrate(ctx context.Context, client *chClient) error {
+func (c *Collector) migrate(ctx context.Context, client *ClickhouseClient) error {
 	for _, t := range tables {
 		t = strings.ReplaceAll(t, "@ttl_days", ttlDays)
 		if client.cluster != "" {
-			t = strings.ReplaceAll(t, "@on_cluster", "ON CLUSTER "+client.cluster)
 			t = strings.ReplaceAll(t, "@merge_tree", "ReplicatedMergeTree('/clickhouse/tables/{shard}/{database}/{table}', '{replica}')")
 			t = strings.ReplaceAll(t, "@replacing_merge_tree", "ReplicatedReplacingMergeTree('/clickhouse/tables/{shard}/{database}/{table}', '{replica}')")
 		} else {
-			t = strings.ReplaceAll(t, "@on_cluster", "")
 			t = strings.ReplaceAll(t, "@merge_tree", "MergeTree()")
 			t = strings.ReplaceAll(t, "@replacing_merge_tree", "ReplacingMergeTree()")
 		}
-		var result chproto.Results
-		err := client.pool.Do(ctx, ch.Query{
-			Body: t,
-			OnResult: func(ctx context.Context, block chproto.Block) error {
-				return nil
-			},
-			Result: result.Auto(),
-		})
+		err := client.Exec(ctx, t)
 		if err != nil {
 			return err
 		}
 	}
 	if client.cluster != "" {
 		for _, t := range distributedTables {
-			t = strings.ReplaceAll(t, "@cluster", client.cluster)
-			var result chproto.Results
-			err := client.pool.Do(ctx, ch.Query{
-				Body: t,
-				OnResult: func(ctx context.Context, block chproto.Block) error {
-					return nil
-				},
-				Result: result.Auto(),
-			})
+			err := client.Exec(ctx, t)
 			if err != nil {
 				return err
 			}
