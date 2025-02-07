@@ -2,16 +2,12 @@ package collector
 
 import (
 	"context"
-	"crypto/tls"
 	"errors"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/ClickHouse/ch-go"
-	"github.com/ClickHouse/ch-go/chpool"
-	chproto "github.com/ClickHouse/ch-go/proto"
 	"github.com/coroot/coroot/cache"
 	"github.com/coroot/coroot/db"
 	"golang.org/x/exp/maps"
@@ -30,17 +26,6 @@ var (
 	ErrClickhouseNotConfigured = errors.New("clickhouse integration is not configured")
 )
 
-type chClient struct {
-	pool    *chpool.Pool
-	cluster string
-}
-
-func (c *chClient) Close() {
-	if c != nil && c.pool != nil {
-		c.pool.Close()
-	}
-}
-
 type Collector struct {
 	db               *db.DB
 	cache            *cache.Cache
@@ -53,7 +38,7 @@ type Collector struct {
 	migrationDone     map[db.ProjectId]bool
 	migrationDoneLock sync.RWMutex
 
-	clickhouseClients     map[db.ProjectId]*chClient
+	clickhouseClients     map[db.ProjectId]*ClickhouseClient
 	clickhouseClientsLock sync.RWMutex
 
 	traceBatches       map[db.ProjectId]*TracesBatch
@@ -71,7 +56,7 @@ func New(database *db.DB, cache *cache.Cache, globalClickHouse *db.IntegrationCl
 		globalClickHouse:  globalClickHouse,
 		globalPrometheus:  globalPrometheus,
 		migrationDone:     map[db.ProjectId]bool{},
-		clickhouseClients: map[db.ProjectId]*chClient{},
+		clickhouseClients: map[db.ProjectId]*ClickhouseClient{},
 		traceBatches:      map[db.ProjectId]*TracesBatch{},
 		profileBatches:    map[db.ProjectId]*ProfilesBatch{},
 		logBatches:        map[db.ProjectId]*LogsBatch{},
@@ -177,63 +162,7 @@ func (c *Collector) deleteClickhouseClient(projectId db.ProjectId) {
 	delete(c.clickhouseClients, projectId)
 }
 
-func (c *Collector) clickhouseConnect(ctx context.Context, cfg *db.IntegrationClickhouse) (*chClient, error) {
-	opts := ch.Options{
-		Address:          cfg.Addr,
-		Database:         cfg.Database,
-		User:             cfg.Auth.User,
-		Password:         cfg.Auth.Password,
-		Compression:      ch.CompressionLZ4,
-		ReadTimeout:      30 * time.Second,
-		DialTimeout:      10 * time.Second,
-		HandshakeTimeout: 10 * time.Second,
-	}
-	if cfg.TlsEnable {
-		opts.TLS = &tls.Config{
-			InsecureSkipVerify: cfg.TlsSkipVerify,
-		}
-	}
-	pool, err := chpool.Dial(context.Background(), chpool.Options{ClientOptions: opts})
-	if err != nil {
-		return nil, err
-	}
-	cluster, err := getCluster(ctx, pool)
-	if err != nil {
-		if cfg.Global && strings.Contains(err.Error(), "UNKNOWN_DATABASE") {
-			pool.Close()
-			opts.Database = cfg.InitialDatabase
-			pool, err = chpool.Dial(context.Background(), chpool.Options{ClientOptions: opts})
-			if err != nil {
-				return nil, err
-			}
-			cluster, err = getCluster(ctx, pool)
-			if err != nil {
-				return nil, err
-			}
-			q := "CREATE DATABASE " + cfg.Database
-			if cluster != "" {
-				q += " ON CLUSTER " + cluster
-			}
-			var result chproto.Results
-			err = pool.Do(ctx, ch.Query{
-				Body: q,
-				OnResult: func(ctx context.Context, block chproto.Block) error {
-					return nil
-				},
-				Result: result.Auto(),
-			})
-			pool.Close()
-			if err != nil {
-				return nil, err
-			}
-			return c.clickhouseConnect(ctx, cfg)
-		}
-		return nil, err
-	}
-	return &chClient{pool: pool, cluster: cluster}, err
-}
-
-func (c *Collector) getClickhouseClient(project *db.Project) (*chClient, error) {
+func (c *Collector) getClickhouseClient(project *db.Project) (*ClickhouseClient, error) {
 	c.clickhouseClientsLock.RLock()
 	client := c.clickhouseClients[project.Id]
 	c.clickhouseClientsLock.RUnlock()
@@ -246,7 +175,7 @@ func (c *Collector) getClickhouseClient(project *db.Project) (*chClient, error) 
 		return nil, ErrClickhouseNotConfigured
 	}
 	var err error
-	if client, err = c.clickhouseConnect(context.TODO(), cfg); err != nil {
+	if client, err = NewClickhouseClient(context.TODO(), cfg); err != nil {
 		return nil, err
 	}
 

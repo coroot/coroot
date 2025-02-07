@@ -105,15 +105,6 @@ export default {
         show() {
             return this.rates.root > (this.limit || 0);
         },
-        width() {
-            if (this.zoom === false) {
-                return '0';
-            }
-            if (this.zoom === true) {
-                return '100%';
-            }
-            return this.rates.parent + '%';
-        },
         style() {
             switch (this.zoom) {
                 case false:
@@ -121,7 +112,7 @@ export default {
                 case true:
                     return { display: 'block', width: '100%' };
                 default:
-                    return { display: 'block', width: this.rates.parent + '%' };
+                    return { display: 'block', width: Math.min(this.rates.parent, 100) + '%' };
             }
         },
         color() {
