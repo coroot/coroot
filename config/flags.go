@@ -34,7 +34,7 @@ var (
 	globalRefreshInterval          = kingpin.Flag("global-refresh-interval", "").Envar("GLOBAL_REFRESH_INTERVAL").Duration()
 	globalPrometheusUser           = kingpin.Flag("global-prometheus-user", "").Envar("GLOBAL_PROMETHEUS_USER").String()
 	globalPrometheusPassword       = kingpin.Flag("global-prometheus-password", "").Envar("GLOBAL_PROMETHEUS_PASSWORD").String()
-	globalPrometheusCustomHeaders  = kingpin.Flag("global-prometheus-custom-headers", "").Envar("GLOBAL_PROMETHEUS_CUSTOM_HEADER").StringMap()
+	globalPrometheusCustomHeaders  = kingpin.Flag("global-prometheus-custom-headers", "").Envar("GLOBAL_PROMETHEUS_CUSTOM_HEADERS").StringMap()
 	globalPrometheusRemoteWriteUrl = kingpin.Flag("global-prometheus-remote-write-url", "").Envar("GLOBAL_PROMETHEUS_REMOTE_WRITE_URL").String()
 
 	bootstrapPrometheusUrl            = kingpin.Flag("bootstrap-prometheus-url", "").Envar("BOOTSTRAP_PROMETHEUS_URL").String()
@@ -120,7 +120,9 @@ func (cfg *Config) applyFlags() {
 
 	keep = cfg.GlobalPrometheus != nil || *globalPrometheusUrl != ""
 	if cfg.GlobalPrometheus == nil {
-		cfg.GlobalPrometheus = &Prometheus{}
+		cfg.GlobalPrometheus = &Prometheus{
+			CustomHeaders: map[string]string{},
+		}
 	}
 	if *globalPrometheusUrl != "" {
 		cfg.GlobalPrometheus.Url = *globalPrometheusUrl
