@@ -37,4 +37,6 @@ type MetricValues struct {
 	LabelsHash uint64
 	Values     *timeseries.TimeSeries
 	NodeContainerId
+	ConnectionKey
+	DestIp bool
 }

@@ -213,9 +213,12 @@ func readV3(reader io.Reader, header *header, from timeseries.Time, pointsCount 
 }
 
 var (
-	machineId   = []byte("machine_id")
-	systemUuid  = []byte("system_uuid")
-	containerId = []byte("container_id")
+	machineId         = []byte("machine_id")
+	systemUuid        = []byte("system_uuid")
+	containerId       = []byte("container_id")
+	destination       = []byte("destination")
+	destinationIP     = []byte("destination_ip")
+	actualDestination = []byte("actual_destination")
 )
 
 func metadataSize(mv model.MetricValues) int {
@@ -228,6 +231,16 @@ func metadataSize(mv model.MetricValues) int {
 	}
 	if mv.ContainerId != "" {
 		s += len(containerId) + len(mv.ContainerId) + 2
+	}
+	if mv.Destination != "" {
+		label := destination
+		if mv.DestIp {
+			label = destinationIP
+		}
+		s += len(label) + len(mv.Destination) + 2
+	}
+	if mv.ActualDestination != "" {
+		s += len(actualDestination) + len(mv.ActualDestination) + 2
 	}
 	for k, v := range mv.Labels {
 		s += len(k) + len(v) + 2
@@ -260,6 +273,26 @@ func writeLabels(dst io.Writer, mv model.MetricValues) error {
 			return err
 		}
 	}
+	if mv.Destination != "" {
+		label := destination
+		if mv.DestIp {
+			label = destinationIP
+		}
+		if _, err := dst.Write(append(label, byte(0))); err != nil {
+			return err
+		}
+		if _, err := dst.Write(append([]byte(mv.Destination), byte(0))); err != nil {
+			return err
+		}
+	}
+	if mv.ActualDestination != "" {
+		if _, err := dst.Write(append(actualDestination, byte(0))); err != nil {
+			return err
+		}
+		if _, err := dst.Write(append([]byte(mv.ActualDestination), byte(0))); err != nil {
+			return err
+		}
+	}
 	for k, v := range mv.Labels {
 		if _, err := dst.Write(append([]byte(k), byte(0))); err != nil {
 			return err
@@ -288,6 +321,13 @@ func readLabels(src []byte, mv *model.MetricValues) {
 				mv.SystemUUID = string(src[f:i])
 			} else if bytes.Equal(key, containerId) {
 				mv.ContainerId = string(src[f:i])
+			} else if bytes.Equal(key, destination) {
+				mv.Destination = string(src[f:i])
+			} else if bytes.Equal(key, actualDestination) {
+				mv.ActualDestination = string(src[f:i])
+			} else if bytes.Equal(key, destinationIP) {
+				mv.Destination = string(src[f:i])
+				mv.DestIp = true
 			} else {
 				mv.Labels[string(key)] = string(src[f:i])
 			}
