@@ -174,8 +174,7 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]model.
 		if rtts == nil {
 			rtts = map[string]*timeseries.TimeSeries{}
 		}
-		dest := metric.Labels["destination_ip"]
-		rtts[dest] = merge(rtts[dest], metric.Values, timeseries.Any)
+		rtts[metric.Destination] = merge(rtts[metric.Destination], metric.Values, timeseries.Any)
 		rttByInstance[id] = rtts
 	})
 	loadContainer("container_net_tcp_listen_info", func(instance *model.Instance, container *model.Container, metric model.MetricValues) {
@@ -433,26 +432,19 @@ func getOrCreateConnection(instance *model.Instance, container string, m model.M
 		return nil
 	}
 
-	dest := m.Labels["destination"]
-	actualDest := m.Labels["actual_destination"]
-
-	connKey := model.ConnectionKey{
-		Destination:       dest,
-		ActualDestination: actualDest,
-	}
-	connection := instance.Upstreams[connKey]
+	connection := instance.Upstreams[m.ConnectionKey]
 	if connection == nil {
 		var actualIP, actualPort, serviceIP, servicePort string
 		var err error
-		serviceIP, servicePort, err = net.SplitHostPort(dest)
+		serviceIP, servicePort, err = net.SplitHostPort(m.Destination)
 		if err != nil {
-			klog.Warningf("failed to split %s to ip:port pair: %s", dest, err)
+			klog.Warningf("failed to split %s to ip:port pair: %s", m.Destination, err)
 			return nil
 		}
-		if actualDest != "" {
-			actualIP, actualPort, err = net.SplitHostPort(actualDest)
+		if m.ActualDestination != "" {
+			actualIP, actualPort, err = net.SplitHostPort(m.ActualDestination)
 			if err != nil {
-				klog.Warningf("failed to split %s to ip:port pair: %s", actualDest, err)
+				klog.Warningf("failed to split %s to ip:port pair: %s", m.ActualDestination, err)
 				return nil
 			}
 		}
@@ -468,7 +460,7 @@ func getOrCreateConnection(instance *model.Instance, container string, m model.M
 			RequestsLatency:   map[model.Protocol]*timeseries.TimeSeries{},
 			RequestsHistogram: map[model.Protocol]map[float32]*timeseries.TimeSeries{},
 		}
-		instance.Upstreams[connKey] = connection
+		instance.Upstreams[m.ConnectionKey] = connection
 	}
 	return connection
 }
