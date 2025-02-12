@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"runtime/pprof"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -79,8 +78,8 @@ type Stats struct {
 		SentNotifications map[db.IntegrationType]int `json:"sent_notifications"`
 	} `json:"ux"`
 	Performance struct {
-		Constructor    constructor.Profile                      `json:"constructor"`
-		ResourcesUsage map[model.ApplicationId][]ResourcesUsage `json:"resources_usage"`
+		Constructor constructor.Profile `json:"constructor"`
+		Components  []*Component        `json:"components"`
 	} `json:"performance"`
 	Profile struct {
 		From   int64  `json:"from"`
@@ -90,9 +89,38 @@ type Stats struct {
 	} `json:"profile"`
 }
 
-type ResourcesUsage struct {
-	Cpu    float32 `json:"cpu"`
-	Memory float32 `json:"memory"`
+type Component struct {
+	Id        model.ApplicationId `json:"id"`
+	Instances []*Instance         `json:"instances"`
+}
+
+type Instance struct {
+	Containers map[string]*Container `json:"containers"`
+	Volumes    []*Volume             `json:"volumes"`
+}
+
+type Container struct {
+	CpuTotal      timeseries.Value `json:"cpu_total"`
+	CpuUsage      timeseries.Value `json:"cpu_usage"`
+	CpuLimit      timeseries.Value `json:"cpu_limit"`
+	CpuDelay      timeseries.Value `json:"cpu_delay"`
+	CpuThrottling timeseries.Value `json:"cpu_throttling"`
+	MemoryTotal   timeseries.Value `json:"memory_total"`
+	MemoryUsage   timeseries.Value `json:"memory_usage"`
+	MemoryLimit   timeseries.Value `json:"memory_limit"`
+	MemoryOOMs    timeseries.Value `json:"memory_ooms"`
+	Restarts      timeseries.Value `json:"restarts"`
+}
+
+type Volume struct {
+	Size           timeseries.Value `json:"size"`
+	Usage          timeseries.Value `json:"usage"`
+	ReadLatency    timeseries.Value `json:"read_latency"`
+	WriteLatency   timeseries.Value `json:"write_latency"`
+	Reads          timeseries.Value `json:"reads"`
+	Writes         timeseries.Value `json:"writes"`
+	ReadBandwidth  timeseries.Value `json:"read_bandwidth"`
+	WriteBandwidth timeseries.Value `json:"write_bandwidth"`
 }
 
 type InspectionOverride struct {
@@ -279,7 +307,6 @@ func (c *Collector) collect() Stats {
 	stats.Stack.InstrumentedServices = utils.NewStringSet()
 	stats.Performance.Constructor.Stages = map[string]float32{}
 	stats.Performance.Constructor.Queries = map[string]constructor.QueryStats{}
-	stats.Performance.ResourcesUsage = map[model.ApplicationId][]ResourcesUsage{}
 	stats.Infra.DeploymentSummaries = map[string]int{}
 	var loadTime, auditTime []time.Duration
 	now := timeseries.Now()
@@ -375,26 +402,7 @@ func (c *Collector) collect() Stats {
 			}
 		}
 
-		corootComponents := map[model.ApplicationId]*model.Application{}
 		for _, a := range w.Applications {
-			switch {
-			case strings.HasSuffix(a.Id.Name, "node-agent"):
-				corootComponents[a.Id] = a
-			case strings.HasSuffix(a.Id.Name, "cluster-agent"):
-				corootComponents[a.Id] = a
-			case strings.HasSuffix(a.Id.Name, "operator") && strings.Contains(a.Id.Name, "coroot"):
-				corootComponents[a.Id] = a
-			case strings.HasSuffix(a.Id.Name, "coroot"):
-				corootComponents[a.Id] = a
-				for _, i := range a.Instances {
-					for _, u := range i.Upstreams { // prometheus and clickhouse
-						if u.RemoteInstance != nil {
-							corootComponents[u.RemoteInstance.Owner.Id] = u.RemoteInstance.Owner
-						}
-					}
-				}
-			}
-
 			if a.IsStandalone() || a.Category.Auxiliary() {
 				continue
 			}
@@ -420,12 +428,10 @@ func (c *Collector) collect() Stats {
 				}
 			}
 		}
-		for _, a := range corootComponents {
-			if usage := lastUsage(a); len(usage) > 0 {
-				stats.Performance.ResourcesUsage[a.Id] = append(stats.Performance.ResourcesUsage[a.Id], usage...)
-			}
-		}
+
+		stats.Performance.Components = append(stats.Performance.Components, corootComponents(w.GetCorootComponents())...)
 	}
+
 	stats.Integration.ApplicationCategories = applicationCategories.Len()
 
 	stats.UX.WorldLoadTimeAvg = avgDuration(loadTime)
@@ -434,6 +440,54 @@ func (c *Collector) collect() Stats {
 	stats.UX.SentNotifications = c.db.GetSentIncidentNotificationsStat(now.Add(-timeseries.Duration(collectInterval.Seconds())))
 
 	return stats
+}
+
+func corootComponents(components []*model.Application) []*Component {
+	var res []*Component
+	for _, a := range components {
+		aa := &Component{Id: a.Id}
+		res = append(res, aa)
+		for _, i := range a.Instances {
+			ii := &Instance{Containers: map[string]*Container{}}
+			aa.Instances = append(aa.Instances, ii)
+			for _, c := range i.Containers {
+				if c.InitContainer {
+					continue
+				}
+				cc := &Container{}
+				ii.Containers[c.Name] = cc
+				cc.CpuLimit = timeseries.Value(c.CpuLimit.Last())
+				cc.CpuUsage = timeseries.Value(c.CpuUsage.Last())
+				cc.CpuDelay = timeseries.Value(c.CpuDelay.Last())
+				cc.CpuThrottling = timeseries.Value(c.ThrottledTime.Last())
+				cc.MemoryLimit = timeseries.Value(c.MemoryLimit.Last())
+				cc.MemoryUsage = timeseries.Value(c.MemoryRss.Last())
+				cc.MemoryOOMs = timeseries.Value(c.OOMKills.Reduce(timeseries.NanSum))
+				cc.Restarts = timeseries.Value(c.Restarts.Reduce(timeseries.NanSum))
+				if i.Node != nil {
+					cc.CpuTotal = timeseries.Value(i.Node.CpuCapacity.Last())
+					cc.MemoryTotal = timeseries.Value(i.Node.MemoryTotalBytes.Last())
+				}
+			}
+			for _, v := range i.Volumes {
+				vv := &Volume{}
+				ii.Volumes = append(ii.Volumes, vv)
+				vv.Size = timeseries.Value(v.CapacityBytes.Last())
+				vv.Usage = timeseries.Value(v.UsedBytes.Last())
+				if i.Node != nil {
+					if d := i.Node.Disks[v.Device.Value()]; d != nil {
+						vv.ReadLatency = timeseries.Value(d.ReadTime.Last())
+						vv.WriteLatency = timeseries.Value(d.WriteTime.Last())
+						vv.Reads = timeseries.Value(d.ReadOps.Last())
+						vv.Writes = timeseries.Value(d.WriteOps.Last())
+						vv.ReadBandwidth = timeseries.Value(d.ReadBytes.Last())
+						vv.WriteBandwidth = timeseries.Value(d.WrittenBytes.Last())
+					}
+				}
+			}
+		}
+	}
+	return res
 }
 
 func avgDuration(durations []time.Duration) float32 {
@@ -445,29 +499,4 @@ func avgDuration(durations []time.Duration) float32 {
 		total += d
 	}
 	return float32(total.Seconds() / float64(len(durations)))
-}
-
-func lastUsage(app *model.Application) []ResourcesUsage {
-	var res []ResourcesUsage
-	for _, i := range app.Instances {
-		if len(i.Containers) == 0 {
-			continue
-		}
-		var cpuSum, memSum float32
-		for _, c := range i.Containers {
-			if v := c.CpuUsage.Last(); !timeseries.IsNaN(v) {
-				cpuSum += v
-			}
-			if v := c.MemoryRss.Last(); !timeseries.IsNaN(v) {
-				memSum += v
-			}
-		}
-		if cpuSum > 0 {
-			res = append(res, ResourcesUsage{Cpu: cpuSum, Memory: memSum / 1024 / 1024})
-		}
-	}
-	sort.Slice(res, func(i, j int) bool {
-		return res[i].Cpu > res[j].Cpu
-	})
-	return res
 }
