@@ -33,7 +33,7 @@ type ApplicationStatus struct {
 }
 
 type ApplicationType struct {
-	Name   model.ApplicationType `json:"name"`
+	Name   string                `json:"name"`
 	Icon   string                `json:"icon"`
 	Report model.AuditReportName `json:"report"`
 	Status model.Status          `json:"status"`
@@ -338,5 +338,5 @@ func getApplicationType(app *model.Application) *ApplicationType {
 	if !hasReport {
 		report = ""
 	}
-	return &ApplicationType{Name: t, Icon: t.Icon(), Report: report, Status: status}
+	return &ApplicationType{Name: t.Name(), Icon: t.Icon(), Report: report, Status: status}
 }

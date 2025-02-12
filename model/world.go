@@ -2,6 +2,7 @@ package model
 
 import (
 	"github.com/coroot/coroot/timeseries"
+	"golang.org/x/exp/maps"
 )
 
 type IntegrationStatus struct {
@@ -75,4 +76,25 @@ func (w *World) GetNode(name string) *Node {
 		}
 	}
 	return nil
+}
+
+func (w *World) GetCorootComponents() []*Application {
+	components := map[ApplicationId]*Application{}
+	for _, app := range w.Applications {
+		if !app.IsCorootComponent() {
+			continue
+		}
+		components[app.Id] = app
+		types := app.ApplicationTypes()
+		if types[ApplicationTypeCorootCE] || types[ApplicationTypeCorootEE] {
+			for _, i := range app.Instances {
+				for _, u := range i.Upstreams { // prometheus and clickhouse
+					if u.RemoteInstance != nil && u.RemoteInstance.Owner.Id.Kind != ApplicationKindExternalService {
+						components[u.RemoteInstance.Owner.Id] = u.RemoteInstance.Owner
+					}
+				}
+			}
+		}
+	}
+	return maps.Values(components)
 }

@@ -36,6 +36,8 @@ const (
 	ApplicationTypeVictoriaMetrics ApplicationType = "victoria-metrics"
 	ApplicationTypeVictoriaLogs    ApplicationType = "victoria-logs"
 	ApplicationTypeClickHouse      ApplicationType = "clickhouse"
+	ApplicationTypeCorootCE        ApplicationType = "coroot-community-edition"
+	ApplicationTypeCorootEE        ApplicationType = "coroot-enterprise-edition"
 )
 
 func (at ApplicationType) IsDatabase() bool {
@@ -120,10 +122,24 @@ func (at ApplicationType) AuditReport() AuditReportName {
 	return ""
 }
 
+func (at ApplicationType) IsCorootComponent() bool {
+	return strings.HasPrefix(string(at), "coroot")
+}
+
+func (at ApplicationType) Name() string {
+	switch {
+	case at.IsCorootComponent():
+		return "coroot"
+	}
+	return string(at)
+}
+
 func (at ApplicationType) Icon() string {
 	switch {
 	case strings.HasPrefix(string(at), "kube"):
 		return "kubernetes"
+	case at.IsCorootComponent():
+		return "coroot"
 	case at == ApplicationTypePgbouncer:
 		return "postgres"
 	case at == ApplicationTypeMongos:

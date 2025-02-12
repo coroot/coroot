@@ -324,3 +324,12 @@ func (app *Application) PeriodicJob() bool {
 	}
 	return false
 }
+
+func (app *Application) IsCorootComponent() bool {
+	for t := range app.ApplicationTypes() {
+		if t.IsCorootComponent() {
+			return true
+		}
+	}
+	return false
+}
