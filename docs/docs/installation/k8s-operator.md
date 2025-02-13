@@ -65,25 +65,29 @@ spec:
 #      - hosts:
 #        secretName:
 
-#  communityEdition: # Configuration for Coroot Community Edition.
+# Configuration for Coroot Community Edition.
+#  communityEdition:
 #    image: # If unspecified, the operator will automatically update Coroot CE to the latest version from Coroot's public registry.
 #      name:           # Specifies the full image reference (e.g., <private-registry>/coroot:<version>)
 #      pullPolicy:     # The image pull policy (e.g., Always, IfNotPresent, Never).
 #      pullSecrets: [] # The pull secrets for pulling the image from a private registry.
 
-#  enterpriseEdition: # Configuration for Coroot Enterprise Edition.
+# Configuration for Coroot Enterprise Edition.
+#  enterpriseEdition:
 #    licenseKey: COROOT-1111-111 # License key for Coroot Enterprise Edition.
 #    image: # If unspecified, the operator will automatically update Coroot EE to the latest version from Coroot's public registry.
 #      name:           # Specifies the full image reference (e.g., <private-registry>/coroot-ee:<version>)
 #      pullPolicy:     # The image pull policy (e.g., Always, IfNotPresent, Never).
 #      pullSecrets: [] # The pull secrets for pulling the image from a private registry.
 
-#  agentsOnly: # Configures the operator to install only the node-agent and cluster-agent.
+# Configures the operator to install only the node-agent and cluster-agent.
+#  agentsOnly:
 #    corootURL: http://COROOT_IP:PORT/ # URL of the Coroot instance to which agents send metrics, logs, traces, and profiles.
 
 #  apiKey: # The API key used by agents when sending telemetry to Coroot.
 
-#  nodeAgent: # Configuration for Coroot Node Agent.
+# Configuration for Coroot Node Agent.
+#  nodeAgent:
 #    priorityClassName: # Priority class for the node-agent pods.
 #    update_strategy: # Update strategy for node-agent pods.
 #    affinity: # Affinity rules for node-agent pods.
@@ -103,7 +107,8 @@ spec:
 #      pullPolicy:     # The image pull policy (e.g., Always, IfNotPresent, Never).
 #      pullSecrets: [] # The pull secrets for pulling the image from a private registry.
 
-#  clusterAgent: # Configuration for Coroot Cluster Agent.
+# Configuration for Coroot Cluster Agent.
+#  clusterAgent:
 #    affinity: # Affinity rules for cluster-agent.
 #    tolerations: # Tolerations for cluster-agent.
 #    podAnnotations: # Annotations for cluster-agent.
@@ -119,7 +124,8 @@ spec:
 #        pullPolicy:     # The image pull policy (e.g., Always, IfNotPresent, Never).
 #        pullSecrets: [] # The pull secrets for pulling the image from a private registry.
 
-#  prometheus: # Configuration for Prometheus managed by the operator.
+# Configuration for Prometheus managed by the operator.
+#  prometheus:
 #    affinity: # Affinity rules for Prometheus.
 #    tolerations: # Tolerations for Prometheus.
 #    storage:
@@ -134,7 +140,9 @@ spec:
 #      pullPolicy:     # The image pull policy (e.g., Always, IfNotPresent, Never).
 #      pullSecrets: [] # The pull secrets for pulling the image from a private registry.
 
-#  externalPrometheus: # Use an external Prometheus instance instead of deploying one.
+# Use an external Prometheus instance instead of deploying one.
+# NOTE: Remote write receiver must be enabled in your Prometheus via the --web.enable-remote-write-receiver flag.
+#  externalPrometheus:
 #    url: # http(s)://<IP>:<port> or http(s)://<domain>:<port> or http(s)://<service name>:<port>.
 #    tlsSkipVerify: false # Whether to skip verification of the Prometheus server's TLS certificate.
 #    basicAuth: # Basic auth credentials.
@@ -149,7 +157,8 @@ spec:
 #    # By default, Coroot appends /api/v1/write to the base URL configured above.
 #    remoteWriteURL: # (e.g., http://vminsert:8480/insert/0/prometheus/api/v1/write).
 
-#  clickhouse: # Configuration for Clickhouse managed by the operator.
+# Configuration for Clickhouse managed by the operator.
+#  clickhouse:
 #    shards: 1 # Number of ClickHouse shards.
 #    replicas: 1 # Number of replicas per shard.
 #    resources: # Resource requests and limits for Clickhouse pods.
@@ -178,7 +187,8 @@ spec:
 #        pullPolicy:     # The image pull policy (e.g., Always, IfNotPresent, Never).
 #        pullSecrets: [] # The pull secrets for pulling the image from a private registry.
 
-#  externalClickhouse: # Use an external ClickHouse instance instead of deploying one.
+# Use an external ClickHouse instance instead of deploying one.
+#  externalClickhouse:
 #    address: # Address of the external ClickHouse instance.
 #    database: # Name of the database to be used.
 #    user: # Username for accessing the external ClickHouse.
@@ -189,7 +199,8 @@ spec:
 
 #  replicas: 1 # Number of Coroot StatefulSet pods.
 
-#  postgres: # Store configuration in a Postgres DB instead of SQLite (required if replicas > 1).
+# Store configuration in a Postgres DB instead of SQLite (required if replicas > 1).
+#  postgres:
 #    host: # Postgres host or service name.
 #    port: # Postgres port (optional, default 5432).
 #    database: # Name of the database.
