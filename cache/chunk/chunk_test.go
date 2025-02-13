@@ -39,10 +39,10 @@ func TestChunk(t *testing.T) {
 
 	meta1, err := ReadMeta(chunk1)
 	require.NoError(t, err)
-	assert.Equal(t, Meta{Path: chunk1, From: 0, PointsCount: 10, Step: 30, Finalized: false}, *meta1)
+	assert.Equal(t, Meta{Path: chunk1, From: 0, PointsCount: 10, Step: 30, Finalized: false, Created: meta1.Created}, *meta1)
 	meta2, err := ReadMeta(chunk2)
 	require.NoError(t, err)
-	assert.Equal(t, Meta{Path: chunk2, From: 300, PointsCount: 10, Step: 30, Finalized: false}, *meta2)
+	assert.Equal(t, Meta{Path: chunk2, From: 300, PointsCount: 10, Step: 30, Finalized: false, Created: meta2.Created}, *meta2)
 
 	res := map[uint64]model.MetricValues{}
 	require.NoError(t, Read(chunk1, 60, 10, 30, res, timeseries.FillAny))

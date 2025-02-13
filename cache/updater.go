@@ -279,6 +279,7 @@ func (c *Cache) writeChunk(projectId db.ProjectId, queryHash string, from timese
 		PointsCount: uint32(pointsCount),
 		Step:        step,
 		Finalized:   finalized,
+		Created:     timeseries.Now(),
 	}
 	return nil
 }
