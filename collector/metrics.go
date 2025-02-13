@@ -134,6 +134,9 @@ func (c *Collector) Metrics(w http.ResponseWriter, r *http.Request) {
 			w.Header().Add(k, v)
 		}
 	}
+	if res.StatusCode >= 400 {
+		klog.Errorf("failed to write: got %d from prometheus", res.StatusCode)
+	}
 	w.WriteHeader(res.StatusCode)
 	_, _ = io.Copy(w, r.Body)
 	_ = res.Body.Close()
