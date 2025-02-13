@@ -19,7 +19,7 @@ const (
 	V2 uint8 = 2
 	V3 uint8 = 3
 
-	Size = timeseries.Hour
+	Size = timeseries.Minute * 10
 )
 
 type Meta struct {
@@ -28,6 +28,7 @@ type Meta struct {
 	PointsCount uint32
 	Step        timeseries.Duration
 	Finalized   bool
+	Created     timeseries.Time
 }
 
 func (m *Meta) To() timeseries.Time {
@@ -129,11 +130,22 @@ func ReadMeta(path string) (*Meta, error) {
 	}
 	defer f.Close()
 
+	stat, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
 	h := header{}
 	if err = binary.Read(f, binary.LittleEndian, &h); err != nil {
 		return nil, err
 	}
-	return &Meta{Path: path, From: h.From, PointsCount: h.PointsCount, Step: h.Step, Finalized: h.Finalized}, err
+	return &Meta{
+		Path:        path,
+		From:        h.From,
+		PointsCount: h.PointsCount,
+		Step:        h.Step,
+		Finalized:   h.Finalized,
+		Created:     timeseries.TimeFromStandard(stat.ModTime()),
+	}, err
 }
 
 func Read(path string, from timeseries.Time, pointsCount int, step timeseries.Duration, dest map[uint64]model.MetricValues, fillFunc timeseries.FillFunc) error {

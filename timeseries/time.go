@@ -61,6 +61,10 @@ func (d *Duration) UnmarshalJSON(b []byte) error {
 
 type Time int64
 
+func TimeFromStandard(t time.Time) Time {
+	return Time(t.Unix())
+}
+
 func Now() Time {
 	return Time(time.Now().Unix())
 }

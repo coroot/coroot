@@ -3,12 +3,14 @@ package cache
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	"github.com/coroot/coroot/cache/chunk"
 	"github.com/coroot/coroot/constructor"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
+	"golang.org/x/exp/maps"
 )
 
 func (c *Cache) GetCacheClient(projectId db.ProjectId) *Client {
@@ -39,7 +41,13 @@ func (c *Client) QueryRange(ctx context.Context, query string, from, to timeseri
 	to = to.Truncate(step)
 	res := map[uint64]model.MetricValues{}
 	resPoints := int(to.Sub(from)/step + 1)
-	for _, ch := range qData.chunksOnDisk {
+
+	chunks := maps.Values(qData.chunksOnDisk)
+	sort.Slice(chunks, func(i, j int) bool {
+		return chunks[i].Created < chunks[j].Created
+	})
+
+	for _, ch := range chunks {
 		if ch.From > to || ch.To() < from {
 			continue
 		}

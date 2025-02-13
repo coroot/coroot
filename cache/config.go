@@ -3,6 +3,7 @@ package cache
 import (
 	"time"
 
+	"github.com/coroot/coroot/cache/chunk"
 	"github.com/coroot/coroot/timeseries"
 )
 
@@ -33,7 +34,8 @@ var DefaultCompactionConfig = CompactionConfig{
 	Interval:   time.Second * 10,
 	WorkersNum: 1,
 	Compactors: []Compactor{
-		{SrcChunkDuration: 3600, DstChunkDuration: 4 * 3600},
-		{SrcChunkDuration: 4 * 3600, DstChunkDuration: 12 * 3600},
+		{SrcChunkDuration: chunk.Size, DstChunkDuration: timeseries.Hour},
+		{SrcChunkDuration: timeseries.Hour, DstChunkDuration: 4 * timeseries.Hour},
+		{SrcChunkDuration: 4 * timeseries.Hour, DstChunkDuration: 12 * timeseries.Hour},
 	},
 }
