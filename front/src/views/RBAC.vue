@@ -1,19 +1,28 @@
 <template>
     <div>
+        <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text class="mt-2">
+            {{ error }}
+        </v-alert>
         <v-alert v-if="disabled" color="info" outlined text>
             Coroot Community Edition includes three predefined roles: Admin, Editor, and Viewer.
             <br />
             For more granular Role-Based Access Control (RBAC), upgrade to Coroot Enterprise (from $1 per CPU core/month).
             <a href="https://coroot.com/account" target="_blank" class="font-weight-bold">Start</a> your free trial today.
         </v-alert>
-        <v-simple-table dense class="mt-5">
+        <v-simple-table v-if="!error" dense class="table mt-5">
             <thead>
                 <tr>
                     <th>Action</th>
-                    <th v-for="r in roles" class="text-no-wrap">
-                        <span>{{ r.name }}</span>
-                        <span v-if="disabled && r.custom">*</span>
-                        <v-btn v-if="r.custom" @click="edit(r)" small icon><v-icon x-small>mdi-pencil</v-icon></v-btn>
+                    <th v-for="r in roles">
+                        <div class="d-flex">
+                            <div>
+                                <span>{{ r.name }}</span>
+                                <span v-if="disabled && r.custom">*</span>
+                            </div>
+                            <div class="d-flex align-center">
+                                <v-btn v-if="r.custom" @click="edit(r)" x-small icon><v-icon x-small>mdi-pencil</v-icon></v-btn>
+                            </div>
+                        </div>
                     </th>
                 </tr>
             </thead>
@@ -35,7 +44,7 @@
                 </tr>
             </tbody>
         </v-simple-table>
-        <v-btn color="primary" @click="add()" small :disabled="disabled" class="mt-3">Add role</v-btn>
+        <v-btn v-if="!error" color="primary" @click="add()" small :disabled="disabled" class="mt-3">Add role</v-btn>
         <div v-if="disabled" class="mt-2 grey--text">* - examples of fine-grained custom roles</div>
 
         <v-dialog v-model="form.active" max-width="800">
@@ -135,7 +144,7 @@ export default {
         return {
             loading: false,
             error: '',
-            disabled: true,
+            disabled: this.$coroot.edition !== 'Enterprise',
             roles: [],
             actions: [],
             scopes: [],
@@ -168,7 +177,6 @@ export default {
                     this.error = error;
                     return;
                 }
-                this.disabled = !data.configurable;
                 this.roles = data.roles || [];
                 this.actions = data.actions || [];
                 this.scopes = data.scopes || [];
@@ -217,6 +225,11 @@ export default {
 </script>
 
 <style scoped>
+.table:deep(th),
+.table:deep(td) {
+    padding: 0 8px !important;
+}
+
 .form:deep(table) {
     table-layout: fixed;
     min-width: 600px;

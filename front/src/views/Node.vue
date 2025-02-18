@@ -1,13 +1,13 @@
 <template>
     <div>
-        <h1 class="text-h5 ml-4">
-            {{ name }}
-            <v-progress-linear v-if="loading" indeterminate color="green" />
-        </h1>
-
         <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
             {{ error }}
         </v-alert>
+
+        <h1 v-else class="text-h5 ml-4">
+            {{ name }}
+            <v-progress-linear v-if="loading" indeterminate color="green" />
+        </h1>
 
         <template v-if="node">
             <div v-if="node.status === 'unknown'" class="text-center">

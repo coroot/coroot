@@ -26,10 +26,8 @@
                     </td>
                 </tr>
             </tbody>
-            <tfoot>
-                <v-btn color="primary" small class="mt-3" @click="create(false)">Add user</v-btn>
-            </tfoot>
         </v-simple-table>
+        <v-btn v-if="!error" color="primary" small class="mt-3" @click="create(false)">Add user</v-btn>
 
         <v-dialog v-model="form.active" max-width="600">
             <v-card class="pa-4">

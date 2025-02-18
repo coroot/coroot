@@ -23,22 +23,11 @@ func (as ActionSet) Project(id string) ProjectActionSet {
 }
 
 func (as ActionSet) List() []Action {
-	return []Action{
+	return append([]Action{
 		as.Users().Edit(),
 		as.Roles().Edit(),
-		as.Project("").Settings().Edit(),
-		as.Project("").Integrations().Edit(),
-		as.Project("").ApplicationCategories().Edit(),
-		as.Project("").CustomApplications().Edit(),
-		as.Project("").Inspections().Edit(),
-		as.Project("").Instrumentations().Edit(),
-		as.Project("").Traces().View(),
-		as.Project("").Costs().View(),
-		as.Project("").Risks().View(),
-		as.Project("").Risks().Edit(),
-		as.Project("").Application("", "", "", "").View(),
-		as.Project("").Node("").View(),
-	}
+	},
+		as.Project("").List()...)
 }
 
 type UsersActionSet struct{}
@@ -59,6 +48,24 @@ type ProjectActionSet struct {
 
 func (as ProjectActionSet) object() Object {
 	return Object{"project_id": as.id}
+}
+
+func (as ProjectActionSet) List() []Action {
+	return []Action{
+		as.Settings().Edit(),
+		as.Integrations().Edit(),
+		as.ApplicationCategories().Edit(),
+		as.CustomApplications().Edit(),
+		as.Inspections().Edit(),
+		as.Instrumentations().Edit(),
+		as.Traces().View(),
+		as.Costs().View(),
+		as.Anomalies().View(),
+		as.Risks().View(),
+		as.Risks().Edit(),
+		as.Application("*", "*", "*", "*").View(),
+		as.Node("*").View(),
+	}
 }
 
 func (as ProjectActionSet) Settings() ProjectEditAction {
@@ -91,6 +98,10 @@ func (as ProjectActionSet) Traces() ProjectViewAction {
 
 func (as ProjectActionSet) Costs() ProjectViewAction {
 	return ProjectViewAction{project: &as, scope: ScopeProjectCosts}
+}
+
+func (as ProjectActionSet) Anomalies() ProjectViewAction {
+	return ProjectViewAction{project: &as, scope: ScopeProjectAnomalies}
 }
 
 func (as ProjectActionSet) Risks() ProjectAction {

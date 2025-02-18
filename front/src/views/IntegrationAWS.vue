@@ -108,7 +108,8 @@
         <v-alert v-else-if="errors.length" color="error" outlined text class="pb-2">
             <div v-for="e in errors" class="mb-2">• {{ e }}</div>
         </v-alert>
-        <v-alert v-else color="success" outlined text> OK </v-alert>
+        <v-alert v-else-if="!error" color="success" outlined text> OK </v-alert>
+        <v-alert v-else outlined text> Unknown </v-alert>
 
         <h2 class="text-h6 mt-10 mb-3">Discovered instances</h2>
         <v-data-table

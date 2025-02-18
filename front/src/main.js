@@ -13,7 +13,6 @@ import Api from '@/api';
 import App from '@/App';
 import Project from '@/views/Project';
 import Overview from '@/views/Overview';
-import Welcome from '@/views/Welcome';
 import Login from '@/views/auth/Login.vue';
 import Logout from '@/views/auth/Logout.vue';
 import Saml from '@/views/auth/Saml.vue';
@@ -40,7 +39,6 @@ const router = new VueRouter({
             props: true,
             meta: { stats: { params: ['view', 'report'] } },
         },
-        { path: '/welcome', name: 'welcome', component: Welcome },
         { path: '/', name: 'index', component: App },
         { path: '*', redirect: { name: 'index' } },
     ],
