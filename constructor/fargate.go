@@ -8,7 +8,7 @@ import (
 	"github.com/coroot/coroot/timeseries"
 )
 
-func (c *Constructor) loadFargateNodes(metrics map[string][]model.MetricValues, nodesById map[model.NodeId]*model.Node) {
+func (c *Constructor) loadFargateNodes(metrics map[string][]*model.MetricValues, nodesById map[model.NodeId]*model.Node) {
 	for queryName := range metrics {
 		if !strings.HasPrefix(queryName, "fargate_node_") {
 			continue
@@ -44,7 +44,7 @@ func (c *Constructor) loadFargateNodes(metrics map[string][]model.MetricValues, 
 	}
 }
 
-func loadFargateContainers(w *model.World, metrics map[string][]model.MetricValues, pjs promJobStatuses) {
+func loadFargateContainers(w *model.World, metrics map[string][]*model.MetricValues, pjs promJobStatuses) {
 	var instances map[instanceId]*model.Instance
 	for queryName := range metrics {
 		if !strings.HasPrefix(queryName, "fargate_container_") {

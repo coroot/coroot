@@ -5,7 +5,7 @@ import (
 	"github.com/coroot/coroot/timeseries"
 )
 
-func mysql(instance *model.Instance, queryName string, m model.MetricValues) {
+func mysql(instance *model.Instance, queryName string, m *model.MetricValues) {
 	if instance == nil {
 		return
 	}

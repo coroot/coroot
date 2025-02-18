@@ -31,7 +31,7 @@ const (
 )
 
 type Cache interface {
-	QueryRange(ctx context.Context, query string, from, to timeseries.Time, step timeseries.Duration, fillFunc timeseries.FillFunc) ([]model.MetricValues, error)
+	QueryRange(ctx context.Context, query string, from, to timeseries.Time, step timeseries.Duration, fillFunc timeseries.FillFunc) ([]*model.MetricValues, error)
 	GetStep(from, to timeseries.Time) (timeseries.Duration, error)
 }
 
@@ -99,7 +99,7 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 		return nil, err
 	}
 
-	var metrics map[string][]model.MetricValues
+	var metrics map[string][]*model.MetricValues
 	prof.stage("query", func() {
 		metrics, err = c.queryCache(ctx, from, to, step, rawStep, w.CheckConfigs, prof.Queries)
 	})
@@ -157,7 +157,7 @@ type cacheQuery struct {
 	fillFunc  timeseries.FillFunc
 }
 
-func (c *Constructor) queryCache(ctx context.Context, from, to timeseries.Time, step, rawStep timeseries.Duration, checkConfigs model.CheckConfigs, stats map[string]QueryStats) (map[string][]model.MetricValues, error) {
+func (c *Constructor) queryCache(ctx context.Context, from, to timeseries.Time, step, rawStep timeseries.Duration, checkConfigs model.CheckConfigs, stats map[string]QueryStats) (map[string][]*model.MetricValues, error) {
 	loadRawSLIs := !c.options[OptionDoNotLoadRawSLIs]
 	rawFrom := from
 	if t := to.Add(-model.MaxAlertRuleWindow); t.Before(rawFrom) {
@@ -222,7 +222,7 @@ func (c *Constructor) queryCache(ctx context.Context, from, to timeseries.Time, 
 		}
 	}
 
-	res := make(map[string][]model.MetricValues, len(queries))
+	res := make(map[string][]*model.MetricValues, len(queries))
 	var lock sync.Mutex
 	var lastErr error
 	wg := sync.WaitGroup{}
@@ -316,7 +316,7 @@ func (s promJobStatuses) get(ls model.Labels) *timeseries.TimeSeries {
 	return s[promJob{job: ls["job"], instance: ls["instance"]}]
 }
 
-func loadPromJobStatuses(metrics map[string][]model.MetricValues, statuses promJobStatuses) {
+func loadPromJobStatuses(metrics map[string][]*model.MetricValues, statuses promJobStatuses) {
 	for _, m := range metrics["up"] {
 		statuses[promJob{job: m.Labels["job"], instance: m.Labels["instance"]}] = m.Values
 	}
@@ -326,7 +326,7 @@ type podId struct {
 	name, ns string
 }
 
-func enrichInstances(w *model.World, metrics map[string][]model.MetricValues, rdsInstancesById map[string]*model.Instance, ecInstanceById map[string]*model.Instance) {
+func enrichInstances(w *model.World, metrics map[string][]*model.MetricValues, rdsInstancesById map[string]*model.Instance, ecInstanceById map[string]*model.Instance) {
 	instancesByListen := map[model.Listen]*model.Instance{}
 	instancesByPod := map[podId]*model.Instance{}
 	for _, app := range w.Applications {

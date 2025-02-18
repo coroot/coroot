@@ -20,7 +20,7 @@ type serviceId struct {
 	name, ns string
 }
 
-func loadKubernetesMetadata(w *model.World, metrics map[string][]model.MetricValues, servicesByClusterIP map[string]*model.Service) {
+func loadKubernetesMetadata(w *model.World, metrics map[string][]*model.MetricValues, servicesByClusterIP map[string]*model.Service) {
 	pods := podInfo(w, metrics["kube_pod_info"])
 	podLabels(metrics["kube_pod_labels"], pods)
 
@@ -58,7 +58,7 @@ func loadKubernetesMetadata(w *model.World, metrics map[string][]model.MetricVal
 	loadApplications(w, metrics)
 }
 
-func loadServices(metrics map[string][]model.MetricValues) map[serviceId]*model.Service {
+func loadServices(metrics map[string][]*model.MetricValues) map[serviceId]*model.Service {
 	services := map[serviceId]*model.Service{}
 	for _, m := range metrics["kube_service_info"] {
 		name := m.Labels["service"]
@@ -100,7 +100,7 @@ func loadServices(metrics map[string][]model.MetricValues) map[serviceId]*model.
 	return services
 }
 
-func loadApplications(w *model.World, metrics map[string][]model.MetricValues) {
+func loadApplications(w *model.World, metrics map[string][]*model.MetricValues) {
 	for queryName := range metrics {
 		var (
 			kind      model.ApplicationKind
@@ -132,7 +132,7 @@ func loadApplications(w *model.World, metrics map[string][]model.MetricValues) {
 	}
 }
 
-func podInfo(w *model.World, metrics []model.MetricValues) map[string]*model.Instance {
+func podInfo(w *model.World, metrics []*model.MetricValues) map[string]*model.Instance {
 	pods := map[string]*model.Instance{}
 	podOwners := map[podId]model.ApplicationId{}
 	var podsOwnedByPods []*model.Instance
@@ -209,7 +209,7 @@ func podInfo(w *model.World, metrics []model.MetricValues) map[string]*model.Ins
 	return pods
 }
 
-func podLabels(metrics []model.MetricValues, pods map[string]*model.Instance) {
+func podLabels(metrics []*model.MetricValues, pods map[string]*model.Instance) {
 	for _, m := range metrics {
 		uid := m.Labels["uid"]
 		if uid == "" {
@@ -276,7 +276,7 @@ func podLabels(metrics []model.MetricValues, pods map[string]*model.Instance) {
 	}
 }
 
-func podStatus(queryName string, metrics []model.MetricValues, pods map[string]*model.Instance) {
+func podStatus(queryName string, metrics []*model.MetricValues, pods map[string]*model.Instance) {
 	for _, m := range metrics {
 		uid := m.Labels["uid"]
 		if uid == "" {
@@ -308,7 +308,7 @@ func podStatus(queryName string, metrics []model.MetricValues, pods map[string]*
 	}
 }
 
-func podContainer(queryName string, metrics []model.MetricValues, pods map[string]*model.Instance) {
+func podContainer(queryName string, metrics []*model.MetricValues, pods map[string]*model.Instance) {
 	for _, m := range metrics {
 		uid := m.Labels["uid"]
 		if uid == "" {

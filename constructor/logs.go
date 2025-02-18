@@ -10,7 +10,7 @@ import (
 	"k8s.io/klog"
 )
 
-func logMessage(instance *model.Instance, metric model.MetricValues, pjs promJobStatuses) {
+func logMessage(instance *model.Instance, metric *model.MetricValues, pjs promJobStatuses) {
 	level := model.LogLevel(metric.Labels["level"])
 	msgs := instance.Owner.LogMessages[level]
 	if msgs == nil {
@@ -57,7 +57,7 @@ func logMessage(instance *model.Instance, metric model.MetricValues, pjs promJob
 	}
 }
 
-func (c *Constructor) loadContainerLogs(metrics map[string][]model.MetricValues, containers containerCache, pjs promJobStatuses) {
+func (c *Constructor) loadContainerLogs(metrics map[string][]*model.MetricValues, containers containerCache, pjs promJobStatuses) {
 	for _, metric := range metrics["container_log_messages"] {
 		v := containers[metric.NodeContainerId]
 		if v.instance == nil {
@@ -67,7 +67,7 @@ func (c *Constructor) loadContainerLogs(metrics map[string][]model.MetricValues,
 	}
 }
 
-func (c *Constructor) loadApplicationLogs(w *model.World, metrics map[string][]model.MetricValues) {
+func (c *Constructor) loadApplicationLogs(w *model.World, metrics map[string][]*model.MetricValues) {
 	for _, metric := range metrics[qRecordingRuleApplicationLogMessages] {
 		appId, err := model.NewApplicationIdFromString(metric.Labels["application"])
 		if err != nil {

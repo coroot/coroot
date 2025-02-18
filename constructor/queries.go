@@ -236,10 +236,10 @@ var QUERIES = map[string]string{
 	"container_python_thread_lock_wait_time_seconds": `rate(container_python_thread_lock_wait_time_seconds[$RANGE])`,
 }
 
-var RecordingRules = map[string]func(p *db.Project, w *model.World) []model.MetricValues{
+var RecordingRules = map[string]func(p *db.Project, w *model.World) []*model.MetricValues{
 
-	qRecordingRuleInboundRequestsTotal: func(p *db.Project, w *model.World) []model.MetricValues {
-		var res []model.MetricValues
+	qRecordingRuleInboundRequestsTotal: func(p *db.Project, w *model.World) []*model.MetricValues {
+		var res []*model.MetricValues
 		for _, app := range w.Applications {
 			byClient := app.GetClientsConnections()
 			if len(byClient) == 0 {
@@ -268,15 +268,15 @@ var RecordingRules = map[string]func(p *db.Project, w *model.World) []model.Metr
 				ts := agg.Get()
 				if !ts.IsEmpty() {
 					ls := model.Labels{"application": appId, "status": status}
-					res = append(res, model.MetricValues{Labels: ls, LabelsHash: promModel.LabelsToSignature(ls), Values: ts})
+					res = append(res, &model.MetricValues{Labels: ls, LabelsHash: promModel.LabelsToSignature(ls), Values: ts})
 				}
 			}
 		}
 		return res
 	},
 
-	qRecordingRuleInboundRequestsHistogram: func(p *db.Project, w *model.World) []model.MetricValues {
-		var res []model.MetricValues
+	qRecordingRuleInboundRequestsHistogram: func(p *db.Project, w *model.World) []*model.MetricValues {
+		var res []*model.MetricValues
 		for _, app := range w.Applications {
 			byClient := app.GetClientsConnections()
 			if len(byClient) == 0 {
@@ -307,21 +307,21 @@ var RecordingRules = map[string]func(p *db.Project, w *model.World) []model.Metr
 				ts := agg.Get()
 				if !ts.IsEmpty() {
 					ls := model.Labels{"application": appId, "le": fmt.Sprintf("%f", le)}
-					res = append(res, model.MetricValues{Labels: ls, LabelsHash: promModel.LabelsToSignature(ls), Values: ts})
+					res = append(res, &model.MetricValues{Labels: ls, LabelsHash: promModel.LabelsToSignature(ls), Values: ts})
 				}
 			}
 		}
 		return res
 	},
-	qRecordingRuleApplicationLogMessages: func(p *db.Project, w *model.World) []model.MetricValues {
-		var res []model.MetricValues
+	qRecordingRuleApplicationLogMessages: func(p *db.Project, w *model.World) []*model.MetricValues {
+		var res []*model.MetricValues
 		for _, app := range w.Applications {
 			appId := app.Id.String()
 			for level, msgs := range app.LogMessages {
 				if len(msgs.Patterns) == 0 {
 					if msgs.Messages.Reduce(timeseries.NanSum) > 0 {
 						ls := model.Labels{"application": appId, "level": string(level)}
-						res = append(res, model.MetricValues{Labels: ls, LabelsHash: promModel.LabelsToSignature(ls), Values: msgs.Messages})
+						res = append(res, &model.MetricValues{Labels: ls, LabelsHash: promModel.LabelsToSignature(ls), Values: msgs.Messages})
 					}
 				} else {
 					for _, pattern := range msgs.Patterns {
@@ -331,7 +331,7 @@ var RecordingRules = map[string]func(p *db.Project, w *model.World) []model.Metr
 							ls["similar"] = strings.Join(pattern.SimilarPatternHashes.Items(), " ")
 							ls["sample"] = pattern.Sample
 							ls["words"] = pattern.Pattern.String()
-							res = append(res, model.MetricValues{Labels: ls, LabelsHash: promModel.LabelsToSignature(ls), Values: pattern.Messages})
+							res = append(res, &model.MetricValues{Labels: ls, LabelsHash: promModel.LabelsToSignature(ls), Values: pattern.Messages})
 						}
 					}
 				}

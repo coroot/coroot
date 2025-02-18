@@ -10,7 +10,7 @@ import (
 	"github.com/coroot/coroot/timeseries"
 )
 
-func initNodesList(w *model.World, metrics map[string][]model.MetricValues, nodesByID map[model.NodeId]*model.Node) {
+func initNodesList(w *model.World, metrics map[string][]*model.MetricValues, nodesByID map[model.NodeId]*model.Node) {
 	nodesBySystemUUID := map[string]*model.Node{}
 	for _, m := range metrics["node_info"] {
 		name := m.Labels["hostname"]
@@ -51,7 +51,7 @@ func initNodesList(w *model.World, metrics map[string][]model.MetricValues, node
 	}
 }
 
-func (c *Constructor) loadNodes(w *model.World, metrics map[string][]model.MetricValues, nodesByID map[model.NodeId]*model.Node) {
+func (c *Constructor) loadNodes(w *model.World, metrics map[string][]*model.MetricValues, nodesByID map[model.NodeId]*model.Node) {
 	initNodesList(w, metrics, nodesByID)
 
 	for queryName := range metrics {
@@ -124,7 +124,7 @@ func (c *Constructor) loadNodes(w *model.World, metrics map[string][]model.Metri
 	}
 }
 
-func nodeDisk(node *model.Node, queryName string, m model.MetricValues) {
+func nodeDisk(node *model.Node, queryName string, m *model.MetricValues) {
 	device := m.Labels["device"]
 	stat := node.Disks[device]
 	if stat == nil {
@@ -151,7 +151,7 @@ func nodeDisk(node *model.Node, queryName string, m model.MetricValues) {
 	}
 }
 
-func nodeInterface(node *model.Node, queryName string, m model.MetricValues) {
+func nodeInterface(node *model.Node, queryName string, m *model.MetricValues) {
 	name := m.Labels["interface"]
 	var stat *model.InterfaceStats
 	for _, s := range node.NetInterfaces {

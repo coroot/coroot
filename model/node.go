@@ -40,7 +40,7 @@ func NewNodeId(machineID, systemUUID string) NodeId {
 	return NodeId{MachineID: machineID, SystemUUID: systemUUID}
 }
 
-func NewNodeIdFromLabels(mv MetricValues) NodeId {
+func NewNodeIdFromLabels(mv *MetricValues) NodeId {
 	machineID := mv.MachineID
 	systemUUID := mv.SystemUUID
 	if systemUUID == "" {

@@ -5,7 +5,7 @@ import (
 	"github.com/coroot/coroot/timeseries"
 )
 
-func memcached(instance *model.Instance, queryName string, m model.MetricValues) {
+func memcached(instance *model.Instance, queryName string, m *model.MetricValues) {
 	if instance == nil {
 		return
 	}

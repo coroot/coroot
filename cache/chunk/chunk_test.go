@@ -25,12 +25,12 @@ func TestChunk(t *testing.T) {
 
 	nan := timeseries.NaN
 	data := []float32{nan, 1, nan, nan, 2, nan, nan, nan, 3, nan}
-	err = Write(f1, 0, 10, 30, false, []model.MetricValues{
+	err = Write(f1, 0, 10, 30, false, []*model.MetricValues{
 		{Labels: model.Labels{"a": "bb"}, LabelsHash: 111, Values: timeseries.NewWithData(0, 30, data)},
 		{Labels: model.Labels{"a": "dddd"}, LabelsHash: 333, Values: timeseries.NewWithData(0, 30, data)},
 	})
 	require.NoError(t, err)
-	err = Write(f2, 300, 10, 30, false, []model.MetricValues{
+	err = Write(f2, 300, 10, 30, false, []*model.MetricValues{
 		{Labels: model.Labels{"a": "bb"}, LabelsHash: 111, Values: timeseries.NewWithData(300, 30, data)},
 		{Labels: model.Labels{"a": "ccc"}, LabelsHash: 222, Values: timeseries.NewWithData(300, 30, data)},
 		{Labels: model.Labels{"a": "dddd"}, LabelsHash: 333, Values: timeseries.NewWithData(300, 30, data)},
@@ -44,7 +44,7 @@ func TestChunk(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, Meta{Path: chunk2, From: 300, PointsCount: 10, Step: 30, Finalized: false, Created: meta2.Created}, *meta2)
 
-	res := map[uint64]model.MetricValues{}
+	res := map[uint64]*model.MetricValues{}
 	require.NoError(t, Read(chunk1, 60, 10, 30, res, timeseries.FillAny))
 	require.NoError(t, Read(chunk2, 60, 10, 30, res, timeseries.FillAny))
 

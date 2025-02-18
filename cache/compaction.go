@@ -116,7 +116,7 @@ func (c *Cache) compact(t CompactionTask) error {
 		return fmt.Errorf("no src chunks")
 	}
 	start := time.Now()
-	metrics := map[uint64]model.MetricValues{}
+	metrics := map[uint64]*model.MetricValues{}
 	sort.Slice(t.src, func(i, j int) bool {
 		return t.src[i].From < t.src[j].From
 	})
@@ -133,7 +133,7 @@ func (c *Cache) compact(t CompactionTask) error {
 		}
 	}
 
-	dst := make([]model.MetricValues, 0, len(metrics))
+	dst := make([]*model.MetricValues, 0, len(metrics))
 	for _, m := range metrics {
 		dst = append(dst, m)
 	}
