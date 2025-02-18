@@ -104,7 +104,7 @@ func (c *Client) GetStep(from, to timeseries.Time) (timeseries.Duration, error) 
 	return c.config.Step, nil
 }
 
-func (c *Client) QueryRange(ctx context.Context, query string, from, to timeseries.Time, step timeseries.Duration) ([]model.MetricValues, error) {
+func (c *Client) QueryRange(ctx context.Context, query string, from, to timeseries.Time, step timeseries.Duration) ([]*model.MetricValues, error) {
 	query = strings.ReplaceAll(query, "$RANGE", fmt.Sprintf(`%.0fs`, (step*3).ToStandard().Seconds()))
 	var err error
 	query, err = addExtraSelector(query, c.config.ExtraSelector)
@@ -148,7 +148,7 @@ func (c *Client) QueryRange(ctx context.Context, query string, from, to timeseri
 		return nil, err
 	}
 
-	var res []model.MetricValues
+	var res []*model.MetricValues
 	f := func(value []byte, dataType jsonparser.ValueType, offset int, err error) {
 		mv := model.MetricValues{
 			Labels: map[string]string{},
@@ -207,7 +207,7 @@ func (c *Client) QueryRange(ctx context.Context, query string, from, to timeseri
 		if err != nil {
 			return
 		}
-		res = append(res, mv)
+		res = append(res, &mv)
 	}
 	if _, err := jsonparser.ArrayEach(buf.Bytes(), f, "data", "result"); err != nil {
 		return nil, err

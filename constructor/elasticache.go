@@ -7,7 +7,7 @@ import (
 	"github.com/coroot/coroot/timeseries"
 )
 
-func loadElasticacheMetadata(w *model.World, metrics map[string][]model.MetricValues, pjs promJobStatuses, ecInstancesById map[string]*model.Instance) {
+func loadElasticacheMetadata(w *model.World, metrics map[string][]*model.MetricValues, pjs promJobStatuses, ecInstancesById map[string]*model.Instance) {
 	for _, m := range metrics["aws_elasticache_info"] {
 		ecId := m.Labels["ec_instance_id"]
 		if ecId == "" {
@@ -43,7 +43,7 @@ func loadElasticacheMetadata(w *model.World, metrics map[string][]model.MetricVa
 	}
 }
 
-func (c *Constructor) loadElasticache(w *model.World, metrics map[string][]model.MetricValues, pjs promJobStatuses, ecInstancesById map[string]*model.Instance) {
+func (c *Constructor) loadElasticache(w *model.World, metrics map[string][]*model.MetricValues, pjs promJobStatuses, ecInstancesById map[string]*model.Instance) {
 	for queryName := range QUERIES {
 		if !strings.HasPrefix(queryName, "aws_elasticache_") || queryName == "aws_elasticache_info" {
 			continue

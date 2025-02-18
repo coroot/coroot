@@ -7,7 +7,7 @@ import (
 	"github.com/coroot/coroot/timeseries"
 )
 
-func mongodb(instance *model.Instance, queryName string, m model.MetricValues) {
+func mongodb(instance *model.Instance, queryName string, m *model.MetricValues) {
 	if instance == nil {
 		return
 	}

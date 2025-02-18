@@ -96,7 +96,7 @@ type containerCache map[model.NodeContainerId]struct {
 	container *model.Container
 }
 
-func (c *Constructor) loadContainers(w *model.World, metrics map[string][]model.MetricValues, pjs promJobStatuses, nodesByID map[model.NodeId]*model.Node, containers containerCache, servicesByClusterIP map[string]*model.Service, ip2fqdn map[string]*utils.StringSet) {
+func (c *Constructor) loadContainers(w *model.World, metrics map[string][]*model.MetricValues, pjs promJobStatuses, nodesByID map[model.NodeId]*model.Node, containers containerCache, servicesByClusterIP map[string]*model.Service, ip2fqdn map[string]*utils.StringSet) {
 	instances := map[instanceId]*model.Instance{}
 	for _, a := range w.Applications {
 		for _, i := range a.Instances {
@@ -110,7 +110,7 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]model.
 
 	rttByInstance := map[instanceId]map[string]*timeseries.TimeSeries{}
 
-	loadContainer := func(queryName string, f func(instance *model.Instance, container *model.Container, metric model.MetricValues)) {
+	loadContainer := func(queryName string, f func(instance *model.Instance, container *model.Container, metric *model.MetricValues)) {
 		ms := metrics[queryName]
 		for _, m := range ms {
 			v, ok := containers[m.NodeContainerId]
@@ -126,7 +126,7 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]model.
 		}
 	}
 
-	loadContainer("container_info", func(instance *model.Instance, container *model.Container, metric model.MetricValues) {
+	loadContainer("container_info", func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
 		if image := metric.Labels["image"]; image != "" {
 			container.Image = image
 		}
@@ -134,41 +134,41 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]model.
 			container.PeriodicSystemdJob = true
 		}
 	})
-	loadContainer("container_application_type", func(instance *model.Instance, container *model.Container, metric model.MetricValues) {
+	loadContainer("container_application_type", func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
 		container.ApplicationTypes[model.ApplicationType(metric.Labels["application_type"])] = true
 	})
 
-	loadContainer("container_cpu_limit", func(instance *model.Instance, container *model.Container, metric model.MetricValues) {
+	loadContainer("container_cpu_limit", func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
 		container.CpuLimit = merge(container.CpuLimit, metric.Values, timeseries.Any)
 	})
-	loadContainer("container_cpu_usage", func(instance *model.Instance, container *model.Container, metric model.MetricValues) {
+	loadContainer("container_cpu_usage", func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
 		container.CpuUsage = merge(container.CpuUsage, metric.Values, timeseries.Any)
 	})
-	loadContainer("container_cpu_delay", func(instance *model.Instance, container *model.Container, metric model.MetricValues) {
+	loadContainer("container_cpu_delay", func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
 		container.CpuDelay = merge(container.CpuDelay, metric.Values, timeseries.Any)
 	})
-	loadContainer("container_throttled_time", func(instance *model.Instance, container *model.Container, metric model.MetricValues) {
+	loadContainer("container_throttled_time", func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
 		container.ThrottledTime = merge(container.ThrottledTime, metric.Values, timeseries.Any)
 	})
-	loadContainer("container_memory_rss", func(instance *model.Instance, container *model.Container, metric model.MetricValues) {
+	loadContainer("container_memory_rss", func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
 		container.MemoryRss = merge(container.MemoryRss, metric.Values, timeseries.Any)
 	})
-	loadContainer("container_memory_rss_for_trend", func(instance *model.Instance, container *model.Container, metric model.MetricValues) {
+	loadContainer("container_memory_rss_for_trend", func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
 		container.MemoryRssForTrend = merge(container.MemoryRssForTrend, metric.Values, timeseries.Any)
 	})
-	loadContainer("container_memory_cache", func(instance *model.Instance, container *model.Container, metric model.MetricValues) {
+	loadContainer("container_memory_cache", func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
 		container.MemoryCache = merge(container.MemoryCache, metric.Values, timeseries.Any)
 	})
-	loadContainer("container_memory_limit", func(instance *model.Instance, container *model.Container, metric model.MetricValues) {
+	loadContainer("container_memory_limit", func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
 		container.MemoryLimit = merge(container.MemoryLimit, metric.Values, timeseries.Any)
 	})
-	loadContainer("container_oom_kills_total", func(instance *model.Instance, container *model.Container, metric model.MetricValues) {
+	loadContainer("container_oom_kills_total", func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
 		container.OOMKills = merge(container.OOMKills, timeseries.Increase(metric.Values, pjs.get(metric.Labels)), timeseries.Any)
 	})
-	loadContainer("container_restarts", func(instance *model.Instance, container *model.Container, metric model.MetricValues) {
+	loadContainer("container_restarts", func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
 		container.Restarts = merge(container.Restarts, timeseries.Increase(metric.Values, pjs.get(metric.Labels)), timeseries.Any)
 	})
-	loadContainer("container_net_latency", func(instance *model.Instance, container *model.Container, metric model.MetricValues) {
+	loadContainer("container_net_latency", func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
 		id := instanceId{ns: instance.Owner.Id.Namespace, name: instance.Name, node: instance.NodeId()}
 		rtts := rttByInstance[id]
 		if rtts == nil {
@@ -177,7 +177,7 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]model.
 		rtts[metric.Destination] = merge(rtts[metric.Destination], metric.Values, timeseries.Any)
 		rttByInstance[id] = rtts
 	})
-	loadContainer("container_net_tcp_listen_info", func(instance *model.Instance, container *model.Container, metric model.MetricValues) {
+	loadContainer("container_net_tcp_listen_info", func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
 		ip, port, err := net.SplitHostPort(metric.Labels["listen_addr"])
 		if err != nil {
 			klog.Warningf("failed to split %s to ip:port pair: %s", metric.Labels["listen_addr"], err)
@@ -190,38 +190,38 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]model.
 		}
 	})
 
-	loadConnection := func(queryName string, f func(connection *model.Connection, metric model.MetricValues)) {
-		loadContainer(queryName, func(instance *model.Instance, container *model.Container, metric model.MetricValues) {
+	loadConnection := func(queryName string, f func(connection *model.Connection, metric *model.MetricValues)) {
+		loadContainer(queryName, func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
 			conn := getOrCreateConnection(instance, container.Name, metric)
 			if conn != nil {
 				f(conn, metric)
 			}
 		})
 	}
-	loadConnection("container_net_tcp_successful_connects", func(connection *model.Connection, metric model.MetricValues) {
+	loadConnection("container_net_tcp_successful_connects", func(connection *model.Connection, metric *model.MetricValues) {
 		connection.SuccessfulConnections = merge(connection.SuccessfulConnections, metric.Values, timeseries.Any)
 	})
-	loadConnection("container_net_tcp_connection_time_seconds", func(connection *model.Connection, metric model.MetricValues) {
+	loadConnection("container_net_tcp_connection_time_seconds", func(connection *model.Connection, metric *model.MetricValues) {
 		connection.ConnectionTime = merge(connection.ConnectionTime, metric.Values, timeseries.Any)
 	})
-	loadConnection("container_net_tcp_bytes_sent", func(connection *model.Connection, metric model.MetricValues) {
+	loadConnection("container_net_tcp_bytes_sent", func(connection *model.Connection, metric *model.MetricValues) {
 		connection.BytesSent = merge(connection.BytesSent, metric.Values, timeseries.Any)
 	})
-	loadConnection("container_net_tcp_bytes_received", func(connection *model.Connection, metric model.MetricValues) {
+	loadConnection("container_net_tcp_bytes_received", func(connection *model.Connection, metric *model.MetricValues) {
 		connection.BytesReceived = merge(connection.BytesReceived, metric.Values, timeseries.Any)
 	})
-	loadConnection("container_net_tcp_failed_connects", func(connection *model.Connection, metric model.MetricValues) {
+	loadConnection("container_net_tcp_failed_connects", func(connection *model.Connection, metric *model.MetricValues) {
 		connection.FailedConnections = merge(connection.FailedConnections, metric.Values, timeseries.Any)
 	})
-	loadConnection("container_net_tcp_active_connections", func(connection *model.Connection, metric model.MetricValues) {
+	loadConnection("container_net_tcp_active_connections", func(connection *model.Connection, metric *model.MetricValues) {
 		connection.Active = merge(connection.Active, metric.Values, timeseries.Any)
 	})
-	loadConnection("container_net_tcp_retransmits", func(connection *model.Connection, metric model.MetricValues) {
+	loadConnection("container_net_tcp_retransmits", func(connection *model.Connection, metric *model.MetricValues) {
 		connection.Retransmissions = merge(connection.Retransmissions, metric.Values, timeseries.Any)
 	})
 
 	loadL7RequestsCount := func(queryName string, protocol model.Protocol) {
-		loadConnection(queryName, func(connection *model.Connection, metric model.MetricValues) {
+		loadConnection(queryName, func(connection *model.Connection, metric *model.MetricValues) {
 			switch protocol {
 			case model.ProtocolRabbitmq, model.ProtocolNats:
 				protocol += model.Protocol("-" + metric.Labels["method"])
@@ -247,7 +247,7 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]model.
 	loadL7RequestsCount("container_zookeeper_requests_count", model.ProtocolZookeeper)
 
 	loadL7RequestsLatency := func(queryName string, protocol model.Protocol) {
-		loadConnection(queryName, func(connection *model.Connection, metric model.MetricValues) {
+		loadConnection(queryName, func(connection *model.Connection, metric *model.MetricValues) {
 			connection.RequestsLatency[protocol] = merge(connection.RequestsLatency[protocol], metric.Values, timeseries.Any)
 		})
 	}
@@ -263,7 +263,7 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]model.
 	loadL7RequestsLatency("container_zookeeper_requests_latency", model.ProtocolZookeeper)
 
 	loadL7RequestsHistogram := func(queryName string, protocol model.Protocol) {
-		loadConnection(queryName, func(connection *model.Connection, metric model.MetricValues) {
+		loadConnection(queryName, func(connection *model.Connection, metric *model.MetricValues) {
 			le, err := strconv.ParseFloat(metric.Labels["le"], 32)
 			if err != nil {
 				klog.Warningln(err)
@@ -286,7 +286,7 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]model.
 	loadL7RequestsHistogram("container_clickhouse_queries_histogram", model.ProtocolClickhouse)
 	loadL7RequestsHistogram("container_zookeeper_requests_histogram", model.ProtocolZookeeper)
 
-	loadContainer("container_dns_requests_total", func(instance *model.Instance, container *model.Container, metric model.MetricValues) {
+	loadContainer("container_dns_requests_total", func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
 		r := model.DNSRequest{
 			Type:   metric.Labels["request_type"],
 			Domain: metric.Labels["domain"],
@@ -302,7 +302,7 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]model.
 		}
 		byStatus[status] = merge(byStatus[status], metric.Values, timeseries.Any)
 	})
-	loadContainer("container_dns_requests_latency", func(instance *model.Instance, container *model.Container, metric model.MetricValues) {
+	loadContainer("container_dns_requests_latency", func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
 		le, err := strconv.ParseFloat(metric.Labels["le"], 32)
 		if err != nil {
 			klog.Warningln(err)
@@ -311,16 +311,16 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]model.
 		container.DNSRequestsHistogram[float32(le)] = merge(container.DNSRequestsHistogram[float32(le)], metric.Values, timeseries.Any)
 	})
 
-	loadVolume := func(queryName string, f func(volume *model.Volume, metric model.MetricValues)) {
-		loadContainer(queryName, func(instance *model.Instance, container *model.Container, metric model.MetricValues) {
+	loadVolume := func(queryName string, f func(volume *model.Volume, metric *model.MetricValues)) {
+		loadContainer(queryName, func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
 			v := getOrCreateInstanceVolume(instance, metric)
 			f(v, metric)
 		})
 	}
-	loadVolume("container_volume_size", func(volume *model.Volume, metric model.MetricValues) {
+	loadVolume("container_volume_size", func(volume *model.Volume, metric *model.MetricValues) {
 		volume.CapacityBytes = merge(volume.CapacityBytes, metric.Values, timeseries.Any)
 	})
-	loadVolume("container_volume_used", func(volume *model.Volume, metric model.MetricValues) {
+	loadVolume("container_volume_used", func(volume *model.Volume, metric *model.MetricValues) {
 		volume.UsedBytes = merge(volume.UsedBytes, metric.Values, timeseries.Any)
 	})
 
@@ -427,7 +427,7 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]model.
 	}
 }
 
-func getOrCreateConnection(instance *model.Instance, container string, m model.MetricValues) *model.Connection {
+func getOrCreateConnection(instance *model.Instance, container string, m *model.MetricValues) *model.Connection {
 	if instance.Owner.Id.Name == "docker" { // ignore docker-proxy's connections
 		return nil
 	}
@@ -465,7 +465,7 @@ func getOrCreateConnection(instance *model.Instance, container string, m model.M
 	return connection
 }
 
-func getOrCreateInstanceVolume(instance *model.Instance, m model.MetricValues) *model.Volume {
+func getOrCreateInstanceVolume(instance *model.Instance, m *model.MetricValues) *model.Volume {
 	var volume *model.Volume
 	for _, v := range instance.Volumes {
 		if v.MountPoint == m.Labels["mount_point"] {

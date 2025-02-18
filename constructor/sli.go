@@ -10,7 +10,7 @@ import (
 	"k8s.io/klog"
 )
 
-func (c *Constructor) loadSLIs(w *model.World, metrics map[string][]model.MetricValues) {
+func (c *Constructor) loadSLIs(w *model.World, metrics map[string][]*model.MetricValues) {
 	builtinAvailabilityRaw := builtinAvailability(metrics[qRecordingRuleInboundRequestsTotal+"_raw"])
 	builtinLatencyRaw := builtinLatency(metrics[qRecordingRuleInboundRequestsHistogram+"_raw"])
 
@@ -57,7 +57,7 @@ func (c *Constructor) loadSLIs(w *model.World, metrics map[string][]model.Metric
 	}
 }
 
-func loadCustomSLIs(metrics map[string][]model.MetricValues,
+func loadCustomSLIs(metrics map[string][]*model.MetricValues,
 	availabilityRaw map[model.ApplicationId]availabilitySlis,
 	latencyRaw map[model.ApplicationId][]model.HistogramBucket,
 ) {
@@ -90,7 +90,7 @@ type availabilitySlis struct {
 	failed *timeseries.TimeSeries
 }
 
-func builtinAvailability(values []model.MetricValues) map[model.ApplicationId]availabilitySlis {
+func builtinAvailability(values []*model.MetricValues) map[model.ApplicationId]availabilitySlis {
 	if len(values) == 0 {
 		return nil
 	}
@@ -122,12 +122,12 @@ func builtinAvailability(values []model.MetricValues) map[model.ApplicationId]av
 	return res
 }
 
-func builtinLatency(values []model.MetricValues) map[model.ApplicationId][]model.HistogramBucket {
+func builtinLatency(values []*model.MetricValues) map[model.ApplicationId][]model.HistogramBucket {
 	if len(values) == 0 {
 		return nil
 	}
 
-	byApp := map[model.ApplicationId][]model.MetricValues{}
+	byApp := map[model.ApplicationId][]*model.MetricValues{}
 	for _, mv := range values {
 		appId, err := model.NewApplicationIdFromString(mv.Labels["application"])
 		if err != nil {
@@ -144,7 +144,7 @@ func builtinLatency(values []model.MetricValues) map[model.ApplicationId][]model
 	return res
 }
 
-func histogramBuckets(values []model.MetricValues) []model.HistogramBucket {
+func histogramBuckets(values []*model.MetricValues) []model.HistogramBucket {
 	buckets := make([]model.HistogramBucket, 0, len(values))
 	for _, m := range values {
 		le, err := strconv.ParseFloat(m.Labels["le"], 64)

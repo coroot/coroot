@@ -7,7 +7,7 @@ import (
 	"github.com/coroot/coroot/timeseries"
 )
 
-func loadRdsMetadata(w *model.World, metrics map[string][]model.MetricValues, pjs promJobStatuses, rdsInstancesById map[string]*model.Instance) {
+func loadRdsMetadata(w *model.World, metrics map[string][]*model.MetricValues, pjs promJobStatuses, rdsInstancesById map[string]*model.Instance) {
 	for _, m := range metrics["aws_rds_info"] {
 		rdsId := m.Labels["rds_instance_id"]
 		if rdsId == "" {
@@ -54,7 +54,7 @@ func loadRdsMetadata(w *model.World, metrics map[string][]model.MetricValues, pj
 	}
 }
 
-func (c *Constructor) loadRds(w *model.World, metrics map[string][]model.MetricValues, pjs promJobStatuses, rdsInstancesById map[string]*model.Instance) {
+func (c *Constructor) loadRds(w *model.World, metrics map[string][]*model.MetricValues, pjs promJobStatuses, rdsInstancesById map[string]*model.Instance) {
 	for queryName := range QUERIES {
 		if !strings.HasPrefix(queryName, "aws_rds_") || queryName == "aws_rds_info" {
 			continue

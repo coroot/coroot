@@ -59,7 +59,7 @@ type header struct {
 
 const headerSize = 26
 
-func Write(f io.Writer, from timeseries.Time, pointsCount int, step timeseries.Duration, finalized bool, metrics []model.MetricValues) error {
+func Write(f io.Writer, from timeseries.Time, pointsCount int, step timeseries.Duration, finalized bool, metrics []*model.MetricValues) error {
 	var err error
 	h := header{
 		Version:                V3,
@@ -148,7 +148,7 @@ func ReadMeta(path string) (*Meta, error) {
 	}, err
 }
 
-func Read(path string, from timeseries.Time, pointsCount int, step timeseries.Duration, dest map[uint64]model.MetricValues, fillFunc timeseries.FillFunc) error {
+func Read(path string, from timeseries.Time, pointsCount int, step timeseries.Duration, dest map[uint64]*model.MetricValues, fillFunc timeseries.FillFunc) error {
 	f, err := os.Open(path)
 	if err != nil {
 		return err
@@ -168,7 +168,7 @@ func Read(path string, from timeseries.Time, pointsCount int, step timeseries.Du
 	}
 }
 
-func readV3(reader io.Reader, header *header, from timeseries.Time, pointsCount int, step timeseries.Duration, dest map[uint64]model.MetricValues, fillFunc timeseries.FillFunc) error {
+func readV3(reader io.Reader, header *header, from timeseries.Time, pointsCount int, step timeseries.Duration, dest map[uint64]*model.MetricValues, fillFunc timeseries.FillFunc) error {
 	r := lz4.NewDecompressReader(reader)
 	defer r.Close()
 	buf := make([]byte, metricMetaSize+4*header.PointsCount)
@@ -185,8 +185,10 @@ func readV3(reader io.Reader, header *header, from timeseries.Time, pointsCount 
 			MetaSize:   binary.LittleEndian.Uint32(buf[12:]),
 		}
 		mv, ok := dest[m.Hash]
-		if !ok {
-			mv.Values = timeseries.New(from, pointsCount, step)
+		if mv == nil {
+			mv = &model.MetricValues{
+				Values: timeseries.New(from, pointsCount, step),
+			}
 			labelsToRead = append(labelsToRead, &m)
 			if m.MetaSize > maxLabelSize {
 				maxLabelSize = m.MetaSize
@@ -217,7 +219,7 @@ func readV3(reader io.Reader, header *header, from timeseries.Time, pointsCount 
 			offset = m.MetaOffset + m.MetaSize
 			mv.LabelsHash = m.Hash
 			mv.Labels = make(model.Labels)
-			readLabels(buf[:m.MetaSize], &mv)
+			readLabels(buf[:m.MetaSize], mv)
 			dest[m.Hash] = mv
 		}
 	}
@@ -233,7 +235,7 @@ var (
 	actualDestination = []byte("actual_destination")
 )
 
-func metadataSize(mv model.MetricValues) int {
+func metadataSize(mv *model.MetricValues) int {
 	s := 0
 	if mv.MachineID != "" {
 		s += len(machineId) + len(mv.MachineID) + 2
@@ -260,28 +262,46 @@ func metadataSize(mv model.MetricValues) int {
 	return s
 }
 
-func writeLabels(dst io.Writer, mv model.MetricValues) error {
+func writeLabels(dst *bufio.Writer, mv *model.MetricValues) error {
 	if mv.MachineID != "" {
-		if _, err := dst.Write(append(machineId, byte(0))); err != nil {
+		if _, err := dst.Write(machineId); err != nil {
 			return err
 		}
-		if _, err := dst.Write(append([]byte(mv.MachineID), byte(0))); err != nil {
+		if err := dst.WriteByte(0); err != nil {
+			return err
+		}
+		if _, err := dst.WriteString(mv.MachineID); err != nil {
+			return err
+		}
+		if err := dst.WriteByte(0); err != nil {
 			return err
 		}
 	}
 	if mv.SystemUUID != "" {
-		if _, err := dst.Write(append(systemUuid, byte(0))); err != nil {
+		if _, err := dst.Write(systemUuid); err != nil {
 			return err
 		}
-		if _, err := dst.Write(append([]byte(mv.SystemUUID), byte(0))); err != nil {
+		if err := dst.WriteByte(0); err != nil {
+			return err
+		}
+		if _, err := dst.WriteString(mv.SystemUUID); err != nil {
+			return err
+		}
+		if err := dst.WriteByte(0); err != nil {
 			return err
 		}
 	}
 	if mv.ContainerId != "" {
-		if _, err := dst.Write(append(containerId, byte(0))); err != nil {
+		if _, err := dst.Write(containerId); err != nil {
 			return err
 		}
-		if _, err := dst.Write(append([]byte(mv.ContainerId), byte(0))); err != nil {
+		if err := dst.WriteByte(0); err != nil {
+			return err
+		}
+		if _, err := dst.WriteString(mv.ContainerId); err != nil {
+			return err
+		}
+		if err := dst.WriteByte(0); err != nil {
 			return err
 		}
 	}
@@ -290,26 +310,44 @@ func writeLabels(dst io.Writer, mv model.MetricValues) error {
 		if mv.DestIp {
 			label = destinationIP
 		}
-		if _, err := dst.Write(append(label, byte(0))); err != nil {
+		if _, err := dst.Write(label); err != nil {
 			return err
 		}
-		if _, err := dst.Write(append([]byte(mv.Destination), byte(0))); err != nil {
+		if err := dst.WriteByte(0); err != nil {
+			return err
+		}
+		if _, err := dst.WriteString(mv.Destination); err != nil {
+			return err
+		}
+		if err := dst.WriteByte(0); err != nil {
 			return err
 		}
 	}
 	if mv.ActualDestination != "" {
-		if _, err := dst.Write(append(actualDestination, byte(0))); err != nil {
+		if _, err := dst.Write(actualDestination); err != nil {
 			return err
 		}
-		if _, err := dst.Write(append([]byte(mv.ActualDestination), byte(0))); err != nil {
+		if err := dst.WriteByte(0); err != nil {
+			return err
+		}
+		if _, err := dst.WriteString(mv.ActualDestination); err != nil {
+			return err
+		}
+		if err := dst.WriteByte(0); err != nil {
 			return err
 		}
 	}
 	for k, v := range mv.Labels {
-		if _, err := dst.Write(append([]byte(k), byte(0))); err != nil {
+		if _, err := dst.WriteString(k); err != nil {
 			return err
 		}
-		if _, err := dst.Write(append([]byte(v), byte(0))); err != nil {
+		if err := dst.WriteByte(0); err != nil {
+			return err
+		}
+		if _, err := dst.WriteString(v); err != nil {
+			return err
+		}
+		if err := dst.WriteByte(0); err != nil {
 			return err
 		}
 	}
