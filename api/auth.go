@@ -215,19 +215,22 @@ func (api *Api) GetUser(r *http.Request) *db.User {
 	return user
 }
 
-func (api *Api) IsAllowed(u *db.User, action rbac.Action) bool {
+func (api *Api) IsAllowed(u *db.User, actions ...rbac.Action) bool {
 	roles, err := api.roles.GetRoles()
 	if err != nil {
 		klog.Errorln(err)
 		return false
 	}
+
 	for _, rn := range u.Roles {
 		for _, r := range roles {
 			if r.Name != rn {
 				continue
 			}
-			if r.Permissions.Allows(action) {
-				return true
+			for _, action := range actions {
+				if r.Permissions.Allows(action) {
+					return true
+				}
 			}
 		}
 	}

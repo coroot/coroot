@@ -67,9 +67,14 @@ func AWS(w *model.World) *aws.View {
 	return aws.Render(w)
 }
 
-func Users(us []*db.User, rs []rbac.Role) *users.View {
-	return users.Render(us, rs)
-}
 func Roles(rs []rbac.Role) *roles.View {
 	return roles.Render(rs)
+}
+
+func Users(us []*db.User, rs []rbac.Role) *users.Users {
+	return users.RenderUsers(us, rs)
+}
+
+func User(u *db.User, projects map[db.ProjectId]string, viewonly bool) *users.User {
+	return users.RenderUser(u, projects, viewonly)
 }

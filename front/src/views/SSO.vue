@@ -1,10 +1,13 @@
 <template>
     <div>
+        <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text class="mt-2">
+            {{ error }}
+        </v-alert>
         <v-alert v-if="disabled" color="info" outlined text>
             Single Sign-On through SAML is available only in Coroot Enterprise (from $1 per CPU core/month).
             <a href="https://coroot.com/account" target="_blank" class="font-weight-bold">Start</a> your free trial today.
         </v-alert>
-        <v-simple-table dense class="params">
+        <v-simple-table v-if="!error" dense class="params">
             <tbody>
                 <tr>
                     <td class="font-weight-medium text-no-wrap">Status</td>
@@ -63,10 +66,7 @@
                 </tr>
             </tbody>
         </v-simple-table>
-        <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text class="mt-2">
-            {{ error }}
-        </v-alert>
-        <div class="d-flex mt-2" style="gap: 8px">
+        <div v-if="!error" class="d-flex mt-2" style="gap: 8px">
             <v-btn color="primary" small :disabled="disabled || loading || !provider" @click="save">
                 Save <template v-if="!active">and Enable</template>
             </v-btn>
@@ -88,7 +88,7 @@ export default {
 
     data() {
         return {
-            disabled: true,
+            disabled: this.$coroot.edition !== 'Enterprise',
             loading: false,
             error: '',
             active: false,
@@ -114,7 +114,6 @@ export default {
                     this.error = error;
                     return;
                 }
-                this.disabled = !data.configurable;
                 this.available = data.available;
                 this.active = data.active;
                 this.default_role = data.default_role;

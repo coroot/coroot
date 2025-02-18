@@ -8,10 +8,9 @@ import (
 )
 
 type View struct {
-	Roles        []Role   `json:"roles"`
-	Actions      []Action `json:"actions"`
-	Scopes       []Scope  `json:"scopes"`
-	Configurable bool     `json:"configurable"`
+	Roles   []Role   `json:"roles"`
+	Actions []Action `json:"actions"`
+	Scopes  []Scope  `json:"scopes"`
 }
 
 type Role struct {

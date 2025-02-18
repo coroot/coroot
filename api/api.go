@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
-	"sort"
 	"time"
 
 	"github.com/coroot/coroot/api/forms"
@@ -81,38 +80,14 @@ func (api *Api) User(w http.ResponseWriter, r *http.Request, u *db.User) {
 		return
 	}
 
-	type Project struct {
-		Id   db.ProjectId `json:"id"`
-		Name string       `json:"name"`
-	}
-	type User struct {
-		Name      string        `json:"name"`
-		Email     string        `json:"email"`
-		Role      rbac.RoleName `json:"role"`
-		Anonymous bool          `json:"anonymous"`
-		Projects  []Project     `json:"projects"`
-	}
-	res := User{
-		Name:      u.Name,
-		Email:     u.Email,
-		Anonymous: u.Anonymous,
-	}
-	if len(u.Roles) > 0 {
-		res.Role = u.Roles[0]
-	}
 	projects, err := api.db.GetProjectNames()
 	if err != nil {
 		klog.Errorln("failed to get projects:", err)
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
-	for id, name := range projects {
-		res.Projects = append(res.Projects, Project{Id: id, Name: name})
-	}
-	sort.Slice(res.Projects, func(i, j int) bool {
-		return res.Projects[i].Name < res.Projects[j].Name
-	})
-	utils.WriteJson(w, res)
+	viewonly := !api.IsAllowed(u, rbac.Actions.Project("*").Settings().Edit())
+	utils.WriteJson(w, views.User(u, projects, viewonly))
 }
 
 func (api *Api) Users(w http.ResponseWriter, r *http.Request, u *db.User) {

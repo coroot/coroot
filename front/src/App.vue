@@ -14,15 +14,14 @@
                 </router-link>
 
                 <div v-if="user">
-                    <v-menu dark offset-y tile attach=".v-app-bar">
+                    <v-menu dark offset-y attach=".v-app-bar">
                         <template #activator="{ on, attrs }">
                             <v-btn v-on="on" plain outlined class="ml-3 px-2" height="40">
                                 <v-icon small class="mr-2">mdi-hexagon-multiple</v-icon>
                                 <template v-if="$vuetify.breakpoint.smAndUp">
                                     <span class="project-name">
                                         <template v-if="project">{{ project.name }}</template>
-                                        <template v-else-if="$route.params.projectId">choose a project</template>
-                                        <template v-else>new project</template>
+                                        <template v-else>choose a project</template>
                                     </span>
                                     <v-icon small class="ml-2"> mdi-chevron-{{ attrs['aria-expanded'] === 'true' ? 'up' : 'down' }} </v-icon>
                                 </template>
@@ -32,7 +31,10 @@
                             <v-list-item v-for="p in projects" :key="p.name" :to="{ name: 'overview', params: { projectId: p.id } }">
                                 {{ p.name }}
                             </v-list-item>
-                            <v-list-item :to="{ name: 'project_new' }" exact> <v-icon small>mdi-plus</v-icon> new project </v-list-item>
+                            <v-list-item v-if="!user.readonly" :to="{ name: 'project_new' }" exact>
+                                <v-icon small class="mr-1">mdi-plus</v-icon> new project
+                            </v-list-item>
+                            <v-list-item v-else-if="!projects.length"> no projects available </v-list-item>
                         </v-list>
                     </v-menu>
                 </div>
@@ -110,14 +112,7 @@
 
         <v-main>
             <v-container style="padding-bottom: 128px">
-                <v-alert
-                    v-if="status && status.status === 'warning' && $route.name !== 'project_settings'"
-                    color="red"
-                    elevation="2"
-                    border="left"
-                    class="mt-4"
-                    colored-border
-                >
+                <v-alert v-if="status && status.status === 'warning'" color="red" elevation="2" border="left" class="mt-4" colored-border>
                     <div class="d-sm-flex align-center">
                         <template v-if="status.error">
                             {{ status.error }}
@@ -152,7 +147,9 @@
                     </div>
                 </v-alert>
 
-                <router-view />
+                <Welcome v-if="$route.name === 'index' && user && !projects.length" :user="user" />
+
+                <router-view v-else />
 
                 <ChangePassword v-if="user" v-model="changePassword" />
             </v-container>
@@ -161,6 +158,7 @@
 </template>
 
 <script>
+import Welcome from '@/views/Welcome.vue';
 import TimePicker from './components/TimePicker.vue';
 import Search from './views/Search.vue';
 import Led from './components/Led.vue';
@@ -171,7 +169,7 @@ import ChangePassword from './views/auth/ChangePassword.vue';
 import './app.css';
 
 export default {
-    components: { Search, TimePicker, Led, CheckForUpdates, ThemeSelector, AgentInstallation, ChangePassword },
+    components: { Welcome, Search, TimePicker, Led, CheckForUpdates, ThemeSelector, AgentInstallation, ChangePassword },
 
     data() {
         return {
@@ -229,11 +227,7 @@ export default {
                     return;
                 }
                 this.user = data;
-                if (this.user && this.$route.name === 'index') {
-                    if (!this.projects.length) {
-                        this.$router.replace({ name: 'welcome' });
-                        return;
-                    }
+                if (this.$route.name === 'index' && this.projects.length) {
                     let id = this.projects[0].id;
                     const lastId = this.lastProject();
                     if (lastId && this.projects.find((p) => p.id === lastId)) {

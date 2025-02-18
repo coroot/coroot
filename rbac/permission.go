@@ -22,9 +22,15 @@ func (p Permission) allows(action Action) bool {
 		return false
 	}
 	for k, av := range action.Object {
-		pv := p.Object[k]
+		pv, ok := p.Object[k]
+		if !ok {
+			continue
+		}
 		if pv == "" {
-			pv = "*"
+			return false
+		}
+		if av == "*" {
+			continue
 		}
 		if !utils.GlobMatch(av, pv) {
 			return false
@@ -41,10 +47,16 @@ func (p Permission) allowsForObject(action Action) (bool, Object) {
 		return false, nil
 	}
 	object := Object{}
-	for k, v := range p.Object {
+	for k, pv := range p.Object {
+		if pv == "*" {
+			continue
+		}
 		_, ok := action.Object[k]
+		if ok && pv == "" {
+			return false, nil
+		}
 		if ok {
-			object[k] = v
+			object[k] = pv
 		}
 	}
 	if len(object) == 0 {

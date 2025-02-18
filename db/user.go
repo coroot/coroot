@@ -39,6 +39,10 @@ func (u *User) Migrate(m *Migrator) error {
 	return nil
 }
 
+func (u *User) IsDefaultAdmin() bool {
+	return u.Email == AdminUserLogin
+}
+
 func AnonymousUser(role rbac.RoleName) *User {
 	return &User{Name: AnonymousUserName, Roles: []rbac.RoleName{role}, Anonymous: true}
 }
@@ -81,7 +85,7 @@ func (db *DB) DefaultAdminUserIsTheOnlyUser() (*User, error) {
 			return nil, err
 		}
 	}
-	if u.Email != AdminUserLogin {
+	if !u.IsDefaultAdmin() {
 		return nil, nil
 	}
 	if bcrypt.CompareHashAndPassword([]byte(hash), []byte(AdminUserDefaultPassword)) != nil {

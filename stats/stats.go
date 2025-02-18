@@ -448,6 +448,9 @@ func corootComponents(components []*model.Application) []*Component {
 		aa := &Component{Id: a.Id}
 		res = append(res, aa)
 		for _, i := range a.Instances {
+			if i.IsObsolete() {
+				continue
+			}
 			ii := &Instance{Containers: map[string]*Container{}}
 			aa.Instances = append(aa.Instances, ii)
 			for _, c := range i.Containers {
