@@ -12,6 +12,7 @@ import (
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
+	"golang.org/x/exp/maps"
 	"k8s.io/klog"
 )
 
@@ -116,7 +117,7 @@ func (c *Cache) compact(t CompactionTask) error {
 		return fmt.Errorf("no src chunks")
 	}
 	start := time.Now()
-	metrics := map[uint64]*model.MetricValues{}
+	dest := map[uint64]*model.MetricValues{}
 	sort.Slice(t.src, func(i, j int) bool {
 		return t.src[i].From < t.src[j].From
 	})
@@ -127,17 +128,13 @@ func (c *Cache) compact(t CompactionTask) error {
 		}
 	}
 	pointsCount := int(t.compactor.DstChunkDuration / step)
+	lastChunkMetrics := t.src[len(t.src)-1].MetricNames
 	for _, i := range t.src {
-		if err := chunk.Read(i.Path, t.dstChunk, pointsCount, step, metrics, timeseries.FillAny); err != nil {
+		if err := chunk.Read(i, t.dstChunk, pointsCount, step, lastChunkMetrics, dest, timeseries.FillAny, false); err != nil {
 			return fmt.Errorf("failed to read metrics from src chunk while compaction: %s", err)
 		}
 	}
-
-	dst := make([]*model.MetricValues, 0, len(metrics))
-	for _, m := range metrics {
-		dst = append(dst, m)
-	}
-	if err := c.writeChunk(t.projectID, t.queryHash, t.dstChunk, pointsCount, step, true, dst); err != nil {
+	if err := c.writeChunk(t.projectID, t.queryHash, t.dstChunk, pointsCount, step, true, maps.Values(dest), lastChunkMetrics); err != nil {
 		return err
 	}
 

@@ -17,7 +17,6 @@ import (
 	"github.com/coroot/coroot/prom"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
-	promModel "github.com/prometheus/common/model"
 	"k8s.io/klog"
 )
 
@@ -211,12 +210,9 @@ func (c *Cache) download(to timeseries.Time, promClient *prom.Client, projectId 
 			}
 			return
 		}
-		for _, v := range vs {
-			delete(v.Labels, promModel.MetricNameLabel)
-		}
 		chunkEnd := i.chunkTs.Add(timeseries.Duration(pointsCount-1) * step)
 		finalized := chunkEnd == i.toTs
-		err = c.writeChunk(projectId, hash, i.chunkTs, pointsCount, step, finalized, vs)
+		err = c.writeChunk(projectId, hash, i.chunkTs, pointsCount, step, finalized, vs, []string{chunk.DefaultMetricName})
 		if err != nil {
 			klog.Errorln("failed to save chunk:", err)
 			return
@@ -232,7 +228,7 @@ func (c *Cache) download(to timeseries.Time, promClient *prom.Client, projectId 
 	}
 }
 
-func (c *Cache) writeChunk(projectId db.ProjectId, queryHash string, from timeseries.Time, pointsCount int, step timeseries.Duration, finalized bool, metrics []*model.MetricValues) error {
+func (c *Cache) writeChunk(projectId db.ProjectId, queryHash string, from timeseries.Time, pointsCount int, step timeseries.Duration, finalized bool, groups []*model.MetricValues, metricNames []string) error {
 	c.lock.Lock()
 	projData := c.byProject[projectId]
 	if projData == nil {
@@ -261,7 +257,7 @@ func (c *Cache) writeChunk(projectId db.ProjectId, queryHash string, from timese
 		_ = f.Close()
 		_ = os.Remove(f.Name())
 	}()
-	if err = chunk.Write(f, from, pointsCount, step, finalized, metrics); err != nil {
+	if err = chunk.Write(f, from, pointsCount, step, finalized, groups, metricNames); err != nil {
 		return err
 	}
 	if err = f.Close(); err != nil {
@@ -280,6 +276,8 @@ func (c *Cache) writeChunk(projectId db.ProjectId, queryHash string, from timese
 		Step:        step,
 		Finalized:   finalized,
 		Created:     timeseries.Now(),
+		Version:     chunk.V4,
+		MetricNames: metricNames,
 	}
 	return nil
 }
@@ -306,7 +304,7 @@ func (c *Cache) processRecordingRules(to timeseries.Time, project *db.Project, s
 	pointsCount := int(chunk.Size / step)
 	for _, i := range intervals {
 		ctr := constructor.New(c.db, project, cacheClient, nil, constructor.OptionLoadPerConnectionHistograms, constructor.OptionDoNotLoadRawSLIs, constructor.OptionLoadContainerLogs)
-		world, err := ctr.LoadWorld(context.TODO(), i.chunkTs, i.toTs, step, nil)
+		world, err := ctr.LoadWorld(context.TODO(), i.chunkTs, i.toTs, step, nil, false)
 		if err != nil {
 			klog.Errorln("failed to load world:", err)
 			return
@@ -316,7 +314,7 @@ func (c *Cache) processRecordingRules(to timeseries.Time, project *db.Project, s
 		for name, rule := range constructor.RecordingRules {
 			hash := queryHash(name)
 			mvs := rule(project, world)
-			err = c.writeChunk(project.Id, hash, i.chunkTs, pointsCount, step, finalized, mvs)
+			err = c.writeChunk(project.Id, hash, i.chunkTs, pointsCount, step, finalized, mvs, []string{chunk.DefaultMetricName})
 			if err != nil {
 				klog.Errorln("failed to save chunk:", err)
 				return
@@ -380,7 +378,7 @@ func getScrapeInterval(promClient *prom.Client) (timeseries.Duration, error) {
 	}
 	var minDelta float32
 	for _, mv := range mvs {
-		mv.Values.Reduce(func(t timeseries.Time, v1 float32, v2 float32) float32 {
+		mv.Values[0].Reduce(func(t timeseries.Time, v1 float32, v2 float32) float32 {
 			delta := v2 - v1
 			if delta > 0 && (delta < minDelta || minDelta == 0) {
 				minDelta = delta

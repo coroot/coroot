@@ -18,6 +18,7 @@ const (
 	V1 uint8 = 1
 	V2 uint8 = 2
 	V3 uint8 = 3
+	V4 uint8 = 4
 
 	Size = timeseries.Minute * 10
 )
@@ -29,6 +30,8 @@ type Meta struct {
 	Step        timeseries.Duration
 	Finalized   bool
 	Created     timeseries.Time
+	MetricNames []string
+	Version     uint8
 }
 
 func (m *Meta) To() timeseries.Time {
@@ -59,70 +62,6 @@ type header struct {
 
 const headerSize = 26
 
-func Write(f io.Writer, from timeseries.Time, pointsCount int, step timeseries.Duration, finalized bool, metrics []*model.MetricValues) error {
-	var err error
-	h := header{
-		Version:                V3,
-		From:                   from,
-		PointsCount:            uint32(pointsCount),
-		Step:                   step,
-		Finalized:              finalized,
-		DataSizeOrMetricsCount: uint32(len(metrics)),
-	}
-	if err = binary.Write(f, binary.LittleEndian, h); err != nil {
-		return err
-	}
-
-	zw := lz4.NewWriter(f)
-	w := bufio.NewWriter(zw)
-
-	var metaOffset, metaSize int
-	buf := make([]float32, pointsCount)
-	for i := range metrics {
-		metaSize = metadataSize(metrics[i])
-		m := metricMeta{
-			Hash:       metrics[i].LabelsHash,
-			MetaOffset: uint32(metaOffset),
-			MetaSize:   uint32(metaSize),
-		}
-		metaOffset += metaSize
-		if err = binary.Write(w, binary.LittleEndian, m); err != nil {
-			return err
-		}
-		for i := range buf {
-			buf[i] = timeseries.NaN
-		}
-		iter := metrics[i].Values.Iter()
-		to := from.Add(timeseries.Duration(pointsCount-1) * step)
-		for iter.Next() {
-			t, v := iter.Value()
-			if t > to {
-				break
-			}
-			if t < from {
-				continue
-			}
-			buf[int((t-from)/timeseries.Time(step))] = v
-		}
-		if _, err = w.Write(asBytes32(buf)); err != nil {
-			return err
-		}
-	}
-	for _, m := range metrics {
-		if err = writeLabels(w, m); err != nil {
-			return err
-		}
-	}
-
-	if err = w.Flush(); err != nil {
-		return err
-	}
-	if err = zw.Close(); err != nil {
-		return err
-	}
-	return nil
-}
-
 func ReadMeta(path string) (*Meta, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -138,24 +77,39 @@ func ReadMeta(path string) (*Meta, error) {
 	if err = binary.Read(f, binary.LittleEndian, &h); err != nil {
 		return nil, err
 	}
-	return &Meta{
+	meta := &Meta{
 		Path:        path,
 		From:        h.From,
 		PointsCount: h.PointsCount,
 		Step:        h.Step,
 		Finalized:   h.Finalized,
 		Created:     timeseries.TimeFromStandard(stat.ModTime()),
-	}, err
+		Version:     h.Version,
+	}
+	if h.Version == V4 {
+		gh := &groupChunkHeader{}
+		if err = binary.Read(f, binary.LittleEndian, gh); err != nil {
+			return nil, err
+		}
+		chunkMetrics, err := readMetricNames(f, gh)
+		if err != nil {
+			return nil, err
+		}
+		meta.MetricNames = chunkMetrics
+	} else {
+		meta.MetricNames = []string{DefaultMetricName}
+	}
+	return meta, err
 }
 
-func Read(path string, from timeseries.Time, pointsCount int, step timeseries.Duration, dest map[uint64]*model.MetricValues, fillFunc timeseries.FillFunc) error {
+func Read(path string, from timeseries.Time, pointsCount int, step timeseries.Duration, metrics []string, dest map[uint64]*model.MetricValues, fillFunc timeseries.FillFunc) error {
 	f, err := os.Open(path)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 
-	reader := bufio.NewReader(f)
+	reader := bufio.NewReaderSize(f, 16*1024)
 	h := header{}
 	if err = binary.Read(reader, binary.LittleEndian, &h); err != nil {
 		return err
@@ -163,6 +117,8 @@ func Read(path string, from timeseries.Time, pointsCount int, step timeseries.Du
 	switch h.Version {
 	case V3:
 		return readV3(reader, &h, from, pointsCount, step, dest, fillFunc)
+	case V4:
+		return readV4(reader, &h, from, pointsCount, step, metrics, dest, fillFunc)
 	default:
 		return fmt.Errorf("unknown version: %d", h.Version)
 	}
@@ -175,6 +131,7 @@ func readV3(reader io.Reader, header *header, from timeseries.Time, pointsCount 
 	var labelsToRead []*metricMeta
 	var maxLabelSize uint32
 	var err error
+	var hashes []uint64
 	for i := uint32(0); i < header.DataSizeOrMetricsCount; i++ {
 		if _, err = io.ReadFull(r, buf); err != nil {
 			return err
@@ -184,17 +141,21 @@ func readV3(reader io.Reader, header *header, from timeseries.Time, pointsCount 
 			MetaOffset: binary.LittleEndian.Uint32(buf[8:]),
 			MetaSize:   binary.LittleEndian.Uint32(buf[12:]),
 		}
+		hashes = append(hashes, m.Hash)
 		mv, ok := dest[m.Hash]
 		if mv == nil {
 			mv = &model.MetricValues{
-				Values: timeseries.New(from, pointsCount, step),
+				Values: []*timeseries.TimeSeries{
+					timeseries.New(from, pointsCount, step),
+				},
+				LabelsHash: m.Hash,
 			}
 			labelsToRead = append(labelsToRead, &m)
 			if m.MetaSize > maxLabelSize {
 				maxLabelSize = m.MetaSize
 			}
 		}
-		if !fillFunc(mv.Values, header.From, header.Step, asFloats32(buf[metricMetaSize:])) && !ok {
+		if !fillFunc(mv.Values[0], header.From, header.Step, asFloats32(buf[metricMetaSize:])) && !ok {
 			continue
 		}
 		dest[m.Hash] = mv
@@ -217,8 +178,6 @@ func readV3(reader io.Reader, header *header, from timeseries.Time, pointsCount 
 				return err
 			}
 			offset = m.MetaOffset + m.MetaSize
-			mv.LabelsHash = m.Hash
-			mv.Labels = make(model.Labels)
 			readLabels(buf[:m.MetaSize], mv)
 			dest[m.Hash] = mv
 		}
@@ -355,6 +314,7 @@ func writeLabels(dst *bufio.Writer, mv *model.MetricValues) error {
 }
 
 func readLabels(src []byte, mv *model.MetricValues) {
+	mv.Labels = make(model.Labels)
 	var key []byte
 	isValue := false
 	f := 0
@@ -390,10 +350,22 @@ func readLabels(src []byte, mv *model.MetricValues) {
 	}
 }
 
-func asBytes32(f []float32) []byte {
-	return unsafe.Slice((*byte)(unsafe.Pointer(&f[0])), len(f)*4)
+func asBytes32[T any](slice []T) []byte {
+	return unsafe.Slice((*byte)(unsafe.Pointer(&slice[0])), len(slice)*4)
+}
+
+func asBytes64[T any](slice []T) []byte {
+	return unsafe.Slice((*byte)(unsafe.Pointer(&slice[0])), len(slice)*8)
 }
 
 func asFloats32(b []byte) []float32 {
 	return unsafe.Slice((*float32)(unsafe.Pointer(&b[0])), len(b)/4)
+}
+
+func asUint64(b []byte) []uint64 {
+	return unsafe.Slice((*uint64)(unsafe.Pointer(&b[0])), len(b)/8)
+}
+
+func asUint32(b []byte) []uint32 {
+	return unsafe.Slice((*uint32)(unsafe.Pointer(&b[0])), len(b)/4)
 }

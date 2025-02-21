@@ -51,7 +51,7 @@ func (c *Client) QueryRange(ctx context.Context, query string, from, to timeseri
 		if ch.From > to || ch.To() < from {
 			continue
 		}
-		err := chunk.Read(ch.Path, from, resPoints, step, res, fillFunc)
+		err := chunk.Read(from, resPoints, step, []string{chunk.DefaultMetricName}, res, fillFunc)
 		if err != nil {
 			return nil, err
 		}
