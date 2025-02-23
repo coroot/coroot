@@ -1,6 +1,8 @@
 package config
 
 import (
+	"time"
+
 	"github.com/coroot/coroot/db"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
@@ -28,6 +30,9 @@ var (
 	globalClickhouseInitialDatabase = kingpin.Flag("global-clickhouse-initial-database", "").Envar("GLOBAL_CLICKHOUSE_INITIAL_DATABASE").String()
 	globalClickhouseTlsEnabled      = kingpin.Flag("global-clickhouse-tls-enabled", "").Envar("GLOBAL_CLICKHOUSE_TLS_ENABLED").Bool()
 	globalClickhouseTlsSkipVerify   = kingpin.Flag("global-clickhouse-tls-skip-verify", "").Envar("GLOBAL_CLICKHOUSE_TLS_SKIP_VERIFY").Bool()
+	globalClickhouseLogsTTL         = kingpin.Flag("global-clickhouse-logs-ttl", "").Envar("GLOBAL_CLICKHOUSE_LOGS_TTL").Duration()
+	globalClickhouseTracesTTL       = kingpin.Flag("global-clickhouse-traces-ttl", "").Envar("GLOBAL_CLICKHOUSE_TRACES_TTL").Duration()
+	globalClickhouseProfilesTTL     = kingpin.Flag("global-clickhouse-profiles-ttl", "").Envar("GLOBAL_CLICKHOUSE_PROFILES_TTL").Duration()
 
 	globalPrometheusUrl            = kingpin.Flag("global-prometheus-url", "").Envar("GLOBAL_PROMETHEUS_URL").String()
 	globalPrometheusTlsSkipVerify  = kingpin.Flag("global-prometheus-tls-skip-verify", "").Envar("GLOBAL_PROMETHEUS_TLS_SKIP_VERIFY").Bool()
@@ -42,10 +47,13 @@ var (
 	bootstrapPrometheusExtraSelector  = kingpin.Flag("bootstrap-prometheus-extra-selector", "").Envar("BOOTSTRAP_PROMETHEUS_EXTRA_SELECTOR").String()
 	bootstrapPrometheusRemoteWriteUrl = kingpin.Flag("bootstrap-prometheus-remote-write-url", "").Envar("BOOTSTRAP_PROMETHEUS_REMOTE_WRITE_URL").String()
 
-	bootstrapClickhouseAddress  = kingpin.Flag("bootstrap-clickhouse-address", "").Envar("BOOTSTRAP_CLICKHOUSE_ADDRESS").String()
-	bootstrapClickhouseUser     = kingpin.Flag("bootstrap-clickhouse-user", "").Envar("BOOTSTRAP_CLICKHOUSE_USER").String()
-	bootstrapClickhousePassword = kingpin.Flag("bootstrap-clickhouse-password", "").Envar("BOOTSTRAP_CLICKHOUSE_PASSWORD").String()
-	bootstrapClickhouseDatabase = kingpin.Flag("bootstrap-clickhouse-database", "").Envar("BOOTSTRAP_CLICKHOUSE_DATABASE").String()
+	bootstrapClickhouseAddress     = kingpin.Flag("bootstrap-clickhouse-address", "").Envar("BOOTSTRAP_CLICKHOUSE_ADDRESS").String()
+	bootstrapClickhouseUser        = kingpin.Flag("bootstrap-clickhouse-user", "").Envar("BOOTSTRAP_CLICKHOUSE_USER").String()
+	bootstrapClickhousePassword    = kingpin.Flag("bootstrap-clickhouse-password", "").Envar("BOOTSTRAP_CLICKHOUSE_PASSWORD").String()
+	bootstrapClickhouseDatabase    = kingpin.Flag("bootstrap-clickhouse-database", "").Envar("BOOTSTRAP_CLICKHOUSE_DATABASE").String()
+	bootstrapClickhouseLogsTTL     = kingpin.Flag("bootstrap-clickhouse-logs-ttl", "").Envar("BOOTSTRAP_CLICKHOUSE_LOGS_TTL").Duration()
+	bootstrapClickhouseTracesTTL   = kingpin.Flag("bootstrap-clickhouse-traces-ttl", "").Envar("BOOTSTRAP_CLICKHOUSE_TRACES_TTL").Duration()
+	bootstrapClickhouseProfilesTTL = kingpin.Flag("bootstrap-clickhouse-profiles-ttl", "").Envar("BOOTSTRAP_CLICKHOUSE_PROFILES_TTL").Duration()
 )
 
 func (cfg *Config) applyFlags() {
@@ -114,6 +122,15 @@ func (cfg *Config) applyFlags() {
 	if *globalClickhouseTlsSkipVerify {
 		cfg.GlobalClickhouse.TlsSkipVerify = *globalClickhouseTlsSkipVerify
 	}
+	if *globalClickhouseLogsTTL > 1*time.Minute {
+		cfg.GlobalClickhouse.LogsTTL = *globalClickhouseLogsTTL
+	}
+	if *globalClickhouseTracesTTL > 1*time.Minute {
+		cfg.GlobalClickhouse.TracesTTL = *globalClickhouseTracesTTL
+	}
+	if *globalClickhouseProfilesTTL > 1*time.Minute {
+		cfg.GlobalClickhouse.ProfilesTTL = *globalClickhouseProfilesTTL
+	}
 	if !keep {
 		cfg.GlobalClickhouse = nil
 	}
@@ -166,6 +183,16 @@ func (cfg *Config) applyFlags() {
 			User:     *bootstrapClickhouseUser,
 			Password: *bootstrapClickhousePassword,
 			Database: *bootstrapClickhouseDatabase,
+		}
+
+		if *bootstrapClickhouseLogsTTL > 1*time.Minute {
+			cfg.BootstrapClickhouse.LogsTTL = *bootstrapClickhouseLogsTTL
+		}
+		if *bootstrapClickhouseTracesTTL > 1*time.Minute {
+			cfg.BootstrapClickhouse.TracesTTL = *bootstrapClickhouseTracesTTL
+		}
+		if *bootstrapClickhouseProfilesTTL > 1*time.Minute {
+			cfg.BootstrapClickhouse.ProfilesTTL = *bootstrapClickhouseProfilesTTL
 		}
 	}
 }

@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	ttlDays = "7"
+	defaultTtlSeconds = "604800" // 7 days
 )
 
 func (c *Collector) migrateProjects() {
@@ -77,7 +77,7 @@ func (c *Collector) migrateProject(ctx context.Context, p *db.Project) error {
 		return err
 	}
 	defer client.Close()
-	err = c.migrate(ctx, client)
+	err = c.migrate(ctx, client, cfg)
 	if err == nil {
 		c.migrationDoneLock.Lock()
 		c.migrationDone[p.Id] = true
@@ -86,9 +86,14 @@ func (c *Collector) migrateProject(ctx context.Context, p *db.Project) error {
 	return err
 }
 
-func (c *Collector) migrate(ctx context.Context, client *ClickhouseClient) error {
+func (c *Collector) migrate(ctx context.Context, client *ClickhouseClient, cfg *db.IntegrationClickhouse) error {
+
+	logsTTL, tracesTTL, profilesTTL := c.getTTLs(cfg)
+
 	for _, t := range tables {
-		t = strings.ReplaceAll(t, "@ttl_days", ttlDays)
+		t = strings.ReplaceAll(t, "@ttl_logs", logsTTL)
+		t = strings.ReplaceAll(t, "@ttl_traces", tracesTTL)
+		t = strings.ReplaceAll(t, "@ttl_profiles", profilesTTL)
 		if client.cluster != "" {
 			t = strings.ReplaceAll(t, "@merge_tree", "ReplicatedMergeTree('/clickhouse/tables/{shard}/{database}/{table}', '{replica}')")
 			t = strings.ReplaceAll(t, "@replacing_merge_tree", "ReplicatedReplacingMergeTree('/clickhouse/tables/{shard}/{database}/{table}', '{replica}')")
@@ -113,6 +118,23 @@ func (c *Collector) migrate(ctx context.Context, client *ClickhouseClient) error
 	return nil
 }
 
+func (c *Collector) getTTLs(cfg *db.IntegrationClickhouse) (string, string, string) {
+	logsTTL := defaultTtlSeconds
+	tracesTTL := defaultTtlSeconds
+	profilesTTL := defaultTtlSeconds
+
+	if cfg.LogsTTL > 1*time.Minute {
+		logsTTL = fmt.Sprintf("%.0f", cfg.LogsTTL.Seconds())
+	}
+	if cfg.TracesTTL > 1*time.Minute {
+		tracesTTL = fmt.Sprintf("%.0f", cfg.TracesTTL.Seconds())
+	}
+	if cfg.ProfilesTTL > 1*time.Minute {
+		profilesTTL = fmt.Sprintf("%.0f", cfg.ProfilesTTL.Seconds())
+	}
+	return logsTTL, tracesTTL, profilesTTL
+}
+
 var (
 	tables = []string{
 		`
@@ -134,7 +156,7 @@ CREATE TABLE IF NOT EXISTS otel_logs @on_cluster (
      INDEX idx_log_attr_value mapValues(LogAttributes) TYPE bloom_filter(0.01) GRANULARITY 1,
      INDEX idx_body Body TYPE tokenbf_v1(32768, 3, 0) GRANULARITY 1
 ) ENGINE @merge_tree
-TTL toDateTime(Timestamp) + toIntervalDay(@ttl_days)
+TTL toDateTime(Timestamp) + toIntervalSecond(@ttl_logs)
 PARTITION BY toDate(Timestamp)
 ORDER BY (ServiceName, SeverityText, toUnixTimestamp(Timestamp), TraceId)
 SETTINGS index_granularity=8192, ttl_only_drop_parts = 1
@@ -148,7 +170,7 @@ CREATE TABLE IF NOT EXISTS otel_logs_service_name_severity_text @on_cluster (
 )
 ENGINE @replacing_merge_tree
 PRIMARY KEY (ServiceName, SeverityText)
-TTL toDateTime(LastSeen) + toIntervalDay(@ttl_days)
+TTL toDateTime(LastSeen) + toIntervalSecond(@ttl_logs)
 PARTITION BY toDate(LastSeen)`,
 
 		`
@@ -188,7 +210,7 @@ CREATE TABLE IF NOT EXISTS otel_traces @on_cluster (
      INDEX idx_span_attr_value mapValues(SpanAttributes) TYPE bloom_filter(0.01) GRANULARITY 1,
      INDEX idx_duration Duration TYPE minmax GRANULARITY 1
 ) ENGINE @merge_tree
-TTL toDateTime(Timestamp) + toIntervalDay(@ttl_days)
+TTL toDateTime(Timestamp) + toIntervalSecond(@ttl_traces)
 PARTITION BY toDate(Timestamp)
 ORDER BY (ServiceName, SpanName, toUnixTimestamp(Timestamp), TraceId)
 SETTINGS index_granularity=8192, ttl_only_drop_parts = 1`,
@@ -202,7 +224,7 @@ CREATE TABLE IF NOT EXISTS otel_traces_trace_id_ts @on_cluster (
      End DateTime64(9) CODEC(Delta, ZSTD(1)),
      INDEX idx_trace_id TraceId TYPE bloom_filter(0.01) GRANULARITY 1
 ) ENGINE @merge_tree
-TTL toDateTime(Start) + toIntervalDay(@ttl_days)
+TTL toDateTime(Start) + toIntervalSecond(@ttl_traces)
 ORDER BY (TraceId, toUnixTimestamp(Start))
 SETTINGS index_granularity=8192`,
 
@@ -223,7 +245,7 @@ CREATE TABLE IF NOT EXISTS otel_traces_service_name @on_cluster (
 )
 ENGINE @replacing_merge_tree
 PRIMARY KEY (ServiceName)
-TTL toDateTime(LastSeen) + toIntervalDay(@ttl_days)
+TTL toDateTime(LastSeen) + toIntervalSecond(@ttl_traces)
 PARTITION BY toDate(LastSeen)`,
 
 		`
@@ -239,7 +261,7 @@ CREATE TABLE IF NOT EXISTS profiling_stacks @on_cluster (
 ) 
 ENGINE @replacing_merge_tree
 PRIMARY KEY (ServiceName, Hash)
-TTL toDateTime(LastSeen) + toIntervalDay(@ttl_days)
+TTL toDateTime(LastSeen) + toIntervalSecond(@ttl_profiles)
 PARTITION BY toDate(LastSeen)
 ORDER BY (ServiceName, Hash)`,
 
@@ -253,7 +275,7 @@ CREATE TABLE IF NOT EXISTS profiling_samples @on_cluster (
 	StackHash UInt64 CODEC(ZSTD(1)),
 	Value Int64 CODEC(ZSTD(1))
 ) ENGINE @merge_tree
-TTL toDateTime(Start) + toIntervalDay(@ttl_days)
+TTL toDateTime(Start) + toIntervalSecond(@ttl_profiles)
 PARTITION BY toDate(Start)
 ORDER BY (ServiceName, Type, toUnixTimestamp(Start), toUnixTimestamp(End))`,
 
@@ -265,7 +287,7 @@ CREATE TABLE IF NOT EXISTS profiling_profiles @on_cluster (
 )
 ENGINE @replacing_merge_tree
 PRIMARY KEY (ServiceName, Type)
-TTL toDateTime(LastSeen) + toIntervalDay(@ttl_days)
+TTL toDateTime(LastSeen) + toIntervalSecond(@ttl_profiles)
 PARTITION BY toDate(LastSeen)`,
 
 		`
