@@ -29,92 +29,144 @@ $ go get \
 
 **Step 2: initialize OpenTelemetry and instrument HTTP handlers**
 
-The following example demonstrates how to instrument an HTTP handler with OpenTelemetry and export traces to an 
-OpenTelemetry Collector through HTTP. The collector's endpoint and service name can be configured using environment variables.
+The following example demonstrates how to instrument an HTTP handler with OpenTelemetry and export traces to an OpenTelemetry Collector through HTTP. The collector's endpoint and coroot API key should be provided.
 
 ```go
 package main
 
 import (
-  "context"
-  "fmt"
-  "go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
-  "go.opentelemetry.io/otel"
-  "go.opentelemetry.io/otel/exporters/otlp/otlptrace"
-  "go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
-  "go.opentelemetry.io/otel/propagation"
-  "go.opentelemetry.io/otel/sdk/resource"
-  sdktrace "go.opentelemetry.io/otel/sdk/trace"
-  "log"
-  "net/http"
+	"context"
+	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	"go.opentelemetry.io/otel/sdk/resource"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
-func initTracer() {
-  ctx := context.Background()
-  client := otlptracehttp.NewClient()
-  exporter, err := otlptrace.New(ctx, client)
-  
-  if err != nil {
-    log.Fatalf("failed to initialize exporter: %e", err)
-  }
-  
-  res, err := resource.New(ctx)
-  if err != nil {
-    log.Fatalf("failed to initialize resource: %e", err)
-  }
-  
-  // Create the trace provider
-  tp := sdktrace.NewTracerProvider(
-    sdktrace.WithBatcher(exporter),
-    sdktrace.WithResource(res),
-  )
-  
-  // Set the global trace provider
-  otel.SetTracerProvider(tp)
-  
-  // Set the propagator
-  propagator := propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{})
-  otel.SetTextMapPropagator(propagator)
+type TracerShutdown func(ctx context.Context) error
+
+// Initialize OpenTelemetry tracer
+func initTracer(ctx context.Context, otlpEndpoint, corootApiKey string) (TracerShutdown, error) {
+	// create new exporter
+	traceExporter, err := otlptrace.New(
+		ctx,
+		otlptracehttp.NewClient(
+			otlptracehttp.WithEndpoint(otlpEndpoint),
+			otlptracehttp.WithHeaders(map[string]string{"X-API-Key": corootApiKey}),
+		),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// create new resource
+	resources, err := resource.New(
+		ctx,
+		resource.WithAttributes(
+			attribute.String("service.name", "hello_server"),
+			attribute.String("library.language", "go"),
+		),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	otel.SetTracerProvider(
+		sdktrace.NewTracerProvider(
+			sdktrace.WithSampler(sdktrace.AlwaysSample()),
+			sdktrace.WithBatcher(traceExporter),
+			sdktrace.WithResource(resources),
+		),
+	)
+
+	return traceExporter.Shutdown, nil
 }
 
 func helloHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Hello, World!")
 }
 
-func main() { 
-  // Initialize the HTTP server with instrumentation 
-  router := http.NewServeMux()
+func main() {
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
 
-  // Wrap the handler with OTel instrumentation
-  instrumentedHandler := otelhttp.NewHandler(http.HandlerFunc(helloHandler), "GET /hello-world")
-  
-  router.Handle("/hello-world", instrumentedHandler)
-  
-  log.Fatalln(http.ListenAndServe(":8082", router))
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+  // ctrl+c handling
+	go func() {
+		select {
+		case <-ctx.Done():
+			return
+		case s := <-sig:
+			log.Printf("signal %s received: \n", s.String())
+			cancel()
+		}
+	}()
+
+	// If your coroot has only one project, leave corootApiKey empty
+	tracerShutdownFunc, err := initTracer(ctx, "coroot.coroot:8080", "")
+	if err != nil {
+		log.Fatalf("failed to initialize tracer: %v", err)
+	}
+
+	// Initialize the HTTP server with instrumentation
+	router := http.NewServeMux()
+	instrumentedHandler := otelhttp.NewHandler(http.HandlerFunc(helloHandler), "GET /hello-world")
+	router.Handle("/hello-world", instrumentedHandler)
+
+	server := &http.Server{Addr: ":8082", Handler: router}
+
+	go func() {
+		log.Println("Starting server on :8082")
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("server error: %v", err)
+		}
+	}()
+
+	// Wait for termination signal
+	<-ctx.Done()
+	log.Println("Shutting down gracefully...")
+
+	// Shutdown tracing, flush all remaining traces
+	shutdownCtx := context.Background()
+	if err := tracerShutdownFunc(shutdownCtx); err != nil {
+		log.Printf("tracer shutdown error: %v", err)
+	}
+
+	// Shutdown HTTP server gracefully
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		log.Printf("HTTP server shutdown error: %v", err)
+	}
+
+	log.Println("Bye bye!")
 }
 ```
 
-**Step 3: configuring OpenTelemetry using environment variables and run the app**
-
-Follow the OpenTelemetry documentation to learn the full list of available [SDK](https://opentelemetry.io/docs/concepts/sdk-configuration/general-sdk-configuration/) 
-and [Exporter](https://opentelemetry.io/docs/concepts/sdk-configuration/otlp-exporter-configuration/) variables.
+**Step 3: start your application**
 
 ```bash
-export \
-  OTEL_SERVICE_NAME="hello-app" \
-  OTEL_EXPORTER_OTLP_TRACES_ENDPOINT="http://coroot.coroot:8080/v1/traces" \
-&& go run main.go
+go run main.go
 ```
 
 **Step 4: validating**
 
 As a result, our app reports traces containing only a server span:
 
-<img alt="Go HTT Server Span" src="/img/docs/go_server_span.png" class="card w-1200"/>
+<img alt="Go HTTP Server Span" src="/img/docs/go_server_span_http.png" class="card w-1200"/>
 
 Span attributes:
 
-<img alt="Go HTT Server Span Attributes" src="/img/docs/go_server_span_attributes.png" class="card w-1200"/>
+<img alt="Go HTTP Server Span Attributes" src="/img/docs/go_server_span_attributes_http.png" class="card w-1200"/>
 
   </TabItem>
   <TabItem value="gorilla" label="Gorilla Mux">
@@ -130,94 +182,149 @@ $ go get \
 **Step 2: initialize OpenTelemetry and instrument the request router**
 
 The following example demonstrates how to instrument the [Gorilla HTTP router](https://github.com/gorilla/mux) with OpenTelemetry and export traces to an 
-OpenTelemetry Collector through HTTP. The collector's endpoint and service name can be configured using environment variables.
+OpenTelemetry Collector through HTTP. The collector's endpoint and coroot API key should be provided.
 
 ```go
 package main
 
 import (
-  "context"
-  "fmt"
-  "github.com/gorilla/mux"
-  "go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
-  "go.opentelemetry.io/otel"
-  "go.opentelemetry.io/otel/exporters/otlp/otlptrace"
-  "go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
-  "go.opentelemetry.io/otel/propagation"
-  "go.opentelemetry.io/otel/sdk/resource"
-  sdktrace "go.opentelemetry.io/otel/sdk/trace"
-  "log"
-  "net/http"
-  "os"
+	"context"
+	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+
+	"github.com/gorilla/mux"
+
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	"go.opentelemetry.io/otel/sdk/resource"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
-func initTracer() {
-  ctx := context.Background()
-  
-  client := otlptracehttp.NewClient()
-  exporter, err := otlptrace.New(ctx, client)
-  if err != nil {
-    log.Fatalf("failed to initialize exporter: %e", err)
-  }
-  
-  res, err := resource.New(ctx)
-  if err != nil {
-    log.Fatalf("failed to initialize resource: %e", err)
-  }
-  
-  // Create the trace provider
-  tp := sdktrace.NewTracerProvider(
-    sdktrace.WithBatcher(exporter),
-    sdktrace.WithResource(res),
-  )
-  
-  // Set the global trace provider
-  otel.SetTracerProvider(tp)
-  
-  // Set the propagator
-  propagator := propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{})
-  otel.SetTextMapPropagator(propagator)
+type TracerShutdown func(ctx context.Context) error
+
+// Initialize OpenTelemetry tracer
+func initTracer(ctx context.Context, otlpEndpoint, corootApiKey string) (TracerShutdown, error) {
+	// Create new exporter
+	traceExporter, err := otlptrace.New(
+		ctx,
+		otlptracehttp.NewClient(
+			otlptracehttp.WithEndpoint(otlpEndpoint),
+			otlptracehttp.WithHeaders(map[string]string{"X-API-Key": corootApiKey}),
+		),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create new resource
+	resources, err := resource.New(
+		ctx,
+		resource.WithAttributes(
+			attribute.String("service.name", "hello_server"),
+			attribute.String("library.language", "go"),
+		),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set the global trace provider
+	otel.SetTracerProvider(
+		sdktrace.NewTracerProvider(
+			sdktrace.WithSampler(sdktrace.AlwaysSample()),
+			sdktrace.WithBatcher(traceExporter),
+			sdktrace.WithResource(resources),
+		),
+	)
+
+	return traceExporter.Shutdown, nil
 }
 
-func helloHandler(w http.ResponseWriter, r *http.Request) {
-  vars := mux.Vars(r)
-  fmt.Fprintf(w, "Hello, %s!", vars["name"])
+// HTTP handler for /hello-world route
+func helloWorldHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "Hello, World!")
 }
 
 func main() {
-  initTracer()
-  
-  router := mux.NewRouter()
-  router.Handle("/hello/{name}", http.HandlerFunc(helloHandler))
-  
-  // Initialize the instrumentation middleware
-  router.Use(otelmux.Middleware(os.Getenv("OTEL_SERVICE_NAME"}}
-  
-  log.Fatalln(http.ListenAndServe(":8082", router))
+	// Handle OS signals for graceful shutdown
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Ctrl+C handling
+	go func() {
+		select {
+		case <-ctx.Done():
+			return
+		case s := <-sig:
+			log.Printf("signal %s received: \n", s.String())
+			cancel()
+		}
+	}()
+
+	// If your coroot has only one project, leave corootApiKey empty
+	tracerShutdownFunc, err := initTracer(ctx, "coroot.coroot:8080", "")
+	if err != nil {
+		log.Fatalf("failed to initialize tracer: %v", err)
+	}
+
+	// Initialize the HTTP server with instrumentation
+	router := mux.NewRouter()
+	router.Use(otelhttp.NewMiddleware("hello_http_server"))
+	router.Handle("/hello-world", http.HandlerFunc(helloWorldHandler))
+
+	server := &http.Server{Addr: ":8082", Handler: router}
+
+	go func() {
+		log.Println("Starting server on :8082")
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("server error: %v", err)
+		}
+	}()
+
+	// Wait for termination signal
+	<-ctx.Done()
+	log.Println("Shutting down gracefully...")
+
+	// Shutdown tracing, flush all remaining traces
+	shutdownCtx := context.Background()
+	if err := tracerShutdownFunc(shutdownCtx); err != nil {
+		log.Printf("tracer shutdown error: %v", err)
+	}
+
+	// Shutdown HTTP server gracefully
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		log.Printf("HTTP server shutdown error: %v", err)
+	}
+
+	log.Println("Bye bye!")
 }
 ```
 
-**Step 3: configuring OpenTelemetry using environment variables and run the app**
-
-Follow the OpenTelemetry documentation to learn the full list of available [SDK](https://opentelemetry.io/docs/concepts/sdk-configuration/general-sdk-configuration/)
-and [Exporter](https://opentelemetry.io/docs/concepts/sdk-configuration/otlp-exporter-configuration/) variables.
+**Step 3: start your application**
 
 ```bash
-export \
-  OTEL_SERVICE_NAME="hello-app" \
-  OTEL_EXPORTER_OTLP_TRACES_ENDPOINT="http://coroot.coroot:8080/v1/traces" \
-&& go run main.go
+go run main.go
 ```
 
 **Step 4: validating**
 
 As a result, our app reports traces containing only a server span:
 
-<img alt="Go HTT Server Span" src="/img/docs/go_server_span_gorilla.png" class="card w-1200"/>
+<img alt="Go HTTP Server Span" src="/img/docs/go_server_span_gorilla.png" class="card w-1200"/>
 
 Span attributes:
 
-<img alt="Go HTT Server Span Attributes" src="/img/docs/go_server_span_attributes_gorilla.png" class="card w-1200"/>
+<img alt="Go HTTP Server Span Attributes" src="/img/docs/go_server_span_attributes_gorilla.png" class="card w-1200"/>
 
   </TabItem>
   <TabItem value="echo" label="Echo Web Framework">
@@ -232,90 +339,148 @@ $ go get \
 
 **Step 2: initialize OpenTelemetry and instrument the request router**
 
-The following example demonstrates how to instrument the [Echo web framework](https://echo.labstack.com/) with OpenTelemetry and export traces to an OpenTelemetry Collector through HTTP. The collector's endpoint and service name can be configured using environment variables.
+The following example demonstrates how to instrument the [Echo web framework](https://echo.labstack.com/) with OpenTelemetry and export traces to an OpenTelemetry Collector through HTTP. The collector's endpoint and coroot API key should be provided.
 
 ```go
 package main
 
 import (
-  "context"
-  "fmt"
-  "github.com/labstack/echo/v4"
-  "go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
-  "go.opentelemetry.io/otel"
-  "go.opentelemetry.io/otel/exporters/otlp/otlptrace"
-  "go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
-  "go.opentelemetry.io/otel/propagation"
-  "go.opentelemetry.io/otel/sdk/resource"
-  sdktrace "go.opentelemetry.io/otel/sdk/trace"
-  "log"
-  "net/http"
-  "os"
+	"context"
+	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+
+	"github.com/labstack/echo/v4"
+
+	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	"go.opentelemetry.io/otel/sdk/resource"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
-func initTracer() {
-  ctx := context.Background()
-  
-  client := otlptracehttp.NewClient()
-  exporter, err := otlptrace.New(ctx, client)
-  if err != nil {
-    log.Fatalf("failed to initialize exporter: %e", err)
-  }
-  
-  res, err := resource.New(ctx)
-  if err != nil {
-    log.Fatalf("failed to initialize resource: %e", err)
-  }
-  
-  // Create the trace provider
-  tp := sdktrace.NewTracerProvider(
-    sdktrace.WithBatcher(exporter),
-    sdktrace.WithResource(res),
-  )
-  
-  // Set the global trace provider
-  otel.SetTracerProvider(tp)
-  
-  // Set the propagator
-  propagator := propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{})
-  otel.SetTextMapPropagator(propagator)
+type TracerShutdown func(ctx context.Context) error
+
+// Initialize OpenTelemetry tracer
+func initTracer(ctx context.Context, otlpEndpoint, corootApiKey string) (TracerShutdown, error) {
+	// Create new exporter
+	traceExporter, err := otlptrace.New(
+		ctx,
+		otlptracehttp.NewClient(
+			otlptracehttp.WithEndpoint(otlpEndpoint),
+			otlptracehttp.WithHeaders(map[string]string{"X-API-Key": corootApiKey}),
+		),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create new resource
+	resources, err := resource.New(
+		ctx,
+		resource.WithAttributes(
+			attribute.String("service.name", "hello_server"),
+			attribute.String("library.language", "go"),
+		),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set the global trace provider
+	otel.SetTracerProvider(
+		sdktrace.NewTracerProvider(
+			sdktrace.WithSampler(sdktrace.AlwaysSample()),
+			sdktrace.WithBatcher(traceExporter),
+			sdktrace.WithResource(resources),
+		),
+	)
+
+	return traceExporter.Shutdown, nil
+}
+
+// HTTP handler for /hello-world route
+func helloWorldHandler(c echo.Context) error {
+	return c.String(http.StatusOK, "Hello, World!")
 }
 
 func main() {
-  initTracer()
-  
-  e := echo.New()
-  
-  // Initialize the instrumentation middleware
-  e.Use(otelecho.Middleware(os.Getenv("OTEL_SERVICE_NAME"}}
-  
-  e.GET("/hello/:name", func(c echo.Context) error {
-    return c.String(http.StatusOK, fmt.Sprintf("Hello, %s!", c.Param("name")))
-  })
-  e.Logger.Fatal(e.Start(":8082"))
+	// Handle OS signals for graceful shutdown
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Ctrl+C handling
+	go func() {
+		select {
+		case <-ctx.Done():
+			return
+		case s := <-sig:
+			log.Printf("signal %s received: \n", s.String())
+			cancel()
+		}
+	}()
+
+	// If your coroot has only one project, leave corootApiKey empty
+	tracerShutdownFunc, err := initTracer(ctx, "coroot.coroot:8080", "")
+	if err != nil {
+		log.Fatalf("failed to initialize tracer: %v", err)
+	}
+
+	// Initialize the Echo server with instrumentation
+	e := echo.New()
+	e.Use(otelecho.Middleware("hello_server"))
+	e.GET("/hello-world", helloWorldHandler)
+
+	server := &http.Server{Addr: ":8082", Handler: e}
+
+	go func() {
+		log.Println("Starting server on :8082")
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("server error: %v", err)
+		}
+	}()
+
+	// Wait for termination signal
+	<-ctx.Done()
+	log.Println("Shutting down gracefully...")
+
+	// Shutdown tracing, flush all remaining traces
+	shutdownCtx := context.Background()
+	if err := tracerShutdownFunc(shutdownCtx); err != nil {
+		log.Printf("tracer shutdown error: %v", err)
+	}
+
+	// Shutdown HTTP server gracefully
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		log.Printf("HTTP server shutdown error: %v", err)
+	}
+
+	log.Println("Bye bye!")
 }
 ```
-**Step 3: configuring OpenTelemetry using environment variables and run the app**
 
-Follow the OpenTelemetry documentation to learn the full list of available [SDK](https://opentelemetry.io/docs/concepts/sdk-configuration/general-sdk-configuration/)
-and [Exporter](https://opentelemetry.io/docs/concepts/sdk-configuration/otlp-exporter-configuration/) variables.
+**Step 3: start your application**
 
 ```bash
-export \
-  OTEL_SERVICE_NAME="hello-app" \
-  OTEL_EXPORTER_OTLP_TRACES_ENDPOINT="http://coroot.coroot:8080/v1/traces" \
-&& go run main.go
+go run main.go
 ```
 
 **Step 4: validating**
 
 As a result, our app reports traces containing only a server span:
 
-<img alt="Go HTT Server Span" src="/img/docs/go_server_span_echo.png" class="card w-1200"/>
+<img alt="Go HTTP Server Span" src="/img/docs/go_server_span_echo.png" class="card w-1200"/>
 
 Span attributes:
 
-<img alt="Go HTT Server Span Attributes" src="/img/docs/go_server_span_attributes_echo.png" class="card w-1200"/>
+<img alt="Go HTTP Server Span Attributes" src="/img/docs/go_server_span_attributes_echo.png" class="card w-1200"/>
 
 </TabItem>
   <TabItem value="gin" label="GIN Web Framework">
@@ -330,97 +495,154 @@ go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin
 **Step 2: initialize OpenTelemetry and instrument the request router**
 
 The following example demonstrates how to instrument the [Gin web framework](https://github.com/gin-gonic/gin) with OpenTelemetry and export traces to an 
-OpenTelemetry Collector through HTTP. The collector's endpoint and service name can be configured using environment variables.
+OpenTelemetry Collector through HTTP. The collector's endpoint and coroot API key should be provided.
 
 ```go
 package main
 
 import (
-  "context"
-  "github.com/gin-gonic/gin"
-  "go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
-  "go.opentelemetry.io/otel"
-  "go.opentelemetry.io/otel/exporters/otlp/otlptrace"
-  "go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
-  "go.opentelemetry.io/otel/propagation"
-  "go.opentelemetry.io/otel/sdk/resource"
-  sdktrace "go.opentelemetry.io/otel/sdk/trace"
-  "log"
-  "net/http"
-  "os"
+	"context"
+	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+
+	"github.com/gin-gonic/gin"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	"go.opentelemetry.io/otel/sdk/resource"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
-func initTracer() {
-  ctx := context.Background()
-  client := otlptracehttp.NewClient()
-  exporter, err := otlptrace.New(ctx, client)
-  if err != nil {
-    log.Fatalf("failed to initialize exporter: %e", err)
-  }
-  
-  res, err := resource.New(ctx)
-  if err != nil {
-    log.Fatalf("failed to initialize resource: %e", err)
-  }
-  
-  // Create the trace provider
-  tp := sdktrace.NewTracerProvider(
-    sdktrace.WithBatcher(exporter),
-    sdktrace.WithResource(res),
-  )
-  
-  // Set the global trace provider
-  otel.SetTracerProvider(tp)
-  
-  // Set the propagator
-  propagator := propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{})
-otel.SetTextMapPropagator(propagator)
+type TracerShutdown func(ctx context.Context) error
+
+// Initialize OpenTelemetry tracer
+func initTracer(ctx context.Context, otlpEndpoint, corootApiKey string) (TracerShutdown, error) {
+	// Create new exporter
+	traceExporter, err := otlptrace.New(
+		ctx,
+		otlptracehttp.NewClient(
+			otlptracehttp.WithEndpoint(otlpEndpoint),
+			otlptracehttp.WithHeaders(map[string]string{"X-API-Key": corootApiKey}),
+		),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create new resource
+	resources, err := resource.New(
+		ctx,
+		resource.WithAttributes(
+			attribute.String("service.name", "hello_server"),
+			attribute.String("library.language", "go"),
+		),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set the global trace provider
+	otel.SetTracerProvider(
+		sdktrace.NewTracerProvider(
+			sdktrace.WithSampler(sdktrace.AlwaysSample()),
+			sdktrace.WithBatcher(traceExporter),
+			sdktrace.WithResource(resources),
+		),
+	)
+
+	return traceExporter.Shutdown, nil
+}
+
+// HTTP handler for /hello-world endpoint
+func helloWorldHandler(c *gin.Context) {
+	c.String(http.StatusOK, "Hello, World!")
 }
 
 func main() {
-  initTracer()
-  
-  r := gin.Default()
-  
-  // Initialize the instrumentation middleware
-  r.Use(otelgin.Middleware(os.Getenv("OTEL_SERVICE_NAME"}}
-  
-  r.GET("/hello/:name", func(c *gin.Context) {
-    name := c.Param("name")
-    c.String(http.StatusOK, "Hello, %s!", name)
-  })
-  log.Fatalln(r.Run(":8082"))
+	// Handle OS signals for graceful shutdown
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Ctrl+C handling
+	go func() {
+		select {
+		case <-ctx.Done():
+			return
+		case s := <-sig:
+			log.Printf("signal %s received: \n", s.String())
+			cancel()
+		}
+	}()
+
+	// If your coroot has only one project, leave corootApiKey empty
+	tracerShutdownFunc, err := initTracer(ctx, "coroot.coroot:8080", "")
+	if err != nil {
+		log.Fatalf("failed to initialize tracer: %v", err)
+	}
+
+	// Initialize the Gin server with instrumentation
+	r := gin.Default()
+	r.Use(otelgin.Middleware("hello_server"))
+	r.GET("/hello-world", helloWorldHandler)
+
+	server := &http.Server{Addr: ":8082", Handler: r}
+
+	go func() {
+		log.Println("Starting server on :8082")
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("server error: %v", err)
+		}
+	}()
+
+	// Wait for termination signal
+	<-ctx.Done()
+	log.Println("Shutting down gracefully...")
+
+	// Shutdown tracing, flush all remaining traces
+	shutdownCtx := context.Background()
+	if err := tracerShutdownFunc(shutdownCtx); err != nil {
+		log.Printf("tracer shutdown error: %v", err)
+	}
+
+	// Shutdown HTTP server gracefully
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		log.Printf("HTTP server shutdown error: %v", err)
+	}
+
+	log.Println("Bye bye!")
 }
 ```
 
-**Step 3: configuring OpenTelemetry using environment variables and run the app**
-
-Follow the OpenTelemetry documentation to learn the full list of available [SDK](https://opentelemetry.io/docs/concepts/sdk-configuration/general-sdk-configuration/)
-and [Exporter](https://opentelemetry.io/docs/concepts/sdk-configuration/otlp-exporter-configuration/) variables.
+**Step 3: start your application**
 
 ```bash
-export \
-  OTEL_SERVICE_NAME="hello-app" \
-  OTEL_EXPORTER_OTLP_TRACES_ENDPOINT="http://coroot.coroot:8080/v1/traces" \
-&& go run main.go
+go run main.go
 ```
 
 **Step 4: validating**
 
 As a result, our app reports traces containing only a server span:
 
-<img alt="Go HTT Server Span" src="/img/docs/go_server_span_echo.png" class="card w-1200"/>
+<img alt="Go HTTP Server Span" src="/img/docs/go_server_span_echo.png" class="card w-1200"/>
 
 Span attributes:
 
-<img alt="Go HTT Server Span Attributes" src="/img/docs/go_server_span_attributes_echo.png" class="card w-1200"/>
+<img alt="Go HTTP Server Span Attributes" src="/img/docs/go_server_span_attributes_echo.png" class="card w-1200"/>
 
   </TabItem>
 </Tabs>
 
 ## Adding custom attributes to spans
 
-To add custom attributes to a span while processing a particular request, you can retrieve the span from the request context. 
+To add custom attributes to a span while processing a particular request, you can retrieve the span from the request context.
 This allows you to add contextual information that can help with understanding and debugging the request.
 
 <Tabs queryString="http-server">
@@ -723,7 +945,8 @@ Client span attributes:
 
 <img alt="Go Cassandra client Span Attributes" src="/img/docs/go_cassandra_client_span_attributes.png" class="card w-1200"/>
 
+## Whats next?
 
+- Visit [OpenTelemetry Go Docs](https://opentelemetry.io/docs/languages/go/)
 
-
-
+- Check instumented packages in [OpenTelemetry Registry](https://opentelemetry.io/ecosystem/registry/?language=go&component=instrumentation)
