@@ -35,8 +35,17 @@ type NodeContainerId struct {
 type MetricValues struct {
 	Labels     Labels
 	LabelsHash uint64
-	Values     *timeseries.TimeSeries
 	NodeContainerId
 	ConnectionKey
 	DestIp bool
+	Values []*timeseries.TimeSeries
+}
+
+func (mv *MetricValues) Get(group, metric string) *timeseries.TimeSeries {
+	for i, m := range Metrics[group] {
+		if m.Name == metric && i < len(mv.Values) {
+			return mv.Values[i]
+		}
+	}
+	return nil
 }

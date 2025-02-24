@@ -14,7 +14,7 @@ func initNodesList(w *model.World, metrics map[string][]*model.MetricValues, nod
 	nodesBySystemUUID := map[string]*model.Node{}
 	for _, m := range metrics["node_info"] {
 		name := m.Labels["hostname"]
-		id := model.NewNodeIdFromLabels(m)
+		id := model.NewNodeId(m.MachineID, m.SystemUUID)
 		if id.MachineID == "" && id.SystemUUID == "" {
 			klog.Infoln("invalid `node_info` metric: missing `machine_id` and `system_uuid` labels")
 			continue
@@ -27,12 +27,12 @@ func initNodesList(w *model.World, metrics map[string][]*model.MetricValues, nod
 			nodesByID[node.Id] = node
 			nodesBySystemUUID[node.Id.SystemUUID] = node
 		}
-		node.Name.Update(m.Values, name)
-		node.KernelVersion.Update(m.Values, m.Labels["kernel_version"])
+		node.Name.Update(m.Values[0], name)
+		node.KernelVersion.Update(m.Values[0], m.Labels["kernel_version"])
 	}
 	for _, m := range metrics["kube_node_info"] {
 		name := m.Labels["node"]
-		id := model.NewNodeIdFromLabels(m)
+		id := model.NewNodeId(m.MachineID, m.SystemUUID)
 		if id.MachineID == "" && id.SystemUUID == "" {
 			klog.Infoln("invalid `kube_node_info` metric: missing `system_uuid` label")
 			continue
@@ -44,9 +44,9 @@ func initNodesList(w *model.World, metrics map[string][]*model.MetricValues, nod
 			nodesByID[node.Id] = node
 			nodesBySystemUUID[node.Id.SystemUUID] = node
 		}
-		node.K8sName.Update(m.Values, name)
+		node.K8sName.Update(m.Values[0], name)
 		if node.KernelVersion.Value() == "" {
-			node.KernelVersion.Update(m.Values, m.Labels["kernel_version"])
+			node.KernelVersion.Update(m.Values[0], m.Labels["kernel_version"])
 		}
 	}
 }
@@ -59,41 +59,41 @@ func (c *Constructor) loadNodes(w *model.World, metrics map[string][]*model.Metr
 			continue
 		}
 		for _, m := range metrics[queryName] {
-			node := nodesByID[model.NewNodeIdFromLabels(m)]
+			node := nodesByID[model.NewNodeId(m.MachineID, m.SystemUUID)]
 			if node == nil {
 				continue
 			}
 			switch queryName {
 			case "node_agent_info":
-				node.AgentVersion.Update(m.Values, m.Labels["version"])
+				node.AgentVersion.Update(m.Values[0], m.Labels["version"])
 			case "node_cpu_cores":
-				node.CpuCapacity = merge(node.CpuCapacity, m.Values, timeseries.Any)
+				node.CpuCapacity = merge(node.CpuCapacity, m.Values[0], timeseries.Any)
 			case "node_cpu_usage_percent":
-				node.CpuUsagePercent = merge(node.CpuUsagePercent, m.Values, timeseries.Any)
+				node.CpuUsagePercent = merge(node.CpuUsagePercent, m.Values[0], timeseries.Any)
 			case "node_cpu_usage_by_mode":
-				node.CpuUsageByMode[m.Labels["mode"]] = merge(node.CpuUsageByMode[m.Labels["mode"]], m.Values, timeseries.Any)
+				node.CpuUsageByMode[m.Labels["mode"]] = merge(node.CpuUsageByMode[m.Labels["mode"]], m.Values[0], timeseries.Any)
 			case "node_memory_total_bytes":
-				node.MemoryTotalBytes = merge(node.MemoryTotalBytes, m.Values, timeseries.Any)
+				node.MemoryTotalBytes = merge(node.MemoryTotalBytes, m.Values[0], timeseries.Any)
 			case "node_memory_available_bytes":
-				node.MemoryAvailableBytes = merge(node.MemoryAvailableBytes, m.Values, timeseries.Any)
+				node.MemoryAvailableBytes = merge(node.MemoryAvailableBytes, m.Values[0], timeseries.Any)
 			case "node_memory_cached_bytes":
-				node.MemoryCachedBytes = merge(node.MemoryCachedBytes, m.Values, timeseries.Any)
+				node.MemoryCachedBytes = merge(node.MemoryCachedBytes, m.Values[0], timeseries.Any)
 			case "node_memory_free_bytes":
-				node.MemoryFreeBytes = merge(node.MemoryFreeBytes, m.Values, timeseries.Any)
+				node.MemoryFreeBytes = merge(node.MemoryFreeBytes, m.Values[0], timeseries.Any)
 			case "node_cloud_info":
 				provider := strings.ToLower(m.Labels["provider"])
 				region := m.Labels["region"]
 				az := m.Labels["availability_zone"]
-				node.CloudProvider.Update(m.Values, provider)
-				node.Region.Update(m.Values, region)
+				node.CloudProvider.Update(m.Values[0], provider)
+				node.Region.Update(m.Values[0], region)
 				if _, err := strconv.ParseInt(az, 10, 8); err == nil && provider == model.CloudProviderAzure {
 					az = region + "-" + az
 				}
-				node.AvailabilityZone.Update(m.Values, az)
-				node.InstanceType.Update(m.Values, m.Labels["instance_type"])
-				node.InstanceLifeCycle.Update(m.Values, m.Labels["instance_life_cycle"])
+				node.AvailabilityZone.Update(m.Values[0], az)
+				node.InstanceType.Update(m.Values[0], m.Labels["instance_type"])
+				node.InstanceLifeCycle.Update(m.Values[0], m.Labels["instance_life_cycle"])
 			case "node_uptime_seconds":
-				node.Uptime = merge(node.Uptime, m.Values, timeseries.Any)
+				node.Uptime = merge(node.Uptime, m.Values[0], timeseries.Any)
 			default:
 				if strings.HasPrefix(queryName, "node_disk_") {
 					nodeDisk(node, queryName, m)
@@ -133,19 +133,19 @@ func nodeDisk(node *model.Node, queryName string, m *model.MetricValues) {
 	}
 	switch queryName {
 	case "node_disk_read_time":
-		stat.ReadTime = merge(stat.ReadTime, m.Values, timeseries.Any)
+		stat.ReadTime = merge(stat.ReadTime, m.Values[0], timeseries.Any)
 	case "node_disk_write_time":
-		stat.WriteTime = merge(stat.WriteTime, m.Values, timeseries.Any)
+		stat.WriteTime = merge(stat.WriteTime, m.Values[0], timeseries.Any)
 	case "node_disk_reads":
-		stat.ReadOps = merge(stat.ReadOps, m.Values, timeseries.Any)
+		stat.ReadOps = merge(stat.ReadOps, m.Values[0], timeseries.Any)
 	case "node_disk_writes":
-		stat.WriteOps = merge(stat.WriteOps, m.Values, timeseries.Any)
+		stat.WriteOps = merge(stat.WriteOps, m.Values[0], timeseries.Any)
 	case "node_disk_read_bytes":
-		stat.ReadBytes = merge(stat.ReadBytes, m.Values, timeseries.Any)
+		stat.ReadBytes = merge(stat.ReadBytes, m.Values[0], timeseries.Any)
 	case "node_disk_written_bytes":
-		stat.WrittenBytes = merge(stat.WrittenBytes, m.Values, timeseries.Any)
+		stat.WrittenBytes = merge(stat.WrittenBytes, m.Values[0], timeseries.Any)
 	case "node_disk_io_time":
-		stat.IOUtilizationPercent = merge(stat.IOUtilizationPercent, m.Values.Map(func(t timeseries.Time, v float32) float32 {
+		stat.IOUtilizationPercent = merge(stat.IOUtilizationPercent, m.Values[0].Map(func(t timeseries.Time, v float32) float32 {
 			return v * 100
 		}), timeseries.Any)
 	}
@@ -165,12 +165,12 @@ func nodeInterface(node *model.Node, queryName string, m *model.MetricValues) {
 	}
 	switch queryName {
 	case "node_net_up":
-		stat.Up = merge(stat.Up, m.Values, timeseries.Any)
+		stat.Up = merge(stat.Up, m.Values[0], timeseries.Any)
 	case "node_net_ip":
 		stat.Addresses = append(stat.Addresses, m.Labels["ip"])
 	case "node_net_rx_bytes":
-		stat.RxBytes = merge(stat.RxBytes, m.Values, timeseries.Any)
+		stat.RxBytes = merge(stat.RxBytes, m.Values[0], timeseries.Any)
 	case "node_net_tx_bytes":
-		stat.TxBytes = merge(stat.TxBytes, m.Values, timeseries.Any)
+		stat.TxBytes = merge(stat.TxBytes, m.Values[0], timeseries.Any)
 	}
 }

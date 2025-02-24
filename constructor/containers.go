@@ -3,8 +3,10 @@ package constructor
 import (
 	"fmt"
 	"net"
+	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
@@ -91,13 +93,17 @@ func (c *Constructor) getInstanceAndContainer(w *model.World, node *model.Node, 
 	return instance, instance.GetOrCreateContainer(containerId, containerName)
 }
 
+type nodeCache map[model.NodeId]*model.Node
+
+type instanceCache map[instanceId]*model.Instance
+
 type containerCache map[model.NodeContainerId]struct {
 	instance  *model.Instance
 	container *model.Container
 }
 
-func (c *Constructor) loadContainers(w *model.World, metrics map[string][]*model.MetricValues, pjs promJobStatuses, nodesByID map[model.NodeId]*model.Node, containers containerCache, servicesByClusterIP map[string]*model.Service, ip2fqdn map[string]*utils.StringSet) {
-	instances := map[instanceId]*model.Instance{}
+func (c *Constructor) loadContainers(w *model.World, metrics map[string][]*model.MetricValues, pjs promJobStatuses, nodes nodeCache, containers containerCache, servicesByClusterIP map[string]*model.Service, ip2fqdn map[string]*utils.StringSet) {
+	instances := instanceCache{}
 	for _, a := range w.Applications {
 		for _, i := range a.Instances {
 			var nodeId model.NodeId
@@ -110,13 +116,16 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]*model
 
 	rttByInstance := map[instanceId]map[string]*timeseries.TimeSeries{}
 
+	stages := map[string]time.Duration{}
+
 	loadContainer := func(queryName string, f func(instance *model.Instance, container *model.Container, metric *model.MetricValues)) {
+		t := time.Now()
 		ms := metrics[queryName]
 		for _, m := range ms {
 			v, ok := containers[m.NodeContainerId]
 			if !ok {
-				nodeId := model.NewNodeIdFromLabels(m)
-				v.instance, v.container = c.getInstanceAndContainer(w, nodesByID[nodeId], instances, m.ContainerId)
+				nodeId := model.NewNodeId(m.MachineID, m.SystemUUID)
+				v.instance, v.container = c.getInstanceAndContainer(w, nodes[nodeId], instances, m.ContainerId)
 				containers[m.NodeContainerId] = v
 			}
 			if v.instance == nil || v.container == nil {
@@ -124,6 +133,7 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]*model
 			}
 			f(v.instance, v.container, m)
 		}
+		stages[queryName] += time.Since(t)
 	}
 
 	loadContainer("container_info", func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
@@ -138,43 +148,43 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]*model
 		container.ApplicationTypes[model.ApplicationType(metric.Labels["application_type"])] = true
 	})
 
-	loadContainer("container_cpu_limit", func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
-		container.CpuLimit = merge(container.CpuLimit, metric.Values, timeseries.Any)
-	})
-	loadContainer("container_cpu_usage", func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
-		container.CpuUsage = merge(container.CpuUsage, metric.Values, timeseries.Any)
-	})
-	loadContainer("container_cpu_delay", func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
-		container.CpuDelay = merge(container.CpuDelay, metric.Values, timeseries.Any)
-	})
-	loadContainer("container_throttled_time", func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
-		container.ThrottledTime = merge(container.ThrottledTime, metric.Values, timeseries.Any)
-	})
-	loadContainer("container_memory_rss", func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
-		container.MemoryRss = merge(container.MemoryRss, metric.Values, timeseries.Any)
-	})
+	//loadContainer("container_cpu_limit", func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
+	//	container.CpuLimit = merge(container.CpuLimit, metric.Values[0], timeseries.Any)
+	//})
+	//loadContainer("container_cpu_usage", func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
+	//	container.CpuUsage = merge(container.CpuUsage, metric.Values[0], timeseries.Any)
+	//})
+	//loadContainer("container_cpu_delay", func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
+	//	container.CpuDelay = merge(container.CpuDelay, metric.Values[0], timeseries.Any)
+	//})
+	//loadContainer("container_throttled_time", func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
+	//	container.ThrottledTime = merge(container.ThrottledTime, metric.Values[0], timeseries.Any)
+	//})
+	//loadContainer("container_memory_rss", func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
+	//	container.MemoryRss = merge(container.MemoryRss, metric.Values[0], timeseries.Any)
+	//})
 	loadContainer("container_memory_rss_for_trend", func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
-		container.MemoryRssForTrend = merge(container.MemoryRssForTrend, metric.Values, timeseries.Any)
+		container.MemoryRssForTrend = merge(container.MemoryRssForTrend, metric.Values[0], timeseries.Any)
 	})
-	loadContainer("container_memory_cache", func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
-		container.MemoryCache = merge(container.MemoryCache, metric.Values, timeseries.Any)
-	})
-	loadContainer("container_memory_limit", func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
-		container.MemoryLimit = merge(container.MemoryLimit, metric.Values, timeseries.Any)
-	})
-	loadContainer("container_oom_kills_total", func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
-		container.OOMKills = merge(container.OOMKills, timeseries.Increase(metric.Values, pjs.get(metric.Labels)), timeseries.Any)
-	})
-	loadContainer("container_restarts", func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
-		container.Restarts = merge(container.Restarts, timeseries.Increase(metric.Values, pjs.get(metric.Labels)), timeseries.Any)
-	})
+	//loadContainer("container_memory_cache", func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
+	//	container.MemoryCache = merge(container.MemoryCache, metric.Values[0], timeseries.Any)
+	//})
+	//loadContainer("container_memory_limit", func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
+	//	container.MemoryLimit = merge(container.MemoryLimit, metric.Values[0], timeseries.Any)
+	//})
+	//loadContainer("container_oom_kills_total", func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
+	//	container.OOMKills = merge(container.OOMKills, timeseries.Increase(metric.Values[0], pjs.get(metric.Labels)), timeseries.Any)
+	//})
+	//loadContainer("container_restarts", func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
+	//	container.Restarts = merge(container.Restarts, timeseries.Increase(metric.Values[0], pjs.get(metric.Labels)), timeseries.Any)
+	//})
 	loadContainer("container_net_latency", func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
 		id := instanceId{ns: instance.Owner.Id.Namespace, name: instance.Name, node: instance.NodeId()}
 		rtts := rttByInstance[id]
 		if rtts == nil {
 			rtts = map[string]*timeseries.TimeSeries{}
 		}
-		rtts[metric.Destination] = merge(rtts[metric.Destination], metric.Values, timeseries.Any)
+		rtts[metric.Destination] = merge(rtts[metric.Destination], metric.Values[0], timeseries.Any)
 		rttByInstance[id] = rtts
 	})
 	loadContainer("container_net_tcp_listen_info", func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
@@ -183,7 +193,7 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]*model
 			klog.Warningf("failed to split %s to ip:port pair: %s", metric.Labels["listen_addr"], err)
 			return
 		}
-		isActive := metric.Values.Last() == 1
+		isActive := metric.Values[0].Last() == 1
 		l := model.Listen{IP: ip, Port: port, Proxied: metric.Labels["proxy"] != ""}
 		if !instance.TcpListens[l] {
 			instance.TcpListens[l] = isActive
@@ -198,26 +208,26 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]*model
 			}
 		})
 	}
-	loadConnection("container_net_tcp_successful_connects", func(connection *model.Connection, metric *model.MetricValues) {
-		connection.SuccessfulConnections = merge(connection.SuccessfulConnections, metric.Values, timeseries.Any)
-	})
-	loadConnection("container_net_tcp_connection_time_seconds", func(connection *model.Connection, metric *model.MetricValues) {
-		connection.ConnectionTime = merge(connection.ConnectionTime, metric.Values, timeseries.Any)
-	})
-	loadConnection("container_net_tcp_bytes_sent", func(connection *model.Connection, metric *model.MetricValues) {
-		connection.BytesSent = merge(connection.BytesSent, metric.Values, timeseries.Any)
-	})
-	loadConnection("container_net_tcp_bytes_received", func(connection *model.Connection, metric *model.MetricValues) {
-		connection.BytesReceived = merge(connection.BytesReceived, metric.Values, timeseries.Any)
-	})
+	//loadConnection("container_net_tcp_successful_connects", func(connection *model.Connection, metric *model.MetricValues) {
+	//	connection.SuccessfulConnections = merge(connection.SuccessfulConnections, metric.Values[0], timeseries.Any)
+	//})
+	//loadConnection("container_net_tcp_connection_time_seconds", func(connection *model.Connection, metric *model.MetricValues) {
+	//	connection.ConnectionTime = merge(connection.ConnectionTime, metric.Values[0], timeseries.Any)
+	//})
+	//loadConnection("container_net_tcp_bytes_sent", func(connection *model.Connection, metric *model.MetricValues) {
+	//	connection.BytesSent = merge(connection.BytesSent, metric.Values[0], timeseries.Any)
+	//})
+	//loadConnection("container_net_tcp_bytes_received", func(connection *model.Connection, metric *model.MetricValues) {
+	//	connection.BytesReceived = merge(connection.BytesReceived, metric.Values[0], timeseries.Any)
+	//})
+	//loadConnection("container_net_tcp_active_connections", func(connection *model.Connection, metric *model.MetricValues) {
+	//	connection.Active = merge(connection.Active, metric.Values[0], timeseries.Any)
+	//})
+	//loadConnection("container_net_tcp_retransmits", func(connection *model.Connection, metric *model.MetricValues) {
+	//	connection.Retransmissions = merge(connection.Retransmissions, metric.Values[0], timeseries.Any)
+	//})
 	loadConnection("container_net_tcp_failed_connects", func(connection *model.Connection, metric *model.MetricValues) {
-		connection.FailedConnections = merge(connection.FailedConnections, metric.Values, timeseries.Any)
-	})
-	loadConnection("container_net_tcp_active_connections", func(connection *model.Connection, metric *model.MetricValues) {
-		connection.Active = merge(connection.Active, metric.Values, timeseries.Any)
-	})
-	loadConnection("container_net_tcp_retransmits", func(connection *model.Connection, metric *model.MetricValues) {
-		connection.Retransmissions = merge(connection.Retransmissions, metric.Values, timeseries.Any)
+		connection.FailedConnections = merge(connection.FailedConnections, metric.Values[0], timeseries.Any)
 	})
 
 	loadL7RequestsCount := func(queryName string, protocol model.Protocol) {
@@ -230,7 +240,7 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]*model
 				connection.RequestsCount[protocol] = map[string]*timeseries.TimeSeries{}
 			}
 			status := metric.Labels["status"]
-			connection.RequestsCount[protocol][status] = merge(connection.RequestsCount[protocol][status], metric.Values, timeseries.NanSum)
+			connection.RequestsCount[protocol][status] = merge(connection.RequestsCount[protocol][status], metric.Values[0], timeseries.NanSum)
 		})
 	}
 	loadL7RequestsCount("container_http_requests_count", model.ProtocolHttp)
@@ -248,7 +258,7 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]*model
 
 	loadL7RequestsLatency := func(queryName string, protocol model.Protocol) {
 		loadConnection(queryName, func(connection *model.Connection, metric *model.MetricValues) {
-			connection.RequestsLatency[protocol] = merge(connection.RequestsLatency[protocol], metric.Values, timeseries.Any)
+			connection.RequestsLatency[protocol] = merge(connection.RequestsLatency[protocol], metric.Values[0], timeseries.Any)
 		})
 	}
 	loadL7RequestsLatency("container_http_requests_latency", model.ProtocolHttp)
@@ -272,7 +282,7 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]*model
 			if connection.RequestsHistogram[protocol] == nil {
 				connection.RequestsHistogram[protocol] = map[float32]*timeseries.TimeSeries{}
 			}
-			connection.RequestsHistogram[protocol][float32(le)] = merge(connection.RequestsHistogram[protocol][float32(le)], metric.Values, timeseries.NanSum)
+			connection.RequestsHistogram[protocol][float32(le)] = merge(connection.RequestsHistogram[protocol][float32(le)], metric.Values[0], timeseries.NanSum)
 		})
 	}
 	loadL7RequestsHistogram("container_http_requests_histogram", model.ProtocolHttp)
@@ -300,7 +310,7 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]*model
 			byStatus = map[string]*timeseries.TimeSeries{}
 			container.DNSRequests[r] = byStatus
 		}
-		byStatus[status] = merge(byStatus[status], metric.Values, timeseries.Any)
+		byStatus[status] = merge(byStatus[status], metric.Values[0], timeseries.Any)
 	})
 	loadContainer("container_dns_requests_latency", func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
 		le, err := strconv.ParseFloat(metric.Labels["le"], 32)
@@ -308,21 +318,47 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]*model
 			klog.Warningln(err)
 			return
 		}
-		container.DNSRequestsHistogram[float32(le)] = merge(container.DNSRequestsHistogram[float32(le)], metric.Values, timeseries.Any)
+		container.DNSRequestsHistogram[float32(le)] = merge(container.DNSRequestsHistogram[float32(le)], metric.Values[0], timeseries.Any)
 	})
 
-	loadVolume := func(queryName string, f func(volume *model.Volume, metric *model.MetricValues)) {
-		loadContainer(queryName, func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
-			v := getOrCreateInstanceVolume(instance, metric)
-			f(v, metric)
-		})
+	//loadVolume := func(queryName string, f func(volume *model.Volume, metric *model.MetricValues)) {
+	//	loadContainer(queryName, func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
+	//		v := getOrCreateInstanceVolume(instance, metric)
+	//		f(v, metric)
+	//	})
+	//}
+	//loadVolume("container_volume_size", func(volume *model.Volume, metric *model.MetricValues) {
+	//	volume.CapacityBytes = merge(volume.CapacityBytes, metric.Values[0], timeseries.Any)
+	//})
+	//loadVolume("container_volume_used", func(volume *model.Volume, metric *model.MetricValues) {
+	//	volume.UsedBytes = merge(volume.UsedBytes, metric.Values[0], timeseries.Any)
+	//})
+
+	t := time.Now()
+	c.loadContainer(metrics["container"], loadContainerResources, nodes, instances, containers, w, pjs)
+	stages["GROUPED container"] = time.Since(t)
+	t = time.Now()
+	c.loadContainer(metrics["container_volume"], loadVolume, nodes, instances, containers, w, nil)
+	stages["GROUPED container_volume"] = time.Since(t)
+	t = time.Now()
+	c.loadContainer(metrics["container_net"], loadContainerNet, nodes, instances, containers, w, nil)
+	stages["GROUPED container_net"] = time.Since(t)
+
+	type stage struct {
+		name     string
+		duration time.Duration
 	}
-	loadVolume("container_volume_size", func(volume *model.Volume, metric *model.MetricValues) {
-		volume.CapacityBytes = merge(volume.CapacityBytes, metric.Values, timeseries.Any)
-	})
-	loadVolume("container_volume_used", func(volume *model.Volume, metric *model.MetricValues) {
-		volume.UsedBytes = merge(volume.UsedBytes, metric.Values, timeseries.Any)
-	})
+	var ss []stage
+	for s, d := range stages {
+		ss = append(ss, stage{s, d})
+	}
+	sort.Slice(ss, func(i, j int) bool { return ss[i].duration < ss[j].duration })
+	var dd time.Duration
+	for _, s := range ss {
+		dd += s.duration
+		klog.Infoln("    ", s.name, s.duration.Truncate(time.Millisecond))
+	}
+	klog.Infoln("      ", "total", dd.Truncate(time.Millisecond))
 
 	instancesByListen := map[model.Listen]*model.Instance{}
 	for _, app := range w.Applications {
@@ -427,6 +463,81 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]*model
 	}
 }
 
+type loadContainerF func(instance *model.Instance, container *model.Container, metric *model.MetricValues, status *timeseries.TimeSeries)
+
+func (c *Constructor) loadContainer(metrics []*model.MetricValues, f loadContainerF, nodes nodeCache, instances instanceCache, containers containerCache, w *model.World, pjs promJobStatuses) {
+	for _, m := range metrics {
+		v, ok := containers[m.NodeContainerId]
+		if !ok {
+			nodeId := model.NewNodeId(m.MachineID, m.SystemUUID)
+			v.instance, v.container = c.getInstanceAndContainer(w, nodes[nodeId], instances, m.ContainerId)
+			containers[m.NodeContainerId] = v
+		}
+		//klog.Infoln(m.ContainerId, v.container == nil)
+		if v.instance == nil || v.container == nil {
+			continue
+		}
+		var status *timeseries.TimeSeries
+		if pjs != nil {
+			status = pjs.get(m.Labels)
+		}
+		f(v.instance, v.container, m, status)
+	}
+}
+
+func loadContainerResources(instance *model.Instance, container *model.Container, metric *model.MetricValues, status *timeseries.TimeSeries) {
+	container.CpuLimit = merge(container.CpuLimit, metric.Get("container", "cpu_limit"), timeseries.Any)
+	container.CpuUsage = merge(container.CpuUsage, metric.Get("container", "cpu_usage"), timeseries.Any)
+	container.CpuDelay = merge(container.CpuDelay, metric.Get("container", "cpu_delay"), timeseries.Any)
+	container.ThrottledTime = merge(container.ThrottledTime, metric.Get("container", "cpu_throttling"), timeseries.Any)
+	container.MemoryLimit = merge(container.MemoryLimit, metric.Get("container", "memory_limit"), timeseries.Any)
+	container.MemoryRss = merge(container.MemoryRss, metric.Get("container", "memory_rss"), timeseries.Any)
+	container.MemoryCache = merge(container.MemoryCache, metric.Get("container", "memory_cache"), timeseries.Any)
+	container.OOMKills = merge(container.OOMKills, timeseries.Increase(metric.Get("container", "oom_kills"), status), timeseries.Any)
+	container.Restarts = merge(container.Restarts, timeseries.Increase(metric.Get("container", "restarts"), status), timeseries.Any)
+}
+
+func loadVolume(instance *model.Instance, container *model.Container, metric *model.MetricValues, status *timeseries.TimeSeries) {
+	var volume *model.Volume
+	for _, v := range instance.Volumes {
+		if v.MountPoint == metric.Labels["mount_point"] {
+			volume = v
+			break
+		}
+	}
+	if volume == nil {
+		volume = &model.Volume{MountPoint: metric.Labels["mount_point"]}
+		instance.Volumes = append(instance.Volumes, volume)
+	}
+	for _, ts := range metric.Values {
+		if !ts.IsEmpty() {
+			volume.Name.Update(ts, metric.Labels["volume"])
+			volume.Device.Update(ts, metric.Labels["device"])
+			break
+		}
+	}
+	volume.CapacityBytes = merge(volume.CapacityBytes, metric.Get("container_volume", "size"), timeseries.Any)
+	volume.UsedBytes = merge(volume.UsedBytes, metric.Get("container_volume", "used"), timeseries.Any)
+}
+
+func loadContainerNet(instance *model.Instance, container *model.Container, metric *model.MetricValues, status *timeseries.TimeSeries) {
+	connection := getOrCreateConnection(instance, container.Name, metric)
+	if connection == nil {
+		return
+	}
+	connection.SuccessfulConnections = merge(connection.SuccessfulConnections, metric.Get("container_net", "successful_connects"), timeseries.Any)
+	connection.Active = merge(connection.Active, metric.Get("container_net", "active_connections"), timeseries.Any)
+	//if metric.ContainerId == "/k8s/default/front-end-594c879754-7vc8m/front-end" {
+	//	klog.Infoln(metric.LabelsHash, metric.ConnectionKey)
+	//	klog.Infoln("dst", connection.ConnectionTime)
+	//	klog.Infoln("src", metric.Get("container_net", "connection_time"))
+	//}
+	connection.ConnectionTime = merge(connection.ConnectionTime, metric.Get("container_net", "connection_time"), timeseries.Any)
+	connection.BytesSent = merge(connection.BytesSent, metric.Get("container_net", "bytes_sent"), timeseries.Any)
+	connection.BytesReceived = merge(connection.BytesReceived, metric.Get("container_net", "bytes_received"), timeseries.Any)
+	connection.Retransmissions = merge(connection.Retransmissions, metric.Get("container_net", "retransmits"), timeseries.Any)
+}
+
 func getOrCreateConnection(instance *model.Instance, container string, m *model.MetricValues) *model.Connection {
 	if instance.Owner.Id.Name == "docker" { // ignore docker-proxy's connections
 		return nil
@@ -477,8 +588,8 @@ func getOrCreateInstanceVolume(instance *model.Instance, m *model.MetricValues) 
 		volume = &model.Volume{MountPoint: m.Labels["mount_point"]}
 		instance.Volumes = append(instance.Volumes, volume)
 	}
-	volume.Name.Update(m.Values, m.Labels["volume"])
-	volume.Device.Update(m.Values, m.Labels["device"])
+	volume.Name.Update(m.Values[0], m.Labels["volume"])
+	volume.Device.Update(m.Values[0], m.Labels["device"])
 	return volume
 }
 

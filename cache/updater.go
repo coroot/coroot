@@ -17,6 +17,7 @@ import (
 	"github.com/coroot/coroot/prom"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
+	"golang.org/x/exp/maps"
 	"k8s.io/klog"
 )
 
@@ -55,6 +56,16 @@ func (c *Cache) updater() {
 			return true
 		})
 	}
+}
+
+type UpdateTask struct {
+	MetricGroup string
+	Metrics     []UpdateTaskMetric
+}
+
+type UpdateTaskMetric struct {
+	metric string
+	state  *PrometheusQueryState
 }
 
 func (c *Cache) updaterWorker(projects *sync.Map, projectId db.ProjectId, promClient *prom.Client) {
@@ -97,7 +108,27 @@ func (c *Cache) updaterWorker(projects *sync.Map, projectId db.ProjectId, promCl
 			return
 		}
 
+		Metrics := map[string][]model.Metric{}
+		newQueries := map[string]bool{}
+		for group, metrics := range model.Metrics {
+			for _, m := range metrics {
+				newQueries[m.Query] = true
+			}
+			Metrics[group] = append(Metrics[group], metrics...)
+		}
+		for _, q := range constructor.QUERIES {
+			if newQueries[q] {
+				continue
+			}
+			Metrics[q] = []model.Metric{{Name: chunk.DefaultMetricName, Query: q}}
+		}
+
 		var queries []string
+		for _, metrics := range Metrics {
+			for _, metric := range metrics {
+				queries = append(queries, metric.Query)
+			}
+		}
 		for _, q := range constructor.QUERIES {
 			queries = append(queries, q)
 		}
@@ -158,7 +189,7 @@ func (c *Cache) updaterWorker(projects *sync.Map, projectId db.ProjectId, promCl
 				c.lock.Unlock()
 			}
 			wg := sync.WaitGroup{}
-			tasks := make(chan *PrometheusQueryState)
+			tasks := make(chan UpdateTask)
 			to := now.Add(-step)
 			for i := 0; i < QueryConcurrency; i++ {
 				wg.Add(1)
@@ -169,8 +200,20 @@ func (c *Cache) updaterWorker(projects *sync.Map, projectId db.ProjectId, promCl
 					}
 				}()
 			}
-			for _, q := range queries {
-				tasks <- states[q]
+			//for _, q := range queries {
+			//	tasks <- states[q]
+			//}
+			for group, metrics := range Metrics {
+				task := UpdateTask{
+					MetricGroup: group,
+				}
+				for _, metric := range metrics {
+					task.Metrics = append(task.Metrics, UpdateTaskMetric{
+						metric: metric.Name,
+						state:  states[metric.Query],
+					})
+				}
+				tasks <- task
 			}
 			close(tasks)
 			wg.Wait()
@@ -192,37 +235,59 @@ func (c *Cache) updaterWorker(projects *sync.Map, projectId db.ProjectId, promCl
 	}
 }
 
-func (c *Cache) download(to timeseries.Time, promClient *prom.Client, projectId db.ProjectId, step timeseries.Duration, state *PrometheusQueryState) {
-	hash, jitter := QueryId(projectId, state.Query)
+func (c *Cache) download(to timeseries.Time, promClient *prom.Client, projectId db.ProjectId, step timeseries.Duration, task UpdateTask) {
+	hash, jitter := QueryId(projectId, task.MetricGroup)
 	pointsCount := int(chunk.Size / step)
-	from := state.LastTs
-	if to.Sub(from) > BackFillInterval {
-		from = to.Add(-BackFillInterval)
+	from := to.Add(-BackFillInterval)
+	for _, m := range task.Metrics {
+		if m.state.LastTs.After(from) {
+			from = m.state.LastTs
+			break
+		}
 	}
 	for _, i := range calcIntervals(from, step, to, jitter) {
-		ctx, cancel := context.WithTimeout(context.Background(), queryTimeout)
-		vs, err := promClient.QueryRange(ctx, state.Query, i.chunkTs, i.toTs, step)
-		cancel()
-		if err != nil {
-			state.LastError = err.Error()
-			if err = c.saveState(state); err != nil {
-				klog.Errorln("failed to save query state:", err)
+		values := map[uint64]*model.MetricValues{}
+		metrics := make([]string, len(task.Metrics))
+		for mi, m := range task.Metrics {
+			metrics[mi] = m.metric
+			ctx, cancel := context.WithTimeout(context.Background(), queryTimeout)
+			vs, err := promClient.QueryRange(ctx, m.state.Query, i.chunkTs, i.toTs, step)
+			cancel()
+			if err != nil {
+				m.state.LastError = err.Error()
+				if err = c.saveState(m.state); err != nil {
+					klog.Errorln("failed to save query state:", err)
+				}
+				return
 			}
-			return
+			m.state.LastTs = i.toTs
+			m.state.LastError = ""
+			err = c.saveState(m.state)
+			if err != nil {
+				klog.Errorln("failed to save state:", err)
+			}
+			for _, v := range vs {
+				if values[v.LabelsHash] == nil {
+					values[v.LabelsHash] = &model.MetricValues{
+						Labels:          v.Labels,
+						LabelsHash:      v.LabelsHash,
+						NodeContainerId: v.NodeContainerId,
+						ConnectionKey:   v.ConnectionKey,
+						DestIp:          v.DestIp,
+						Values:          make([]*timeseries.TimeSeries, len(task.Metrics)),
+					}
+				}
+				values[v.LabelsHash].Values[mi] = v.Values[0]
+			}
+		}
+		if len(values) == 0 {
+			continue
 		}
 		chunkEnd := i.chunkTs.Add(timeseries.Duration(pointsCount-1) * step)
 		finalized := chunkEnd == i.toTs
-		err = c.writeChunk(projectId, hash, i.chunkTs, pointsCount, step, finalized, vs, []string{chunk.DefaultMetricName})
+		err := c.writeChunk(projectId, hash, i.chunkTs, pointsCount, step, finalized, maps.Values(values), metrics)
 		if err != nil {
 			klog.Errorln("failed to save chunk:", err)
-			return
-		}
-
-		state.LastTs = i.toTs
-		state.LastError = ""
-		err = c.saveState(state)
-		if err != nil {
-			klog.Errorln("failed to save state:", err)
 			return
 		}
 	}
@@ -304,7 +369,7 @@ func (c *Cache) processRecordingRules(to timeseries.Time, project *db.Project, s
 	pointsCount := int(chunk.Size / step)
 	for _, i := range intervals {
 		ctr := constructor.New(c.db, project, cacheClient, nil, constructor.OptionLoadPerConnectionHistograms, constructor.OptionDoNotLoadRawSLIs, constructor.OptionLoadContainerLogs)
-		world, err := ctr.LoadWorld(context.TODO(), i.chunkTs, i.toTs, step, nil, false)
+		world, err := ctr.LoadWorld(context.TODO(), i.chunkTs, i.toTs, step, nil)
 		if err != nil {
 			klog.Errorln("failed to load world:", err)
 			return

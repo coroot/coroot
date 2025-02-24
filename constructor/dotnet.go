@@ -31,36 +31,36 @@ func (c *Constructor) loadDotNet(metrics map[string][]*model.MetricValues, conta
 		}
 	}
 	load("container_dotnet_info", func(dotnet *model.DotNet, metric *model.MetricValues) {
-		dotnet.RuntimeVersion.Update(metric.Values, metric.Labels["runtime_version"])
-		dotnet.Up = merge(dotnet.Up, metric.Values, timeseries.Any)
+		dotnet.RuntimeVersion.Update(metric.Values[0], metric.Labels["runtime_version"])
+		dotnet.Up = merge(dotnet.Up, metric.Values[0], timeseries.Any)
 	})
 	load("container_dotnet_memory_allocated_bytes_total", func(dotnet *model.DotNet, metric *model.MetricValues) {
-		dotnet.MemoryAllocationRate = merge(dotnet.MemoryAllocationRate, metric.Values, timeseries.Any)
+		dotnet.MemoryAllocationRate = merge(dotnet.MemoryAllocationRate, metric.Values[0], timeseries.Any)
 	})
 	load("container_dotnet_exceptions_total", func(dotnet *model.DotNet, metric *model.MetricValues) {
-		dotnet.Exceptions = merge(dotnet.Exceptions, metric.Values, timeseries.Any)
+		dotnet.Exceptions = merge(dotnet.Exceptions, metric.Values[0], timeseries.Any)
 	})
 	load("container_dotnet_memory_heap_size_bytes", func(dotnet *model.DotNet, metric *model.MetricValues) {
 		gen := metric.Labels["generation"]
-		dotnet.HeapSize[gen] = merge(dotnet.HeapSize[gen], metric.Values, timeseries.Any)
+		dotnet.HeapSize[gen] = merge(dotnet.HeapSize[gen], metric.Values[0], timeseries.Any)
 	})
 	load("container_dotnet_gc_count_total", func(dotnet *model.DotNet, metric *model.MetricValues) {
 		gen := metric.Labels["generation"]
-		dotnet.GcCount[gen] = merge(dotnet.GcCount[gen], metric.Values, timeseries.Any)
+		dotnet.GcCount[gen] = merge(dotnet.GcCount[gen], metric.Values[0], timeseries.Any)
 	})
 	load("container_dotnet_heap_fragmentation_percent", func(dotnet *model.DotNet, metric *model.MetricValues) {
-		dotnet.HeapFragmentationPercent = merge(dotnet.HeapFragmentationPercent, metric.Values, timeseries.Any)
+		dotnet.HeapFragmentationPercent = merge(dotnet.HeapFragmentationPercent, metric.Values[0], timeseries.Any)
 	})
 	load("container_dotnet_monitor_lock_contentions_total", func(dotnet *model.DotNet, metric *model.MetricValues) {
-		dotnet.MonitorLockContentions = merge(dotnet.MonitorLockContentions, metric.Values, timeseries.Any)
+		dotnet.MonitorLockContentions = merge(dotnet.MonitorLockContentions, metric.Values[0], timeseries.Any)
 	})
 	load("container_dotnet_thread_pool_completed_items_total", func(dotnet *model.DotNet, metric *model.MetricValues) {
-		dotnet.ThreadPoolCompletedItems = merge(dotnet.ThreadPoolCompletedItems, metric.Values, timeseries.Any)
+		dotnet.ThreadPoolCompletedItems = merge(dotnet.ThreadPoolCompletedItems, metric.Values[0], timeseries.Any)
 	})
 	load("container_dotnet_thread_pool_queue_length", func(dotnet *model.DotNet, metric *model.MetricValues) {
-		dotnet.ThreadPoolQueueSize = merge(dotnet.ThreadPoolQueueSize, metric.Values, timeseries.Any)
+		dotnet.ThreadPoolQueueSize = merge(dotnet.ThreadPoolQueueSize, metric.Values[0], timeseries.Any)
 	})
 	load("container_dotnet_thread_pool_size", func(dotnet *model.DotNet, metric *model.MetricValues) {
-		dotnet.ThreadPoolSize = merge(dotnet.ThreadPoolSize, metric.Values, timeseries.Any)
+		dotnet.ThreadPoolSize = merge(dotnet.ThreadPoolSize, metric.Values[0], timeseries.Any)
 	})
 }

@@ -37,12 +37,6 @@ type NodeId struct {
 }
 
 func NewNodeId(machineID, systemUUID string) NodeId {
-	return NodeId{MachineID: machineID, SystemUUID: systemUUID}
-}
-
-func NewNodeIdFromLabels(mv *MetricValues) NodeId {
-	machineID := mv.MachineID
-	systemUUID := mv.SystemUUID
 	if systemUUID == "" {
 		systemUUID = machineID
 	} else {
@@ -51,7 +45,7 @@ func NewNodeIdFromLabels(mv *MetricValues) NodeId {
 	if machineID == "" {
 		machineID = systemUUID
 	}
-	return NewNodeId(machineID, systemUUID)
+	return NodeId{MachineID: machineID, SystemUUID: systemUUID}
 }
 
 type Node struct {

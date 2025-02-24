@@ -17,7 +17,7 @@ func logMessage(instance *model.Instance, metric *model.MetricValues, pjs promJo
 		msgs = &model.LogMessages{}
 		instance.Owner.LogMessages[level] = msgs
 	}
-	values := timeseries.Increase(metric.Values, pjs.get(metric.Labels))
+	values := timeseries.Increase(metric.Values[0], pjs.get(metric.Labels))
 	msgs.Messages = merge(msgs.Messages, values, timeseries.NanSum)
 
 	if hash := metric.Labels["pattern_hash"]; hash != "" {
@@ -87,7 +87,7 @@ func (c *Constructor) loadApplicationLogs(w *model.World, metrics map[string][]*
 			msgs = &model.LogMessages{}
 			app.LogMessages[level] = msgs
 		}
-		msgs.Messages = merge(msgs.Messages, metric.Values, timeseries.NanSum)
+		msgs.Messages = merge(msgs.Messages, metric.Values[0], timeseries.NanSum)
 		similar := metric.Labels["similar"]
 		if similar == "" {
 			continue
@@ -127,7 +127,7 @@ func (c *Constructor) loadApplicationLogs(w *model.World, metrics map[string][]*
 				msgs.Patterns[similarPatterns[0]] = p
 			}
 		}
-		p.Messages = merge(p.Messages, metric.Values, timeseries.NanSum)
+		p.Messages = merge(p.Messages, metric.Values[0], timeseries.NanSum)
 		p.SimilarPatternHashes.Add(similarPatterns...)
 	}
 }

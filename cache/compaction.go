@@ -130,7 +130,7 @@ func (c *Cache) compact(t CompactionTask) error {
 	pointsCount := int(t.compactor.DstChunkDuration / step)
 	lastChunkMetrics := t.src[len(t.src)-1].MetricNames
 	for _, i := range t.src {
-		if err := chunk.Read(i, t.dstChunk, pointsCount, step, lastChunkMetrics, dest, timeseries.FillAny, false); err != nil {
+		if err := chunk.Read(i.Path, t.dstChunk, pointsCount, step, lastChunkMetrics, dest, timeseries.FillAny); err != nil {
 			return fmt.Errorf("failed to read metrics from src chunk while compaction: %s", err)
 		}
 	}

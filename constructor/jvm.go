@@ -31,23 +31,23 @@ func (c *Constructor) loadJVM(metrics map[string][]*model.MetricValues, containe
 		}
 	}
 	load("container_jvm_info", func(jvm *model.Jvm, metric *model.MetricValues) {
-		jvm.JavaVersion.Update(metric.Values, metric.Labels["java_version"])
+		jvm.JavaVersion.Update(metric.Values[0], metric.Labels["java_version"])
 	})
 	load("container_jvm_heap_size_bytes", func(jvm *model.Jvm, metric *model.MetricValues) {
-		jvm.HeapSize = merge(jvm.HeapSize, metric.Values, timeseries.Any)
+		jvm.HeapSize = merge(jvm.HeapSize, metric.Values[0], timeseries.Any)
 	})
 	load("container_jvm_heap_used_bytes", func(jvm *model.Jvm, metric *model.MetricValues) {
-		jvm.HeapUsed = merge(jvm.HeapUsed, metric.Values, timeseries.Any)
+		jvm.HeapUsed = merge(jvm.HeapUsed, metric.Values[0], timeseries.Any)
 	})
 	load("container_jvm_gc_time_seconds", func(jvm *model.Jvm, metric *model.MetricValues) {
 		gc := metric.Labels["gc"]
-		jvm.GcTime[gc] = merge(jvm.GcTime[gc], metric.Values, timeseries.Any)
+		jvm.GcTime[gc] = merge(jvm.GcTime[gc], metric.Values[0], timeseries.Any)
 	})
 	load("container_jvm_safepoint_time_seconds", func(jvm *model.Jvm, metric *model.MetricValues) {
-		jvm.SafepointTime = merge(jvm.SafepointTime, metric.Values, timeseries.Any)
+		jvm.SafepointTime = merge(jvm.SafepointTime, metric.Values[0], timeseries.Any)
 	})
 	load("container_jvm_safepoint_sync_time_seconds", func(jvm *model.Jvm, metric *model.MetricValues) {
-		jvm.SafepointSyncTime = merge(jvm.SafepointSyncTime, metric.Values, timeseries.Any)
+		jvm.SafepointSyncTime = merge(jvm.SafepointSyncTime, metric.Values[0], timeseries.Any)
 	})
 }
 

@@ -33,6 +33,8 @@ var (
 	pool = &sync.Pool{New: func() interface{} {
 		return bytes.NewBuffer(nil)
 	}}
+
+	metricNameLabel = []byte(promModel.MetricNameLabel)
 )
 
 func init() {
@@ -152,12 +154,15 @@ func (c *Client) QueryRange(ctx context.Context, query string, from, to timeseri
 	f := func(value []byte, dataType jsonparser.ValueType, offset int, err error) {
 		mv := model.MetricValues{
 			Labels: map[string]string{},
-			Values: timeseries.New(from, int(to.Sub(from)/step)+1, step),
+			Values: []*timeseries.TimeSeries{timeseries.New(from, int(to.Sub(from)/step)+1, step)},
 		}
 		err = jsonparser.ObjectEach(value, func(key []byte, value []byte, dataType jsonparser.ValueType, offset int) error {
 			v, err := jsonparser.ParseString(value)
 			if err != nil {
 				return err
+			}
+			if bytes.Equal(key, metricNameLabel) {
+				return nil
 			}
 			mv.Labels[string(key)] = v
 			return nil
@@ -202,7 +207,7 @@ func (c *Client) QueryRange(ctx context.Context, query string, from, to timeseri
 					}
 				}
 			}
-			mv.Values.Set(t, float32(v))
+			mv.Values[0].Set(t, float32(v))
 		}, "values")
 		if err != nil {
 			return

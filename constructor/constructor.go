@@ -32,6 +32,8 @@ const (
 
 type Cache interface {
 	QueryRange(ctx context.Context, query string, from, to timeseries.Time, step timeseries.Duration, fillFunc timeseries.FillFunc) ([]*model.MetricValues, error)
+	QueryRange2(ctx context.Context, group string, from, to timeseries.Time, step timeseries.Duration) ([]*model.MetricValues, error)
+	QueryRange3(ctx context.Context, group string, from, to timeseries.Time, step timeseries.Duration) ([]*model.MetricValues, error)
 	GetStep(from, to timeseries.Time) (timeseries.Duration, error)
 }
 
@@ -111,7 +113,7 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 	}
 
 	pjs := promJobStatuses{}
-	nodesByID := map[model.NodeId]*model.Node{}
+	nodes := nodeCache{}
 	rdsInstancesById := map[string]*model.Instance{}
 	ecInstancesById := map[string]*model.Instance{}
 	servicesByClusterIP := map[string]*model.Service{}
@@ -120,9 +122,9 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 
 	// order is important
 	prof.stage("load_job_statuses", func() { loadPromJobStatuses(metrics, pjs) })
-	prof.stage("load_nodes", func() { c.loadNodes(w, metrics, nodesByID) })
+	prof.stage("load_nodes", func() { c.loadNodes(w, metrics, nodes) })
 	prof.stage("load_fqdn", func() { loadFQDNs(metrics, ip2fqdn) })
-	prof.stage("load_fargate_nodes", func() { c.loadFargateNodes(metrics, nodesByID) })
+	prof.stage("load_fargate_nodes", func() { c.loadFargateNodes(metrics, nodes) })
 	prof.stage("load_k8s_metadata", func() { loadKubernetesMetadata(w, metrics, servicesByClusterIP) })
 	prof.stage("load_aws_status", func() { loadAWSStatus(w, metrics) })
 	prof.stage("load_rds_metadata", func() { loadRdsMetadata(w, metrics, pjs, rdsInstancesById) })
@@ -130,7 +132,7 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 	prof.stage("load_rds", func() { c.loadRds(w, metrics, pjs, rdsInstancesById) })
 	prof.stage("load_elasticache", func() { c.loadElasticache(w, metrics, pjs, ecInstancesById) })
 	prof.stage("load_fargate_containers", func() { loadFargateContainers(w, metrics, pjs) })
-	prof.stage("load_containers", func() { c.loadContainers(w, metrics, pjs, nodesByID, containers, servicesByClusterIP, ip2fqdn) })
+	prof.stage("load_containers", func() { c.loadContainers(w, metrics, pjs, nodes, containers, servicesByClusterIP, ip2fqdn) })
 	prof.stage("load_jvm", func() { c.loadJVM(metrics, containers) })
 	prof.stage("load_dotnet", func() { c.loadDotNet(metrics, containers) })
 	prof.stage("load_python", func() { c.loadPython(metrics, containers) })
@@ -255,6 +257,33 @@ func (c *Constructor) queryCache(ctx context.Context, from, to timeseries.Time, 
 		}(name, query)
 	}
 	wg.Wait()
+
+	now = time.Now()
+	for group := range model.Metrics {
+		wg.Add(1)
+		go func(group string) {
+			defer wg.Done()
+			metrics, err := c.cache.QueryRange3(ctx, group, from, to, step)
+			if stats != nil {
+				queryTime := float32(time.Since(now).Seconds())
+				lock.Lock()
+				s := stats[group]
+				s.MetricsCount += len(metrics)
+				s.QueryTime += queryTime
+				s.Failed = s.Failed || err != nil
+				stats[group] = s
+				lock.Unlock()
+			}
+			if err != nil {
+				lastErr = err
+				return
+			}
+			lock.Lock()
+			res[group] = metrics
+			lock.Unlock()
+		}(group)
+	}
+	wg.Wait()
 	return res, lastErr
 }
 
@@ -318,7 +347,7 @@ func (s promJobStatuses) get(ls model.Labels) *timeseries.TimeSeries {
 
 func loadPromJobStatuses(metrics map[string][]*model.MetricValues, statuses promJobStatuses) {
 	for _, m := range metrics["up"] {
-		statuses[promJob{job: m.Labels["job"], instance: m.Labels["instance"]}] = m.Values
+		statuses[promJob{job: m.Labels["job"], instance: m.Labels["instance"]}] = m.Values[0]
 	}
 }
 

@@ -18,7 +18,7 @@ func postgres(instance *model.Instance, queryName string, m *model.MetricValues)
 
 	pg := instance.Postgres
 	ls := m.Labels
-	values := m.Values
+	values := m.Values[0]
 	switch queryName {
 	case "pg_up":
 		pg.Up = merge(pg.Up, values, timeseries.Any)

@@ -19,6 +19,6 @@ func (c *Constructor) loadPython(metrics map[string][]*model.MetricValues, conta
 		}
 	}
 	load("container_python_thread_lock_wait_time_seconds", func(python *model.Python, metric *model.MetricValues) {
-		python.GILWaitTime = merge(python.GILWaitTime, metric.Values, timeseries.Any)
+		python.GILWaitTime = merge(python.GILWaitTime, metric.Values[0], timeseries.Any)
 	})
 }

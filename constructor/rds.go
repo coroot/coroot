@@ -32,7 +32,7 @@ func loadRdsMetadata(w *model.World, metrics map[string][]*model.MetricValues, p
 		if instance.Node == nil {
 			name := "rds:" + instance.Name
 			instance.Node = model.NewNode(model.NewNodeId(name, name))
-			instance.Node.Name.Update(m.Values, name)
+			instance.Node.Name.Update(m.Values[0], name)
 			instance.Node.Instances = append(instance.Node.Instances, instance)
 			w.Nodes = append(w.Nodes, instance.Node)
 		}
@@ -43,14 +43,14 @@ func loadRdsMetadata(w *model.World, metrics map[string][]*model.MetricValues, p
 			})
 		}
 		instance.TcpListens[model.Listen{IP: m.Labels["ipv4"], Port: m.Labels["port"]}] = true
-		instance.Rds.Engine.Update(m.Values, m.Labels["engine"])
-		instance.Rds.EngineVersion.Update(m.Values, m.Labels["engine_version"])
-		instance.Node.InstanceType.Update(m.Values, m.Labels["instance_type"])
-		instance.Volumes[0].EBS.StorageType.Update(m.Values, m.Labels["storage_type"])
-		instance.Node.CloudProvider.Update(m.Values, model.CloudProviderAWS)
-		instance.Node.Region.Update(m.Values, m.Labels["region"])
-		instance.Node.AvailabilityZone.Update(m.Values, m.Labels["availability_zone"])
-		instance.Rds.MultiAz.Update(m.Values, m.Labels["multi_az"])
+		instance.Rds.Engine.Update(m.Values[0], m.Labels["engine"])
+		instance.Rds.EngineVersion.Update(m.Values[0], m.Labels["engine_version"])
+		instance.Node.InstanceType.Update(m.Values[0], m.Labels["instance_type"])
+		instance.Volumes[0].EBS.StorageType.Update(m.Values[0], m.Labels["storage_type"])
+		instance.Node.CloudProvider.Update(m.Values[0], model.CloudProviderAWS)
+		instance.Node.Region.Update(m.Values[0], m.Labels["region"])
+		instance.Node.AvailabilityZone.Update(m.Values[0], m.Labels["availability_zone"])
+		instance.Rds.MultiAz.Update(m.Values[0], m.Labels["multi_az"])
 	}
 }
 
@@ -71,32 +71,32 @@ func (c *Constructor) loadRds(w *model.World, metrics map[string][]*model.Metric
 			volume := instance.Volumes[0]
 			switch queryName {
 			case "aws_rds_status":
-				instance.Rds.LifeSpan = merge(instance.Rds.LifeSpan, m.Values, timeseries.Any)
-				instance.Rds.Status.Update(m.Values, m.Labels["status"])
+				instance.Rds.LifeSpan = merge(instance.Rds.LifeSpan, m.Values[0], timeseries.Any)
+				instance.Rds.Status.Update(m.Values[0], m.Labels["status"])
 			case "aws_rds_cpu_cores":
-				instance.Node.CpuCapacity = merge(instance.Node.CpuCapacity, m.Values, timeseries.Any)
+				instance.Node.CpuCapacity = merge(instance.Node.CpuCapacity, m.Values[0], timeseries.Any)
 			case "aws_rds_cpu_usage_percent":
-				instance.Node.CpuUsagePercent = merge(instance.Node.CpuUsagePercent, m.Values, timeseries.NanSum)
+				instance.Node.CpuUsagePercent = merge(instance.Node.CpuUsagePercent, m.Values[0], timeseries.NanSum)
 				mode := m.Labels["mode"]
-				instance.Node.CpuUsageByMode[mode] = merge(instance.Node.CpuUsageByMode[mode], m.Values, timeseries.Any)
+				instance.Node.CpuUsageByMode[mode] = merge(instance.Node.CpuUsageByMode[mode], m.Values[0], timeseries.Any)
 			case "aws_rds_memory_total_bytes":
-				instance.Node.MemoryTotalBytes = merge(instance.Node.MemoryTotalBytes, m.Values, timeseries.Any)
+				instance.Node.MemoryTotalBytes = merge(instance.Node.MemoryTotalBytes, m.Values[0], timeseries.Any)
 			case "aws_rds_memory_cached_bytes":
-				instance.Node.MemoryCachedBytes = merge(instance.Node.MemoryCachedBytes, m.Values, timeseries.Any)
-				instance.Node.MemoryAvailableBytes = merge(instance.Node.MemoryAvailableBytes, m.Values, timeseries.NanSum)
+				instance.Node.MemoryCachedBytes = merge(instance.Node.MemoryCachedBytes, m.Values[0], timeseries.Any)
+				instance.Node.MemoryAvailableBytes = merge(instance.Node.MemoryAvailableBytes, m.Values[0], timeseries.NanSum)
 			case "aws_rds_memory_free_bytes":
-				instance.Node.MemoryFreeBytes = merge(instance.Node.MemoryFreeBytes, m.Values, timeseries.Any)
-				instance.Node.MemoryAvailableBytes = merge(instance.Node.MemoryAvailableBytes, m.Values, timeseries.NanSum)
+				instance.Node.MemoryFreeBytes = merge(instance.Node.MemoryFreeBytes, m.Values[0], timeseries.Any)
+				instance.Node.MemoryAvailableBytes = merge(instance.Node.MemoryAvailableBytes, m.Values[0], timeseries.NanSum)
 			case "aws_rds_storage_provisioned_iops":
-				volume.EBS.ProvisionedIOPS = merge(volume.EBS.ProvisionedIOPS, m.Values, timeseries.Any)
+				volume.EBS.ProvisionedIOPS = merge(volume.EBS.ProvisionedIOPS, m.Values[0], timeseries.Any)
 			case "aws_rds_allocated_storage_gibibytes":
-				volume.EBS.AllocatedGibs = merge(volume.EBS.AllocatedGibs, m.Values, timeseries.Any)
+				volume.EBS.AllocatedGibs = merge(volume.EBS.AllocatedGibs, m.Values[0], timeseries.Any)
 			case "aws_rds_fs_total_bytes":
-				volume.CapacityBytes = merge(volume.CapacityBytes, m.Values, timeseries.Any)
+				volume.CapacityBytes = merge(volume.CapacityBytes, m.Values[0], timeseries.Any)
 			case "aws_rds_fs_used_bytes":
-				volume.UsedBytes = merge(volume.UsedBytes, m.Values, timeseries.Any)
+				volume.UsedBytes = merge(volume.UsedBytes, m.Values[0], timeseries.Any)
 			case "aws_rds_io_await_seconds", "aws_rds_io_ops_per_second", "aws_rds_io_util_percent":
-				volume.Device.Update(m.Values, m.Labels["device"])
+				volume.Device.Update(m.Values[0], m.Labels["device"])
 				device := m.Labels["device"]
 				stat := instance.Node.Disks[device]
 				if stat == nil {
@@ -105,15 +105,15 @@ func (c *Constructor) loadRds(w *model.World, metrics map[string][]*model.Metric
 				}
 				switch queryName {
 				case "aws_rds_io_util_percent":
-					stat.IOUtilizationPercent = merge(stat.IOUtilizationPercent, m.Values, timeseries.Any)
+					stat.IOUtilizationPercent = merge(stat.IOUtilizationPercent, m.Values[0], timeseries.Any)
 				case "aws_rds_io_await_seconds":
-					stat.Await = merge(stat.Await, m.Values, timeseries.Any)
+					stat.Await = merge(stat.Await, m.Values[0], timeseries.Any)
 				case "aws_rds_io_ops_per_second":
 					switch m.Labels["operation"] {
 					case "read":
-						stat.ReadOps = merge(stat.ReadOps, m.Values, timeseries.Any)
+						stat.ReadOps = merge(stat.ReadOps, m.Values[0], timeseries.Any)
 					case "write":
-						stat.WriteOps = merge(stat.WriteOps, m.Values, timeseries.Any)
+						stat.WriteOps = merge(stat.WriteOps, m.Values[0], timeseries.Any)
 					}
 				}
 			case "aws_rds_log_messages_total":
@@ -127,7 +127,7 @@ func (c *Constructor) loadRds(w *model.World, metrics map[string][]*model.Metric
 					}
 				}
 				if stat == nil {
-					stat = &model.InterfaceStats{Name: name, Up: m.Values.WithNewValue(1)}
+					stat = &model.InterfaceStats{Name: name, Up: m.Values[0].WithNewValue(1)}
 					for l := range instance.TcpListens {
 						stat.Addresses = append(stat.Addresses, l.IP)
 					}
@@ -135,9 +135,9 @@ func (c *Constructor) loadRds(w *model.World, metrics map[string][]*model.Metric
 				}
 				switch queryName {
 				case "aws_rds_net_rx_bytes_per_second":
-					stat.RxBytes = merge(stat.RxBytes, m.Values, timeseries.Any)
+					stat.RxBytes = merge(stat.RxBytes, m.Values[0], timeseries.Any)
 				case "aws_rds_net_tx_bytes_per_second":
-					stat.TxBytes = merge(stat.TxBytes, m.Values, timeseries.Any)
+					stat.TxBytes = merge(stat.TxBytes, m.Values[0], timeseries.Any)
 				}
 			}
 		}

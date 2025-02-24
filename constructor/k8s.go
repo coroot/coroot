@@ -74,12 +74,12 @@ func loadServices(metrics map[string][]*model.MetricValues) map[serviceId]*model
 	}
 	for _, m := range metrics["kube_service_spec_type"] {
 		if s := services[serviceId{name: m.Labels["service"], ns: m.Labels["namespace"]}]; s != nil {
-			s.Type.Update(m.Values, m.Labels["type"])
+			s.Type.Update(m.Values[0], m.Labels["type"])
 		}
 	}
 	for _, m := range metrics["kube_service_spec_type"] {
 		if s := services[serviceId{name: m.Labels["service"], ns: m.Labels["namespace"]}]; s != nil {
-			s.Type.Update(m.Values, m.Labels["type"])
+			s.Type.Update(m.Values[0], m.Labels["type"])
 		}
 	}
 	for _, m := range metrics["kube_service_status_load_balancer_ingress"] {
@@ -126,7 +126,7 @@ func loadApplications(w *model.World, metrics map[string][]*model.MetricValues) 
 			}
 			switch queryName {
 			case "kube_deployment_spec_replicas", "kube_statefulset_replicas", "kube_daemonset_status_desired_number_scheduled":
-				app.DesiredInstances = merge(app.DesiredInstances, m.Values, timeseries.Any)
+				app.DesiredInstances = merge(app.DesiredInstances, m.Values[0], timeseries.Any)
 			}
 		}
 	}
@@ -187,7 +187,7 @@ func podInfo(w *model.World, metrics []*model.MetricValues) map[string]*model.In
 
 		if podIp != "" && (podIp != hostIp || (node != nil && node.Fargate)) {
 			if ip := net.ParseIP(podIp); ip != nil {
-				isActive := m.Values.Last() == 1
+				isActive := m.Values[0].Last() == 1
 				instance.TcpListens[model.Listen{IP: podIp, Port: "0", Proxied: false}] = isActive
 				instance.Pod.IP = podIp
 			}
@@ -267,12 +267,12 @@ func podLabels(metrics []*model.MetricValues, pods map[string]*model.Instance) {
 			continue
 		}
 		if cluster != "" {
-			instance.ClusterName.Update(m.Values, cluster)
+			instance.ClusterName.Update(m.Values[0], cluster)
 		}
 		if role == "master" {
 			role = "primary"
 		}
-		instance.UpdateClusterRole(role, m.Values)
+		instance.UpdateClusterRole(role, m.Values[0])
 	}
 }
 
@@ -289,19 +289,19 @@ func podStatus(queryName string, metrics []*model.MetricValues, pods map[string]
 		}
 		switch queryName {
 		case "kube_pod_status_phase":
-			instance.Pod.LifeSpan = merge(instance.Pod.LifeSpan, m.Values, timeseries.NanSum)
-			if m.Values.Last() > 0 {
+			instance.Pod.LifeSpan = merge(instance.Pod.LifeSpan, m.Values[0], timeseries.NanSum)
+			if m.Values[0].Last() > 0 {
 				instance.Pod.Phase = m.Labels["phase"]
 			}
 			if m.Labels["phase"] == "Running" {
-				instance.Pod.Running = merge(instance.Pod.Running, m.Values, timeseries.Any)
+				instance.Pod.Running = merge(instance.Pod.Running, m.Values[0], timeseries.Any)
 			}
 		case "kube_pod_status_ready":
 			if m.Labels["condition"] == "true" {
-				instance.Pod.Ready = merge(instance.Pod.Ready, m.Values, timeseries.Any)
+				instance.Pod.Ready = merge(instance.Pod.Ready, m.Values[0], timeseries.Any)
 			}
 		case "kube_pod_status_scheduled":
-			if m.Values.Last() > 0 && m.Labels["condition"] == "true" {
+			if m.Values[0].Last() > 0 && m.Labels["condition"] == "true" {
 				instance.Pod.Scheduled = true
 			}
 		}
@@ -328,37 +328,37 @@ func podContainer(queryName string, metrics []*model.MetricValues, pods map[stri
 		case "kube_pod_container_resource_requests":
 			switch m.Labels["resource"] {
 			case "cpu":
-				container.CpuRequest = merge(container.CpuRequest, m.Values, timeseries.Max)
+				container.CpuRequest = merge(container.CpuRequest, m.Values[0], timeseries.Max)
 			case "memory":
-				container.MemoryRequest = merge(container.MemoryRequest, m.Values, timeseries.Max)
+				container.MemoryRequest = merge(container.MemoryRequest, m.Values[0], timeseries.Max)
 			}
 		case "kube_pod_container_status_ready":
-			container.Ready = m.Values.Last() > 0
+			container.Ready = m.Values[0].Last() > 0
 		case "kube_pod_container_status_waiting":
-			if m.Values.Last() > 0 {
+			if m.Values[0].Last() > 0 {
 				container.Status = model.ContainerStatusWaiting
 			}
 		case "kube_pod_container_status_running":
-			if m.Values.Last() > 0 {
+			if m.Values[0].Last() > 0 {
 				container.Status = model.ContainerStatusRunning
 				container.Reason = ""
 			}
 		case "kube_pod_container_status_terminated":
-			if m.Values.Last() > 0 {
+			if m.Values[0].Last() > 0 {
 				container.Status = model.ContainerStatusTerminated
 			}
 		case "kube_pod_container_status_waiting_reason":
-			if m.Values.Last() > 0 {
+			if m.Values[0].Last() > 0 {
 				container.Status = model.ContainerStatusWaiting
 				container.Reason = m.Labels["reason"]
 			}
 		case "kube_pod_container_status_terminated_reason":
-			if m.Values.Last() > 0 {
+			if m.Values[0].Last() > 0 {
 				container.Status = model.ContainerStatusTerminated
 				container.Reason = m.Labels["reason"]
 			}
 		case "kube_pod_container_status_last_terminated_reason":
-			if m.Values.Last() > 0 {
+			if m.Values[0].Last() > 0 {
 				container.LastTerminatedReason = m.Labels["reason"]
 			}
 		}

@@ -17,21 +17,21 @@ func memcached(instance *model.Instance, queryName string, m *model.MetricValues
 	}
 	switch queryName {
 	case "memcached_up":
-		instance.Memcached.Up = merge(instance.Memcached.Up, m.Values, timeseries.Any)
+		instance.Memcached.Up = merge(instance.Memcached.Up, m.Values[0], timeseries.Any)
 	case "memcached_version":
-		instance.Memcached.Version.Update(m.Values, m.Labels["version"])
+		instance.Memcached.Version.Update(m.Values[0], m.Labels["version"])
 	case "memcached_limit_bytes":
-		instance.Memcached.LimitBytes = merge(instance.Memcached.LimitBytes, m.Values, timeseries.Any)
+		instance.Memcached.LimitBytes = merge(instance.Memcached.LimitBytes, m.Values[0], timeseries.Any)
 	case "memcached_items_evicted_total":
-		instance.Memcached.EvictedItems = merge(instance.Memcached.EvictedItems, m.Values, timeseries.Any)
+		instance.Memcached.EvictedItems = merge(instance.Memcached.EvictedItems, m.Values[0], timeseries.Any)
 	case "memcached_commands_total":
 		cmd := m.Labels["command"]
-		instance.Memcached.Calls[cmd] = merge(instance.Memcached.Calls[cmd], m.Values, timeseries.NanSum)
+		instance.Memcached.Calls[cmd] = merge(instance.Memcached.Calls[cmd], m.Values[0], timeseries.NanSum)
 		switch m.Labels["status"] {
 		case "miss":
-			instance.Memcached.Misses = merge(instance.Memcached.Misses, m.Values, timeseries.NanSum)
+			instance.Memcached.Misses = merge(instance.Memcached.Misses, m.Values[0], timeseries.NanSum)
 		case "hit":
-			instance.Memcached.Hits = merge(instance.Memcached.Hits, m.Values, timeseries.NanSum)
+			instance.Memcached.Hits = merge(instance.Memcached.Hits, m.Values[0], timeseries.NanSum)
 		}
 	}
 }

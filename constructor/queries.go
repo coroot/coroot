@@ -68,29 +68,36 @@ var QUERIES = map[string]string{
 	"kube_pod_status_ready":     `kube_pod_status_ready{condition="true"}`,
 	"kube_pod_status_scheduled": `kube_pod_status_scheduled{condition="true"} > 0`,
 
-	"container_info":                            `container_info`,
-	"container_net_latency":                     `container_net_latency_seconds`,
-	"container_net_tcp_successful_connects":     `rate(container_net_tcp_successful_connects_total[$RANGE])`,
-	"container_net_tcp_failed_connects":         `rate(container_net_tcp_failed_connects_total[$RANGE])`,
-	"container_net_tcp_active_connections":      `container_net_tcp_active_connections`,
-	"container_net_tcp_connection_time_seconds": `rate(container_net_tcp_connection_time_seconds_total[$RANGE])`,
-	"container_net_tcp_bytes_sent":              `rate(container_net_tcp_bytes_sent_total[$RANGE])`,
-	"container_net_tcp_bytes_received":          `rate(container_net_tcp_bytes_received_total[$RANGE])`,
-	"container_net_tcp_listen_info":             `container_net_tcp_listen_info`,
-	"container_net_tcp_retransmits":             `rate(container_net_tcp_retransmits_total[$RANGE])`,
-	"container_log_messages":                    `container_log_messages_total % 10000000`,
-	"container_application_type":                `container_application_type`,
-	"container_cpu_limit":                       `container_resources_cpu_limit_cores`,
-	"container_cpu_usage":                       `rate(container_resources_cpu_usage_seconds_total[$RANGE])`,
-	"container_cpu_delay":                       `rate(container_resources_cpu_delay_seconds_total[$RANGE])`,
-	"container_throttled_time":                  `rate(container_resources_cpu_throttled_seconds_total[$RANGE])`,
-	"container_memory_rss":                      `container_resources_memory_rss_bytes`,
-	"container_memory_cache":                    `container_resources_memory_cache_bytes`,
-	"container_memory_limit":                    `container_resources_memory_limit_bytes`,
-	"container_oom_kills_total":                 `container_oom_kills_total % 10000000`,
-	"container_restarts":                        `container_restarts_total % 10000000`,
-	"container_volume_size":                     `container_resources_disk_size_bytes`,
-	"container_volume_used":                     `container_resources_disk_used_bytes`,
+	"container_info":                    `container_info`,
+	"container_net_latency":             `container_net_latency_seconds`,
+	"container_net_tcp_listen_info":     `container_net_tcp_listen_info`,
+	"container_net_tcp_failed_connects": `rate(container_net_tcp_failed_connects_total[$RANGE])`,
+
+	// grouped
+	//"container_net_tcp_successful_connects":     `rate(container_net_tcp_successful_connects_total[$RANGE])`,
+	//"container_net_tcp_active_connections":      `container_net_tcp_active_connections`,
+	//"container_net_tcp_connection_time_seconds": `rate(container_net_tcp_connection_time_seconds_total[$RANGE])`,
+	//"container_net_tcp_bytes_sent":              `rate(container_net_tcp_bytes_sent_total[$RANGE])`,
+	//"container_net_tcp_bytes_received":          `rate(container_net_tcp_bytes_received_total[$RANGE])`,
+	//"container_net_tcp_retransmits":             `rate(container_net_tcp_retransmits_total[$RANGE])`,
+	// grouped
+
+	"container_log_messages":     `container_log_messages_total % 10000000`,
+	"container_application_type": `container_application_type`,
+
+	// grouped
+	//"container_cpu_limit":       `container_resources_cpu_limit_cores`,
+	//"container_cpu_usage":       `rate(container_resources_cpu_usage_seconds_total[$RANGE])`,
+	//"container_cpu_delay":       `rate(container_resources_cpu_delay_seconds_total[$RANGE])`,
+	//"container_throttled_time":  `rate(container_resources_cpu_throttled_seconds_total[$RANGE])`,
+	//"container_memory_rss":      `container_resources_memory_rss_bytes`,
+	//"container_memory_cache":    `container_resources_memory_cache_bytes`,
+	//"container_memory_limit":    `container_resources_memory_limit_bytes`,
+	//"container_oom_kills_total": `container_oom_kills_total % 10000000`,
+	//"container_restarts":        `container_restarts_total % 10000000`,
+	//"container_volume_size":     `container_resources_disk_size_bytes`,
+	//"container_volume_used":     `container_resources_disk_used_bytes`,
+	// grouped
 
 	"container_http_requests_count":          `rate(container_http_requests_total[$RANGE])`,
 	"container_http_requests_latency":        `rate(container_http_requests_duration_seconds_total_sum [$RANGE]) / rate(container_http_requests_duration_seconds_total_count [$RANGE])`,
@@ -268,7 +275,7 @@ var RecordingRules = map[string]func(p *db.Project, w *model.World) []*model.Met
 				ts := agg.Get()
 				if !ts.IsEmpty() {
 					ls := model.Labels{"application": appId, "status": status}
-					res = append(res, &model.MetricValues{Labels: ls, LabelsHash: promModel.LabelsToSignature(ls), Values: ts})
+					res = append(res, &model.MetricValues{Labels: ls, LabelsHash: promModel.LabelsToSignature(ls), Values: []*timeseries.TimeSeries{ts}})
 				}
 			}
 		}
@@ -307,7 +314,7 @@ var RecordingRules = map[string]func(p *db.Project, w *model.World) []*model.Met
 				ts := agg.Get()
 				if !ts.IsEmpty() {
 					ls := model.Labels{"application": appId, "le": fmt.Sprintf("%f", le)}
-					res = append(res, &model.MetricValues{Labels: ls, LabelsHash: promModel.LabelsToSignature(ls), Values: ts})
+					res = append(res, &model.MetricValues{Labels: ls, LabelsHash: promModel.LabelsToSignature(ls), Values: []*timeseries.TimeSeries{ts}})
 				}
 			}
 		}
@@ -321,7 +328,7 @@ var RecordingRules = map[string]func(p *db.Project, w *model.World) []*model.Met
 				if len(msgs.Patterns) == 0 {
 					if msgs.Messages.Reduce(timeseries.NanSum) > 0 {
 						ls := model.Labels{"application": appId, "level": string(level)}
-						res = append(res, &model.MetricValues{Labels: ls, LabelsHash: promModel.LabelsToSignature(ls), Values: msgs.Messages})
+						res = append(res, &model.MetricValues{Labels: ls, LabelsHash: promModel.LabelsToSignature(ls), Values: []*timeseries.TimeSeries{msgs.Messages}})
 					}
 				} else {
 					for _, pattern := range msgs.Patterns {
@@ -331,7 +338,7 @@ var RecordingRules = map[string]func(p *db.Project, w *model.World) []*model.Met
 							ls["similar"] = strings.Join(pattern.SimilarPatternHashes.Items(), " ")
 							ls["sample"] = pattern.Sample
 							ls["words"] = pattern.Pattern.String()
-							res = append(res, &model.MetricValues{Labels: ls, LabelsHash: promModel.LabelsToSignature(ls), Values: pattern.Messages})
+							res = append(res, &model.MetricValues{Labels: ls, LabelsHash: promModel.LabelsToSignature(ls), Values: []*timeseries.TimeSeries{pattern.Messages}})
 						}
 					}
 				}

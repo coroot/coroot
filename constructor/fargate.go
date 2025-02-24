@@ -14,7 +14,7 @@ func (c *Constructor) loadFargateNodes(metrics map[string][]*model.MetricValues,
 			continue
 		}
 		for _, m := range metrics[queryName] {
-			id := model.NewNodeIdFromLabels(m)
+			id := model.NewNodeId(m.MachineID, m.SystemUUID)
 			if id.MachineID == "" && id.SystemUUID == "" {
 				continue
 			}
@@ -26,19 +26,19 @@ func (c *Constructor) loadFargateNodes(metrics map[string][]*model.MetricValues,
 				continue
 			}
 			node.Fargate = true
-			node.Name.Update(m.Values, m.Labels["kubernetes_io_hostname"])
-			node.CloudProvider.Update(m.Values, model.CloudProviderAWS)
+			node.Name.Update(m.Values[0], m.Labels["kubernetes_io_hostname"])
+			node.CloudProvider.Update(m.Values[0], model.CloudProviderAWS)
 			if region := m.Labels["topology_kubernetes_io_region"]; region != "" {
-				node.Region.Update(m.Values, region)
+				node.Region.Update(m.Values[0], region)
 			}
 			if az := m.Labels["topology_kubernetes_io_zone"]; az != "" {
-				node.Region.Update(m.Values, az)
+				node.Region.Update(m.Values[0], az)
 			}
 			switch queryName {
 			case "fargate_node_machine_cpu_cores":
-				node.CpuCapacity = merge(node.CpuCapacity, m.Values, timeseries.Any)
+				node.CpuCapacity = merge(node.CpuCapacity, m.Values[0], timeseries.Any)
 			case "fargate_node_machine_memory_bytes":
-				node.MemoryTotalBytes = merge(node.MemoryTotalBytes, m.Values, timeseries.Any)
+				node.MemoryTotalBytes = merge(node.MemoryTotalBytes, m.Values[0], timeseries.Any)
 			}
 		}
 	}
@@ -80,21 +80,21 @@ func loadFargateContainers(w *model.World, metrics map[string][]*model.MetricVal
 
 			switch queryName {
 			case "fargate_container_spec_cpu_limit_cores":
-				container.CpuLimit = merge(container.CpuLimit, m.Values, timeseries.Any)
+				container.CpuLimit = merge(container.CpuLimit, m.Values[0], timeseries.Any)
 			case "fargate_container_cpu_usage_seconds":
-				container.CpuUsage = merge(container.CpuUsage, m.Values, timeseries.Any)
+				container.CpuUsage = merge(container.CpuUsage, m.Values[0], timeseries.Any)
 			case "fargate_container_cpu_cfs_throttled_seconds":
-				container.ThrottledTime = merge(container.ThrottledTime, m.Values, timeseries.Any)
+				container.ThrottledTime = merge(container.ThrottledTime, m.Values[0], timeseries.Any)
 			case "fargate_container_memory_rss":
-				container.MemoryRss = merge(container.MemoryRss, m.Values, timeseries.Any)
+				container.MemoryRss = merge(container.MemoryRss, m.Values[0], timeseries.Any)
 			case "fargate_container_memory_rss_for_trend":
-				container.MemoryRssForTrend = merge(container.MemoryRssForTrend, m.Values, timeseries.Any)
+				container.MemoryRssForTrend = merge(container.MemoryRssForTrend, m.Values[0], timeseries.Any)
 			case "fargate_container_memory_cache":
-				container.MemoryCache = merge(container.MemoryCache, m.Values, timeseries.Any)
+				container.MemoryCache = merge(container.MemoryCache, m.Values[0], timeseries.Any)
 			case "fargate_container_spec_memory_limit_bytes":
-				container.MemoryLimit = merge(container.MemoryLimit, m.Values, timeseries.Any)
+				container.MemoryLimit = merge(container.MemoryLimit, m.Values[0], timeseries.Any)
 			case "fargate_container_oom_events_total":
-				container.OOMKills = merge(container.OOMKills, timeseries.Increase(m.Values, pjs.get(m.Labels)), timeseries.Any)
+				container.OOMKills = merge(container.OOMKills, timeseries.Increase(m.Values[0], pjs.get(m.Labels)), timeseries.Any)
 			}
 		}
 	}

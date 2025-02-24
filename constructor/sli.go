@@ -73,11 +73,11 @@ func loadCustomSLIs(metrics map[string][]*model.MetricValues,
 		switch parts[2] {
 		case "total_requests_raw":
 			a := availabilityRaw[appId]
-			a.total = values[0].Values
+			a.total = values[0].Values[0]
 			availabilityRaw[appId] = a
 		case "failed_requests_raw":
 			a := availabilityRaw[appId]
-			a.failed = values[0].Values
+			a.failed = values[0].Values[0]
 			availabilityRaw[appId] = a
 		case "requests_histogram_raw":
 			latencyRaw[appId] = histogramBuckets(values)
@@ -105,7 +105,7 @@ func builtinAvailability(values []*model.MetricValues) map[model.ApplicationId]a
 		if byApp[appId] == nil {
 			byApp[appId] = map[string]*timeseries.TimeSeries{}
 		}
-		byApp[appId][status] = mv.Values
+		byApp[appId][status] = mv.Values[0]
 	}
 	res := map[model.ApplicationId]availabilitySlis{}
 	for appId, byStatus := range byApp {
@@ -152,7 +152,7 @@ func histogramBuckets(values []*model.MetricValues) []model.HistogramBucket {
 			klog.Warningln(err)
 			continue
 		}
-		buckets = append(buckets, model.HistogramBucket{Le: float32(le), TimeSeries: m.Values})
+		buckets = append(buckets, model.HistogramBucket{Le: float32(le), TimeSeries: m.Values[0]})
 	}
 	sort.Slice(buckets, func(i, j int) bool {
 		return buckets[i].Le < buckets[j].Le
