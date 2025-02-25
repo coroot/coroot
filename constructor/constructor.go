@@ -66,7 +66,12 @@ type Profile struct {
 
 func (p *Profile) stage(name string, f func()) {
 	if p.Stages == nil {
+		t := time.Now()
 		f()
+		d := time.Since(t).Truncate(time.Millisecond)
+		if d > 0 {
+			klog.Infoln(name, d)
+		}
 		return
 	}
 	t := time.Now()

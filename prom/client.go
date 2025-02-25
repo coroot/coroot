@@ -213,6 +213,36 @@ func (c *Client) QueryRange(ctx context.Context, query string, from, to timeseri
 			return
 		}
 		res = append(res, &mv)
+
+		containerIdPattern := regexp.MustCompile(`^/k8s/([^/]+)/(.+)$`)
+		for i := 0; i < 300; i++ {
+			mvNew := &model.MetricValues{
+				Labels: map[string]string{},
+				Values: mv.Values,
+			}
+			changed := false
+			for k, v := range mv.Labels {
+				if k == "container_id" {
+					v1 := containerIdPattern.ReplaceAllString(v, "/k8s/${1}-"+strconv.Itoa(i)+"/${2}")
+					if v1 != v {
+						changed = true
+						v = v1
+					}
+				}
+				if k == "namespace" {
+					v += "-" + strconv.Itoa(i)
+					changed = true
+				}
+				if k == "uid" {
+					v += "-" + strconv.Itoa(i)
+				}
+				mvNew.Labels[k] = v
+			}
+			if changed {
+				mvNew.LabelsHash = promModel.LabelsToSignature(mvNew.Labels)
+				res = append(res, mvNew)
+			}
+		}
 	}
 	if _, err := jsonparser.ArrayEach(buf.Bytes(), f, "data", "result"); err != nil {
 		return nil, err
