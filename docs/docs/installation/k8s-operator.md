@@ -62,8 +62,8 @@ spec:
 #    path: # Path prefix for Coroot (e.g., /coroot).
 #    annotations: # Annotations for Ingress.
 #    tls: # TLS configuration.
-#      - hosts:
-#        secretName:
+#      hosts: # The array with host names
+#      secretName: # The name of secret where TLS certificate and private key would be stored
 
 # Configuration for Coroot Community Edition.
 #  communityEdition:
