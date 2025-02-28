@@ -9,6 +9,15 @@ import (
 	"github.com/prometheus/common/model"
 )
 
+var (
+	LabelMachineId         = "machine_id"
+	LabelSystemUuid        = "system_uuid"
+	LabelContainerId       = "container_id"
+	LabelDestination       = "destination"
+	LabelDestinationIP     = "destination_ip"
+	LabelActualDestination = "actual_destination"
+)
+
 type Labels map[string]string
 
 func (ls Labels) Hash() uint64 {

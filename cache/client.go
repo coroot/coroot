@@ -6,7 +6,6 @@ import (
 	"sort"
 
 	"github.com/coroot/coroot/cache/chunk"
-	"github.com/coroot/coroot/constructor"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
@@ -35,7 +34,7 @@ func (c *Client) QueryRange(ctx context.Context, query string, from, to timeseri
 	hash := queryHash(query)
 	qData := projData.queries[hash]
 	if qData == nil {
-		return nil, fmt.Errorf("%w: %s", constructor.ErrUnknownQuery, query)
+		return nil, nil
 	}
 	from = from.Truncate(step)
 	to = to.Truncate(step)

@@ -10,7 +10,7 @@ import (
 	"github.com/coroot/coroot/timeseries"
 )
 
-func initNodesList(w *model.World, metrics map[string][]*model.MetricValues, nodesByID map[model.NodeId]*model.Node) {
+func initNodesList(w *model.World, metrics map[string][]*model.MetricValues, nodes nodeCache) {
 	nodesBySystemUUID := map[string]*model.Node{}
 	for _, m := range metrics["node_info"] {
 		name := m.Labels["hostname"]
@@ -20,11 +20,11 @@ func initNodesList(w *model.World, metrics map[string][]*model.MetricValues, nod
 			continue
 		}
 		w.IntegrationStatus.NodeAgent.Installed = true
-		node := nodesByID[id]
+		node := nodes[id]
 		if node == nil {
 			node = model.NewNode(id)
 			w.Nodes = append(w.Nodes, node)
-			nodesByID[node.Id] = node
+			nodes[node.Id] = node
 			nodesBySystemUUID[node.Id.SystemUUID] = node
 		}
 		node.Name.Update(m.Values, name)
@@ -41,7 +41,7 @@ func initNodesList(w *model.World, metrics map[string][]*model.MetricValues, nod
 		if node == nil {
 			node = model.NewNode(id)
 			w.Nodes = append(w.Nodes, node)
-			nodesByID[node.Id] = node
+			nodes[node.Id] = node
 			nodesBySystemUUID[node.Id.SystemUUID] = node
 		}
 		node.K8sName.Update(m.Values, name)
@@ -51,15 +51,15 @@ func initNodesList(w *model.World, metrics map[string][]*model.MetricValues, nod
 	}
 }
 
-func (c *Constructor) loadNodes(w *model.World, metrics map[string][]*model.MetricValues, nodesByID map[model.NodeId]*model.Node) {
-	initNodesList(w, metrics, nodesByID)
+func (c *Constructor) loadNodes(w *model.World, metrics map[string][]*model.MetricValues, nodes nodeCache) {
+	initNodesList(w, metrics, nodes)
 
 	for queryName := range metrics {
 		if !strings.HasPrefix(queryName, "node_") {
 			continue
 		}
 		for _, m := range metrics[queryName] {
-			node := nodesByID[model.NewNodeIdFromLabels(m)]
+			node := nodes[model.NewNodeIdFromLabels(m)]
 			if node == nil {
 				continue
 			}

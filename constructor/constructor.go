@@ -2,7 +2,6 @@ package constructor
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"strings"
@@ -16,10 +15,6 @@ import (
 	"github.com/coroot/coroot/utils"
 	"golang.org/x/exp/maps"
 	"k8s.io/klog"
-)
-
-var (
-	ErrUnknownQuery = errors.New("unknown query")
 )
 
 type Option int
@@ -104,14 +99,11 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 		metrics, err = c.queryCache(ctx, from, to, step, rawStep, w.CheckConfigs, prof.Queries)
 	})
 	if err != nil {
-		if !errors.Is(err, ErrUnknownQuery) {
-			return nil, err
-		}
-		klog.Warningln(err)
+		return nil, err
 	}
 
 	pjs := promJobStatuses{}
-	nodesByID := map[model.NodeId]*model.Node{}
+	nodes := nodeCache{}
 	rdsInstancesById := map[string]*model.Instance{}
 	ecInstancesById := map[string]*model.Instance{}
 	servicesByClusterIP := map[string]*model.Service{}
@@ -120,9 +112,9 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 
 	// order is important
 	prof.stage("load_job_statuses", func() { loadPromJobStatuses(metrics, pjs) })
-	prof.stage("load_nodes", func() { c.loadNodes(w, metrics, nodesByID) })
+	prof.stage("load_nodes", func() { c.loadNodes(w, metrics, nodes) })
 	prof.stage("load_fqdn", func() { loadFQDNs(metrics, ip2fqdn) })
-	prof.stage("load_fargate_nodes", func() { c.loadFargateNodes(metrics, nodesByID) })
+	prof.stage("load_fargate_nodes", func() { c.loadFargateNodes(metrics, nodes) })
 	prof.stage("load_k8s_metadata", func() { loadKubernetesMetadata(w, metrics, servicesByClusterIP) })
 	prof.stage("load_aws_status", func() { loadAWSStatus(w, metrics) })
 	prof.stage("load_rds_metadata", func() { loadRdsMetadata(w, metrics, pjs, rdsInstancesById) })
@@ -130,7 +122,7 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 	prof.stage("load_rds", func() { c.loadRds(w, metrics, pjs, rdsInstancesById) })
 	prof.stage("load_elasticache", func() { c.loadElasticache(w, metrics, pjs, ecInstancesById) })
 	prof.stage("load_fargate_containers", func() { loadFargateContainers(w, metrics, pjs) })
-	prof.stage("load_containers", func() { c.loadContainers(w, metrics, pjs, nodesByID, containers, servicesByClusterIP, ip2fqdn) })
+	prof.stage("load_containers", func() { c.loadContainers(w, metrics, pjs, nodes, containers, servicesByClusterIP, ip2fqdn) })
 	prof.stage("load_jvm", func() { c.loadJVM(metrics, containers) })
 	prof.stage("load_dotnet", func() { c.loadDotNet(metrics, containers) })
 	prof.stage("load_python", func() { c.loadPython(metrics, containers) })
@@ -178,11 +170,11 @@ func (c *Constructor) queryCache(ctx context.Context, from, to timeseries.Time, 
 		}
 	}
 
-	for n, q := range QUERIES {
-		if !c.options[OptionLoadPerConnectionHistograms] && strings.HasPrefix(n, "container_") && strings.HasSuffix(n, "_histogram") {
+	for _, q := range QUERIES {
+		if !c.options[OptionLoadPerConnectionHistograms] && strings.HasPrefix(q.Name, "container_") && strings.HasSuffix(q.Name, "_histogram") {
 			continue
 		}
-		if !c.options[OptionLoadContainerLogs] && n == "container_log_messages" {
+		if !c.options[OptionLoadContainerLogs] && q.Name == "container_log_messages" {
 			queries[qRecordingRuleApplicationLogMessages] = cacheQuery{
 				query:     qRecordingRuleApplicationLogMessages,
 				from:      from,
@@ -193,11 +185,11 @@ func (c *Constructor) queryCache(ctx context.Context, from, to timeseries.Time, 
 			}
 			continue
 		}
-		addQuery(n, n, q, false)
-		if n == "container_memory_rss" || n == "fargate_container_memory_rss" {
-			name := n + "_for_trend"
+		addQuery(q.Name, q.Name, q.Query, false)
+		if q.Name == "container_memory_rss" || q.Name == "fargate_container_memory_rss" {
+			name := q.Name + "_for_trend"
 			queries[name] = cacheQuery{
-				query:     q,
+				query:     q.Query,
 				from:      to.Add(-timeseries.Hour * 4).Truncate(rawStep),
 				to:        to.Truncate(rawStep),
 				step:      rawStep,
@@ -465,7 +457,7 @@ func joinDBClusterComponents(w *model.World) {
 }
 
 func guessPod(ls model.Labels) string {
-	for _, l := range []string{"pod", "pod_name", "kubernetes_pod", "k8s_pod"} {
+	for _, l := range possiblePodLabels {
 		if pod := ls[l]; pod != "" {
 			return pod
 		}
@@ -474,7 +466,7 @@ func guessPod(ls model.Labels) string {
 }
 
 func guessNamespace(ls model.Labels) string {
-	for _, l := range []string{"namespace", "ns", "kubernetes_namespace", "kubernetes_ns", "k8s_namespace", "k8s_ns"} {
+	for _, l := range possibleNamespaceLabels {
 		if ns := ls[l]; ns != "" {
 			return ns
 		}

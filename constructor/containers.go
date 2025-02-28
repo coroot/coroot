@@ -91,12 +91,14 @@ func (c *Constructor) getInstanceAndContainer(w *model.World, node *model.Node, 
 	return instance, instance.GetOrCreateContainer(containerId, containerName)
 }
 
+type nodeCache map[model.NodeId]*model.Node
+
 type containerCache map[model.NodeContainerId]struct {
 	instance  *model.Instance
 	container *model.Container
 }
 
-func (c *Constructor) loadContainers(w *model.World, metrics map[string][]*model.MetricValues, pjs promJobStatuses, nodesByID map[model.NodeId]*model.Node, containers containerCache, servicesByClusterIP map[string]*model.Service, ip2fqdn map[string]*utils.StringSet) {
+func (c *Constructor) loadContainers(w *model.World, metrics map[string][]*model.MetricValues, pjs promJobStatuses, nodes nodeCache, containers containerCache, servicesByClusterIP map[string]*model.Service, ip2fqdn map[string]*utils.StringSet) {
 	instances := map[instanceId]*model.Instance{}
 	for _, a := range w.Applications {
 		for _, i := range a.Instances {
@@ -116,7 +118,7 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]*model
 			v, ok := containers[m.NodeContainerId]
 			if !ok {
 				nodeId := model.NewNodeIdFromLabels(m)
-				v.instance, v.container = c.getInstanceAndContainer(w, nodesByID[nodeId], instances, m.ContainerId)
+				v.instance, v.container = c.getInstanceAndContainer(w, nodes[nodeId], instances, m.ContainerId)
 				containers[m.NodeContainerId] = v
 			}
 			if v.instance == nil || v.container == nil {
