@@ -79,6 +79,7 @@ type Stats struct {
 	} `json:"ux"`
 	Performance struct {
 		Constructor constructor.Profile `json:"constructor"`
+		Auditor     auditor.Profile     `json:"auditor"`
 		Components  []*Component        `json:"components"`
 	} `json:"performance"`
 	Profile struct {
@@ -377,7 +378,7 @@ func (c *Collector) collect() Stats {
 		loadTime = append(loadTime, time.Since(t))
 
 		t = time.Now()
-		auditor.Audit(w, p, nil, p.ClickHouseConfig(c.globalClickHouse) != nil)
+		auditor.Audit(w, p, nil, p.ClickHouseConfig(c.globalClickHouse) != nil, &stats.Performance.Auditor)
 		auditTime = append(auditTime, time.Since(t))
 
 		stats.Integration.NodeAgent = stats.Integration.NodeAgent || w.IntegrationStatus.NodeAgent.Installed
