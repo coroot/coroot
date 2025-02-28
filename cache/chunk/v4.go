@@ -301,31 +301,31 @@ func writeLabelsV4(w *bufio.Writer, metrics []*model.MetricValues) error {
 			return err
 		}
 		if mv.MachineID != "" {
-			if err = write("machine_id", mv.MachineID); err != nil {
+			if err = write(model.LabelMachineId, mv.MachineID); err != nil {
 				return err
 			}
 		}
 		if mv.SystemUUID != "" {
-			if err = write("system_uuid", mv.SystemUUID); err != nil {
+			if err = write(model.LabelSystemUuid, mv.SystemUUID); err != nil {
 				return err
 			}
 		}
 		if mv.ContainerId != "" {
-			if err = write("container_id", mv.ContainerId); err != nil {
+			if err = write(model.LabelContainerId, mv.ContainerId); err != nil {
 				return err
 			}
 		}
 		if mv.Destination != "" {
-			label := "destination"
+			label := model.LabelDestination
 			if mv.DestIp {
-				label = "destination_ip"
+				label = model.LabelDestinationIP
 			}
 			if err = write(label, mv.Destination); err != nil {
 				return err
 			}
 		}
 		if mv.ActualDestination != "" {
-			if err = write("actual_destination", mv.ActualDestination); err != nil {
+			if err = write(model.LabelActualDestination, mv.ActualDestination); err != nil {
 				return err
 			}
 		}
@@ -424,17 +424,17 @@ func readLabelsV4(r *bufio.Reader, hashes []uint64, missing map[uint64]*model.Me
 			key = keys[ki]
 			val = vals[vi]
 			switch key {
-			case "machine_id":
+			case model.LabelMachineId:
 				mv.MachineID = val
-			case "system_uuid":
+			case model.LabelSystemUuid:
 				mv.SystemUUID = val
-			case "container_id":
+			case model.LabelContainerId:
 				mv.ContainerId = val
-			case "destination":
+			case model.LabelDestination:
 				mv.Destination = val
-			case "actual_destination":
+			case model.LabelActualDestination:
 				mv.ActualDestination = val
-			case "actual_destination_ip":
+			case model.LabelDestinationIP:
 				mv.ActualDestination = val
 				mv.DestIp = true
 			default:
