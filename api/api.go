@@ -351,7 +351,7 @@ func (api *Api) Overview(w http.ResponseWriter, r *http.Request, u *db.User) {
 	if ch, err = api.getClickhouseClient(project); err != nil {
 		klog.Warningln(err)
 	}
-	auditor.Audit(world, project, nil, project.ClickHouseConfig(api.globalClickHouse) != nil)
+	auditor.Audit(world, project, nil, project.ClickHouseConfig(api.globalClickHouse) != nil, nil)
 	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Overview(r.Context(), ch, world, view, r.URL.Query().Get("query"))))
 }
 
@@ -671,7 +671,7 @@ func (api *Api) Application(w http.ResponseWriter, r *http.Request, u *db.User) 
 		return
 	}
 
-	auditor.Audit(world, project, app, project.ClickHouseConfig(api.globalClickHouse) != nil)
+	auditor.Audit(world, project, app, project.ClickHouseConfig(api.globalClickHouse) != nil, nil)
 
 	if project.ClickHouseConfig(api.globalClickHouse) != nil {
 		app.AddReport(model.AuditReportProfiling, &model.Widget{Profiling: &model.Profiling{ApplicationId: app.Id}, Width: "100%"})
@@ -733,7 +733,7 @@ func (api *Api) Incident(w http.ResponseWriter, r *http.Request, u *db.User) {
 		http.Error(w, "You are not allowed to view this application.", http.StatusForbidden)
 		return
 	}
-	auditor.Audit(world, project, app, project.ClickHouseConfig(api.globalClickHouse) != nil)
+	auditor.Audit(world, project, app, project.ClickHouseConfig(api.globalClickHouse) != nil, nil)
 	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Incident(world, app, incident)))
 }
 
@@ -968,7 +968,7 @@ func (api *Api) Profiling(w http.ResponseWriter, r *http.Request, u *db.User) {
 		return
 	}
 	q := r.URL.Query()
-	auditor.Audit(world, project, nil, project.ClickHouseConfig(api.globalClickHouse) != nil)
+	auditor.Audit(world, project, nil, project.ClickHouseConfig(api.globalClickHouse) != nil, nil)
 	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Profiling(r.Context(), ch, app, q, world.Ctx)))
 }
 
@@ -1024,7 +1024,7 @@ func (api *Api) Tracing(w http.ResponseWriter, r *http.Request, u *db.User) {
 		http.Error(w, "ClickHouse is not available", http.StatusInternalServerError)
 		return
 	}
-	auditor.Audit(world, project, nil, project.ClickHouseConfig(api.globalClickHouse) != nil)
+	auditor.Audit(world, project, nil, project.ClickHouseConfig(api.globalClickHouse) != nil, nil)
 	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Tracing(r.Context(), ch, app, q, world)))
 }
 
@@ -1077,7 +1077,7 @@ func (api *Api) Logs(w http.ResponseWriter, r *http.Request, u *db.User) {
 	if chErr != nil {
 		klog.Warningln(chErr)
 	}
-	auditor.Audit(world, project, nil, project.ClickHouseConfig(api.globalClickHouse) != nil)
+	auditor.Audit(world, project, nil, project.ClickHouseConfig(api.globalClickHouse) != nil, nil)
 	q := r.URL.Query()
 	res := views.Logs(r.Context(), ch, app, q, world)
 	if chErr != nil {
@@ -1188,7 +1188,7 @@ func (api *Api) Node(w http.ResponseWriter, r *http.Request, u *db.User) {
 		http.Error(w, "Node not found", http.StatusNotFound)
 		return
 	}
-	auditor.Audit(world, project, nil, project.ClickHouseConfig(api.globalClickHouse) != nil)
+	auditor.Audit(world, project, nil, project.ClickHouseConfig(api.globalClickHouse) != nil, nil)
 	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, auditor.AuditNode(world, node)))
 }
 

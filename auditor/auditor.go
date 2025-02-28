@@ -18,9 +18,30 @@ type appAuditor struct {
 	clickHouseEnabled bool
 }
 
-func Audit(w *model.World, p *db.Project, generateDetailedReportFor *model.Application, clickHouseEnabled bool) {
+type Profile struct {
+	Stages map[string]float32 `json:"stages"`
+}
+
+type Stages map[string]time.Duration
+
+func (ss Stages) stage(name string, f func()) {
+	if ss == nil {
+		f()
+		return
+	}
+	t := time.Now()
+	f()
+	ss[name] += time.Since(t)
+}
+
+func Audit(w *model.World, p *db.Project, generateDetailedReportFor *model.Application, clickHouseEnabled bool, prof *Profile) {
 	start := time.Now()
 	ncs := nodeConsumersByNode{}
+
+	var stages Stages
+	if prof != nil {
+		stages = Stages{}
+	}
 	for _, app := range w.Applications {
 		a := &appAuditor{
 			w:                 w,
@@ -29,23 +50,23 @@ func Audit(w *model.World, p *db.Project, generateDetailedReportFor *model.Appli
 			detailed:          app == generateDetailedReportFor,
 			clickHouseEnabled: clickHouseEnabled,
 		}
-		a.slo()
-		a.instances()
-		a.cpu(ncs)
-		a.memory(ncs)
-		a.storage()
-		a.network()
-		a.dns()
-		a.postgres()
-		a.mysql()
-		a.redis()
-		a.mongodb()
-		a.memcached()
-		a.jvm()
-		a.dotnet()
-		a.python()
-		a.logs()
-		a.deployments()
+		stages.stage("slo", a.slo)
+		stages.stage("instances", a.instances)
+		stages.stage("cpu", func() { a.cpu(ncs) })
+		stages.stage("memory", func() { a.memory(ncs) })
+		stages.stage("storage", a.storage)
+		stages.stage("network", a.network)
+		stages.stage("dns", a.dns)
+		stages.stage("postgres", a.postgres)
+		stages.stage("mysql", a.mysql)
+		stages.stage("redis", a.redis)
+		stages.stage("mongodb", a.mongodb)
+		stages.stage("memcached", a.memcached)
+		stages.stage("jvm", a.jvm)
+		stages.stage("dotnet", a.dotnet)
+		stages.stage("python", a.python)
+		stages.stage("logs", a.logs)
+		stages.stage("deployments", a.deployments)
 
 		for _, r := range a.reports {
 			widgets := a.enrichWidgets(r.Widgets, app.Events)
@@ -69,6 +90,17 @@ func Audit(w *model.World, p *db.Project, generateDetailedReportFor *model.Appli
 			app.Reports = append(app.Reports, r)
 		}
 	}
+
+	if prof != nil {
+		prof.Stages = map[string]float32{}
+		for name, duration := range stages {
+			d := float32(duration.Seconds())
+			if d > prof.Stages[name] {
+				prof.Stages[name] = d
+			}
+		}
+	}
+
 	klog.Infof("%s: audited %d apps in %s", p.Id, len(w.Applications), time.Since(start).Truncate(time.Millisecond))
 }
 
