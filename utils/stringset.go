@@ -30,7 +30,7 @@ func (ss *StringSet) Add(items ...string) {
 }
 
 func (ss *StringSet) Has(s string) bool {
-	if ss.m == nil {
+	if ss == nil || ss.m == nil {
 		return false
 	}
 	_, ok := ss.m[s]
@@ -47,6 +47,9 @@ func (ss *StringSet) Len() int {
 
 func (ss *StringSet) Items() []string {
 	var res []string
+	if ss == nil {
+		return res
+	}
 	for s := range ss.m {
 		res = append(res, s)
 	}
@@ -55,6 +58,9 @@ func (ss *StringSet) Items() []string {
 }
 
 func (ss *StringSet) MarshalJSON() ([]byte, error) {
+	if ss == nil {
+		return json.Marshal([]string{})
+	}
 	sl := make([]string, 0, len(ss.m))
 	for el := range ss.m {
 		sl = append(sl, el)

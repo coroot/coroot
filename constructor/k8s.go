@@ -45,14 +45,14 @@ func loadKubernetesMetadata(w *model.World, metrics map[string][]*model.MetricVa
 		}
 	}
 
-	for queryName := range QUERIES {
+	for _, q := range QUERIES {
 		switch {
-		case strings.HasPrefix(queryName, "kube_pod_status_"):
-			podStatus(queryName, metrics[queryName], pods)
-		case strings.HasPrefix(queryName, "kube_pod_init_container_"):
-			podContainer(queryName, metrics[queryName], pods)
-		case strings.HasPrefix(queryName, "kube_pod_container_"):
-			podContainer(queryName, metrics[queryName], pods)
+		case strings.HasPrefix(q.Name, "kube_pod_status_"):
+			podStatus(q.Name, metrics[q.Name], pods)
+		case strings.HasPrefix(q.Name, "kube_pod_init_container_"):
+			podContainer(q.Name, metrics[q.Name], pods)
+		case strings.HasPrefix(q.Name, "kube_pod_container_"):
+			podContainer(q.Name, metrics[q.Name], pods)
 		}
 	}
 	loadApplications(w, metrics)
@@ -71,11 +71,6 @@ func loadServices(metrics map[string][]*model.MetricValues) map[serviceId]*model
 			DestinationApps: map[model.ApplicationId]*model.Application{},
 		}
 		services[serviceId{name: s.Name, ns: s.Namespace}] = s
-	}
-	for _, m := range metrics["kube_service_spec_type"] {
-		if s := services[serviceId{name: m.Labels["service"], ns: m.Labels["namespace"]}]; s != nil {
-			s.Type.Update(m.Values, m.Labels["type"])
-		}
 	}
 	for _, m := range metrics["kube_service_spec_type"] {
 		if s := services[serviceId{name: m.Labels["service"], ns: m.Labels["namespace"]}]; s != nil {
@@ -297,13 +292,9 @@ func podStatus(queryName string, metrics []*model.MetricValues, pods map[string]
 				instance.Pod.Running = merge(instance.Pod.Running, m.Values, timeseries.Any)
 			}
 		case "kube_pod_status_ready":
-			if m.Labels["condition"] == "true" {
-				instance.Pod.Ready = merge(instance.Pod.Ready, m.Values, timeseries.Any)
-			}
+			instance.Pod.Ready = merge(instance.Pod.Ready, m.Values, timeseries.Any)
 		case "kube_pod_status_scheduled":
-			if m.Values.Last() > 0 && m.Labels["condition"] == "true" {
-				instance.Pod.Scheduled = true
-			}
+			instance.Pod.Scheduled = m.Values.Last() > 0
 		}
 	}
 }

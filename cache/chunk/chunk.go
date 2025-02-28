@@ -227,12 +227,12 @@ func readV3(reader io.Reader, header *header, from timeseries.Time, pointsCount 
 }
 
 var (
-	machineId         = []byte("machine_id")
-	systemUuid        = []byte("system_uuid")
-	containerId       = []byte("container_id")
-	destination       = []byte("destination")
-	destinationIP     = []byte("destination_ip")
-	actualDestination = []byte("actual_destination")
+	machineId         = []byte(model.LabelMachineId)
+	systemUuid        = []byte(model.LabelSystemUuid)
+	containerId       = []byte(model.LabelContainerId)
+	destination       = []byte(model.LabelDestination)
+	destinationIP     = []byte(model.LabelDestinationIP)
+	actualDestination = []byte(model.LabelActualDestination)
 )
 
 func metadataSize(mv *model.MetricValues) int {

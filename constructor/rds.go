@@ -55,11 +55,11 @@ func loadRdsMetadata(w *model.World, metrics map[string][]*model.MetricValues, p
 }
 
 func (c *Constructor) loadRds(w *model.World, metrics map[string][]*model.MetricValues, pjs promJobStatuses, rdsInstancesById map[string]*model.Instance) {
-	for queryName := range QUERIES {
-		if !strings.HasPrefix(queryName, "aws_rds_") || queryName == "aws_rds_info" {
+	for _, q := range QUERIES {
+		if !strings.HasPrefix(q.Name, "aws_rds_") || q.Name == "aws_rds_info" {
 			continue
 		}
-		for _, m := range metrics[queryName] {
+		for _, m := range metrics[q.Name] {
 			rdsId := m.Labels["rds_instance_id"]
 			if rdsId == "" {
 				continue
@@ -69,7 +69,7 @@ func (c *Constructor) loadRds(w *model.World, metrics map[string][]*model.Metric
 				continue
 			}
 			volume := instance.Volumes[0]
-			switch queryName {
+			switch q.Name {
 			case "aws_rds_status":
 				instance.Rds.LifeSpan = merge(instance.Rds.LifeSpan, m.Values, timeseries.Any)
 				instance.Rds.Status.Update(m.Values, m.Labels["status"])
@@ -103,7 +103,7 @@ func (c *Constructor) loadRds(w *model.World, metrics map[string][]*model.Metric
 					stat = &model.DiskStats{}
 					instance.Node.Disks[device] = stat
 				}
-				switch queryName {
+				switch q.Name {
 				case "aws_rds_io_util_percent":
 					stat.IOUtilizationPercent = merge(stat.IOUtilizationPercent, m.Values, timeseries.Any)
 				case "aws_rds_io_await_seconds":
@@ -133,7 +133,7 @@ func (c *Constructor) loadRds(w *model.World, metrics map[string][]*model.Metric
 					}
 					instance.Node.NetInterfaces = append(instance.Node.NetInterfaces, stat)
 				}
-				switch queryName {
+				switch q.Name {
 				case "aws_rds_net_rx_bytes_per_second":
 					stat.RxBytes = merge(stat.RxBytes, m.Values, timeseries.Any)
 				case "aws_rds_net_tx_bytes_per_second":

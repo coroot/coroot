@@ -8,7 +8,7 @@ import (
 	"github.com/coroot/coroot/timeseries"
 )
 
-func (c *Constructor) loadFargateNodes(metrics map[string][]*model.MetricValues, nodesById map[model.NodeId]*model.Node) {
+func (c *Constructor) loadFargateNodes(metrics map[string][]*model.MetricValues, nodes nodeCache) {
 	for queryName := range metrics {
 		if !strings.HasPrefix(queryName, "fargate_node_") {
 			continue
@@ -18,7 +18,7 @@ func (c *Constructor) loadFargateNodes(metrics map[string][]*model.MetricValues,
 			if id.MachineID == "" && id.SystemUUID == "" {
 				continue
 			}
-			node := nodesById[id]
+			node := nodes[id]
 			if node == nil {
 				continue
 			}

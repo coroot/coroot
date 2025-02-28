@@ -23,6 +23,7 @@ import (
 	"github.com/gorilla/mux"
 	promModel "github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/promql/parser"
+	"golang.org/x/exp/maps"
 	"k8s.io/klog"
 )
 
@@ -96,7 +97,7 @@ func NewClient(config ClientConfig) (*Client, error) {
 
 func (c *Client) Ping(ctx context.Context) error {
 	now := timeseries.Now()
-	_, err := c.QueryRange(ctx, "up", now.Add(-timeseries.Hour), now, timeseries.Minute)
+	_, err := c.QueryRange(ctx, "up", nil, now.Add(-timeseries.Hour), now, timeseries.Minute)
 	return err
 }
 
@@ -104,7 +105,7 @@ func (c *Client) GetStep(from, to timeseries.Time) (timeseries.Duration, error) 
 	return c.config.Step, nil
 }
 
-func (c *Client) QueryRange(ctx context.Context, query string, from, to timeseries.Time, step timeseries.Duration) ([]*model.MetricValues, error) {
+func (c *Client) QueryRange(ctx context.Context, query string, labels *utils.StringSet, from, to timeseries.Time, step timeseries.Duration) ([]*model.MetricValues, error) {
 	query = strings.ReplaceAll(query, "$RANGE", fmt.Sprintf(`%.0fs`, (step*3).ToStandard().Seconds()))
 	var err error
 	query, err = addExtraSelector(query, c.config.ExtraSelector)
@@ -148,24 +149,34 @@ func (c *Client) QueryRange(ctx context.Context, query string, from, to timeseri
 		return nil, err
 	}
 
-	var res []*model.MetricValues
+	res := map[uint64]*model.MetricValues{}
 	f := func(value []byte, dataType jsonparser.ValueType, offset int, err error) {
-		mv := model.MetricValues{
-			Labels: map[string]string{},
-			Values: timeseries.New(from, int(to.Sub(from)/step)+1, step),
-		}
+		ls := map[string]string{}
 		err = jsonparser.ObjectEach(value, func(key []byte, value []byte, dataType jsonparser.ValueType, offset int) error {
 			v, err := jsonparser.ParseString(value)
 			if err != nil {
 				return err
 			}
-			mv.Labels[string(key)] = v
+			k := string(key)
+			if labels.Has(k) {
+				ls[string(key)] = v
+			}
 			return nil
 		}, "metric")
 		if err != nil {
 			return
 		}
-		mv.LabelsHash = promModel.LabelsToSignature(mv.Labels)
+
+		lsHash := promModel.LabelsToSignature(ls)
+		mv := res[lsHash]
+		if mv == nil {
+			mv = &model.MetricValues{
+				Labels:     ls,
+				LabelsHash: lsHash,
+				Values:     timeseries.New(from, int(to.Sub(from)/step)+1, step),
+			}
+			res[lsHash] = mv
+		}
 
 		_, err = jsonparser.ArrayEach(value, func(value []byte, dataType jsonparser.ValueType, offset int, err error) {
 			var (
@@ -207,12 +218,11 @@ func (c *Client) QueryRange(ctx context.Context, query string, from, to timeseri
 		if err != nil {
 			return
 		}
-		res = append(res, &mv)
 	}
 	if _, err := jsonparser.ArrayEach(buf.Bytes(), f, "data", "result"); err != nil {
 		return nil, err
 	}
-	return res, nil
+	return maps.Values(res), nil
 }
 
 func (c *Client) Proxy(r *http.Request, w http.ResponseWriter) {

@@ -4,11 +4,13 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"sort"
 	"strconv"
 	"testing"
 
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
+	"github.com/coroot/coroot/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -40,16 +42,20 @@ func TestQueryRange(t *testing.T) {
 
 	ctx := context.Background()
 
-	res, err := client.QueryRange(ctx, `metric`, from, to, step)
+	res, err := client.QueryRange(ctx, `metric`, utils.NewStringSet("instance", "job"), from, to, step)
 	assert.NoError(t, err)
 
-	assert.Equal(t, model.Labels{"__name__": "metric", "instance": "10.244.0.67:80", "job": "job1"}, res[0].Labels)
-	assert.Equal(t, uint64(4421518228911002942), res[0].LabelsHash)
-	assert.Equal(t, "TimeSeries(1675329015, 5, 15, [1 0.100000 . . 0.040000])", res[0].Values.String())
+	assert.Len(t, res, 2)
 
-	assert.Equal(t, model.Labels{"__name__": "metric", "instance": "10.244.1.135:80", "job": "job1"}, res[1].Labels)
-	assert.Equal(t, uint64(8265455476956637705), res[1].LabelsHash)
-	assert.Equal(t, "TimeSeries(1675329015, 5, 15, [0.020000 0.200000 . . 2])", res[1].Values.String())
+	sort.Slice(res, func(i, j int) bool { return res[i].LabelsHash < res[j].LabelsHash })
+
+	assert.Equal(t, model.Labels{"instance": "10.244.1.135:80", "job": "job1"}, res[0].Labels)
+	assert.Equal(t, uint64(0x4d16a3f5248f3b7c), res[0].LabelsHash)
+	assert.Equal(t, "TimeSeries(1675329015, 5, 15, [0.020000 0.200000 . . 2])", res[0].Values.String())
+
+	assert.Equal(t, model.Labels{"instance": "10.244.0.67:80", "job": "job1"}, res[1].Labels)
+	assert.Equal(t, uint64(0xef00d4db0b8b83bd), res[1].LabelsHash)
+	assert.Equal(t, "TimeSeries(1675329015, 5, 15, [1 0.100000 . . 0.040000])", res[1].Values.String())
 }
 
 func Test_addExtraSelector(t *testing.T) {
