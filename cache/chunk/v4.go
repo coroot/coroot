@@ -267,7 +267,11 @@ func pairsCount(mv *model.MetricValues) int {
 	if mv.ActualDestination != "" {
 		s++
 	}
-	s += len(mv.Labels)
+	for _, v := range mv.Labels {
+		if v != "" {
+			s++
+		}
+	}
 	return s
 }
 
@@ -278,6 +282,12 @@ func writeLabelsV4(w *bufio.Writer, metrics []*model.MetricValues) error {
 	var pairBuf [4]byte
 
 	write := func(k, v string) error {
+		if k == "" {
+			return errors.New("empty label key")
+		}
+		if v == "" {
+			return nil
+		}
 		ki := keys.idx(k)
 		vi := vals.idx(v)
 		if vi >= (1 << 24) {
