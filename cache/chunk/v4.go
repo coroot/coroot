@@ -49,11 +49,6 @@ func putCompressionBuffer(buf []byte) {
 	blockCompressionBufferPool.Put(buf)
 }
 
-type GroupMetadata struct {
-	Hash       uint64
-	LabelsSize uint32
-}
-
 func writeBlocks(w io.Writer, from timeseries.Time, step timeseries.Duration, pointsCount int, values []*model.MetricValues) error {
 	data := getBlockBuffer()
 	defer putBlockBuffer(data)
