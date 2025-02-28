@@ -2,6 +2,7 @@ package db
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/coroot/coroot/model"
 
@@ -116,6 +117,9 @@ type IntegrationClickhouse struct {
 	InitialDatabase string          `json:"-"`
 	TlsEnable       bool            `json:"tls_enable"`
 	TlsSkipVerify   bool            `json:"tls_skip_verify"`
+	LogsTTL         time.Duration   `json:"logs_ttl"`
+	TracesTTL       time.Duration   `json:"traces_ttl"`
+	ProfilesTTL     time.Duration   `json:"profiles_ttl"`
 }
 
 type IntegrationSlack struct {
