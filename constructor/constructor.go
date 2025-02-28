@@ -18,10 +18,6 @@ import (
 	"k8s.io/klog"
 )
 
-var (
-	ErrUnknownQuery = errors.New("unknown query")
-)
-
 type Option int
 
 const (
@@ -104,10 +100,7 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 		metrics, err = c.queryCache(ctx, from, to, step, rawStep, w.CheckConfigs, prof.Queries)
 	})
 	if err != nil {
-		if !errors.Is(err, ErrUnknownQuery) {
-			return nil, err
-		}
-		klog.Warningln(err)
+		return nil, err
 	}
 
 	pjs := promJobStatuses{}

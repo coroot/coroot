@@ -233,6 +233,9 @@ func (c *Cache) download(to timeseries.Time, promClient *prom.Client, projectId 
 }
 
 func (c *Cache) writeChunk(projectId db.ProjectId, queryHash string, from timeseries.Time, pointsCount int, step timeseries.Duration, finalized bool, metrics []*model.MetricValues) error {
+	if len(metrics) == 0 {
+		return nil
+	}
 	c.lock.Lock()
 	projData := c.byProject[projectId]
 	if projData == nil {
