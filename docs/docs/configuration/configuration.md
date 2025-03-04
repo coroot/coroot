@@ -25,8 +25,11 @@ For instance, the `projects` parameter (a list of predefined projects) can only 
 | --listen                             | LISTEN                             | 0.0.0.0:8080  | Listen address in the format `ip:port` or `:port`.                                                                                                                              |
 | --url-base-path                      | URL_BASE_PATH                      | /             | Base URL to run Coroot at a sub-path, e.g., `/coroot/`.                                                                                                                         |
 | --data-dir                           | DATA_DIR                           | /data         | Path to the data directory.                                                                                                                                                     |
-| --cache-ttl                          | CACHE_TTL                          | 720h          | Cache Time-To-Live (TTL).                                                                                                                                                       |
-| --cache-gc-interval                  | CACHE_GC_INTERVAL                  | 10m           | Cache Garbage Collection (GC) interval.                                                                                                                                         |
+| --cache-ttl                          | CACHE_TTL                          | 30d           | Metric Cache Time-To-Live (TTL).                                                                                                                                                |
+| --cache-gc-interval                  | CACHE_GC_INTERVAL                  | 10m           | Metric Cache Garbage Collection (GC) interval.                                                                                                                                  |
+| --traces-ttl                         | TRACES_TTL                         | 7d            | Traces Time-To-Live (TTL).                                                                                                                                                      |
+| --logs-ttl                           | LOGS_TTL                           | 7d            | Logs Time-To-Live (TTL).                                                                                                                                                        |
+| --profiles-ttl                       | PROFILES_TTL                       | 7d            | Profiles Time-To-Live (TTL).                                                                                                                                                    |
 | --pg-connection-string               | PG_CONNECTION_STRING               |               | PostgreSQL connection string (uses SQLite if not set).                                                                                                                          |
 | --disable-usage-statistics           | DISABLE_USAGE_STATISTICS           | false         | Disable usage statistics.                                                                                                                                                       |
 | --read-only                          | READ_ONLY                          | false         | Enable read-only mode where configuration changes don't take effect.                                                                                                            |
@@ -60,8 +63,18 @@ url_base_path: /             # Base URL to run Coroot at a sub-path, e.g., `/cor
 data_dir: /data              # Path to the data directory. 
 
 cache:
-  ttl: 720h        # Cache Time-To-Live (TTL).
-  gc_interval: 10m # Cache Garbage Collection (GC) interval. 
+  ttl: 30d        # Metric Cache Time-To-Live (TTL).
+  gc_interval: 10m # Metric Cache Garbage Collection (GC) interval. 
+
+# Coroot stores Traces, Logs, and Profiles in ClickHouse.  
+# Their retention is managed by setting a Time-To-Live (TTL) for the corresponding Clickhouse tables.  
+# The TTLs below are applied during table creation and do not currently affect existing tables.
+traces:
+  ttl: 7d
+logs:
+  ttl: 7d
+profiles:
+  ttl: 7d
 
 postgres: # Store configuration in a Postgres DB instead of SQLite
   # URI form: "postgres://coroot:password@127.0.0.1:5432/coroot?sslmode=disable" 

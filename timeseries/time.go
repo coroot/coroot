@@ -5,6 +5,10 @@ import (
 	"fmt"
 	"strconv"
 	"time"
+
+	promModel "github.com/prometheus/common/model"
+	"gopkg.in/alecthomas/kingpin.v2"
+	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -57,6 +61,33 @@ func (d *Duration) UnmarshalJSON(b []byte) error {
 		}
 	}
 	return fmt.Errorf("invalid duration: %s", string(b))
+}
+
+func (d *Duration) UnmarshalYAML(value *yaml.Node) error {
+	return d.Set(value.Value)
+}
+
+func DurationFlag(s kingpin.Settings) *Duration {
+	var d Duration
+	s.SetValue(&d)
+	return &d
+}
+
+func (d Duration) String() string {
+	return promModel.Duration(d.ToStandard()).String()
+}
+
+func (d *Duration) Set(s string) error {
+	pd, err := promModel.ParseDuration(s)
+	if err != nil {
+		return fmt.Errorf("invalid duration: %s", s)
+	}
+	td := DurationFromStandard(time.Duration(pd))
+	if td <= 0 {
+		return fmt.Errorf("invalid duration: %s", s)
+	}
+	*d = td
+	return nil
 }
 
 type Time int64

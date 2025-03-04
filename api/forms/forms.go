@@ -293,7 +293,7 @@ func (f *IntegrationFormPrometheus) Test(ctx context.Context, project *db.Projec
 	if err != nil {
 		return err
 	}
-	if err := client.Ping(ctx); err != nil {
+	if err = client.Ping(ctx); err != nil {
 		return err
 	}
 	return nil

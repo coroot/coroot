@@ -55,39 +55,6 @@
         <v-checkbox v-model="form.tls_enable" label="Enable TLS" hide-details class="my-3" :disabled="form.global" />
         <v-checkbox v-model="form.tls_skip_verify" :disabled="!form.tls_enable || form.global" label="Skip TLS verify" hide-details class="my-2" />
 
-        <div class="subtitle-1 mt-3">Logs TTL</div>
-        <v-text-field
-            v-model="logsTTLInput"
-            outlined
-            dense
-            hide-details
-            single-line
-            placeholder="e.g., 1h, 30m, 2d, 1w"
-            :disabled="form.global || (saved.database === form.database && saved.addr === form.addr)"
-        />
-
-        <div class="subtitle-1 mt-3">Traces TTL</div>
-        <v-text-field
-            v-model="tracesTTLInput"
-            outlined
-            dense
-            hide-details
-            single-line
-            placeholder="e.g., 1h, 30m, 2d, 1w"
-            :disabled="form.global || (saved.database === form.database && saved.addr === form.addr)"
-        />
-
-        <div class="subtitle-1 mt-3">Profiles TTL</div>
-        <v-text-field
-            v-model="profilesTTLInput"
-            outlined
-            dense
-            hide-details
-            single-line
-            placeholder="e.g., 1h, 30m, 2d, 1w"
-            :disabled="form.global || (saved.database === form.database && saved.addr === form.addr)"
-        />
-
         <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
             {{ error }}
         </v-alert>
@@ -111,11 +78,6 @@ export default {
             error: '',
             message: '',
             saved: null,
-            logsTTLInput: '', // User-friendly input (e.g., "1h")
-            tracesTTLInput: '',
-            profilesTTLInput: '',
-            DEFAULT_TTL: '1w', // Default to 7 days
-            DEFAULT_TTL_NS: 604800000000000, // 7 days in nanoseconds
         };
     },
 
@@ -141,9 +103,6 @@ export default {
                 }
                 this.form = data;
                 this.saved = JSON.parse(JSON.stringify(this.form));
-                this.logsTTLInput = this.formatDuration(this.form.logs_ttl) || this.DEFAULT_TTL;
-                this.tracesTTLInput = this.formatDuration(this.form.traces_ttl) || this.DEFAULT_TTL;
-                this.profilesTTLInput = this.formatDuration(this.form.profiles_ttl) || this.DEFAULT_TTL;
             });
         },
         save() {
@@ -151,16 +110,6 @@ export default {
             this.error = '';
             this.message = '';
             const form = JSON.parse(JSON.stringify(this.form));
-            if (this.saved.addr === form.addr && this.saved.database === form.database) {
-                form.logs_ttl = this.saved.logs_ttl;
-                form.traces_ttl = this.saved.traces_ttl;
-                form.profiles_ttl = this.saved.profiles_ttl;
-            } else {
-                form.logs_ttl = this.parseDuration(this.logsTTLInput);
-                form.traces_ttl = this.parseDuration(this.tracesTTLInput);
-                form.profiles_ttl = this.parseDuration(this.profilesTTLInput);
-            }
-
             this.$api.saveIntegrations('clickhouse', 'save', form, (data, error) => {
                 this.loading = false;
                 if (error) {
@@ -187,42 +136,6 @@ export default {
                 }
                 this.get();
             });
-        },
-
-        parseDuration(input) {
-            if (!input) return this.DEFAULT_TTL_NS;
-            const units = {
-                s: 1e9, // seconds to nanoseconds
-                m: 60e9, // minutes to nanoseconds
-                h: 3600e9, // hours to nanoseconds
-                d: 86400e9, // days to nanoseconds
-                w: 604800e9, // weeks to nanoseconds (7 days)
-            };
-
-            const match = input.match(/^(\d+)([smhdw])$/);
-            if (!match) return this.DEFAULT_TTL_NS;
-
-            const value = parseInt(match[1], 10);
-            const unit = match[2];
-
-            let ttl = value * units[unit] || this.DEFAULT_TTL_NS;
-
-            // If TTL is ≤ 1 minute, default to 1w
-            if (ttl <= 60e9) {
-                return this.DEFAULT_TTL_NS;
-            }
-
-            return ttl;
-        },
-
-        formatDuration(ns) {
-            if (!ns) return this.DEFAULT_TTL;
-            const seconds = ns / 1e9;
-            if (seconds % 604800 === 0) return `${seconds / 604800}w`;
-            if (seconds % 86400 === 0) return `${seconds / 86400}d`;
-            if (seconds % 3600 === 0) return `${seconds / 3600}h`;
-            if (seconds % 60 === 0) return `${seconds / 60}m`;
-            return `${seconds}s`;
         },
     },
 };

@@ -584,16 +584,19 @@ func (api *Api) Integration(w http.ResponseWriter, r *http.Request, u *db.User) 
 	defer cancel()
 	switch r.Method {
 	case http.MethodPost:
-		if err := form.Test(ctx, project); err != nil {
+		if err = form.Test(ctx, project); err != nil {
+			klog.Errorln("failed to test:", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 		}
 		return
 	case http.MethodPut:
-		if err := form.Update(ctx, project, false); err != nil {
+		if err = form.Update(ctx, project, false); err != nil {
+			klog.Errorln("failed to update:", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 		}
 	case http.MethodDelete:
-		if err := form.Update(ctx, project, true); err != nil {
+		if err = form.Update(ctx, project, true); err != nil {
+			klog.Errorln("failed to delete:", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 		}
 	default:
