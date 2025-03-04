@@ -13,8 +13,8 @@ func (c *Cache) gc() {
 	if c.cfg.GC == nil {
 		return
 	}
-	for range time.Tick(c.cfg.GC.Interval) {
-		now := time.Now()
+	for range time.Tick(c.cfg.GC.Interval.ToStandard()) {
+		now := timeseries.Now()
 
 		if projects, err := c.db.GetProjectNames(); err != nil {
 			klog.Errorln("failed to get projects:", err)
@@ -34,7 +34,7 @@ func (c *Cache) gc() {
 			c.lock.Unlock()
 		}
 
-		minTs := timeseries.Time(now.Add(-c.cfg.GC.TTL).Unix())
+		minTs := now.Add(-c.cfg.GC.TTL)
 		toDelete := map[db.ProjectId]map[string][]string{}
 		c.lock.RLock()
 		for projectId, projData := range c.byProject {
@@ -78,6 +78,6 @@ func (c *Cache) gc() {
 		}
 
 		c.lock.Unlock()
-		klog.Infof("GC done in %s", time.Since(now).Truncate(time.Millisecond))
+		klog.Infof("GC done in %s", time.Since(now.ToStandard()).Truncate(time.Millisecond))
 	}
 }

@@ -1,9 +1,8 @@
 package config
 
 import (
-	"time"
-
 	"github.com/coroot/coroot/db"
+	"github.com/coroot/coroot/timeseries"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
@@ -12,8 +11,11 @@ var (
 	listen                     = kingpin.Flag("listen", "Listen address - ip:port or :port").Envar("LISTEN").String()
 	urlBasePath                = kingpin.Flag("url-base-path", "The base URL to run Coroot at a sub-path, e.g. /coroot/").Envar("URL_BASE_PATH").String()
 	dataDir                    = kingpin.Flag("data-dir", `Path to the data directory`).Envar("DATA_DIR").String()
-	cacheTTL                   = kingpin.Flag("cache-ttl", "Cache TTL").Envar("CACHE_TTL").Duration()
-	cacheGcInterval            = kingpin.Flag("cache-gc-interval", "Cache GC interval").Envar("CACHE_GC_INTERVAL").Duration()
+	cacheTTL                   = timeseries.DurationFlag(kingpin.Flag("cache-ttl", "Cache TTL (e.g. 8h, 2d, 1w; default 30d)").Envar("CACHE_TTL"))
+	cacheGcInterval            = timeseries.DurationFlag(kingpin.Flag("cache-gc-interval", "Cache GC interval").Envar("CACHE_GC_INTERVAL"))
+	tracesTTL                  = timeseries.DurationFlag(kingpin.Flag("traces-ttl", "Traces TTL (e.g. 8h, 3d, 2w; default 7d)").Envar("TRACES_TTL"))
+	logsTTL                    = timeseries.DurationFlag(kingpin.Flag("logs-ttl", "Logs TTL (e.g. 8h, 3d, 2w; default 7d)").Envar("LOGS_TTL"))
+	profilesTTL                = timeseries.DurationFlag(kingpin.Flag("profiles-ttl", "Profiles TTL (e.g. 8h, 3d, 2w; default 7d)").Envar("PROFILES_TTL"))
 	pgConnectionString         = kingpin.Flag("pg-connection-string", "Postgres connection string (sqlite is used if not set)").Envar("PG_CONNECTION_STRING").String()
 	doNotCheckSLO              = kingpin.Flag("do-not-check-slo", "Don't check SLO compliance").Envar("DO_NOT_CHECK_SLO").Bool()
 	doNotCheckForDeployments   = kingpin.Flag("do-not-check-for-deployments", "Don't check for new deployments").Envar("DO_NOT_CHECK_FOR_DEPLOYMENTS").Bool()
@@ -30,30 +32,24 @@ var (
 	globalClickhouseInitialDatabase = kingpin.Flag("global-clickhouse-initial-database", "").Envar("GLOBAL_CLICKHOUSE_INITIAL_DATABASE").String()
 	globalClickhouseTlsEnabled      = kingpin.Flag("global-clickhouse-tls-enabled", "").Envar("GLOBAL_CLICKHOUSE_TLS_ENABLED").Bool()
 	globalClickhouseTlsSkipVerify   = kingpin.Flag("global-clickhouse-tls-skip-verify", "").Envar("GLOBAL_CLICKHOUSE_TLS_SKIP_VERIFY").Bool()
-	globalClickhouseLogsTTL         = kingpin.Flag("global-clickhouse-logs-ttl", "").Envar("GLOBAL_CLICKHOUSE_LOGS_TTL").Duration()
-	globalClickhouseTracesTTL       = kingpin.Flag("global-clickhouse-traces-ttl", "").Envar("GLOBAL_CLICKHOUSE_TRACES_TTL").Duration()
-	globalClickhouseProfilesTTL     = kingpin.Flag("global-clickhouse-profiles-ttl", "").Envar("GLOBAL_CLICKHOUSE_PROFILES_TTL").Duration()
 
 	globalPrometheusUrl            = kingpin.Flag("global-prometheus-url", "").Envar("GLOBAL_PROMETHEUS_URL").String()
 	globalPrometheusTlsSkipVerify  = kingpin.Flag("global-prometheus-tls-skip-verify", "").Envar("GLOBAL_PROMETHEUS_TLS_SKIP_VERIFY").Bool()
-	globalRefreshInterval          = kingpin.Flag("global-refresh-interval", "").Envar("GLOBAL_REFRESH_INTERVAL").Duration()
+	globalRefreshInterval          = timeseries.DurationFlag(kingpin.Flag("global-refresh-interval", "").Envar("GLOBAL_REFRESH_INTERVAL"))
 	globalPrometheusUser           = kingpin.Flag("global-prometheus-user", "").Envar("GLOBAL_PROMETHEUS_USER").String()
 	globalPrometheusPassword       = kingpin.Flag("global-prometheus-password", "").Envar("GLOBAL_PROMETHEUS_PASSWORD").String()
 	globalPrometheusCustomHeaders  = kingpin.Flag("global-prometheus-custom-headers", "").Envar("GLOBAL_PROMETHEUS_CUSTOM_HEADERS").StringMap()
 	globalPrometheusRemoteWriteUrl = kingpin.Flag("global-prometheus-remote-write-url", "").Envar("GLOBAL_PROMETHEUS_REMOTE_WRITE_URL").String()
 
 	bootstrapPrometheusUrl            = kingpin.Flag("bootstrap-prometheus-url", "").Envar("BOOTSTRAP_PROMETHEUS_URL").String()
-	bootstrapRefreshInterval          = kingpin.Flag("bootstrap-refresh-interval", "").Envar("BOOTSTRAP_REFRESH_INTERVAL").Duration()
+	bootstrapRefreshInterval          = timeseries.DurationFlag(kingpin.Flag("bootstrap-refresh-interval", "").Envar("BOOTSTRAP_REFRESH_INTERVAL"))
 	bootstrapPrometheusExtraSelector  = kingpin.Flag("bootstrap-prometheus-extra-selector", "").Envar("BOOTSTRAP_PROMETHEUS_EXTRA_SELECTOR").String()
 	bootstrapPrometheusRemoteWriteUrl = kingpin.Flag("bootstrap-prometheus-remote-write-url", "").Envar("BOOTSTRAP_PROMETHEUS_REMOTE_WRITE_URL").String()
 
-	bootstrapClickhouseAddress     = kingpin.Flag("bootstrap-clickhouse-address", "").Envar("BOOTSTRAP_CLICKHOUSE_ADDRESS").String()
-	bootstrapClickhouseUser        = kingpin.Flag("bootstrap-clickhouse-user", "").Envar("BOOTSTRAP_CLICKHOUSE_USER").String()
-	bootstrapClickhousePassword    = kingpin.Flag("bootstrap-clickhouse-password", "").Envar("BOOTSTRAP_CLICKHOUSE_PASSWORD").String()
-	bootstrapClickhouseDatabase    = kingpin.Flag("bootstrap-clickhouse-database", "").Envar("BOOTSTRAP_CLICKHOUSE_DATABASE").String()
-	bootstrapClickhouseLogsTTL     = kingpin.Flag("bootstrap-clickhouse-logs-ttl", "").Envar("BOOTSTRAP_CLICKHOUSE_LOGS_TTL").Duration()
-	bootstrapClickhouseTracesTTL   = kingpin.Flag("bootstrap-clickhouse-traces-ttl", "").Envar("BOOTSTRAP_CLICKHOUSE_TRACES_TTL").Duration()
-	bootstrapClickhouseProfilesTTL = kingpin.Flag("bootstrap-clickhouse-profiles-ttl", "").Envar("BOOTSTRAP_CLICKHOUSE_PROFILES_TTL").Duration()
+	bootstrapClickhouseAddress  = kingpin.Flag("bootstrap-clickhouse-address", "").Envar("BOOTSTRAP_CLICKHOUSE_ADDRESS").String()
+	bootstrapClickhouseUser     = kingpin.Flag("bootstrap-clickhouse-user", "").Envar("BOOTSTRAP_CLICKHOUSE_USER").String()
+	bootstrapClickhousePassword = kingpin.Flag("bootstrap-clickhouse-password", "").Envar("BOOTSTRAP_CLICKHOUSE_PASSWORD").String()
+	bootstrapClickhouseDatabase = kingpin.Flag("bootstrap-clickhouse-database", "").Envar("BOOTSTRAP_CLICKHOUSE_DATABASE").String()
 )
 
 func (cfg *Config) applyFlags() {
@@ -71,6 +67,15 @@ func (cfg *Config) applyFlags() {
 	}
 	if *cacheGcInterval > 0 {
 		cfg.Cache.GCInterval = *cacheGcInterval
+	}
+	if *tracesTTL > 0 {
+		cfg.Traces.TTL = *tracesTTL
+	}
+	if *logsTTL > 0 {
+		cfg.Logs.TTL = *logsTTL
+	}
+	if *profilesTTL > 0 {
+		cfg.Profiles.TTL = *profilesTTL
 	}
 	if *pgConnectionString != "" {
 		cfg.Postgres = &Postgres{ConnectionString: *pgConnectionString}
@@ -121,15 +126,6 @@ func (cfg *Config) applyFlags() {
 	}
 	if *globalClickhouseTlsSkipVerify {
 		cfg.GlobalClickhouse.TlsSkipVerify = *globalClickhouseTlsSkipVerify
-	}
-	if *globalClickhouseLogsTTL > 1*time.Minute {
-		cfg.GlobalClickhouse.LogsTTL = *globalClickhouseLogsTTL
-	}
-	if *globalClickhouseTracesTTL > 1*time.Minute {
-		cfg.GlobalClickhouse.TracesTTL = *globalClickhouseTracesTTL
-	}
-	if *globalClickhouseProfilesTTL > 1*time.Minute {
-		cfg.GlobalClickhouse.ProfilesTTL = *globalClickhouseProfilesTTL
 	}
 	if !keep {
 		cfg.GlobalClickhouse = nil
@@ -183,16 +179,6 @@ func (cfg *Config) applyFlags() {
 			User:     *bootstrapClickhouseUser,
 			Password: *bootstrapClickhousePassword,
 			Database: *bootstrapClickhouseDatabase,
-		}
-
-		if *bootstrapClickhouseLogsTTL > 1*time.Minute {
-			cfg.BootstrapClickhouse.LogsTTL = *bootstrapClickhouseLogsTTL
-		}
-		if *bootstrapClickhouseTracesTTL > 1*time.Minute {
-			cfg.BootstrapClickhouse.TracesTTL = *bootstrapClickhouseTracesTTL
-		}
-		if *bootstrapClickhouseProfilesTTL > 1*time.Minute {
-			cfg.BootstrapClickhouse.ProfilesTTL = *bootstrapClickhouseProfilesTTL
 		}
 	}
 }

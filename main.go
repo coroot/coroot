@@ -94,7 +94,12 @@ func main() {
 		klog.Exitln(err)
 	}
 
-	coll := collector.New(database, promCache, globalClickhouse, globalPrometheus)
+	collConfig := collector.Config{
+		TracesTTL:   cfg.Traces.TTL,
+		LogsTTL:     cfg.Logs.TTL,
+		ProfilesTTL: cfg.Profiles.TTL,
+	}
+	coll := collector.New(collConfig, database, promCache, globalClickhouse, globalPrometheus)
 	go func() {
 		ch := make(chan os.Signal, 1)
 		signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)

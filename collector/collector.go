@@ -10,6 +10,7 @@ import (
 	"github.com/ClickHouse/ch-go"
 	"github.com/coroot/coroot/cache"
 	"github.com/coroot/coroot/db"
+	"github.com/coroot/coroot/timeseries"
 	"golang.org/x/exp/maps"
 	"k8s.io/klog"
 )
@@ -26,7 +27,14 @@ var (
 	ErrClickhouseNotConfigured = errors.New("clickhouse integration is not configured")
 )
 
+type Config struct {
+	TracesTTL   timeseries.Duration
+	LogsTTL     timeseries.Duration
+	ProfilesTTL timeseries.Duration
+}
+
 type Collector struct {
+	cfg              Config
 	db               *db.DB
 	cache            *cache.Cache
 	globalClickHouse *db.IntegrationClickhouse
@@ -49,8 +57,9 @@ type Collector struct {
 	profileBatchesLock sync.Mutex
 }
 
-func New(database *db.DB, cache *cache.Cache, globalClickHouse *db.IntegrationClickhouse, globalPrometheus *db.IntegrationPrometheus) *Collector {
+func New(cfg Config, database *db.DB, cache *cache.Cache, globalClickHouse *db.IntegrationClickhouse, globalPrometheus *db.IntegrationPrometheus) *Collector {
 	c := &Collector{
+		cfg:               cfg,
 		db:                database,
 		cache:             cache,
 		globalClickHouse:  globalClickHouse,

@@ -6,7 +6,6 @@ import (
 	"net"
 	"net/url"
 	"os"
-	"time"
 
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/prom"
@@ -22,7 +21,10 @@ type Config struct {
 	DataDir       string `yaml:"data_dir"`
 	LicenseKey    string `yaml:"license_key"`
 
-	Cache Cache `yaml:"cache"`
+	Cache    Cache    `yaml:"cache"`
+	Traces   Traces   `yaml:"traces"`
+	Logs     Logs     `yaml:"logs"`
+	Profiles Profiles `yaml:"profiles"`
 
 	Postgres         *Postgres   `yaml:"postgres"`
 	GlobalPrometheus *Prometheus `yaml:"global_prometheus"`
@@ -44,8 +46,20 @@ type Config struct {
 }
 
 type Cache struct {
-	TTL        time.Duration `yaml:"ttl"`
-	GCInterval time.Duration `yaml:"gc_interval"`
+	TTL        timeseries.Duration `yaml:"ttl"`
+	GCInterval timeseries.Duration `yaml:"gc_interval"`
+}
+
+type Traces struct {
+	TTL timeseries.Duration `yaml:"ttl"`
+}
+
+type Logs struct {
+	TTL timeseries.Duration `yaml:"ttl"`
+}
+
+type Profiles struct {
+	TTL timeseries.Duration `yaml:"ttl"`
 }
 
 type Postgres struct {
@@ -53,15 +67,12 @@ type Postgres struct {
 }
 
 type Clickhouse struct {
-	Address       string        `yaml:"address"`
-	User          string        `yaml:"user"`
-	Password      string        `yaml:"password"`
-	Database      string        `yaml:"database"`
-	TlsEnable     bool          `yaml:"tls_enable"`
-	TlsSkipVerify bool          `yaml:"tls_skip_verify"`
-	LogsTTL       time.Duration `yaml:"logs_ttl"`
-	TracesTTL     time.Duration `yaml:"traces_ttl"`
-	ProfilesTTL   time.Duration `yaml:"profiles_ttl"`
+	Address       string `yaml:"address"`
+	User          string `yaml:"user"`
+	Password      string `yaml:"password"`
+	Database      string `yaml:"database"`
+	TlsEnable     bool   `yaml:"tls_enable"`
+	TlsSkipVerify bool   `yaml:"tls_skip_verify"`
 }
 
 func (c *Clickhouse) Validate() error {
@@ -82,14 +93,14 @@ func (c *Clickhouse) Validate() error {
 }
 
 type Prometheus struct {
-	Url             string            `yaml:"url"`
-	RefreshInterval time.Duration     `yaml:"refresh_interval"`
-	TlsSkipVerify   bool              `yaml:"tls_skip_verify"`
-	User            string            `yaml:"user"`
-	Password        string            `yaml:"password"`
-	ExtraSelector   string            `yaml:"extra_selector"`
-	CustomHeaders   map[string]string `yaml:"custom_headers"`
-	RemoteWriteUrl  string            `yaml:"remote_write_url"`
+	Url             string              `yaml:"url"`
+	RefreshInterval timeseries.Duration `yaml:"refresh_interval"`
+	TlsSkipVerify   bool                `yaml:"tls_skip_verify"`
+	User            string              `yaml:"user"`
+	Password        string              `yaml:"password"`
+	ExtraSelector   string              `yaml:"extra_selector"`
+	CustomHeaders   map[string]string   `yaml:"custom_headers"`
+	RemoteWriteUrl  string              `yaml:"remote_write_url"`
 }
 
 func validateUrl(urlString string) error {
@@ -144,8 +155,18 @@ func Load() *Config {
 		DataDir:       "./data",
 
 		Cache: Cache{
-			TTL:        30 * 24 * time.Hour,
-			GCInterval: 10 * time.Minute,
+			TTL:        30 * timeseries.Day,
+			GCInterval: 10 * timeseries.Minute,
+		},
+
+		Traces: Traces{
+			TTL: 7 * timeseries.Day,
+		},
+		Logs: Logs{
+			TTL: 7 * timeseries.Day,
+		},
+		Profiles: Profiles{
+			TTL: 7 * timeseries.Day,
 		},
 
 		Auth: Auth{
@@ -237,9 +258,6 @@ func (cfg *Config) GetGlobalClickhouse() *db.IntegrationClickhouse {
 		InitialDatabase: clickhouse.Database,
 		TlsEnable:       clickhouse.TlsEnable,
 		TlsSkipVerify:   clickhouse.TlsSkipVerify,
-		LogsTTL:         clickhouse.LogsTTL,
-		TracesTTL:       clickhouse.TracesTTL,
-		ProfilesTTL:     clickhouse.ProfilesTTL,
 	}
 	if c.Auth.User == "" {
 		c.Auth.User = "default"
@@ -265,9 +283,6 @@ func (cfg *Config) GetBootstrapClickhouse() *db.IntegrationClickhouse {
 		Database:      clickhouse.Database,
 		TlsEnable:     clickhouse.TlsEnable,
 		TlsSkipVerify: clickhouse.TlsSkipVerify,
-		LogsTTL:       clickhouse.LogsTTL,
-		TracesTTL:     clickhouse.TracesTTL,
-		ProfilesTTL:   clickhouse.ProfilesTTL,
 	}
 	if c.Auth.User == "" {
 		c.Auth.User = "default"
@@ -296,7 +311,7 @@ func (cfg *Config) GetGlobalPrometheus() *db.IntegrationPrometheus {
 	p := &db.IntegrationPrometheus{
 		Global:          true,
 		Url:             prometheus.Url,
-		RefreshInterval: timeseries.DurationFromStandard(prometheus.RefreshInterval),
+		RefreshInterval: prometheus.RefreshInterval,
 		TlsSkipVerify:   prometheus.TlsSkipVerify,
 		ExtraSelector:   prometheus.ExtraSelector,
 		RemoteWriteUrl:  prometheus.RemoteWriteUrl,
@@ -320,7 +335,7 @@ func (cfg *Config) GetBootstrapPrometheus() *db.IntegrationPrometheus {
 	}
 	p := &db.IntegrationPrometheus{
 		Url:             prometheus.Url,
-		RefreshInterval: timeseries.DurationFromStandard(prometheus.RefreshInterval),
+		RefreshInterval: prometheus.RefreshInterval,
 		TlsSkipVerify:   prometheus.TlsSkipVerify,
 		ExtraSelector:   prometheus.ExtraSelector,
 		RemoteWriteUrl:  prometheus.RemoteWriteUrl,

@@ -88,7 +88,7 @@ func (c *Cache) compaction() {
 		}(tasksCh)
 	}
 
-	for range time.Tick(cfg.Interval) {
+	for range time.Tick(cfg.Interval.ToStandard()) {
 		klog.Infoln("compaction iteration started")
 		var tasks []*CompactionTask
 		c.lock.RLock()

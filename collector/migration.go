@@ -12,10 +12,6 @@ import (
 	"k8s.io/klog"
 )
 
-const (
-	defaultTtlSeconds = "604800" // 7 days
-)
-
 func (c *Collector) migrateProjects() {
 	b := backoff.Backoff{Factor: 2, Min: time.Minute, Max: 10 * time.Minute}
 	for {
@@ -77,7 +73,7 @@ func (c *Collector) migrateProject(ctx context.Context, p *db.Project) error {
 		return err
 	}
 	defer client.Close()
-	err = c.migrate(ctx, client, cfg)
+	err = c.migrate(ctx, client)
 	if err == nil {
 		c.migrationDoneLock.Lock()
 		c.migrationDone[p.Id] = true
@@ -86,14 +82,11 @@ func (c *Collector) migrateProject(ctx context.Context, p *db.Project) error {
 	return err
 }
 
-func (c *Collector) migrate(ctx context.Context, client *ClickhouseClient, cfg *db.IntegrationClickhouse) error {
-
-	logsTTL, tracesTTL, profilesTTL := c.getTTLs(cfg)
-
+func (c *Collector) migrate(ctx context.Context, client *ClickhouseClient) error {
 	for _, t := range tables {
-		t = strings.ReplaceAll(t, "@ttl_logs", logsTTL)
-		t = strings.ReplaceAll(t, "@ttl_traces", tracesTTL)
-		t = strings.ReplaceAll(t, "@ttl_profiles", profilesTTL)
+		t = strings.ReplaceAll(t, "@ttl_traces", fmt.Sprintf("%d", c.cfg.TracesTTL))
+		t = strings.ReplaceAll(t, "@ttl_logs", fmt.Sprintf("%d", c.cfg.LogsTTL))
+		t = strings.ReplaceAll(t, "@ttl_profiles", fmt.Sprintf("%d", c.cfg.ProfilesTTL))
 		if client.cluster != "" {
 			t = strings.ReplaceAll(t, "@merge_tree", "ReplicatedMergeTree('/clickhouse/tables/{shard}/{database}/{table}', '{replica}')")
 			t = strings.ReplaceAll(t, "@replacing_merge_tree", "ReplicatedReplacingMergeTree('/clickhouse/tables/{shard}/{database}/{table}', '{replica}')")
@@ -116,23 +109,6 @@ func (c *Collector) migrate(ctx context.Context, client *ClickhouseClient, cfg *
 
 	}
 	return nil
-}
-
-func (c *Collector) getTTLs(cfg *db.IntegrationClickhouse) (string, string, string) {
-	logsTTL := defaultTtlSeconds
-	tracesTTL := defaultTtlSeconds
-	profilesTTL := defaultTtlSeconds
-
-	if cfg.LogsTTL > 1*time.Minute {
-		logsTTL = fmt.Sprintf("%.0f", cfg.LogsTTL.Seconds())
-	}
-	if cfg.TracesTTL > 1*time.Minute {
-		tracesTTL = fmt.Sprintf("%.0f", cfg.TracesTTL.Seconds())
-	}
-	if cfg.ProfilesTTL > 1*time.Minute {
-		profilesTTL = fmt.Sprintf("%.0f", cfg.ProfilesTTL.Seconds())
-	}
-	return logsTTL, tracesTTL, profilesTTL
 }
 
 var (
