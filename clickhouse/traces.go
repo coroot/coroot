@@ -164,7 +164,7 @@ func (c *Client) getSpansHistogram(ctx context.Context, q SpanQuery, filters []s
 
 	filters = append(filters, "Timestamp BETWEEN @from AND @to")
 	filterArgs = append(filterArgs,
-		clickhouse.Named("step", step),
+		clickhouse.Named("step", int(step)),
 		clickhouse.Named("buckets", histogramBuckets[:len(histogramBuckets)-1]),
 		clickhouse.DateNamed("from", from.ToStandard(), clickhouse.NanoSeconds),
 		clickhouse.DateNamed("to", to.ToStandard(), clickhouse.NanoSeconds),
