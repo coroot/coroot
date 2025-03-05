@@ -37,13 +37,15 @@ metadata:
   namespace: coroot
 spec:
 #  metricsRefreshInterval: 15s # Specifies the metric resolution interval.
-#  cacheTTL: 7d # Duration for which Coroot retains the metric cache.
+#  cacheTTL: 30d # Duration for which Coroot retains the metric cache.
 #  authAnonymousRole: # Allows access to Coroot without authentication if set (one of Admin, Editor, or Viewer).
 #  authBootstrapAdminPassword: # Initial admin password for bootstrapping.
 #  env: # Environment variables for Coroot.
 #    - name:
 #      value:
 #      valueFrom:
+#  nodeSelector: # Restricts scheduling to nodes matching the specified labels.
+#    <node label name>: <node label value>
 #  affinity: # Affinity rules for Coroot pods.
 #  tolerations: # Tolerations for Coroot pods.
 #  resources: # Resource requests and limits for Coroot pods.
@@ -64,6 +66,13 @@ spec:
 #    tls: # TLS configuration.
 #      hosts: # The array with host names
 #      secretName: # The name of secret where TLS certificate and private key would be stored
+
+# Coroot stores Traces, Logs, and Profiles in ClickHouse.  
+# Their retention is managed by setting a Time-To-Live (TTL) for the corresponding Clickhouse tables.  
+# The TTLs below are applied during table creation and do not currently affect existing tables.
+#  tracesTTL: 7d
+#  logsTTL: 7d
+#  profilesTTL: 7d
 
 # Configuration for Coroot Community Edition.
 #  communityEdition:
@@ -90,6 +99,7 @@ spec:
 #  nodeAgent:
 #    priorityClassName: # Priority class for the node-agent pods.
 #    update_strategy: # Update strategy for node-agent pods.
+#    nodeSelector: # Restricts scheduling to nodes matching the specified labels.
 #    affinity: # Affinity rules for node-agent pods.
 #    tolerations: # Tolerations for node-agent pods.
 #      - operator: Exists
@@ -109,6 +119,7 @@ spec:
 
 # Configuration for Coroot Cluster Agent.
 #  clusterAgent:
+#    nodeSelector: # Restricts scheduling to nodes matching the specified labels.
 #    affinity: # Affinity rules for cluster-agent.
 #    tolerations: # Tolerations for cluster-agent.
 #    podAnnotations: # Annotations for cluster-agent.
@@ -126,6 +137,7 @@ spec:
 
 # Configuration for Prometheus managed by the operator.
 #  prometheus:
+#    nodeSelector: # Restricts scheduling to nodes matching the specified labels.
 #    affinity: # Affinity rules for Prometheus.
 #    tolerations: # Tolerations for Prometheus.
 #    storage:
@@ -166,6 +178,7 @@ spec:
 #      size: 10Gi # Volume size for EACH ClickHouse instance.
 #      className: "" # If not set, the default storage class will be used.
 #      reclaimPolicy: Delete # Options: Retain (keeps PVC) or Delete (removes PVC on Coroot CR deletion).
+#    nodeSelector: # Restricts scheduling to nodes matching the specified labels.
 #    affinity: # Affinity rules for ClickHouse pods.
 #    tolerations: # Tolerations for ClickHouse pods.
 #    resources: # Resource requests and limits for ClickHouse pods.
@@ -175,6 +188,7 @@ spec:
 #      pullPolicy:     # The image pull policy (e.g., Always, IfNotPresent, Never).
 #      pullSecrets: [] # The pull secrets for pulling the image from a private registry.
 #    keeper: # Configuration for ClickHouse Keeper.
+#      nodeSelector: # Restricts scheduling to nodes matching the specified labels.
 #      affinity: # Affinity rules for keeper pods.
 #      tolerations: # Tolerations for keeper pods.
 #      storage:
