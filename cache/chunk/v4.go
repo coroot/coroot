@@ -5,7 +5,9 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
+	"math"
 	"sync"
 	"unsafe"
 
@@ -209,6 +211,9 @@ func readNStrings(buf []byte, n int) ([]string, error) {
 		}
 		size = int(binary.LittleEndian.Uint16(buf[offset:]))
 		offset += 2
+		if size == 0 { // TODO: remove
+			size = math.MaxUint16 + 1
+		}
 		if offset+size > len(buf) {
 			return nil, io.ErrUnexpectedEOF
 		}
@@ -244,8 +249,12 @@ func (d *dict) idx(s string) int {
 	if !ok {
 		idx = len(d.d)
 		d.d[s] = idx
-		_ = binary.Write(d.buf, binary.LittleEndian, uint16(len(s)))
-		_, _ = d.buf.Write(unsafe.Slice(unsafe.StringData(s), len(s)))
+		size := len(s)
+		if size > math.MaxUint16 {
+			size = math.MaxUint16
+		}
+		_ = binary.Write(d.buf, binary.LittleEndian, uint16(size))
+		_, _ = d.buf.Write(unsafe.Slice(unsafe.StringData(s), size))
 	}
 	return idx
 }
@@ -376,28 +385,28 @@ func readLabelsV4(r *bufio.Reader, hashes []uint64, missing map[uint64]*model.Me
 	}
 	lm := &labelsMeta{}
 	if err := binary.Read(r, binary.LittleEndian, lm); err != nil {
-		return err
+		return fmt.Errorf("failed to read meta: %w", err)
 	}
 	keysData := make([]byte, lm.KeysSize)
 	if _, err := io.ReadFull(r, keysData); err != nil {
-		return err
+		return fmt.Errorf("failed to read keys data: %w", err)
 	}
 	keys, err := readNStrings(keysData, int(lm.KeysDictSize))
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to read keys: %w", err)
 	}
 	compressedVals := make([]byte, int(lm.CompressedValsSize))
 	uncompressedVals := make([]byte, int(lm.ValsSize))
 
 	if _, err = io.ReadFull(r, compressedVals); err != nil {
-		return err
+		return fmt.Errorf("failed to read compressed vals: %w", err)
 	}
 	if _, err = lz4.Uncompress(uncompressedVals, compressedVals); err != nil {
-		return err
+		return fmt.Errorf("failed to uncompress vals: %w", err)
 	}
 	vals, err := readNStrings(uncompressedVals, int(lm.ValsDictSize))
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to read vals: %w", err)
 	}
 	var ki, vi int
 	var pairsNum byte
@@ -474,14 +483,14 @@ func readV4(reader *bufio.Reader, h *header, from timeseries.Time, pointsCount i
 		}
 		changed, err := br.read(mv, fillFunc)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to read data: %w", err)
 		}
 		if changed && !exists {
 			dest[hash] = mv
 		}
 	}
 	if err = readLabelsV4(reader, hashes, missing); err != nil {
-		return err
+		return fmt.Errorf("failed to read labels: %w", err)
 	}
 	return nil
 }
