@@ -419,7 +419,7 @@ func readLabelsV4(r *bufio.Reader, hashes []uint64, missing map[uint64]*model.Me
 		}
 		mv := missing[h]
 		if mv == nil {
-			if _, err = io.CopyN(io.Discard, r, int64(pairsNum)*4); err != nil {
+			if _, err = r.Discard(int(pairsNum * 4)); err != nil {
 				return err
 			}
 			continue
