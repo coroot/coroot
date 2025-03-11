@@ -46,30 +46,6 @@ func New(db *db.DB, project *db.Project, cache Cache, pricing *pricing.Manager, 
 	return c
 }
 
-type QueryStats struct {
-	MetricsCount int     `json:"metrics_count"`
-	QueryTime    float32 `json:"query_time"`
-	Failed       bool    `json:"failed"`
-}
-
-type Profile struct {
-	Stages  map[string]float32    `json:"stages"`
-	Queries map[string]QueryStats `json:"queries"`
-}
-
-func (p *Profile) stage(name string, f func()) {
-	if p.Stages == nil {
-		f()
-		return
-	}
-	t := time.Now()
-	f()
-	duration := float32(time.Since(t).Seconds())
-	if duration > p.Stages[name] {
-		p.Stages[name] = duration
-	}
-}
-
 func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, step timeseries.Duration, prof *Profile) (*model.World, error) {
 	start := time.Now()
 	rawStep, err := c.cache.GetStep(from, to)
@@ -234,6 +210,7 @@ func (c *Constructor) queryCache(ctx context.Context, from, to timeseries.Time, 
 				s.MetricsCount += len(metrics)
 				s.QueryTime += queryTime
 				s.Failed = s.Failed || err != nil
+				s.Cardinality = cardinalityStats(metrics)
 				stats[q.statsName] = s
 				lock.Unlock()
 			}

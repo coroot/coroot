@@ -123,10 +123,7 @@ func main() {
 
 	instanceUuid := utils.GetInstanceUuid(cfg.DataDir)
 
-	var statsCollector *stats.Collector
-	if !cfg.DisableUsageStatistics {
-		statsCollector = stats.NewCollector(instanceUuid, version, database, promCache, pricing, globalClickhouse)
-	}
+	statsCollector := stats.NewCollector(cfg.DisableUsageStatistics, instanceUuid, version, database, promCache, pricing, globalClickhouse)
 
 	router := mux.NewRouter()
 	router.PathPrefix("/debug/pprof/").Handler(http.DefaultServeMux)
@@ -174,6 +171,9 @@ func main() {
 	r.HandleFunc("/stats", func(w http.ResponseWriter, r *http.Request) {
 		statsCollector.RegisterRequest(r)
 	}).Methods(http.MethodPost)
+	r.HandleFunc("/stats", func(w http.ResponseWriter, r *http.Request) {
+		statsCollector.Stats(r, w)
+	}).Methods(http.MethodGet)
 
 	if cfg.DeveloperMode {
 		r.PathPrefix("/static/").Handler(http.StripPrefix(cfg.UrlBasePath+"static/", http.FileServer(http.Dir("./static"))))
