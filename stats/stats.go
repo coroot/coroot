@@ -58,14 +58,15 @@ type Stats struct {
 		InstrumentedServices *utils.StringSet `json:"instrumented_services"`
 	} `json:"stack"`
 	Infra struct {
-		Projects            int              `json:"projects"`
-		Nodes               int              `json:"nodes"`
-		CPUCores            int              `json:"cpu_cores"`
-		Applications        int              `json:"applications"`
-		Instances           int              `json:"instances"`
-		Deployments         int              `json:"deployments"`
-		DeploymentSummaries map[string]int   `json:"deployment_summaries"`
-		KernelVersions      *utils.StringSet `json:"kernel_versions"`
+		Projects            int                                 `json:"projects"`
+		Nodes               int                                 `json:"nodes"`
+		CPUCores            int                                 `json:"cpu_cores"`
+		Applications        int                                 `json:"applications"`
+		ApplicationsByKind  map[model.ApplicationKind]*AppStats `json:"applications_by_kind"`
+		Instances           int                                 `json:"instances"`
+		Deployments         int                                 `json:"deployments"`
+		DeploymentSummaries map[string]int                      `json:"deployment_summaries"`
+		KernelVersions      *utils.StringSet                    `json:"kernel_versions"`
 	} `json:"infra"`
 	UX struct {
 		WorldLoadTimeAvg  float32                    `json:"world_load_time_avg"`
@@ -88,6 +89,11 @@ type Stats struct {
 		CPU    string `json:"cpu"`
 		Memory string `json:"memory"`
 	} `json:"profile"`
+}
+
+type AppStats struct {
+	Applications int `json:"applications"`
+	Instances    int `json:"instances"`
 }
 
 type Component struct {
@@ -135,6 +141,8 @@ type Collector struct {
 	pricing *cloud_pricing.Manager
 	client  *http.Client
 
+	disabled bool
+
 	instanceUuid    string
 	instanceVersion string
 
@@ -148,7 +156,7 @@ type Collector struct {
 	globalClickHouse *db.IntegrationClickhouse
 }
 
-func NewCollector(instanceUuid, version string, db *db.DB, cache *cache.Cache, pricing *cloud_pricing.Manager, globalClickHouse *db.IntegrationClickhouse) *Collector {
+func NewCollector(disabled bool, instanceUuid, version string, db *db.DB, cache *cache.Cache, pricing *cloud_pricing.Manager, globalClickHouse *db.IntegrationClickhouse) *Collector {
 	c := &Collector{
 		db:      db,
 		cache:   cache,
@@ -166,19 +174,23 @@ func NewCollector(instanceUuid, version string, db *db.DB, cache *cache.Cache, p
 		heapProfiler: godeltaprof.NewHeapProfiler(),
 
 		globalClickHouse: globalClickHouse,
+
+		disabled: disabled,
 	}
 
 	if err := c.heapProfiler.Profile(io.Discard); err != nil {
 		klog.Warningln(err)
 	}
 
-	go func() {
-		c.send()
-		ticker := time.NewTicker(collectInterval)
-		for range ticker.C {
+	if !c.disabled {
+		go func() {
 			c.send()
-		}
-	}()
+			ticker := time.NewTicker(collectInterval)
+			for range ticker.C {
+				c.send()
+			}
+		}()
+	}
 
 	return c
 }
@@ -191,8 +203,12 @@ type Event struct {
 	Theme      string `json:"theme"`
 }
 
+func (c *Collector) Stats(r *http.Request, w http.ResponseWriter) {
+	utils.WriteJson(w, c.collect())
+}
+
 func (c *Collector) RegisterRequest(r *http.Request) {
-	if c == nil {
+	if c == nil || c.disabled {
 		return
 	}
 	var e Event
@@ -309,6 +325,7 @@ func (c *Collector) collect() Stats {
 	stats.Performance.Constructor.Stages = map[string]float32{}
 	stats.Performance.Constructor.Queries = map[string]constructor.QueryStats{}
 	stats.Infra.DeploymentSummaries = map[string]int{}
+	stats.Infra.ApplicationsByKind = map[model.ApplicationKind]*AppStats{}
 	var loadTime, auditTime []time.Duration
 	now := timeseries.Now()
 	for _, p := range projects {
@@ -404,6 +421,14 @@ func (c *Collector) collect() Stats {
 		}
 
 		for _, a := range w.Applications {
+			as := stats.Infra.ApplicationsByKind[a.Id.Kind]
+			if as == nil {
+				as = &AppStats{}
+				stats.Infra.ApplicationsByKind[a.Id.Kind] = as
+			}
+			as.Applications++
+			as.Instances += len(a.Instances)
+
 			if a.IsStandalone() || a.Category.Auxiliary() {
 				continue
 			}
