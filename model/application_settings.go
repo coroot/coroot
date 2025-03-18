@@ -24,11 +24,10 @@ type ApplicationSettingsLogs struct {
 
 type ApplicationInstrumentation struct {
 	Type        ApplicationType   `json:"type"`
-	Host        string            `json:"host,omitempty"`
 	Port        string            `json:"port"`
 	Credentials Credentials       `json:"credentials"`
 	Params      map[string]string `json:"params"`
-	Disabled    bool              `json:"disabled"`
+	Enabled     *bool             `json:"enabled"`
 }
 
 type Credentials struct {

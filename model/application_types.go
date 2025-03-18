@@ -70,14 +70,6 @@ func (at ApplicationType) IsQueue() bool {
 	return false
 }
 
-func (at ApplicationType) IsCredentialsRequired() bool {
-	switch at {
-	case ApplicationTypePostgres, ApplicationTypeMysql:
-		return true
-	}
-	return false
-}
-
 func (at ApplicationType) IsLanguage() bool {
 	switch at {
 	case ApplicationTypeGolang, ApplicationTypeDotNet, ApplicationTypePHP, ApplicationTypeJava, ApplicationTypeNodeJS:

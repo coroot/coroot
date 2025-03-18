@@ -2,10 +2,12 @@ package collector
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"sort"
 
 	"github.com/coroot/coroot/constructor"
+	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
@@ -13,6 +15,21 @@ import (
 	"inet.af/netaddr"
 	"k8s.io/klog"
 )
+
+type ApplicationInstrumentation struct {
+	Type        model.ApplicationType `json:"type"`
+	Host        string                `json:"host"`
+	Port        string                `json:"port"`
+	Credentials model.Credentials     `json:"credentials"`
+	Params      map[string]string     `json:"params"`
+	Instance    string                `json:"instance"`
+}
+
+type ConfigData struct {
+	ApplicationInstrumentation []ApplicationInstrumentation `json:"application_instrumentation"`
+
+	AWSConfig *db.IntegrationAWS `json:"aws_config"`
+}
 
 func (c *Collector) Config(w http.ResponseWriter, r *http.Request) {
 	project, err := c.getProject(r.Header.Get(ApiKeyHeader))
@@ -51,7 +68,7 @@ func (c *Collector) Config(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var res model.Config
+	var res ConfigData
 
 	res.AWSConfig = project.Settings.Integrations.AWS
 
@@ -92,15 +109,14 @@ func (c *Collector) Config(w http.ResponseWriter, r *http.Request) {
 			var instrumentation *model.ApplicationInstrumentation
 			if app.Settings != nil && app.Settings.Instrumentation != nil && app.Settings.Instrumentation[it] != nil {
 				instrumentation = app.Settings.Instrumentation[it]
-			} else {
-				instrumentation = model.GetDefaultInstrumentation(it)
 			}
-			if instrumentation == nil || instrumentation.Disabled {
+			if instrumentation == nil {
 				continue
 			}
-			if instrumentation.Type.IsCredentialsRequired() && (instrumentation.Credentials.Username == "" || instrumentation.Credentials.Password == "") {
+			if instrumentation.Enabled != nil && !*instrumentation.Enabled {
 				continue
 			}
+
 			for instance := range instancesByType[t] {
 				ips := map[string]netaddr.IP{}
 				for listen, active := range instance.TcpListens {
@@ -111,8 +127,18 @@ func (c *Collector) Config(w http.ResponseWriter, r *http.Request) {
 					}
 				}
 				if ip := SelectIP(maps.Values(ips)); ip != nil {
-					i := *instrumentation // copy
-					i.Host = ip.String()
+					i := ApplicationInstrumentation{
+						Type:        instrumentation.Type,
+						Host:        ip.String(),
+						Port:        instrumentation.Port,
+						Credentials: instrumentation.Credentials,
+						Params:      instrumentation.Params,
+					}
+					owner := instance.Owner
+					i.Instance = fmt.Sprintf("app=%s instance=%s node=%s", owner.Id.Name, instance.Name, instance.NodeName())
+					if owner.Id.Namespace != "_" {
+						i.Instance = fmt.Sprintf("ns=%s %s", owner.Id.Namespace, i.Instance)
+					}
 					res.ApplicationInstrumentation = append(res.ApplicationInstrumentation, i)
 				}
 			}

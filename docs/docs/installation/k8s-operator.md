@@ -188,6 +188,7 @@ spec:
 #      pullPolicy:     # The image pull policy (e.g., Always, IfNotPresent, Never).
 #      pullSecrets: [] # The pull secrets for pulling the image from a private registry.
 #    keeper: # Configuration for ClickHouse Keeper.
+#      replicas: 3 # Use only during initial setup, as changing the replica count for a running Keeper may cause it to fail.
 #      nodeSelector: # Restricts scheduling to nodes matching the specified labels.
 #      affinity: # Affinity rules for keeper pods.
 #      tolerations: # Tolerations for keeper pods.
