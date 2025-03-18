@@ -14,6 +14,9 @@
         <v-card class="pa-5">
             <div class="d-flex align-center font-weight-medium mb-4">
                 Configure {{ types[type].name }} integration
+                <a :href="`https://docs.coroot.com/databases/${type}`" target="_blank" class="ml-2">
+                    <v-icon>mdi-information-outline</v-icon>
+                </a>
                 <v-progress-circular v-if="loading" indeterminate color="green" size="24" class="ml-2" />
                 <v-spacer />
                 <v-btn icon @click="dialog = false"><v-icon>mdi-close</v-icon></v-btn>
@@ -48,56 +51,146 @@ GRANT SELECT, PROCESS, REPLICATION CLIENT ON *.* TO 'coroot'@'%';
                 <p>This integration allows Coroot to collect Redis-specific metrics.</p>
             </template>
 
-            <v-form v-if="config" v-model="valid">
-                <!-- eslint-disable vue/no-mutating-props -->
-                <div class="subtitle-1 mt-3">Port</div>
-                <v-text-field v-model="config.port" outlined dense :rules="[$validators.notEmpty]" hide-details />
+            <template v-if="type === 'mongodb'">
+                <p>This integration allows Coroot to collect MongoDB-specific metrics.</p>
+            </template>
 
-                <div v-if="types[type].username">
-                    <div class="subtitle-1 mt-3">Username</div>
-                    <v-text-field v-model="config.credentials.username" outlined dense hide-details />
-                </div>
-                <div v-if="types[type].password">
-                    <div class="subtitle-1 mt-3">Password</div>
-                    <v-text-field v-model="config.credentials.password" type="password" outlined dense hide-details />
-                </div>
+            <template v-if="type === 'memcached'">
+                <p>This integration allows Coroot to collect Memcached-specific metrics.</p>
+            </template>
 
-                <div v-if="type === 'postgres'">
-                    <div class="subtitle-1 mt-3">SSL Mode</div>
-                    <v-select
-                        v-model="sslmode"
-                        :items="['disable', 'require', 'verify-ca']"
-                        outlined
-                        dense
-                        hide-details
-                        :menu-props="{ offsetY: true }"
-                    />
-                </div>
+            <p>To enable metric collection for this database, add Kubernetes annotations or manually enter credentials using the form below.</p>
 
-                <div v-if="type === 'mysql'">
-                    <div class="subtitle-1 mt-3">TLS</div>
-                    <v-select
-                        v-model="tls"
-                        :items="['false', 'true', 'skip-verify', 'preferred']"
-                        outlined
-                        dense
-                        hide-details
-                        :menu-props="{ offsetY: true }"
-                    />
-                </div>
+            <v-tabs v-model="tab" height="40" slider-size="2" class="my-4">
+                <v-tab><v-icon class="mr-1">mdi-kubernetes</v-icon>Kubernetes</v-tab>
+                <v-tab><v-icon class="mr-1">mdi-pencil</v-icon>Manual Configuration</v-tab>
+            </v-tabs>
 
-                <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text class="mt-4">
-                    {{ error }}
-                </v-alert>
-                <v-alert v-if="message" color="green" outlined text class="mt-4">
-                    {{ message }}
-                </v-alert>
-                <v-btn block color="primary" @click="save(false)" :disabled="!valid || loading" class="mt-3">Save</v-btn>
-                <v-btn block v-if="active && !config.disabled" color="error" @click="save(true)" :disabled="loading" class="mt-3">
-                    Disable the integration
-                </v-btn>
-                <!-- eslint-enable vue/no-mutating-props -->
-            </v-form>
+            <v-tabs-items v-model="tab">
+                <v-tab-item transition="none">
+                    <p>
+                        Coroot-cluster-agent automatically discovers and collects metrics from pods annotated with
+                        <var>coroot.com/{{ type }}-scrape</var> annotations.
+                    </p>
+                    <v-alert color="primary" outlined text>
+                        Note that Coroot checks only <b>Pod</b> annotations, not higher-level Kubernetes objects like Deployments or StatefulSets.
+                    </v-alert>
+                    <Code>
+                        <pre v-if="type === 'postgres'">
+coroot.com/postgres-scrape: "true"
+coroot.com/postgres-scrape-port: "5432"
+
+# plain-text credentials
+coroot.com/postgres-scrape-credentials-username: "coroot"
+coroot.com/postgres-scrape-credentials-password: "&lt;PASSWORD&gt;"
+
+# credentials from a secret
+coroot.com/postgres-scrape-credentials-secret-name: "postgres-secret"
+coroot.com/postgres-scrape-credentials-secret-username-key: "username"
+coroot.com/postgres-scrape-credentials-secret-password-key: "password"
+
+# client SSL options: disable, require, verify-ca (default: disable)
+coroot.com/postgres-scrape-param-sslmode: "disable"
+                        </pre>
+                        <pre v-if="type === 'mysql'">
+coroot.com/mysql-scrape: "true"
+coroot.com/mysql-scrape-port: "3306"
+
+# plain-text credentials
+coroot.com/mysql-scrape-credentials-username: "coroot"
+coroot.com/mysql-scrape-credentials-password: "&lt;PASSWORD&gt;"
+
+# credentials from a secret
+coroot.com/mysql-scrape-credentials-secret-name: "mysql-secret"
+coroot.com/mysql-scrape-credentials-secret-username-key: "username"
+coroot.com/mysql-scrape-credentials-secret-password-key: "password"
+
+# client TLS options: true, false, skip-verify, preferred (default: false)
+coroot.com/mysql-scrape-param-tls: "false"
+                        </pre>
+                        <pre v-if="type === 'redis'">
+coroot.com/redis-scrape: "true"
+coroot.com/redis-scrape-port: "6379"
+
+# plain-text credentials
+coroot.com/redis-scrape-credentials-password: "&lt;PASSWORD&gt;"
+
+# credentials from a secret
+coroot.com/redis-scrape-credentials-secret-name: "redis-secret"
+coroot.com/redis-scrape-credentials-secret-password-key: "password"
+                        </pre>
+                        <pre v-if="type === 'mongodb'">
+coroot.com/mongodb-scrape: "true"
+coroot.com/mongodb-scrape-port: "27017"
+
+# plain-text credentials
+coroot.com/mongodb-scrape-credentials-username: "coroot"
+coroot.com/mongodb-scrape-credentials-password: "&lt;PASSWORD&gt;"
+
+# credentials from a secret
+coroot.com/mongodb-scrape-credentials-secret-name: "mongodb-secret"
+coroot.com/mongodb-scrape-credentials-secret-username-key: "username"
+coroot.com/mongodb-scrape-credentials-secret-password-key: "password"
+                        </pre>
+                        <pre v-if="type === 'memcached'">
+coroot.com/memcached-scrape: "true"
+coroot.com/memcached-scrape-port: "11211"
+                        </pre>
+                    </Code>
+                </v-tab-item>
+
+                <v-tab-item transition="none">
+                    <v-form v-if="config" v-model="valid">
+                        <!-- eslint-disable vue/no-mutating-props -->
+                        <div class="subtitle-1 mt-3">Port</div>
+                        <v-text-field v-model="config.port" outlined dense :rules="[$validators.notEmpty]" hide-details />
+
+                        <div v-if="types[type].username">
+                            <div class="subtitle-1 mt-3">Username</div>
+                            <v-text-field v-model="config.credentials.username" outlined dense hide-details />
+                        </div>
+                        <div v-if="types[type].password">
+                            <div class="subtitle-1 mt-3">Password</div>
+                            <v-text-field v-model="config.credentials.password" type="password" outlined dense hide-details />
+                        </div>
+
+                        <div v-if="type === 'postgres'">
+                            <div class="subtitle-1 mt-3">SSL Mode</div>
+                            <v-select
+                                v-model="sslmode"
+                                :items="['disable', 'require', 'verify-ca']"
+                                outlined
+                                dense
+                                hide-details
+                                :menu-props="{ offsetY: true }"
+                            />
+                        </div>
+
+                        <div v-if="type === 'mysql'">
+                            <div class="subtitle-1 mt-3">TLS</div>
+                            <v-select
+                                v-model="tls"
+                                :items="['false', 'true', 'skip-verify', 'preferred']"
+                                outlined
+                                dense
+                                hide-details
+                                :menu-props="{ offsetY: true }"
+                            />
+                        </div>
+
+                        <v-checkbox v-model="config.enabled" label="Enabled" dense hide-details class="my-3" />
+
+                        <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text class="mt-4">
+                            {{ error }}
+                        </v-alert>
+                        <v-alert v-if="message" color="green" outlined text class="mt-4">
+                            {{ message }}
+                        </v-alert>
+                        <v-btn block color="primary" @click="save(true)" :disabled="loading || !valid" class="mt-3">Save</v-btn>
+                        <!-- eslint-enable vue/no-mutating-props -->
+                    </v-form>
+                </v-tab-item>
+            </v-tabs-items>
         </v-card>
     </v-dialog>
 </template>
@@ -123,6 +216,8 @@ export default {
             error: '',
             message: '',
 
+            tab: null,
+
             sslmode: 'disable',
             tls: 'false',
         };
@@ -138,10 +233,10 @@ export default {
         types() {
             return {
                 postgres: { name: 'Postgres', username: true, password: true },
-                redis: { name: 'Redis', username: false, password: true },
-                memcached: { name: 'Memcached', username: false, password: false },
-                mongodb: { name: 'MongoDB', username: true, password: true },
                 mysql: { name: 'MySQL', username: true, password: true },
+                redis: { name: 'Redis', username: false, password: true },
+                mongodb: { name: 'MongoDB', username: true, password: true },
+                memcached: { name: 'Memcached', username: false, password: false },
             };
         },
     },
@@ -162,11 +257,11 @@ export default {
                 }
             });
         },
-        save(disable) {
+        save() {
             this.loading = true;
             this.error = '';
             this.message = '';
-            const form = { ...this.config, disabled: disable };
+            const form = { ...this.config };
             if (this.type === 'postgres') {
                 form.params = { sslmode: this.sslmode };
             }

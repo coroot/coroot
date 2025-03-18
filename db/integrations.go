@@ -3,8 +3,6 @@ package db
 import (
 	"fmt"
 
-	"github.com/coroot/coroot/model"
-
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 )
@@ -33,7 +31,7 @@ type Integrations struct {
 
 	Clickhouse *IntegrationClickhouse `json:"clickhouse,omitempty"`
 
-	AWS *model.AWSConfig `json:"aws"`
+	AWS *IntegrationAWS `json:"aws"`
 }
 
 type IntegrationInfo struct {
@@ -152,6 +150,15 @@ type IntegrationWebhook struct {
 	Deployments        bool             `json:"deployments"`
 	IncidentTemplate   string           `json:"incident_template"`
 	DeploymentTemplate string           `json:"deployment_template"`
+}
+
+type IntegrationAWS struct {
+	Region          string `json:"region"`
+	AccessKeyID     string `json:"access_key_id"`
+	SecretAccessKey string `json:"secret_access_key"`
+
+	RDSTagFilters         map[string]string `json:"rds_tag_filters"`
+	ElasticacheTagFilters map[string]string `json:"elasticache_tag_filters"`
 }
 
 func (db *DB) SaveIntegrationsBaseUrl(id ProjectId, baseUrl string) error {

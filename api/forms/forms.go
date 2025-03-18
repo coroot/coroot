@@ -365,7 +365,7 @@ func (f *IntegrationFormClickhouse) Test(ctx context.Context, project *db.Projec
 }
 
 type IntegrationFormAWS struct {
-	model.AWSConfig
+	db.IntegrationAWS
 }
 
 func (f *IntegrationFormAWS) Valid() bool {
@@ -375,7 +375,7 @@ func (f *IntegrationFormAWS) Valid() bool {
 func (f *IntegrationFormAWS) Get(project *db.Project, masked bool) {
 	cfg := project.Settings.Integrations.AWS
 	if cfg != nil {
-		f.AWSConfig = *cfg
+		f.IntegrationAWS = *cfg
 	}
 	if masked {
 		f.AccessKeyID = "<hidden>"
@@ -384,7 +384,7 @@ func (f *IntegrationFormAWS) Get(project *db.Project, masked bool) {
 }
 
 func (f *IntegrationFormAWS) Update(ctx context.Context, project *db.Project, clear bool) error {
-	cfg := &f.AWSConfig
+	cfg := &f.IntegrationAWS
 	if clear {
 		cfg = nil
 	} else {

@@ -905,8 +905,12 @@ func (api *Api) Instrumentation(w http.ResponseWriter, r *http.Request, u *db.Us
 	var instrumentation *model.ApplicationInstrumentation
 	if app.Settings != nil && app.Settings.Instrumentation != nil && app.Settings.Instrumentation[t] != nil {
 		instrumentation = app.Settings.Instrumentation[t]
+		if instrumentation.Enabled == nil {
+			instrumentation.Enabled = utils.Ptr(true)
+		}
 	} else {
 		instrumentation = model.GetDefaultInstrumentation(t)
+		instrumentation.Enabled = utils.Ptr(false)
 	}
 	if instrumentation == nil {
 		http.Error(w, fmt.Sprintf("unsupported instrumentation type: %s", t), http.StatusBadRequest)
