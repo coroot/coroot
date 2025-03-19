@@ -62,3 +62,15 @@
   width: 48%;
   height: auto;
 }
+
+.primary-button {
+  white-space: nowrap;
+  padding: 4px 16px;
+  color: white !important;
+  background-color: #0038FE;
+  border-radius: 5px;
+  text-decoration: none !important;
+}
+.primary-button:hover {
+  background-color: #2958FD;
+}
