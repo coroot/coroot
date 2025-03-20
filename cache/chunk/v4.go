@@ -449,7 +449,7 @@ func readLabelsV4(r *bufio.Reader, hashes []uint64, missing map[uint64]*model.Me
 			case model.LabelActualDestination:
 				mv.ActualDestination = val
 			case model.LabelDestinationIP:
-				mv.ActualDestination = val
+				mv.Destination = val
 				mv.DestIp = true
 			default:
 				mv.Labels[key] = val
