@@ -112,13 +112,25 @@
 
         <v-main>
             <v-container style="padding-bottom: 128px">
-                <v-alert v-if="status && status.status === 'warning'" color="red" elevation="2" border="left" class="mt-4" colored-border>
-                    <div class="d-sm-flex align-center">
+                <v-alert
+                    v-if="status && status.status === 'warning' && $route.name !== 'project_settings'"
+                    color="red"
+                    elevation="2"
+                    border="left"
+                    class="mt-4"
+                    colored-border
+                >
+                    <div class="d-sm-flex align-center" style="gap: 8px">
                         <template v-if="status.error">
                             {{ status.error }}
                         </template>
                         <template v-else-if="status.prometheus.status !== 'ok'">
-                            <div class="flex-grow-1 mb-3 mb-sm-0">{{ status.prometheus.message }}</div>
+                            <div class="flex-grow-1 mb-3 mb-sm-0">
+                                {{ status.prometheus.message }}
+                                <div v-if="status.prometheus.error" class="mt-1" style="font-size: 14px">
+                                    {{ status.prometheus.error }}
+                                </div>
+                            </div>
                             <v-btn
                                 v-if="status.prometheus.action === 'configure'"
                                 outlined

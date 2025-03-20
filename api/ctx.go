@@ -90,20 +90,17 @@ func renderStatus(p *db.Project, cacheStatus *cache.Status, w *model.World, glob
 	switch {
 	case promCfg.Url == "":
 		res.Prometheus.Status = model.WARNING
-		res.Prometheus.Message = "Prometheus is not configured"
+		res.Prometheus.Message = "Prometheus is not configured."
 		res.Prometheus.Action = "configure"
 	case cacheStatus != nil && cacheStatus.Error != "":
 		res.Prometheus.Status = model.WARNING
-		res.Prometheus.Message = "An error has been occurred while querying Prometheus"
+		res.Prometheus.Message = "An error has been occurred while querying Prometheus:"
 		res.Prometheus.Error = cacheStatus.Error
 		res.Prometheus.Action = "configure"
 	case cacheStatus != nil && cacheStatus.LagMax > 5*refreshInterval:
-		msg := fmt.Sprintf("Prometheus cache is %s behind (this could be expected after a restart/upgrade)", utils.FormatDuration(cacheStatus.LagAvg, 1))
+		lag := utils.FormatDuration(cacheStatus.LagAvg, 1)
 		res.Prometheus.Status = model.WARNING
-		if w == nil {
-			msg += " Please wait until synchronization is complete."
-		}
-		res.Prometheus.Message = msg
+		res.Prometheus.Message = fmt.Sprintf("The Prometheus cache lag is %s, likely due to a restart or upgrade. Synchronization is in progress.", lag)
 		res.Prometheus.Action = "wait"
 	}
 

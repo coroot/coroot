@@ -206,6 +206,7 @@ func (c *Cache) download(to timeseries.Time, promClient *prom.Client, projectId 
 		vs, err := promClient.QueryRange(ctx, task.query.Query, task.query.Labels, i.chunkTs, i.toTs, step)
 		cancel()
 		if err != nil {
+			klog.Errorln("failed to query prometheus:", err)
 			task.state.LastError = err.Error()
 			if err = c.saveState(task.state); err != nil {
 				klog.Errorln("failed to save query state:", err)
@@ -237,6 +238,7 @@ func (c *Cache) writeChunk(projectId db.ProjectId, queryHash string, from timese
 	c.lock.Lock()
 	projData := c.byProject[projectId]
 	if projData == nil {
+		c.lock.Unlock()
 		return fmt.Errorf("unknown project: %s", projectId)
 	}
 	qData := projData.queries[queryHash]
