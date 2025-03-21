@@ -19,7 +19,7 @@ const colors = [
     'rgb(128, 110, 183)',
 ];
 
-function hash(str) {
+export function hash(str) {
     return str.split('').reduce((a, b) => (a << 5) - a + b.charCodeAt(0), 0) >>> 0;
 }
 
