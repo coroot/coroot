@@ -146,11 +146,21 @@ func (ch *Chart) AddSeries(name string, data SeriesData, color ...string) *Chart
 	if data.IsEmpty() {
 		return ch
 	}
-	s := &Series{Name: name, Data: data}
-	if len(color) > 0 {
-		s.Color = color[0]
+	var ns *Series
+	for _, s := range ch.Series.series {
+		if s.Name == name {
+			ns = s
+			break
+		}
 	}
-	ch.Series.series = append(ch.Series.series, s)
+	if ns == nil {
+		ns = &Series{Name: name}
+		ch.Series.series = append(ch.Series.series, ns)
+	}
+	ns.Data = data
+	if len(color) > 0 {
+		ns.Color = color[0]
+	}
 	return ch
 }
 
