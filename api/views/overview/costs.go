@@ -6,8 +6,6 @@ import (
 
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
-	"github.com/coroot/coroot/utils"
-	"inet.af/netaddr"
 )
 
 const (
@@ -32,8 +30,6 @@ type NodeCosts struct {
 	MemoryRequestApplications []NodeApplication `json:"memory_request_applications"`
 	Price                     float32           `json:"price"`
 	IdleCosts                 float32           `json:"idle_costs"`
-	CrossAzTrafficCosts       float32           `json:"cross_az_traffic_costs"`
-	InternetEgressCosts       float32           `json:"internet_egress_costs"`
 }
 
 type NodeApplication struct {
@@ -94,15 +90,18 @@ func renderCosts(w *model.World) *Costs {
 	}
 	applications := map[model.ApplicationId][]*instance{}
 	desiredInstances := map[model.ApplicationId]float32{}
+
+	var dataTransferPrice *model.DataTransferPrice
+
 	for _, n := range w.Nodes {
 		if n.Price == nil {
 			continue
 		}
+		if dataTransferPrice == nil && n.DataTransferPrice != nil {
+			dataTransferPrice = n.DataTransferPrice
+		}
 		nodeApps := map[model.ApplicationId][]*instance{}
 		memCached := timeseries.NewAggregate(timeseries.NanSum)
-		interZoneIngress := timeseries.NewAggregate(timeseries.NanSum)
-		interZoneEgress := timeseries.NewAggregate(timeseries.NanSum)
-		internetEgress := timeseries.NewAggregate(timeseries.NanSum)
 
 		for _, i := range n.Instances {
 			owner := applicationsIndex[i.Owner.Id]
@@ -116,9 +115,6 @@ func renderCosts(w *model.World) *Costs {
 			memUsage := timeseries.NewAggregate(timeseries.NanSum)
 			cpuRequest := timeseries.NewAggregate(timeseries.NanSum)
 			memRequest := timeseries.NewAggregate(timeseries.NanSum)
-			instanceInterZoneIngress := timeseries.NewAggregate(timeseries.NanSum)
-			instanceInterZoneEgress := timeseries.NewAggregate(timeseries.NanSum)
-			instanceInternetEgress := timeseries.NewAggregate(timeseries.NanSum)
 
 			for _, c := range i.Containers {
 				cpuUsage.Add(c.CpuUsage)
@@ -136,18 +132,6 @@ func renderCosts(w *model.World) *Costs {
 				)
 				memUsage.Add(timeseries.Sub(i.Node.MemoryTotalBytes, i.Node.MemoryFreeBytes))
 			}
-			for _, u := range i.Upstreams {
-				switch trafficType(i, u) {
-				case TrafficTypeCrossAZ:
-					interZoneEgress.Add(u.BytesSent)
-					instanceInterZoneEgress.Add(u.BytesSent)
-					interZoneIngress.Add(u.BytesReceived)
-					instanceInterZoneIngress.Add(u.BytesReceived)
-				case TrafficTypeInternet:
-					internetEgress.Add(u.BytesSent)
-					instanceInternetEgress.Add(u.BytesSent)
-				}
-			}
 			ii := &instance{
 				ownerId:   owner.Id,
 				name:      i.Name,
@@ -155,12 +139,6 @@ func renderCosts(w *model.World) *Costs {
 				memory:    resource{usage: memUsage.Get(), request: memRequest.Get()},
 				nodePrice: n.Price,
 			}
-			if n.DataTransferPrice != nil {
-				ii.crossAzTrafficCosts += monthlyTrafficCosts(instanceInterZoneEgress.Get(), n.DataTransferPrice.InterZoneEgressPerGB)
-				ii.crossAzTrafficCosts += monthlyTrafficCosts(instanceInterZoneIngress.Get(), n.DataTransferPrice.InterZoneIngressPerGB)
-				ii.internetEgressCosts += monthlyTrafficCosts(instanceInternetEgress.Get(), n.DataTransferPrice.GetInternetEgressPrice())
-			}
-
 			if _, ok := desiredInstances[owner.Id]; !ok && owner.IsK8s() {
 				desiredInstances[owner.Id] = owner.DesiredInstances.Last()
 			}
@@ -204,12 +182,6 @@ func renderCosts(w *model.World) *Costs {
 				})
 			}
 		}
-		if n.DataTransferPrice != nil {
-			nc.CrossAzTrafficCosts += monthlyTrafficCosts(interZoneEgress.Get(), n.DataTransferPrice.InterZoneEgressPerGB)
-			nc.CrossAzTrafficCosts += monthlyTrafficCosts(interZoneIngress.Get(), n.DataTransferPrice.InterZoneIngressPerGB)
-			nc.InternetEgressCosts += monthlyTrafficCosts(internetEgress.Get(), n.DataTransferPrice.GetInternetEgressPrice())
-		}
-
 		for _, a := range nc.CpuUsageApplications {
 			nc.CpuUsage += a.Value
 		}
@@ -220,7 +192,7 @@ func renderCosts(w *model.World) *Costs {
 	}
 
 	for appId, appInstances := range applications {
-		ac := renderApplicationCosts(appInstances, desiredInstances)
+		ac := renderApplicationCosts(w.GetApplication(appId), appInstances, desiredInstances, dataTransferPrice)
 		ac.Id = appId
 		ac.Category = applicationsIndex[appId].Category
 		res.Applications = append(res.Applications, ac)
@@ -229,8 +201,13 @@ func renderCosts(w *model.World) *Costs {
 	return res
 }
 
-func renderApplicationCosts(appInstances []*instance, desiredInstances map[model.ApplicationId]float32) *ApplicationCosts {
+func renderApplicationCosts(app *model.Application, appInstances []*instance, desiredInstances map[model.ApplicationId]float32, dataTransferPrice *model.DataTransferPrice) *ApplicationCosts {
 	res := &ApplicationCosts{}
+	if dataTransferPrice != nil {
+		res.CrossAzTrafficCosts += monthlyTrafficCosts(app.TrafficStats.CrossAZEgress, dataTransferPrice.InterZoneEgressPerGB)
+		res.CrossAzTrafficCosts += monthlyTrafficCosts(app.TrafficStats.CrossAZIngress, dataTransferPrice.InterZoneIngressPerGB)
+		res.InternetEgressCosts += monthlyTrafficCosts(app.TrafficStats.InternetEgress, dataTransferPrice.GetInternetEgressPrice())
+	}
 	byComponent := map[model.ApplicationId][]*instance{}
 	for _, i := range appInstances {
 		byComponent[i.ownerId] = append(byComponent[i.ownerId], i)
@@ -266,8 +243,6 @@ func renderApplicationCosts(appInstances []*instance, desiredInstances map[model
 				}
 				res.UsageCosts += avg * i.nodePrice.PerMemoryByte * month
 			}
-			res.CrossAzTrafficCosts += i.crossAzTrafficCosts
-			res.InternetEgressCosts += i.internetEgressCosts
 			switch i.ownerId.Kind {
 			case model.ApplicationKindRds, model.ApplicationKindElasticacheCluster:
 				res.UsageCosts += i.nodePrice.Total * month
@@ -394,43 +369,4 @@ func monthlyTrafficCosts(ts *timeseries.TimeSeries, perGBprice float32) float32 
 		}
 	}
 	return 0.
-}
-
-type TrafficType uint8
-
-const (
-	TrafficTypeUnknown TrafficType = iota
-	TrafficTypeCrossAZ
-	TrafficTypeSameAZ
-	TrafficTypeInternet
-)
-
-func trafficType(instance *model.Instance, u *model.Connection) TrafficType {
-	if u.RemoteInstance == nil {
-		return TrafficTypeUnknown
-	}
-	if instance.Node == nil {
-		return TrafficTypeUnknown
-	}
-	srcRegion := instance.Node.Region.Value()
-	if srcRegion == "" {
-		return TrafficTypeUnknown
-	}
-	if u.RemoteInstance.Node != nil {
-		dstRegion := u.RemoteInstance.Node.Region.Value()
-		srcAZ := instance.Node.AvailabilityZone.Value()
-		dstAZ := u.RemoteInstance.Node.AvailabilityZone.Value()
-		if dstRegion != "" && dstRegion == srcRegion && srcAZ != "" && dstAZ != "" {
-			if srcAZ == dstAZ {
-				return TrafficTypeSameAZ
-			} else {
-				return TrafficTypeCrossAZ
-			}
-		}
-	}
-	if ip, err := netaddr.ParseIP(u.ActualRemoteIP); err == nil && utils.IsIpExternal(ip) {
-		return TrafficTypeInternet
-	}
-
-	return TrafficTypeUnknown
 }

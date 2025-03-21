@@ -44,6 +44,25 @@ type ConnectionKey struct {
 	ActualDestination string
 }
 
+type AppToAppConnection struct {
+	RemoteApplication *Application
+	Application       *Application
+
+	Rtt *timeseries.TimeSeries
+
+	SuccessfulConnections *timeseries.TimeSeries
+	Active                *timeseries.TimeSeries
+	FailedConnections     *timeseries.TimeSeries
+	ConnectionTime        *timeseries.TimeSeries
+	BytesSent             *timeseries.TimeSeries
+	BytesReceived         *timeseries.TimeSeries
+
+	Retransmissions *timeseries.TimeSeries
+
+	RequestsCount   map[Protocol]map[string]*timeseries.TimeSeries // by status
+	RequestsLatency map[Protocol]*timeseries.TimeSeries
+}
+
 type Connection struct {
 	ActualRemotePort string
 	ActualRemoteIP   string
@@ -68,20 +87,24 @@ type Connection struct {
 	RequestsHistogram map[Protocol]map[float32]*timeseries.TimeSeries // by le
 
 	Service           *Service
-	RemoteApplication *Application
+	remoteApplication *Application
 
 	ServiceRemoteIP   string
 	ServiceRemotePort string
 }
 
-func (c *Connection) IsActual() bool {
-	if c.IsObsolete() {
-		return false
+func (c *Connection) RemoteApplication() *Application {
+	if c.RemoteInstance != nil {
+		return c.RemoteInstance.Owner
 	}
+	return nil
+}
+
+func (c *AppToAppConnection) IsActual() bool {
 	return (c.SuccessfulConnections.Last() > 0) || (c.Active.Last() > 0) || c.FailedConnections.Last() > 0
 }
 
-func (c *Connection) IsEmpty() bool {
+func (c *AppToAppConnection) IsEmpty() bool {
 	switch {
 	case c.Active.Reduce(timeseries.NanSum) > 0:
 	case c.SuccessfulConnections.Reduce(timeseries.NanSum) > 0:
@@ -92,28 +115,21 @@ func (c *Connection) IsEmpty() bool {
 	return false
 }
 
-func (c *Connection) IsObsolete() bool {
-	if c.Container != "" && c.Instance.Pod != nil && c.Instance.Pod.InitContainers[c.Container] != nil {
-		return false
-	}
-	return (c.RemoteInstance != nil && c.RemoteInstance.IsObsolete()) || (c.Instance != nil && c.Instance.IsObsolete())
-}
-
-func (c *Connection) HasConnectivityIssues() bool {
+func (c *AppToAppConnection) HasConnectivityIssues() bool {
 	if !c.IsActual() {
 		return false
 	}
 	return !c.Rtt.IsEmpty() && c.Rtt.TailIsEmpty()
 }
 
-func (c *Connection) HasFailedConnectionAttempts() bool {
+func (c *AppToAppConnection) HasFailedConnectionAttempts() bool {
 	if !c.IsActual() {
 		return false
 	}
 	return c.FailedConnections.Last() > 0
 }
 
-func (c *Connection) Status() (Status, string) {
+func (c *AppToAppConnection) Status() (Status, string) {
 	if !c.IsActual() {
 		return UNKNOWN, ""
 	}
@@ -127,62 +143,56 @@ func (c *Connection) Status() (Status, string) {
 	return status, ""
 }
 
-func IsRequestStatusFailed(status string) bool {
-	return status == "failed" || strings.HasPrefix(status, "5")
-}
-
-func GetConnectionsRequestsSum(connections []*Connection, protocolFilter func(protocol Protocol) bool) *timeseries.TimeSeries {
+func (c *AppToAppConnection) GetConnectionsRequestsSum(protocolFilter func(protocol Protocol) bool) *timeseries.TimeSeries {
 	sum := timeseries.NewAggregate(timeseries.NanSum)
-	for _, c := range connections {
-		for protocol, byStatus := range c.RequestsCount {
-			if protocolFilter != nil && !protocolFilter(protocol) {
-				continue
-			}
-			for _, ts := range byStatus {
-				sum.Add(ts)
-			}
+	for protocol, byStatus := range c.RequestsCount {
+		if protocolFilter != nil && !protocolFilter(protocol) {
+			continue
+		}
+		for _, ts := range byStatus {
+			sum.Add(ts)
 		}
 	}
 	return sum.Get()
 }
 
-func GetConnectionsErrorsSum(connections []*Connection, protocolFilter func(protocol Protocol) bool) *timeseries.TimeSeries {
+func (c *AppToAppConnection) GetConnectionsErrorsSum(protocolFilter func(protocol Protocol) bool) *timeseries.TimeSeries {
 	sum := timeseries.NewAggregate(timeseries.NanSum)
-	for _, c := range connections {
-		for protocol, byStatus := range c.RequestsCount {
-			if protocolFilter != nil && !protocolFilter(protocol) {
+	for protocol, byStatus := range c.RequestsCount {
+		if protocolFilter != nil && !protocolFilter(protocol) {
+			continue
+		}
+		for status, ts := range byStatus {
+			if !IsRequestStatusFailed(status) {
 				continue
 			}
-			for status, ts := range byStatus {
-				if !IsRequestStatusFailed(status) {
-					continue
-				}
-				sum.Add(ts)
-			}
+			sum.Add(ts)
 		}
 	}
 	return sum.Get()
 }
 
-func GetConnectionsRequestsLatency(connections []*Connection, protocolFilter func(protocol Protocol) bool) *timeseries.TimeSeries {
+func (c *AppToAppConnection) GetConnectionsRequestsLatency(protocolFilter func(protocol Protocol) bool) *timeseries.TimeSeries {
 	time := timeseries.NewAggregate(timeseries.NanSum)
 	count := timeseries.NewAggregate(timeseries.NanSum)
-	for _, c := range connections {
-		for protocol, latency := range c.RequestsLatency {
-			if protocolFilter != nil && !protocolFilter(protocol) {
-				continue
-			}
-			if len(c.RequestsCount[protocol]) == 0 {
-				continue
-			}
-			requests := timeseries.NewAggregate(timeseries.NanSum)
-			for _, ts := range c.RequestsCount[protocol] {
-				requests.Add(ts)
-			}
-			req := requests.Get()
-			time.Add(timeseries.Mul(latency, req))
-			count.Add(req)
+	for protocol, latency := range c.RequestsLatency {
+		if protocolFilter != nil && !protocolFilter(protocol) {
+			continue
 		}
+		if len(c.RequestsCount[protocol]) == 0 {
+			continue
+		}
+		requests := timeseries.NewAggregate(timeseries.NanSum)
+		for _, ts := range c.RequestsCount[protocol] {
+			requests.Add(ts)
+		}
+		req := requests.Get()
+		time.Add(timeseries.Mul(latency, req))
+		count.Add(req)
 	}
 	return timeseries.Div(time.Get(), count.Get())
+}
+
+func IsRequestStatusFailed(status string) bool {
+	return status == "failed" || strings.HasPrefix(status, "5")
 }

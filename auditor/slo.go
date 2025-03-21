@@ -197,39 +197,23 @@ func sloRequestsChart(app *model.Application, report *model.AuditReport, clickHo
 	}
 }
 
-type clientRequestsSummary struct {
-	protocols   *utils.StringSet
-	connections []*model.Connection
-	rps         *timeseries.TimeSeries
-}
-
 func clientRequests(app *model.Application, report *model.AuditReport) {
 	table := report.GetOrCreateTable("Client", "", "Requests", "Latency", "Errors")
 	if table == nil {
 		return
 	}
-	clients := map[model.ApplicationId]*clientRequestsSummary{}
+
 	clientsByName := map[string]int{}
-	for id, connections := range app.GetClientsConnections() {
-		clients[id] = &clientRequestsSummary{connections: connections, protocols: utils.NewStringSet()}
+	for id := range app.Downstreams {
 		clientsByName[id.Name]++
-		for _, c := range connections {
-			for protocol := range c.RequestsCount {
-				clients[id].protocols.Add(string(protocol))
-			}
+	}
+
+	for id, connection := range app.Downstreams {
+		protocols := utils.NewStringSet()
+		for proto := range connection.RequestsCount {
+			protocols.Add(string(proto))
 		}
-	}
-	if len(clients) == 0 {
-		return
-	}
-	var rpsTotal float32
-	for _, s := range clients {
-		s.rps = model.GetConnectionsRequestsSum(s.connections, nil)
-		if last := s.rps.Last(); !timeseries.IsNaN(last) {
-			rpsTotal += last
-		}
-	}
-	for id, s := range clients {
+		rps := connection.GetConnectionsRequestsSum(nil)
 		client := model.NewTableCell(id.Name)
 		if clientsByName[id.Name] > 1 {
 			client.Value += " (ns: " + id.Namespace + ")"
@@ -237,25 +221,23 @@ func clientRequests(app *model.Application, report *model.AuditReport) {
 		client.Link = model.NewRouterLink(id.Name, "overview").
 			SetParam("view", "applications").
 			SetParam("id", id)
-		client.SetUnit(strings.Join(s.protocols.Items(), ", "))
+		client.SetUnit(strings.Join(protocols.Items(), ", "))
 
-		chart := model.NewTableCell().SetChart(s.rps)
+		chart := model.NewTableCell().SetChart(rps)
 
 		requests := model.NewTableCell().SetUnit("/s")
-		if last := s.rps.Last(); last > 0 {
+		if last := rps.Last(); last > 0 {
 			requests.SetValue(utils.FormatFloat(last))
 		}
 
 		latency := model.NewTableCell().SetUnit("ms")
-		if last := model.GetConnectionsRequestsLatency(s.connections, nil).Last(); last > 0 {
+		if last := connection.GetConnectionsRequestsLatency(nil).Last(); last > 0 {
 			latency.SetValue(utils.FormatFloat(last * 1000))
 		}
-
 		errors := model.NewTableCell().SetUnit("/s")
-		if last := model.GetConnectionsErrorsSum(s.connections, nil).Last(); last > 0 {
+		if last := connection.GetConnectionsErrorsSum(nil).Last(); last > 0 {
 			errors.SetValue(utils.FormatFloat(last))
 		}
-
 		table.AddRow(client, chart, requests, latency, errors)
 	}
 }

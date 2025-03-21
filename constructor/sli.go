@@ -11,8 +11,8 @@ import (
 )
 
 func (c *Constructor) loadSLIs(w *model.World, metrics map[string][]*model.MetricValues) {
-	builtinAvailabilityRaw := builtinAvailability(metrics[qRecordingRuleInboundRequestsTotal+"_raw"])
-	builtinLatencyRaw := builtinLatency(metrics[qRecordingRuleInboundRequestsHistogram+"_raw"])
+	builtinAvailabilityRaw := builtinAvailability(w, metrics[qRecordingRuleApplicationL7Requests+"_raw"])
+	builtinLatencyRaw := builtinLatency(w, metrics[qRecordingRuleApplicationL7Histogram+"_raw"])
 
 	customAvailabilityRaw := map[model.ApplicationId]availabilitySlis{}
 	customLatencyRaw := map[model.ApplicationId][]model.HistogramBucket{}
@@ -80,7 +80,12 @@ func loadCustomSLIs(metrics map[string][]*model.MetricValues,
 			a.failed = values[0].Values
 			availabilityRaw[appId] = a
 		case "requests_histogram_raw":
-			latencyRaw[appId] = histogramBuckets(values)
+			buckets := map[string]*timeseries.TimeSeries{}
+			for _, mv := range values {
+				leStr := mv.Labels["le"]
+				buckets[leStr] = mv.Values
+			}
+			latencyRaw[appId] = histogramBuckets(buckets)
 		}
 	}
 }
@@ -90,22 +95,35 @@ type availabilitySlis struct {
 	failed *timeseries.TimeSeries
 }
 
-func builtinAvailability(values []*model.MetricValues) map[model.ApplicationId]availabilitySlis {
+func builtinAvailability(w *model.World, values []*model.MetricValues) map[model.ApplicationId]availabilitySlis {
 	if len(values) == 0 {
 		return nil
 	}
 	byApp := map[model.ApplicationId]map[string]*timeseries.TimeSeries{}
 	for _, mv := range values {
-		appId, err := model.NewApplicationIdFromString(mv.Labels["application"])
+		dstId, err := model.NewApplicationIdFromString(mv.Labels["dest"])
+		if err != nil {
+			klog.Warningln(err)
+			continue
+		}
+		srcId, err := model.NewApplicationIdFromString(mv.Labels["app"])
 		if err != nil {
 			klog.Warningln(err)
 			continue
 		}
 		status := mv.Labels["status"]
-		if byApp[appId] == nil {
-			byApp[appId] = map[string]*timeseries.TimeSeries{}
+		src := w.GetApplication(srcId)
+		dst := w.GetApplication(dstId)
+		if src == nil || dst == nil {
+			continue
 		}
-		byApp[appId][status] = mv.Values
+		if !dst.Category.Auxiliary() && src.Category.Auxiliary() {
+			continue
+		}
+		if byApp[dstId] == nil {
+			byApp[dstId] = map[string]*timeseries.TimeSeries{}
+		}
+		byApp[dstId][status] = merge(byApp[dstId][status], mv.Values, timeseries.NanSum)
 	}
 	res := map[model.ApplicationId]availabilitySlis{}
 	for appId, byStatus := range byApp {
@@ -122,37 +140,46 @@ func builtinAvailability(values []*model.MetricValues) map[model.ApplicationId]a
 	return res
 }
 
-func builtinLatency(values []*model.MetricValues) map[model.ApplicationId][]model.HistogramBucket {
+func builtinLatency(w *model.World, values []*model.MetricValues) map[model.ApplicationId][]model.HistogramBucket {
 	if len(values) == 0 {
 		return nil
 	}
 
-	byApp := map[model.ApplicationId][]*model.MetricValues{}
+	byApp := map[model.ApplicationId]map[string]*timeseries.TimeSeries{}
 	for _, mv := range values {
-		appId, err := model.NewApplicationIdFromString(mv.Labels["application"])
+		appId, err := model.NewApplicationIdFromString(mv.Labels["app"])
 		if err != nil {
 			klog.Warningln(err)
 			continue
 		}
-		byApp[appId] = append(byApp[appId], mv)
+		app := w.GetApplication(appId)
+		if app == nil {
+			continue
+		}
+		buckets := byApp[appId]
+		if buckets == nil {
+			buckets = map[string]*timeseries.TimeSeries{}
+			byApp[appId] = buckets
+		}
+		leStr := mv.Labels["le"]
+		buckets[leStr] = merge(buckets[leStr], mv.Values, timeseries.NanSum)
 	}
-
 	res := map[model.ApplicationId][]model.HistogramBucket{}
-	for appId, mvs := range byApp {
-		res[appId] = histogramBuckets(mvs)
+	for appId, buckets := range byApp {
+		res[appId] = histogramBuckets(buckets)
 	}
 	return res
 }
 
-func histogramBuckets(values []*model.MetricValues) []model.HistogramBucket {
+func histogramBuckets(values map[string]*timeseries.TimeSeries) []model.HistogramBucket {
 	buckets := make([]model.HistogramBucket, 0, len(values))
-	for _, m := range values {
-		le, err := strconv.ParseFloat(m.Labels["le"], 64)
+	for leStr, ts := range values {
+		le, err := strconv.ParseFloat(leStr, 64)
 		if err != nil {
 			klog.Warningln(err)
 			continue
 		}
-		buckets = append(buckets, model.HistogramBucket{Le: float32(le), TimeSeries: m.Values})
+		buckets = append(buckets, model.HistogramBucket{Le: float32(le), TimeSeries: ts})
 	}
 	sort.Slice(buckets, func(i, j int) bool {
 		return buckets[i].Le < buckets[j].Le

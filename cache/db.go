@@ -100,6 +100,15 @@ func (c *Cache) getMinUpdateTime(projectId db.ProjectId) (timeseries.Time, error
 	return timeseries.Time(min.Int64), nil
 }
 
+func (c *Cache) getMinUpdateTimeWithoutRecordingRules(projectId db.ProjectId) (timeseries.Time, error) {
+	var min sql.NullInt64
+	err := c.state.QueryRow("SELECT min(last_ts) FROM prometheus_query_state WHERE project_id = $1 AND query NOT LIKE 'rr_%'", projectId).Scan(&min)
+	if err != nil {
+		return 0, err
+	}
+	return timeseries.Time(min.Int64), nil
+}
+
 func (c *Cache) getStatus(projectId db.ProjectId) (*Status, error) {
 	var s Status
 	err := c.state.QueryRow("SELECT last_error FROM prometheus_query_state WHERE project_id = $1 AND last_error != '' LIMIT 1", projectId).Scan(&s.Error)

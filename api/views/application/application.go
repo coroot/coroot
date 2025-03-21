@@ -32,32 +32,17 @@ type Application struct {
 	Status     model.Status              `json:"status"`
 	Indicators []model.Indicator         `json:"indicators"`
 	Labels     model.Labels              `json:"labels"`
+
+	LinkStatus       model.Status `json:"link_status"`
+	LinkStatusReason string       `json:"link_status_reason"`
+	LinkDirection    string       `json:"link_direction"`
+	LinkStats        []string     `json:"link_stats"`
+	LinkWeight       float32      `json:"link_weight"`
 }
 
 type Instance struct {
 	Id     string       `json:"id"`
 	Labels model.Labels `json:"labels"`
-
-	Clients       []*ApplicationLink `json:"clients"`
-	Dependencies  []*ApplicationLink `json:"dependencies"`
-	InternalLinks []*InstanceLink    `json:"internal_links"`
-}
-
-type ApplicationLink struct {
-	Id           model.ApplicationId `json:"id"`
-	Status       model.Status        `json:"status"`
-	StatusReason string              `json:"status_reason"`
-	Direction    string              `json:"direction"`
-	Stats        []string            `json:"stats"`
-	Weight       float32             `json:"weight"`
-
-	connections []*model.Connection
-}
-
-type InstanceLink struct {
-	Id        string       `json:"id"`
-	Status    model.Status `json:"status"`
-	Direction string       `json:"direction"`
 }
 
 func Render(world *model.World, app *model.Application) *View {
@@ -96,53 +81,18 @@ func Render(world *model.World, app *model.Application) *View {
 		if instance.ApplicationTypes()[model.ApplicationTypeMongos] {
 			i.Labels["proxy"] = "mongos"
 		}
-		for _, connection := range instance.Upstreams {
-			if connection.RemoteApplication == nil {
-				continue
-			}
-			if connection.RemoteApplication.Id != app.Id {
-				deps[connection.RemoteApplication.Id] = true
-				status, reason := connection.Status()
-				i.addDependency(connection.RemoteApplication.Id, status, reason, "to", connection)
-			} else if connection.RemoteInstance != nil && connection.RemoteInstance.Name != instance.Name {
-				status, _ := connection.Status()
-				i.addInternalLink(connection.RemoteInstance.Name, status)
-			}
-		}
-		for _, connection := range app.Downstreams {
-			if connection.Instance.Owner != app {
-				switch {
-				case connection.RemoteInstance != nil && connection.RemoteInstance.Name == instance.Name:
-				case connection.RemoteInstance == nil:
-				default:
-					continue
-				}
-				status, reason := connection.Status()
-				i.addClient(connection.Instance.Owner.Id, status, reason, "to", connection)
-			}
-		}
 		appMap.Instances = append(appMap.Instances, i)
 	}
-	for _, i := range appMap.Instances {
-		clients := make([]*ApplicationLink, 0, len(i.Clients))
-		for _, c := range i.Clients {
-			if deps[c.Id] {
-				i.addDependency(c.Id, c.Status, c.StatusReason, "from", c.connections...)
-			} else {
-				clients = append(clients, c)
-			}
-		}
-		i.Clients = clients
-	}
 
-	for _, i := range appMap.Instances {
-		for _, a := range i.Dependencies {
-			appMap.addDependency(world, a.Id)
-			a.calcStats()
+	for _, connection := range app.Upstreams {
+		if connection.RemoteApplication.Id != app.Id {
+			deps[connection.RemoteApplication.Id] = true
+			appMap.addDependency(connection)
 		}
-		for _, a := range i.Clients {
-			appMap.addClient(world, a.Id)
-			a.calcStats()
+	}
+	for _, connection := range app.Downstreams {
+		if connection.Application.Id != app.Id {
+			appMap.addClient(connection, deps[connection.Application.Id])
 		}
 	}
 	sort.Slice(appMap.Instances, func(i1, i2 int) bool {
@@ -163,7 +113,6 @@ func Render(world *model.World, app *model.Application) *View {
 			}
 		}
 	}
-
 	v := &View{
 		AppMap:  appMap,
 		Reports: app.Reports,
@@ -171,105 +120,60 @@ func Render(world *model.World, app *model.Application) *View {
 	return v
 }
 
-func (m *AppMap) addDependency(w *model.World, id model.ApplicationId) {
-	for _, a := range m.Dependencies {
-		if a.Id == id {
-			return
-		}
-	}
-	app := w.GetApplication(id)
-	if app == nil {
-		return
-	}
-	m.Dependencies = append(m.Dependencies, &Application{
-		Id:         id,
-		Custom:     app.Custom,
-		Status:     app.Status,
-		Indicators: model.CalcIndicators(app),
-		Labels:     app.Labels(),
-	})
-}
+func (m *AppMap) addDependency(c *model.AppToAppConnection) {
+	status, reason := c.Status()
+	a := &Application{
+		Id:         c.RemoteApplication.Id,
+		Custom:     c.RemoteApplication.Custom,
+		Status:     c.RemoteApplication.Status,
+		Indicators: model.CalcIndicators(c.RemoteApplication),
+		Labels:     c.RemoteApplication.Labels(),
 
-func (m *AppMap) addClient(w *model.World, id model.ApplicationId) {
-	for _, a := range m.Clients {
-		if a.Id == id {
-			return
-		}
+		LinkDirection:    "to",
+		LinkStatus:       status,
+		LinkStatusReason: reason,
 	}
-	app := w.GetApplication(id)
-	if app == nil {
-		return
-	}
-	m.Clients = append(m.Clients, &Application{
-		Id:         id,
-		Custom:     app.Custom,
-		Status:     app.Status,
-		Indicators: model.CalcIndicators(app),
-		Labels:     app.Labels(),
-	})
-}
+	m.Dependencies = append(m.Dependencies, a)
 
-func (i *Instance) addClient(id model.ApplicationId, status model.Status, statusReason string, direction string, connections ...*model.Connection) {
-	for _, a := range i.Clients {
-		if a.Id == id {
-			if a.Status < status {
-				a.Status = status
-				a.StatusReason = statusReason
-			}
-			a.connections = append(a.connections, connections...)
-			return
-		}
-	}
-	for _, a := range i.Dependencies {
-		if a.Id == id {
-			a.Direction = "both"
-			return
-		}
-	}
-	i.Clients = append(i.Clients, &ApplicationLink{Id: id, Status: status, StatusReason: statusReason, Direction: direction, connections: connections})
-}
-
-func (i *Instance) addDependency(id model.ApplicationId, status model.Status, statusReason string, direction string, connections ...*model.Connection) {
-	for _, a := range i.Dependencies {
-		if a.Id == id {
-			if a.Status < status {
-				a.Status = status
-				a.StatusReason = statusReason
-			}
-			a.connections = append(a.connections, connections...)
-			return
-		}
-	}
-	i.Dependencies = append(i.Dependencies, &ApplicationLink{Id: id, Status: status, StatusReason: statusReason, Direction: direction, connections: connections})
-}
-
-func (i *Instance) addInternalLink(id string, status model.Status) {
-	for _, l := range i.InternalLinks {
-		if l.Id == id {
-			if l.Status < status {
-				l.Status = status
-			}
-			return
-		}
-	}
-	i.InternalLinks = append(i.InternalLinks, &InstanceLink{Id: id, Status: status, Direction: "to"})
-}
-
-func (l *ApplicationLink) calcStats() {
-	requests := model.GetConnectionsRequestsSum(l.connections, nil).Last()
-	latency := model.GetConnectionsRequestsLatency(l.connections, nil).Last()
+	requests := c.GetConnectionsRequestsSum(nil).Last()
+	latency := c.GetConnectionsRequestsLatency(nil).Last()
 	if !timeseries.IsNaN(requests) {
-		l.Weight = requests
+		a.LinkWeight = requests
 	}
+	bytesSent := c.BytesSent.Last()
+	bytesReceived := c.BytesReceived.Last()
+	a.LinkStats = utils.FormatLinkStats(requests, latency, bytesSent, bytesReceived, reason)
+}
 
-	var bytesSent, bytesReceived float32
-	for _, c := range l.connections {
-		if v := c.BytesSent.Last(); !timeseries.IsNaN(v) {
-			bytesSent += v
-		}
-		if v := c.BytesReceived.Last(); !timeseries.IsNaN(v) {
-			bytesReceived += v
+func (m *AppMap) addClient(c *model.AppToAppConnection, seenInDeps bool) {
+	if seenInDeps {
+		for _, d := range m.Dependencies {
+			if d.Id != c.Application.Id {
+				d.LinkDirection = "both"
+				return
+			}
 		}
 	}
-	l.Stats = utils.FormatLinkStats(requests, latency, bytesSent, bytesReceived, l.StatusReason)
+	status, reason := c.Status()
+	a := &Application{
+		Id:         c.Application.Id,
+		Custom:     c.Application.Custom,
+		Status:     c.Application.Status,
+		Indicators: model.CalcIndicators(c.Application),
+		Labels:     c.Application.Labels(),
+
+		LinkDirection:    "to",
+		LinkStatus:       status,
+		LinkStatusReason: reason,
+	}
+	m.Clients = append(m.Clients, a)
+
+	requests := c.GetConnectionsRequestsSum(nil).Last()
+	latency := c.GetConnectionsRequestsLatency(nil).Last()
+	if !timeseries.IsNaN(requests) {
+		a.LinkWeight = requests
+	}
+	bytesSent := c.BytesSent.Last()
+	bytesReceived := c.BytesReceived.Last()
+	a.LinkStats = utils.FormatLinkStats(requests, latency, bytesSent, bytesReceived, reason)
 }

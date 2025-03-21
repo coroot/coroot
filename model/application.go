@@ -17,7 +17,10 @@ type Application struct {
 	Instances       []*Instance
 	instancesByName map[string][]*Instance
 
-	Downstreams []*Connection
+	Downstreams map[ApplicationId]*AppToAppConnection
+	Upstreams   map[ApplicationId]*AppToAppConnection
+
+	TrafficStats TrafficStats
 
 	DesiredInstances *timeseries.TimeSeries
 
@@ -43,6 +46,8 @@ func NewApplication(id ApplicationId) *Application {
 		Id:              id,
 		instancesByName: map[string][]*Instance{},
 		LogMessages:     map[LogLevel]*LogMessages{},
+		Upstreams:       map[ApplicationId]*AppToAppConnection{},
+		Downstreams:     map[ApplicationId]*AppToAppConnection{},
 	}
 	return app
 }
@@ -209,15 +214,13 @@ func (app *Application) IsPython() bool {
 
 func (app *Application) IsStandalone() bool {
 	for _, d := range app.Downstreams {
-		if d.Instance.Owner != app && !d.IsObsolete() {
+		if d.Application != d.RemoteApplication {
 			return false
 		}
 	}
-	for _, i := range app.Instances {
-		for _, u := range i.Upstreams {
-			if u.RemoteInstance != nil && u.RemoteInstance.Owner != app && !u.IsObsolete() {
-				return false
-			}
+	for _, u := range app.Upstreams {
+		if u.Application != u.RemoteApplication {
+			return false
 		}
 	}
 	return true
@@ -262,26 +265,25 @@ func (app *Application) IsK8s() bool {
 
 func (app *Application) hasClientsInAWS() bool {
 	for _, d := range app.Downstreams {
-		if d.Instance != nil && d.Instance.Node != nil {
-			provider := d.Instance.Node.CloudProvider.Value()
-			if provider == CloudProviderAWS {
-				return true
+		for _, i := range d.Application.Instances {
+			if i.Node != nil {
+				provider := i.Node.CloudProvider.Value()
+				if provider == CloudProviderAWS {
+					return true
+				}
 			}
 		}
 	}
 	return false
 }
 
-func (app *Application) GetClientsConnections() map[ApplicationId][]*Connection {
-	res := map[ApplicationId][]*Connection{}
-	for _, d := range app.Downstreams {
-		if d.Instance.Owner == app {
-			continue
-		}
-		res[d.Instance.Owner.Id] = append(res[d.Instance.Owner.Id], d)
-	}
-	return res
-}
+//func (app *Application) GetClientsConnections() map[ApplicationId]*AppToAppConnection {
+//	res := map[ApplicationId]*AppToAppConnection{}
+//	for _, d := range app.Downstreams {
+//		res[d.Application.Id] = d
+//	}
+//	return res
+//}
 
 func (app *Application) AddReport(name AuditReportName, widgets ...*Widget) {
 	app.Reports = append(app.Reports, &AuditReport{Name: name, Widgets: widgets})

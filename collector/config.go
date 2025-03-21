@@ -76,9 +76,6 @@ func (c *Collector) Config(w http.ResponseWriter, r *http.Request) {
 		instancesByType := map[model.ApplicationType]map[*model.Instance]bool{}
 		if app.Id.Kind == model.ApplicationKindExternalService {
 			for _, d := range app.Downstreams {
-				if d.RemoteInstance == nil || d.RemoteInstance.IsObsolete() {
-					continue
-				}
 				for protocol := range d.RequestsCount {
 					t := protocol.ToApplicationType()
 					if t == model.ApplicationTypeUnknown {
@@ -87,7 +84,11 @@ func (c *Collector) Config(w http.ResponseWriter, r *http.Request) {
 					if instancesByType[t] == nil {
 						instancesByType[t] = map[*model.Instance]bool{}
 					}
-					instancesByType[t][d.RemoteInstance] = true
+					for _, i := range d.Application.Instances {
+						if !i.IsObsolete() {
+							instancesByType[t][i] = true
+						}
+					}
 				}
 			}
 		} else {

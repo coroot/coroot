@@ -20,7 +20,7 @@ import (
 type Option int
 
 const (
-	OptionLoadPerConnectionHistograms Option = iota
+	OptionLoadInstanceToInstanceConnections Option = iota
 	OptionDoNotLoadRawSLIs
 	OptionLoadContainerLogs
 )
@@ -99,6 +99,8 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 	prof.stage("load_elasticache", func() { c.loadElasticache(w, metrics, pjs, ecInstancesById) })
 	prof.stage("load_fargate_containers", func() { loadFargateContainers(w, metrics, pjs) })
 	prof.stage("load_containers", func() { c.loadContainers(w, metrics, pjs, nodes, containers, servicesByClusterIP, ip2fqdn) })
+	prof.stage("load_app_to_app_connections", func() { c.loadAppToAppConnections(w, metrics) })
+	prof.stage("load_application_traffic", func() { c.loadApplicationTraffic(w, metrics) })
 	prof.stage("load_jvm", func() { c.loadJVM(metrics, containers) })
 	prof.stage("load_dotnet", func() { c.loadDotNet(metrics, containers) })
 	prof.stage("load_python", func() { c.loadPython(metrics, containers) })
@@ -147,7 +149,7 @@ func (c *Constructor) queryCache(ctx context.Context, from, to timeseries.Time, 
 	}
 
 	for _, q := range QUERIES {
-		if !c.options[OptionLoadPerConnectionHistograms] && strings.HasPrefix(q.Name, "container_") && strings.HasSuffix(q.Name, "_histogram") {
+		if !c.options[OptionLoadInstanceToInstanceConnections] && q.InstanceToInstance {
 			continue
 		}
 		if !c.options[OptionLoadContainerLogs] && q.Name == "container_log_messages" {
@@ -173,10 +175,13 @@ func (c *Constructor) queryCache(ctx context.Context, from, to timeseries.Time, 
 			}
 		}
 	}
-
-	addQuery(qRecordingRuleInboundRequestsTotal, qRecordingRuleInboundRequestsTotal, qRecordingRuleInboundRequestsTotal, true)
-	addQuery(qRecordingRuleInboundRequestsHistogram, qRecordingRuleInboundRequestsHistogram, qRecordingRuleInboundRequestsHistogram, true)
-
+	if !c.options[OptionLoadInstanceToInstanceConnections] {
+		for _, query := range qConnectionAggregations {
+			queries[query] = cacheQuery{query: query, from: from, to: to, step: step, statsName: query}
+		}
+		addQuery(qRecordingRuleApplicationL7Requests, qRecordingRuleApplicationL7Requests, qRecordingRuleApplicationL7Requests, true)
+		addQuery(qRecordingRuleApplicationL7Histogram, qRecordingRuleApplicationL7Histogram, qRecordingRuleApplicationL7Histogram, true)
+	}
 	for appId := range checkConfigs {
 		qName := fmt.Sprintf("%s/%s/", qApplicationCustomSLI, appId)
 		availabilityCfg, _ := checkConfigs.GetAvailability(appId)
@@ -391,9 +396,8 @@ func joinDBClusterComponents(w *model.World) {
 			id := model.NewApplicationId(app.Id.Namespace, model.ApplicationKindDatabaseCluster, instance.ClusterName.Value())
 			cluster := clusters[id]
 			if cluster == nil {
-				cluster = model.NewApplication(id)
+				cluster = w.GetOrCreateApplication(id, false)
 				clusters[id] = cluster
-				w.Applications[id] = cluster
 			}
 			toDelete[app.Id] = cluster
 		}
@@ -424,10 +428,6 @@ func joinDBClusterComponents(w *model.World) {
 				instance.ClusterComponent = app
 			}
 			cluster.Instances = append(cluster.Instances, app.Instances...)
-			for _, d := range app.Downstreams {
-				d.RemoteApplication = cluster
-			}
-			cluster.Downstreams = append(cluster.Downstreams, app.Downstreams...)
 			delete(w.Applications, id)
 		}
 	}
@@ -482,20 +482,6 @@ func getActualServiceInstance(instance *model.Instance, applicationTypes ...mode
 	for _, t := range applicationTypes {
 		if instance.ApplicationTypes()[t] {
 			return instance
-		}
-	}
-	for _, u := range instance.Upstreams {
-		if ri := u.RemoteInstance; ri != nil {
-			for _, t := range applicationTypes {
-				if ri.ApplicationTypes()[t] {
-					return ri
-				}
-			}
-		}
-	}
-	for _, u := range instance.Upstreams {
-		if ri := u.RemoteInstance; ri != nil && ri.Owner.Id.Kind == model.ApplicationKindExternalService {
-			return ri
 		}
 	}
 	return instance

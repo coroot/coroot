@@ -179,31 +179,26 @@ func renderApplications(w *model.World) []*ApplicationStatus {
 		}
 
 		upstreams := map[model.ApplicationId]bool{}
-		for _, i := range app.Instances {
-			for _, u := range i.Upstreams {
-				upstream := u.RemoteApplication
-				if upstream == nil || u.IsObsolete() {
+		for _, u := range app.Upstreams {
+			upstream := u.RemoteApplication
+			if _, seen := upstreams[u.RemoteApplication.Id]; seen {
+				continue
+			}
+			if app.Id == upstream.Id {
+				continue
+			}
+			if !app.Category.Monitoring() && upstream.Category.Monitoring() {
+				continue
+			}
+			for _, r := range upstream.Reports {
+				if r.Name != model.AuditReportSLO {
 					continue
 				}
-				if _, seen := upstreams[u.RemoteApplication.Id]; seen {
-					continue
-				}
-				if app.Id == upstream.Id {
-					continue
-				}
-				if !app.Category.Monitoring() && upstream.Category.Monitoring() {
-					continue
-				}
-				for _, r := range upstream.Reports {
-					if r.Name != model.AuditReportSLO {
+				for _, ch := range r.Checks {
+					if ch.Status == model.UNKNOWN {
 						continue
 					}
-					for _, ch := range r.Checks {
-						if ch.Status == model.UNKNOWN {
-							continue
-						}
-						upstreams[upstream.Id] = upstreams[upstream.Id] || ch.Status >= model.WARNING
-					}
+					upstreams[upstream.Id] = upstreams[upstream.Id] || ch.Status >= model.WARNING
 				}
 			}
 		}

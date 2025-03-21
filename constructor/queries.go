@@ -10,14 +10,47 @@ import (
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 	promModel "github.com/prometheus/common/model"
+	"inet.af/netaddr"
 )
 
 const (
-	qApplicationCustomSLI                  = "application_custom_sli"
-	qRecordingRuleInboundRequestsTotal     = "rr_application_inbound_requests_total"
-	qRecordingRuleInboundRequestsHistogram = "rr_application_inbound_requests_histogram"
-	qRecordingRuleApplicationLogMessages   = "rr_application_log_messages"
+	qApplicationCustomSLI                = "application_custom_sli"
+	qRecordingRuleApplicationLogMessages = "rr_application_log_messages"
+
+	qRecordingRuleApplicationTCPSuccessful      = "rr_connection_tcp_successful"
+	qRecordingRuleApplicationTCPActive          = "rr_connection_tcp_active"
+	qRecordingRuleApplicationTCPFailed          = "rr_connection_tcp_failed"
+	qRecordingRuleApplicationTCPConnectionTime  = "rr_connection_tcp_connection_time"
+	qRecordingRuleApplicationTCPBytesSent       = "rr_connection_tcp_bytes_sent"
+	qRecordingRuleApplicationTCPBytesReceived   = "rr_connection_tcp_bytes_received"
+	qRecordingRuleApplicationTCPRetransmissions = "rr_connection_tcp_retransmissions"
+	qRecordingRuleApplicationNetLatency         = "rr_connection_net_latency"
+	qRecordingRuleApplicationL7Requests         = "rr_connection_l7_requests"
+	qRecordingRuleApplicationL7Latency          = "rr_connection_l7_latency"
+
+	qRecordingRuleApplicationTraffic = "rr_application_traffic"
+
+	qRecordingRuleInstanceL7Requests = "rr_instance_l7_requests"
+	qRecordingRuleInstanceL7Latency  = "rr_instance_l7_latency"
+
+	qRecordingRuleApplicationL7Histogram = "rr_application_l7_histogram"
 )
+
+var qConnectionAggregations = []string{
+	qRecordingRuleApplicationTCPSuccessful,
+	qRecordingRuleApplicationTCPActive,
+	qRecordingRuleApplicationTCPFailed,
+	qRecordingRuleApplicationTCPConnectionTime,
+	qRecordingRuleApplicationTCPBytesSent,
+	qRecordingRuleApplicationTCPBytesReceived,
+	qRecordingRuleApplicationTCPRetransmissions,
+	qRecordingRuleApplicationNetLatency,
+	qRecordingRuleApplicationL7Requests,
+	qRecordingRuleApplicationL7Latency,
+	qRecordingRuleInstanceL7Requests,
+	qRecordingRuleInstanceL7Latency,
+	qRecordingRuleApplicationTraffic,
+}
 
 var (
 	possibleNamespaceLabels  = []string{"namespace", "ns", "kubernetes_namespace", "kubernetes_ns", "k8s_namespace", "k8s_ns"}
@@ -29,12 +62,20 @@ type Query struct {
 	Name   string
 	Query  string
 	Labels *utils.StringSet
+
+	InstanceToInstance bool
 }
 
 func Q(name, query string, labels ...string) Query {
 	ls := utils.NewStringSet(model.LabelMachineId, model.LabelSystemUuid, model.LabelContainerId, model.LabelDestination, model.LabelDestinationIP, model.LabelActualDestination)
 	ls.Add(labels...)
 	return Query{Name: name, Query: query, Labels: ls}
+}
+
+func qItoI(name, query string, labels ...string) Query {
+	q := Q(name, query, labels...)
+	q.InstanceToInstance = true
+	return q
 }
 
 func qPod(name, query string, labels ...string) Query {
@@ -151,48 +192,50 @@ var QUERIES = []Query{
 	Q("container_volume_size", `container_resources_disk_size_bytes`, "mount_point", "volume", "device"),
 	Q("container_volume_used", `container_resources_disk_used_bytes`, "mount_point", "volume", "device"),
 	Q("container_net_tcp_listen_info", `container_net_tcp_listen_info`, "listen_addr", "proxy"),
-	Q("container_net_latency", `container_net_latency_seconds`),
-	Q("container_net_tcp_successful_connects", `rate(container_net_tcp_successful_connects_total[$RANGE])`),
-	Q("container_net_tcp_failed_connects", `rate(container_net_tcp_failed_connects_total[$RANGE])`),
-	Q("container_net_tcp_active_connections", `container_net_tcp_active_connections`),
-	Q("container_net_tcp_connection_time_seconds", `rate(container_net_tcp_connection_time_seconds_total[$RANGE])`),
-	Q("container_net_tcp_bytes_sent", `rate(container_net_tcp_bytes_sent_total[$RANGE])`),
-	Q("container_net_tcp_bytes_received", `rate(container_net_tcp_bytes_received_total[$RANGE])`),
-	Q("container_net_tcp_retransmits", `rate(container_net_tcp_retransmits_total[$RANGE])`),
+
+	qItoI("container_net_latency", `container_net_latency_seconds`),
+	qItoI("container_net_tcp_successful_connects", `rate(container_net_tcp_successful_connects_total[$RANGE])`),
+	qItoI("container_net_tcp_failed_connects", `rate(container_net_tcp_failed_connects_total[$RANGE])`),
+	qItoI("container_net_tcp_active_connections", `container_net_tcp_active_connections`),
+	qItoI("container_net_tcp_connection_time_seconds", `rate(container_net_tcp_connection_time_seconds_total[$RANGE])`),
+	qItoI("container_net_tcp_bytes_sent", `rate(container_net_tcp_bytes_sent_total[$RANGE])`),
+	qItoI("container_net_tcp_bytes_received", `rate(container_net_tcp_bytes_received_total[$RANGE])`),
+	qItoI("container_net_tcp_retransmits", `rate(container_net_tcp_retransmits_total[$RANGE])`),
+
 	Q("container_log_messages", `container_log_messages_total % 10000000`, "level", "pattern_hash", "sample", "job", "instance"),
 
-	Q("container_http_requests_count", `rate(container_http_requests_total[$RANGE])`, "status"),
-	Q("container_http_requests_latency", `rate(container_http_requests_duration_seconds_total_sum [$RANGE]) / rate(container_http_requests_duration_seconds_total_count [$RANGE])`),
-	Q("container_http_requests_histogram", `rate(container_http_requests_duration_seconds_total_bucket[$RANGE])`, "le"),
-	Q("container_postgres_queries_count", `rate(container_postgres_queries_total[$RANGE])`, "status"),
-	Q("container_postgres_queries_latency", `rate(container_postgres_queries_duration_seconds_total_sum [$RANGE]) / rate(container_postgres_queries_duration_seconds_total_count [$RANGE])`),
-	Q("container_postgres_queries_histogram", `rate(container_postgres_queries_duration_seconds_total_bucket[$RANGE])`, "le"),
-	Q("container_redis_queries_count", `rate(container_redis_queries_total[$RANGE])`, "status"),
-	Q("container_redis_queries_latency", `rate(container_redis_queries_duration_seconds_total_sum [$RANGE]) / rate(container_redis_queries_duration_seconds_total_count [$RANGE])`),
-	Q("container_redis_queries_histogram", `rate(container_redis_queries_duration_seconds_total_bucket[$RANGE])`, "le"),
-	Q("container_memcached_queries_count", `rate(container_memcached_queries_total[$RANGE])`, "status"),
-	Q("container_memcached_queries_latency", `rate(container_memcached_queries_duration_seconds_total_sum [$RANGE]) / rate(container_memcached_queries_duration_seconds_total_count [$RANGE])`),
-	Q("container_memcached_queries_histogram", `rate(container_memcached_queries_duration_seconds_total_bucket[$RANGE])`, "le"),
-	Q("container_mysql_queries_count", `rate(container_mysql_queries_total[$RANGE])`, "status"),
-	Q("container_mysql_queries_latency", `rate(container_mysql_queries_duration_seconds_total_sum [$RANGE]) / rate(container_mysql_queries_duration_seconds_total_count [$RANGE])`),
-	Q("container_mysql_queries_histogram", `rate(container_mysql_queries_duration_seconds_total_bucket[$RANGE])`, "le"),
-	Q("container_mongo_queries_count", `rate(container_mongo_queries_total[$RANGE])`, "status"),
-	Q("container_mongo_queries_latency", `rate(container_mongo_queries_duration_seconds_total_sum [$RANGE]) / rate(container_mongo_queries_duration_seconds_total_count [$RANGE])`),
-	Q("container_mongo_queries_histogram", `rate(container_mongo_queries_duration_seconds_total_bucket[$RANGE])`, "le"),
-	Q("container_kafka_requests_count", `rate(container_kafka_requests_total[$RANGE])`, "status"),
-	Q("container_kafka_requests_latency", `rate(container_kafka_requests_duration_seconds_total_sum [$RANGE]) / rate(container_kafka_requests_duration_seconds_total_count [$RANGE])`),
-	Q("container_kafka_requests_histogram", `rate(container_kafka_requests_duration_seconds_total_bucket[$RANGE])`, "le"),
-	Q("container_cassandra_queries_count", `rate(container_cassandra_queries_total[$RANGE])`, "status"),
-	Q("container_cassandra_queries_latency", `rate(container_cassandra_queries_duration_seconds_total_sum [$RANGE]) / rate(container_cassandra_queries_duration_seconds_total_count [$RANGE])`),
-	Q("container_cassandra_queries_histogram", `rate(container_cassandra_queries_duration_seconds_total_bucket[$RANGE])`, "le"),
-	Q("container_clickhouse_queries_count", `rate(container_clickhouse_queries_total[$RANGE])`, "status"),
-	Q("container_clickhouse_queries_latency", `rate(container_clickhouse_queries_duration_seconds_total_sum [$RANGE]) / rate(container_clickhouse_queries_duration_seconds_total_count [$RANGE])`),
-	Q("container_clickhouse_queries_histogram", `rate(container_clickhouse_queries_duration_seconds_total_bucket[$RANGE])`, "le"),
-	Q("container_zookeeper_requests_count", `rate(container_zookeeper_requests_total[$RANGE])`, "status"),
-	Q("container_zookeeper_requests_latency", `rate(container_zookeeper_requests_duration_seconds_total_sum [$RANGE]) / rate(container_zookeeper_requests_duration_seconds_total_count [$RANGE])`),
-	Q("container_zookeeper_requests_histogram", `rate(container_zookeeper_requests_duration_seconds_total_bucket[$RANGE])`, "le"),
-	Q("container_rabbitmq_messages", `rate(container_rabbitmq_messages_total[$RANGE])`, "status", "method"),
-	Q("container_nats_messages", `rate(container_nats_messages_total[$RANGE])`, "status", "method"),
+	qItoI("container_http_requests_count", `rate(container_http_requests_total[$RANGE])`, "status"),
+	qItoI("container_http_requests_latency", `rate(container_http_requests_duration_seconds_total_sum [$RANGE]) / rate(container_http_requests_duration_seconds_total_count [$RANGE])`),
+	qItoI("container_http_requests_histogram", `rate(container_http_requests_duration_seconds_total_bucket[$RANGE])`, "le"),
+	qItoI("container_postgres_queries_count", `rate(container_postgres_queries_total[$RANGE])`, "status"),
+	qItoI("container_postgres_queries_latency", `rate(container_postgres_queries_duration_seconds_total_sum [$RANGE]) / rate(container_postgres_queries_duration_seconds_total_count [$RANGE])`),
+	qItoI("container_postgres_queries_histogram", `rate(container_postgres_queries_duration_seconds_total_bucket[$RANGE])`, "le"),
+	qItoI("container_redis_queries_count", `rate(container_redis_queries_total[$RANGE])`, "status"),
+	qItoI("container_redis_queries_latency", `rate(container_redis_queries_duration_seconds_total_sum [$RANGE]) / rate(container_redis_queries_duration_seconds_total_count [$RANGE])`),
+	qItoI("container_redis_queries_histogram", `rate(container_redis_queries_duration_seconds_total_bucket[$RANGE])`, "le"),
+	qItoI("container_memcached_queries_count", `rate(container_memcached_queries_total[$RANGE])`, "status"),
+	qItoI("container_memcached_queries_latency", `rate(container_memcached_queries_duration_seconds_total_sum [$RANGE]) / rate(container_memcached_queries_duration_seconds_total_count [$RANGE])`),
+	qItoI("container_memcached_queries_histogram", `rate(container_memcached_queries_duration_seconds_total_bucket[$RANGE])`, "le"),
+	qItoI("container_mysql_queries_count", `rate(container_mysql_queries_total[$RANGE])`, "status"),
+	qItoI("container_mysql_queries_latency", `rate(container_mysql_queries_duration_seconds_total_sum [$RANGE]) / rate(container_mysql_queries_duration_seconds_total_count [$RANGE])`),
+	qItoI("container_mysql_queries_histogram", `rate(container_mysql_queries_duration_seconds_total_bucket[$RANGE])`, "le"),
+	qItoI("container_mongo_queries_count", `rate(container_mongo_queries_total[$RANGE])`, "status"),
+	qItoI("container_mongo_queries_latency", `rate(container_mongo_queries_duration_seconds_total_sum [$RANGE]) / rate(container_mongo_queries_duration_seconds_total_count [$RANGE])`),
+	qItoI("container_mongo_queries_histogram", `rate(container_mongo_queries_duration_seconds_total_bucket[$RANGE])`, "le"),
+	qItoI("container_kafka_requests_count", `rate(container_kafka_requests_total[$RANGE])`, "status"),
+	qItoI("container_kafka_requests_latency", `rate(container_kafka_requests_duration_seconds_total_sum [$RANGE]) / rate(container_kafka_requests_duration_seconds_total_count [$RANGE])`),
+	qItoI("container_kafka_requests_histogram", `rate(container_kafka_requests_duration_seconds_total_bucket[$RANGE])`, "le"),
+	qItoI("container_cassandra_queries_count", `rate(container_cassandra_queries_total[$RANGE])`, "status"),
+	qItoI("container_cassandra_queries_latency", `rate(container_cassandra_queries_duration_seconds_total_sum [$RANGE]) / rate(container_cassandra_queries_duration_seconds_total_count [$RANGE])`),
+	qItoI("container_cassandra_queries_histogram", `rate(container_cassandra_queries_duration_seconds_total_bucket[$RANGE])`, "le"),
+	qItoI("container_clickhouse_queries_count", `rate(container_clickhouse_queries_total[$RANGE])`, "status"),
+	qItoI("container_clickhouse_queries_latency", `rate(container_clickhouse_queries_duration_seconds_total_sum [$RANGE]) / rate(container_clickhouse_queries_duration_seconds_total_count [$RANGE])`),
+	qItoI("container_clickhouse_queries_histogram", `rate(container_clickhouse_queries_duration_seconds_total_bucket[$RANGE])`, "le"),
+	qItoI("container_zookeeper_requests_count", `rate(container_zookeeper_requests_total[$RANGE])`, "status"),
+	qItoI("container_zookeeper_requests_latency", `rate(container_zookeeper_requests_duration_seconds_total_sum [$RANGE]) / rate(container_zookeeper_requests_duration_seconds_total_count [$RANGE])`),
+	qItoI("container_zookeeper_requests_histogram", `rate(container_zookeeper_requests_duration_seconds_total_bucket[$RANGE])`, "le"),
+	qItoI("container_rabbitmq_messages", `rate(container_rabbitmq_messages_total[$RANGE])`, "status", "method"),
+	qItoI("container_nats_messages", `rate(container_nats_messages_total[$RANGE])`, "status", "method"),
 
 	Q("container_dns_requests_total", `rate(container_dns_requests_total[$RANGE])`, "request_type", "domain", "status"),
 	Q("container_dns_requests_latency", `rate(container_dns_requests_duration_seconds_total_bucket[$RANGE])`, "le"),
@@ -293,82 +336,6 @@ var QUERIES = []Query{
 }
 
 var RecordingRules = map[string]func(p *db.Project, w *model.World) []*model.MetricValues{
-
-	qRecordingRuleInboundRequestsTotal: func(p *db.Project, w *model.World) []*model.MetricValues {
-		var res []*model.MetricValues
-		for _, app := range w.Applications {
-			byClient := app.GetClientsConnections()
-			if len(byClient) == 0 {
-				continue
-			}
-			appCategory := model.CalcApplicationCategory(app.Id, p.Settings.ApplicationCategories)
-			sum := map[string]*timeseries.Aggregate{}
-			for client, connections := range byClient {
-				clientCategory := model.CalcApplicationCategory(client, p.Settings.ApplicationCategories)
-				if !appCategory.Monitoring() && clientCategory.Monitoring() {
-					continue
-				}
-				for _, c := range connections {
-					for _, byStatus := range c.RequestsCount {
-						for status, ts := range byStatus {
-							if sum[status] == nil {
-								sum[status] = timeseries.NewAggregate(timeseries.NanSum)
-							}
-							sum[status].Add(ts)
-						}
-					}
-				}
-			}
-			appId := app.Id.String()
-			for status, agg := range sum {
-				ts := agg.Get()
-				if !ts.IsEmpty() {
-					ls := model.Labels{"application": appId, "status": status}
-					res = append(res, &model.MetricValues{Labels: ls, LabelsHash: promModel.LabelsToSignature(ls), Values: ts})
-				}
-			}
-		}
-		return res
-	},
-
-	qRecordingRuleInboundRequestsHistogram: func(p *db.Project, w *model.World) []*model.MetricValues {
-		var res []*model.MetricValues
-		for _, app := range w.Applications {
-			byClient := app.GetClientsConnections()
-			if len(byClient) == 0 {
-				continue
-			}
-			appCategory := model.CalcApplicationCategory(app.Id, p.Settings.ApplicationCategories)
-			sum := map[float32]*timeseries.Aggregate{}
-			for client, connections := range byClient {
-				clientCategory := model.CalcApplicationCategory(client, p.Settings.ApplicationCategories)
-				if !appCategory.Monitoring() && clientCategory.Monitoring() {
-					continue
-				}
-				for _, c := range connections {
-					for _, byLe := range c.RequestsHistogram {
-						for le, ts := range byLe {
-							dest := sum[le]
-							if dest == nil {
-								dest = timeseries.NewAggregate(timeseries.NanSum)
-								sum[le] = dest
-							}
-							dest.Add(ts)
-						}
-					}
-				}
-			}
-			appId := app.Id.String()
-			for le, agg := range sum {
-				ts := agg.Get()
-				if !ts.IsEmpty() {
-					ls := model.Labels{"application": appId, "le": fmt.Sprintf("%f", le)}
-					res = append(res, &model.MetricValues{Labels: ls, LabelsHash: promModel.LabelsToSignature(ls), Values: ts})
-				}
-			}
-		}
-		return res
-	},
 	qRecordingRuleApplicationLogMessages: func(p *db.Project, w *model.World) []*model.MetricValues {
 		var res []*model.MetricValues
 		for _, app := range w.Applications {
@@ -395,4 +362,360 @@ var RecordingRules = map[string]func(p *db.Project, w *model.World) []*model.Met
 		}
 		return res
 	},
+	qRecordingRuleApplicationTCPSuccessful: func(p *db.Project, w *model.World) []*model.MetricValues {
+		return aggConnections(w, func(c *model.Connection) *timeseries.TimeSeries { return c.SuccessfulConnections })
+	},
+	qRecordingRuleApplicationTCPActive: func(p *db.Project, w *model.World) []*model.MetricValues {
+		return aggConnections(w, func(c *model.Connection) *timeseries.TimeSeries { return c.Active })
+	},
+	qRecordingRuleApplicationTCPFailed: func(p *db.Project, w *model.World) []*model.MetricValues {
+		return aggConnections(w, func(c *model.Connection) *timeseries.TimeSeries { return c.FailedConnections })
+	},
+	qRecordingRuleApplicationTCPConnectionTime: func(p *db.Project, w *model.World) []*model.MetricValues {
+		return aggConnections(w, func(c *model.Connection) *timeseries.TimeSeries { return c.ConnectionTime })
+	},
+	qRecordingRuleApplicationTCPBytesSent: func(p *db.Project, w *model.World) []*model.MetricValues {
+		return aggConnections(w, func(c *model.Connection) *timeseries.TimeSeries { return c.BytesSent })
+	},
+	qRecordingRuleApplicationTCPBytesReceived: func(p *db.Project, w *model.World) []*model.MetricValues {
+		return aggConnections(w, func(c *model.Connection) *timeseries.TimeSeries { return c.BytesReceived })
+	},
+	qRecordingRuleApplicationTCPRetransmissions: func(p *db.Project, w *model.World) []*model.MetricValues {
+		return aggConnections(w, func(c *model.Connection) *timeseries.TimeSeries { return c.Retransmissions })
+	},
+
+	qRecordingRuleApplicationNetLatency: func(p *db.Project, w *model.World) []*model.MetricValues {
+		var res []*model.MetricValues
+
+		for _, app := range w.Applications {
+			byDest := map[*model.Application][]*timeseries.TimeSeries{}
+			for _, instance := range app.Instances {
+				for _, u := range instance.Upstreams {
+					dest := u.RemoteApplication()
+					if dest == nil {
+						continue
+					}
+					if !u.Rtt.IsEmpty() {
+						byDest[dest] = append(byDest[dest], u.Rtt)
+					}
+				}
+			}
+			appId := app.Id.String()
+			for dest, rtts := range byDest {
+				sum := timeseries.NewAggregate(timeseries.NanSum).Add(rtts...).Get()
+				count := timeseries.NewAggregate(timeseries.NanSum)
+				for _, rtt := range rtts {
+					count.Add(rtt.Map(timeseries.Defined))
+				}
+				ls := model.Labels{"app": appId, "dest": dest.Id.String(), "agg": "avg"}
+				res = append(res, &model.MetricValues{Labels: ls, LabelsHash: promModel.LabelsToSignature(ls), Values: timeseries.Div(sum, count.Get())})
+			}
+		}
+		return res
+	},
+
+	qRecordingRuleApplicationL7Requests: func(p *db.Project, w *model.World) []*model.MetricValues {
+		var res []*model.MetricValues
+		type key struct {
+			status   string
+			protocol model.Protocol
+			dest     *model.Application
+		}
+
+		for _, app := range w.Applications {
+			byProtoStatus := map[key]*timeseries.Aggregate{}
+			for _, instance := range app.Instances {
+				for _, u := range instance.Upstreams {
+					dest := u.RemoteApplication()
+					if dest == nil {
+						continue
+					}
+					for proto, byStatus := range u.RequestsCount {
+						for status, ts := range byStatus {
+							k := key{dest: dest, status: status, protocol: proto}
+							agg := byProtoStatus[k]
+							if agg == nil {
+								agg = timeseries.NewAggregate(timeseries.NanSum)
+								byProtoStatus[k] = agg
+							}
+							agg.Add(ts)
+
+						}
+					}
+				}
+			}
+			appId := app.Id.String()
+			for k, agg := range byProtoStatus {
+				ts := agg.Get()
+				if !ts.IsEmpty() {
+					ls := model.Labels{"app": appId, "dest": k.dest.Id.String(), "proto": string(k.protocol), "status": k.status}
+					res = append(res, &model.MetricValues{Labels: ls, LabelsHash: promModel.LabelsToSignature(ls), Values: ts})
+				}
+			}
+		}
+		return res
+	},
+
+	qRecordingRuleInstanceL7Requests: func(p *db.Project, w *model.World) []*model.MetricValues {
+		var res []*model.MetricValues
+		type requests struct {
+			ok     *timeseries.Aggregate
+			failed *timeseries.Aggregate
+		}
+
+		instances := map[*model.Instance]*requests{}
+		for _, app := range w.Applications {
+			for _, instance := range app.Instances {
+				for _, u := range instance.Upstreams {
+					if u.RemoteInstance == nil {
+						continue
+					}
+					reqs := instances[u.RemoteInstance]
+					if reqs == nil {
+						reqs = &requests{
+							ok:     timeseries.NewAggregate(timeseries.NanSum),
+							failed: timeseries.NewAggregate(timeseries.NanSum),
+						}
+						instances[u.RemoteInstance] = reqs
+					}
+					for _, byStatus := range u.RequestsCount {
+						for status, ts := range byStatus {
+							if model.IsRequestStatusFailed(status) {
+								reqs.failed.Add(ts)
+							} else {
+								reqs.ok.Add(ts)
+							}
+						}
+					}
+				}
+			}
+		}
+		for instance, reqs := range instances {
+			id := instance.NodeContainerID()
+			if id == nil {
+				continue
+			}
+			if ts := reqs.ok.Get(); !ts.IsEmpty() {
+				ls := model.Labels{model.LabelContainerId: id.ContainerId, model.LabelMachineId: id.MachineID, model.LabelSystemUuid: id.SystemUUID}
+				res = append(res, &model.MetricValues{Labels: ls, LabelsHash: promModel.LabelsToSignature(ls), Values: ts})
+			}
+			if ts := reqs.failed.Get(); !ts.IsEmpty() {
+				ls := model.Labels{model.LabelContainerId: id.ContainerId, model.LabelMachineId: id.MachineID, model.LabelSystemUuid: id.SystemUUID, "failed": "1"}
+				res = append(res, &model.MetricValues{Labels: ls, LabelsHash: promModel.LabelsToSignature(ls), Values: ts})
+			}
+		}
+		return res
+	},
+
+	qRecordingRuleInstanceL7Latency: func(p *db.Project, w *model.World) []*model.MetricValues {
+		var res []*model.MetricValues
+
+		instances := map[*model.Instance]*timeseries.Aggregate{}
+		for _, app := range w.Applications {
+			for _, instance := range app.Instances {
+				for _, u := range instance.Upstreams {
+					if u.RemoteInstance == nil {
+						continue
+					}
+					agg := instances[u.RemoteInstance]
+					if agg == nil {
+						agg = timeseries.NewAggregate(timeseries.NanSum)
+						instances[u.RemoteInstance] = agg
+					}
+					for _, ts := range u.RequestsLatency {
+						agg.Add(ts)
+					}
+				}
+			}
+		}
+		for instance, agg := range instances {
+			id := instance.NodeContainerID()
+			if id == nil {
+				continue
+			}
+			if ts := agg.Get(); !ts.IsEmpty() {
+				ls := model.Labels{model.LabelContainerId: id.ContainerId, model.LabelMachineId: id.MachineID, model.LabelSystemUuid: id.SystemUUID}
+				res = append(res, &model.MetricValues{Labels: ls, LabelsHash: promModel.LabelsToSignature(ls), Values: ts})
+			}
+		}
+		return res
+	},
+
+	qRecordingRuleApplicationL7Latency: func(p *db.Project, w *model.World) []*model.MetricValues {
+		var res []*model.MetricValues
+		type key struct {
+			protocol model.Protocol
+			dest     *model.Application
+		}
+
+		for _, app := range w.Applications {
+			byProto := map[key]*timeseries.Aggregate{}
+			for _, instance := range app.Instances {
+				for _, u := range instance.Upstreams {
+					dest := u.RemoteApplication()
+					if dest == nil {
+						continue
+					}
+					for proto, ts := range u.RequestsLatency {
+						k := key{dest: dest, protocol: proto}
+						agg := byProto[k]
+						if agg == nil {
+							agg = timeseries.NewAggregate(timeseries.NanSum)
+							byProto[k] = agg
+						}
+						agg.Add(ts)
+
+					}
+				}
+			}
+			appId := app.Id.String()
+			for k, agg := range byProto {
+				ts := agg.Get()
+				if !ts.IsEmpty() {
+					ls := model.Labels{"app": appId, "dest": k.dest.Id.String(), "proto": string(k.protocol)}
+					res = append(res, &model.MetricValues{Labels: ls, LabelsHash: promModel.LabelsToSignature(ls), Values: ts})
+				}
+			}
+		}
+		return res
+	},
+
+	qRecordingRuleApplicationL7Histogram: func(p *db.Project, w *model.World) []*model.MetricValues {
+		var res []*model.MetricValues
+		type key struct {
+			le   float32
+			dest *model.Application
+		}
+		sum := map[key]*timeseries.Aggregate{}
+		for _, app := range w.Applications {
+			for _, instance := range app.Instances {
+				for _, u := range instance.Upstreams {
+					dest := u.RemoteApplication()
+					if dest == nil {
+						continue
+					}
+					if !dest.Category.Auxiliary() && app.Category.Auxiliary() {
+						continue
+					}
+					for _, byLe := range u.RequestsHistogram {
+						for le, ts := range byLe {
+							k := key{dest: dest, le: le}
+							agg := sum[k]
+							if agg == nil {
+								agg = timeseries.NewAggregate(timeseries.NanSum)
+								sum[k] = agg
+							}
+							agg.Add(ts)
+						}
+					}
+				}
+			}
+		}
+		for k, agg := range sum {
+			ts := agg.Get()
+			if !ts.IsEmpty() {
+				ls := model.Labels{"app": k.dest.Id.String(), "le": fmt.Sprintf("%f", k.le)}
+				res = append(res, &model.MetricValues{Labels: ls, LabelsHash: promModel.LabelsToSignature(ls), Values: ts})
+			}
+		}
+		return res
+	},
+
+	qRecordingRuleApplicationTraffic: func(p *db.Project, w *model.World) []*model.MetricValues {
+		var res []*model.MetricValues
+
+		for _, app := range w.Applications {
+			stats := trafficStats{
+				InternetEgress: timeseries.NewAggregate(timeseries.NanSum),
+				CrossAZEgress:  timeseries.NewAggregate(timeseries.NanSum),
+				CrossAZIngress: timeseries.NewAggregate(timeseries.NanSum),
+			}
+			for _, instance := range app.Instances {
+				for _, u := range instance.Upstreams {
+					stats.update(instance, u)
+				}
+			}
+			appId := app.Id.String()
+			if ts := stats.InternetEgress.Get(); !ts.IsEmpty() {
+				ls := model.Labels{"app": appId, "kind": string(model.TrafficKindInternetEgress)}
+				res = append(res, &model.MetricValues{Labels: ls, LabelsHash: promModel.LabelsToSignature(ls), Values: ts})
+			}
+			if ts := stats.CrossAZEgress.Get(); !ts.IsEmpty() {
+				ls := model.Labels{"app": appId, "kind": string(model.TrafficKindCrossAZEgress)}
+				res = append(res, &model.MetricValues{Labels: ls, LabelsHash: promModel.LabelsToSignature(ls), Values: ts})
+			}
+			if ts := stats.CrossAZIngress.Get(); !ts.IsEmpty() {
+				ls := model.Labels{"app": appId, "kind": string(model.TrafficKindCrossAZIngress)}
+				res = append(res, &model.MetricValues{Labels: ls, LabelsHash: promModel.LabelsToSignature(ls), Values: ts})
+			}
+		}
+		return res
+	},
+}
+
+func aggConnections(w *model.World, tsF func(c *model.Connection) *timeseries.TimeSeries) []*model.MetricValues {
+	var res []*model.MetricValues
+	for _, app := range w.Applications {
+		byDest := map[*model.Application]*timeseries.Aggregate{}
+		for _, instance := range app.Instances {
+			for _, u := range instance.Upstreams {
+				dest := u.RemoteApplication()
+				if dest == nil {
+					continue
+				}
+				agg := byDest[dest]
+				if agg == nil {
+					agg = timeseries.NewAggregate(timeseries.NanSum)
+					byDest[dest] = agg
+				}
+				agg.Add(tsF(u))
+			}
+		}
+		appId := app.Id.String()
+		for dest, agg := range byDest {
+			ts := agg.Get()
+			if !ts.IsEmpty() {
+				ls := model.Labels{"app": appId, "dest": dest.Id.String()}
+				res = append(res, &model.MetricValues{Labels: ls, LabelsHash: promModel.LabelsToSignature(ls), Values: ts})
+			}
+		}
+	}
+	return res
+}
+
+type trafficStats struct {
+	InternetEgress *timeseries.Aggregate
+	CrossAZEgress  *timeseries.Aggregate
+	CrossAZIngress *timeseries.Aggregate
+}
+
+func (ts *trafficStats) update(instance *model.Instance, u *model.Connection) {
+	if u.RemoteInstance == nil || instance.Node == nil {
+		return
+	}
+	srcRegion := instance.Node.Region.Value()
+	if srcRegion == "" {
+		return
+	}
+	if u.RemoteInstance.Node != nil {
+		dstRegion := u.RemoteInstance.Node.Region.Value()
+		srcAZ := instance.Node.AvailabilityZone.Value()
+		dstAZ := u.RemoteInstance.Node.AvailabilityZone.Value()
+		if dstRegion != "" && dstRegion == srcRegion && srcAZ != "" && dstAZ != "" {
+			if srcAZ == dstAZ {
+				return
+			} else {
+				ts.CrossAZEgress.Add(u.BytesSent)
+				ts.CrossAZIngress.Add(u.BytesReceived)
+				return
+			}
+		}
+	}
+	ip, err := netaddr.ParseIP(u.ActualRemoteIP)
+	switch {
+	case err != nil:
+		ts.InternetEgress.Add(u.BytesSent) //fqdn
+	case utils.IsIpExternal(ip):
+		ts.InternetEgress.Add(u.BytesSent)
+	}
 }
