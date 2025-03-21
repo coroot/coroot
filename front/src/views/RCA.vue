@@ -49,6 +49,24 @@
                 </v-row>
             </template>
 
+            <template v-if="rca.propagation_map">
+                <div class="mt-5 mb-3 text-h6">Issue propagation path</div>
+                <PropagationMap :applications="rca.propagation_map" />
+            </template>
+
+            <div v-if="rca.summary">
+                <div v-if="rca.summary.text" class="summary" v-html="rca.summary.text" />
+                <div class="d-flex flex-wrap">
+                    <div
+                        v-for="w in rca.summary.widgets"
+                        class="my-5"
+                        :style="{ width: $vuetify.breakpoint.mdAndUp && rca.summary.widgets.length > 1 ? w.width || '50%' : '100%' }"
+                    >
+                        <Widget :w="w" />
+                    </div>
+                </div>
+            </div>
+
             <div v-if="rca.causes && rca.causes.length > 0">
                 <div class="mt-5 mb-3 text-h6">Possible causes</div>
 
@@ -107,6 +125,8 @@
 import RcaItem from '@/components/RcaItem.vue';
 import { palette } from '@/utils/colors';
 import Chart from '@/components/Chart.vue';
+import Widget from '@/components/Widget.vue';
+import PropagationMap from '@/components/PropagationMap.vue';
 
 export default {
     computed: {
@@ -144,7 +164,7 @@ export default {
         appId: String,
     },
 
-    components: { Chart, RcaItem },
+    components: { PropagationMap, Widget, Chart, RcaItem },
 
     data() {
         return {
@@ -189,4 +209,8 @@ export default {
 };
 </script>
 
-<style scoped></style>
+<style scoped>
+.summary >>> h3 {
+    margin: 16px 0 16px 0;
+}
+</style>
