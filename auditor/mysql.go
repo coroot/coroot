@@ -39,15 +39,6 @@ func (a *appAuditor) mysql() {
 	newConnectionsChart := report.GetOrCreateChart("New connections, per second", nil)
 	replicationLagChart := report.GetOrCreateChart("Replication lag, seconds", nil)
 
-	connectionsByInstance := map[string][]*model.Connection{}
-	if table != nil {
-		for _, d := range a.app.Downstreams {
-			if d.RemoteInstance != nil {
-				connectionsByInstance[d.RemoteInstance.Name] = append(connectionsByInstance[d.RemoteInstance.Name], d)
-			}
-		}
-	}
-
 	for _, i := range a.app.Instances {
 		if i.Mysql == nil {
 			continue
@@ -144,26 +135,25 @@ func (a *appAuditor) mysql() {
 					status.SetStatus(model.OK, v)
 				}
 			}
-			protocolFilter := func(protocol model.Protocol) bool {
-				return protocol == model.ProtocolMysql
-			}
-			qps := model.GetConnectionsRequestsSum(connectionsByInstance[i.Name], protocolFilter)
+			totalQps := timeseries.NewAggregate(timeseries.NanSum).Add(i.Requests.Ok, i.Requests.Failed).Get()
+
 			if qpsChart != nil {
-				qpsChart.GetOrCreateChart("eBPF").Feature().AddSeries(i.Name, qps)
+				qpsChart.GetOrCreateChart("eBPF").Feature().AddSeries(i.Name, totalQps)
 				qpsChart.GetOrCreateChart("Mysql status").AddSeries(i.Name, i.Mysql.Queries)
 			}
-			latency := model.GetConnectionsRequestsLatency(connectionsByInstance[i.Name], protocolFilter)
+			avgLatency := timeseries.Div(i.Requests.TotalLatency, totalQps)
+
 			if latencyChart != nil {
-				latencyChart.AddSeries(i.Name, latency)
+				latencyChart.AddSeries(i.Name, avgLatency)
 			}
 			latencyCell := model.NewTableCell().SetUnit("ms")
-			if last := latency.Last(); last > 0 {
+			if last := avgLatency.Last(); last > 0 {
 				latencyCell.SetValue(utils.FormatFloat(last * 1000))
 			}
 			table.AddRow(
 				name,
 				status,
-				model.NewTableCell(utils.FormatFloat(qps.Last())).SetUnit("/s"),
+				model.NewTableCell(utils.FormatFloat(totalQps.Last())).SetUnit("/s"),
 				latencyCell,
 				replStatusCell,
 				lagCell,

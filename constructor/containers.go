@@ -170,6 +170,17 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]*model
 	loadContainer("container_restarts", func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
 		container.Restarts = merge(container.Restarts, timeseries.Increase(metric.Values, pjs.get(metric.Labels)), timeseries.Any)
 	})
+	loadContainer(qRecordingRuleInstanceL7Requests, func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
+		if metric.Labels["failed"] != "" {
+			instance.Requests.Failed = merge(instance.Requests.Failed, metric.Values, timeseries.Any)
+		} else {
+			instance.Requests.Ok = merge(instance.Requests.Ok, metric.Values, timeseries.Any)
+		}
+	})
+	loadContainer(qRecordingRuleInstanceL7Latency, func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
+		instance.Requests.TotalLatency = merge(instance.Requests.TotalLatency, metric.Values, timeseries.Any)
+	})
+
 	loadContainer("container_net_latency", func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
 		id := instanceId{ns: instance.Owner.Id.Namespace, name: instance.Name, node: instance.NodeId()}
 		rtts := rttByInstance[id]
@@ -368,8 +379,8 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]*model
 				if svc := servicesByClusterIP[u.ServiceRemoteIP]; svc != nil {
 					u.Service = svc
 					if u.RemoteInstance == nil {
-						if a := w.GetApplicationByNsAndName(svc.Namespace, svc.Name); a != nil {
-							u.RemoteApplication = a
+						if a := w.GetApplicationByNsAndName(svc.Namespace, svc.Name); a != nil && len(a.Instances) > 0 {
+							u.RemoteInstance = a.Instances[0]
 						}
 					}
 				}
@@ -380,7 +391,7 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]*model
 	for _, app := range w.Applications { // creating ApplicationKindExternalService for unknown remote instances
 		for _, instance := range app.Instances {
 			for _, u := range instance.Upstreams {
-				if u.RemoteInstance != nil || u.RemoteApplication != nil {
+				if u.RemoteInstance != nil {
 					continue
 				}
 				appId := model.NewApplicationId("external", model.ApplicationKindExternalService, "")
@@ -388,9 +399,8 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]*model
 				instanceName := u.ServiceRemoteIP + ":" + u.ServiceRemotePort
 				if svc != nil {
 					u.Service = svc
-					if a := svc.GetDestinationApplication(); a != nil {
-						a.Downstreams = append(a.Downstreams, u)
-						u.RemoteApplication = a
+					if a := svc.GetDestinationApplication(); a != nil && len(a.Instances) > 0 {
+						u.RemoteInstance = a.Instances[0]
 						continue
 					} else {
 						appId.Name = svc.Name
@@ -411,19 +421,6 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]*model
 				ri := w.GetOrCreateApplication(appId, customApp != "").GetOrCreateInstance(instanceName, nil)
 				ri.TcpListens[model.Listen{IP: u.ActualRemoteIP, Port: u.ActualRemotePort}] = true
 				u.RemoteInstance = ri
-			}
-		}
-	}
-
-	for _, app := range w.Applications {
-		for _, instance := range app.Instances {
-			for _, u := range instance.Upstreams {
-				if u.RemoteInstance != nil {
-					u.RemoteApplication = u.RemoteInstance.Owner
-					u.RemoteInstance.Owner.Downstreams = append(u.RemoteInstance.Owner.Downstreams, u)
-				} else if u.RemoteApplication != nil {
-					u.RemoteApplication.Downstreams = append(u.RemoteApplication.Downstreams, u)
-				}
 			}
 		}
 	}

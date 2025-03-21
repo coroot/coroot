@@ -30,15 +30,6 @@ func (a *appAuditor) mongodb() {
 	latencyChart := report.GetOrCreateChart("Average latency, seconds", nil)
 	replicationLagChart := report.GetOrCreateChart("Replication lag, seconds", nil)
 
-	connectionsByInstance := map[string][]*model.Connection{}
-	if table != nil {
-		for _, d := range a.app.Downstreams {
-			if d.RemoteInstance != nil {
-				connectionsByInstance[d.RemoteInstance.Name] = append(connectionsByInstance[d.RemoteInstance.Name], d)
-			}
-		}
-	}
-
 	primaryLastApplied := calcMongoPrimaryBaseline(a.app)
 
 	for _, i := range a.app.Instances {
@@ -105,19 +96,16 @@ func (a *appAuditor) mongodb() {
 				}
 			}
 
-			protocolFilter := func(protocol model.Protocol) bool {
-				return protocol == model.ProtocolMongodb
-			}
-			qps := model.GetConnectionsRequestsSum(connectionsByInstance[i.Name], protocolFilter)
+			totalQps := timeseries.NewAggregate(timeseries.NanSum).Add(i.Requests.Ok, i.Requests.Failed).Get()
 			if qpsChart != nil {
-				qpsChart.AddSeries(i.Name, qps)
+				qpsChart.AddSeries(i.Name, totalQps)
 			}
-			latency := model.GetConnectionsRequestsLatency(connectionsByInstance[i.Name], protocolFilter)
+			avgLatency := timeseries.Div(i.Requests.TotalLatency, totalQps)
 			if latencyChart != nil {
-				latencyChart.AddSeries(i.Name, latency)
+				latencyChart.AddSeries(i.Name, avgLatency)
 			}
 			latencyCell := model.NewTableCell().SetUnit("ms")
-			if last := latency.Last(); last > 0 {
+			if last := avgLatency.Last(); last > 0 {
 				latencyCell.SetValue(utils.FormatFloat(last * 1000))
 			}
 			table.AddRow(
@@ -125,7 +113,7 @@ func (a *appAuditor) mongodb() {
 				status,
 				model.NewTableCell(rs),
 				state,
-				model.NewTableCell(utils.FormatFloat(qps.Last())).SetUnit("/s"),
+				model.NewTableCell(utils.FormatFloat(totalQps.Last())).SetUnit("/s"),
 				latencyCell,
 				lagCell,
 				model.NewTableCell(i.Mongodb.Version.Value()))

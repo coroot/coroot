@@ -177,7 +177,15 @@ func (c *Cache) updaterWorker(projects *sync.Map, projectId db.ProjectId, promCl
 			close(tasks)
 			wg.Wait()
 
-			c.processRecordingRules(to, project, step, states)
+			cacheTo, err := c.getMinUpdateTimeWithoutRecordingRules(project.Id)
+			if err != nil {
+				klog.Errorln(err)
+				continue
+			}
+			if cacheTo.IsZero() {
+				continue
+			}
+			c.processRecordingRules(cacheTo, project, step, states)
 
 			select {
 			case c.updates <- project.Id:
@@ -308,7 +316,7 @@ func (c *Cache) processRecordingRules(to timeseries.Time, project *db.Project, s
 	cacheClient := c.GetCacheClient(project.Id)
 	pointsCount := int(chunk.Size / step)
 	for _, i := range intervals {
-		ctr := constructor.New(c.db, project, cacheClient, nil, constructor.OptionLoadPerConnectionHistograms, constructor.OptionDoNotLoadRawSLIs, constructor.OptionLoadContainerLogs)
+		ctr := constructor.New(c.db, project, cacheClient, nil, constructor.OptionLoadInstanceToInstanceConnections, constructor.OptionDoNotLoadRawSLIs, constructor.OptionLoadContainerLogs)
 		world, err := ctr.LoadWorld(context.TODO(), i.chunkTs, i.toTs, step, nil)
 		if err != nil {
 			klog.Errorln("failed to load world:", err)

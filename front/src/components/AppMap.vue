@@ -44,14 +44,7 @@
                     <Labels :labels="map.application.labels" class="d-none d-sm-block label" />
                 </div>
                 <div v-if="instances && instances.length" class="instances">
-                    <div
-                        v-for="i in instances"
-                        class="instance"
-                        :ref="'instance:' + i.id"
-                        :class="{ hi: highlighted.instances.has(i.id) }"
-                        @mouseenter="focus('instance', i.id)"
-                        @mouseleave="unfocus"
-                    >
+                    <div v-for="i in instances" class="instance" :ref="'instance:' + i.id" :class="{ hi: highlighted.instances.has(i.id) }">
                         <div class="d-flex align-center" style="gap: 2px">
                             <div class="name flex-grow-1" :title="i.id">{{ i.id }}</div>
                             <div>
@@ -347,36 +340,19 @@ export default {
         },
         links() {
             const links = [];
-            (this.map.instances || []).forEach((i) => {
-                const me = (focused) => focused.instance && focused.instance === i.id;
-                const lo = (focused) => (Object.keys(focused).length ? 'lo' : '');
-                (i.clients || []).forEach((a) => {
-                    if (!this.clients.find((c) => c.id === a.id) || !this.instances.find((ii) => ii.id === i.id)) {
-                        return;
-                    }
-                    const from = a.id;
-                    const to = 'instance:' + i.id;
-                    const hi = (focused) => (me(focused) || (focused.client && focused.client === from) ? 'hi' : lo(focused));
-                    links.push({ from, to, status: a.status, stats: a.stats, weight: a.weight, direction: a.direction, hi });
-                });
-                (i.dependencies || []).forEach((a) => {
-                    if (!this.dependencies.find((d) => d.id === a.id) || !this.instances.find((ii) => ii.id === i.id)) {
-                        return;
-                    }
-                    const from = 'instance:' + i.id;
-                    const to = a.id;
-                    const hi = (focused) => (me(focused) || (focused.dependency && focused.dependency === to) ? 'hi' : lo(focused));
-                    links.push({ from, to, status: a.status, stats: a.stats, weight: a.weight, direction: a.direction, hi });
-                });
-                (i.internal_links || []).forEach((l) => {
-                    if (!this.instances.find((ii) => ii.id === i.id) || !this.instances.find((ii) => ii.id === l.id)) {
-                        return;
-                    }
-                    const from = 'instance:' + i.id;
-                    const to = 'instance:' + l.id;
-                    const hi = (focused) => (me(focused) || (focused.instance && focused.instance === l.id) ? 'hi' : lo(focused));
-                    links.push({ from, to, status: l.status, direction: l.direction, hi, internal: true });
-                });
+            const lo = (focused) => (Object.keys(focused).length ? 'lo' : '');
+
+            (this.clients || []).forEach((a) => {
+                const from = a.id;
+                const to = this.map.application.id;
+                const hi = (focused) => (focused.client && focused.client === from ? 'hi' : lo(focused));
+                links.push({ from, to, status: a.link_status, stats: a.link_stats, weight: a.link_weight, direction: a.link_direction, hi });
+            });
+            (this.dependencies || []).forEach((a) => {
+                const from = this.map.application.id;
+                const to = a.id;
+                const hi = (focused) => (focused.dependency && focused.dependency === to ? 'hi' : lo(focused));
+                links.push({ from, to, status: a.link_status, stats: a.link_stats, weight: a.link_weight, direction: a.link_direction, hi });
             });
             return links;
         },

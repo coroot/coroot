@@ -107,7 +107,7 @@ func FormatLinkStats(requests, latency, bytesSent, bytesReceived float32, issue 
 	if len(line) > 0 {
 		res = append(res, line)
 	}
-	if bytesSent > 0 || bytesReceived > 0 {
+	if bytesSent > 0 && bytesReceived > 0 {
 		line = ""
 		v, u := FormatBytes(bytesSent)
 		line += "↑" + v + u + "/s"

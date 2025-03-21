@@ -341,7 +341,7 @@ func getClientsByAppClients(spans []*model.TraceSpan, appClients map[string]*mod
 func getAppClients(app *model.Application) map[string]*model.Application {
 	res := map[string]*model.Application{}
 	for _, d := range app.Downstreams {
-		client := d.Instance.Owner
+		client := d.Application
 		if client == nil || client == app {
 			continue
 		}

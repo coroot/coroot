@@ -44,6 +44,8 @@ type Instance struct {
 
 	Upstreams map[ConnectionKey]*Connection
 
+	Requests Requests
+
 	TcpListens map[Listen]bool
 
 	Containers map[string]*Container
@@ -232,8 +234,27 @@ func (instance *Instance) IsListenActive(ip, port string) bool {
 	return false
 }
 
+func (instance *Instance) NodeContainerID() *NodeContainerId {
+	if instance.Node == nil {
+		return nil
+	}
+	for _, c := range instance.Containers {
+		return &NodeContainerId{
+			NodeId:      instance.Node.Id,
+			ContainerId: c.Id,
+		}
+	}
+	return nil
+}
+
 type Listen struct {
 	IP      string
 	Port    string
 	Proxied bool
+}
+
+type Requests struct {
+	Ok           *timeseries.TimeSeries
+	Failed       *timeseries.TimeSeries
+	TotalLatency *timeseries.TimeSeries
 }
