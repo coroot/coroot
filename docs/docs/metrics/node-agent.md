@@ -561,7 +561,7 @@ E.g., if the derivative of this metric for a minute interval is 60s, this means 
 ### node_cloud_info
 * **Description**: Meta information about the cloud instance
 * **Type**: Gauge
-* **Source**: The agent detects the cloud provider using [sysfs](href="https://man7.org/linux/man-pages/man5/sysfs.5.html).
+* **Source**: The agent detects the cloud provider using [sysfs](https://man7.org/linux/man-pages/man5/sysfs.5.html).
 Then it uses cloud-specific metadata services to retrieve additional information about the instance [AWS](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html),
 [GCP](https://cloud.google.com/compute/docs/metadata/overview), [Azure](https://docs.microsoft.com/en-us/azure/virtual-machines/linux/instance-metadata-service?tabs=linux),
 Hetzner, Scaleway, DigitalOcean, Alibaba.
