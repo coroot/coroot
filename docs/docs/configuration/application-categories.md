@@ -7,14 +7,46 @@ sidebar_position: 9
 Coroot allows you to organize your applications into custom groups called Application Categories. 
 These act like scopes, helping you either hide certain applications or focus on specific ones more easily.
 
+<img alt="Application Categories" src="/img/docs/categories.png" class="card w-1200"/>
+
+## Kubernetes annotations
+
+To define a category for a Kubernetes application (Deployment, StatefulSet, DaemonSet, or CronJob),
+annotate it with the `coroot.com/application-category` annotation.
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: some-app
+  namespace: default
+  annotations:
+    coroot.com/application-category: auxiliary
+```
+
+The application category can also be defined using Pod annotations.
+
+:::info
+Currently, application categories defined via annotations are not shown on the project settings page.
+:::
+
+## Pattern-based configuration
+
+For non-Kubernetes applications, or in cases where setting annotations is not possible, 
+Coroot allows you to configure Application Categories manually by matching applications using patterns.
+
+:::info
+Application categories defined via annotations take precedence over those configured manually.
+:::
+
 To configure Application Categories, go to the **Project Settings**, click on **Applications**, and adjust the 
 built-in categories or create your own custom ones. 
 Each category is defined by a set of [glob patterns](https://en.wikipedia.org/wiki/Glob_(programming)) in the `<namespace>/<application_name>` format.
 
-Coroot also includes several pre-defined categories, such as monitoring and control-plane.
+Coroot also includes several pre-defined categories, such as `monitoring` and `control-plane`.
 
 
-<img alt="Configuring Application Categories" src="/img/docs/categories.png" class="card w-1200"/>
+<img alt="Configuring Application Categories" src="/img/docs/categories_configuration.png" class="card w-1200"/>
 
 ## Quick links
 To make organizing your apps easier, Coroot allows you to define the category for an app directly on the service map:

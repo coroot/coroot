@@ -23,6 +23,7 @@ type serviceId struct {
 func loadKubernetesMetadata(w *model.World, metrics map[string][]*model.MetricValues, servicesByClusterIP map[string]*model.Service) {
 	pods := podInfo(w, metrics["kube_pod_info"])
 	podLabels(metrics["kube_pod_labels"], pods)
+	podAnnotations(metrics["kube_pod_annotations"], pods)
 
 	appsByPodIP := map[string]*model.Application{}
 	for _, pod := range pods {
@@ -111,6 +112,9 @@ func loadApplications(w *model.World, metrics map[string][]*model.MetricValues) 
 		case strings.HasPrefix(queryName, "kube_daemonset_"):
 			kind = model.ApplicationKindDaemonSet
 			nameLabel = "daemonset"
+		case strings.HasPrefix(queryName, "kube_cronjob_"):
+			kind = model.ApplicationKindCronJob
+			nameLabel = "cronjob"
 		default:
 			continue
 		}
@@ -122,6 +126,10 @@ func loadApplications(w *model.World, metrics map[string][]*model.MetricValues) 
 			switch queryName {
 			case "kube_deployment_spec_replicas", "kube_statefulset_replicas", "kube_daemonset_status_desired_number_scheduled":
 				app.DesiredInstances = merge(app.DesiredInstances, m.Values, timeseries.Any)
+			case "kube_deployment_annotations", "kube_statefulset_annotations", "kube_daemonset_annotations", "kube_cronjob_annotations":
+				if category := m.Labels[annotationApplicationCategory]; category != "" {
+					app.CategoryAnnotation.Update(m.Values, category)
+				}
 			}
 		}
 	}
@@ -212,7 +220,6 @@ func podLabels(metrics []*model.MetricValues, pods map[string]*model.Instance) {
 		}
 		instance := pods[uid]
 		if instance == nil {
-			//klog.Warningln("unknown pod:", uid, m.Labels["pod"], m.Labels["namespace"])
 			continue
 		}
 		cluster, role := "", ""
@@ -268,6 +275,23 @@ func podLabels(metrics []*model.MetricValues, pods map[string]*model.Instance) {
 			role = "primary"
 		}
 		instance.UpdateClusterRole(role, m.Values)
+	}
+}
+
+func podAnnotations(metrics []*model.MetricValues, pods map[string]*model.Instance) {
+	for _, m := range metrics {
+		uid := m.Labels["uid"]
+		if uid == "" {
+			continue
+		}
+		instance := pods[uid]
+		if instance == nil {
+			continue
+		}
+
+		if category := m.Labels[annotationApplicationCategory]; category != "" {
+			instance.ApplicationCategory.Update(m.Values, category)
+		}
 	}
 }
 

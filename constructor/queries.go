@@ -37,6 +37,8 @@ const (
 
 	qRecordingRuleDNSRequests = "rr_dns_requests"
 	qRecordingRuleDNSLatency  = "rr_dns_latency"
+
+	annotationApplicationCategory = "annotation_coroot_com_application_category"
 )
 
 var qConnectionAggregations = []string{
@@ -156,8 +158,13 @@ var QUERIES = []Query{
 	Q("kube_deployment_spec_replicas", `kube_deployment_spec_replicas`, "namespace", "deployment"),
 	Q("kube_daemonset_status_desired_number_scheduled", `kube_daemonset_status_desired_number_scheduled`, "namespace", "daemonset"),
 	Q("kube_statefulset_replicas", `kube_statefulset_replicas`, "namespace", "statefulset"),
+	Q("kube_deployment_annotations", `kube_deployment_annotations`, "namespace", "deployment", annotationApplicationCategory),
+	Q("kube_statefulset_annotations", `kube_statefulset_annotations`, "namespace", "statefulset", annotationApplicationCategory),
+	Q("kube_daemonset_annotations", `kube_daemonset_annotations`, "namespace", "daemonset", annotationApplicationCategory),
+	Q("kube_cronjob_annotations", `kube_cronjob_annotations`, "namespace", "cronjob", annotationApplicationCategory),
 
 	qPod("kube_pod_info", `kube_pod_info`, "namespace", "pod", "created_by_name", "created_by_kind", "node", "pod_ip", "host_ip"),
+	qPod("kube_pod_annotations", `kube_pod_annotations`, annotationApplicationCategory),
 	qPod("kube_pod_labels", `kube_pod_labels`,
 		"label_postgres_operator_crunchydata_com_cluster", "label_postgres_operator_crunchydata_com_role",
 		"label_cluster_name", "label_team", "label_application", "label_spilo_role",

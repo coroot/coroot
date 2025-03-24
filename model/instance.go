@@ -50,6 +50,8 @@ type Instance struct {
 
 	Containers map[string]*Container
 
+	ApplicationCategory LabelLastValue
+
 	ClusterName      LabelLastValue
 	clusterRole      *timeseries.TimeSeries
 	ClusterComponent *Application

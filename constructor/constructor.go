@@ -106,8 +106,8 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 	prof.stage("load_dotnet", func() { c.loadDotNet(metrics, containers) })
 	prof.stage("load_python", func() { c.loadPython(metrics, containers) })
 	prof.stage("enrich_instances", func() { enrichInstances(w, metrics, rdsInstancesById, ecInstancesById) })
-	prof.stage("join_db_cluster", func() { joinDBClusterComponents(w) })
 	prof.stage("calc_app_categories", func() { c.calcApplicationCategories(w) })
+	prof.stage("join_db_cluster", func() { c.joinDBClusterComponents(w) })
 	prof.stage("load_app_settings", func() { c.loadApplicationSettings(w) })
 	prof.stage("load_app_sli", func() { c.loadSLIs(w, metrics) })
 	prof.stage("load_container_logs", func() { c.loadContainerLogs(metrics, containers, pjs) })
@@ -235,6 +235,23 @@ func (c *Constructor) queryCache(ctx context.Context, from, to timeseries.Time, 
 
 func (c *Constructor) calcApplicationCategories(w *model.World) {
 	for _, app := range w.Applications {
+		if annotation := app.CategoryAnnotation.Value(); annotation != "" {
+			app.Category = model.ApplicationCategory(annotation)
+			continue
+		}
+		instanceAnnotations := utils.NewStringSet()
+		for _, i := range app.Instances {
+			if i.IsObsolete() {
+				continue
+			}
+			if annotation := i.ApplicationCategory.Value(); annotation != "" {
+				instanceAnnotations.Add(annotation)
+			}
+		}
+		if annotation := instanceAnnotations.GetFirst(); annotation != "" {
+			app.Category = model.ApplicationCategory(annotation)
+			continue
+		}
 		app.Category = model.CalcApplicationCategory(app.Id, c.project.Settings.ApplicationCategories)
 	}
 }
@@ -386,9 +403,12 @@ func enrichInstances(w *model.World, metrics map[string][]*model.MetricValues, r
 	}
 }
 
-func joinDBClusterComponents(w *model.World) {
-	clusters := map[model.ApplicationId]*model.Application{}
-	toDelete := map[model.ApplicationId]*model.Application{}
+func (c *Constructor) joinDBClusterComponents(w *model.World) {
+	type dbCluster struct {
+		app     *model.Application
+		members map[model.ApplicationId]*model.Application
+	}
+	clusters := map[model.ApplicationId]*dbCluster{}
 	for _, app := range w.Applications {
 		for _, instance := range app.Instances {
 			if instance.ClusterName.Value() == "" {
@@ -397,39 +417,41 @@ func joinDBClusterComponents(w *model.World) {
 			id := model.NewApplicationId(app.Id.Namespace, model.ApplicationKindDatabaseCluster, instance.ClusterName.Value())
 			cluster := clusters[id]
 			if cluster == nil {
-				cluster = w.GetOrCreateApplication(id, false)
+				cluster = &dbCluster{app: w.GetOrCreateApplication(id, false), members: map[model.ApplicationId]*model.Application{}}
 				clusters[id] = cluster
 			}
-			toDelete[app.Id] = cluster
+			cluster.members[app.Id] = app
 		}
 	}
-	if len(toDelete) > 0 {
-		for id, app := range w.Applications {
-			cluster := toDelete[app.Id]
-			if cluster == nil {
-				continue
-			}
+	for _, cluster := range clusters {
+		categories := utils.NewStringSet()
+		for _, app := range cluster.members {
 			for _, svc := range app.KubernetesServices {
 				found := false
-				for _, existingSvc := range cluster.KubernetesServices {
+				for _, existingSvc := range cluster.app.KubernetesServices {
 					if svc.Name == existingSvc.Name && svc.Namespace == existingSvc.Namespace {
 						found = true
 						break
 					}
 				}
 				if !found {
-					cluster.KubernetesServices = append(cluster.KubernetesServices, svc)
+					cluster.app.KubernetesServices = append(cluster.app.KubernetesServices, svc)
 				}
-				svc.DestinationApps[cluster.Id] = cluster
-				delete(svc.DestinationApps, id)
+				svc.DestinationApps[cluster.app.Id] = cluster.app
+				delete(svc.DestinationApps, app.Id)
 			}
-			cluster.DesiredInstances = merge(cluster.DesiredInstances, app.DesiredInstances, timeseries.NanSum)
+			cluster.app.DesiredInstances = merge(cluster.app.DesiredInstances, app.DesiredInstances, timeseries.NanSum)
 			for _, instance := range app.Instances {
-				instance.Owner = cluster
+				instance.Owner = cluster.app
 				instance.ClusterComponent = app
+				cluster.app.Instances = append(cluster.app.Instances, instance)
 			}
-			cluster.Instances = append(cluster.Instances, app.Instances...)
-			delete(w.Applications, id)
+			categories.Add(string(app.Category))
+			delete(w.Applications, app.Id)
+		}
+		cluster.app.Category = model.ApplicationCategory(categories.GetFirst())
+		if cluster.app.Category == "" {
+			cluster.app.Category = model.CalcApplicationCategory(cluster.app.Id, c.project.Settings.ApplicationCategories)
 		}
 	}
 }
