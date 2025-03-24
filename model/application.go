@@ -39,6 +39,9 @@ type Application struct {
 	Settings *ApplicationSettings
 
 	KubernetesServices []*Service
+
+	DNSRequests          map[DNSRequest]map[string]*timeseries.TimeSeries
+	DNSRequestsHistogram map[float32]*timeseries.TimeSeries
 }
 
 func NewApplication(id ApplicationId) *Application {
@@ -48,6 +51,9 @@ func NewApplication(id ApplicationId) *Application {
 		LogMessages:     map[LogLevel]*LogMessages{},
 		Upstreams:       map[ApplicationId]*AppToAppConnection{},
 		Downstreams:     map[ApplicationId]*AppToAppConnection{},
+
+		DNSRequests:          map[DNSRequest]map[string]*timeseries.TimeSeries{},
+		DNSRequestsHistogram: map[float32]*timeseries.TimeSeries{},
 	}
 	return app
 }

@@ -50,81 +50,69 @@ func (a *appAuditor) dns() {
 		"DNS latency, seconds",
 		nil,
 	)
-	hist := map[float32]*timeseries.Aggregate{}
 	byType := map[string]*timeseries.Aggregate{}
 	errors := map[string]*timeseries.Aggregate{}
 	byDomain := map[string]*DNSStats{}
 
 	seenDNSRequests := false
-	for _, instance := range a.app.Instances {
-		for _, container := range instance.Containers {
-			for r, byStatus := range container.DNSRequests {
-				for status, ts := range byStatus {
-					if !seenDNSRequests && ts.Reduce(timeseries.NanSum) > 0 {
-						seenDNSRequests = true
-					}
-					d := byDomain[r.Domain]
-					if d == nil {
-						d = &DNSStats{Domain: r.Domain}
-						byDomain[r.Domain] = d
-					}
-					v := ts.Reduce(timeseries.NanSum)
-					if timeseries.IsNaN(v) {
-						continue
-					}
-					total := uint64(math.Round(float64(v) * float64(a.w.Ctx.Step)))
-					var st *DnsTypeStats
-					switch r.Type {
-					case "TypeA":
-						st = &d.A
-					case "TypeAAAA":
-
-						st = &d.AAAA
-					default:
-						st = &d.Other
-					}
-					st.Requests += total
-					switch status {
-					case "ok":
-					case "nxdomain":
-						st.NxDomain += total
-					default:
-						serverErrorsCheck.Inc(int64(total))
-						st.ServFail += total
-					}
-					if requestsChart != nil {
-						t := byType[r.Type]
-						if t == nil {
-							t = timeseries.NewAggregate(timeseries.NanSum)
-							byType[r.Type] = t
-						}
-						t.Add(ts)
-
-						if status != "ok" {
-							label := r.Type + ":" + status
-							e := errors[label]
-							if e == nil {
-								e = timeseries.NewAggregate(timeseries.NanSum)
-								errors[label] = e
-							}
-							e.Add(ts)
-						}
-					}
-				}
+	for r, byStatus := range a.app.DNSRequests {
+		for status, ts := range byStatus {
+			if !seenDNSRequests && ts.Reduce(timeseries.NanSum) > 0 {
+				seenDNSRequests = true
 			}
-			for b, ts := range container.DNSRequestsHistogram {
-				v := hist[b]
-				if v == nil {
-					v = timeseries.NewAggregate(timeseries.NanSum)
-					hist[b] = v
+			d := byDomain[r.Domain]
+			if d == nil {
+				d = &DNSStats{Domain: r.Domain}
+				byDomain[r.Domain] = d
+			}
+			v := ts.Reduce(timeseries.NanSum)
+			if timeseries.IsNaN(v) {
+				continue
+			}
+			total := uint64(math.Round(float64(v) * float64(a.w.Ctx.Step)))
+			var st *DnsTypeStats
+			switch r.Type {
+			case "TypeA":
+				st = &d.A
+			case "TypeAAAA":
+
+				st = &d.AAAA
+			default:
+				st = &d.Other
+			}
+			st.Requests += total
+			switch status {
+			case "ok":
+			case "nxdomain":
+				st.NxDomain += total
+			default:
+				serverErrorsCheck.Inc(int64(total))
+				st.ServFail += total
+			}
+			if requestsChart != nil {
+				t := byType[r.Type]
+				if t == nil {
+					t = timeseries.NewAggregate(timeseries.NanSum)
+					byType[r.Type] = t
 				}
-				v.Add(ts)
+				t.Add(ts)
+
+				if status != "ok" {
+					label := r.Type + ":" + status
+					e := errors[label]
+					if e == nil {
+						e = timeseries.NewAggregate(timeseries.NanSum)
+						errors[label] = e
+					}
+					e.Add(ts)
+				}
+
 			}
 		}
 	}
 
-	buckets := make([]model.HistogramBucket, 0, len(hist))
-	for le, ts := range hist {
+	buckets := make([]model.HistogramBucket, 0, len(a.app.DNSRequestsHistogram))
+	for le, ts := range a.app.DNSRequestsHistogram {
 		buckets = append(buckets, model.HistogramBucket{Le: le, TimeSeries: ts.Get()})
 	}
 	sort.Slice(buckets, func(i, j int) bool {
