@@ -34,6 +34,9 @@ const (
 	qRecordingRuleInstanceL7Latency  = "rr_instance_l7_latency"
 
 	qRecordingRuleApplicationL7Histogram = "rr_application_l7_histogram"
+
+	qRecordingRuleDNSRequests = "rr_dns_requests"
+	qRecordingRuleDNSLatency  = "rr_dns_latency"
 )
 
 var qConnectionAggregations = []string{
@@ -50,6 +53,9 @@ var qConnectionAggregations = []string{
 	qRecordingRuleInstanceL7Requests,
 	qRecordingRuleInstanceL7Latency,
 	qRecordingRuleApplicationTraffic,
+
+	qRecordingRuleDNSRequests,
+	qRecordingRuleDNSLatency,
 }
 
 var (
@@ -237,8 +243,8 @@ var QUERIES = []Query{
 	qItoI("container_rabbitmq_messages", `rate(container_rabbitmq_messages_total[$RANGE])`, "status", "method"),
 	qItoI("container_nats_messages", `rate(container_nats_messages_total[$RANGE])`, "status", "method"),
 
-	Q("container_dns_requests_total", `rate(container_dns_requests_total[$RANGE])`, "request_type", "domain", "status"),
-	Q("container_dns_requests_latency", `rate(container_dns_requests_duration_seconds_total_bucket[$RANGE])`, "le"),
+	qItoI("container_dns_requests_total", `rate(container_dns_requests_total[$RANGE])`, "request_type", "domain", "status"),
+	qItoI("container_dns_requests_latency", `rate(container_dns_requests_duration_seconds_total_bucket[$RANGE])`, "le"),
 
 	Q("aws_discovery_error", `aws_discovery_error`, "error"),
 	qRDS("aws_rds_info", `aws_rds_info`, "cluster_id", "ipv4", "port", "engine", "engine_version", "instance_type", "storage_type", "region", "availability_zone", "multi_az"),
@@ -647,6 +653,68 @@ var RecordingRules = map[string]func(p *db.Project, w *model.World) []*model.Met
 			if ts := stats.CrossAZIngress.Get(); !ts.IsEmpty() {
 				ls := model.Labels{"app": appId, "kind": string(model.TrafficKindCrossAZIngress)}
 				res = append(res, &model.MetricValues{Labels: ls, LabelsHash: promModel.LabelsToSignature(ls), Values: ts})
+			}
+		}
+		return res
+	},
+
+	qRecordingRuleDNSRequests: func(p *db.Project, w *model.World) []*model.MetricValues {
+		var res []*model.MetricValues
+		type key struct {
+			request model.DNSRequest
+			status  string
+		}
+		for _, app := range w.Applications {
+			sum := map[key]*timeseries.Aggregate{}
+			for _, instance := range app.Instances {
+				for _, c := range instance.Containers {
+					for r, byStatus := range c.DNSRequests {
+						for status, ts := range byStatus {
+							k := key{request: r, status: status}
+							agg := sum[k]
+							if agg == nil {
+								agg = timeseries.NewAggregate(timeseries.NanSum)
+								sum[k] = agg
+							}
+							agg.Add(ts)
+						}
+					}
+				}
+			}
+			appId := app.Id.String()
+			for k, agg := range sum {
+				ts := agg.Get()
+				if !ts.IsEmpty() {
+					ls := model.Labels{"app": appId, "request_type": k.request.Type, "domain": k.request.Domain, "status": k.status}
+					res = append(res, &model.MetricValues{Labels: ls, LabelsHash: promModel.LabelsToSignature(ls), Values: ts})
+				}
+			}
+		}
+		return res
+	},
+	qRecordingRuleDNSLatency: func(p *db.Project, w *model.World) []*model.MetricValues {
+		var res []*model.MetricValues
+		for _, app := range w.Applications {
+			sum := map[float32]*timeseries.Aggregate{}
+			for _, instance := range app.Instances {
+				for _, c := range instance.Containers {
+					for le, ts := range c.DNSRequestsHistogram {
+						agg := sum[le]
+						if agg == nil {
+							agg = timeseries.NewAggregate(timeseries.NanSum)
+							sum[le] = agg
+						}
+						agg.Add(ts)
+					}
+				}
+			}
+			appId := app.Id.String()
+			for le, agg := range sum {
+				ts := agg.Get()
+				if !ts.IsEmpty() {
+					ls := model.Labels{"app": appId, "le": fmt.Sprintf("%f", le)}
+					res = append(res, &model.MetricValues{Labels: ls, LabelsHash: promModel.LabelsToSignature(ls), Values: ts})
+				}
 			}
 		}
 		return res
