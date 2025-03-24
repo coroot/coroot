@@ -75,7 +75,9 @@
             <p>
                 You can organize your applications into groups by defining
                 <a href="https://en.wikipedia.org/wiki/Glob_(programming)" target="_blank">glob patterns</a>
-                in the <var>&lt;namespace&gt;/&lt;application_name&gt;</var> format.
+                in the <var>&lt;namespace&gt;/&lt;application_name&gt;</var> format. For Kubernetes applications, categories can also be defined by
+                annotating Kubernetes objects. Refer the
+                <a href="https://docs.coroot.com/configuration/application-categories" target="_blank">documentation</a> for more details.
             </p>
             <ApplicationCategories />
 

@@ -3,6 +3,8 @@ package utils
 import (
 	"encoding/json"
 	"sort"
+
+	"golang.org/x/exp/maps"
 )
 
 type StringSet struct {
@@ -46,25 +48,21 @@ func (ss *StringSet) Len() int {
 }
 
 func (ss *StringSet) Items() []string {
-	var res []string
 	if ss == nil {
-		return res
+		return []string{}
 	}
-	for s := range ss.m {
-		res = append(res, s)
-	}
+	res := maps.Keys(ss.m)
 	sort.Strings(res)
 	return res
 }
 
+func (ss *StringSet) GetFirst() string {
+	if ss.Len() == 0 {
+		return ""
+	}
+	return ss.Items()[0]
+}
+
 func (ss *StringSet) MarshalJSON() ([]byte, error) {
-	if ss == nil {
-		return json.Marshal([]string{})
-	}
-	sl := make([]string, 0, len(ss.m))
-	for el := range ss.m {
-		sl = append(sl, el)
-	}
-	sort.Strings(sl)
-	return json.Marshal(sl)
+	return json.Marshal(ss.Items())
 }

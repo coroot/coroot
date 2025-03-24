@@ -11,8 +11,9 @@ import (
 type Application struct {
 	Id ApplicationId
 
-	Custom   bool
-	Category ApplicationCategory
+	Custom             bool
+	Category           ApplicationCategory
+	CategoryAnnotation LabelLastValue
 
 	Instances       []*Instance
 	instancesByName map[string][]*Instance
