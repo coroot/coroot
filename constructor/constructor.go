@@ -244,7 +244,7 @@ func (c *Constructor) calcApplicationCategories(w *model.World) {
 			if i.IsObsolete() {
 				continue
 			}
-			if annotation := i.ApplicationCategoryAnnotation.Value(); annotation != "" {
+			if annotation := i.ApplicationCategory.Value(); annotation != "" {
 				instanceAnnotations.Add(annotation)
 			}
 		}
