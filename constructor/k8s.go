@@ -130,6 +130,9 @@ func loadApplications(w *model.World, metrics map[string][]*model.MetricValues) 
 				if category := m.Labels[annotationApplicationCategory]; category != "" {
 					app.CategoryAnnotation.Update(m.Values, category)
 				}
+				if name := m.Labels[annotationCustomApplicationName]; name != "" {
+					app.CustomNameAnnotation.Update(m.Values, name)
+				}
 			}
 		}
 	}
@@ -290,7 +293,10 @@ func podAnnotations(metrics []*model.MetricValues, pods map[string]*model.Instan
 		}
 
 		if category := m.Labels[annotationApplicationCategory]; category != "" {
-			instance.ApplicationCategory.Update(m.Values, category)
+			instance.ApplicationCategoryAnnotation.Update(m.Values, category)
+		}
+		if name := m.Labels[annotationCustomApplicationName]; name != "" {
+			instance.ApplicationCustomNameAnnotation.Update(m.Values, name)
 		}
 	}
 }
