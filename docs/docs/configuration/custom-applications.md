@@ -10,8 +10,29 @@ Coroot groups individual containers into applications using the following approa
 * Non-Kubernetes containers: Containers such as Docker containers or Systemd units are grouped into applications by their names. For example, Systemd services named mysql on different hosts are grouped into a single application called mysql.
 
 This default approach works well in most cases. However, since no one knows your system better than you do, 
-Coroot allows you to manually adjust application groupings to better fit your specific needs. 
-You can match desired application instances by defining [glob patterns](https://en.wikipedia.org/wiki/Glob_(programming)) for `instance_name`. Note that this is not applicable to Kubernetes applications.
+Coroot allows you to manually adjust application groupings to better fit your specific needs.
+
+## Kubernetes annotations
+
+To define a custom name for a Kubernetes application (Deployment, StatefulSet, DaemonSet, or CronJob),
+annotate it with the `coroot.com/custom-application-name` annotation.
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: some-app-123
+  namespace: default
+  annotations:
+    coroot.com/custom-application-name: some-app
+```
+
+The custom application name can also be defined using Pod annotations.
+
+## Pattern-based configuration
+
+For non-Kubernetes applications,
+You can match desired application instances by defining [glob patterns](https://en.wikipedia.org/wiki/Glob_(programming)) for `instance_name`.
 
 For example, if you have 10 Apache HTTPD instances running on 10 nodes as systemd services, 
 Coroot typically groups them into one application by their unit name. 

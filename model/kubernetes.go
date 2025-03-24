@@ -25,6 +25,7 @@ const (
 	ApplicationKindNomadJobGroup      ApplicationKind = "NomadJobGroup"
 	ApplicationKindArgoWorkflow       ApplicationKind = "Workflow"
 	ApplicationKindSparkApplication   ApplicationKind = "SparkApplication"
+	ApplicationKindCustomApplication  ApplicationKind = "CustomApplication"
 )
 
 type Job struct{}

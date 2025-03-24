@@ -90,7 +90,7 @@
 
             <p>Coroot groups individual containers into applications using the following approach:</p>
 
-            <ul>
+            <ul class="mb-3">
                 <li><b>Kubernetes metadata</b>: Pods are grouped into Deployments, StatefulSets, etc.</li>
                 <li>
                     <b>Non-Kubernetes containers</b>: Containers such as Docker containers or Systemd units are grouped into applications by their
@@ -99,11 +99,13 @@
                 </li>
             </ul>
 
-            <p class="my-5">
+            <p>
                 This default approach works well in most cases. However, since no one knows your system better than you do, Coroot allows you to
                 manually adjust application groupings to better fit your specific needs. You can match desired application instances by defining
                 <a href="https://en.wikipedia.org/wiki/Glob_(programming)" target="_blank">glob patterns</a>
-                for <var>instance_name</var>. Note that this is not applicable to Kubernetes applications.
+                for <var>instance_name</var>. Note that this does not apply to Kubernetes applications, which can be customized by annotating
+                Kubernetes objects. Refer the
+                <a href="https://docs.coroot.com/configuration/custom-applications" target="_blank">documentation</a> for more details.
             </p>
 
             <CustomApplications />
