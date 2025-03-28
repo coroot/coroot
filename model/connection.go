@@ -69,8 +69,6 @@ type Connection struct {
 	Instance         *Instance
 	RemoteInstance   *Instance
 
-	Container string
-
 	Rtt *timeseries.TimeSeries
 
 	SuccessfulConnections *timeseries.TimeSeries
