@@ -100,7 +100,6 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 	prof.stage("load_fargate_containers", func() { loadFargateContainers(w, metrics, pjs) })
 	prof.stage("load_containers", func() { c.loadContainers(w, metrics, pjs, nodes, containers, servicesByClusterIP, ip2fqdn) })
 	prof.stage("load_app_to_app_connections", func() { c.loadAppToAppConnections(w, metrics) })
-	prof.stage("load_app_dns", func() { c.loadAppDNS(w, metrics) })
 	prof.stage("load_application_traffic", func() { c.loadApplicationTraffic(w, metrics) })
 	prof.stage("load_jvm", func() { c.loadJVM(metrics, containers) })
 	prof.stage("load_dotnet", func() { c.loadDotNet(metrics, containers) })
