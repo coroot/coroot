@@ -41,7 +41,7 @@ func (c *Constructor) getInstanceByAppId(apps map[nsName]*model.Application, app
 		return nil, nil
 	}
 	app := apps[nsName{parts[2], parts[3]}]
-	if len(app.Instances) == 0 {
+	if app == nil || len(app.Instances) == 0 {
 		return nil, nil
 	}
 	return app.Instances[0], nil
