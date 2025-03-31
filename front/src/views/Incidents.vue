@@ -44,7 +44,7 @@
                 { value: 'availability', text: 'Availability', sortable: false },
                 { value: 'latency', text: 'Latency', sortable: false },
                 { value: 'affected_request_percent', text: 'Affected requests', sortable: true },
-                { value: 'error_budget_consumed_percent', text: 'Consumed error budged', sortable: true },
+                { value: 'error_budget_consumed_percent', text: 'Consumed error budget', sortable: true },
                 { value: 'actions', text: '', sortable: false, align: 'end', width: '20px' },
             ]"
             :footer-props="{ itemsPerPageOptions: [10, 20, 50, 100, -1] }"
