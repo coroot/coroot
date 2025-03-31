@@ -52,17 +52,18 @@ export default class Api {
                     this.context.search = response.data.context.search;
                 }
                 try {
-                    cb(response.data.data || response.data, '');
+                    cb(response.data.data || response.data, '', response.status);
                 } catch (e) {
                     console.error(e);
                 }
             })
             .catch((error) => {
+                const status = error.response && error.response.status;
                 const err = error.response && error.response.data && error.response.data.trim();
-                if (error.response && error.response.status === 302) {
+                if (status === 302) {
                     window.location = err;
                 }
-                if (error.response && error.response.status === 401) {
+                if (status === 401) {
                     const r = this.router.currentRoute;
                     const action = err || undefined;
                     if (!r.meta.anonymous || r.query.action !== action) {
@@ -70,7 +71,7 @@ export default class Api {
                         this.router.push({ name: 'login', query: { action, next } }).catch((err) => err);
                     }
                 }
-                cb(null, err || error.message || defaultErrorMessage);
+                cb(null, err || error.message || defaultErrorMessage, status);
             });
     }
 
