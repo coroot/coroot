@@ -65,20 +65,47 @@ This makes the login process easier and more secure by centralizing authenticati
 * Click Next.
 * On the General Settings tab, enter a name for your Coroot integration. You can also upload the [logo](https://coroot.com/static/img/coroot_512.png).
   <img alt="Okta app" src="/img/docs/saml_okta_app.png" class="card w-600"/>
-
 * On the Configure SAML tab:
   * For both Single sign on URL and Audience URI (SP Entity ID) fields use the https://COROOT_ADDRESS/sso/saml URL.  
     <img alt="SAML Okta params" src="/img/docs/saml_okta_params.png"  class="card w-600"/>
-
   * In the Attribute Statements section, configure `Email`, `FirstName`, and `LastName` attributes.
     <img alt="Okta SAML attributes" src="/img/docs/saml_okta_attributes.png" class="card w-600"/>
-  
 * Click Next.
 * On the final Feedback tab, fill out the form and then click Finish.
 * Download **Identity Provider Metadata XML** using the `Metadata URL`:
-  <img alt="Add user" src="/img/docs/saml_okta_metadata.png" class="card w-600"/>
+  <img alt="Okta SAML metadata" src="/img/docs/saml_okta_metadata.png" class="card w-600"/>
+* [Configure and enable](#configure-saml-for-coroot) SAML authentication for Coroot.
 
-### Configure SAML authentication in Coroot
+### Setup SAML with Keycloak
+
+* Log in to Keycloak as an administrator.
+* Select **Clients**, then click **Create client**.
+  <img alt="Keycloak client general settings" src="/img/docs/saml_keycloak_client_general_settings.png" class="card w-600"/>
+* Click **Next** and configure the **Home URL** and **Valid redirect URIs** fields.
+  <img alt="Keycloak client login settings" src="/img/docs/saml_keycloak_client_login_settings.png" class="card w-600"/>
+* **Save** the client.
+* Under the **Keys** tab, set **Client signature required** to **Off**.
+  <img alt="Keycloak client keys settings" src="/img/docs/saml_keycloak_client_keys_settings.png" class="card w-600"/>
+* Navigate to the **Client scopes** tab and click **http://&lt;COROOT ADDRESS&gt;/sso/saml-dedicated**.
+  <img alt="Keycloak client scopes" src="/img/docs/saml_keycloak_client_scopes.png" class="card w-600"/>
+* Click **Add predefined mapper**, select the **X500 email**, **X500 givenName**, and **X500 surname** attributes, and click **Add**.
+  <img alt="Keycloak client mappers" src="/img/docs/saml_keycloak_client_mappers.png" class="card w-600"/>
+* Configure attributes mapping.
+  :::info
+  Coroot expects to receive the following attributes: <b>Email</b>, <b>FirstName</b>, and <b>LastName</b>
+  :::
+  <img alt="Keycloak client mappers" src="/img/docs/saml_keycloak_client_attributes.png" class="card w-600"/>
+  * Click **X500 email** and set **SAML Attribute Name** to _Email_, and **SAML Attribute NameFormat** to _Basic_.
+    <img alt="Keycloak client mappers Email" src="/img/docs/saml_keycloak_client_attributes_email.png" class="card w-600"/>
+  * Click **X500 givenName** and set **SAML Attribute Name** to _FirstName_, and **SAML Attribute NameFormat** to _Basic_.
+    <img alt="Keycloak client mappers Email" src="/img/docs/saml_keycloak_client_attributes_firstname.png" class="card w-600"/>
+  * Click **X500 surname** and set **SAML Attribute Name** to _LastName_, and **SAML Attribute NameFormat** to _Basic_.
+    <img alt="Keycloak client mappers Email" src="/img/docs/saml_keycloak_client_attributes_lastname.png" class="card w-600"/>
+* Within you realm, select **Realm settings** and download **SAML 2.0 Identity Provider Metadata**
+  <img alt="Keycloak SAML metadata" src="/img/docs/saml_keycloak_metadata.png" class="card w-600"/>
+* [Configure and enable](#configure-saml-for-coroot) SAML authentication for Coroot.
+
+### Configure SAML for Coroot
 
 * Navigate to the **Project Settings** > **Organization** > **Single Sign-On (SAML)** section.
   <img alt="SSO" src="/img/docs/saml_upload_metadata.png" class="card w-800"/>
@@ -92,5 +119,7 @@ This makes the login process easier and more secure by centralizing authenticati
 
 Each team member authenticated through the Identity Provider will be displayed in the Users list in Coroot, allowing you to manually change their roles.
 
-Use http://COROOT_ADDRESS/login page and the admin user credentials to log in to your Coroot instance if you encounter any issues with SSO.
+### Troubleshooting
+
+Use http://&lt;COROOT_ADDRESS&gt;/login page and the **admin** user credentials to log in to your Coroot instance if you encounter any issues with SSO.
 
