@@ -1,5 +1,8 @@
+// @ts-ignore
 import React from 'react';
+// @ts-ignore
 import Footer from '@theme-original/DocItem/Footer';
+// @ts-ignore
 import type FooterType from '@theme/DocItem/Footer';
 import type { WrapperProps } from '@docusaurus/types';
 
