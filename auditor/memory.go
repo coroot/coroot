@@ -13,7 +13,7 @@ func (a *appAuditor) memory(ncs nodeConsumersByNode) {
 	leakCheck := report.CreateCheck(model.Checks.MemoryLeakPercent)
 
 	usageChart := report.GetOrCreateChartGroup(
-		"Memory usage (RSS) <selector>, bytes",
+		"Memory usage <selector>, bytes",
 		model.NewDocLink("inspections", "memory", "memory-usage"),
 	)
 	oomChart := report.GetOrCreateChart(
@@ -35,6 +35,7 @@ func (a *appAuditor) memory(ncs nodeConsumersByNode) {
 		oom := timeseries.NewAggregate(timeseries.NanSum)
 		instanceRss := timeseries.NewAggregate(timeseries.NanSum)
 		instanceRssForTrend := timeseries.NewAggregate(timeseries.NanSum)
+		instancePageCache := timeseries.NewAggregate(timeseries.NanSum)
 		for _, c := range i.Containers {
 			seenContainers = true
 			if limitByContainer[c.Name] == nil {
@@ -42,11 +43,12 @@ func (a *appAuditor) memory(ncs nodeConsumersByNode) {
 			}
 			limitByContainer[c.Name].Add(c.MemoryLimit)
 			if usageChart != nil {
-				usageChart.GetOrCreateChart("container: "+c.Name).AddSeries(i.Name, c.MemoryRss)
+				usageChart.GetOrCreateChart("RSS container: "+c.Name).AddSeries(i.Name, c.MemoryRss)
 			}
 			oom.Add(c.OOMKills)
 			instanceRssForTrend.Add(c.MemoryRssForTrend)
 			instanceRss.Add(c.MemoryRss)
+			instancePageCache.Add(c.MemoryCache)
 		}
 		if a.app.PeriodicJob() {
 			leakCheck.SetStatus(model.UNKNOWN, "not checked for periodic jobs")
@@ -63,8 +65,9 @@ func (a *appAuditor) memory(ncs nodeConsumersByNode) {
 			}
 		}
 
-		if usageChart != nil && len(usageChart.Charts) > 1 {
-			usageChart.GetOrCreateChart("total").AddSeries(i.Name, instanceRss).Feature()
+		if usageChart != nil {
+			usageChart.GetOrCreateChart("RSS").AddSeries(i.Name, instanceRss).Feature()
+			usageChart.GetOrCreateChart("RSS + PageCache").AddSeries(i.Name, timeseries.Sum(instanceRss.Get(), instancePageCache.Get()))
 		}
 
 		oomTs := oom.Get()
@@ -101,7 +104,7 @@ func (a *appAuditor) memory(ncs nodeConsumersByNode) {
 
 	if usageChart != nil {
 		for container, limit := range limitByContainer {
-			usageChart.GetOrCreateChart("container: "+container).SetThreshold("limit", limit.Get())
+			usageChart.GetOrCreateChart("RSS container: "+container).SetThreshold("limit", limit.Get())
 		}
 	}
 
