@@ -23,7 +23,9 @@ LABEL name="coroot" \
 COPY LICENSE /licenses/LICENSE
 
 COPY --from=backend-builder /tmp/src/coroot /opt/coroot/coroot
+RUN mkdir /data && chown 65534:65534 /data
 
+USER 65534:65534
 VOLUME /data
 EXPOSE 8080
 
