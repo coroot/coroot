@@ -17,6 +17,7 @@ SYSTEM_NAME=
 SYSTEM_DESCRIPTION=
 FILE_SERVICE=
 FILE_ENV=
+REPO=
 ARGS=
 
 info() {
@@ -95,7 +96,7 @@ get_release_version() {
 
 download_binary() {
     info "Downloading binary"
-    URL="${GITHUB_URL}/download/${VERSION}/${SYSTEM_NAME}-${ARCH}"
+    URL="${GITHUB_URL}/download/${VERSION}/${REPO}-${ARCH}"
     set +e
     case $DOWNLOADER in
         curl)
@@ -175,7 +176,7 @@ create_env_file() {
     $SUDO chmod 0600 ${FILE_ENV}
     case $SYSTEM_NAME in
         coroot)
-            env_vars="LISTEN|URL_BASE_PATH|CACHE_TTL|CACHE_GC_INTERVAL|TRACES_TTL|LOGS_TTL|PROFILES_TTL|PG_CONNECTION_STRING|DISABLE_USAGE_STATISTICS|READ_ONLY|BOOTSTRAP_PROMETHEUS_URL|BOOTSTRAP_REFRESH_INTERVAL|BOOTSTRAP_PROMETHEUS_EXTRA_SELECTOR|DO_NOT_CHECK_SLO|DO_NOT_CHECK_FOR_DEPLOYMENTS|DO_NOT_CHECK_FOR_UPDATES|BOOTSTRAP_CLICKHOUSE_ADDRESS|BOOTSTRAP_CLICKHOUSE_USER|BOOTSTRAP_CLICKHOUSE_PASSWORD|BOOTSTRAP_CLICKHOUSE_DATABASE"
+            env_vars="LICENSE_KEY|LISTEN|URL_BASE_PATH|CACHE_TTL|CACHE_GC_INTERVAL|TRACES_TTL|LOGS_TTL|PROFILES_TTL|PG_CONNECTION_STRING|DISABLE_USAGE_STATISTICS|READ_ONLY|BOOTSTRAP_PROMETHEUS_URL|BOOTSTRAP_REFRESH_INTERVAL|BOOTSTRAP_PROMETHEUS_EXTRA_SELECTOR|DO_NOT_CHECK_SLO|DO_NOT_CHECK_FOR_DEPLOYMENTS|DO_NOT_CHECK_FOR_UPDATES|BOOTSTRAP_CLICKHOUSE_ADDRESS|BOOTSTRAP_CLICKHOUSE_USER|BOOTSTRAP_CLICKHOUSE_PASSWORD|BOOTSTRAP_CLICKHOUSE_DATABASE"
             sh -c export | while read x v; do echo $v; done | grep -E "^(${env_vars})" | $SUDO tee ${FILE_ENV} >/dev/null
             ;;
         coroot-cluster-agent)
@@ -202,7 +203,7 @@ create_service_file() {
     $SUDO tee ${FILE_SERVICE} >/dev/null << EOF
 [Unit]
 Description=${SYSTEM_DESCRIPTION}
-Documentation=https://coroot.com
+Documentation=https://docs.coroot.com
 Wants=network-online.target
 After=network-online.target
 
@@ -241,11 +242,12 @@ service_enable_and_start() {
 install() {
     SYSTEM_NAME=$1
     SYSTEM_DESCRIPTION=$2
-    ARGS=$3
+    REPO=$3
+    ARGS=$4
 
     FILE_SERVICE=${SYSTEMD_DIR}/${SYSTEM_NAME}.service
     FILE_ENV=${FILE_SERVICE}.env
-    GITHUB_URL="https://github.com/coroot/${SYSTEM_NAME}/releases"
+    GITHUB_URL="https://github.com/coroot/${REPO}/releases"
 
     echo "*** INSTALLING ${SYSTEM_NAME} ***"
     download
@@ -262,6 +264,10 @@ install() {
 
     create_uninstall
 
-    install coroot "Coroot" "--data-dir=${DATA_DIR}"
-    install coroot-cluster-agent "Coroot Cluster Agent" "--metrics-wal-dir=${DATA_DIR}"
+    if [ -n "$LICENSE_KEY" ]; then
+        install coroot "Coroot" coroot-ee "--data-dir=${DATA_DIR}"
+    else
+        install coroot "Coroot" coroot "--data-dir=${DATA_DIR}"
+    fi
+    install coroot-cluster-agent "Coroot Cluster Agent" coroot-cluster-agent "--metrics-wal-dir=${DATA_DIR}"
 }

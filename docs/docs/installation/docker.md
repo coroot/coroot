@@ -87,7 +87,7 @@ To deploy Coroot using Docker Compose, run the following command. Before applyin
 you can review the configuration file in Coroot's GitHub repository: docker-compose.yaml
 
 ```
-curl -fsS https://raw.githubusercontent.com/coroot/coroot-ee/main/deploy/docker-compose.yaml | \
+curl -fsS https://raw.githubusercontent.com/coroot/coroot/main/deploy/docker-compose.yaml | \
   LICENSE_KEY="COROOT-LICENSE-KEY-HERE" docker compose -f - up -d
 ```
 
@@ -103,11 +103,11 @@ You should see an output similar to this if the deployment is successful:
 
 ```
 CONTAINER ID   IMAGE                                 COMMAND                  CREATED              STATUS              PORTS                                          NAMES
-870119cb6859   ghcr.io/coroot/coroot-cluster-agent   "coroot-cluster-agen…"   29 seconds ago       Up 16 seconds                                                      coroot-ee-cluster-agent-1
-6f3b8f1c821c   ghcr.io/coroot/coroot-ee:1.5.4        "/opt/coroot/coroot-…"   42 seconds ago       Up 16 seconds       0.0.0.0:8080->8080/tcp, :::8080->8080/tcp      coroot-ee-coroot-1
-320e9154a8ba   clickhouse/clickhouse-server:24.3     "/entrypoint.sh"         About a minute ago   Up About a minute   8123/tcp, 9009/tcp, 127.0.0.1:9000->9000/tcp   coroot-ee-clickhouse-1
-76b5968068f0   prom/prometheus:v2.45.4               "/bin/prometheus --c…"   About a minute ago   Up About a minute   127.0.0.1:9090->9090/tcp                       coroot-ee-prometheus-1
-51e91e09e58a   ghcr.io/coroot/coroot-node-agent      "coroot-node-agent -…"   About a minute ago   Up About a minute                                                  coroot-ee-node-agent-1
+870119cb6859   ghcr.io/coroot/coroot-cluster-agent   "coroot-cluster-agen…"   29 seconds ago       Up 16 seconds                                                      coroot-cluster-agent-1
+6f3b8f1c821c   ghcr.io/coroot/coroot-ee:1.5.4        "/opt/coroot/coroot-…"   42 seconds ago       Up 16 seconds       0.0.0.0:8080->8080/tcp, :::8080->8080/tcp      coroot-coroot-1
+320e9154a8ba   clickhouse/clickhouse-server:24.3     "/entrypoint.sh"         About a minute ago   Up About a minute   8123/tcp, 9009/tcp, 127.0.0.1:9000->9000/tcp   coroot-clickhouse-1
+76b5968068f0   prom/prometheus:v2.45.4               "/bin/prometheus --c…"   About a minute ago   Up About a minute   127.0.0.1:9090->9090/tcp                       coroot-prometheus-1
+51e91e09e58a   ghcr.io/coroot/coroot-node-agent      "coroot-node-agent -…"   About a minute ago   Up About a minute                                                  coroot-node-agent-1
 ```
 
 **Step #4: Accessing Coroot**
@@ -121,7 +121,7 @@ http://NODE_IP_ADDRESS:8080/.
 To uninstall Coroot run the following command:
 
 ```
-curl -fsS https://raw.githubusercontent.com/coroot/coroot-ee/main/deploy/docker-compose.yaml | \
+curl -fsS https://raw.githubusercontent.com/coroot/coroot/main/deploy/docker-compose.yaml | \
   docker compose rm -f -s -v
 ```
 </TabItem>

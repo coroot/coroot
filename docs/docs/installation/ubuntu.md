@@ -74,14 +74,9 @@ Access Coroot at: http://NODE_IP:8080.
 To uninstall Coroot run the following command:
 
 ```bash
-/usr/bin/coroot-uninstall.sh
+/usr/local/bin/coroot-uninstall.sh
 ```
 
-Uninstall coroot-node-agent:
-
-```bash
-/usr/bin/coroot-node-agent-uninstall.sh
-```
   </TabItem>
 
   <TabItem value="ee" label="Enterprise Edition">
@@ -130,7 +125,7 @@ sudo service prometheus restart
 **Step #3: Installing Coroot**
 
 ```bash
-curl -sfL https://raw.githubusercontent.com/coroot/coroot-ee/main/deploy/install.sh | \
+curl -sfL https://raw.githubusercontent.com/coroot/coroot/main/deploy/install.sh | \
   LICENSE_KEY="COROOT-LICENSE-KEY-HERE" \
   BOOTSTRAP_PROMETHEUS_URL="http://127.0.0.1:9090" \
   BOOTSTRAP_REFRESH_INTERVAL=15s \
@@ -156,13 +151,8 @@ Access Coroot at: http://NODE_IP:8080.
 To uninstall Coroot run the following command:
 
 ```bash
-/usr/bin/coroot-ee-uninstall.sh
+/usr/local/bin/coroot-uninstall.sh
 ```
 
-Uninstall coroot-node-agent:
-
-```bash
-/usr/bin/coroot-node-agent-uninstall.sh
-```
 </TabItem>
 </Tabs>
