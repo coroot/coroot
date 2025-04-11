@@ -28,6 +28,8 @@ import (
 	"k8s.io/klog"
 )
 
+const Edition = "Community"
+
 var version = "unknown"
 
 //go:embed static
@@ -39,6 +41,7 @@ func main() {
 
 	cmd := kingpin.Parse()
 
+	klog.Infof("edition: %s", Edition)
 	klog.Infof("version: %s", version)
 
 	cfg := config.Load()
@@ -217,7 +220,7 @@ func readIndexHtml(basePath, version, instanceUuid string, checkForUpdates bool,
 		Version:         version,
 		Uuid:            instanceUuid,
 		CheckForUpdates: checkForUpdates,
-		Edition:         "Community",
+		Edition:         Edition,
 	})
 	if err != nil {
 		klog.Exitln(err)

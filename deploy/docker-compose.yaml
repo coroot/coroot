@@ -1,5 +1,3 @@
-version: '3.8'
-
 name: coroot
 
 volumes:
@@ -13,8 +11,9 @@ volumes:
 services:
   coroot:
     restart: always
-    image: ghcr.io/coroot/coroot
+    image: ghcr.io/coroot/coroot${LICENSE_KEY:+-ee} # set 'coroot-ee' as the image if LICENSE_KEY is defined
     pull_policy: always
+    user: root
     volumes:
       - coroot_data:/data
     ports:
@@ -24,6 +23,8 @@ services:
       - '--bootstrap-prometheus-url=http://prometheus:9090'
       - '--bootstrap-refresh-interval=15s'
       - '--bootstrap-clickhouse-address=clickhouse:9000'
+    environment:
+      - LICENSE_KEY=${LICENSE_KEY:-}
     depends_on:
       - clickhouse
       - prometheus

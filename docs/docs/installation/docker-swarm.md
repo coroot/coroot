@@ -92,8 +92,8 @@ This initializes a new Docker Swarm and joins the current node as a manager.
 Deploy the Coroot stack to your cluster by running the following command on the manager node. Before applying, you can review the configuration file in Coroot's GitHub repository: docker-swarm-stack.yaml
 
 ```
-curl -fsS https://raw.githubusercontent.com/coroot/coroot-ee/main/deploy/docker-swarm-stack.yaml | \
-  LICENSE_KEY="COROOT-LICENSE-KEY-HERE" docker stack deploy -c - coroot-ee
+curl -fsS https://raw.githubusercontent.com/coroot/coroot/main/deploy/docker-swarm-stack.yaml | \
+  LICENSE_KEY="COROOT-LICENSE-KEY-HERE" docker stack deploy -c - coroot
 ```
 
 **Step #3: Validate the deployment**
@@ -103,7 +103,7 @@ Here's an example of how the output might look:
 
 ```
 NAME        SERVICES
-coroot-ee   4
+coroot   4
 ```
 
 **Step #4: Installing coroot-node-agent**
@@ -132,7 +132,7 @@ Access Coroot through any node in your Docker Swarm cluster using its published 
 To uninstall Coroot run the following command:
 
 ```
-docker stack rm coroot-ee
+docker stack rm coroot
 ```
 </TabItem>
 </Tabs>

@@ -9,13 +9,24 @@ ARG VERSION=unknown
 RUN go build -mod=readonly -ldflags "-X main.version=$VERSION" -o coroot .
 
 
-FROM debian:bullseye
-RUN apt update && apt install -y ca-certificates && apt clean
+FROM registry.access.redhat.com/ubi9/ubi
 
-WORKDIR /opt/coroot
-COPY --from=backend-builder /tmp/src/coroot /opt/coroot/coroot
+ARG VERSION=unknown
+LABEL name="coroot" \
+      vendor="Coroot, Inc." \
+      maintainer="Coroot, Inc." \
+      version=${VERSION} \
+      release="1" \
+      summary="Coroot Community Edition." \
+      description="Coroot Community Edition container image."
 
+COPY LICENSE /licenses/LICENSE
+
+COPY --from=backend-builder /tmp/src/coroot /usr/bin/coroot
+RUN mkdir /data && chown 65534:65534 /data
+
+USER 65534:65534
 VOLUME /data
 EXPOSE 8080
 
-ENTRYPOINT ["/opt/coroot/coroot"]
+ENTRYPOINT ["/usr/bin/coroot"]
