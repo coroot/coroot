@@ -6,7 +6,7 @@ if [ $(id -u) -eq 0 ]; then
     SUDO=
 fi
 
-BIN_DIR=/usr/bin
+BIN_DIR=/usr/local/bin
 SYSTEMD_DIR=/etc/systemd/system
 DATA_DIR=/var/lib/coroot
 
