@@ -22,11 +22,11 @@ LABEL name="coroot" \
 
 COPY LICENSE /licenses/LICENSE
 
-COPY --from=backend-builder /tmp/src/coroot /opt/coroot/coroot
+COPY --from=backend-builder /tmp/src/coroot /usr/bin/coroot
 RUN mkdir /data && chown 65534:65534 /data
 
 USER 65534:65534
 VOLUME /data
 EXPOSE 8080
 
-ENTRYPOINT ["/opt/coroot/coroot"]
+ENTRYPOINT ["/usr/bin/coroot"]
