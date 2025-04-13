@@ -89,8 +89,8 @@ Node memory usage = (`total` - `available`) / `total` * 100%
 ### Memory consumers
 
 <div class="horizontal-images">
-  <img alt="CPU consumers" src="/img/docs/memory-consumers-1.png" class="card" />
-  <img alt="CPU consumers" src="/img/docs/memory-consumers-2.png" class="card" />
+  <img alt="Memory consumers" src="/img/docs/memory-consumers-1.png" class="card" />
+  <img alt="Memory consumers" src="/img/docs/memory-consumers-2.png" class="card" />
 </div>
 
 When you observe high memory usage on a particular node,
