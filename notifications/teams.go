@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	goteamsnotify "github.com/atc0005/go-teams-notify/v2"
-	"github.com/atc0005/go-teams-notify/v2/messagecard"
+	"github.com/atc0005/go-teams-notify/v2/adaptivecard"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 )
@@ -32,22 +32,32 @@ func (t *Teams) SendIncident(ctx context.Context, baseUrl string, n *db.Incident
 	} else {
 		title = fmt.Sprintf("[%s] **%s** is not meeting its SLOs", strings.ToUpper(n.Status.String()), n.ApplicationId.Name)
 	}
-
-	msg := messagecard.NewMessageCard()
-	msg.Summary = title
-	msg.ThemeColor = n.Status.Color()
-	msg.Text = "# " + title + "\n"
+	text := ""
 	if n.Details != nil {
-		s := &messagecard.Section{}
 		for _, r := range n.Details.Reports {
-			s.Text += fmt.Sprintf("• **%s** / %s: %s<br>", r.Name, r.Check, r.Message)
+			text += fmt.Sprintf("* **%s** / %s: %s\n", r.Name, r.Check, r.Message)
 		}
-		_ = msg.AddSection(s)
 	}
-	action, _ := messagecard.NewPotentialAction(messagecard.PotentialActionOpenURIType, "View incident")
-	action.Targets = []messagecard.PotentialActionOpenURITarget{{OS: "default", URI: incidentUrl(baseUrl, n)}}
-	_ = msg.AddPotentialAction(action)
-	if err := t.client.SendWithContext(ctx, t.webhookUrl, msg); err != nil {
+	if text == "" {
+		text = " "
+	}
+	card, err := adaptivecard.NewTextBlockCard(text, title, true)
+	if err != nil {
+		return err
+	}
+	action, err := adaptivecard.NewActionOpenURL(incidentUrl(baseUrl, n), "View incident")
+	if err != nil {
+		return err
+	}
+	err = card.AddAction(true, action)
+	if err != nil {
+		return err
+	}
+	msg, err := adaptivecard.NewMessageFromCard(card)
+	if err != nil {
+		return err
+	}
+	if err = t.client.SendWithContext(ctx, t.webhookUrl, msg); err != nil {
 		return err
 	}
 	return nil
@@ -68,33 +78,38 @@ func (t *Teams) SendDeployment(ctx context.Context, project *db.Project, ds mode
 
 	title := fmt.Sprintf("Deployment of **%s** to **%s**", d.ApplicationId.Name, project.Name)
 
-	msg := messagecard.NewMessageCard()
-	msg.Summary = title
-	msg.ThemeColor = ds.Status.Color()
-	_ = msg.AddSection(&messagecard.Section{
-		Text: "# " + title,
-		Facts: []messagecard.SectionFact{
-			{Name: "Status", Value: status},
-			{Name: "Version", Value: d.Version()},
-		},
-	})
-
+	text := fmt.Sprintf("**Status**: %s\n\n", status)
+	text += fmt.Sprintf("**Version**: %s\n\n", d.Version())
 	if ds.State == model.ApplicationDeploymentStateSummary {
-		summary := "No notable changes"
+		summary := ""
 		if len(ds.Summary) > 0 {
-			summary = ""
 			for _, s := range ds.Summary {
-				summary += fmt.Sprintf("%s %s<br>", s.Emoji(), s.Message)
+				summary += fmt.Sprintf("* %s %s\n", s.Emoji(), s.Message)
 			}
+		} else {
+			summary = "No notable changes"
 		}
-		_ = msg.AddSection(&messagecard.Section{Text: "**Summary**<br>" + summary})
+		text += "**Summary:**\n\n"
+		text += summary
 	}
 
-	action, _ := messagecard.NewPotentialAction(messagecard.PotentialActionOpenURIType, "View deployment")
-	action.Targets = []messagecard.PotentialActionOpenURITarget{{OS: "default", URI: deploymentUrl(project.Settings.Integrations.BaseUrl, project.Id, d)}}
-	_ = msg.AddPotentialAction(action)
-
-	if err := t.client.SendWithContext(ctx, t.webhookUrl, msg); err != nil {
+	card, err := adaptivecard.NewTextBlockCard(text, title, true)
+	if err != nil {
+		return err
+	}
+	action, err := adaptivecard.NewActionOpenURL(deploymentUrl(project.Settings.Integrations.BaseUrl, project.Id, d), "View deployment")
+	if err != nil {
+		return err
+	}
+	err = card.AddAction(true, action)
+	if err != nil {
+		return err
+	}
+	msg, err := adaptivecard.NewMessageFromCard(card)
+	if err != nil {
+		return err
+	}
+	if err = t.client.SendWithContext(ctx, t.webhookUrl, msg); err != nil {
 		return err
 	}
 
