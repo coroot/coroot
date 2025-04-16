@@ -20,7 +20,7 @@
         <!-- eslint-disable-next-line vue/no-mutating-props -->
         <v-text-field v-model="form.token" outlined dense :rules="[$validators.notEmpty]" />
 
-        <div class="subtitle-1">Slack channel name</div>
+        <div class="subtitle-1">Default Slack channel name</div>
         <div class="caption">Open Slack, create a public channel and enter its name below.</div>
         <!-- eslint-disable-next-line vue/no-mutating-props -->
         <v-text-field v-model="form.default_channel" outlined dense :rules="[$validators.notEmpty]">

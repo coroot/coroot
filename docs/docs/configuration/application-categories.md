@@ -6,6 +6,7 @@ sidebar_position: 9
 
 Coroot allows you to organize your applications into custom groups called Application Categories. 
 These act like scopes, helping you either hide certain applications or focus on specific ones more easily.
+Additionally, Application Categories can be used for [notification routing](#notification-routing) — for example, to send alerts to different Slack channels based on category.
 
 <img alt="Application Categories" src="/img/docs/categories.png" class="card w-1200"/>
 
@@ -26,10 +27,6 @@ metadata:
 
 The application category can also be defined using Pod annotations.
 
-:::info
-Currently, application categories defined via annotations are not shown on the project settings page.
-:::
-
 ## Pattern-based configuration
 
 For non-Kubernetes applications, or in cases where setting annotations is not possible, 
@@ -45,10 +42,10 @@ Each category is defined by a set of [glob patterns](https://en.wikipedia.org/wi
 
 Coroot also includes several pre-defined categories, such as `monitoring` and `control-plane`.
 
-
 <img alt="Configuring Application Categories" src="/img/docs/categories_configuration.png" class="card w-1200"/>
 
 ## Quick links
+
 To make organizing your apps easier, Coroot allows you to define the category for an app directly on the service map:
 
 <img alt="Categories on Service Map" src="/img/docs/category_service_map.png" class="card w-1200"/>
@@ -57,3 +54,7 @@ To make organizing your apps easier, Coroot allows you to define the category fo
 
 <img alt="Setting Categories from the Application page" src="/img/docs/category_app_page.png" class="card w-1200"/>
 
+## Notification routing
+
+A category can be configured to enable or disable notifications about incidents (SLO violations) and new deployments.
+<img alt="Setting Categories from the Application page" src="/img/docs/category_configuration.png" class="card w-600"/>

@@ -1,12 +1,5 @@
 package model
 
-import (
-	"fmt"
-	"sort"
-
-	"github.com/coroot/coroot/utils"
-)
-
 type ApplicationCategory string
 
 const (
@@ -84,29 +77,4 @@ var BuiltinCategoryPatterns = map[ApplicationCategory][]string{
 		"loki/*",
 		"observability/*",
 	},
-}
-
-func CalcApplicationCategory(appId ApplicationId, customPatterns map[ApplicationCategory][]string) ApplicationCategory {
-	categories := make([]ApplicationCategory, 0, len(BuiltinCategoryPatterns)+len(customPatterns))
-	for c := range BuiltinCategoryPatterns {
-		categories = append(categories, c)
-	}
-	for c := range customPatterns {
-		if _, ok := BuiltinCategoryPatterns[c]; ok {
-			continue
-		}
-		categories = append(categories, c)
-	}
-	sort.Slice(categories, func(i, j int) bool {
-		return categories[i] < categories[j]
-	})
-
-	id := fmt.Sprintf("%s/%s", appId.Namespace, appId.Name)
-	for _, c := range categories {
-		if utils.GlobMatch(id, BuiltinCategoryPatterns[c]...) || utils.GlobMatch(id, customPatterns[c]...) {
-			return c
-		}
-	}
-
-	return ApplicationCategoryApplication
 }

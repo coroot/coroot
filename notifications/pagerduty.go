@@ -46,3 +46,7 @@ func (pd *Pagerduty) SendIncident(ctx context.Context, baseUrl string, n *db.Inc
 	_, err := pagerduty.ManageEventWithContext(ctx, e)
 	return err
 }
+
+func (pd *Pagerduty) SendDeployment(ctx context.Context, project *db.Project, ds model.ApplicationDeploymentStatus) error {
+	return fmt.Errorf("not supported")
+}

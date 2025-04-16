@@ -62,8 +62,16 @@ func (db *DB) DB() *sql.DB {
 	return db.db
 }
 
+func (db *DB) Exec(query string, args ...any) (sql.Result, error) {
+	return db.db.Exec(query, args...)
+}
+
+func (db *DB) Query(query string, args ...any) (*sql.Rows, error) {
+	return db.db.Query(query, args...)
+}
+
 func (db *DB) Migrator() *Migrator {
-	return NewMigrator(db.typ, db.db)
+	return NewMigrator(db.typ, db)
 }
 
 func (db *DB) Migrate(extraTables ...Table) error {
@@ -98,10 +106,10 @@ type Table interface {
 
 type Migrator struct {
 	typ Type
-	db  *sql.DB
+	db  *DB
 }
 
-func NewMigrator(t Type, db *sql.DB) *Migrator {
+func NewMigrator(t Type, db *DB) *Migrator {
 	return &Migrator{typ: t, db: db}
 }
 

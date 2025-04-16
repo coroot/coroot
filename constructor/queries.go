@@ -10,12 +10,13 @@ import (
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 	promModel "github.com/prometheus/common/model"
+	"k8s.io/klog"
 )
 
 const (
-	qApplicationCustomSLI                = "application_custom_sli"
-	qRecordingRuleApplicationLogMessages = "rr_application_log_messages"
+	qApplicationCustomSLI = "application_custom_sli"
 
+	qRecordingRuleApplicationLogMessages        = "rr_application_log_messages"
 	qRecordingRuleApplicationTCPSuccessful      = "rr_connection_tcp_successful"
 	qRecordingRuleApplicationTCPActive          = "rr_connection_tcp_active"
 	qRecordingRuleApplicationTCPFailed          = "rr_connection_tcp_failed"
@@ -26,10 +27,9 @@ const (
 	qRecordingRuleApplicationNetLatency         = "rr_connection_net_latency"
 	qRecordingRuleApplicationL7Requests         = "rr_connection_l7_requests"
 	qRecordingRuleApplicationL7Latency          = "rr_connection_l7_latency"
-
-	qRecordingRuleApplicationTraffic = "rr_application_traffic"
-
-	qRecordingRuleApplicationL7Histogram = "rr_application_l7_histogram"
+	qRecordingRuleApplicationTraffic            = "rr_application_traffic"
+	qRecordingRuleApplicationL7Histogram        = "rr_application_l7_histogram"
+	qRecordingRuleApplicationCategories         = "rr_application_categories"
 
 	annotationApplicationCategory   = "annotation_coroot_com_application_category"
 	annotationCustomApplicationName = "annotation_coroot_com_custom_application_name"
@@ -358,8 +358,8 @@ var QUERIES = []Query{
 	Q("container_python_thread_lock_wait_time_seconds", `rate(container_python_thread_lock_wait_time_seconds[$RANGE])`),
 }
 
-var RecordingRules = map[string]func(p *db.Project, w *model.World) []*model.MetricValues{
-	qRecordingRuleApplicationLogMessages: func(p *db.Project, w *model.World) []*model.MetricValues {
+var RecordingRules = map[string]func(db *db.DB, p *db.Project, w *model.World) []*model.MetricValues{
+	qRecordingRuleApplicationLogMessages: func(db *db.DB, p *db.Project, w *model.World) []*model.MetricValues {
 		var res []*model.MetricValues
 		for _, app := range w.Applications {
 			appId := app.Id.String()
@@ -385,29 +385,29 @@ var RecordingRules = map[string]func(p *db.Project, w *model.World) []*model.Met
 		}
 		return res
 	},
-	qRecordingRuleApplicationTCPSuccessful: func(p *db.Project, w *model.World) []*model.MetricValues {
+	qRecordingRuleApplicationTCPSuccessful: func(db *db.DB, p *db.Project, w *model.World) []*model.MetricValues {
 		return aggConnections(w, func(c *model.Connection) *timeseries.TimeSeries { return c.SuccessfulConnections })
 	},
-	qRecordingRuleApplicationTCPActive: func(p *db.Project, w *model.World) []*model.MetricValues {
+	qRecordingRuleApplicationTCPActive: func(db *db.DB, p *db.Project, w *model.World) []*model.MetricValues {
 		return aggConnections(w, func(c *model.Connection) *timeseries.TimeSeries { return c.Active })
 	},
-	qRecordingRuleApplicationTCPFailed: func(p *db.Project, w *model.World) []*model.MetricValues {
+	qRecordingRuleApplicationTCPFailed: func(db *db.DB, p *db.Project, w *model.World) []*model.MetricValues {
 		return aggConnections(w, func(c *model.Connection) *timeseries.TimeSeries { return c.FailedConnections })
 	},
-	qRecordingRuleApplicationTCPConnectionTime: func(p *db.Project, w *model.World) []*model.MetricValues {
+	qRecordingRuleApplicationTCPConnectionTime: func(db *db.DB, p *db.Project, w *model.World) []*model.MetricValues {
 		return aggConnections(w, func(c *model.Connection) *timeseries.TimeSeries { return c.ConnectionTime })
 	},
-	qRecordingRuleApplicationTCPBytesSent: func(p *db.Project, w *model.World) []*model.MetricValues {
+	qRecordingRuleApplicationTCPBytesSent: func(db *db.DB, p *db.Project, w *model.World) []*model.MetricValues {
 		return aggConnections(w, func(c *model.Connection) *timeseries.TimeSeries { return c.BytesSent })
 	},
-	qRecordingRuleApplicationTCPBytesReceived: func(p *db.Project, w *model.World) []*model.MetricValues {
+	qRecordingRuleApplicationTCPBytesReceived: func(db *db.DB, p *db.Project, w *model.World) []*model.MetricValues {
 		return aggConnections(w, func(c *model.Connection) *timeseries.TimeSeries { return c.BytesReceived })
 	},
-	qRecordingRuleApplicationTCPRetransmissions: func(p *db.Project, w *model.World) []*model.MetricValues {
+	qRecordingRuleApplicationTCPRetransmissions: func(db *db.DB, p *db.Project, w *model.World) []*model.MetricValues {
 		return aggConnections(w, func(c *model.Connection) *timeseries.TimeSeries { return c.Retransmissions })
 	},
 
-	qRecordingRuleApplicationNetLatency: func(p *db.Project, w *model.World) []*model.MetricValues {
+	qRecordingRuleApplicationNetLatency: func(db *db.DB, p *db.Project, w *model.World) []*model.MetricValues {
 		var res []*model.MetricValues
 
 		for _, app := range w.Applications {
@@ -437,7 +437,7 @@ var RecordingRules = map[string]func(p *db.Project, w *model.World) []*model.Met
 		return res
 	},
 
-	qRecordingRuleApplicationL7Requests: func(p *db.Project, w *model.World) []*model.MetricValues {
+	qRecordingRuleApplicationL7Requests: func(db *db.DB, p *db.Project, w *model.World) []*model.MetricValues {
 		var res []*model.MetricValues
 		type key struct {
 			status   string
@@ -479,7 +479,7 @@ var RecordingRules = map[string]func(p *db.Project, w *model.World) []*model.Met
 		return res
 	},
 
-	qRecordingRuleApplicationL7Latency: func(p *db.Project, w *model.World) []*model.MetricValues {
+	qRecordingRuleApplicationL7Latency: func(db *db.DB, p *db.Project, w *model.World) []*model.MetricValues {
 		var res []*model.MetricValues
 		type key struct {
 			protocol model.Protocol
@@ -518,7 +518,7 @@ var RecordingRules = map[string]func(p *db.Project, w *model.World) []*model.Met
 		return res
 	},
 
-	qRecordingRuleApplicationL7Histogram: func(p *db.Project, w *model.World) []*model.MetricValues {
+	qRecordingRuleApplicationL7Histogram: func(db *db.DB, p *db.Project, w *model.World) []*model.MetricValues {
 		var res []*model.MetricValues
 		type key struct {
 			le   float32
@@ -559,7 +559,7 @@ var RecordingRules = map[string]func(p *db.Project, w *model.World) []*model.Met
 		return res
 	},
 
-	qRecordingRuleApplicationTraffic: func(p *db.Project, w *model.World) []*model.MetricValues {
+	qRecordingRuleApplicationTraffic: func(db *db.DB, p *db.Project, w *model.World) []*model.MetricValues {
 		var res []*model.MetricValues
 
 		for _, app := range w.Applications {
@@ -578,6 +578,22 @@ var RecordingRules = map[string]func(p *db.Project, w *model.World) []*model.Met
 			}
 		}
 		return res
+	},
+
+	qRecordingRuleApplicationCategories: func(db *db.DB, p *db.Project, w *model.World) []*model.MetricValues {
+		var needSave bool
+		for _, app := range w.Applications {
+			if _, ok := p.Settings.ApplicationCategorySettings[app.Category]; !ok {
+				p.Settings.ApplicationCategorySettings[app.Category] = nil
+				needSave = true
+			}
+		}
+		if needSave {
+			if err := db.SaveProjectSettings(p); err != nil {
+				klog.Errorln("failed to save project settings:", err)
+			}
+		}
+		return nil
 	},
 }
 

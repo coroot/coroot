@@ -26,18 +26,30 @@ func NewIncidentNotifier(db *db.DB) *IncidentNotifier {
 }
 
 func (n *IncidentNotifier) Enqueue(project *db.Project, app *model.Application, incident *model.ApplicationIncident, now timeseries.Time) {
-	integrations := project.Settings.Integrations
-	for _, i := range integrations.GetInfo() {
-		if i.Configured && i.Incidents {
-			n.enqueue(project, app, incident, i.Type, now)
-		}
+	categorySettings := project.GetApplicationCategories()[app.Category]
+	if categorySettings == nil {
+		return
+	}
+	notificationSettings := categorySettings.NotificationSettings.Incidents
+	if !notificationSettings.Enabled {
+		return
+	}
+	if slack := notificationSettings.Slack; slack != nil && slack.Enabled {
+		n.enqueue(now, project, app, incident, db.IncidentNotificationDestination{IntegrationType: db.IntegrationTypeSlack, SlackChannel: slack.Channel})
+	}
+	if teams := notificationSettings.Teams; teams != nil && teams.Enabled {
+		n.enqueue(now, project, app, incident, db.IncidentNotificationDestination{IntegrationType: db.IntegrationTypeTeams})
+	}
+	if pagerduty := notificationSettings.Pagerduty; pagerduty != nil && pagerduty.Enabled {
+		n.enqueue(now, project, app, incident, db.IncidentNotificationDestination{IntegrationType: db.IntegrationTypePagerduty})
+	}
+	if opsgenie := notificationSettings.Opsgenie; opsgenie != nil && opsgenie.Enabled {
+		n.enqueue(now, project, app, incident, db.IncidentNotificationDestination{IntegrationType: db.IntegrationTypeOpsgenie})
+	}
+	if webhook := notificationSettings.Webhook; webhook != nil && webhook.Enabled {
+		n.enqueue(now, project, app, incident, db.IncidentNotificationDestination{IntegrationType: db.IntegrationTypeWebhook})
 	}
 	n.sendIncidents()
-}
-
-type destinationKey struct {
-	integration db.IntegrationType
-	projectId   db.ProjectId
 }
 
 func (n *IncidentNotifier) sendIncidents() {
@@ -53,6 +65,11 @@ func (n *IncidentNotifier) sendIncidents() {
 	for _, p := range ps {
 		projects[p.Id] = p
 	}
+
+	type destinationKey struct {
+		projectId   db.ProjectId
+		destination db.IncidentNotificationDestination
+	}
 	failedDestinations := map[destinationKey]bool{}
 	notifications, err := n.db.GetNotSentIncidentNotifications(timeseries.Now().Add(-retryWindow))
 	if err != nil {
@@ -60,7 +77,7 @@ func (n *IncidentNotifier) sendIncidents() {
 		return
 	}
 	for _, notification := range notifications {
-		dKey := destinationKey{integration: notification.Destination, projectId: notification.ProjectId}
+		dKey := destinationKey{projectId: notification.ProjectId, destination: notification.Destination}
 		if failedDestinations[dKey] {
 			continue
 		}
@@ -72,13 +89,13 @@ func (n *IncidentNotifier) sendIncidents() {
 		var sendErr error
 		client := getClient(notification.Destination, integrations)
 		if client != nil {
-			if notification.Destination == db.IntegrationTypeSlack {
+			if notification.Destination.IntegrationType == db.IntegrationTypeSlack {
 				if prevNotifications, err := n.db.GetPreviousIncidentNotifications(notification); err != nil {
 					klog.Errorln(err)
 				} else {
-					for _, n := range prevNotifications {
-						if n.ExternalKey != "" {
-							notification.ExternalKey = n.ExternalKey
+					for _, pn := range prevNotifications {
+						if pn.ExternalKey != "" {
+							notification.ExternalKey = pn.ExternalKey
 						}
 					}
 				}
@@ -88,18 +105,18 @@ func (n *IncidentNotifier) sendIncidents() {
 			cancel()
 		}
 		if sendErr != nil {
-			klog.Errorf("send error %s: %s", notification.Destination, sendErr)
+			klog.Errorf("failed to send to %s: %s", notification.Destination.IntegrationType, sendErr)
 			failedDestinations[dKey] = true
 		} else {
 			notification.SentAt = timeseries.Now()
-			if err := n.db.UpdateIncidentNotification(notification); err != nil {
+			if err = n.db.UpdateIncidentNotification(notification); err != nil {
 				klog.Errorln(err)
 			}
 		}
 	}
 }
 
-func (n *IncidentNotifier) enqueue(project *db.Project, app *model.Application, incident *model.ApplicationIncident, destination db.IntegrationType, now timeseries.Time) {
+func (n *IncidentNotifier) enqueue(now timeseries.Time, project *db.Project, app *model.Application, incident *model.ApplicationIncident, destination db.IncidentNotificationDestination) {
 	notification := db.IncidentNotification{
 		ProjectId:     project.Id,
 		ApplicationId: app.Id,
@@ -108,7 +125,7 @@ func (n *IncidentNotifier) enqueue(project *db.Project, app *model.Application, 
 		Timestamp:     now,
 		Status:        incident.Severity,
 	}
-	switch destination {
+	switch destination.IntegrationType {
 	case db.IntegrationTypeSlack, db.IntegrationTypeTeams, db.IntegrationTypeWebhook:
 		if incident.Resolved() {
 			n.onResolve("", notification, incidentDetails(app, incident))
@@ -162,18 +179,19 @@ func (n *IncidentNotifier) getOpenIncidents(notification db.IncidentNotification
 		return "", "", err
 	}
 	var openCriticalKey, openWarningKey string
-	for _, n := range prevNotifications {
-		switch n.Status {
+	for _, prev := range prevNotifications {
+		switch prev.Status {
 		case model.CRITICAL:
-			openCriticalKey = n.ExternalKey
+			openCriticalKey = prev.ExternalKey
 		case model.WARNING:
-			openWarningKey = n.ExternalKey
+			openWarningKey = prev.ExternalKey
 		case model.OK:
-			if openWarningKey == n.ExternalKey {
+			if openWarningKey == prev.ExternalKey {
 				openWarningKey = ""
-			} else if openCriticalKey == n.ExternalKey {
+			} else if openCriticalKey == prev.ExternalKey {
 				openCriticalKey = ""
 			}
+		default:
 		}
 	}
 	return openCriticalKey, openWarningKey, nil

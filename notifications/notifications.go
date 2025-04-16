@@ -1,6 +1,7 @@
 package notifications
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"time"
@@ -18,13 +19,14 @@ const (
 
 type NotificationClient interface {
 	SendIncident(ctx context.Context, baseUrl string, n *db.IncidentNotification) error
+	SendDeployment(ctx context.Context, project *db.Project, ds model.ApplicationDeploymentStatus) error
 }
 
-func getClient(destination db.IntegrationType, integrations db.Integrations) NotificationClient {
-	switch destination {
+func getClient(destination db.IncidentNotificationDestination, integrations db.Integrations) NotificationClient {
+	switch destination.IntegrationType {
 	case db.IntegrationTypeSlack:
 		if cfg := integrations.Slack; cfg != nil && cfg.Incidents {
-			return NewSlack(cfg.Token, cfg.DefaultChannel)
+			return NewSlack(cfg.Token, cmp.Or(destination.SlackChannel, cfg.DefaultChannel))
 		}
 	case db.IntegrationTypeTeams:
 		if cfg := integrations.Teams; cfg != nil && cfg.Incidents {

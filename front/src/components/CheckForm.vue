@@ -27,10 +27,10 @@
                 <div v-if="check.id.startsWith('SLO')" class="my-3">
                     Alerting:
                     <div>
-                        <ul v-if="integrations && Object.keys(integrations).length">
-                            <li v-for="(details, type) in integrations">
-                                <span>{{ type }}</span>
-                                <span v-if="details" class="grey--text"> ({{ details }})</span>
+                        <ul v-if="integrations && integrations.length">
+                            <li v-for="i in integrations">
+                                <span>{{ i.name }}</span>
+                                <span v-if="i.details" class="grey--text"> ({{ i.details }})</span>
                             </li>
                         </ul>
                         <div v-else class="grey--text">No notification integrations configured.</div>
