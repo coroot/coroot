@@ -580,16 +580,19 @@ var RecordingRules = map[string]func(db *db.DB, p *db.Project, w *model.World) [
 		return res
 	},
 
-	qRecordingRuleApplicationCategories: func(db *db.DB, p *db.Project, w *model.World) []*model.MetricValues {
+	qRecordingRuleApplicationCategories: func(database *db.DB, p *db.Project, w *model.World) []*model.MetricValues {
 		var needSave bool
 		for _, app := range w.Applications {
 			if _, ok := p.Settings.ApplicationCategorySettings[app.Category]; !ok {
+				if p.Settings.ApplicationCategorySettings == nil {
+					p.Settings.ApplicationCategorySettings = map[model.ApplicationCategory]*db.ApplicationCategorySettings{}
+				}
 				p.Settings.ApplicationCategorySettings[app.Category] = nil
 				needSave = true
 			}
 		}
 		if needSave {
-			if err := db.SaveProjectSettings(p); err != nil {
+			if err := database.SaveProjectSettings(p); err != nil {
 				klog.Errorln("failed to save project settings:", err)
 			}
 		}
