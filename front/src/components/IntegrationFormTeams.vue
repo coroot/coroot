@@ -1,16 +1,12 @@
 <template>
     <div>
-        <div class="subtitle-1">To configure an <b>Incoming webhook connector</b> in your Microsoft Teams:</div>
+        <div class="subtitle-1">To configure an <b>Incoming webhook with Workflows</b> in your Microsoft Teams:</div>
         <ol class="mb-4 caption">
-            <li>Navigate to <b>Teams</b></li>
             <li>Choose a channel (or create a new one)</li>
-            <li>Select <v-icon color="black">mdi-dots-horizontal</v-icon> from the top navigation menu and choose <b>Connectors</b></li>
-            <li>Search for <b>Incoming Webhook</b> and press the <b>Configure</b> button</li>
-            <li>
-                Provide a name for the webhook (e.g. <i>Coroot</i>), customize the image (you can use the
-                <a href="https://coroot.com/static/img/coroot.png" target="_blank">Coroot logo</a>), and click
-                <b>Create</b>
-            </li>
+            <li>Click <v-icon color="black">mdi-dots-horizontal</v-icon> next to the channel and select <b>Workflows</b></li>
+            <li>Choose the <b>Post to a channel when a webhook request is received</b> workflow template</li>
+            <li>Provide a name (e.g., <i>Coroot</i>) and click <b>Next</b></li>
+            <li>Click <b>Add workflow</b></li>
             <li>Copy the webhook URL and paste it below</li>
         </ol>
 

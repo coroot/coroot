@@ -7,7 +7,7 @@ require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.8.3
 	github.com/DataDog/golz4 v1.3.0
 	github.com/PagerDuty/go-pagerduty v1.6.0
-	github.com/atc0005/go-teams-notify/v2 v2.7.0
+	github.com/atc0005/go-teams-notify/v2 v2.13.0
 	github.com/buger/jsonparser v1.1.1
 	github.com/coroot/logparser v1.1.4
 	github.com/dustin/go-humanize v1.0.1
