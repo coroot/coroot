@@ -9,7 +9,6 @@ import (
 	"github.com/coroot/coroot/api/views/aws"
 	"github.com/coroot/coroot/api/views/incident"
 	"github.com/coroot/coroot/api/views/inspections"
-	"github.com/coroot/coroot/api/views/integrations"
 	"github.com/coroot/coroot/api/views/logs"
 	"github.com/coroot/coroot/api/views/overview"
 	"github.com/coroot/coroot/api/views/profiling"
@@ -51,16 +50,8 @@ func Inspections(checkConfigs model.CheckConfigs) *inspections.View {
 	return inspections.Render(checkConfigs)
 }
 
-func Categories(p *db.Project) *applications.CategoriesView {
-	return applications.RenderCategories(p)
-}
-
 func CustomApplications(p *db.Project) *applications.CustomApplicationsView {
 	return applications.RenderCustomApplications(p)
-}
-
-func Integrations(p *db.Project) *integrations.View {
-	return integrations.Render(p)
 }
 
 func AWS(w *model.World) *aws.View {

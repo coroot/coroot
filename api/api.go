@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"sort"
 	"time"
 
 	"github.com/coroot/coroot/api/forms"
@@ -23,6 +24,7 @@ import (
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 	"github.com/gorilla/mux"
+	"golang.org/x/exp/maps"
 	"k8s.io/klog"
 )
 
@@ -431,9 +433,16 @@ func (api *Api) Inspections(w http.ResponseWriter, r *http.Request, u *db.User) 
 	utils.WriteJson(w, views.Inspections(checkConfigs))
 }
 
-func (api *Api) Categories(w http.ResponseWriter, r *http.Request, u *db.User) {
+func (api *Api) ApplicationCategories(w http.ResponseWriter, r *http.Request, u *db.User) {
 	vars := mux.Vars(r)
 	projectId := vars["project"]
+
+	project, err := api.db.GetProject(db.ProjectId(projectId))
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
 
 	if r.Method == http.MethodPost {
 		if !api.IsAllowed(u, rbac.Actions.Project(projectId).ApplicationCategories().Edit()) {
@@ -441,12 +450,29 @@ func (api *Api) Categories(w http.ResponseWriter, r *http.Request, u *db.User) {
 			return
 		}
 		var form forms.ApplicationCategoryForm
-		if err := forms.ReadAndValidate(r, &form); err != nil {
+		if err = forms.ReadAndValidate(r, &form); err != nil {
 			klog.Warningln("bad request:", err)
 			http.Error(w, "Invalid name or patterns", http.StatusBadRequest)
 			return
 		}
-		if err := api.db.SaveApplicationCategory(db.ProjectId(projectId), form.Name, form.NewName, form.CustomPatterns, form.NotifyOfDeployments); err != nil {
+		var category *db.ApplicationCategory
+		switch form.Action {
+		case "test":
+			err = form.SendTestNotification(r.Context(), project)
+			if err != nil {
+				klog.Warningln("failed to send test notification:", err)
+				http.Error(w, err.Error(), http.StatusBadRequest)
+			}
+			return
+		case "delete":
+		default:
+			category = &form.ApplicationCategory
+		}
+		if err = api.db.SaveApplicationCategory(project, form.Id, category); err != nil {
+			if errors.Is(err, db.ErrConflict) {
+				http.Error(w, "Application category already exists.", http.StatusConflict)
+				return
+			}
 			klog.Errorln("failed to save:", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
@@ -454,13 +480,31 @@ func (api *Api) Categories(w http.ResponseWriter, r *http.Request, u *db.User) {
 		return
 	}
 
-	p, err := api.db.GetProject(db.ProjectId(projectId))
-	if err != nil {
-		klog.Errorln(err)
-		http.Error(w, "", http.StatusInternalServerError)
+	categories := project.GetApplicationCategories()
+	if !r.URL.Query().Has("name") {
+		cs := maps.Values(categories)
+		sort.Slice(cs, func(i, j int) bool {
+			if cs[i].Builtin != cs[j].Builtin {
+				return cs[i].Builtin
+			}
+			return cs[i].Name < cs[j].Name
+		})
+		utils.WriteJson(w, cs)
 		return
 	}
-	utils.WriteJson(w, views.Categories(p))
+	name := model.ApplicationCategory(r.URL.Query().Get("name"))
+	if name == "" {
+		category := project.NewApplicationCategory()
+		utils.WriteJson(w, forms.ApplicationCategoryForm{ApplicationCategory: *category})
+		return
+	}
+	category := categories[name]
+	if category == nil {
+		klog.Warningln("unknown application category:", name)
+		http.Error(w, "Unknown application category: "+string(name), http.StatusNotFound)
+		return
+	}
+	utils.WriteJson(w, forms.ApplicationCategoryForm{Id: category.Name, ApplicationCategory: *category})
 }
 
 func (api *Api) CustomApplications(w http.ResponseWriter, r *http.Request, u *db.User) {
@@ -517,14 +561,21 @@ func (api *Api) Integrations(w http.ResponseWriter, r *http.Request, u *db.User)
 		return
 	}
 
-	p, err := api.db.GetProject(db.ProjectId(projectId))
+	project, err := api.db.GetProject(db.ProjectId(projectId))
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 
-	utils.WriteJson(w, views.Integrations(p))
+	integrations := project.Settings.Integrations
+	utils.WriteJson(w, struct {
+		BaseUrl      string               `json:"base_url"`
+		Integrations []db.IntegrationInfo `json:"integrations"`
+	}{
+		BaseUrl:      integrations.BaseUrl,
+		Integrations: integrations.GetInfo(),
+	})
 }
 
 func (api *Api) Integration(w http.ResponseWriter, r *http.Request, u *db.User) {
@@ -703,13 +754,13 @@ func (api *Api) Incident(w http.ResponseWriter, r *http.Request, u *db.User) {
 	incidentKey := vars["incident"]
 	incident, err := api.db.GetIncidentByKey(db.ProjectId(projectId), incidentKey)
 	if err != nil {
+		if errors.Is(err, db.ErrNotFound) {
+			klog.Warningln("incident not found:", vars["key"])
+			http.Error(w, "Incident not found", http.StatusNotFound)
+			return
+		}
 		klog.Warningln("failed to get incident:", err)
 		http.Error(w, "failed to get incident", http.StatusInternalServerError)
-		return
-	}
-	if incident == nil {
-		klog.Warningln("incident not found:", vars["key"])
-		http.Error(w, "Incident not found", http.StatusNotFound)
 		return
 	}
 	values := r.URL.Query()
@@ -751,41 +802,70 @@ func (api *Api) Inspection(w http.ResponseWriter, r *http.Request, u *db.User) {
 	}
 	checkId := model.CheckId(vars["type"])
 
+	world, project, _, err := api.LoadWorldByRequest(r)
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	if world == nil {
+		http.Error(w, "Application not found", http.StatusNotFound)
+		return
+	}
+	app := world.GetApplication(appId)
+	if app == nil {
+		klog.Warningln("application not found:", appId)
+		http.Error(w, "Application not found", http.StatusNotFound)
+		return
+	}
+
 	switch r.Method {
 	case http.MethodGet:
-		project, err := api.db.GetProject(db.ProjectId(projectId))
-		if err != nil {
-			klog.Errorln("failed to get project:", err)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-		checkConfigs, err := api.db.GetCheckConfigs(db.ProjectId(projectId))
+		checkConfigs, err := api.db.GetCheckConfigs(db.ProjectId(project.Id))
 		if err != nil {
 			klog.Errorln("failed to get check configs:", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
-		res := struct {
-			Form         any               `json:"form"`
-			Integrations map[string]string `json:"integrations"`
-		}{
-			Integrations: map[string]string{},
+		type Integration struct {
+			Name    string `json:"name"`
+			Details string `json:"details"`
 		}
-		for _, i := range project.Settings.Integrations.GetInfo() {
-			if i.Configured && i.Incidents {
-				res.Integrations[i.Title] = i.Details
+		res := struct {
+			Form         any           `json:"form"`
+			Integrations []Integration `json:"integrations"`
+		}{}
+		categorySettings := project.GetApplicationCategories()[app.Category]
+		if categorySettings != nil {
+			notificationSettings := categorySettings.NotificationSettings.Incidents
+			if notificationSettings.Enabled {
+				if slack := notificationSettings.Slack; slack != nil && slack.Enabled {
+					res.Integrations = append(res.Integrations, Integration{Name: "Slack", Details: fmt.Sprintf("channel: #%s", slack.Channel)})
+				}
+				if teams := notificationSettings.Teams; teams != nil && teams.Enabled {
+					res.Integrations = append(res.Integrations, Integration{Name: "MS Teams"})
+				}
+				if pagerduty := notificationSettings.Pagerduty; pagerduty != nil && pagerduty.Enabled {
+					res.Integrations = append(res.Integrations, Integration{Name: "Pagerduty"})
+				}
+				if opsgenie := notificationSettings.Opsgenie; opsgenie != nil && opsgenie.Enabled {
+					res.Integrations = append(res.Integrations, Integration{Name: "Opsgenie"})
+				}
+				if webhook := notificationSettings.Webhook; webhook != nil && webhook.Enabled {
+					res.Integrations = append(res.Integrations, Integration{Name: "Webhook"})
+				}
 			}
 		}
 		switch checkId {
 		case model.Checks.SLOAvailability.Id:
-			cfg, def := checkConfigs.GetAvailability(appId)
+			cfg, def := checkConfigs.GetAvailability(app.Id)
 			res.Form = forms.CheckConfigSLOAvailabilityForm{Configs: []model.CheckConfigSLOAvailability{cfg}, Default: def}
 		case model.Checks.SLOLatency.Id:
-			cfg, def := checkConfigs.GetLatency(appId, model.CalcApplicationCategory(appId, project.Settings.ApplicationCategories))
+			cfg, def := checkConfigs.GetLatency(app.Id, app.Category)
 			res.Form = forms.CheckConfigSLOLatencyForm{Configs: []model.CheckConfigSLOLatency{cfg}, Default: def}
 		default:
 			form := forms.CheckConfigForm{
-				Configs: checkConfigs.GetSimpleAll(checkId, appId),
+				Configs: checkConfigs.GetSimpleAll(checkId, app.Id),
 			}
 			if len(form.Configs) == 0 {
 				http.Error(w, "", http.StatusNotFound)
@@ -809,19 +889,19 @@ func (api *Api) Inspection(w http.ResponseWriter, r *http.Request, u *db.User) {
 				http.Error(w, "", http.StatusBadRequest)
 				return
 			}
-			if err := api.db.SaveCheckConfig(db.ProjectId(projectId), appId, checkId, form.Configs); err != nil {
+			if err = api.db.SaveCheckConfig(db.ProjectId(projectId), app.Id, checkId, form.Configs); err != nil {
 				klog.Errorln("failed to save check config:", err)
 				http.Error(w, "", http.StatusInternalServerError)
 				return
 			}
 		case model.Checks.SLOLatency.Id:
 			var form forms.CheckConfigSLOLatencyForm
-			if err := forms.ReadAndValidate(r, &form); err != nil {
+			if err = forms.ReadAndValidate(r, &form); err != nil {
 				klog.Warningln("bad request:", err)
 				http.Error(w, "", http.StatusBadRequest)
 				return
 			}
-			if err := api.db.SaveCheckConfig(db.ProjectId(projectId), appId, checkId, form.Configs); err != nil {
+			if err = api.db.SaveCheckConfig(db.ProjectId(projectId), app.Id, checkId, form.Configs); err != nil {
 				klog.Errorln("failed to save check config:", err)
 				http.Error(w, "", http.StatusInternalServerError)
 				return
@@ -841,9 +921,9 @@ func (api *Api) Inspection(w http.ResponseWriter, r *http.Request, u *db.User) {
 				case 1:
 					id = model.ApplicationIdZero
 				case 2:
-					id = appId
+					id = app.Id
 				}
-				if err := api.db.SaveCheckConfig(db.ProjectId(projectId), id, checkId, cfg); err != nil {
+				if err = api.db.SaveCheckConfig(db.ProjectId(projectId), id, checkId, cfg); err != nil {
 					klog.Errorln("failed to save check config:", err)
 					http.Error(w, "", http.StatusInternalServerError)
 					return

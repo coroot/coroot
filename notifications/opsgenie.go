@@ -64,3 +64,7 @@ func (og *Opsgenie) SendIncident(ctx context.Context, baseUrl string, n *db.Inci
 	_, err := og.client.Create(ctx, req)
 	return err
 }
+
+func (og *Opsgenie) SendDeployment(ctx context.Context, project *db.Project, ds model.ApplicationDeploymentStatus) error {
+	return fmt.Errorf("not supported")
+}

@@ -1,6 +1,7 @@
 package forms
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -15,6 +16,7 @@ import (
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/notifications"
 	"github.com/coroot/coroot/prom"
+	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 )
 
@@ -96,29 +98,75 @@ func (f *CheckConfigSLOLatencyForm) Valid() bool {
 }
 
 type ApplicationCategoryForm struct {
-	Name    model.ApplicationCategory `json:"name"`
-	NewName model.ApplicationCategory `json:"new_name"`
-
-	CustomPatternsStr string `json:"custom_patterns"`
-	CustomPatterns    []string
-
-	NotifyOfDeployments bool `json:"notify_of_deployments"`
+	Action string                    `json:"action"`
+	Id     model.ApplicationCategory `json:"id"`
+	db.ApplicationCategory
+	Test *struct {
+		Incident   *db.ApplicationCategoryNotificationDestinations `json:"incident,omitempty"`
+		Deployment *db.ApplicationCategoryNotificationDestinations `json:"deployment,omitempty"`
+	} `json:"test,omitempty"`
 }
 
 func (f *ApplicationCategoryForm) Valid() bool {
-	if !slugRe.MatchString(string(f.NewName)) {
+	if f.Test != nil {
+		return true
+	}
+	if !slugRe.MatchString(string(f.Name)) {
 		return false
 	}
-	f.CustomPatterns = strings.Fields(f.CustomPatternsStr)
-	if !utils.GlobValidate(f.CustomPatterns) {
+	customPatterns := strings.Fields(f.CustomPatterns)
+	if !utils.GlobValidate(customPatterns) {
 		return false
 	}
-	for _, p := range f.CustomPatterns {
+	for _, p := range customPatterns {
 		if strings.Count(p, "/") != 1 || strings.Index(p, "/") < 1 {
 			return false
 		}
 	}
 	return true
+}
+
+func (f *ApplicationCategoryForm) SendTestNotification(ctx context.Context, project *db.Project) error {
+	if f.Test == nil {
+		return nil
+	}
+	integrations := project.Settings.Integrations
+	var client notifications.NotificationClient
+	switch {
+	case f.Test.Incident != nil:
+		if slack := f.Test.Incident.Slack; slack != nil && integrations.Slack != nil {
+			client = notifications.NewSlack(integrations.Slack.Token, cmp.Or(slack.Channel, integrations.Slack.DefaultChannel))
+		}
+		if teams := f.Test.Incident.Teams; teams != nil && integrations.Teams != nil {
+			client = notifications.NewTeams(integrations.Teams.WebhookUrl)
+		}
+		if pagerduty := f.Test.Incident.Pagerduty; pagerduty != nil && integrations.Pagerduty != nil {
+			client = notifications.NewPagerduty(integrations.Pagerduty.IntegrationKey)
+		}
+		if opsgenie := f.Test.Incident.Opsgenie; opsgenie != nil && integrations.Opsgenie != nil {
+			client = notifications.NewOpsgenie(integrations.Opsgenie.ApiKey, integrations.Opsgenie.EUInstance)
+		}
+		if webhook := f.Test.Incident.Webhook; webhook != nil && integrations.Webhook != nil {
+			client = notifications.NewWebhook(integrations.Webhook)
+		}
+		if client != nil {
+			return client.SendIncident(ctx, integrations.BaseUrl, testIncidentNotification(project))
+		}
+	case f.Test.Deployment != nil:
+		if slack := f.Test.Deployment.Slack; slack != nil && integrations.Slack != nil {
+			client = notifications.NewSlack(integrations.Slack.Token, cmp.Or(slack.Channel, integrations.Slack.DefaultChannel))
+		}
+		if teams := f.Test.Deployment.Teams; teams != nil && integrations.Teams != nil {
+			client = notifications.NewTeams(integrations.Teams.WebhookUrl)
+		}
+		if webhook := f.Test.Deployment.Webhook; webhook != nil && integrations.Webhook != nil {
+			client = notifications.NewWebhook(integrations.Webhook)
+		}
+		if client != nil {
+			return client.SendDeployment(ctx, project, testDeploymentNotification())
+		}
+	}
+	return nil
 }
 
 type CustomApplicationForm struct {
@@ -606,7 +654,7 @@ func (f *IntegrationFormWebhook) Test(ctx context.Context, project *db.Project) 
 func testIncidentNotification(project *db.Project) *db.IncidentNotification {
 	return &db.IncidentNotification{
 		ProjectId:     project.Id,
-		ApplicationId: model.NewApplicationId("default", model.ApplicationKindDeployment, "test-alert-fake-app"),
+		ApplicationId: model.NewApplicationId("default", model.ApplicationKindDeployment, "fake-app"),
 		IncidentKey:   "123ab456",
 		Status:        model.WARNING,
 		Details: &db.IncidentNotificationDetails{
@@ -628,9 +676,11 @@ func testDeploymentNotification() model.ApplicationDeploymentStatus {
 			{Report: model.AuditReportCPU, Ok: true, Message: "Memory: looks like the memory leak has been fixed"},
 		},
 		Deployment: &model.ApplicationDeployment{
-			ApplicationId: model.NewApplicationId("default", model.ApplicationKindDeployment, "test-deployment-fake-app"),
+			ApplicationId: model.NewApplicationId("default", model.ApplicationKindDeployment, "fake-app"),
 			Name:          "123ab456",
+			StartedAt:     timeseries.Now().Add(-model.ApplicationDeploymentMinLifetime),
 			Details:       &model.ApplicationDeploymentDetails{ContainerImages: []string{"app:v1.8.2"}},
+			Notifications: &model.ApplicationDeploymentNotifications{},
 		},
 	}
 }

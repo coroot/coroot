@@ -108,9 +108,6 @@ func (s *Slack) SendDeployment(ctx context.Context, project *db.Project, ds mode
 	if err != nil {
 		return fmt.Errorf("slack error: %w", err)
 	}
-	if err != nil {
-		return err
-	}
 	d.Notifications.Slack.Channel = ch
 	d.Notifications.Slack.ThreadTs = ts
 

@@ -13,7 +13,6 @@ import (
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
-	"golang.org/x/exp/maps"
 	"k8s.io/klog"
 )
 
@@ -57,7 +56,12 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 	}
 	w := model.NewWorld(from, to, step, rawStep)
 	w.CustomApplications = c.project.Settings.CustomApplications
-	w.Categories = maps.Keys(c.project.Settings.ApplicationCategories)
+	for name := range c.project.Settings.ApplicationCategorySettings {
+		if !name.Default() {
+			w.Categories = append(w.Categories, name)
+		}
+	}
+	utils.SortSlice(w.Categories)
 
 	if prof == nil {
 		prof = &Profile{}
@@ -190,7 +194,7 @@ func (c *Constructor) queryCache(ctx context.Context, from, to timeseries.Time, 
 			addQuery(qName+"total_requests", qApplicationCustomSLI, availabilityCfg.Total(), true)
 			addQuery(qName+"failed_requests", qApplicationCustomSLI, availabilityCfg.Failed(), true)
 		}
-		latencyCfg, _ := checkConfigs.GetLatency(appId, model.CalcApplicationCategory(appId, c.project.Settings.ApplicationCategories))
+		latencyCfg, _ := checkConfigs.GetLatency(appId, c.project.CalcApplicationCategory(appId))
 		if latencyCfg.Custom {
 			addQuery(qName+"requests_histogram", qApplicationCustomSLI, latencyCfg.Histogram(), true)
 		}
@@ -252,7 +256,7 @@ func (c *Constructor) calcApplicationCategories(w *model.World) {
 			app.Category = model.ApplicationCategory(annotation)
 			continue
 		}
-		app.Category = model.CalcApplicationCategory(app.Id, c.project.Settings.ApplicationCategories)
+		app.Category = c.project.CalcApplicationCategory(app.Id)
 	}
 }
 
@@ -437,7 +441,7 @@ func (c *Constructor) groupApplications(w *model.World, groups map[model.Applica
 		}
 		group.app.Category = model.ApplicationCategory(categories.GetFirst())
 		if group.app.Category == "" {
-			group.app.Category = model.CalcApplicationCategory(group.app.Id, c.project.Settings.ApplicationCategories)
+			group.app.Category = c.project.CalcApplicationCategory(group.app.Id)
 		}
 	}
 }

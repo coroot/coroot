@@ -2,7 +2,10 @@ package db
 
 import (
 	"database/sql"
+	"database/sql/driver"
 	"errors"
+	"fmt"
+	"strings"
 
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
@@ -32,7 +35,7 @@ type IncidentNotification struct {
 	ApplicationId model.ApplicationId
 	IncidentKey   string
 	Status        model.Status
-	Destination   IntegrationType
+	Destination   IncidentNotificationDestination
 	Timestamp     timeseries.Time
 	SentAt        timeseries.Time
 	ExternalKey   string
@@ -55,6 +58,35 @@ func (n *IncidentNotification) Migrate(m *Migrator) error {
 `)
 }
 
+type IncidentNotificationDestination struct {
+	IntegrationType IntegrationType
+	SlackChannel    string
+}
+
+func (d IncidentNotificationDestination) Value() (driver.Value, error) {
+	switch d.IntegrationType {
+	case IntegrationTypeSlack:
+		return fmt.Sprintf("%s:%s", d.IntegrationType, d.SlackChannel), nil
+	}
+	return fmt.Sprintf("%s", d.IntegrationType), nil
+}
+
+func (d *IncidentNotificationDestination) Scan(src any) error {
+	*d = IncidentNotificationDestination{}
+	parts := strings.Split(src.(string), ":")
+	if len(parts) == 0 {
+		return nil
+	}
+	d.IntegrationType = IntegrationType(parts[0])
+	if len(parts) > 1 {
+		switch d.IntegrationType {
+		case IntegrationTypeSlack:
+			d.SlackChannel = parts[1]
+		}
+	}
+	return nil
+}
+
 type IncidentNotificationDetails struct {
 	Reports []IncidentNotificationDetailsReport `json:"reports"`
 }
@@ -70,6 +102,9 @@ func (db *DB) GetIncidentByKey(projectId ProjectId, key string) (*model.Applicat
 	err := db.db.QueryRow(
 		"SELECT application_id, opened_at, resolved_at, severity FROM incident WHERE project_id = $1 AND key = $2 LIMIT 1",
 		projectId, key).Scan(&i.ApplicationId, &i.OpenedAt, &i.ResolvedAt, &i.Severity)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNotFound
+	}
 	return i, err
 }
 

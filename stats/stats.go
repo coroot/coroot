@@ -342,7 +342,7 @@ func (c *Collector) collect() Stats {
 			stats.Integration.Profiles = true
 		}
 
-		for category := range p.Settings.ApplicationCategories {
+		for category := range p.Settings.ApplicationCategorySettings {
 			applicationCategories.Add(string(category))
 		}
 

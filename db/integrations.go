@@ -35,12 +35,12 @@ type Integrations struct {
 }
 
 type IntegrationInfo struct {
-	Type        IntegrationType
-	Configured  bool
-	Incidents   bool
-	Deployments bool
-	Title       string
-	Details     string
+	Type        IntegrationType `json:"type"`
+	Configured  bool            `json:"configured"`
+	Incidents   bool            `json:"incidents"`
+	Deployments bool            `json:"deployments"`
+	Title       string          `json:"title"`
+	Details     string          `json:"details"`
 }
 
 func (integrations Integrations) GetInfo() []IntegrationInfo {
@@ -51,7 +51,7 @@ func (integrations Integrations) GetInfo() []IntegrationInfo {
 		i.Configured = true
 		i.Incidents = cfg.Incidents
 		i.Deployments = cfg.Deployments
-		i.Details = fmt.Sprintf("channel: #%s", cfg.DefaultChannel)
+		i.Details = fmt.Sprintf("default channel: #%s", cfg.DefaultChannel)
 	}
 	res = append(res, i)
 
@@ -119,7 +119,6 @@ type IntegrationClickhouse struct {
 type IntegrationSlack struct {
 	Token          string `json:"token"`
 	DefaultChannel string `json:"default_channel"`
-	Enabled        bool   `json:"enabled"` // deprecated: use Incidents and Deployments
 	Incidents      bool   `json:"incidents"`
 	Deployments    bool   `json:"deployments"`
 }

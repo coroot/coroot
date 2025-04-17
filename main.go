@@ -156,7 +156,7 @@ func main() {
 	r.HandleFunc("/api/project/{project}/overview/{view}", a.Auth(a.Overview)).Methods(http.MethodGet)
 	r.HandleFunc("/api/project/{project}/incident/{incident}", a.Auth(a.Incident)).Methods(http.MethodGet)
 	r.HandleFunc("/api/project/{project}/inspections", a.Auth(a.Inspections)).Methods(http.MethodGet)
-	r.HandleFunc("/api/project/{project}/categories", a.Auth(a.Categories)).Methods(http.MethodGet, http.MethodPost)
+	r.HandleFunc("/api/project/{project}/application_categories", a.Auth(a.ApplicationCategories)).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/project/{project}/custom_applications", a.Auth(a.CustomApplications)).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/project/{project}/integrations", a.Auth(a.Integrations)).Methods(http.MethodGet, http.MethodPut)
 	r.HandleFunc("/api/project/{project}/integrations/{type}", a.Auth(a.Integration)).Methods(http.MethodGet, http.MethodPut, http.MethodDelete, http.MethodPost)

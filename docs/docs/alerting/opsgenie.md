@@ -4,8 +4,9 @@ sidebar_position: 6
 
 # Opsgenie
 
-To configure a **Rest HTTP API** integration in your Opsgenie account:
+## Configure Opsgenie
 
+To configure a **Rest HTTP API** integration in your Opsgenie account:
 * Navigate to the **Teams** page
 * Choose a team (or create a new one)
 * Go to **Integrations** → **Add integration** and create an **API** integration
@@ -16,7 +17,7 @@ To configure a **Rest HTTP API** integration in your Opsgenie account:
 * Copy the **API Key**
   <img alt="Opsgenie API Key" src="/img/docs/opsgenie-integration-step2.png" class="card w-800"/>
 
-On the Coroot side:
+## Configure Coroot
 
 * Go to the **Project Settings** → **Integrations**
 * Create an Opsgenie integration
@@ -24,8 +25,3 @@ On the Coroot side:
   <img alt="Coroot Opsgenie Integration" src="/img/docs/opsgenie-integration.png" class="card w-800"/>
 * You can also send a test alert to check the integration
   <img alt="Coroot Opsgenie Test Alert" src="/img/docs/opsgenie-integration-test.png" class="card w-800"/>
-
-
-
-
-

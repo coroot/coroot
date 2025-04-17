@@ -171,12 +171,12 @@ export default class Api {
         this.get(this.projectPath(`inspections`), {}, cb);
     }
 
-    getApplicationCategories(cb) {
-        this.get(this.projectPath(`categories`), {}, cb);
-    }
-
-    saveApplicationCategory(form, cb) {
-        this.post(this.projectPath(`categories`), form, cb);
+    applicationCategories(name, form, cb) {
+        if (form) {
+            this.post(this.projectPath(`application_categories`), form, cb);
+        } else {
+            this.get(this.projectPath(`application_categories`), { name }, cb);
+        }
     }
 
     getCustomApplications(cb) {

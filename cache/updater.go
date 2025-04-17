@@ -109,7 +109,7 @@ func (c *Cache) updaterWorker(projects *sync.Map, projectId db.ProjectId, promCl
 			if availabilityCfg.Custom {
 				queries = append(queries, constructor.Q("", availabilityCfg.Total()), constructor.Q("", availabilityCfg.Failed()))
 			}
-			latencyCfg, _ := checkConfigs.GetLatency(appId, model.CalcApplicationCategory(appId, project.Settings.ApplicationCategories))
+			latencyCfg, _ := checkConfigs.GetLatency(appId, project.CalcApplicationCategory(appId))
 			if latencyCfg.Custom {
 				queries = append(queries, constructor.Q("", latencyCfg.Histogram(), "le"))
 			}
@@ -326,7 +326,7 @@ func (c *Cache) processRecordingRules(to timeseries.Time, project *db.Project, s
 		finalized := chunkEnd == i.toTs
 		for name, rule := range constructor.RecordingRules {
 			hash := queryHash(name)
-			mvs := rule(project, world)
+			mvs := rule(c.db, project, world)
 			err = c.writeChunk(project.Id, hash, i.chunkTs, pointsCount, step, finalized, mvs)
 			if err != nil {
 				klog.Errorln("failed to save chunk:", err)
