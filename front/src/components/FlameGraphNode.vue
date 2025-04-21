@@ -128,12 +128,7 @@ export default {
             if (this.node.color_by) {
                 return palette.hash2(this.node.color_by);
             }
-            let name = this.node.name;
-            const i = name.lastIndexOf('/');
-            if (i > 0) {
-                name = name.substr(0, i);
-            }
-            return palette.hash2(name);
+            return palette.hash2(this.node.name);
         },
     },
 
@@ -250,6 +245,7 @@ export default {
     justify-content: flex-end;
 }
 .details {
+    max-width: 600px;
     font-size: 12px;
 }
 .details .comparison .percent {
