@@ -27,7 +27,7 @@ This works seamlessly with containerized applications.
 Node.js also supports generating perf map files. To enable it, start the Node.js process with the following options:
 
 ```bash
---perf-basic-prof-only-functions --interpreted-frames-native-stack --perf-basic-prof
+--perf-basic-prof-only-functions --interpreted-frames-native-stack
 ```
 
 With these flags, the Node.js process will maintain the perf map file automatically. 
