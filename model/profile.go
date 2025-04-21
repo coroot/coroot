@@ -1,6 +1,8 @@
 package model
 
 import (
+	"path"
+	"regexp"
 	"sort"
 	"strings"
 )
@@ -126,12 +128,8 @@ func (n *FlameGraphNode) InsertStack(stack []string, value int64, comp *int64) {
 		if comp != nil {
 			node.Comp += *comp
 		}
-		name := stack[l-i]
-		s := strings.IndexByte(name, ' ')
-		if s > 0 {
-			name = name[:s]
-		}
-		node = node.Insert(name)
+		s := stack[l-i]
+		node = node.Insert(s)
 	}
 	node.Total += value
 	node.Self += value
@@ -140,12 +138,13 @@ func (n *FlameGraphNode) InsertStack(stack []string, value int64, comp *int64) {
 	}
 }
 
-func (n *FlameGraphNode) Insert(name string) *FlameGraphNode {
+func (n *FlameGraphNode) Insert(s string) *FlameGraphNode {
+	name, colorBy := parseStackFunction(s)
 	i := sort.Search(len(n.Children), func(i int) bool {
 		return strings.Compare(n.Children[i].Name, name) >= 0
 	})
 	if i > len(n.Children)-1 || n.Children[i].Name != name {
-		child := &FlameGraphNode{Name: name}
+		child := &FlameGraphNode{Name: name, ColorBy: colorBy}
 		n.Children = append(n.Children, child)
 		copy(n.Children[i+1:], n.Children[i:])
 		n.Children[i] = child
@@ -158,6 +157,7 @@ func (n *FlameGraphNode) Diff(comparison *FlameGraphNode) {
 	n.Comp = comparison.Total
 	n.Total += n.Comp
 }
+
 func (n *FlameGraphNode) diff(comparison *FlameGraphNode) {
 	byName := map[string]*FlameGraphNode{}
 	if comparison != nil {
@@ -189,4 +189,48 @@ func (n *FlameGraphNode) diff(comparison *FlameGraphNode) {
 			}
 		}
 	}
+}
+
+var (
+	javaFuncRe = regexp.MustCompile(`^(([0-9a-z.]+)\.[^.]+\.[^(]+)\(`)
+)
+
+func parseStackFunction(sf string) (string, string) {
+	parts := strings.Split(sf, " ")
+	var colorBy string
+
+	if len(parts) == 2 {
+		if i := strings.LastIndexByte(parts[0], '/'); i > 0 {
+			colorBy = parts[0][:i]
+		}
+		return parts[0], colorBy
+	}
+
+	// python
+	if len(parts) == 3 {
+		if strings.HasSuffix(parts[0], ".py") {
+			file := parts[0]
+			if i := strings.Index(file, "site-packages/"); i != -1 {
+				file = file[i+len("site-packages/"):]
+				colorBy = path.Dir(file)
+			} else {
+				colorBy = file
+			}
+			return parts[1] + " @" + file, colorBy
+		}
+	}
+
+	// java
+	if len(parts) >= 3 {
+		matches := javaFuncRe.FindStringSubmatch(parts[1])
+		if len(matches) == 3 {
+			return matches[1], matches[2]
+		}
+	}
+
+	if i := strings.LastIndexByte(sf, ' '); i > 0 {
+		return sf[:i], ""
+	}
+
+	return sf, ""
 }
