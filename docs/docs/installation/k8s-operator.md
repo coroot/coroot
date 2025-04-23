@@ -8,7 +8,7 @@ The best way to deploy Coroot into a Kubernetes or OpenShift cluster is by using
 The operator simplifies the deployment of all required components and enables scaling as needed. 
 It supports the deployment of both Coroot Community and Enterprise editions.
 
-## Operator installation 
+## Operator installation
 
 Add the Coroot helm chart repo:
 
@@ -84,6 +84,9 @@ spec:
 # Configuration for Coroot Enterprise Edition.
 #  enterpriseEdition:
 #    licenseKey: COROOT-1111-111 # License key for Coroot Enterprise Edition.
+#    licenseKeySecret: # Secret containing the license key.
+#      name: # Name of the secret to select from.
+#      key:  # Key of the secret to select from.
 #    image: # If unspecified, the operator will automatically update Coroot EE to the latest version from Coroot's public registry.
 #      name:           # Specifies the full image reference (e.g., <private-registry>/coroot-ee:<version>)
 #      pullPolicy:     # The image pull policy (e.g., Always, IfNotPresent, Never).
@@ -91,9 +94,14 @@ spec:
 
 # Configures the operator to install only the node-agent and cluster-agent.
 #  agentsOnly:
-#    corootURL: http://COROOT_IP:PORT/ # URL of the Coroot instance to which agents send metrics, logs, traces, and profiles.
+#    corootURL: http(s)://COROOT_IP:PORT/ # URL of the Coroot instance to which agents send metrics, logs, traces, and profiles.
+#    tlsSkipVerify: false # Whether to skip verification of the Coroot server's TLS certificate.
 
-#  apiKey: # The API key used by agents when sending telemetry to Coroot.
+# The API key used by agents when sending telemetry to Coroot.
+#  apiKey: # Plain-text API key. Prefer using `apiKeySecret` for better security.
+#  apiKeySecret: # Secret containing the API key.
+#    name: # Name of the secret to select from.
+#    key:  # Key of the secret to select from.
 
 # Configuration for Coroot Node Agent.
 #  nodeAgent:
@@ -116,6 +124,15 @@ spec:
 #      name:           # Specifies the full image reference (e.g., <private-registry>/coroot-node-agent:<version>)
 #      pullPolicy:     # The image pull policy (e.g., Always, IfNotPresent, Never).
 #      pullSecrets: [] # The pull secrets for pulling the image from a private registry.
+#    trackPublicNetworks: ["0.0.0.0/0"] # Allow track connections to the specified IP networks (e.g., Y.Y.Y.Y/mask). By default, Coroot tracks all connections.
+#    logCollector:
+#      collectLogBasedMetrics: true # Collect log-based metrics. Disables `collectLogEntries` if set to false.
+#      collectLogEntries: true      # Collect log entries and store them in ClickHouse.
+#    ebpfTracer:
+#      enabled: true # Collect traces and store them in ClickHouse.
+#      sampling: "1.0" # Trace sampling rate (0.0 to 1.0).
+#    ebpfProfiler:
+#      enabled: true # Collect profiles and store them in ClickHouse.
 
 # Configuration for Coroot Cluster Agent.
 #  clusterAgent:
@@ -146,14 +163,15 @@ spec:
 #      reclaimPolicy: Delete # Options: Retain (keeps PVC) or Delete (removes PVC on Coroot CR deletion).
 #    resources: # Resource requests and limits for Prometheus.
 #    podAnnotations: # Annotations for Prometheus.
-#    retention: 2d # Metrics retention time (e.g. 4h, 3d, 2w, 1y)
+#    retention: 2d # Metrics retention time (e.g. 4h, 3d, 2w, 1y).
+#    outOfOrderTimeWindow: 1h # The `storage.tsdb.out_of_order_time_window` Prometheus setting.
 #    image: # If unspecified, the operator will install Prometheus from Coroot's public registry.
-#      name:           # Specifies the full image reference (e.g., <private-registry>/prometheus:<version>)
+#      name:           # Specifies the full image reference (e.g., <private-registry>/prometheus:<version>).
 #      pullPolicy:     # The image pull policy (e.g., Always, IfNotPresent, Never).
 #      pullSecrets: [] # The pull secrets for pulling the image from a private registry.
 
 # Use an external Prometheus instance instead of deploying one.
-# NOTE: Remote write receiver must be enabled in your Prometheus via the --web.enable-remote-write-receiver flag.
+# NOTE: Remote write receiver must be enabled in your Prometheus via the `--web.enable-remote-write-receiver` flag.
 #  externalPrometheus:
 #    url: # http(s)://<IP>:<port> or http(s)://<domain>:<port> or http(s)://<service name>:<port>.
 #    tlsSkipVerify: false # Whether to skip verification of the Prometheus server's TLS certificate.
@@ -214,7 +232,7 @@ spec:
 
 #  replicas: 1 # Number of Coroot StatefulSet pods.
 
-# Store configuration in a Postgres DB instead of SQLite (required if replicas > 1).
+# Store configuration in a Postgres DB instead of SQLite (required if `replicas` > 1).
 #  postgres:
 #    host: # Postgres host or service name.
 #    port: # Postgres port (optional, default 5432).
@@ -232,6 +250,16 @@ spec:
 #  projects: # Create or update projects.
 #    - name:    # Project name (e.g., production, staging; required).
 #      apiKeys: # Project API keys, used by agents to send telemetry data (required).
-#        - key:         # Random string or UUID (must be unique; required).
-#          description: # The API key description (optional).
+#        - description: # The API key description (optional).
+#          key:         # Plain-text API key (a random string or UUID). Must be unique. Prefer using `keySecret` for better security.
+#          keySecret:   # Secret with the API key. Generated automatically if missing.
+#            name: # Name of the secret to select from.
+#            key:  # Key of the secret to select from.
+```
+
+## Operator upgrade
+
+```bash
+helm repo update coroot
+helm upgrade -n coroot coroot-operator coroot/coroot-operator
 ```
