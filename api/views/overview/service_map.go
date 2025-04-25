@@ -12,6 +12,7 @@ type Application struct {
 	Category   model.ApplicationCategory `json:"category"`
 	Labels     model.Labels              `json:"labels"`
 	Status     model.Status              `json:"status"`
+	Icon       string                    `json:"icon"`
 	Indicators []model.Indicator         `json:"indicators"`
 
 	Upstreams   []Link `json:"upstreams"`
@@ -36,6 +37,7 @@ func renderServiceMap(w *model.World) []*Application {
 			Category:    a.Category,
 			Labels:      a.Labels(),
 			Status:      a.Status,
+			Icon:        a.ApplicationType().Icon(),
 			Indicators:  model.CalcIndicators(a),
 			Upstreams:   []Link{},
 			Downstreams: []Link{},

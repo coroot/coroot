@@ -3,7 +3,7 @@
 ![](https://github.com/coroot/coroot/actions/workflows/ci.yml/badge.svg)
 [![Go Report Card](https://goreportcard.com/badge/github.com/coroot/coroot)](https://goreportcard.com/report/github.com/coroot/coroot)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![](https://img.shields.io/badge/slack-coroot-brightgreen.svg?logo=slack)](https://join.slack.com/t/coroot-community/shared_invite/zt-1gsnfo0wj-I~Zvtx5CAAb8vr~r~vecyw)
+[![](https://img.shields.io/badge/slack-coroot-brightgreen.svg?logo=slack)](https://coroot.com/join-slack-community/)
 
 ### [Features](#features) | [Installation](https://docs.coroot.com/) | [Documentation](https://docs.coroot.com/) | [Community & Support](#community--support) | [Live demo](https://demo.coroot.com/) | [Coroot Enterprise](https://coroot.com/enterprise/) 
 
@@ -114,7 +114,7 @@ A live demo of Coroot is available at [demo.coroot.com](https://demo.coroot.com/
 
 ## Community & Support
 
-* [Community Slack](https://join.slack.com/t/coroot-community/shared_invite/zt-1gsnfo0wj-I~Zvtx5CAAb8vr~r~vecyw)
+* [Community Slack](https://coroot.com/join-slack-community/)
 * [GitHub Discussions](https://github.com/coroot/coroot/discussions)
 * [GitHub Issues](https://github.com/coroot/coroot/issues)
 * Twitter: [@coroot_com](https://twitter.com/coroot_com)

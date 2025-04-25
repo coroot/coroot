@@ -23,7 +23,7 @@
             >
                 <div v-for="a in apps" style="text-align: center">
                     <div :ref="a.id" class="app" :class="{ selected: a.hi(hi) }" @mouseenter="hi = a.id" @mouseleave="hi = null">
-                        <div class="d-flex">
+                        <div class="d-flex align-center">
                             <div class="flex-grow-1 name">
                                 <router-link :to="{ name: 'overview', params: { view: 'applications', id: a.id }, query: $utils.contextQuery() }">
                                     <AppHealth :app="a" />
@@ -32,6 +32,7 @@
                             <div>
                                 <AppPreferences :app="a" :categories="categories" />
                             </div>
+                            <AppIcon :icon="a.icon" />
                         </div>
                         <Labels v-if="!hideLabels" :labels="a.labels" class="d-none d-sm-block label" />
                     </div>
@@ -74,6 +75,7 @@
 <script>
 import Labels from '@/components/Labels.vue';
 import AppHealth from '@/components/AppHealth.vue';
+import AppIcon from '@/components/AppIcon.vue';
 import ApplicationFilter from '@/components/ApplicationFilter.vue';
 import AppPreferences from '@/components/AppPreferences.vue';
 import NoData from '@/components/NoData.vue';
@@ -113,7 +115,7 @@ function calcLevel(index, a, level, backLinks) {
 }
 
 export default {
-    components: { NoData, AppPreferences, ApplicationFilter, AppHealth, Labels },
+    components: { NoData, AppPreferences, ApplicationFilter, AppHealth, Labels, AppIcon },
 
     data() {
         return {
@@ -404,5 +406,6 @@ svg {
     padding: 2px;
     border-radius: 2px;
     text-align: right;
+    pointer-events: none;
 }
 </style>

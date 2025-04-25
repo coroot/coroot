@@ -9,7 +9,6 @@ import (
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 	"github.com/dustin/go-humanize/english"
-	"golang.org/x/exp/maps"
 )
 
 type ApplicationStatus struct {
@@ -301,26 +300,10 @@ func formatPercent(v float32) string {
 }
 
 func getApplicationType(app *model.Application) *ApplicationType {
-	types := maps.Keys(app.ApplicationTypes())
-	if len(types) == 0 {
+	t := app.ApplicationType()
+	if t == model.ApplicationTypeUnknown {
 		return nil
 	}
-
-	var t model.ApplicationType
-	if len(types) == 1 {
-		t = types[0]
-	} else {
-		sort.Slice(types, func(i, j int) bool {
-			ti, tj := types[i], types[j]
-			tiw, tjw := ti.Weight(), tj.Weight()
-			if tiw == tjw {
-				return ti < tj
-			}
-			return tiw < tjw
-		})
-		t = types[0]
-	}
-
 	report := t.AuditReport()
 	hasReport := false
 	var status model.Status

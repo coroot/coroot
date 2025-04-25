@@ -8,22 +8,13 @@
             <div v-for="apps in levels" class="level" style="z-index: 1; row-gap: 20px">
                 <div v-for="a in apps" style="text-align: center">
                     <div :ref="a.id" class="app" @mouseenter="hi = a.id" @mouseleave="hi = null">
-                        <div class="d-flex" style="gap: 4px">
+                        <div class="d-flex align-center">
                             <div class="flex-grow-1 name">
                                 <router-link :to="{ name: 'overview', params: { view: 'applications', id: a.id }, query: $utils.contextQuery() }">
                                     {{ $utils.appId(a.id).name }}
                                 </router-link>
                             </div>
-                            <div>
-                                <img
-                                    v-if="a.icon"
-                                    :src="`${$coroot.base_path}static/img/tech-icons/${a.icon}.svg`"
-                                    onerror="this.style.display='none'"
-                                    height="16"
-                                    width="16"
-                                    class="icon"
-                                />
-                            </div>
+                            <AppIcon :icon="a.icon" class="ml-1" />
                         </div>
                         <template v-if="a.issues">
                             <div class="mt-1 caption font-weight-medium">Issues:</div>
@@ -68,6 +59,7 @@
 
 <script>
 import { hash } from '../utils/colors';
+import AppIcon from '@/components/AppIcon.vue';
 
 function findBackLinks(index, a, discovered, finished, found) {
     if (!a) {
@@ -109,7 +101,7 @@ export default {
         categories: Array,
     },
 
-    components: {},
+    components: { AppIcon },
 
     data() {
         return {
@@ -357,10 +349,7 @@ svg {
     background-color: var(--background-color-hi);
     padding: 4px;
     border-radius: 2px;
-}
-
-.icon {
-    opacity: 80%;
+    pointer-events: none;
 }
 
 .issue {
