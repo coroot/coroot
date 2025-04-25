@@ -7,12 +7,12 @@
                 <v-icon v-if="!small" small class="ml-2"> mdi-chevron-{{ attrs['aria-expanded'] === 'true' ? 'up' : 'down' }} </v-icon>
             </v-btn>
         </template>
-        <v-list dense dark>
+        <v-list dense dark class="list">
             <v-list-item v-for="i in intervals" :key="i.text" :to="{ query: i.query }" @click="quick" exact>
                 {{ i.text }}
             </v-list-item>
             <v-divider />
-            <v-form class="pa-2" @submit.prevent="custom">
+            <v-form class="pa-2" @submit.prevent="apply">
                 <div class="mx-2 mb-2">Custom range:</div>
                 <v-text-field
                     v-model="from"
@@ -22,7 +22,6 @@
                     class="mb-2"
                     hide-details
                     append-icon="mdi-calendar-month-outline"
-                    @click="open"
                     @click:append="picker = !picker"
                 />
                 <v-text-field
@@ -37,15 +36,27 @@
                 />
                 <div v-if="!picker" class="d-flex">
                     <v-spacer />
-                    <v-btn small color="primary" :disabled="!valid" type="submit" @click="custom">Apply</v-btn>
+                    <v-btn small color="primary" :disabled="!valid" type="submit" @click="apply">Apply</v-btn>
                 </div>
             </v-form>
-            <v-date-picker v-if="picker" v-model="dates" @change="change" no-title range dark color="currentColor" />
+            <v-date-picker v-if="picker" v-model="dates" @change="change" no-title range dark color="currentColor" class="picker" />
         </v-list>
     </v-menu>
 </template>
 
 <script>
+function isRelative(t) {
+    return /^now(-\d+[mhdw])?$/.test(t);
+}
+
+function isAbsolute(t) {
+    return !t.startsWith('now') && !!new Date(t).valueOf();
+}
+
+function isValid(t) {
+    return isRelative(t) || isAbsolute(t);
+}
+
 export default {
     props: {
         small: Boolean,
@@ -61,41 +72,36 @@ export default {
         };
     },
 
-    mounted() {
-        const fmt = '{YYYY}-{MM}-{DD} {HH}:{mm}';
-        const f = parseInt(this.$route.query.from);
-        const t = parseInt(this.$route.query.to);
-        this.from = !isNaN(f) ? this.$format.date(f, fmt) : '';
-        this.to = !isNaN(t) ? this.$format.date(t, fmt) : '';
-        this.dates = [this.from.split(' ')[0], this.to.split(' ')[0]];
-    },
-
     watch: {
         menu(v) {
             if (!v) {
                 this.picker = false;
+                return;
             }
+            const fmt = '{YYYY}-{MM}-{DD} {HH}:{mm}';
+            const from = this.$route.query.from || 'now-1h';
+            const to = this.$route.query.to || 'now';
+            const iFrom = parseInt(from);
+            const iTo = parseInt(this.$route.query.to);
+            this.from = isNaN(iFrom) ? from : this.$format.date(iFrom, fmt);
+            this.to = isNaN(iTo) ? to : this.$format.date(iTo, fmt);
+            this.dates = isAbsolute(this.from) && isAbsolute(this.to) ? [this.from.split(' ')[0], this.to.split(' ')[0]] : [];
         },
     },
 
     methods: {
         quick() {
             this.menu = false;
-            this.from = '';
-            this.to = '';
+            this.from = this.$route.query.from || 'now-1h';
+            this.to = this.$route.query.to || 'now';
             this.dates = [];
             this.picker = false;
         },
-        custom() {
+        apply() {
             this.menu = false;
-            const from = new Date(this.from).getTime();
-            const to = new Date(this.to).getTime();
+            const from = isRelative(this.from) ? this.from : new Date(this.from).getTime();
+            const to = isRelative(this.to) ? this.to : new Date(this.to).getTime();
             this.$router.push({ query: { from, to } }).catch((err) => err);
-        },
-        open() {
-            if (!this.from && !this.to) {
-                this.picker = true;
-            }
         },
         change() {
             this.from = this.dates[0] + ' 00:00';
@@ -106,10 +112,13 @@ export default {
 
     computed: {
         valid() {
-            return !!new Date(this.from).valueOf() && !!new Date(this.to).valueOf();
+            return isValid(this.from) && isValid(this.to) && this.from !== this.to;
         },
         intervals() {
             const intervals = [
+                { text: 'last 5 minutes', query: { from: 'now-5m' } },
+                { text: 'last 15 minutes', query: { from: 'now-15m' } },
+                { text: 'last 30 minutes', query: { from: 'now-30m' } },
                 { text: 'last hour', query: {} },
                 { text: 'last 3 hours', query: { from: 'now-3h' } },
                 { text: 'last 12 hours', query: { from: 'now-12h' } },
@@ -129,11 +138,11 @@ export default {
                 selected.active = true;
                 return intervals;
             }
+            const fmt = '{MMM} {DD}, {HH}:{mm}';
             const iFrom = parseInt(from);
             const iTo = parseInt(to);
-            const format = (t) => this.$format.date(t, '{MMM} {DD}, {HH}:{mm}');
-            const f = isNaN(iFrom) ? from : format(iFrom);
-            const t = isNaN(iTo) ? to : format(iTo);
+            const f = isNaN(iFrom) ? from : this.$format.date(iFrom, fmt);
+            const t = isNaN(iTo) ? to : this.$format.date(iTo, fmt);
             intervals.unshift({ text: (f || '') + ' to ' + (t || 'now'), query: { from, to }, active: true });
             return intervals;
         },
@@ -142,7 +151,10 @@ export default {
 </script>
 
 <style scoped>
-*:deep(.v-picker__body) {
+.list:deep(.v-list-item) {
+    min-height: 36px;
+}
+.picker:deep(.v-picker__body) {
     background-color: var(--background-dark);
     border-radius: 0 !important;
     border-right: 1px solid var(--border-dark);
