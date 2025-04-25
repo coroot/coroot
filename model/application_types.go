@@ -31,6 +31,7 @@ const (
 	ApplicationTypeJava            ApplicationType = "java"
 	ApplicationTypeNodeJS          ApplicationType = "nodejs"
 	ApplicationTypePython          ApplicationType = "python"
+	ApplicationTypeRuby            ApplicationType = "ruby"
 	ApplicationTypeEnvoy           ApplicationType = "envoy"
 	ApplicationTypePrometheus      ApplicationType = "prometheus"
 	ApplicationTypeVictoriaMetrics ApplicationType = "victoria-metrics"
@@ -72,7 +73,13 @@ func (at ApplicationType) IsQueue() bool {
 
 func (at ApplicationType) IsLanguage() bool {
 	switch at {
-	case ApplicationTypeGolang, ApplicationTypeDotNet, ApplicationTypePHP, ApplicationTypeJava, ApplicationTypeNodeJS:
+	case ApplicationTypeGolang,
+		ApplicationTypeDotNet,
+		ApplicationTypePHP,
+		ApplicationTypeJava,
+		ApplicationTypeNodeJS,
+		ApplicationTypePython,
+		ApplicationTypeRuby:
 		return true
 	}
 	return false

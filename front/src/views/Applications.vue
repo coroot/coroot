@@ -51,14 +51,8 @@
             </template>
             <template #item.type="{ item: { id, type } }">
                 <div v-if="type" class="d-flex align-center">
-                    <img
-                        v-if="type.icon"
-                        :src="`${$coroot.base_path}static/img/tech-icons/${type.icon}.svg`"
-                        onerror="this.style.display='none'"
-                        height="16"
-                        width="16"
-                        class="icon"
-                    />
+                    <AppIcon :icon="type.icon" class="mr-1" />
+
                     <router-link v-if="type.report" :to="link(id, type.report)" class="type" :class="type.status">
                         {{ type.name }}
                     </router-link>
@@ -121,6 +115,7 @@
 
 <script>
 import ApplicationFilter from '../components/ApplicationFilter.vue';
+import AppIcon from '../components/AppIcon.vue';
 
 const statuses = {
     critical: { name: 'SLO violation', color: 'red lighten-1' },
@@ -131,7 +126,7 @@ const statuses = {
 };
 
 export default {
-    components: { ApplicationFilter },
+    components: { ApplicationFilter, AppIcon },
 
     data() {
         return {
@@ -262,10 +257,6 @@ export default {
     padding: 0 !important;
 }
 
-.icon {
-    margin-right: 4px;
-    opacity: 80%;
-}
 .type {
     opacity: 60%;
     white-space: nowrap;

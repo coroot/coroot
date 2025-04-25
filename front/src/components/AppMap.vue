@@ -10,9 +10,14 @@
                 @mouseleave="unfocus"
             >
                 <div>
-                    <router-link :to="{ name: 'overview', params: { view: 'applications', id: app.id }, query: $utils.contextQuery() }" class="name">
-                        <AppHealth :app="app" />
-                    </router-link>
+                    <div class="d-flex align-center">
+                        <div class="flex-grow-1 name">
+                            <router-link :to="{ name: 'overview', params: { view: 'applications', id: app.id }, query: $utils.contextQuery() }">
+                                <AppHealth :app="app" />
+                            </router-link>
+                        </div>
+                        <AppIcon :icon="app.icon" class="ml-1" />
+                    </div>
                     <Labels v-if="!hideLabels(clients)" :labels="app.labels" class="d-none d-sm-block label" />
                 </div>
             </div>
@@ -37,10 +42,13 @@
         <div class="column">
             <div v-if="map.application" class="app" :ref="map.application.id">
                 <div>
-                    <span class="name">
-                        <AppHealth :app="map.application" />
-                        <AppPreferences :app="map.application" :categories="map.categories" />
-                    </span>
+                    <div class="d-flex align-center">
+                        <div class="flex-grow-1 name">
+                            <AppHealth :app="map.application" />
+                            <AppPreferences :app="map.application" :categories="map.categories" />
+                        </div>
+                        <AppIcon :icon="map.application.icon" />
+                    </div>
                     <Labels :labels="map.application.labels" class="d-none d-sm-block label" />
                 </div>
                 <div v-if="instances && instances.length" class="instances">
@@ -142,9 +150,14 @@
                 @mouseleave="unfocus"
             >
                 <div>
-                    <router-link :to="{ name: 'overview', params: { view: 'applications', id: app.id }, query: $utils.contextQuery() }" class="name">
-                        <AppHealth :app="app" />
-                    </router-link>
+                    <div class="d-flex align-center">
+                        <div class="flex-grow-1 name">
+                            <router-link :to="{ name: 'overview', params: { view: 'applications', id: app.id }, query: $utils.contextQuery() }">
+                                <AppHealth :app="app" />
+                            </router-link>
+                        </div>
+                        <AppIcon :icon="app.icon" class="ml-1" />
+                    </div>
                     <Labels v-if="!hideLabels(dependencies)" :labels="app.labels" class="d-none d-sm-block label" />
                 </div>
             </div>
@@ -223,6 +236,7 @@
 <script>
 import Labels from './Labels';
 import AppHealth from './AppHealth';
+import AppIcon from './AppIcon.vue';
 import AppPreferences from '@/components/AppPreferences.vue';
 
 const collapseThreshold = 10;
@@ -232,7 +246,7 @@ export default {
         map: Object,
     },
 
-    components: { AppPreferences, Labels, AppHealth },
+    components: { AppPreferences, Labels, AppHealth, AppIcon },
 
     data() {
         return {
@@ -552,5 +566,6 @@ svg {
     background-color: var(--background-color-hi);
     padding: 2px;
     border-radius: 2px;
+    pointer-events: none;
 }
 </style>

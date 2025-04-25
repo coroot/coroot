@@ -2,10 +2,12 @@ package model
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
+	"golang.org/x/exp/maps"
 )
 
 type Application struct {
@@ -319,6 +321,26 @@ func (app *Application) ApplicationTypes() map[ApplicationType]bool {
 	}
 
 	return res
+}
+
+func (app *Application) ApplicationType() ApplicationType {
+	types := maps.Keys(app.ApplicationTypes())
+	if len(types) == 0 {
+		return ApplicationTypeUnknown
+	}
+
+	if len(types) == 1 {
+		return types[0]
+	}
+	sort.Slice(types, func(i, j int) bool {
+		ti, tj := types[i], types[j]
+		tiw, tjw := ti.Weight(), tj.Weight()
+		if tiw == tjw {
+			return ti < tj
+		}
+		return tiw < tjw
+	})
+	return types[0]
 }
 
 func (app *Application) PeriodicJob() bool {

@@ -30,6 +30,7 @@ type Application struct {
 	Category   model.ApplicationCategory `json:"category"`
 	Custom     bool                      `json:"custom"`
 	Status     model.Status              `json:"status"`
+	Icon       string                    `json:"icon"`
 	Indicators []model.Indicator         `json:"indicators"`
 	Labels     model.Labels              `json:"labels"`
 
@@ -52,6 +53,7 @@ func Render(world *model.World, app *model.Application) *View {
 			Category:   app.Category,
 			Custom:     app.Custom,
 			Status:     app.Status,
+			Icon:       app.ApplicationType().Icon(),
 			Indicators: model.CalcIndicators(app),
 			Labels:     app.Labels(),
 		},
@@ -59,7 +61,6 @@ func Render(world *model.World, app *model.Application) *View {
 		Categories:         world.Categories,
 	}
 
-	deps := map[model.ApplicationId]bool{}
 	for _, instance := range app.Instances {
 		if instance.IsObsolete() || instance.IsFailed() {
 			continue
@@ -86,13 +87,12 @@ func Render(world *model.World, app *model.Application) *View {
 
 	for _, connection := range app.Upstreams {
 		if connection.RemoteApplication.Id != app.Id {
-			deps[connection.RemoteApplication.Id] = true
 			appMap.addDependency(connection)
 		}
 	}
 	for _, connection := range app.Downstreams {
 		if connection.Application.Id != app.Id {
-			appMap.addClient(connection, deps[connection.Application.Id])
+			appMap.addClient(connection)
 		}
 	}
 	sort.Slice(appMap.Instances, func(i1, i2 int) bool {
@@ -126,6 +126,7 @@ func (m *AppMap) addDependency(c *model.AppToAppConnection) {
 		Id:         c.RemoteApplication.Id,
 		Custom:     c.RemoteApplication.Custom,
 		Status:     c.RemoteApplication.Status,
+		Icon:       c.RemoteApplication.ApplicationType().Icon(),
 		Indicators: model.CalcIndicators(c.RemoteApplication),
 		Labels:     c.RemoteApplication.Labels(),
 
@@ -145,13 +146,11 @@ func (m *AppMap) addDependency(c *model.AppToAppConnection) {
 	a.LinkStats = utils.FormatLinkStats(requests, latency, bytesSent, bytesReceived, reason)
 }
 
-func (m *AppMap) addClient(c *model.AppToAppConnection, seenInDeps bool) {
-	if seenInDeps {
-		for _, d := range m.Dependencies {
-			if d.Id != c.Application.Id {
-				d.LinkDirection = "both"
-				return
-			}
+func (m *AppMap) addClient(c *model.AppToAppConnection) {
+	for _, d := range m.Dependencies {
+		if d.Id == c.Application.Id {
+			d.LinkDirection = "both"
+			return
 		}
 	}
 	status, reason := c.Status()
@@ -159,6 +158,7 @@ func (m *AppMap) addClient(c *model.AppToAppConnection, seenInDeps bool) {
 		Id:         c.Application.Id,
 		Custom:     c.Application.Custom,
 		Status:     c.Application.Status,
+		Icon:       c.Application.ApplicationType().Icon(),
 		Indicators: model.CalcIndicators(c.Application),
 		Labels:     c.Application.Labels(),
 
