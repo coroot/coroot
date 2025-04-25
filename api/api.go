@@ -1328,6 +1328,9 @@ func (api *Api) LoadWorldByRequest(r *http.Request) (*model.World, *db.Project, 
 	q := r.URL.Query()
 	from := utils.ParseTime(now, q.Get("from"), now.Add(-timeseries.Hour))
 	to := utils.ParseTime(now, q.Get("to"), now)
+	if from >= to {
+		from = to.Add(-timeseries.Hour)
+	}
 
 	incidentKey := q.Get("incident")
 	if incidentKey != "" {
