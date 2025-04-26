@@ -185,7 +185,7 @@ func (c *AppToAppConnection) GetConnectionsRequestsLatency(protocolFilter func(p
 			requests.Add(ts)
 		}
 		req := requests.Get()
-		time.Add(timeseries.Mul(latency, req))
+		time.Add(latency)
 		count.Add(req)
 	}
 	return timeseries.Div(time.Get(), count.Get())
