@@ -4,7 +4,7 @@
         :src="`${$coroot.base_path}static/img/tech-icons/${icon}.svg`"
         :alt="icon + ' icon'"
         :title="icon"
-        onerror="this.style.display='none'"
+        onerror="this.style.opacity='0'"
         :height="size"
         :width="size"
     />
