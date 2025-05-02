@@ -66,6 +66,39 @@
                     </div>
                 </div>
             </div>
+            <div v-else-if="rca.ai_integration_enabled">
+                <div class="mt-5 mb-3 text-h6">Anomaly Summary</div>
+
+                <div class="pa-5" style="position: relative; border-radius: 4px">
+                    <div style="filter: blur(5px)">
+                        <v-skeleton-loader boilerplate type="article, text"></v-skeleton-loader>
+                    </div>
+
+                    <v-overlay absolute opacity="0.1">
+                        <v-btn color="primary" @click="get('true')" class="mx-auto" :loading="loading">
+                            <v-icon small left>mdi-creation</v-icon>
+                            Explain with AI
+                        </v-btn>
+                    </v-overlay>
+                </div>
+            </div>
+            <div v-else-if="!aiIntegrationDismissed">
+                <div class="mt-5 mb-3 text-h6">Anomaly Summary</div>
+
+                <div class="pa-5" style="position: relative; border-radius: 4px">
+                    <div style="filter: blur(7px)">
+                        <v-skeleton-loader boilerplate type="article, text"></v-skeleton-loader>
+                    </div>
+
+                    <v-overlay absolute opacity="0.1">
+                        <v-btn color="primary" :to="{ name: 'project_settings', params: { tab: 'ai' } }" class="mx-auto">
+                            <v-icon small left>mdi-creation</v-icon>
+                            Enable an AI integration
+                        </v-btn>
+                        <v-btn class="ml-2" color="grey" @click="dismiss">Dismiss</v-btn>
+                    </v-overlay>
+                </div>
+            </div>
 
             <div v-if="rca.causes && rca.causes.length > 0">
                 <div class="mt-5 mb-3 text-h6">Possible causes</div>
@@ -171,6 +204,7 @@ export default {
             rca: null,
             loading: false,
             error: '',
+            aiIntegrationDismissed: false,
             selection: { mode: '', from: this.$route.query.rcaFrom || 0, to: this.$route.query.rcaTo || 0 },
         };
     },
@@ -183,20 +217,25 @@ export default {
     },
 
     mounted() {
+        this.aiIntegrationDismissed = this.$storage.local('ai-integration-dismissed');
         this.get();
         this.$events.watch(this, this.get, 'refresh');
     },
 
     methods: {
+        dismiss() {
+            this.aiIntegrationDismissed = true;
+            this.$storage.local('ai-integration-dismissed', true);
+        },
         explainAnomaly(s) {
             this.selection.from = s.selection.from;
             this.selection.to = s.selection.to;
             this.$router.push({ query: { ...this.$route.query, rcaFrom: s.selection.from, rcaTo: s.selection.to, ...s.ctx } });
             this.get();
         },
-        get() {
+        get(withSummary) {
             this.loading = true;
-            this.$api.getRCA(this.appId, (data, error) => {
+            this.$api.getRCA(this.appId, withSummary, (data, error) => {
                 this.loading = false;
                 if (error) {
                     this.error = error;

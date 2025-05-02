@@ -149,6 +149,7 @@ func main() {
 	r.HandleFunc("/api/users", a.Auth(a.Users)).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/roles", a.Auth(a.Roles)).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/sso", a.Auth(a.SSO)).Methods(http.MethodGet, http.MethodPost)
+	r.HandleFunc("/api/ai", a.Auth(a.AI)).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/project/", a.Auth(a.Project)).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/project/{project}", a.Auth(a.Project)).Methods(http.MethodGet, http.MethodPost, http.MethodDelete)
 	r.HandleFunc("/api/project/{project}/status", a.Auth(a.Status)).Methods(http.MethodGet)

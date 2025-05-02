@@ -10,6 +10,10 @@ var (
 
 type ActionSet struct{}
 
+func (as ActionSet) Settings() Settings {
+	return Settings{}
+}
+
 func (as ActionSet) Users() UsersActionSet {
 	return UsersActionSet{}
 }
@@ -24,10 +28,17 @@ func (as ActionSet) Project(id string) ProjectActionSet {
 
 func (as ActionSet) List() []Action {
 	return append([]Action{
+		as.Settings().Edit(),
 		as.Users().Edit(),
 		as.Roles().Edit(),
 	},
 		as.Project("").List()...)
+}
+
+type Settings struct{}
+
+func (as Settings) Edit() Action {
+	return NewAction(ScopeSettings, ActionEdit, nil)
 }
 
 type UsersActionSet struct{}

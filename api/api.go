@@ -200,6 +200,13 @@ func (api *Api) SSO(w http.ResponseWriter, r *http.Request, u *db.User) {
 	utils.WriteJson(w, res)
 }
 
+func (api *Api) AI(w http.ResponseWriter, r *http.Request, u *db.User) {
+	res := struct {
+		Provider string `json:"provider"`
+	}{}
+	utils.WriteJson(w, res)
+}
+
 func (api *Api) Project(w http.ResponseWriter, r *http.Request, u *db.User) {
 	vars := mux.Vars(r)
 	projectId := vars["project"]

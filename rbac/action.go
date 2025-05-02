@@ -10,6 +10,7 @@ const (
 	ActionEdit Verb = "edit"
 
 	ScopeAll                          Scope = "*"
+	ScopeSettings                     Scope = "settings"
 	ScopeUsers                        Scope = "users"
 	ScopeRoles                        Scope = "roles"
 	ScopeProjectAll                   Scope = "project.*"
