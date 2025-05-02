@@ -133,6 +133,14 @@ export default class Api {
         }
     }
 
+    ai(form, cb) {
+        if (form) {
+            this.post(`ai`, form, cb);
+        } else {
+            this.get(`ai`, {}, cb);
+        }
+    }
+
     getProject(projectId, cb) {
         this.get(`project/${projectId || ''}`, {}, cb);
     }
@@ -214,8 +222,8 @@ export default class Api {
         this.get(this.projectPath(`incident/${key}`), {}, cb);
     }
 
-    getRCA(appId, cb) {
-        this.get(this.projectPath(`app/${appId}/rca`), {}, cb);
+    getRCA(appId, withSummary, cb) {
+        this.get(this.projectPath(`app/${appId}/rca`), { withSummary }, cb);
     }
 
     getInspectionConfig(appId, type, cb) {

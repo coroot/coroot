@@ -50,6 +50,11 @@
             <IntegrationClickhouse />
         </template>
 
+        <template v-if="tab === 'ai'">
+            <h1 class="text-h5 my-5">AI-Powered Root Cause Analysis</h1>
+            <IntegrationAI />
+        </template>
+
         <template v-if="tab === 'aws'">
             <h1 class="text-h5 my-5">AWS integration</h1>
             <IntegrationAWS />
@@ -162,6 +167,7 @@ import CustomApplications from './CustomApplications.vue';
 import Users from './Users.vue';
 import RBAC from './RBAC.vue';
 import SSO from './SSO.vue';
+import IntegrationAI from '@/views/IntegrationAI.vue';
 
 export default {
     props: {
@@ -170,6 +176,7 @@ export default {
     },
 
     components: {
+        IntegrationAI,
         CustomApplications,
         IntegrationPrometheus,
         IntegrationClickhouse,
@@ -199,6 +206,7 @@ export default {
                 { id: undefined, name: 'General' },
                 { id: 'prometheus', name: 'Prometheus', disabled },
                 { id: 'clickhouse', name: 'Clickhouse', disabled },
+                { id: 'ai', name: 'AI', disabled },
                 { id: 'aws', name: 'AWS', disabled },
                 { id: 'inspections', name: 'Inspections', disabled },
                 { id: 'applications', name: 'Applications', disabled },
