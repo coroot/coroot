@@ -118,7 +118,7 @@ func (c *Constructor) loadNodes(w *model.World, metrics map[string][]*model.Metr
 	}
 	if c.pricing != nil {
 		for _, n := range w.Nodes {
-			n.Price = c.pricing.GetNodePrice(n)
+			n.Price = c.pricing.GetNodePrice(c.project.Settings.CustomCloudPricing, n)
 			n.DataTransferPrice = c.pricing.GetDataTransferPrice(n)
 		}
 	}

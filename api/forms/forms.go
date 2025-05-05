@@ -188,6 +188,17 @@ func (f *CustomApplicationForm) Valid() bool {
 	return true
 }
 
+type CustomCloudPricingForm struct {
+	db.CustomCloudPricing
+}
+
+func (f *CustomCloudPricingForm) Valid() bool {
+	if f.PerCPUCore <= 0 || f.PerMemoryGb <= 0 {
+		return false
+	}
+	return true
+}
+
 type ApplicationInstrumentationForm struct {
 	model.ApplicationInstrumentation
 }

@@ -18,6 +18,7 @@ const (
 	ScopeProjectIntegrations          Scope = "project.integrations"
 	ScopeProjectApplicationCategories Scope = "project.application_categories"
 	ScopeProjectCustomApplications    Scope = "project.custom_applications"
+	ScopeProjectCustomCloudPricing    Scope = "project.custom_cloud_pricing"
 	ScopeProjectInspections           Scope = "project.inspections"
 	ScopeProjectInstrumentations      Scope = "project.instrumentations"
 	ScopeProjectTraces                Scope = "project.traces"

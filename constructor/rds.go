@@ -144,7 +144,7 @@ func (c *Constructor) loadRds(w *model.World, metrics map[string][]*model.Metric
 	}
 	if c.pricing != nil {
 		for _, instance := range rdsInstancesById {
-			instance.Node.Price = c.pricing.GetNodePrice(instance.Node)
+			instance.Node.Price = c.pricing.GetNodePrice(nil, instance.Node)
 		}
 	}
 }

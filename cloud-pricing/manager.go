@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
@@ -25,6 +26,7 @@ const (
 	dumpFileName   = "cloud-pricing.json.gz"
 	dumpTimeout    = time.Second * 30
 	updateInterval = time.Hour * 24
+	gb             = 1e9
 )
 
 type Manager struct {
@@ -61,7 +63,7 @@ func NewManager(dataDir string) (*Manager, error) {
 	return m, nil
 }
 
-func (mgr *Manager) GetNodePrice(node *model.Node) *model.NodePrice {
+func (mgr *Manager) GetNodePrice(settings *db.CustomCloudPricing, node *model.Node) *model.NodePrice {
 	mgr.lock.Lock()
 	defer mgr.lock.Unlock()
 	if mgr.model == nil {
@@ -69,6 +71,11 @@ func (mgr *Manager) GetNodePrice(node *model.Node) *model.NodePrice {
 	}
 	var pricing *CloudPricing
 	var price float32
+	cpuCores := node.CpuCapacity.Reduce(timeseries.Max)
+	memBytes := node.MemoryTotalBytes.Reduce(timeseries.Max)
+	if timeseries.IsNaN(cpuCores) || timeseries.IsNaN(memBytes) {
+		return nil
+	}
 	switch strings.ToLower(node.CloudProvider.Value()) {
 	case "aws":
 		pricing = mgr.model.AWS
@@ -77,6 +84,14 @@ func (mgr *Manager) GetNodePrice(node *model.Node) *model.NodePrice {
 	case "azure":
 		pricing = mgr.model.Azure
 	default:
+		if settings != nil {
+			return &model.NodePrice{
+				Total:         cpuCores*settings.PerCPUCore/float32(timeseries.Hour) + memBytes*settings.PerMemoryGb/gb/float32(timeseries.Hour),
+				PerCPUCore:    settings.PerCPUCore / float32(timeseries.Hour),
+				PerMemoryByte: settings.PerMemoryGb / gb / float32(timeseries.Hour),
+				Custom:        true,
+			}
+		}
 		return nil
 	}
 	region := Region(strings.ToLower(node.Region.Value()))
@@ -136,13 +151,10 @@ func (mgr *Manager) GetNodePrice(node *model.Node) *model.NodePrice {
 		return nil
 	}
 	price /= float32(timeseries.Hour)
-	cpuCores := node.CpuCapacity.Last()
-	memBytes := node.MemoryTotalBytes.Last()
 	np := &model.NodePrice{Total: price}
 	if timeseries.IsNaN(cpuCores) || timeseries.IsNaN(memBytes) {
 		return np
 	}
-	const gb = 1e9
 	perUnit := price / (cpuCores + memBytes/gb) // assume that 1Gb of memory costs the same as 1 vCPU
 	np.PerCPUCore = perUnit
 	np.PerMemoryByte = perUnit / gb

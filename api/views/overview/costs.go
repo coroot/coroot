@@ -14,8 +14,9 @@ const (
 )
 
 type Costs struct {
-	Nodes        []*NodeCosts        `json:"nodes"`
-	Applications []*ApplicationCosts `json:"applications"`
+	Nodes         []*NodeCosts        `json:"nodes"`
+	Applications  []*ApplicationCosts `json:"applications"`
+	CustomPricing bool                `json:"custom_pricing"`
 }
 
 type NodeCosts struct {
@@ -96,6 +97,9 @@ func renderCosts(w *model.World) *Costs {
 	for _, n := range w.Nodes {
 		if n.Price == nil {
 			continue
+		}
+		if n.Price.Custom {
+			res.CustomPricing = true
 		}
 		if dataTransferPrice == nil && n.DataTransferPrice != nil {
 			dataTransferPrice = n.DataTransferPrice

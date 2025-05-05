@@ -66,7 +66,7 @@ func (c *Constructor) loadElasticache(w *model.World, metrics map[string][]*mode
 	}
 	if c.pricing != nil {
 		for _, instance := range ecInstancesById {
-			instance.Node.Price = c.pricing.GetNodePrice(instance.Node)
+			instance.Node.Price = c.pricing.GetNodePrice(nil, instance.Node)
 		}
 	}
 }
