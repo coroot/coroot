@@ -1,0 +1,22 @@
+---
+sidebar_position: 2
+---
+
+# Querying
+
+Logs can be filtered by severity, message content, and attributes.
+
+<img alt="Coroot Log Filtering" src="/img/docs/logs/query.png" class="card w-1200"/>
+
+Coroot supports the `=` (equal), `~` (regex match), `!=` (not equal), and `!~` (regex not match) operators for attributes, 
+and the `🔍` (contains) operator for message body.
+Under the hood, the `contains` operator uses token-based search with ClickHouse full-text indexes for improved performance.
+
+All positive filters (`=`, `~`) with the same attribute name are combined using `OR`, while negative filters (`!=`, `!~`) are combined using `AND`.
+
+To make filtering easier, Coroot provides suggestions for attribute names and values.
+<img alt="Coroot Log Filtering" src="/img/docs/logs/filter-suggest.png" class="card w-1200"/>
+
+
+Filters can also be added from the log message details by clicking the `+` (add to search) or `–` (exclude from search) buttons.
+<img alt="Coroot Log Filtering" src="/img/docs/logs/filter-from-details.png" class="card w-1200"/>

@@ -3,7 +3,6 @@ package clickhouse
 import (
 	"context"
 	"fmt"
-	"sort"
 	"strings"
 	"time"
 	"unicode"
@@ -12,76 +11,32 @@ import (
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
-	"golang.org/x/exp/maps"
 )
 
-func (c *Client) GetServicesFromLogs(ctx context.Context, from timeseries.Time) (map[string][]string, error) {
-	rows, err := c.Query(ctx, "SELECT DISTINCT ServiceName, SeverityText FROM @@table_otel_logs_service_name_severity_text@@ WHERE LastSeen >= @from",
+func (c *Client) GetServicesFromLogs(ctx context.Context, from timeseries.Time) ([]string, error) {
+	rows, err := c.Query(ctx, "SELECT DISTINCT ServiceName FROM @@table_otel_logs_service_name_severity_text@@ WHERE LastSeen >= @from",
 		clickhouse.DateNamed("from", from.ToStandard(), clickhouse.NanoSeconds),
 	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	res := map[string][]string{}
-	var app, sev string
+	var res []string
+	var app string
 	for rows.Next() {
-		if err = rows.Scan(&app, &sev); err != nil {
+		if err = rows.Scan(&app); err != nil {
 			return nil, err
 		}
-		res[app] = append(res[app], sev)
+		res = append(res, app)
 	}
 	return res, nil
 }
 
-func (c *Client) GetServiceLogsHistogram(ctx context.Context, from, to timeseries.Time, step timeseries.Duration, service string, severities []string, search string) (map[string]*timeseries.TimeSeries, error) {
-	filters, args := logFilters(from, to, []string{service}, severities, nil, search)
-	return c.getLogsHistogram(ctx, filters, args, from, to, step)
-}
-
-func (c *Client) GetServiceLogs(ctx context.Context, from, to timeseries.Time, service string, severities []string, search string, limit int) ([]*model.LogEntry, error) {
-	filters, args := logFilters(from, to, []string{service}, severities, nil, search)
-	return c.getLogs(ctx, filters, args, severities, limit)
-}
-
-func (c *Client) GetContainerLogsHistogram(ctx context.Context, from, to timeseries.Time, step timeseries.Duration, containers map[string][]string, severities []string, hashes []string, search string) (map[string]*timeseries.TimeSeries, error) {
-	services := maps.Keys(containers)
-	filters, args := logFilters(from, to, services, severities, hashes, search)
-	return c.getLogsHistogram(ctx, filters, args, from, to, step)
-}
-
-func (c *Client) GetContainerLogs(ctx context.Context, from, to timeseries.Time, containers map[string][]string, severities []string, hashes []string, search string, limit int) ([]*model.LogEntry, error) {
-	byService := map[string][]*model.LogEntry{}
-	for service, ids := range containers {
-		filters, args := logFilters(from, to, []string{service}, nil, hashes, search)
-		filters = append(filters, "ResourceAttributes['container.id'] IN (@containerId)")
-		args = append(args, clickhouse.Named("containerId", ids))
-		entries, err := c.getLogs(ctx, filters, args, severities, limit)
-		if err != nil {
-			return nil, err
-		}
-		if len(containers) == 1 {
-			return entries, nil
-		}
-		byService[service] = entries
-	}
-	var res []*model.LogEntry
-	for _, entries := range byService {
-		res = append(res, entries...)
-	}
-	sort.Slice(res, func(i, j int) bool {
-		return res[i].Timestamp.After(res[j].Timestamp)
-	})
-	if len(res) > limit {
-		return res[:limit], nil
-	}
-	return res, nil
-}
-
-func (c *Client) getLogsHistogram(ctx context.Context, filters []string, args []any, from, to timeseries.Time, step timeseries.Duration) (map[string]*timeseries.TimeSeries, error) {
-	q := fmt.Sprintf("SELECT SeverityText, toStartOfInterval(Timestamp, INTERVAL %d second), count(1)", step)
+func (c *Client) GetLogsHistogram(ctx context.Context, query LogQuery) (map[string]*timeseries.TimeSeries, error) {
+	where, args := query.filters(nil)
+	q := fmt.Sprintf("SELECT SeverityText, toStartOfInterval(Timestamp, INTERVAL %d second), count(1)", query.Ctx.Step)
 	q += " FROM @@table_otel_logs@@"
-	q += " WHERE " + strings.Join(filters, " AND ")
+	q += " WHERE " + strings.Join(where, " AND ")
 	q += " GROUP BY 1, 2"
 	rows, err := c.Query(ctx, q, args...)
 	if err != nil {
@@ -97,29 +52,19 @@ func (c *Client) getLogsHistogram(ctx context.Context, filters []string, args []
 			return nil, err
 		}
 		if res[sev] == nil {
-			res[sev] = timeseries.New(from, int(to.Sub(from)/step), step)
+			res[sev] = timeseries.New(query.Ctx.From, query.Ctx.PointsCount(), query.Ctx.Step)
 		}
 		res[sev].Set(timeseries.Time(ts.Unix()), float32(count))
 	}
 	return res, nil
 }
 
-func (c *Client) getLogs(ctx context.Context, filters []string, args []any, severities []string, limit int) ([]*model.LogEntry, error) {
-	if len(severities) == 0 {
-		return nil, nil
-	}
-
-	var qs []string
-	for _, severity := range severities {
-		q := "SELECT Timestamp, SeverityText, Body, TraceId, ResourceAttributes, LogAttributes"
-		q += " FROM @@table_otel_logs@@"
-		q += " WHERE " + strings.Join(append(filters, fmt.Sprintf("SeverityText = '%s'", severity)), " AND ")
-		q += " ORDER BY toUnixTimestamp(Timestamp) DESC LIMIT " + fmt.Sprint(limit)
-		qs = append(qs, q)
-	}
-	q := "SELECT *"
-	q += " FROM (" + strings.Join(qs, " UNION ALL ") + ") l"
-	q += " ORDER BY Timestamp DESC LIMIT " + fmt.Sprint(limit)
+func (c *Client) GetLogs(ctx context.Context, query LogQuery) ([]*model.LogEntry, error) {
+	where, args := query.filters(nil)
+	q := "SELECT Timestamp, SeverityText, Body, TraceId, ResourceAttributes, LogAttributes"
+	q += " FROM @@table_otel_logs@@"
+	q += " WHERE " + strings.Join(where, " AND ")
+	q += " ORDER BY Timestamp DESC LIMIT " + fmt.Sprint(query.Limit)
 
 	rows, err := c.Query(ctx, q, args...)
 	if err != nil {
@@ -137,53 +82,166 @@ func (c *Client) getLogs(ctx context.Context, filters []string, args []any, seve
 	return res, nil
 }
 
-func logFilters(from, to timeseries.Time, services []string, severities []string, hashes []string, search string) ([]string, []any) {
-	var filters []string
+func (c *Client) GetLogFilters(ctx context.Context, query LogQuery, name string) ([]string, error) {
+	where, args := query.filters(&name)
+	var q string
+	var res []string
+	switch name {
+	case "":
+		res = append(res, "Severity", "Message")
+		q = "SELECT DISTINCT arrayJoin(arrayConcat(mapKeys(LogAttributes), mapKeys(ResourceAttributes)))"
+	case "Severity":
+		q = "SELECT DISTINCT SeverityText"
+	case "Message":
+		return res, nil
+	default:
+		q = "SELECT DISTINCT arrayJoin([LogAttributes[@attr], ResourceAttributes[@attr]])"
+		args = append(args, clickhouse.Named("attr", name))
+	}
+	q += " FROM @@table_otel_logs@@"
+	q += " WHERE " + strings.Join(where, " AND ")
+	q += " ORDER BY 1 LIMIT 1000"
+	rows, err := c.Query(ctx, q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var a string
+	for rows.Next() {
+		if err = rows.Scan(&a); err != nil {
+			return nil, err
+		}
+		if a == "" {
+			continue
+		}
+		res = append(res, a)
+	}
+	return res, nil
+}
+
+type LogQuery struct {
+	Ctx      timeseries.Context
+	Services []string
+	Filters  []LogFilter
+	Limit    int
+}
+
+type LogFilter struct {
+	Name  string `json:"name"`
+	Op    string `json:"op"`
+	Value string `json:"value"`
+}
+
+func (q LogQuery) filters(attr *string) ([]string, []any) {
+	var where []string
 	var args []any
 
-	if len(services) == 1 {
-		filters = append(filters, "ServiceName = @serviceName")
-		args = append(args, clickhouse.Named("serviceName", services[0]))
-	} else {
-		filters = append(filters, "ServiceName IN (@serviceName)")
-		args = append(args, clickhouse.Named("serviceName", services))
+	switch len(q.Services) {
+	case 0:
+		return where, args
+	case 1:
+		where = append(where, "ServiceName = @serviceName")
+		args = append(args, clickhouse.Named("serviceName", q.Services[0]))
+	default:
+		where = append(where, "ServiceName IN (@serviceName)")
+		args = append(args, clickhouse.Named("serviceName", q.Services))
 	}
 
-	if len(severities) > 0 {
-		filters = append(filters, "SeverityText IN (@severityText)")
-		args = append(args, clickhouse.Named("severityText", severities))
-	}
-
-	filters = append(filters, "Timestamp BETWEEN @from AND @to")
+	where = append(where, "Timestamp BETWEEN @from AND @to")
 	args = append(args,
-		clickhouse.DateNamed("from", from.ToStandard(), clickhouse.NanoSeconds),
-		clickhouse.DateNamed("to", to.ToStandard(), clickhouse.NanoSeconds),
+		clickhouse.DateNamed("from", q.Ctx.From.ToStandard(), clickhouse.NanoSeconds),
+		clickhouse.DateNamed("to", q.Ctx.To.ToStandard(), clickhouse.NanoSeconds),
 	)
 
-	if len(hashes) > 0 {
-		filters = append(filters, "LogAttributes['pattern.hash'] IN (@patternHash)")
-		args = append(args,
-			clickhouse.Named("patternHash", hashes),
-		)
+	filters := utils.Uniq(q.Filters)
+	var message []string
+	byName := map[string][]LogFilter{}
+	for _, f := range filters {
+		if attr == nil && f.Name == "Message" {
+			fields := strings.FieldsFunc(f.Value, func(r rune) bool {
+				return unicode.IsSpace(r) || (r <= unicode.MaxASCII && !unicode.IsNumber(r) && !unicode.IsLetter(r))
+			})
+			message = append(message, fields...)
+			continue
+		}
+		if attr != nil && f.Name == *attr {
+			continue
+		}
+		byName[f.Name] = append(byName[f.Name], f)
 	}
-	if len(search) > 0 {
-		fields := strings.FieldsFunc(search, func(r rune) bool {
-			return unicode.IsSpace(r) || (r <= unicode.MaxASCII && !unicode.IsNumber(r) && !unicode.IsLetter(r))
-		})
-		if len(fields) > 0 {
-			var ands []string
-			for i, f := range fields {
-				set := utils.NewStringSet(f, strings.ToLower(f), strings.ToUpper(f), strings.Title(f))
-				var ors []string
-				for j, s := range set.Items() {
-					name := fmt.Sprintf("token_%d_%d", i, j)
-					ors = append(ors, fmt.Sprintf("hasToken(Body, @%s)", name))
-					args = append(args, clickhouse.Named(name, s))
+
+	i := 0
+	for name, attrs := range byName {
+		var ors, ands []string
+		for j, a := range attrs {
+			var f *[]string
+			var expr string
+			switch a.Op {
+			case "=":
+				if name == "Severity" {
+					expr = "SeverityText = @%[2]s"
+				} else {
+					expr = "(LogAttributes[@%[1]s] = @%[2]s OR ResourceAttributes[@%[1]s] = @%[2]s)"
 				}
+				f = &ors
+			case "!=":
+				if name == "Severity" {
+					expr = "SeverityText != @%[2]s"
+				} else {
+					expr = "(LogAttributes[@%[1]s] != @%[2]s AND ResourceAttributes[@%[1]s] != @%[2]s)"
+				}
+				f = &ands
+			case "~":
+				if name == "Severity" {
+					expr = "match(SeverityText, @%[2]s)"
+				} else {
+					expr = "(match(LogAttributes[@%[1]s], @%[2]s) OR match(ResourceAttributes[@%[1]s], @%[2]s))"
+				}
+				f = &ors
+			case "!~":
+				if name == "Severity" {
+					expr = "NOT match(SeverityText,  @%[2]s)"
+				} else {
+					expr = "(NOT match(LogAttributes[@%[1]s], @%[2]s) AND NOT match(ResourceAttributes[@%[1]s], @%[2]s))"
+				}
+				f = &ands
+			default:
+				continue
+			}
+			n := fmt.Sprintf("attr_name_%d_%d", i, j)
+			v := fmt.Sprintf("attr_values_%d_%d", i, j)
+			*f = append(*f, fmt.Sprintf(expr, n, v))
+			args = append(args, clickhouse.Named(n, name))
+			args = append(args, clickhouse.Named(v, a.Value))
+		}
+		if len(ands) > 0 {
+			where = append(where, "("+strings.Join(ands, " AND ")+")")
+		}
+		if len(ors) > 0 {
+			where = append(where, "("+strings.Join(ors, " OR ")+")")
+		}
+		i++
+	}
+
+	if len(message) > 0 {
+		message = utils.Uniq(message)
+		var ands []string
+		for i, m := range message {
+			set := utils.NewStringSet(m, strings.ToLower(m), strings.ToUpper(m), strings.Title(m))
+			var ors []string
+			for j, s := range set.Items() {
+				name := fmt.Sprintf("token_%d_%d", i, j)
+				ors = append(ors, fmt.Sprintf("hasToken(Body, @%s)", name))
+				args = append(args, clickhouse.Named(name, s))
+			}
+			if len(ors) > 0 {
 				ands = append(ands, fmt.Sprintf("(%s)", strings.Join(ors, " OR ")))
 			}
-			filters = append(filters, strings.Join(ands, " AND "))
+		}
+		if len(ands) > 0 {
+			where = append(where, strings.Join(ands, " AND "))
 		}
 	}
-	return filters, args
+
+	return where, args
 }

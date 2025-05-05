@@ -686,7 +686,7 @@ func (api *Api) Prom(w http.ResponseWriter, r *http.Request, u *db.User) {
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
-	p := project.Prometheus
+	p := project.PrometheusConfig(api.globalPrometheus)
 	cfg := prom.NewClientConfig(p.Url, p.RefreshInterval)
 	cfg.BasicAuth = p.BasicAuth
 	cfg.TlsSkipVerify = p.TlsSkipVerify
