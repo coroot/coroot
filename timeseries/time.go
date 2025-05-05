@@ -26,6 +26,10 @@ type Context struct {
 	RawStep Duration `json:"raw_step"`
 }
 
+func (c Context) PointsCount() int {
+	return int(c.To.Sub(c.From) / c.Step)
+}
+
 type Duration int64
 
 func DurationFromStandard(d time.Duration) Duration {

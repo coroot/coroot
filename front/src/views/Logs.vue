@@ -14,7 +14,7 @@
                 <span v-else-if="loading">Loading...</span>
             </div>
 
-            <v-form v-if="configured" :disabled="disabled">
+            <v-form v-if="configured">
                 <v-select
                     :items="sources"
                     v-model="query.source"
@@ -26,50 +26,26 @@
                     class="mt-4"
                 />
 
-                <div class="subtitle-1 mt-3">Filter:</div>
-                <div class="d-flex flex-wrap flex-md-nowrap align-center" style="gap: 8px">
-                    <v-checkbox
-                        v-for="s in severities"
-                        :key="s.name"
-                        :value="s.name"
-                        v-model="query.severity"
-                        :label="s.name"
-                        :color="s.color"
-                        class="ma-0 text-no-wrap text-capitalize checkbox"
-                        dense
-                        hide-details
+                <div class="subtitle-1 mt-3">Query:</div>
+                <div class="d-flex flex-wrap flex-md-nowrap" style="gap: 8px">
+                    <QueryBuilder
+                        v-model="query.filters"
+                        :loading="qb.loading"
+                        :items="qb.items"
+                        :error="qb.error"
+                        @get="qbGet"
+                        class="flex-grow-1"
                     />
-                    <div class="d-flex flex-grow-1" style="gap: 4px">
-                        <v-text-field
-                            v-model="query.search"
-                            @keydown.enter.prevent="runQuery"
-                            label="Filter messages"
-                            prepend-inner-icon="mdi-magnify"
-                            dense
-                            hide-details
-                            single-line
-                            outlined
-                            clearable
-                        >
-                            <template v-if="query.hash" #prepend-inner>
-                                <v-chip small label close @click:close="filterByPattern('')" close-icon="mdi-close" class="mr-2">
-                                    pattern: {{ query.hash.substr(0, 7) }}
-                                </v-chip>
-                            </template>
-                        </v-text-field>
-                        <v-btn @click="runQuery" :disabled="disabled" color="primary" height="40">Query</v-btn>
-                    </div>
+                    <v-btn @click="runQuery" :disabled="disabled" color="primary" height="40">Show logs</v-btn>
                 </div>
 
                 <div class="subtitle-1 mt-2">View:</div>
                 <div class="d-flex flex-wrap align-center" style="gap: 12px">
-                    <v-btn-toggle v-model="query.view" @change="setQuery" dense>
-                        <v-btn v-for="v in views" :value="v.name" @click="v.click" :disabled="v.disabled" height="40" class="text-capitalize">
-                            <v-icon small>{{ v.icon }}</v-icon>
-                            {{ v.name }}
-                        </v-btn>
+                    <v-btn-toggle v-model="query.view" @change="setQuery" mandatory dense>
+                        <v-btn value="messages" :disabled="false" height="40"><v-icon small>mdi-format-list-bulleted</v-icon>Messages</v-btn>
+                        <v-btn value="patterns" :disabled="query.source !== 'agent'" height="40"><v-icon small>mdi-creation</v-icon>Patterns</v-btn>
                     </v-btn-toggle>
-                    <v-btn-toggle v-model="order" @change="setQuery" dense>
+                    <v-btn-toggle v-model="order" @change="setQuery" mandatory dense>
                         <v-btn value="desc" :disabled="disabled" height="40"><v-icon small>mdi-arrow-up-thick</v-icon>Newest first</v-btn>
                         <v-btn value="asc" :disabled="disabled" height="40"><v-icon small>mdi-arrow-down-thick</v-icon>Oldest first</v-btn>
                     </v-btn-toggle>
@@ -151,6 +127,14 @@
                                             </router-link>
                                             <pre v-else>{{ v }}</pre>
                                         </td>
+                                        <td class="text-right pr-1">
+                                            <v-btn small icon title="add to search" @click="qbAdd(k, '=', v)">
+                                                <v-icon small>mdi-plus</v-icon>
+                                            </v-btn>
+                                            <v-btn small icon title="exclude from search" @click="qbAdd(k, '!=', v)">
+                                                <v-icon small>mdi-minus</v-icon>
+                                            </v-btn>
+                                        </td>
                                     </tr>
                                 </tbody>
                             </v-simple-table>
@@ -163,11 +147,11 @@
                                 Show similar messages
                             </v-btn>
                             <v-btn
-                                v-if="entry.attributes['trace.id']"
+                                v-if="entry.trace_id"
                                 color="primary"
                                 :to="{
                                     params: { report: 'Tracing' },
-                                    query: { query: undefined, trace: 'otel:' + entry.attributes['trace.id'] + ':-:-:' },
+                                    query: { query: undefined, trace: 'otel:' + entry.trace_id + ':-:-:' },
                                 }"
                                 class="mt-4"
                             >
@@ -239,10 +223,11 @@
 </template>
 
 <script>
+import { palette } from '../utils/colors';
 import Led from '../components/Led.vue';
 import Chart from '../components/Chart.vue';
 import Check from '../components/Check.vue';
-import { palette } from '../utils/colors';
+import QueryBuilder from '@/components/QueryBuilder.vue';
 
 const severity = (s) => {
     s = s.toLowerCase();
@@ -255,18 +240,24 @@ const severity = (s) => {
 };
 
 export default {
-    components: { Led, Chart, Check },
     props: {
         appId: String,
         check: Object,
     },
+
+    components: { Led, Chart, Check, QueryBuilder },
 
     data() {
         return {
             loading: false,
             loadingError: '',
             data: {},
-            query: {},
+            query: {
+                source: '',
+                view: '',
+                filters: [],
+                limit: 0,
+            },
             order: '',
 
             configure: false,
@@ -280,6 +271,12 @@ export default {
 
             entry: null,
             pattern: null,
+
+            qb: {
+                loading: false,
+                error: '',
+                items: [],
+            },
         };
     },
 
@@ -297,32 +294,6 @@ export default {
         },
         services() {
             return this.data.services || [];
-        },
-        views() {
-            const views = this.data.views || [];
-            const res = [
-                { name: 'messages', icon: 'mdi-format-list-bulleted', click: () => {} },
-                { name: 'patterns', icon: 'mdi-creation', click: () => this.filterByPattern('') },
-            ];
-            res.forEach((v) => {
-                v.disabled = views.indexOf(v.name) < 0;
-            });
-            return res;
-        },
-        severities() {
-            if (!this.data.severities) {
-                return [];
-            }
-            const res = this.data.severities.map((s) => {
-                const sev = severity(s);
-                return {
-                    name: s,
-                    num: sev.num,
-                    color: palette.get(sev.color),
-                };
-            });
-            res.sort((s1, s2) => s1.num - s2.num);
-            return res;
         },
         chart() {
             const ch = this.data.chart;
@@ -354,6 +325,7 @@ export default {
                     date: this.$format.date(e.timestamp, '{MMM} {DD} {HH}:{mm}:{ss}'),
                     message: e.message,
                     attributes: e.attributes,
+                    trace_id: e.trace_id,
                     multiline: newline > 0 ? newline : 0,
                 };
             });
@@ -414,6 +386,9 @@ export default {
                 this.get();
             }
         },
+        'query.filters'() {
+            this.query.view === 'messages' && this.setQuery();
+        },
     },
 
     methods: {
@@ -425,33 +400,22 @@ export default {
             } catch {
                 //
             }
-            let severity = q.severity || [];
-            if (!severity.length) {
-                severity = this.data.severities || [];
-            }
-            this.query = {
-                source: q.source || '',
-                view: q.view || 'messages',
-                search: q.search || '',
-                hash: q.hash || '',
-                severity,
-                limit: q.limit || 100,
-            };
+            this.query.source = q.source || '';
+            this.query.view = q.view || 'messages';
+            this.query.filters.splice(0, Infinity, ...(q.filters || []));
+            this.query.limit = q.limit || 100;
             this.order = query.order || 'desc';
         },
         setQuery() {
             if (this.query.view === 'patterns') {
-                this.query.severity = this.data.severities || [];
-                this.query.search = '';
-                this.query.hash = '';
+                this.query.filters.splice(0);
                 this.order = '';
             }
             const query = {
                 query: JSON.stringify(this.query),
-                view: this.view,
                 order: this.order,
             };
-            this.$router.push({ query: { ...this.$route.query, ...query } }).catch((err) => err);
+            this.$router.replace({ query: { ...this.$route.query, ...query } }).catch((err) => err);
         },
         runQuery() {
             const q = this.$route.query.query;
@@ -461,24 +425,54 @@ export default {
             }
         },
         changeSource(s) {
-            this.data.severities = [];
             this.query.source = s;
-            this.query.severity = [];
-            this.query.search = '';
-            this.query.hash = '';
-            this.setQuery();
-        },
-        filterByPattern(hash) {
-            this.query.view = 'messages';
-            this.pattern = null;
-            this.query.hash = hash;
-            this.entry = null;
+            this.query.filters.splice(0);
             this.setQuery();
         },
         zoom(s) {
             const { from, to } = s.selection;
             const query = { ...this.$route.query, from, to };
             this.$router.push({ query }).catch((err) => err);
+        },
+        filterByPattern(hash) {
+            this.query.view = 'messages';
+            this.pattern = null;
+            this.qbAdd('pattern.hash', '=', hash);
+        },
+        qbAdd(name, op, value) {
+            this.query.filters.push({ name, op, value });
+            this.entry = null;
+            this.setQuery();
+        },
+        qbGet(what, name) {
+            this.qb.items = [];
+            if (what === 'op') {
+                switch (name) {
+                    case 'Severity':
+                        this.qb.items = ['=', '!='];
+                        break;
+                    case 'Message':
+                        this.qb.items = ['contains'];
+                        break;
+                    case 'pattern.hash':
+                        this.qb.items = ['='];
+                        break;
+                    default:
+                        this.qb.items = ['=', '!=', '~', '!~'];
+                }
+                return;
+            }
+            this.qb.loading = true;
+            this.qb.error = '';
+            const query = JSON.stringify({ ...this.query, suggest: what === 'value' ? name : '' });
+            this.$api.getLogs(this.appId, query, (data, error) => {
+                this.qb.loading = false;
+                if (error || data.status === 'warning') {
+                    this.qb.error = error || data.message;
+                    return;
+                }
+                this.qb.items = data.suggest || [];
+            });
         },
         get() {
             this.loading = true;
@@ -500,7 +494,6 @@ export default {
                 this.saved = JSON.stringify(this.form);
                 this.query.source = this.data.source;
                 this.query.view = this.data.view;
-                this.query.severity = this.data.severity;
             });
         },
         save() {
