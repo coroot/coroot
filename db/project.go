@@ -32,6 +32,7 @@ type ProjectSettings struct {
 	CustomApplications          map[string]model.CustomApplication                         `json:"custom_applications"`
 	ApiKeys                     []ApiKey                                                   `json:"api_keys"`
 	Configurable                bool                                                       `json:"configurable"`
+	CustomCloudPricing          *CustomCloudPricing                                        `json:"custom_cloud_pricing"`
 }
 
 type ApiKey struct {
@@ -68,6 +69,9 @@ func (p *Project) Migrate(m *Migrator) error {
 func (p *Project) applyDefaults() {
 	if p.Prometheus.RefreshInterval == 0 {
 		p.Prometheus.RefreshInterval = DefaultRefreshInterval
+	}
+	if p.Settings.CustomCloudPricing == nil {
+		p.Settings.CustomCloudPricing = &defaultCustomCloudPricing
 	}
 }
 

@@ -545,6 +545,46 @@ func (api *Api) CustomApplications(w http.ResponseWriter, r *http.Request, u *db
 	utils.WriteJson(w, views.CustomApplications(p))
 }
 
+func (api *Api) CustomCloudPricing(w http.ResponseWriter, r *http.Request, u *db.User) {
+	vars := mux.Vars(r)
+	projectId := vars["project"]
+	p, err := api.db.GetProject(db.ProjectId(projectId))
+
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	if r.Method == http.MethodGet {
+		utils.WriteJson(w, p.Settings.CustomCloudPricing)
+		return
+	}
+	if !api.IsAllowed(u, rbac.Actions.Project(projectId).CustomCloudPricing().Edit()) {
+		http.Error(w, "You are not allowed to configure custom cloud pricing.", http.StatusForbidden)
+		return
+	}
+	switch r.Method {
+	case http.MethodDelete:
+		p.Settings.CustomCloudPricing = nil
+	case http.MethodPost:
+		var form forms.CustomCloudPricingForm
+		if err := forms.ReadAndValidate(r, &form); err != nil {
+			klog.Warningln("bad request:", err)
+			http.Error(w, "Invalid form", http.StatusBadRequest)
+			return
+		}
+		p.Settings.CustomCloudPricing = &form.CustomCloudPricing
+	default:
+		http.Error(w, "", http.StatusMethodNotAllowed)
+		return
+	}
+	if err := api.db.SaveProjectSettings(p); err != nil {
+		klog.Errorln("failed to save:", err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+}
+
 func (api *Api) Integrations(w http.ResponseWriter, r *http.Request, u *db.User) {
 	vars := mux.Vars(r)
 	projectId := vars["project"]

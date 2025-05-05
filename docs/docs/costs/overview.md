@@ -53,11 +53,25 @@ By leveraging this information, it can quickly determine the price of each node.
 To calculate the cost of each resource separately, Coroot assumes that 1 CPU core costs the same as 1GB of memory.
 By doing so, the CPU and memory usage of every application can be easily translated into $$$.
 
+## Custom cloud pricing
+
+Out of the box, Coroot supports pricing models for AWS, GCP, and Azure. For nodes not running in these clouds, 
+Coroot uses predefined prices based on GCP’s C4 machine family in the us-central1 region. 
+These prices can be adjusted in the UI.
+
+<img alt="Custom Cloud Pricing" src="/img/docs/cloud_cost/custom_pricing.png" class="card w-1200"/>
+
+The prices are defined per hour, based on a single vCPU and 1 GB of memory.
+
+<img alt="Custom Cloud Pricing Configuration" src="/img/docs/cloud_cost/custom_pricing_configuration.png" class="card w-1200"/>
+
+
+
+
 ## Limitations
 
 Coroot has some limitations that are important to note.
 
-* Only AWS, GCP, and Azure are currently supported
 * Standard pricing (without discounts)
 * The cost calculation considers only CPU, Memory usage and Traffic (egress, cross-AZ) (support for GPUs and volumes will be added later)
 * Currently, the cost calculation considers only compute, AWS RDS, and AWS ElastiCache instances (support for EKS/AKS/GKE will be added later)

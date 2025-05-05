@@ -67,6 +67,7 @@ func (as ProjectActionSet) List() []Action {
 		as.Integrations().Edit(),
 		as.ApplicationCategories().Edit(),
 		as.CustomApplications().Edit(),
+		as.CustomCloudPricing().Edit(),
 		as.Inspections().Edit(),
 		as.Instrumentations().Edit(),
 		as.Traces().View(),
@@ -93,6 +94,10 @@ func (as ProjectActionSet) ApplicationCategories() ProjectEditAction {
 
 func (as ProjectActionSet) CustomApplications() ProjectEditAction {
 	return ProjectEditAction{project: &as, scope: ScopeProjectCustomApplications}
+}
+
+func (as ProjectActionSet) CustomCloudPricing() ProjectEditAction {
+	return ProjectEditAction{project: &as, scope: ScopeProjectCustomCloudPricing}
 }
 
 func (as ProjectActionSet) Inspections() ProjectEditAction {

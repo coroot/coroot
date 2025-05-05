@@ -92,6 +92,7 @@ type NodePrice struct {
 	Total         float32
 	PerCPUCore    float32
 	PerMemoryByte float32
+	Custom        bool
 }
 
 type InternetStartUsageAmountGB int64

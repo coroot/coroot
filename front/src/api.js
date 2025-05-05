@@ -195,6 +195,18 @@ export default class Api {
         this.post(this.projectPath(`custom_applications`), form, cb);
     }
 
+    getCustomCloudPricing(cb) {
+        this.get(this.projectPath(`custom_cloud_pricing`), {}, cb);
+    }
+
+    saveCustomCloudPricing(form, cb) {
+        this.post(this.projectPath(`custom_cloud_pricing`), form, cb);
+    }
+
+    deleteCustomCloudPricing(cb) {
+        this.del(this.projectPath(`custom_cloud_pricing`), cb);
+    }
+
     getIntegrations(type, cb) {
         this.get(this.projectPath(`integrations${type ? '/' + type : ''}`), {}, cb);
     }
