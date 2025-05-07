@@ -14,13 +14,12 @@
                     <div class="grey--text text-no-wrap">Condition: {{ formatCondition(c) }}</div>
                 </td>
                 <td>
-                    <template v-if="c.id === 'SLOAvailability' || c.id === 'SLOLatency'"> &mdash; </template>
-                    <a v-else @click="edit('::', c)">
+                    <a @click="edit('::', c)">
                         <template v-if="c.project_threshold === null">
                             <v-icon small>mdi-file-replace-outline</v-icon>
                         </template>
                         <template v-else>
-                            {{ format(c.project_threshold, c.unit) }}
+                            {{ format(c.project_threshold, c.unit, c.project_details) }}
                         </template>
                     </a>
                 </td>

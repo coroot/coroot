@@ -10,6 +10,7 @@
             outlined
             dense
             :menu-props="{ offsetY: true }"
+            :disabled="appId === '::'"
             hide-details
             class="mb-3"
         />
@@ -58,6 +59,7 @@ export default {
     components: { MetricSelector },
     props: {
         form: Object,
+        appId: String,
     },
     data() {
         return {

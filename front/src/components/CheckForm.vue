@@ -20,8 +20,8 @@
             </div>
 
             <v-form v-if="form" v-model="valid">
-                <CheckFormSLOAvailability v-if="check.id === 'SLOAvailability'" :form="form" />
-                <CheckFormSLOLatency v-else-if="check.id === 'SLOLatency'" :form="form" />
+                <CheckFormSLOAvailability v-if="check.id === 'SLOAvailability'" :appId="appId" :form="form" />
+                <CheckFormSLOLatency v-else-if="check.id === 'SLOLatency'" :appId="appId" :form="form" />
                 <CheckConfigForm v-else :form="form" :check="check" :appId="appId" />
 
                 <div v-if="check.id.startsWith('SLO')" class="my-3">
@@ -34,7 +34,13 @@
                             </li>
                         </ul>
                         <div v-else class="grey--text">No notification integrations configured.</div>
-                        <v-btn color="primary" small :to="{ name: 'project_settings', params: { tab: 'notifications' } }" class="mt-1">
+                        <v-btn
+                            color="primary"
+                            small
+                            :to="{ name: 'project_settings', params: { tab: 'notifications' } }"
+                            :disabled="appId === '::'"
+                            class="mt-1"
+                        >
                             Configure integrations
                         </v-btn>
                     </div>

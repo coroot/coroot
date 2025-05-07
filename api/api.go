@@ -859,16 +859,22 @@ func (api *Api) Inspection(w http.ResponseWriter, r *http.Request, u *db.User) {
 		http.Error(w, "Application not found", http.StatusNotFound)
 		return
 	}
-	app := world.GetApplication(appId)
-	if app == nil {
-		klog.Warningln("application not found:", appId)
-		http.Error(w, "Application not found", http.StatusNotFound)
-		return
+
+	var app *model.Application
+	var category model.ApplicationCategory
+	if !appId.IsZero() {
+		app = world.GetApplication(appId)
+		if app == nil {
+			klog.Warningln("application not found:", appId)
+			http.Error(w, "Application not found", http.StatusNotFound)
+			return
+		}
+		category = app.Category
 	}
 
 	switch r.Method {
 	case http.MethodGet:
-		checkConfigs, err := api.db.GetCheckConfigs(db.ProjectId(project.Id))
+		checkConfigs, err := api.db.GetCheckConfigs(project.Id)
 		if err != nil {
 			klog.Errorln("failed to get check configs:", err)
 			http.Error(w, "", http.StatusInternalServerError)
@@ -882,37 +888,40 @@ func (api *Api) Inspection(w http.ResponseWriter, r *http.Request, u *db.User) {
 			Form         any           `json:"form"`
 			Integrations []Integration `json:"integrations"`
 		}{}
-		categorySettings := project.GetApplicationCategories()[app.Category]
-		if categorySettings != nil {
-			notificationSettings := categorySettings.NotificationSettings.Incidents
-			if notificationSettings.Enabled {
-				if slack := notificationSettings.Slack; slack != nil && slack.Enabled {
-					res.Integrations = append(res.Integrations, Integration{Name: "Slack", Details: fmt.Sprintf("channel: #%s", slack.Channel)})
-				}
-				if teams := notificationSettings.Teams; teams != nil && teams.Enabled {
-					res.Integrations = append(res.Integrations, Integration{Name: "MS Teams"})
-				}
-				if pagerduty := notificationSettings.Pagerduty; pagerduty != nil && pagerduty.Enabled {
-					res.Integrations = append(res.Integrations, Integration{Name: "Pagerduty"})
-				}
-				if opsgenie := notificationSettings.Opsgenie; opsgenie != nil && opsgenie.Enabled {
-					res.Integrations = append(res.Integrations, Integration{Name: "Opsgenie"})
-				}
-				if webhook := notificationSettings.Webhook; webhook != nil && webhook.Enabled {
-					res.Integrations = append(res.Integrations, Integration{Name: "Webhook"})
+
+		if app != nil {
+			if categorySettings := project.GetApplicationCategories()[app.Category]; categorySettings != nil {
+				notificationSettings := categorySettings.NotificationSettings.Incidents
+				if notificationSettings.Enabled {
+					if slack := notificationSettings.Slack; slack != nil && slack.Enabled {
+						res.Integrations = append(res.Integrations, Integration{Name: "Slack", Details: fmt.Sprintf("channel: #%s", slack.Channel)})
+					}
+					if teams := notificationSettings.Teams; teams != nil && teams.Enabled {
+						res.Integrations = append(res.Integrations, Integration{Name: "MS Teams"})
+					}
+					if pagerduty := notificationSettings.Pagerduty; pagerduty != nil && pagerduty.Enabled {
+						res.Integrations = append(res.Integrations, Integration{Name: "Pagerduty"})
+					}
+					if opsgenie := notificationSettings.Opsgenie; opsgenie != nil && opsgenie.Enabled {
+						res.Integrations = append(res.Integrations, Integration{Name: "Opsgenie"})
+					}
+					if webhook := notificationSettings.Webhook; webhook != nil && webhook.Enabled {
+						res.Integrations = append(res.Integrations, Integration{Name: "Webhook"})
+					}
 				}
 			}
 		}
+
 		switch checkId {
 		case model.Checks.SLOAvailability.Id:
-			cfg, def := checkConfigs.GetAvailability(app.Id)
+			cfg, def := checkConfigs.GetAvailability(appId)
 			res.Form = forms.CheckConfigSLOAvailabilityForm{Configs: []model.CheckConfigSLOAvailability{cfg}, Default: def}
 		case model.Checks.SLOLatency.Id:
-			cfg, def := checkConfigs.GetLatency(app.Id, app.Category)
+			cfg, def := checkConfigs.GetLatency(appId, category)
 			res.Form = forms.CheckConfigSLOLatencyForm{Configs: []model.CheckConfigSLOLatency{cfg}, Default: def}
 		default:
 			form := forms.CheckConfigForm{
-				Configs: checkConfigs.GetSimpleAll(checkId, app.Id),
+				Configs: checkConfigs.GetSimpleAll(checkId, appId),
 			}
 			if len(form.Configs) == 0 {
 				http.Error(w, "", http.StatusNotFound)
@@ -936,7 +945,7 @@ func (api *Api) Inspection(w http.ResponseWriter, r *http.Request, u *db.User) {
 				http.Error(w, "", http.StatusBadRequest)
 				return
 			}
-			if err = api.db.SaveCheckConfig(db.ProjectId(projectId), app.Id, checkId, form.Configs); err != nil {
+			if err = api.db.SaveCheckConfig(db.ProjectId(projectId), appId, checkId, form.Configs); err != nil {
 				klog.Errorln("failed to save check config:", err)
 				http.Error(w, "", http.StatusInternalServerError)
 				return
@@ -948,7 +957,7 @@ func (api *Api) Inspection(w http.ResponseWriter, r *http.Request, u *db.User) {
 				http.Error(w, "", http.StatusBadRequest)
 				return
 			}
-			if err = api.db.SaveCheckConfig(db.ProjectId(projectId), app.Id, checkId, form.Configs); err != nil {
+			if err = api.db.SaveCheckConfig(db.ProjectId(projectId), appId, checkId, form.Configs); err != nil {
 				klog.Errorln("failed to save check config:", err)
 				http.Error(w, "", http.StatusInternalServerError)
 				return
@@ -968,7 +977,7 @@ func (api *Api) Inspection(w http.ResponseWriter, r *http.Request, u *db.User) {
 				case 1:
 					id = model.ApplicationIdZero
 				case 2:
-					id = app.Id
+					id = appId
 				}
 				if err = api.db.SaveCheckConfig(db.ProjectId(projectId), id, checkId, cfg); err != nil {
 					klog.Errorln("failed to save check config:", err)
