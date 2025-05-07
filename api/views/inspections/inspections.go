@@ -16,6 +16,7 @@ type Check struct {
 	model.Check
 	GlobalThreshold      float32       `json:"global_threshold"`
 	ProjectThreshold     *float32      `json:"project_threshold"`
+	ProjectDetails       string        `json:"project_details"`
 	ApplicationOverrides []Application `json:"application_overrides"`
 }
 
@@ -71,18 +72,30 @@ func (v *View) addReport(name model.AuditReportName, checks ...model.CheckConfig
 					}
 				case []model.CheckConfigSLOAvailability:
 					for _, c := range cfg {
-						ch.ApplicationOverrides = append(ch.ApplicationOverrides, Application{
-							Id:        appId,
-							Threshold: c.ObjectivePercentage,
-						})
+						if appId.IsZero() {
+							t := c.ObjectivePercentage
+							ch.ProjectThreshold = &t
+						} else {
+							ch.ApplicationOverrides = append(ch.ApplicationOverrides, Application{
+								Id:        appId,
+								Threshold: c.ObjectivePercentage,
+							})
+						}
 					}
 				case []model.CheckConfigSLOLatency:
 					for _, c := range cfg {
-						ch.ApplicationOverrides = append(ch.ApplicationOverrides, Application{
-							Id:        appId,
-							Threshold: c.ObjectivePercentage,
-							Details:   "< " + utils.FormatLatency(c.ObjectiveBucket),
-						})
+						details := "< " + utils.FormatLatency(c.ObjectiveBucket)
+						if appId.IsZero() {
+							t := c.ObjectivePercentage
+							ch.ProjectThreshold = &t
+							ch.ProjectDetails = details
+						} else {
+							ch.ApplicationOverrides = append(ch.ApplicationOverrides, Application{
+								Id:        appId,
+								Threshold: c.ObjectivePercentage,
+								Details:   details,
+							})
+						}
 					}
 				default:
 					klog.Warningln("unknown config type")

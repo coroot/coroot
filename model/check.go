@@ -555,20 +555,20 @@ func (cfg *CheckConfigSLOLatency) Histogram() string {
 
 type CheckConfigs map[ApplicationId]map[CheckId]json.RawMessage
 
-func (cc CheckConfigs) getRaw(appId ApplicationId, checkId CheckId) json.RawMessage {
+func (cc CheckConfigs) getRaw(appId ApplicationId, checkId CheckId) (json.RawMessage, bool) {
 	for _, i := range []ApplicationId{appId, {}} {
 		if appConfigs, ok := cc[i]; ok {
 			if cfg, ok := appConfigs[checkId]; ok {
-				return cfg
+				return cfg, i.IsZero()
 			}
 		}
 	}
-	return nil
+	return nil, false
 }
 
 func (cc CheckConfigs) GetSimple(checkId CheckId, appId ApplicationId) CheckConfigSimple {
 	cfg := CheckConfigSimple{Threshold: Checks.index[checkId].DefaultThreshold}
-	raw := cc.getRaw(appId, checkId)
+	raw, _ := cc.getRaw(appId, checkId)
 	if raw == nil {
 		return cfg
 	}
@@ -639,12 +639,9 @@ func (cc CheckConfigs) GetAvailability(appId ApplicationId) (CheckConfigSLOAvail
 		Custom:              false,
 		ObjectivePercentage: Checks.SLOAvailability.DefaultThreshold,
 	}
-	appConfigs := cc[appId]
-	if appConfigs == nil {
-		return defaultCfg, true
-	}
-	raw, ok := appConfigs[Checks.SLOAvailability.Id]
-	if !ok {
+
+	raw, _ := cc.getRaw(appId, Checks.SLOAvailability.Id)
+	if raw == nil {
 		return defaultCfg, true
 	}
 	res, err := unmarshal[[]CheckConfigSLOAvailability](raw)
@@ -660,20 +657,17 @@ func (cc CheckConfigs) GetAvailability(appId ApplicationId) (CheckConfigSLOAvail
 
 func (cc CheckConfigs) GetLatency(appId ApplicationId, category ApplicationCategory) (CheckConfigSLOLatency, bool) {
 	objectiveBucket := float32(0.5)
+	auxObjectiveBucket := float32(5)
 	if category.Auxiliary() {
-		objectiveBucket = 5
+		objectiveBucket = auxObjectiveBucket
 	}
 	defaultCfg := CheckConfigSLOLatency{
 		Custom:              false,
 		ObjectivePercentage: Checks.SLOLatency.DefaultThreshold,
 		ObjectiveBucket:     objectiveBucket,
 	}
-	appConfigs := cc[appId]
-	if appConfigs == nil {
-		return defaultCfg, true
-	}
-	raw, ok := appConfigs[Checks.SLOLatency.Id]
-	if !ok {
+	raw, projectDefault := cc.getRaw(appId, Checks.SLOLatency.Id)
+	if raw == nil {
 		return defaultCfg, true
 	}
 	res, err := unmarshal[[]CheckConfigSLOLatency](raw)
@@ -683,6 +677,11 @@ func (cc CheckConfigs) GetLatency(appId ApplicationId, category ApplicationCateg
 	}
 	if len(res) == 0 {
 		return defaultCfg, true
+	}
+	if projectDefault && category.Auxiliary() {
+		v := res[0]
+		v.ObjectiveBucket = auxObjectiveBucket
+		return v, false
 	}
 	return res[0], false
 }
