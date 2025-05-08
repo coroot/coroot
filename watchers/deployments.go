@@ -119,7 +119,7 @@ func (w *Deployments) sendNotifications(project *db.Project, world *model.World)
 				continue
 			}
 			needSave := false
-			if slack := integrations.Slack; slack != nil && slack.Deployments && notificationSettings.Slack.Enabled && d.Notifications.Slack.State < ds.State {
+			if slack := integrations.Slack; slack != nil && slack.Deployments && notificationSettings.Slack != nil && notificationSettings.Slack.Enabled && d.Notifications.Slack.State < ds.State {
 				client := notifications.NewSlack(slack.Token, cmp.Or(notificationSettings.Slack.Channel, slack.DefaultChannel))
 				ctx, cancel := context.WithTimeout(context.Background(), sendTimeout)
 				err := client.SendDeployment(ctx, project, ds)
@@ -131,7 +131,7 @@ func (w *Deployments) sendNotifications(project *db.Project, world *model.World)
 					needSave = true
 				}
 			}
-			if teams := integrations.Teams; teams != nil && teams.Deployments && notificationSettings.Teams.Enabled && d.Notifications.Teams.State < ds.State {
+			if teams := integrations.Teams; teams != nil && teams.Deployments && notificationSettings.Teams != nil && notificationSettings.Teams.Enabled && d.Notifications.Teams.State < ds.State {
 				client := notifications.NewTeams(teams.WebhookUrl)
 				ctx, cancel := context.WithTimeout(context.Background(), sendTimeout)
 				err := client.SendDeployment(ctx, project, ds)
@@ -143,7 +143,7 @@ func (w *Deployments) sendNotifications(project *db.Project, world *model.World)
 					needSave = true
 				}
 			}
-			if webhook := integrations.Webhook; webhook != nil && webhook.Deployments && notificationSettings.Webhook.Enabled && d.Notifications.Webhook.State < ds.State {
+			if webhook := integrations.Webhook; webhook != nil && webhook.Deployments && notificationSettings.Webhook != nil && notificationSettings.Webhook.Enabled && d.Notifications.Webhook.State < ds.State {
 				client := notifications.NewWebhook(webhook)
 				ctx, cancel := context.WithTimeout(context.Background(), sendTimeout)
 				err := client.SendDeployment(ctx, project, ds)
