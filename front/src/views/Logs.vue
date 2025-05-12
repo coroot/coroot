@@ -3,95 +3,99 @@
         <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
             {{ error }}
         </v-alert>
-        <v-alert v-if="view.message" color="info" outlined text class="message">
+
+        <v-alert v-else-if="view.message" color="info" outlined text class="message">
             {{ view.message }}
         </v-alert>
-        <v-alert v-if="view.error" color="error" icon="mdi-alert-octagon-outline" outlined text class="mt-2">
-            {{ view.error }}
-        </v-alert>
 
-        <v-card outlined class="px-4 py-2 mb-2">
-            <div class="subtitle-1">Query:</div>
-            <div class="d-flex flex-wrap flex-md-nowrap gap-2">
-                <QueryBuilder
-                    v-model="query.filters"
-                    :loading="qb.loading"
-                    :items="qb.items"
-                    :error="qb.error"
-                    :disabled="query.view !== 'messages'"
-                    @get="qbGet"
-                    class="flex-grow-1"
-                />
-                <v-btn @click="get" :disabled="disabled" color="primary" height="40">Show logs</v-btn>
-            </div>
-            <div class="d-flex gap-2 sources">
-                <v-checkbox v-model="query.agent" label="Container logs" :disabled="disabled" dense hide-details />
-                <v-checkbox v-model="query.otel" label="OpenTelemetry" :disabled="disabled" dense hide-details />
-            </div>
-            <v-progress-linear v-if="loading" indeterminate height="4" style="position: absolute; bottom: 0; left: 0" />
-        </v-card>
+        <template v-else>
+            <v-alert v-if="view.error" color="error" icon="mdi-alert-octagon-outline" outlined text class="mt-2">
+                {{ view.error }}
+            </v-alert>
 
-        <v-tabs height="32" show-arrows hide-slider class="mt-4">
-            <v-tab v-for="v in views" :key="v.name" @click="openView(v.name)" class="view" :class="{ active: query.view === v.name }">
-                <v-icon small class="mr-1">{{ v.icon }}</v-icon>
-                {{ v.title }}
-            </v-tab>
-        </v-tabs>
+            <v-card outlined class="px-4 py-2 mb-2">
+                <div class="subtitle-1">Query:</div>
+                <div class="d-flex flex-wrap flex-md-nowrap gap-2">
+                    <QueryBuilder
+                        v-model="query.filters"
+                        :loading="qb.loading"
+                        :items="qb.items"
+                        :error="qb.error"
+                        :disabled="query.view !== 'messages'"
+                        @get="qbGet"
+                        class="flex-grow-1"
+                    />
+                    <v-btn @click="get" :disabled="disabled" color="primary" height="40">Show logs</v-btn>
+                </div>
+                <div class="d-flex gap-2 sources">
+                    <v-checkbox v-model="query.agent" label="Container logs" :disabled="disabled" dense hide-details />
+                    <v-checkbox v-model="query.otel" label="OpenTelemetry" :disabled="disabled" dense hide-details />
+                </div>
+                <v-progress-linear v-if="loading" indeterminate height="4" style="position: absolute; bottom: 0; left: 0" />
+            </v-card>
 
-        <Chart v-if="view.chart" :chart="view.chart" :selection="{}" @select="zoom" class="my-3" />
+            <v-tabs height="32" show-arrows hide-slider class="mt-4">
+                <v-tab v-for="v in views" :key="v.name" @click="openView(v.name)" class="view" :class="{ active: query.view === v.name }">
+                    <v-icon small class="mr-1">{{ v.icon }}</v-icon>
+                    {{ v.title }}
+                </v-tab>
+            </v-tabs>
 
-        <div v-if="query.view === 'messages'">
-            <v-simple-table v-if="entries" dense class="entries">
-                <thead>
-                    <tr>
-                        <th class="px-2">Date</th>
-                        <th class="px-2">Application</th>
-                        <th class="px-2">Message</th>
-                    </tr>
-                </thead>
-                <tbody class="mono">
-                    <tr v-for="e in entries" @click="entry = e" style="cursor: pointer">
-                        <td class="text-no-wrap px-2 pl-0">
-                            <div class="d-flex gap-1">
-                                <div class="marker" :style="{ backgroundColor: e.color }" />
-                                <div>{{ e.date }}</div>
-                            </div>
-                        </td>
-                        <td class="text-no-wrap px-2">
-                            <v-menu offset-y>
-                                <template #activator="{ on }">
-                                    <a v-on="on" class="nowrap" style="display: inline-block; max-width: 20ch">{{ e.application }}</a>
-                                </template>
-                                <v-list dense>
-                                    <template v-if="e.attributes['service.name']">
-                                        <v-list-item @click="qbAdd('service.name', '=', e.attributes['service.name'])">
-                                            <v-icon small class="mr-1">mdi-plus</v-icon>
-                                            add to search
-                                        </v-list-item>
-                                        <v-list-item @click="qbAdd('service.name', '!=', e.attributes['service.name'])">
-                                            <v-icon small class="mr-1">mdi-minus</v-icon>
-                                            exclude from search
-                                        </v-list-item>
+            <Chart v-if="view.chart" :chart="view.chart" :selection="{}" @select="zoom" class="my-3" />
+
+            <div v-if="query.view === 'messages'">
+                <v-simple-table v-if="entries" dense class="entries">
+                    <thead>
+                        <tr>
+                            <th class="px-2">Date</th>
+                            <th class="px-2">Application</th>
+                            <th class="px-2">Message</th>
+                        </tr>
+                    </thead>
+                    <tbody class="mono">
+                        <tr v-for="e in entries" @click="entry = e" style="cursor: pointer">
+                            <td class="text-no-wrap px-2 pl-0">
+                                <div class="d-flex gap-1">
+                                    <div class="marker" :style="{ backgroundColor: e.color }" />
+                                    <div>{{ e.date }}</div>
+                                </div>
+                            </td>
+                            <td class="text-no-wrap px-2">
+                                <v-menu offset-y>
+                                    <template #activator="{ on }">
+                                        <a v-on="on" class="nowrap" style="display: inline-block; max-width: 20ch">{{ e.application }}</a>
                                     </template>
-                                    <v-list-item v-if="e.link" :to="e.link">
-                                        <v-icon small class="mr-1">mdi-open-in-new</v-icon>
-                                        go to application
-                                    </v-list-item>
-                                </v-list>
-                            </v-menu>
-                        </td>
-                        <td class="text-no-wrap px-2">{{ e.multiline ? e.message.substr(0, e.multiline) : e.message }}</td>
-                    </tr>
-                </tbody>
-            </v-simple-table>
-            <div v-else-if="!loading" class="pa-3 text-center grey--text">No messages found</div>
-            <div v-if="entries && entries.length === query.limit" class="text-right caption grey--text mt-1">
-                The output is capped at
-                <InlineSelect v-model="query.limit" :items="limits" />
-                messages.
+                                    <v-list dense>
+                                        <template v-if="e.attributes['service.name']">
+                                            <v-list-item @click="qbAdd('service.name', '=', e.attributes['service.name'])">
+                                                <v-icon small class="mr-1">mdi-plus</v-icon>
+                                                add to search
+                                            </v-list-item>
+                                            <v-list-item @click="qbAdd('service.name', '!=', e.attributes['service.name'])">
+                                                <v-icon small class="mr-1">mdi-minus</v-icon>
+                                                exclude from search
+                                            </v-list-item>
+                                        </template>
+                                        <v-list-item v-if="e.link" :to="e.link">
+                                            <v-icon small class="mr-1">mdi-open-in-new</v-icon>
+                                            go to application
+                                        </v-list-item>
+                                    </v-list>
+                                </v-menu>
+                            </td>
+                            <td class="text-no-wrap px-2">{{ e.multiline ? e.message.substr(0, e.multiline) : e.message }}</td>
+                        </tr>
+                    </tbody>
+                </v-simple-table>
+                <div v-else-if="!loading" class="pa-3 text-center grey--text">No messages found</div>
+                <div v-if="entries && entries.length === query.limit" class="text-right caption grey--text mt-1">
+                    The output is capped at
+                    <InlineSelect v-model="query.limit" :items="limits" />
+                    messages.
+                </div>
+                <LogEntry v-if="entry" v-model="entry" @filter="qbAdd" />
             </div>
-            <LogEntry v-if="entry" v-model="entry" @filter="qbAdd" />
-        </div>
+        </template>
     </div>
 </template>
 

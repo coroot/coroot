@@ -71,6 +71,7 @@ func (as ProjectActionSet) List() []Action {
 		as.Inspections().Edit(),
 		as.Instrumentations().Edit(),
 		as.Traces().View(),
+		as.Logs().View(),
 		as.Costs().View(),
 		as.Anomalies().View(),
 		as.Risks().View(),
@@ -110,6 +111,10 @@ func (as ProjectActionSet) Instrumentations() ProjectEditAction {
 
 func (as ProjectActionSet) Traces() ProjectViewAction {
 	return ProjectViewAction{project: &as, scope: ScopeProjectTraces}
+}
+
+func (as ProjectActionSet) Logs() ProjectViewAction {
+	return ProjectViewAction{project: &as, scope: ScopeProjectLogs}
 }
 
 func (as ProjectActionSet) Costs() ProjectViewAction {

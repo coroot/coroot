@@ -334,6 +334,11 @@ func (api *Api) Overview(w http.ResponseWriter, r *http.Request, u *db.User) {
 			http.Error(w, "You are not allowed to view traces.", http.StatusForbidden)
 			return
 		}
+	case "logs":
+		if !api.IsAllowed(u, rbac.Actions.Project(projectId).Logs().View()) {
+			http.Error(w, "You are not allowed to view logs.", http.StatusForbidden)
+			return
+		}
 	case "costs":
 		if !api.IsAllowed(u, rbac.Actions.Project(projectId).Costs().View()) {
 			http.Error(w, "You are not allowed to view costs.", http.StatusForbidden)
