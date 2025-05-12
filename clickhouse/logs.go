@@ -3,6 +3,7 @@ package clickhouse
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 	"unicode"
@@ -32,9 +33,9 @@ func (c *Client) GetServicesFromLogs(ctx context.Context, from timeseries.Time) 
 	return res, nil
 }
 
-func (c *Client) GetLogsHistogram(ctx context.Context, query LogQuery) (map[string]*timeseries.TimeSeries, error) {
+func (c *Client) GetLogsHistogram(ctx context.Context, query LogQuery) ([]model.LogHistogramBucket, error) {
 	where, args := query.filters(nil)
-	q := fmt.Sprintf("SELECT SeverityText, toStartOfInterval(Timestamp, INTERVAL %d second), count(1)", query.Ctx.Step)
+	q := fmt.Sprintf("SELECT multiIf(SeverityNumber=0, 0, intDiv(SeverityNumber, 4)+1), toStartOfInterval(Timestamp, INTERVAL %d second), count(1)", query.Ctx.Step)
 	q += " FROM @@table_otel_logs@@"
 	q += " WHERE " + strings.Join(where, " AND ")
 	q += " GROUP BY 1, 2"
@@ -43,25 +44,30 @@ func (c *Client) GetLogsHistogram(ctx context.Context, query LogQuery) (map[stri
 		return nil, err
 	}
 	defer rows.Close()
-	res := map[string]*timeseries.TimeSeries{}
-	var sev string
-	var ts time.Time
+	bySeverity := map[int64]*timeseries.TimeSeries{}
+	var sev int64
+	var t time.Time
 	var count uint64
 	for rows.Next() {
-		if err = rows.Scan(&sev, &ts, &count); err != nil {
+		if err = rows.Scan(&sev, &t, &count); err != nil {
 			return nil, err
 		}
-		if res[sev] == nil {
-			res[sev] = timeseries.New(query.Ctx.From, query.Ctx.PointsCount(), query.Ctx.Step)
+		if bySeverity[sev] == nil {
+			bySeverity[sev] = timeseries.New(query.Ctx.From, query.Ctx.PointsCount(), query.Ctx.Step)
 		}
-		res[sev].Set(timeseries.Time(ts.Unix()), float32(count))
+		bySeverity[sev].Set(timeseries.Time(t.Unix()), float32(count))
 	}
+	res := make([]model.LogHistogramBucket, 0, len(bySeverity))
+	for s, ts := range bySeverity {
+		res = append(res, model.LogHistogramBucket{Severity: model.Severity(s), Timeseries: ts})
+	}
+	sort.Slice(res, func(i, j int) bool { return res[i].Severity < res[j].Severity })
 	return res, nil
 }
 
 func (c *Client) GetLogs(ctx context.Context, query LogQuery) ([]*model.LogEntry, error) {
 	where, args := query.filters(nil)
-	q := "SELECT Timestamp, SeverityText, Body, TraceId, ResourceAttributes, LogAttributes"
+	q := "SELECT ServiceName, Timestamp, multiIf(SeverityNumber=0, 0, intDiv(SeverityNumber, 4)+1), Body, TraceId, ResourceAttributes, LogAttributes"
 	q += " FROM @@table_otel_logs@@"
 	q += " WHERE " + strings.Join(where, " AND ")
 	q += " ORDER BY Timestamp DESC LIMIT " + fmt.Sprint(query.Limit)
@@ -74,9 +80,11 @@ func (c *Client) GetLogs(ctx context.Context, query LogQuery) ([]*model.LogEntry
 	var res []*model.LogEntry
 	for rows.Next() {
 		var e model.LogEntry
-		if err = rows.Scan(&e.Timestamp, &e.Severity, &e.Body, &e.TraceId, &e.ResourceAttributes, &e.LogAttributes); err != nil {
+		var sev int64
+		if err = rows.Scan(&e.ServiceName, &e.Timestamp, &sev, &e.Body, &e.TraceId, &e.ResourceAttributes, &e.LogAttributes); err != nil {
 			return nil, err
 		}
+		e.Severity = model.Severity(sev)
 		res = append(res, &e)
 	}
 	return res, nil
@@ -91,7 +99,7 @@ func (c *Client) GetLogFilters(ctx context.Context, query LogQuery, name string)
 		res = append(res, "Severity", "Message")
 		q = "SELECT DISTINCT arrayJoin(arrayConcat(mapKeys(LogAttributes), mapKeys(ResourceAttributes)))"
 	case "Severity":
-		q = "SELECT DISTINCT SeverityText"
+		q = "SELECT DISTINCT multiIf(SeverityNumber=0, 0, intDiv(SeverityNumber, 4)+1)"
 	case "Message":
 		return res, nil
 	default:
@@ -106,15 +114,23 @@ func (c *Client) GetLogFilters(ctx context.Context, query LogQuery, name string)
 		return nil, err
 	}
 	defer rows.Close()
-	var a string
+	var s string
+	var i int64
 	for rows.Next() {
-		if err = rows.Scan(&a); err != nil {
+		switch name {
+		case "Severity":
+			err = rows.Scan(&i)
+			s = model.Severity(i).String()
+		default:
+			err = rows.Scan(&s)
+		}
+		if err != nil {
 			return nil, err
 		}
-		if a == "" {
+		if s == "" {
 			continue
 		}
-		res = append(res, a)
+		res = append(res, s)
 	}
 	return res, nil
 }
@@ -138,7 +154,6 @@ func (q LogQuery) filters(attr *string) ([]string, []any) {
 
 	switch len(q.Services) {
 	case 0:
-		return where, args
 	case 1:
 		where = append(where, "ServiceName = @serviceName")
 		args = append(args, clickhouse.Named("serviceName", q.Services[0]))
@@ -173,46 +188,69 @@ func (q LogQuery) filters(attr *string) ([]string, []any) {
 	i := 0
 	for name, attrs := range byName {
 		var ors, ands []string
-		for j, a := range attrs {
-			var f *[]string
-			var expr string
-			switch a.Op {
-			case "=":
-				if name == "Severity" {
-					expr = "SeverityText = @%[2]s"
-				} else {
-					expr = "(LogAttributes[@%[1]s] = @%[2]s OR ResourceAttributes[@%[1]s] = @%[2]s)"
+		switch name {
+		case "Severity":
+			for j, a := range attrs {
+				r1, r2 := model.SeverityFromString(a.Value).Range()
+				var f *[]string
+				var expr string
+				switch a.Op {
+				case "=":
+					expr = "SeverityNumber BETWEEN @%[1]s AND @%[2]s"
+					f = &ors
+				case "!=":
+					expr = "SeverityNumber NOT BETWEEN @%[1]s AND @%[2]s"
+					f = &ands
+				default:
+					continue
 				}
-				f = &ors
-			case "!=":
-				if name == "Severity" {
-					expr = "SeverityText != @%[2]s"
-				} else {
-					expr = "(LogAttributes[@%[1]s] != @%[2]s AND ResourceAttributes[@%[1]s] != @%[2]s)"
-				}
-				f = &ands
-			case "~":
-				if name == "Severity" {
-					expr = "match(SeverityText, @%[2]s)"
-				} else {
-					expr = "(match(LogAttributes[@%[1]s], @%[2]s) OR match(ResourceAttributes[@%[1]s], @%[2]s))"
-				}
-				f = &ors
-			case "!~":
-				if name == "Severity" {
-					expr = "NOT match(SeverityText,  @%[2]s)"
-				} else {
-					expr = "(NOT match(LogAttributes[@%[1]s], @%[2]s) AND NOT match(ResourceAttributes[@%[1]s], @%[2]s))"
-				}
-				f = &ands
-			default:
-				continue
+				v1 := fmt.Sprintf("severity_from_%d", j)
+				v2 := fmt.Sprintf("severity_to_%d", j)
+				*f = append(*f, fmt.Sprintf(expr, v1, v2))
+				args = append(args, clickhouse.Named(v1, r1))
+				args = append(args, clickhouse.Named(v2, r2))
 			}
-			n := fmt.Sprintf("attr_name_%d_%d", i, j)
-			v := fmt.Sprintf("attr_values_%d_%d", i, j)
-			*f = append(*f, fmt.Sprintf(expr, n, v))
-			args = append(args, clickhouse.Named(n, name))
-			args = append(args, clickhouse.Named(v, a.Value))
+		case "TraceId":
+			for j, a := range attrs {
+				var f *[]string
+				var expr string
+				switch a.Op {
+				case "=":
+					expr = "TraceId = @%[1]s"
+					f = &ors
+				default:
+					continue
+				}
+				v := fmt.Sprintf("trace_id_%d", j)
+				*f = append(*f, fmt.Sprintf(expr, v))
+				args = append(args, clickhouse.Named(v, a.Value))
+			}
+		default:
+			for j, a := range attrs {
+				var f *[]string
+				var expr string
+				switch a.Op {
+				case "=":
+					expr = "(LogAttributes[@%[1]s] = @%[2]s OR ResourceAttributes[@%[1]s] = @%[2]s)"
+					f = &ors
+				case "!=":
+					expr = "(LogAttributes[@%[1]s] != @%[2]s AND ResourceAttributes[@%[1]s] != @%[2]s)"
+					f = &ands
+				case "~":
+					expr = "(match(LogAttributes[@%[1]s], @%[2]s) OR match(ResourceAttributes[@%[1]s], @%[2]s))"
+					f = &ors
+				case "!~":
+					expr = "(NOT match(LogAttributes[@%[1]s], @%[2]s) AND NOT match(ResourceAttributes[@%[1]s], @%[2]s))"
+					f = &ands
+				default:
+					continue
+				}
+				n := fmt.Sprintf("attr_name_%d_%d", i, j)
+				v := fmt.Sprintf("attr_values_%d_%d", i, j)
+				*f = append(*f, fmt.Sprintf(expr, n, v))
+				args = append(args, clickhouse.Named(n, name))
+				args = append(args, clickhouse.Named(v, a.Value))
+			}
 		}
 		if len(ands) > 0 {
 			where = append(where, "("+strings.Join(ands, " AND ")+")")

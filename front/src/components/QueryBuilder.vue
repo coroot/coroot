@@ -24,7 +24,7 @@
                 :close-on-content-click="false"
             >
                 <template #activator="{}">
-                    <v-text-field v-model="str" ref="input" dense hide-details flat solo class="input" @keydown="keydown" />
+                    <v-text-field v-model="str" ref="input" :disabled="disabled" dense hide-details flat solo class="input" @keydown="keydown" />
                 </template>
                 <v-progress-linear v-if="loading" indeterminate />
                 <v-list v-else dense class="list">
@@ -51,6 +51,7 @@ export default {
         items: Array,
         loading: Boolean,
         error: String,
+        disabled: Boolean,
     },
 
     data() {
@@ -169,6 +170,9 @@ export default {
             this.enter();
         },
         enter() {
+            if (this.disabled) {
+                return;
+            }
             this.menu = true;
             this.$refs.input?.focus();
         },

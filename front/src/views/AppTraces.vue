@@ -42,11 +42,15 @@
         <Heatmap v-if="view.heatmap" :heatmap="view.heatmap" :selection="selection" @select="setSelection" :loading="loading" class="mt-5" />
 
         <div v-if="trace.id" class="mt-5" style="min-height: 50vh">
-            <div class="text-md-h6 mb-3">
-                <router-link :to="{ query: setTrace({ id: '', span: '' }) }">
-                    <v-icon>mdi-arrow-left</v-icon>
-                </router-link>
-                Trace {{ trace.id }}
+            <div class="d-flex">
+                <div class="text-md-h6 mb-3">
+                    <router-link :to="{ query: setTrace({ id: '', span: '' }) }">
+                        <v-icon>mdi-arrow-left</v-icon>
+                    </router-link>
+                    Trace {{ trace.id }}
+                </div>
+                <v-spacer />
+                <v-btn v-if="logsLink" :to="logsLink" small color="primary"> Show logs </v-btn>
             </div>
             <v-progress-linear v-if="loading" indeterminate color="green" height="4" />
             <TracingTrace v-if="view.spans" :spans="view.spans" :span="trace.span" />
@@ -218,6 +222,13 @@ export default {
             const y1 = parts[0] || '';
             const y2 = parts[1] || '';
             return { x1, x2, y1, y2 };
+        },
+        logsLink() {
+            if (this.source.type !== 'otel') {
+                return null;
+            }
+            const query = JSON.stringify({ source: 'otel', filters: [{ name: 'TraceId', op: '=', value: this.trace.id }] });
+            return { params: { report: 'Logs' }, query: { query, ...this.$utils.contextQuery() } };
         },
     },
 

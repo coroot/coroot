@@ -41,6 +41,7 @@ type View struct {
 
 type Pattern struct {
 	Severity string       `json:"severity"`
+	Color    string       `json:"color"`
 	Sample   string       `json:"sample"`
 	Sum      uint64       `json:"sum"`
 	Chart    *model.Chart `json:"chart"`
@@ -50,6 +51,7 @@ type Pattern struct {
 type Entry struct {
 	Timestamp  int64             `json:"timestamp"`
 	Severity   string            `json:"severity"`
+	Color      string            `json:"color"`
 	Message    string            `json:"message"`
 	Attributes map[string]string `json:"attributes"`
 	TraceId    string            `json:"trace_id"`
@@ -189,7 +191,7 @@ func renderEntries(ctx context.Context, v *View, ch *clickhouse.Client, app *mod
 		}
 	}
 
-	var histogram map[string]*timeseries.TimeSeries
+	var histogram []model.LogHistogramBucket
 	var entries []*model.LogEntry
 	if q.Suggest != nil {
 		v.Suggest, err = ch.GetLogFilters(ctx, lq, *q.Suggest)
@@ -208,16 +210,17 @@ func renderEntries(ctx context.Context, v *View, ch *clickhouse.Client, app *mod
 	}
 
 	if len(histogram) > 0 {
-		v.Chart = model.NewChart(w.Ctx, "").Column()
-		for severity, ts := range histogram {
-			v.Chart.AddSeries(severity, ts)
+		v.Chart = model.NewChart(w.Ctx, "").Column().Sorted()
+		for _, b := range histogram {
+			v.Chart.AddSeries(b.Severity.String(), b.Timeseries, b.Severity.Color())
 		}
 	}
 
 	for _, e := range entries {
 		entry := Entry{
 			Timestamp:  e.Timestamp.UnixMilli(),
-			Severity:   e.Severity,
+			Severity:   e.Severity.String(),
+			Color:      e.Severity.Color(),
 			Message:    e.Body,
 			Attributes: map[string]string{},
 			TraceId:    e.TraceId,
@@ -240,23 +243,23 @@ func renderEntries(ctx context.Context, v *View, ch *clickhouse.Client, app *mod
 }
 
 func renderPatterns(v *View, app *model.Application, ctx timeseries.Context) {
-	bySeverity := map[string]*timeseries.Aggregate{}
-	for level, msgs := range app.LogMessages {
+	bySeverity := map[model.Severity]*timeseries.Aggregate{}
+	for severity, msgs := range app.LogMessages {
 		for hash, pattern := range msgs.Patterns {
 			sum := pattern.Messages.Reduce(timeseries.NanSum)
 			if timeseries.IsNaN(sum) || sum == 0 {
 				continue
 			}
-			severity := string(level)
 			if bySeverity[severity] == nil {
 				bySeverity[severity] = timeseries.NewAggregate(timeseries.NanSum)
 			}
 			bySeverity[severity].Add(pattern.Messages)
 			p := &Pattern{
-				Severity: severity,
+				Severity: severity.String(),
+				Color:    severity.Color(),
 				Sample:   pattern.Sample,
 				Sum:      uint64(sum),
-				Chart:    model.NewChart(ctx, "").AddSeries(severity, pattern.Messages).Column().Legend(false),
+				Chart:    model.NewChart(ctx, "").AddSeries(severity.String(), pattern.Messages, severity.Color()).Column().Legend(false),
 				Hash:     hash,
 			}
 			v.Patterns = append(v.Patterns, p)
@@ -268,7 +271,7 @@ func renderPatterns(v *View, app *model.Application, ctx timeseries.Context) {
 	if len(bySeverity) > 0 {
 		v.Chart = model.NewChart(ctx, "").Column()
 		for severity, ts := range bySeverity {
-			v.Chart.AddSeries(severity, ts.Get())
+			v.Chart.AddSeries(severity.String(), ts.Get(), severity.Color())
 		}
 	}
 }

@@ -44,6 +44,10 @@
             <Traces />
         </template>
 
+        <template v-if="view === 'logs'">
+            <Logs />
+        </template>
+
         <template v-if="view === 'costs'">
             <Costs />
         </template>
@@ -66,6 +70,7 @@ import Incidents from '@/views/Incidents.vue';
 import Incident from '@/views/Incident.vue';
 import ServiceMap from '@/views/ServiceMap.vue';
 import Traces from '@/views/Traces.vue';
+import Logs from '@/views/Logs.vue';
 import Nodes from '@/views/Nodes.vue';
 import Node from '@/views/Node.vue';
 import Deployments from '@/views/Deployments.vue';
@@ -82,6 +87,7 @@ export default {
         Incident,
         ServiceMap,
         Traces,
+        Logs,
         Nodes,
         Node,
         Deployments,
@@ -104,6 +110,7 @@ export default {
                 incidents: 'Incidents',
                 map: 'Service Map',
                 traces: 'Traces',
+                logs: 'Logs',
                 nodes: 'Nodes',
                 deployments: 'Deployments',
                 costs: 'Costs',

@@ -11,11 +11,11 @@ import (
 )
 
 func logMessage(instance *model.Instance, metric *model.MetricValues, pjs promJobStatuses) {
-	level := model.LogLevel(metric.Labels["level"])
-	msgs := instance.Owner.LogMessages[level]
+	severity := model.SeverityFromString(metric.Labels["level"])
+	msgs := instance.Owner.LogMessages[severity]
 	if msgs == nil {
 		msgs = &model.LogMessages{}
-		instance.Owner.LogMessages[level] = msgs
+		instance.Owner.LogMessages[severity] = msgs
 	}
 	values := timeseries.Increase(metric.Values, pjs.get(metric.Labels))
 	msgs.Messages = merge(msgs.Messages, values, timeseries.NanSum)
@@ -79,13 +79,13 @@ func (c *Constructor) loadApplicationLogs(w *model.World, metrics map[string][]*
 			continue
 		}
 		if app.LogMessages == nil {
-			app.LogMessages = map[model.LogLevel]*model.LogMessages{}
+			app.LogMessages = map[model.Severity]*model.LogMessages{}
 		}
-		level := model.LogLevel(metric.Labels["level"])
-		msgs := app.LogMessages[level]
+		severity := model.SeverityFromString(metric.Labels["level"])
+		msgs := app.LogMessages[severity]
 		if msgs == nil {
 			msgs = &model.LogMessages{}
-			app.LogMessages[level] = msgs
+			app.LogMessages[severity] = msgs
 		}
 		msgs.Messages = merge(msgs.Messages, metric.Values, timeseries.NanSum)
 		similar := metric.Labels["similar"]
