@@ -9,18 +9,6 @@ import (
 	"github.com/coroot/logparser"
 )
 
-type LogLevel string
-
-const (
-	LogLevelWarning  LogLevel = "warning"
-	LogLevelError    LogLevel = "error"
-	LogLevelCritical LogLevel = "critical"
-)
-
-func (s LogLevel) IsError() bool {
-	return s == LogLevelError || s == LogLevelCritical
-}
-
 type LogSource string
 
 const (
@@ -42,10 +30,16 @@ type LogPattern struct {
 }
 
 type LogEntry struct {
+	ServiceName        string
 	Timestamp          time.Time
-	Severity           string
+	Severity           Severity
 	Body               string
 	TraceId            string
 	LogAttributes      map[string]string
 	ResourceAttributes map[string]string
+}
+
+type LogHistogramBucket struct {
+	Severity   Severity
+	Timeseries *timeseries.TimeSeries
 }

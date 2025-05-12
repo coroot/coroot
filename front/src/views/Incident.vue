@@ -117,7 +117,7 @@
             </template>
 
             <template v-else-if="view === 'traces'">
-                <Tracing :appId="incident.application_id" compact />
+                <AppTraces :appId="incident.application_id" compact />
             </template>
 
             <template v-else-if="view === 'rca'">
@@ -132,11 +132,11 @@
 import NoData from '@/components/NoData';
 import Widget from '@/components/Widget.vue';
 import CheckForm from '@/components/CheckForm.vue';
-import Tracing from '@/views/Tracing.vue';
+import AppTraces from '@/views/AppTraces.vue';
 import RCA from '@/views/RCA.vue';
 
 export default {
-    components: { Tracing, CheckForm, Widget, RCA, NoData },
+    components: { AppTraces, CheckForm, Widget, RCA, NoData },
 
     computed: {
         view() {

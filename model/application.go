@@ -36,7 +36,7 @@ type Application struct {
 	Deployments []*ApplicationDeployment
 	Incidents   []*ApplicationIncident
 
-	LogMessages map[LogLevel]*LogMessages
+	LogMessages map[Severity]*LogMessages
 
 	Status  Status
 	Reports []*AuditReport
@@ -53,7 +53,7 @@ func NewApplication(id ApplicationId) *Application {
 	app := &Application{
 		Id:              id,
 		instancesByName: map[string][]*Instance{},
-		LogMessages:     map[LogLevel]*LogMessages{},
+		LogMessages:     map[Severity]*LogMessages{},
 		Upstreams:       map[ApplicationId]*AppToAppConnection{},
 		Downstreams:     map[ApplicationId]*AppToAppConnection{},
 

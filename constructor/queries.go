@@ -363,16 +363,16 @@ var RecordingRules = map[string]func(db *db.DB, p *db.Project, w *model.World) [
 		var res []*model.MetricValues
 		for _, app := range w.Applications {
 			appId := app.Id.String()
-			for level, msgs := range app.LogMessages {
+			for severity, msgs := range app.LogMessages {
 				if len(msgs.Patterns) == 0 {
 					if msgs.Messages.Reduce(timeseries.NanSum) > 0 {
-						ls := model.Labels{"application": appId, "level": string(level)}
+						ls := model.Labels{"application": appId, "level": severity.String()}
 						res = append(res, &model.MetricValues{Labels: ls, LabelsHash: promModel.LabelsToSignature(ls), Values: msgs.Messages})
 					}
 				} else {
 					for _, pattern := range msgs.Patterns {
 						if pattern.Messages.Reduce(timeseries.NanSum) > 0 {
-							ls := model.Labels{"application": appId, "level": string(level)}
+							ls := model.Labels{"application": appId, "level": severity.String()}
 							ls["multiline"] = fmt.Sprintf("%t", pattern.Multiline)
 							ls["similar"] = strings.Join(pattern.SimilarPatternHashes.Items(), " ")
 							ls["sample"] = pattern.Sample

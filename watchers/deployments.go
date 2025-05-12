@@ -305,9 +305,9 @@ func calcMetricsSnapshot(app *model.Application, from, to timeseries.Time, step 
 
 	for level, msgs := range app.LogMessages {
 		switch level {
-		case model.LogLevelCritical, model.LogLevelError:
+		case model.SeverityError, model.SeverityFatal:
 			logErrors.Add(msgs.Messages)
-		case model.LogLevelWarning:
+		case model.SeverityWarning:
 			logWarnings.Add(msgs.Messages)
 		}
 	}

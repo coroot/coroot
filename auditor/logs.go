@@ -12,8 +12,8 @@ func (a *appAuditor) logs() {
 	report.AddWidget(&model.Widget{Logs: &model.Logs{ApplicationId: a.app.Id, Check: check}, Width: "100%"})
 
 	sum := timeseries.NewAggregate(timeseries.NanSum)
-	for level, msgs := range a.app.LogMessages {
-		if !level.IsError() {
+	for severity, msgs := range a.app.LogMessages {
+		if severity < model.SeverityError {
 			continue
 		}
 		sum.Add(msgs.Messages)
