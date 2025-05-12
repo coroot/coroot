@@ -76,6 +76,8 @@ services:
   clickhouse:
     restart: always
     image: clickhouse/clickhouse-server:24.3
+    environment:
+      CLICKHOUSE_SKIP_USER_SETUP: "1"
     volumes:
       - clickhouse_data:/var/lib/clickhouse
       - clickhouse_logs:/var/log/clickhouse-server
