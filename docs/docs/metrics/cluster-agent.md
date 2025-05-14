@@ -1,5 +1,5 @@
 ---
-sidebar_position: 1
+sidebar_position: 2
 ---
 
 # Cluster-agent
@@ -10,6 +10,7 @@ Coroot-cluster-agent is a dedicated tool for collecting cluster-wide telemetry d
  * It gathers database metrics by discovering databases through Coroot's Service Map and Kubernetes control-plane. 
 Using the credentials provided by Coroot or via Kubernetes annotations, the agent connects to the identified databases such as Postgres, MySQL, Redis, Memcached, and MongoDB, collects database-specific metrics, and sends them to Coroot using the Prometheus Remote Write protocol.
  * The agent can be integrated with AWS to discover RDS and ElastiCache clusters and collect their telemetry data.
+ * The agent discovers and scrapes [custom metrics](/metrics/custom-metrics) from annotated pods.
 
 ## Postgres
 
