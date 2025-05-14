@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/coroot/coroot/clickhouse"
 	"github.com/coroot/coroot/model"
+	"github.com/coroot/coroot/utils"
 	"k8s.io/klog"
 )
 
@@ -63,13 +63,6 @@ func renderLogs(ctx context.Context, ch *clickhouse.Client, w *model.World, quer
 		q.Limit = defaultLimit
 	}
 
-	services, err := ch.GetServicesFromLogs(ctx, w.Ctx.From)
-	if err != nil {
-		klog.Errorln(err)
-		v.Error = fmt.Sprintf("Clickhouse error: %s", err)
-		return v
-	}
-
 	lq := clickhouse.LogQuery{
 		Ctx:     w.Ctx,
 		Filters: q.Filters,
@@ -77,18 +70,17 @@ func renderLogs(ctx context.Context, ch *clickhouse.Client, w *model.World, quer
 	}
 
 	if !q.Agent || !q.Otel {
-		for _, s := range services {
-			fromAgent := strings.HasPrefix(s, "/")
-			if (!q.Agent && fromAgent) || (!q.Otel && !fromAgent) {
-				continue
-			}
-			lq.Services = append(lq.Services, s)
+		if q.Agent {
+			lq.Source = model.LogSourceAgent
+		}
+		if q.Otel {
+			lq.Source = model.LogSourceOtel
 		}
 	}
 
 	var histogram []model.LogHistogramBucket
 	var entries []*model.LogEntry
-
+	var err error
 	if q.Suggest != nil {
 		v.Suggest, err = ch.GetLogFilters(ctx, lq, *q.Suggest)
 	} else {
@@ -111,15 +103,22 @@ func renderLogs(ctx context.Context, ch *clickhouse.Client, w *model.World, quer
 		}
 	}
 
-	v.renderEntries(entries, w, services)
+	v.renderEntries(entries, w)
 
 	return v
 }
 
-func (v *Logs) renderEntries(entries []*model.LogEntry, w *model.World, services []string) {
+func (v *Logs) renderEntries(entries []*model.LogEntry, w *model.World) {
 	if len(entries) == 0 {
 		return
 	}
+
+	ss := utils.NewStringSet()
+	for _, e := range entries {
+		ss.Add(e.ServiceName)
+	}
+	services := ss.Items()
+
 	apps := map[string]*model.Application{}
 	for _, app := range w.Applications {
 		for _, i := range app.Instances {
