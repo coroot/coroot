@@ -137,6 +137,7 @@ func (c *Client) GetLogFilters(ctx context.Context, query LogQuery, name string)
 
 type LogQuery struct {
 	Ctx      timeseries.Context
+	Source   model.LogSource
 	Services []string
 	Filters  []LogFilter
 	Limit    int
@@ -154,6 +155,12 @@ func (q LogQuery) filters(attr *string) ([]string, []any) {
 
 	switch len(q.Services) {
 	case 0:
+		switch q.Source {
+		case model.LogSourceAgent:
+			where = append(where, "startsWith(ServiceName, '/')")
+		case model.LogSourceOtel:
+			where = append(where, "NOT startsWith(ServiceName, '/')")
+		}
 	case 1:
 		where = append(where, "ServiceName = @serviceName")
 		args = append(args, clickhouse.Named("serviceName", q.Services[0]))
