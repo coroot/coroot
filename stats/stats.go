@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"os"
 	"runtime/pprof"
 	"strings"
 	"sync"
@@ -20,6 +21,7 @@ import (
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
+	"github.com/gorilla/mux"
 	"github.com/grafana/pyroscope-go/godeltaprof"
 	"k8s.io/klog"
 )
@@ -33,9 +35,11 @@ const (
 
 type Stats struct {
 	Instance struct {
-		Uuid         string `json:"uuid"`
-		Version      string `json:"version"`
-		DatabaseType string `json:"database_type"`
+		Uuid             string `json:"uuid"`
+		Version          string `json:"version"`
+		DatabaseType     string `json:"database_type"`
+		Edition          string `json:"edition"`
+		InstallationType string `json:"installation_type,omitempty"`
 	} `json:"instance"`
 	Integration struct {
 		Prometheus                bool                                 `json:"prometheus"`
@@ -76,6 +80,7 @@ type Stats struct {
 		Users             *utils.StringSet           `json:"users"`
 		UsersByRole       map[string]int             `json:"users_by_role"`
 		PageViews         map[string]int             `json:"page_views"`
+		ApiCalls          map[string]int             `json:"api_calls"`
 		SentNotifications map[db.IntegrationType]int `json:"sent_notifications"`
 	} `json:"ux"`
 	Performance struct {
@@ -143,12 +148,15 @@ type Collector struct {
 
 	disabled bool
 
-	instanceUuid    string
-	instanceVersion string
+	instanceUuid     string
+	instanceVersion  string
+	edition          string
+	installationType string
 
 	usersByScreenSize map[string]*utils.StringSet
 	usersByTheme      map[string]*utils.StringSet
 	pageViews         map[string]int
+	apiCalls          map[string]int
 	lock              sync.Mutex
 
 	heapProfiler *godeltaprof.HeapProfiler
@@ -156,7 +164,7 @@ type Collector struct {
 	globalClickHouse *db.IntegrationClickhouse
 }
 
-func NewCollector(disabled bool, instanceUuid, version string, db *db.DB, cache *cache.Cache, pricing *cloud_pricing.Manager, globalClickHouse *db.IntegrationClickhouse) *Collector {
+func NewCollector(disabled bool, instanceUuid, version string, edition string, db *db.DB, cache *cache.Cache, pricing *cloud_pricing.Manager, globalClickHouse *db.IntegrationClickhouse) *Collector {
 	c := &Collector{
 		db:      db,
 		cache:   cache,
@@ -164,12 +172,15 @@ func NewCollector(disabled bool, instanceUuid, version string, db *db.DB, cache 
 
 		client: &http.Client{Timeout: sendTimeout},
 
-		instanceUuid:    instanceUuid,
-		instanceVersion: version,
+		instanceUuid:     instanceUuid,
+		instanceVersion:  version,
+		edition:          edition,
+		installationType: os.Getenv("INSTALLATION_TYPE"),
 
 		usersByScreenSize: map[string]*utils.StringSet{},
 		usersByTheme:      map[string]*utils.StringSet{},
 		pageViews:         map[string]int{},
+		apiCalls:          map[string]int{},
 
 		heapProfiler: godeltaprof.NewHeapProfiler(),
 
@@ -205,6 +216,23 @@ type Event struct {
 
 func (c *Collector) Stats(r *http.Request, w http.ResponseWriter) {
 	utils.WriteJson(w, c.collect())
+}
+
+func (c *Collector) MiddleWare(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		route := mux.CurrentRoute(r)
+		if route != nil {
+			pathTemplate, _ := route.GetPathTemplate()
+			if strings.HasPrefix(pathTemplate, "/api/") {
+				vars := mux.Vars(r)
+				if v := vars["view"]; v != "" {
+					pathTemplate = strings.ReplaceAll(pathTemplate, "{view}", v)
+				}
+				c.apiCalls[pathTemplate]++
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func (c *Collector) RegisterRequest(r *http.Request) {
@@ -274,6 +302,8 @@ func (c *Collector) collect() Stats {
 	stats.Instance.Uuid = c.instanceUuid
 	stats.Instance.Version = c.instanceVersion
 	stats.Instance.DatabaseType = string(c.db.Type())
+	stats.Instance.Edition = c.edition
+	stats.Instance.InstallationType = c.installationType
 
 	stats.UX.UsersByScreenSize = map[string]int{}
 	stats.UX.Users = utils.NewStringSet()
@@ -282,6 +312,10 @@ func (c *Collector) collect() Stats {
 
 	stats.UX.PageViews = c.pageViews
 	c.pageViews = map[string]int{}
+
+	stats.UX.ApiCalls = c.apiCalls
+	c.apiCalls = map[string]int{}
+
 	for size, us := range c.usersByScreenSize {
 		stats.UX.UsersByScreenSize[size] = us.Len()
 		stats.UX.Users.Add(us.Items()...)
