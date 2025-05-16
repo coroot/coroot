@@ -126,9 +126,10 @@ func main() {
 
 	instanceUuid := utils.GetInstanceUuid(cfg.DataDir)
 
-	statsCollector := stats.NewCollector(cfg.DisableUsageStatistics, instanceUuid, version, database, promCache, pricing, globalClickhouse)
+	statsCollector := stats.NewCollector(cfg.DisableUsageStatistics, instanceUuid, version, Edition, database, promCache, pricing, globalClickhouse)
 
 	router := mux.NewRouter()
+	router.Use(statsCollector.MiddleWare)
 	router.PathPrefix("/debug/pprof/").Handler(http.DefaultServeMux)
 	router.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {}).Methods(http.MethodGet)
 
