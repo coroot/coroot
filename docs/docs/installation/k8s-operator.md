@@ -58,6 +58,7 @@ spec:
 #    type: # Service type (e.g., ClusterIP, NodePort, LoadBalancer).
 #    port: # Service port number.
 #    nodePort: # NodePort number (if type is NodePort).
+#    annotations: # Annotations for Service.
 #  ingress: # Ingress configuration for Coroot.
 #    className: Ingress class name (e.g., nginx, traefik; if not set the default IngressClass will be used).
 #    host: # Domain name for Coroot (e.g., coroot.company.com).
