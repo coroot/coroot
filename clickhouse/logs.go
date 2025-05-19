@@ -70,7 +70,7 @@ func (c *Client) GetLogs(ctx context.Context, query LogQuery) ([]*model.LogEntry
 	q := "SELECT ServiceName, Timestamp, multiIf(SeverityNumber=0, 0, intDiv(SeverityNumber, 4)+1), Body, TraceId, ResourceAttributes, LogAttributes"
 	q += " FROM @@table_otel_logs@@"
 	q += " WHERE " + strings.Join(where, " AND ")
-	q += " ORDER BY Timestamp DESC LIMIT " + fmt.Sprint(query.Limit)
+	q += " LIMIT " + fmt.Sprint(query.Limit)
 
 	rows, err := c.Query(ctx, q, args...)
 	if err != nil {
