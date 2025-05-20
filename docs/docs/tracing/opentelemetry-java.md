@@ -49,6 +49,7 @@ export \
   OTEL_SERVICE_NAME="spring-demo" \
   OTEL_EXPORTER_OTLP_TRACES_ENDPOINT="http://coroot.coroot:8080/v1/traces" \
   OTEL_EXPORTER_OTLP_TRACES_PROTOCOL="http/protobuf" \
+  OTEL_LOGS_EXPORTER="none" \
   OTEL_METRICS_EXPORTER="none" \
 && java -javaagent:./opentelemetry-javaagent.jar -jar build/libs/demo-0.0.1-SNAPSHOT.jar
 ```
