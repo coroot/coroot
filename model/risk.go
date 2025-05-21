@@ -3,13 +3,19 @@ package model
 type RiskCategory string
 
 const (
-	RiskCategorySecurity = "Security"
+	RiskCategorySecurity     = "Security"
+	RiskCategoryAvailability = "Availability"
 )
 
 type RiskType string
 
 const (
-	RiskTypeDbInternetExposure RiskType = "db-internet-exposure"
+	RiskTypeDbInternetExposure   RiskType = "db-internet-exposure"
+	RiskTypeSingleInstanceApp    RiskType = "single-instance-app"
+	RiskTypeSingleNodeApp        RiskType = "single-node-app"
+	RiskTypeSingleAzApp          RiskType = "single-az-app"
+	RiskTypeSpotOnlyApp          RiskType = "spot-only-app"
+	RiskTypeUnreplicatedDatabase RiskType = "unreplicated-database"
 )
 
 type RiskKey struct {

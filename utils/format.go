@@ -117,3 +117,13 @@ func FormatLinkStats(requests, latency, bytesSent, bytesReceived float32, issue 
 	}
 	return res
 }
+
+func Capitalize(s string) string {
+	if len(s) == 0 {
+		return ""
+	}
+	if len(s) == 1 {
+		return strings.ToUpper(s)
+	}
+	return strings.ToUpper(s[0:1]) + s[1:]
+}
