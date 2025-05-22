@@ -105,7 +105,7 @@ func (at ApplicationType) AuditReport() AuditReportName {
 		return AuditReportPostgres
 	case ApplicationTypeMysql:
 		return AuditReportMysql
-	case ApplicationTypeRedis:
+	case ApplicationTypeRedis, ApplicationTypeKeyDB, ApplicationTypeValkey, ApplicationTypeDragonfly:
 		return AuditReportRedis
 	case ApplicationTypeMongodb, ApplicationTypeMongos:
 		return AuditReportMongodb
@@ -143,7 +143,7 @@ func (at ApplicationType) Icon() string {
 		return "postgres"
 	case at == ApplicationTypeMongos:
 		return "mongodb"
-	case at == ApplicationTypeValkey || at == ApplicationTypeKeyDB || at == ApplicationTypeDragonfly:
+	case at == ApplicationTypeKeyDB || at == ApplicationTypeDragonfly:
 		return "redis"
 	case at == ApplicationTypeVictoriaMetrics || at == ApplicationTypeVictoriaLogs:
 		return "victoriametrics"
