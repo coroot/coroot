@@ -119,6 +119,9 @@
                         </template>
                         <template v-else> {{ $pluralize('port', item.exposure.ports.length) }} {{ item.exposure.ports.join(', ') }} </template>
                     </template>
+                    <template v-else-if="item.availability">
+                        {{ item.availability.description }}
+                    </template>
                 </div>
                 <div v-if="item.dismissal" class="caption">
                     Dismissed by {{ item.dismissal.by }} ({{ $format.date(item.dismissal.timestamp * 1000, '{YYYY}-{MM}-{DD} {HH}:{mm}:{ss}') }}) as
