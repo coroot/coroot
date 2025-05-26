@@ -11,3 +11,13 @@ func IsSelectorValid(selector string) bool {
 	_, err := parser.ParseMetricSelector(selector)
 	return err == nil
 }
+
+type FilterLabelsF func(name string) bool
+
+func FilterLabelsKeepAll(name string) bool {
+	return true
+}
+
+func FilterLabelsDropAll(name string) bool {
+	return false
+}

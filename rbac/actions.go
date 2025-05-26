@@ -78,6 +78,8 @@ func (as ProjectActionSet) List() []Action {
 		as.Risks().Edit(),
 		as.Application("*", "*", "*", "*").View(),
 		as.Node("*").View(),
+		as.Dashboards().Edit(),
+		as.Dashboard("*").View(),
 	}
 }
 
@@ -135,6 +137,14 @@ func (as ProjectActionSet) Application(category model.ApplicationCategory, names
 
 func (as ProjectActionSet) Node(name string) NodeActionSet {
 	return NodeActionSet{project: &as, name: name}
+}
+
+func (as ProjectActionSet) Dashboards() ProjectEditAction {
+	return ProjectEditAction{project: &as, scope: ScopeDashboards}
+}
+
+func (as ProjectActionSet) Dashboard(name string) DashboardActionSet {
+	return DashboardActionSet{project: &as, name: name}
 }
 
 type ProjectViewAction struct {
@@ -202,4 +212,19 @@ func (as NodeActionSet) object() Object {
 
 func (as NodeActionSet) View() Action {
 	return NewAction(ScopeNode, ActionView, as.object())
+}
+
+type DashboardActionSet struct {
+	project *ProjectActionSet
+	name    string
+}
+
+func (as DashboardActionSet) object() Object {
+	o := as.project.object()
+	o["dashboard_name"] = as.name
+	return o
+}
+
+func (as DashboardActionSet) View() Action {
+	return NewAction(ScopeDashboard, ActionView, as.object())
 }

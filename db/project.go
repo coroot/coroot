@@ -225,6 +225,9 @@ func (db *DB) DeleteProject(id ProjectId) error {
 	if _, err = tx.Exec("DELETE FROM application_settings WHERE project_id = $1", id); err != nil {
 		return err
 	}
+	if _, err = tx.Exec("DELETE FROM dashboards WHERE project_id = $1", id); err != nil {
+		return err
+	}
 	if _, err = tx.Exec("DELETE FROM project WHERE id = $1", id); err != nil {
 		return err
 	}

@@ -60,6 +60,11 @@
         <template v-if="view === 'risks'">
             <Risks />
         </template>
+
+        <template v-if="view === 'dashboards'">
+            <Dashboard v-if="id" :id="id" />
+            <Dashboards v-else />
+        </template>
     </div>
 </template>
 
@@ -78,6 +83,8 @@ import Costs from '@/views/Costs.vue';
 import Anomalies from '@/views/Anomalies.vue';
 import RCA from '@/views/RCA.vue';
 import Risks from '@/views/Risks.vue';
+import Dashboards from '@/views/dashboards/Dashboards.vue';
+import Dashboard from '@/views/dashboards/Dashboard.vue';
 
 export default {
     components: {
@@ -95,6 +102,8 @@ export default {
         Anomalies,
         RCA,
         Risks,
+        Dashboards,
+        Dashboard,
     },
     props: {
         view: String,
@@ -116,6 +125,7 @@ export default {
                 costs: 'Costs',
                 anomalies: this.$coroot.edition === 'Enterprise' ? 'Anomalies' : '',
                 risks: 'Risks',
+                dashboards: 'Dashboards',
             };
         },
     },

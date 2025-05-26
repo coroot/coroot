@@ -42,7 +42,7 @@ func TestQueryRange(t *testing.T) {
 
 	ctx := context.Background()
 
-	res, err := client.QueryRange(ctx, `metric`, utils.NewStringSet("instance", "job"), from, to, step)
+	res, err := client.QueryRange(ctx, `metric`, utils.NewStringSet("instance", "job").Has, from, to, step)
 	assert.NoError(t, err)
 
 	assert.Len(t, res, 2)

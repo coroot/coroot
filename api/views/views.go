@@ -7,6 +7,7 @@ import (
 	"github.com/coroot/coroot/api/views/application"
 	"github.com/coroot/coroot/api/views/applications"
 	"github.com/coroot/coroot/api/views/aws"
+	"github.com/coroot/coroot/api/views/dashboards"
 	"github.com/coroot/coroot/api/views/incident"
 	"github.com/coroot/coroot/api/views/inspections"
 	"github.com/coroot/coroot/api/views/logs"
@@ -69,3 +70,7 @@ func Users(us []*db.User, rs []rbac.Role) *users.Users {
 func User(u *db.User, projects map[db.ProjectId]string, viewonly bool) *users.User {
 	return users.RenderUser(u, projects, viewonly)
 }
+
+var (
+	Dashboards = &dashboards.Dashboards{}
+)

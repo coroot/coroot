@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -171,6 +172,7 @@ func (api *Api) Roles(w http.ResponseWriter, r *http.Request, u *db.User) {
 		rbac.NewPermission(rbac.ScopeProjectInstrumentations, rbac.ActionEdit, nil),
 		rbac.NewPermission(rbac.ScopeApplication, rbac.ActionView, rbac.Object{"application_category": "databases"}),
 		rbac.NewPermission(rbac.ScopeNode, rbac.ActionView, rbac.Object{"node_name": "db*"}),
+		rbac.NewPermission(rbac.ScopeDashboard, rbac.ActionView, rbac.Object{"dashboard_name": "db*"}),
 	)
 	roles, err := api.roles.GetRoles()
 	if err != nil {
@@ -367,6 +369,131 @@ func (api *Api) Overview(w http.ResponseWriter, r *http.Request, u *db.User) {
 	}
 	auditor.Audit(world, project, nil, project.ClickHouseConfig(api.globalClickHouse) != nil, nil)
 	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Overview(r.Context(), ch, world, view, r.URL.Query().Get("query"))))
+}
+
+func (api *Api) Dashboards(w http.ResponseWriter, r *http.Request, u *db.User) {
+	world, project, cacheStatus, err := api.LoadWorldByRequest(r)
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	if project == nil || world == nil {
+		utils.WriteJson(w, api.WithContext(project, cacheStatus, world, nil))
+		return
+	}
+
+	vars := mux.Vars(r)
+	id := vars["dashboard"]
+
+	if r.Method == http.MethodPost {
+		if !api.IsAllowed(u, rbac.Actions.Project(string(project.Id)).Dashboards().Edit()) {
+			http.Error(w, "You are not allowed to configure dashboards.", http.StatusForbidden)
+			return
+		}
+		var form forms.DashboardForm
+		if err = forms.ReadAndValidate(r, &form); err != nil {
+			klog.Warningln("bad request:", err)
+			http.Error(w, "", http.StatusBadRequest)
+			return
+		}
+		switch form.Action {
+		case "create":
+			id, err = api.db.CreateDashboard(project.Id, form.Name, form.Description)
+			if err == nil {
+				http.Error(w, id, http.StatusCreated)
+				return
+			}
+		case "update":
+			err = api.db.UpdateDashboard(project.Id, id, form.Name, form.Description)
+		case "delete":
+			err = api.db.DeleteDashboard(project.Id, id)
+		default:
+			err = api.db.SaveDashboardConfig(project.Id, id, form.Dashboard.Config)
+		}
+		if err != nil {
+			klog.Errorf("failed to %s dashboard: %s", form.Action, err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		return
+	}
+
+	auditor.Audit(world, project, nil, project.ClickHouseConfig(api.globalClickHouse) != nil, nil)
+
+	if id != "" {
+		dashboard, err := api.db.GetDashboard(project.Id, id)
+		if err != nil {
+			if errors.Is(err, db.ErrNotFound) {
+				klog.Warningln("dashboard not found:", id)
+				http.Error(w, "Dashboard not found", http.StatusNotFound)
+				return
+			}
+			klog.Errorln(err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		if !api.IsAllowed(u, rbac.Actions.Project(string(project.Id)).Dashboard(dashboard.Name).View()) {
+			http.Error(w, "You are not allowed to view this dashboard.", http.StatusForbidden)
+			return
+		}
+		utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Dashboards.Dashboard(dashboard)))
+		return
+	}
+
+	dashboards, err := api.db.GetDashboards(project.Id)
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Dashboards.List(dashboards)))
+}
+
+func (api *Api) PanelData(w http.ResponseWriter, r *http.Request, u *db.User) {
+	projectId := db.ProjectId(mux.Vars(r)["project"])
+	project, err := api.db.GetProject(projectId)
+	if err != nil {
+		if errors.Is(err, db.ErrNotFound) {
+			klog.Warningln("project not found:", projectId)
+			http.Error(w, "Project not found", http.StatusNotFound)
+			return
+		}
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+
+	query := r.URL.Query().Get("query")
+	var config db.DashboardPanel
+	err = json.Unmarshal([]byte(query), &config)
+	if err != nil {
+		klog.Warningln("invalid query:", query)
+		http.Error(w, "Invalid query", http.StatusBadRequest)
+		return
+	}
+
+	promConfig := project.PrometheusConfig(api.globalPrometheus)
+	cfg := prom.NewClientConfig(promConfig.Url, promConfig.RefreshInterval)
+	cfg.BasicAuth = promConfig.BasicAuth
+	cfg.TlsSkipVerify = promConfig.TlsSkipVerify
+	cfg.ExtraSelector = promConfig.ExtraSelector
+	cfg.CustomHeaders = promConfig.CustomHeaders
+	promClient, err := prom.NewClient(cfg)
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	from, to := api.getTimeContext(r)
+	step := increaseStepForBigDurations(from, to, promConfig.RefreshInterval)
+	data, err := views.Dashboards.PanelData(r.Context(), promClient, config, from, to, step)
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	utils.WriteJson(w, data)
 }
 
 func (api *Api) ApiKeys(w http.ResponseWriter, r *http.Request, u *db.User) {
@@ -1362,12 +1489,10 @@ func (api *Api) LoadWorld(ctx context.Context, project *db.Project, from, to tim
 		return nil, cacheStatus, err
 	}
 
-	duration := to.Sub(from)
 	if cacheTo.Before(to) {
 		to = cacheTo
-		duration = to.Sub(from)
 	}
-	step = increaseStepForBigDurations(duration, step)
+	step = increaseStepForBigDurations(from, to, step)
 
 	ctr := constructor.New(api.db, project, cacheClient, api.pricing)
 	world, err := ctr.LoadWorld(ctx, from, to, step, nil)
@@ -1385,16 +1510,26 @@ func (api *Api) LoadWorldByRequest(r *http.Request) (*model.World, *db.Project, 
 		return nil, nil, nil, err
 	}
 
+	from, to := api.getTimeContext(r)
+	world, cacheStatus, err := api.LoadWorld(r.Context(), project, from, to)
+	if world == nil {
+		step := increaseStepForBigDurations(from, to, 15*timeseries.Second)
+		world = model.NewWorld(from, to.Add(-step), step, step)
+	}
+	return world, project, cacheStatus, err
+}
+
+func (api *Api) getTimeContext(r *http.Request) (from timeseries.Time, to timeseries.Time) {
 	now := timeseries.Now()
 	q := r.URL.Query()
-	from := utils.ParseTime(now, q.Get("from"), now.Add(-timeseries.Hour))
-	to := utils.ParseTime(now, q.Get("to"), now)
+	from = utils.ParseTime(now, q.Get("from"), now.Add(-timeseries.Hour))
+	to = utils.ParseTime(now, q.Get("to"), now)
 	if from >= to {
 		from = to.Add(-timeseries.Hour)
 	}
-
 	incidentKey := q.Get("incident")
 	if incidentKey != "" {
+		projectId := db.ProjectId(mux.Vars(r)["project"])
 		if incident, err := api.db.GetIncidentByKey(projectId, incidentKey); err != nil {
 			klog.Warningln("failed to get incident:", err)
 		} else {
@@ -1407,16 +1542,11 @@ func (api *Api) LoadWorldByRequest(r *http.Request) (*model.World, *db.Project, 
 			}
 		}
 	}
-
-	world, cacheStatus, err := api.LoadWorld(r.Context(), project, from, to)
-	if world == nil {
-		step := increaseStepForBigDurations(to.Sub(from), 15*timeseries.Second)
-		world = model.NewWorld(from, to.Add(-step), step, step)
-	}
-	return world, project, cacheStatus, err
+	return
 }
 
-func increaseStepForBigDurations(duration, step timeseries.Duration) timeseries.Duration {
+func increaseStepForBigDurations(from, to timeseries.Time, step timeseries.Duration) timeseries.Duration {
+	duration := to.Sub(from)
 	switch {
 	case duration > 5*timeseries.Day:
 		return maxDuration(step, 60*timeseries.Minute)

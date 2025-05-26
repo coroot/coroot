@@ -10,28 +10,11 @@
 
 <script>
 import { PromQLExtension } from '@prometheus-io/codemirror-promql';
-import * as terms from '@prometheus-io/codemirror-promql/dist/esm/complete/promql.terms';
 import { EditorState } from '@codemirror/state';
-import { EditorView } from '@codemirror/view';
-import { keymap } from '@codemirror/view';
-import { closeBrackets, autocompletion, closeBracketsKeymap, completionKeymap } from '@codemirror/autocomplete';
+import { EditorView, keymap } from '@codemirror/view';
+import { autocompletion, closeBrackets, closeBracketsKeymap, completionKeymap } from '@codemirror/autocomplete';
 
-const ts = [
-    terms.atModifierTerms,
-    terms.binOpModifierTerms,
-    terms.functionIdentifierTerms,
-    terms.aggregateOpTerms,
-    terms.aggregateOpModifierTerms,
-    terms.numberTerms,
-    terms.snippets,
-];
-ts.forEach((t) => {
-    while (t.length > 0) {
-        t.pop();
-    }
-});
-
-const theme = EditorView.theme({
+const themeSpec = {
     '&.cm-editor': {
         '&.cm-focused': {
             outline: 'none',
@@ -58,9 +41,7 @@ const theme = EditorView.theme({
     '.cm-line': {
         padding: '0 4px',
     },
-});
-
-const extensions = [closeBrackets(), autocompletion(), keymap.of([...closeBracketsKeymap, ...completionKeymap]), theme];
+};
 
 export default {
     props: {
@@ -93,16 +74,31 @@ export default {
     },
 
     mounted() {
-        const promQL = new PromQLExtension().setComplete(this.$api.getPrometheusCompleteConfiguration());
+        const enterKeymap = {
+            key: 'Enter',
+            run: (view) => {
+                this.apply(view);
+                return true;
+            },
+        };
+        const promConf = {
+            remote: {
+                apiPrefix: this.$api.prom() + '/api/v1',
+            },
+        };
+        const promQL = new PromQLExtension().setComplete(promConf);
         this.view = new EditorView({
             state: EditorState.create({
                 doc: this.value,
                 extensions: [
-                    ...extensions,
+                    closeBrackets(),
+                    autocompletion(),
+                    keymap.of([enterKeymap, ...closeBracketsKeymap, ...completionKeymap]),
+                    EditorView.theme(themeSpec, { dark: this.$vuetify.theme.dark }),
                     promQL.asExtension(),
                     EditorView.updateListener.of((update) => {
-                        if (update.docChanged) {
-                            this.$emit('input', update.state.doc.toString());
+                        if (update.focusChanged) {
+                            this.apply(update);
                         }
                     }),
                 ],
@@ -119,6 +115,9 @@ export default {
         focus() {
             this.view && this.view.focus();
         },
+        apply(v) {
+            this.$emit('input', v.state.doc.toString());
+        },
     },
 };
 </script>
@@ -126,8 +125,8 @@ export default {
 <style scoped>
 .wrapper {
     width: 100%;
-    border: 1px solid rgba(0, 0, 0, 0.38);
+    border: 1px solid var(--border-color);
     border-radius: 4px;
-    padding: 0 8px;
+    padding: 4px 8px;
 }
 </style>
