@@ -451,7 +451,7 @@ export default {
     position: relative;
     gap: 16px;
     overflow-x: auto;
-    padding: 10px 0;
+    padding: 0;
 }
 .column {
     flex-basis: 10%; /* to keep some space if no clients or no dependencies */

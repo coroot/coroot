@@ -1,6 +1,6 @@
 <template>
     <div class="mx-auto">
-        <h1 class="text-h5 my-5">Configuration</h1>
+        <h1 class="text-h5 mb-5">Configuration</h1>
 
         <v-tabs height="40" show-arrows slider-size="2">
             <v-tab v-for="t in tabs" :key="t.id" :to="{ params: { tab: t.id } }" :disabled="t.disabled" exact>

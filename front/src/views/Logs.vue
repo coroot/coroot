@@ -1,10 +1,6 @@
 <template>
-    <div class="logs">
-        <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
-            {{ error }}
-        </v-alert>
-
-        <v-alert v-else-if="view.message" color="info" outlined text class="message">
+    <Views :error="error" class="logs">
+        <v-alert v-if="view.message" color="info" outlined text class="message">
             {{ view.message }}
         </v-alert>
 
@@ -96,10 +92,11 @@
                 <LogEntry v-if="entry" v-model="entry" @filter="qbAdd" />
             </div>
         </template>
-    </div>
+    </Views>
 </template>
 
 <script>
+import Views from '@/views/Views.vue';
 import { palette } from '@/utils/colors';
 import QueryBuilder from '@/components/QueryBuilder.vue';
 import Chart from '@/components/Chart.vue';
@@ -107,7 +104,7 @@ import LogEntry from '@/components/LogEntry.vue';
 import InlineSelect from '@/components/InlineSelect.vue';
 
 export default {
-    components: { InlineSelect, LogEntry, Chart, QueryBuilder },
+    components: { Views, InlineSelect, LogEntry, Chart, QueryBuilder },
 
     data() {
         let q = {};

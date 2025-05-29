@@ -1,5 +1,5 @@
 <template>
-    <div>
+    <div style="max-width: 800px">
         <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
             {{ error }}
         </v-alert>

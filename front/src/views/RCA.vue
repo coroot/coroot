@@ -1,10 +1,6 @@
 <template>
-    <div>
-        <v-progress-linear v-if="loading" indeterminate color="green" />
-
-        <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
-            {{ error }}
-        </v-alert>
+    <Views :loading="loading" :error="error">
+        <template #subtitle>{{ $utils.appId(appId).name }}</template>
 
         <v-alert v-if="rca === 'not implemented'" color="info" outlined text class="mt-5">
             AI-powered Root Cause Analysis is available only in Coroot Enterprise (from $1 per CPU core/month).
@@ -151,7 +147,7 @@
                 </div>
             </div>
         </div>
-    </div>
+    </Views>
 </template>
 
 <script>
@@ -160,6 +156,7 @@ import { palette } from '@/utils/colors';
 import Chart from '@/components/Chart.vue';
 import Widget from '@/components/Widget.vue';
 import PropagationMap from '@/components/PropagationMap.vue';
+import Views from '@/views/Views.vue';
 
 export default {
     computed: {
@@ -197,7 +194,7 @@ export default {
         appId: String,
     },
 
-    components: { PropagationMap, Widget, Chart, RcaItem },
+    components: { Views, PropagationMap, Widget, Chart, RcaItem },
 
     data() {
         return {

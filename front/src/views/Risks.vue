@@ -1,12 +1,6 @@
 <template>
-    <div>
-        <v-progress-linear indeterminate v-if="loading" color="green" />
-
-        <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
-            {{ error }}
-        </v-alert>
-
-        <ApplicationFilter :applications="applications" @filter="setFilter" class="my-4" />
+    <Views :loading="loading" :error="error">
+        <ApplicationFilter :applications="applications" @filter="setFilter" class="mb-4" />
 
         <div class="legend mb-3">
             <div v-for="s in statuses" class="item">
@@ -156,10 +150,11 @@
                 </v-menu>
             </template>
         </v-data-table>
-    </div>
+    </Views>
 </template>
 
 <script>
+import Views from '@/views/Views.vue';
 import ApplicationFilter from '../components/ApplicationFilter.vue';
 
 const statuses = {
@@ -169,7 +164,7 @@ const statuses = {
 };
 
 export default {
-    components: { ApplicationFilter },
+    components: { Views, ApplicationFilter },
 
     data() {
         return {

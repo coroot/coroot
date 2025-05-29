@@ -49,6 +49,9 @@ export default {
             } else {
                 this.$vuetify.theme.dark = this.theme === 'dark';
             }
+            if (this.$vuetify.theme.dark) {
+                document.body.classList.add('theme--dark');
+            }
         },
     },
 };

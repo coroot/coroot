@@ -1,12 +1,6 @@
 <template>
-    <div>
-        <v-progress-linear indeterminate v-if="loading" color="green" />
-
-        <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
-            {{ error }}
-        </v-alert>
-
-        <ApplicationFilter :applications="applications" @filter="setFilter" class="my-4" />
+    <Views :loading="loading" :error="error">
+        <ApplicationFilter :applications="applications" @filter="setFilter" class="mb-4" />
 
         <v-data-table
             dense
@@ -53,15 +47,16 @@
             </template>
             <template #no-data> No deployments detected </template>
         </v-data-table>
-    </div>
+    </Views>
 </template>
 
 <script>
+import Views from '@/views/Views.vue';
 import Led from '../components/Led.vue';
 import ApplicationFilter from '../components/ApplicationFilter.vue';
 
 export default {
-    components: { ApplicationFilter, Led },
+    components: { Views, ApplicationFilter, Led },
 
     data() {
         return {

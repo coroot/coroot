@@ -1,18 +1,11 @@
 <template>
-    <div>
-        <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
-            {{ error }}
-        </v-alert>
-
-        <h1 v-else class="text-h5">
-            {{ $utils.appId(id).name }}
-            <v-progress-linear v-if="loading" indeterminate color="green" />
-        </h1>
+    <Views :loading="loading" :error="error">
+        <template v-if="name" #subtitle>{{ name }}</template>
 
         <div v-if="app">
-            <AppMap v-if="app.app_map" :map="app.app_map" class="my-5" />
+            <AppMap v-if="app.app_map" :map="app.app_map" class="py-2" />
 
-            <v-tabs v-if="app.reports && app.reports.length" height="40" show-arrows slider-size="2">
+            <v-tabs v-if="app.reports && app.reports.length" height="40" show-arrows slider-size="2" class="mt-3">
                 <v-tab v-for="r in app.reports" :key="r.name" :to="{ params: { report: r.name }, query: $utils.contextQuery() }" exact-path>
                     <Led v-if="r && (r.checks || r.instrumentation)" :status="r.status" />
                     {{ r.name }}
@@ -27,10 +20,11 @@
             <Dashboard v-if="r" :name="r.name" :widgets="r.widgets" />
         </div>
         <NoData v-else-if="!loading && !error" />
-    </div>
+    </Views>
 </template>
 
 <script>
+import Views from '@/views/Views.vue';
 import AppMap from '../components/AppMap';
 import Dashboard from '../components/Dashboard';
 import NoData from '../components/NoData';
@@ -44,7 +38,7 @@ export default {
         report: String,
     },
 
-    components: { AppMap, Dashboard, NoData, Check, Led, ApplicationInstrumentation },
+    components: { Views, AppMap, Dashboard, NoData, Check, Led, ApplicationInstrumentation },
 
     data() {
         return {
@@ -58,6 +52,12 @@ export default {
     mounted() {
         this.get();
         this.$events.watch(this, this.get, 'refresh');
+    },
+
+    computed: {
+        name() {
+            return this.$utils.appId(this.id).name;
+        },
     },
 
     watch: {

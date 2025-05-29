@@ -1,5 +1,5 @@
 <template>
-    <v-dialog v-model="dialog">
+    <v-dialog v-model="dialog" max-width="800">
         <template #activator="{ on, attrs }">
             <v-btn :color="color" :outlined="outlined" :small="small" v-bind="attrs" v-on="on">
                 <slot></slot>

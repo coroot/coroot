@@ -1,5 +1,5 @@
 <template>
-    <v-menu v-model="menu" :close-on-content-click="false" :left="$vuetify.breakpoint.xsOnly" offset-y attach=".v-app-bar">
+    <v-menu v-model="menu" :close-on-content-click="false" left offset-y attach=".v-app-bar">
         <template #activator="{ on, attrs }">
             <v-btn v-on="on" plain outlined height="40" class="px-2">
                 <v-icon>mdi-clock-outline</v-icon>
@@ -7,9 +7,11 @@
                 <v-icon v-if="!small" small class="ml-2"> mdi-chevron-{{ attrs['aria-expanded'] === 'true' ? 'up' : 'down' }} </v-icon>
             </v-btn>
         </template>
-        <v-list dense dark class="list">
+        <v-list dense class="list">
             <v-list-item v-for="i in intervals" :key="i.text" :to="{ query: i.query }" @click="quick" exact>
-                {{ i.text }}
+                <v-list-item-content>
+                    {{ i.text }}
+                </v-list-item-content>
             </v-list-item>
             <v-divider />
             <v-form class="pa-2" @submit.prevent="apply">
