@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -103,15 +104,9 @@ func (c *Collector) getProject(apiKey string) (*db.Project, error) {
 	c.projectsLock.RLock()
 	defer c.projectsLock.RUnlock()
 
-	if apiKey == "" {
-		if len(c.projects) == 1 {
-			return maps.Values(c.projects)[0], nil
-		}
-		for _, p := range c.projects {
-			if p.Name == "default" {
-				return p, nil
-			}
-		}
+	isEmptyKey := apiKey == ""
+	if isEmptyKey {
+		apiKey = strings.Repeat("0", 32)
 	}
 
 	for _, p := range c.projects {
@@ -121,7 +116,29 @@ func (c *Collector) getProject(apiKey string) (*db.Project, error) {
 			}
 		}
 	}
-
+	if isEmptyKey {
+		var project *db.Project
+		if len(c.projects) == 1 {
+			project = maps.Values(c.projects)[0]
+		} else {
+			for _, p := range c.projects {
+				if p.Name == "default" {
+					project = p
+					break
+				}
+			}
+		}
+		if project != nil {
+			project.Settings.ApiKeys = append(project.Settings.ApiKeys, db.ApiKey{
+				Key:         apiKey,
+				Description: "Default project access (no API key required)",
+			})
+			if err := c.db.SaveProjectSettings(project); err != nil {
+				return nil, err
+			}
+			return project, nil
+		}
+	}
 	return nil, ErrProjectNotFound
 }
 
