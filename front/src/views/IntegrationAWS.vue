@@ -1,5 +1,5 @@
 <template>
-    <div>
+    <div style="max-width: 800px">
         <p>
             This integration enables Coroot to discover RDS and ElastiCache instances and collect their telemetry data. It requires permissions to
             describe RDS and ElastiCache instances, read their logs and read Enhanced Monitoring data from CloudWatch.

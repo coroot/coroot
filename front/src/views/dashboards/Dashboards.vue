@@ -1,13 +1,6 @@
 <template>
-    <div class="dashboards">
-        <v-progress-linear indeterminate v-if="loading" color="green" />
-
-        <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
-            {{ error }}
-        </v-alert>
-
+    <Views class="dashboards" :loading="loading" :error="error">
         <div class="d-flex">
-            <v-spacer />
             <v-text-field v-model="search" label="search" clearable dense hide-details prepend-inner-icon="mdi-magnify" outlined class="search" />
         </div>
         <v-data-table
@@ -70,11 +63,15 @@
                 </div>
             </v-card>
         </v-dialog>
-    </div>
+    </Views>
 </template>
 
 <script>
+import Views from '@/views/Views.vue';
+
 export default {
+    components: { Views },
+
     data() {
         return {
             loading: false,

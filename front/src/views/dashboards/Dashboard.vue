@@ -1,84 +1,78 @@
 <template>
-    <div class="dashboard">
-        <v-progress-linear indeterminate v-if="loading" color="green" />
+    <Views :loading="loading" :error="error" class="dashboard">
+        <template v-if="dashboard.name" #subtitle>{{ dashboard.name }}</template>
 
-        <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
-            {{ error }}
-        </v-alert>
-
-        <template v-else>
-            <div class="d-flex mb-3">
-                <h1 class="text-h5">{{ dashboard.name }}</h1>
-                <v-spacer />
-                <div v-if="edit" class="d-flex gap-1">
-                    <v-btn color="primary" plain @click="panel = {}">Add panel</v-btn>
-                    <v-btn color="primary" @click="save">Save</v-btn>
-                    <v-btn color="primary" outlined @click="cancel">Cancel</v-btn>
-                </div>
-                <div v-else class="d-flex gap-1">
-                    <v-btn icon @click="$events.emit('refresh')"><v-icon>mdi-refresh</v-icon></v-btn>
-                    <v-btn icon @click="edit = true"><v-icon>mdi-pencil-outline</v-icon></v-btn>
-                </div>
+        <div class="d-flex mb-3">
+            <v-spacer />
+            <div v-if="edit" class="d-flex gap-1">
+                <v-btn color="primary" plain @click="panel = {}">Add panel</v-btn>
+                <v-btn color="primary" @click="save">Save</v-btn>
+                <v-btn color="primary" outlined @click="cancel">Cancel</v-btn>
             </div>
+            <div v-else class="d-flex gap-1">
+                <v-btn icon @click="$events.emit('refresh')"><v-icon>mdi-refresh</v-icon></v-btn>
+                <v-btn icon @click="edit = true"><v-icon>mdi-pencil-outline</v-icon></v-btn>
+            </div>
+        </div>
 
-            <div v-if="!groups.length" class="text-center pt-10">
-                <div class="grey--text mb-3">No panels are configured yet.</div>
-                <v-btn
-                    color="primary"
-                    @click="
-                        () => {
-                            edit = true;
-                            panel = {};
-                        }
-                    "
-                >
-                    <v-icon>mdi-plus</v-icon>
-                    Add panel
+        <div v-if="!groups.length" class="text-center pt-10">
+            <div class="grey--text mb-3">No panels are configured yet.</div>
+            <v-btn
+                color="primary"
+                @click="
+                    () => {
+                        edit = true;
+                        panel = {};
+                    }
+                "
+            >
+                <v-icon>mdi-plus</v-icon>
+                Add panel
+            </v-btn>
+        </div>
+
+        <div v-for="(g, gi) in groups" class="group mb-2">
+            <div class="d-flex align-center header mb-2">
+                <h2 v-if="g.name" class="text-h6">{{ g.name }}</h2>
+                <v-btn icon @click="g.collapsed = !g.collapsed">
+                    <v-icon v-if="g.collapsed">mdi-chevron-right</v-icon>
+                    <v-icon v-else>mdi-chevron-down</v-icon>
                 </v-btn>
-            </div>
-
-            <div v-for="(g, gi) in groups" class="group mb-2">
-                <div class="d-flex align-center header">
-                    <h2 v-if="g.name" class="text-h6">{{ g.name }}</h2>
-                    <v-btn icon @click="g.collapsed = !g.collapsed">
-                        <v-icon v-if="g.collapsed">mdi-chevron-right</v-icon>
-                        <v-icon v-else>mdi-chevron-down</v-icon>
+                <v-spacer />
+                <div v-if="edit" class="d-flex">
+                    <v-btn small icon @click="group = { action: 'edit', id: gi, name: g.name }">
+                        <v-icon small>mdi-pencil-outline</v-icon>
                     </v-btn>
-                    <v-spacer />
-                    <div v-if="edit" class="d-flex">
-                        <v-btn small icon @click="group = { action: 'edit', id: gi, name: g.name }">
-                            <v-icon small>mdi-pencil-outline</v-icon>
-                        </v-btn>
-                        <v-btn small icon @click="group = { action: 'delete', id: gi, name: g.name }">
-                            <v-icon small>mdi-trash-can-outline</v-icon>
-                        </v-btn>
-                        <v-btn small icon @click="moveGroup(gi, 'down')" :disabled="gi >= groups.length - 1">
-                            <v-icon small>mdi-arrow-down</v-icon>
-                        </v-btn>
-                        <v-btn small icon @click="moveGroup(gi, 'up')" :disabled="gi <= 0">
-                            <v-icon small>mdi-arrow-up</v-icon>
-                        </v-btn>
-                    </div>
-                </div>
-                <div class="grid-stack" :class="{ 'd-none': g.collapsed }">
-                    <div v-for="(p, pi) in g.panels" class="grid-stack-item" :gs-x="p.box.x" :gs-y="p.box.y" :gs-w="p.box.w" :gs-h="p.box.h">
-                        <Panel
-                            :config="p"
-                            :buttons="edit"
-                            @edit="panel = { config: p, group: g.name, gi, pi }"
-                            @remove="delPanel(gi, pi)"
-                            class="panel"
-                        />
-                    </div>
+                    <v-btn small icon @click="group = { action: 'delete', id: gi, name: g.name }">
+                        <v-icon small>mdi-trash-can-outline</v-icon>
+                    </v-btn>
+                    <v-btn small icon @click="moveGroup(gi, 'down')" :disabled="gi >= groups.length - 1">
+                        <v-icon small>mdi-arrow-down</v-icon>
+                    </v-btn>
+                    <v-btn small icon @click="moveGroup(gi, 'up')" :disabled="gi <= 0">
+                        <v-icon small>mdi-arrow-up</v-icon>
+                    </v-btn>
                 </div>
             </div>
-            <PanelForm v-if="panel" v-model="panel" :groups="groups.map((g) => g.name)" @add="addPanel" @edit="editPanel" />
-            <GroupForm v-if="group" v-model="group" @edit="editGroup" @delete="delGroup" />
-        </template>
-    </div>
+            <div class="grid-stack" :class="{ 'd-none': g.collapsed }">
+                <div v-for="(p, pi) in g.panels" class="grid-stack-item" :gs-x="p.box.x" :gs-y="p.box.y" :gs-w="p.box.w" :gs-h="p.box.h">
+                    <Panel
+                        :config="p"
+                        :buttons="edit"
+                        @edit="panel = { config: p, group: g.name, gi, pi }"
+                        @remove="delPanel(gi, pi)"
+                        class="panel"
+                    />
+                </div>
+            </div>
+        </div>
+        <PanelForm v-if="panel" v-model="panel" :groups="groups.map((g) => g.name)" @add="addPanel" @edit="editPanel" />
+        <GroupForm v-if="group" v-model="group" @edit="editGroup" @delete="delGroup" />
+    </Views>
 </template>
 
 <script>
+import Views from '@/views/Views.vue';
 import { GridStack } from 'gridstack';
 import 'gridstack/dist/gridstack.min.css';
 import Panel from '@/views/dashboards/Panel.vue';
@@ -101,7 +95,7 @@ export default {
         id: String,
     },
 
-    components: { Panel, PanelForm, GroupForm },
+    components: { Views, Panel, PanelForm, GroupForm },
 
     data() {
         return {

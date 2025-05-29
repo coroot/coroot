@@ -1,10 +1,6 @@
 <template>
-    <div>
-        <v-progress-linear v-if="loading" indeterminate color="green" />
-
-        <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
-            {{ error }}
-        </v-alert>
+    <Views :loading="loading" :error="error">
+        <template v-if="$route.query.incident" #subtitle>{{ $route.query.incident }}</template>
 
         <CheckForm v-model="editing.active" :appId="editing.appId" :check="editing.check" />
 
@@ -125,10 +121,11 @@
             </template>
         </div>
         <NoData v-else-if="!loading && !error" />
-    </div>
+    </Views>
 </template>
 
 <script>
+import Views from '@/views/Views.vue';
 import NoData from '@/components/NoData';
 import Widget from '@/components/Widget.vue';
 import CheckForm from '@/components/CheckForm.vue';
@@ -136,7 +133,7 @@ import AppTraces from '@/views/AppTraces.vue';
 import RCA from '@/views/RCA.vue';
 
 export default {
-    components: { AppTraces, CheckForm, Widget, RCA, NoData },
+    components: { Views, AppTraces, CheckForm, Widget, RCA, NoData },
 
     computed: {
         view() {

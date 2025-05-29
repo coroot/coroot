@@ -1,26 +1,21 @@
 <template>
-    <div>
-        <v-progress-linear indeterminate v-if="loading" color="green" />
-
-        <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
-            {{ error }}
-        </v-alert>
-
+    <Views :loading="loading" :error="error">
         <Table v-if="nodes && nodes.rows" :header="nodes.header" :rows="nodes.rows" />
         <NoData v-else-if="!loading && !error" />
         <div class="mt-4">
             <AgentInstallation color="primary">Add nodes</AgentInstallation>
         </div>
-    </div>
+    </Views>
 </template>
 
 <script>
+import Views from '@/views/Views.vue';
 import AgentInstallation from '@/views/AgentInstallation.vue';
 import NoData from '@/components/NoData.vue';
 import Table from '@/components/Table.vue';
 
 export default {
-    components: { Table, NoData, AgentInstallation },
+    components: { Views, Table, NoData, AgentInstallation },
 
     data() {
         return {

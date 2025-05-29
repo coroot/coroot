@@ -1,12 +1,6 @@
 <template>
-    <div>
-        <v-progress-linear indeterminate v-if="loading" color="green" />
-
-        <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
-            {{ error }}
-        </v-alert>
-
-        <ApplicationFilter :applications="applications" @filter="setFilter" class="my-4" />
+    <Views :loading="loading" :error="error">
+        <ApplicationFilter :applications="applications" @filter="setFilter" class="mb-4" />
 
         <div class="legend mb-3">
             <div v-for="s in statuses" class="item">
@@ -110,12 +104,13 @@
                 </router-link>
             </template>
         </v-data-table>
-    </div>
+    </Views>
 </template>
 
 <script>
 import ApplicationFilter from '../components/ApplicationFilter.vue';
 import AppIcon from '../components/AppIcon.vue';
+import Views from '@/views/Views.vue';
 
 const statuses = {
     critical: { name: 'SLO violation', color: 'red lighten-1' },
@@ -126,7 +121,7 @@ const statuses = {
 };
 
 export default {
-    components: { ApplicationFilter, AppIcon },
+    components: { Views, ApplicationFilter, AppIcon },
 
     data() {
         return {

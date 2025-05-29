@@ -2,7 +2,7 @@ const itemKey = 'coroot';
 
 function getOrSet(stor, key, value) {
     const data = JSON.parse(stor.getItem(itemKey) || '{}');
-    if (!value) {
+    if (value === undefined) {
         return data[key];
     }
     data[key] = value;

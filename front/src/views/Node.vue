@@ -1,13 +1,6 @@
 <template>
-    <div>
-        <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
-            {{ error }}
-        </v-alert>
-
-        <h1 v-else class="text-h5 ml-4">
-            {{ name }}
-            <v-progress-linear v-if="loading" indeterminate color="green" />
-        </h1>
+    <Views :loading="loading" :error="error">
+        <template v-if="name" #subtitle>{{ name }}</template>
 
         <template v-if="node">
             <div v-if="node.status === 'unknown'" class="text-center">
@@ -16,10 +9,11 @@
             <Dashboard v-else :name="name" :widgets="node.widgets" class="mt-3" />
         </template>
         <NoData v-else-if="!loading && !error" />
-    </div>
+    </Views>
 </template>
 
 <script>
+import Views from '@/views/Views.vue';
 import Dashboard from '../components/Dashboard';
 import NoData from '../components/NoData';
 
@@ -28,7 +22,7 @@ export default {
         name: String,
     },
 
-    components: { Dashboard, NoData },
+    components: { Views, Dashboard, NoData },
 
     data() {
         return {

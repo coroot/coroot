@@ -18,6 +18,9 @@
     --status-warning: #ffdd57;
     --status-critical: #f44034;
 }
+body.theme--dark {
+    background-color: var(--background-dark);
+}
 .v-application {
     --text-color: var(--text-light);
     --text-color-dimmed: var(--text-light-dimmed);
@@ -39,41 +42,33 @@
 .v-application.theme--dark .logo {
     filter: brightness(var(--brightness-dimmed));
 }
-.v-application .v-app-bar,
-.v-application .v-app-bar .v-list {
+
+.v-application .v-navigation-drawer,
+.v-application .v-navigation-drawer .v-list {
     color: var(--text-dark) !important;
     background-color: var(--background-dark) !important;
 }
+
 .v-application .v-footer {
     background-color: var(--background-color);
 }
-.v-application {
-    color: var(--text-color) !important;
-}
-.v-application .v-tabs > .v-tabs-bar,
-.v-application .v-data-table,
-.v-application .v-list,
-.v-application .v-card {
+.v-application .v-main {
     color: var(--text-color) !important;
     background-color: var(--background-color) !important;
 }
+.v-application .v-main .v-tabs > .v-tabs-bar,
+.v-application .v-main .v-data-table,
+.v-application .v-main .v-list,
+.v-application .v-main .v-card {
+    color: var(--text-color) !important;
+    background-color: var(--background-color) !important;
+}
+
 .v-application .v-tooltip__content {
     opacity: 1 !important;
     padding: 0;
 }
-.v-application .v-tooltip__content,
-.v-application .v-tooltip__content .v-data-table,
-.v-application .v-tooltip__content .v-list,
-.v-application .v-tooltip__content .v-card,
-.v-application .v-dialog,
-.v-application .v-dialog .v-card,
-.v-application .v-dialog .v-list,
-.v-application .v-dialog .v-tabs-bar,
-.v-application .v-dialog .v-tabs-items,
-.v-application .v-dialog .v-data-table {
-    color: var(--text-color) !important;
-    background-color: var(--tooltip-color) !important;
-}
+
 .v-application .v-icon,
 .v-application .v-btn,
 .v-application .v-chip {

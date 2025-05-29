@@ -1,22 +1,5 @@
 <template>
     <div>
-        <div class="my-4">
-            <v-tabs :value="view" height="40" show-arrows slider-size="2">
-                <template v-for="(name, view) in views">
-                    <v-tab
-                        v-if="name && view"
-                        :to="{
-                            params: { view, id: undefined, report: undefined },
-                            query: view === 'incidents' ? { ...$utils.contextQuery(), incident: undefined } : $utils.contextQuery(),
-                        }"
-                        :tab-value="view"
-                    >
-                        {{ name }}
-                    </v-tab>
-                </template>
-            </v-tabs>
-        </div>
-
         <template v-if="view === 'applications'">
             <Application v-if="id" :id="id" :report="report" />
             <Applications v-else />
@@ -109,36 +92,6 @@ export default {
         view: String,
         id: String,
         report: String,
-    },
-
-    computed: {
-        views() {
-            return {
-                '': this.$route.query, // a bit of a hack to enable reactivity for tabs
-                applications: 'Applications',
-                incidents: 'Incidents',
-                map: 'Service Map',
-                traces: 'Traces',
-                logs: 'Logs',
-                nodes: 'Nodes',
-                deployments: 'Deployments',
-                costs: 'Costs',
-                anomalies: this.$coroot.edition === 'Enterprise' ? 'Anomalies' : '',
-                risks: 'Risks',
-                dashboards: 'Dashboards',
-            };
-        },
-    },
-
-    watch: {
-        view: {
-            handler(v) {
-                if (!this.views[v]) {
-                    this.$router.replace({ params: { view: 'applications' } }).catch((err) => err);
-                }
-            },
-            immediate: true,
-        },
     },
 };
 </script>

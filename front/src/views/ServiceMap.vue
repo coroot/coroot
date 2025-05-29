@@ -1,14 +1,8 @@
 <template>
-    <div>
-        <v-progress-linear indeterminate v-if="loading" color="green" />
+    <Views :loading="loading" :error="error">
+        <NoData v-if="!loading && !applications.length" />
 
-        <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
-            {{ error }}
-        </v-alert>
-
-        <NoData v-else-if="!loading && !applications.length" />
-
-        <ApplicationFilter v-else :applications="applications" :autoSelectNamespaceThreshold="maxApplications" @filter="setFilter" class="my-4" />
+        <ApplicationFilter v-else :applications="applications" :autoSelectNamespaceThreshold="maxApplications" @filter="setFilter" class="mb-4" />
 
         <div v-if="tooManyApplications" class="text-center red--text mt-5">
             Too many applications ({{ tooManyApplications }}) to render. Please choose a different category or namespace.
@@ -69,10 +63,11 @@
                 </div>
             </template>
         </div>
-    </div>
+    </Views>
 </template>
 
 <script>
+import Views from '@/views/Views.vue';
 import Labels from '@/components/Labels.vue';
 import AppHealth from '@/components/AppHealth.vue';
 import AppIcon from '@/components/AppIcon.vue';
@@ -115,7 +110,7 @@ function calcLevel(index, a, level, backLinks) {
 }
 
 export default {
-    components: { NoData, AppPreferences, ApplicationFilter, AppHealth, Labels, AppIcon },
+    components: { Views, NoData, AppPreferences, ApplicationFilter, AppHealth, Labels, AppIcon },
 
     data() {
         return {
