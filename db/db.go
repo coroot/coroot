@@ -82,6 +82,7 @@ func (db *DB) Migrate(extraTables ...Table) error {
 		&IncidentNotification{},
 		&ApplicationDeployment{},
 		&ApplicationSettings{},
+		&Dashboards{},
 		&Setting{},
 		&User{},
 	}

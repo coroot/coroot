@@ -211,7 +211,7 @@ func (c *Cache) download(to timeseries.Time, promClient *prom.Client, projectId 
 	}
 	for _, i := range calcIntervals(from, step, to, jitter) {
 		ctx, cancel := context.WithTimeout(context.Background(), queryTimeout)
-		vs, err := promClient.QueryRange(ctx, task.query.Query, task.query.Labels, i.chunkTs, i.toTs, step)
+		vs, err := promClient.QueryRange(ctx, task.query.Query, task.query.Labels.Has, i.chunkTs, i.toTs, step)
 		cancel()
 		if err != nil {
 			klog.Errorln("failed to query prometheus:", err)
@@ -385,7 +385,7 @@ func getScrapeInterval(promClient *prom.Client) (timeseries.Duration, error) {
 	to := timeseries.Now()
 	from := to.Add(-timeseries.Hour)
 	query := fmt.Sprintf("timestamp(node_info)-%d", from)
-	mvs, err := promClient.QueryRange(ctx, query, nil, from, to, step)
+	mvs, err := promClient.QueryRange(ctx, query, prom.FilterLabelsDropAll, from, to, step)
 	if err != nil {
 		return step, err
 	}

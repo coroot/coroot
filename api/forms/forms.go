@@ -61,6 +61,15 @@ func (f *ApiKeyForm) Valid() bool {
 	return true
 }
 
+type DashboardForm struct {
+	Action string `json:"action"`
+	db.Dashboard
+}
+
+func (f *DashboardForm) Valid() bool {
+	return f.Name != ""
+}
+
 type CheckConfigForm struct {
 	Configs []*model.CheckConfigSimple `json:"configs"`
 }

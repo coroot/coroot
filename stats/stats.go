@@ -228,7 +228,9 @@ func (c *Collector) MiddleWare(next http.Handler) http.Handler {
 				if v := vars["view"]; v != "" {
 					pathTemplate = strings.ReplaceAll(pathTemplate, "{view}", v)
 				}
+				c.lock.Lock()
 				c.apiCalls[pathTemplate]++
+				c.lock.Unlock()
 			}
 		}
 		next.ServeHTTP(w, r)

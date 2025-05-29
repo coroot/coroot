@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -97,7 +99,7 @@ func NewClient(config ClientConfig) (*Client, error) {
 
 func (c *Client) Ping(ctx context.Context) error {
 	now := timeseries.Now()
-	_, err := c.QueryRange(ctx, "up", nil, now.Add(-timeseries.Hour), now, timeseries.Minute)
+	_, err := c.QueryRange(ctx, "up", FilterLabelsDropAll, now.Add(-timeseries.Hour), now, timeseries.Minute)
 	return err
 }
 
@@ -105,7 +107,7 @@ func (c *Client) GetStep(from, to timeseries.Time) (timeseries.Duration, error) 
 	return c.config.Step, nil
 }
 
-func (c *Client) QueryRange(ctx context.Context, query string, labels *utils.StringSet, from, to timeseries.Time, step timeseries.Duration) ([]*model.MetricValues, error) {
+func (c *Client) QueryRange(ctx context.Context, query string, filterLabels FilterLabelsF, from, to timeseries.Time, step timeseries.Duration) ([]*model.MetricValues, error) {
 	query = strings.ReplaceAll(query, "$RANGE", fmt.Sprintf(`%.0fs`, (step*3).ToStandard().Seconds()))
 	var err error
 	query, err = addExtraSelector(query, c.config.ExtraSelector)
@@ -140,6 +142,14 @@ func (c *Client) QueryRange(ctx context.Context, query string, labels *utils.Str
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
+		d, _ := io.ReadAll(resp.Body)
+		var j struct {
+			Error string `json:"error"`
+		}
+		_ = json.Unmarshal(d, &j)
+		if j.Error != "" {
+			return nil, fmt.Errorf(j.Error)
+		}
 		return nil, errors.New(resp.Status)
 	}
 	buf := pool.Get().(*bytes.Buffer)
@@ -158,7 +168,7 @@ func (c *Client) QueryRange(ctx context.Context, query string, labels *utils.Str
 				return err
 			}
 			k := string(key)
-			if labels.Has(k) {
+			if filterLabels(k) {
 				ls[string(key)] = v
 			}
 			return nil

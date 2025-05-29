@@ -26,6 +26,10 @@ type Context struct {
 	RawStep Duration `json:"raw_step"`
 }
 
+func NewContext(from, to Time, step Duration) Context {
+	return Context{From: from, To: to, Step: step, RawStep: step}
+}
+
 func (c Context) PointsCount() int {
 	return int(c.To.Sub(c.From) / c.Step)
 }

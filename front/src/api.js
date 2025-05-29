@@ -52,7 +52,8 @@ export default class Api {
                     this.context.search = response.data.context.search;
                 }
                 try {
-                    cb(response.data.data || response.data, '', response.status);
+                    const data = response.data.data !== undefined ? response.data.data : response.data;
+                    cb(data, '', response.status);
                 } catch (e) {
                     console.error(e);
                 }
@@ -175,6 +176,23 @@ export default class Api {
         this.get(this.projectPath(`overview/${view}`), { query }, cb);
     }
 
+    dashboards(id, form, cb) {
+        let path = this.projectPath(`dashboards`);
+        if (id) {
+            path += '/' + id;
+        }
+        if (form) {
+            this.post(path, form, cb);
+        } else {
+            this.get(path, {}, cb);
+        }
+    }
+
+    panelData(config, cb) {
+        let path = this.projectPath(`panel/data`);
+        this.get(path, { query: JSON.stringify(config) }, cb);
+    }
+
     getInspections(cb) {
         this.get(this.projectPath(`inspections`), {}, cb);
     }
@@ -286,11 +304,7 @@ export default class Api {
         this.post(this.projectPath(`app/${appId}/risks`), form, cb);
     }
 
-    getPrometheusCompleteConfiguration() {
-        return {
-            remote: {
-                apiPrefix: this.basePath + 'api/' + this.projectPath('prom') + '/api/v1',
-            },
-        };
+    prom() {
+        return this.basePath + 'api/' + this.projectPath('prom');
     }
 }

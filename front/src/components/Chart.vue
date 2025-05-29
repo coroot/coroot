@@ -1,5 +1,5 @@
 <template>
-    <div ref="container" class="chart">
+    <div ref="container" class="chart d-flex flex-column">
         <div class="title">
             <slot name="title">
                 <span v-html="config.title"></span>
@@ -11,7 +11,7 @@
             </v-btn>
         </div>
 
-        <div ref="uplot" v-on-resize="redraw" class="chart" :class="{ loading: loading }">
+        <div ref="uplot" v-on-resize="redraw" class="chart flex-grow-1" :class="{ loading: loading }">
             <div v-if="selection" ref="selection" class="selection">
                 <div ref="selection-control" class="selection-control">
                     <v-btn-toggle v-if="selection.to > selection.from" :value="selection.mode" @change="setSelectionMode">
@@ -254,7 +254,7 @@ export default {
                 data.push([0]);
             }
             const opts = {
-                height: 150,
+                height: this.$refs.uplot.clientHeight,
                 padding: [10, 20, -10, 0],
                 width: this.$refs.uplot.clientWidth,
                 ms: 1,
@@ -411,6 +411,7 @@ export default {
 <style scoped>
 .chart {
     position: relative;
+    min-height: 150px;
 }
 
 .chart:deep(.u-select) {
@@ -491,7 +492,7 @@ export default {
     margin: 0 10px 0 40px;
     display: flex;
     flex-wrap: wrap;
-    max-height: 36px; /* 2 lines of .items */
+    max-height: 20%;
     overflow: auto;
 }
 .legend .item {
