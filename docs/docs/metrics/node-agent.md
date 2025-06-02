@@ -1,5 +1,6 @@
 ---
 sidebar_position: 1
+toc_max_heading_level: 2
 ---
 
 # Node-agent
@@ -87,6 +88,20 @@ Each container metric has the `container_id` label. This is a compound identifie
 * **Type**: Counter
 * **Source**: [Blkio](https://www.kernel.org/doc/Documentation/cgroup-v1/blkio-controller.txt) cgroup, the `blkio.throttle.io_service_bytes` file
 * **Labels**: mount_point, device, volume
+
+## GPU
+
+### container_resources_gpu_usage_percent
+* **Description**: Percent of GPU compute resources used by the container
+* **Type**: Gauge
+* **Source**: NVIDIA Management Library (NVML)
+* **Labels**: gpu_uuid
+
+### container_resources_gpu_memory_usage_percent
+* **Description**: Percent of GPU memory used by the container
+* **Type**: Gauge
+* **Source**: NVIDIA Management Library (NVML)
+* **Labels**: gpu_uuid
 
 ## Network
 
@@ -548,6 +563,51 @@ E.g., if the derivative of this metric for a minute interval is 60s, this means 
 * **Description**: IP address assigned to the interface
 * **Type**: Gauge
 * **Labels**: interface, ip
+
+### node_gpu_info
+* **Description**: Meta information about the GPU
+* **Type**: Gauge
+* **Labels**: gpu_uuid, name
+
+### node_resources_gpu_memory_total_bytes
+* **Description**: Total memory available on the GPU in bytes
+* **Type**: Gauge
+* **Labels**: gpu_uuid
+
+### node_resources_gpu_memory_used_bytes
+* **Description**: GPU memory currently in use in bytes
+* **Type**: Gauge
+* **Labels**: gpu_uuid
+
+### node_resources_gpu_memory_utilization_percent_avg
+* **Description**: Average GPU memory utilization (percentage) over the collection interval
+* **Type**: Gauge
+* **Labels**: gpu_uuid
+
+### node_resources_gpu_memory_utilization_percent_peak
+* **Description**: Peak GPU memory utilization (percentage) over the collection interval
+* **Type**: Gauge
+* **Labels**: gpu_uuid
+
+### node_resources_gpu_utilization_percent_avg
+* **Description**: Average GPU core utilization (percentage) over the collection interval
+* **Type**: Gauge
+* **Labels**: gpu_uuid
+
+### node_resources_gpu_utilization_percent_peak
+* **Description**: Peak GPU core utilization (percentage) over the collection interval
+* **Type**: Gauge
+* **Labels**: gpu_uuid
+
+### node_resources_gpu_temperature_celsius
+* **Description**: Current temperature of the GPU in Celsius
+* **Type**: Gauge
+* **Labels**: gpu_uuid
+
+### node_resources_gpu_power_usage_watts
+* **Description**: Current power usage of the GPU in watts
+* **Type**: Gauge
+* **Labels**: gpu_uuid
 
 ### node_uptime_seconds
 * **Description**: Uptime of the node in seconds

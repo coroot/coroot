@@ -11,6 +11,8 @@ type Widget struct {
 	Profiling *Profiling `json:"profiling,omitempty"`
 	Tracing   *Tracing   `json:"tracing,omitempty"`
 
+	GroupHeader string `json:"group_header,omitempty"`
+
 	Width   string   `json:"width,omitempty"`
 	DocLink *DocLink `json:"doc_link,omitempty"`
 }

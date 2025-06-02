@@ -55,6 +55,7 @@ func Audit(w *model.World, p *db.Project, generateDetailedReportFor *model.Appli
 		stages.stage("cpu", func() { a.cpu(ncs) })
 		stages.stage("memory", func() { a.memory(ncs) })
 		stages.stage("storage", a.storage)
+		stages.stage("gpu", a.gpu)
 		stages.stage("network", a.network)
 		stages.stage("dns", a.dns)
 		stages.stage("postgres", a.postgres)

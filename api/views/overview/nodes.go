@@ -11,7 +11,7 @@ import (
 )
 
 func renderNodes(w *model.World) *model.Table {
-	nodes := model.NewTable("Node", "Status", "Availability zone", "IP", "CPU", "Memory", "Network")
+	nodes := model.NewTable("Node", "Status", "Availability zone", "IP", "CPU", "Memory", "GPU", "Network")
 	unknown := model.NewTable(nodes.Header...)
 	for _, n := range w.Nodes {
 		name := n.GetName()
@@ -85,6 +85,10 @@ func renderNodes(w *model.World) *model.Table {
 		if *status.Status == model.UNKNOWN {
 			table = unknown
 		}
+		gpus := model.NewTableCell()
+		if len(n.GPUs) > 0 {
+			gpus.SetValue(strconv.Itoa(len(n.GPUs)))
+		}
 		table.AddRow(
 			node,
 			status,
@@ -92,6 +96,7 @@ func renderNodes(w *model.World) *model.Table {
 			model.NewTableCell(ips.Items()...),
 			cpuPercent,
 			memoryPercent,
+			gpus,
 			network,
 		)
 	}
