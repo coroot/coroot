@@ -15,6 +15,7 @@
         <AppLogs v-if="w.logs" :appId="w.logs.application_id" :check="w.logs.check" />
         <Profiling v-if="w.profiling" :appId="w.profiling.application_id" />
         <AppTraces v-if="w.tracing" :appId="w.tracing.application_id" />
+        <h2 v-if="w.group_header" class="group-header text-h6">{{ w.group_header }}</h2>
     </div>
 </template>
 
@@ -70,4 +71,10 @@ export default {
 };
 </script>
 
-<style scoped></style>
+<style scoped>
+.group-header {
+    padding: 4px 8px;
+    background-color: var(--background-color-hi);
+    border-radius: 4px;
+}
+</style>

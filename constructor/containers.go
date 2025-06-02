@@ -469,6 +469,18 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]*model
 		volume.UsedBytes = merge(volume.UsedBytes, metric.Values, timeseries.Any)
 	})
 
+	loadGPU := func(queryName string, f func(g *model.InstanceGPUUsage, metric *model.MetricValues)) {
+		loadContainer(queryName, func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
+			f(getOrCreateInstanceGPU(instance, metric), metric)
+		})
+	}
+	loadGPU("container_gpu_usage_percent", func(g *model.InstanceGPUUsage, metric *model.MetricValues) {
+		g.UsageAverage = merge(g.UsageAverage, metric.Values, timeseries.Any)
+	})
+	loadGPU("container_gpu_memory_usage_percent", func(g *model.InstanceGPUUsage, metric *model.MetricValues) {
+		g.MemoryUsageAverage = merge(g.MemoryUsageAverage, metric.Values, timeseries.Any)
+	})
+
 	for _, app := range w.Applications { // lookup remote instance by listen
 		for _, instance := range app.Instances {
 			for _, u := range instance.Upstreams {
@@ -594,6 +606,21 @@ func getOrCreateInstanceVolume(instance *model.Instance, m *model.MetricValues) 
 	volume.Name.Update(m.Values, m.Labels["volume"])
 	volume.Device.Update(m.Values, m.Labels["device"])
 	return volume
+}
+
+func getOrCreateInstanceGPU(instance *model.Instance, m *model.MetricValues) *model.InstanceGPUUsage {
+	uuid := m.Labels["gpu_uuid"]
+	g := instance.GPUUsage[uuid]
+	if g == nil {
+		g = &model.InstanceGPUUsage{}
+		instance.GPUUsage[uuid] = g
+	}
+	if instance.Node != nil && instance.Node.GPUs != nil {
+		if gpu := instance.Node.GPUs[uuid]; gpu != nil {
+			gpu.Instances[instance.Name] = instance
+		}
+	}
+	return g
 }
 
 func externalServiceName(port string) string {

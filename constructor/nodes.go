@@ -99,6 +99,8 @@ func (c *Constructor) loadNodes(w *model.World, metrics map[string][]*model.Metr
 					nodeDisk(node, queryName, m)
 				} else if strings.HasPrefix(queryName, "node_net_") {
 					nodeInterface(node, queryName, m)
+				} else if strings.HasPrefix(queryName, "node_gpu") {
+					nodeGPU(node, queryName, m)
 				}
 			}
 		}
@@ -172,5 +174,37 @@ func nodeInterface(node *model.Node, queryName string, m *model.MetricValues) {
 		stat.RxBytes = merge(stat.RxBytes, m.Values, timeseries.Any)
 	case "node_net_tx_bytes":
 		stat.TxBytes = merge(stat.TxBytes, m.Values, timeseries.Any)
+	}
+}
+
+func nodeGPU(node *model.Node, queryName string, m *model.MetricValues) {
+	uuid := m.Labels["gpu_uuid"]
+	gpu := node.GPUs[uuid]
+	if gpu == nil {
+		gpu = &model.GPU{
+			UUID:      uuid,
+			Instances: map[string]*model.Instance{},
+		}
+		node.GPUs[uuid] = gpu
+	}
+	switch queryName {
+	case "node_gpu_info":
+		gpu.Name.Update(m.Values, m.Labels["name"])
+	case "node_gpu_memory_total_bytes":
+		gpu.TotalMemory = merge(gpu.TotalMemory, m.Values, timeseries.Any)
+	case "node_gpu_memory_used_bytes":
+		gpu.UsedMemory = merge(gpu.UsedMemory, m.Values, timeseries.Any)
+	case "node_gpu_memory_utilization_percent_avg":
+		gpu.MemoryUsageAverage = merge(gpu.MemoryUsageAverage, m.Values, timeseries.Any)
+	case "node_gpu_memory_utilization_percent_peak":
+		gpu.MemoryUsagePeak = merge(gpu.MemoryUsagePeak, m.Values, timeseries.Any)
+	case "node_gpu_temperature_celsius":
+		gpu.Temperature = merge(gpu.Temperature, m.Values, timeseries.Any)
+	case "node_gpu_power_usage_watts":
+		gpu.PowerWatts = merge(gpu.PowerWatts, m.Values, timeseries.Any)
+	case "node_gpu_utilization_percent_avg":
+		gpu.UsageAverage = merge(gpu.UsageAverage, m.Values, timeseries.Any)
+	case "node_gpu_utilization_percent_peak":
+		gpu.UsagePeak = merge(gpu.UsagePeak, m.Values, timeseries.Any)
 	}
 }

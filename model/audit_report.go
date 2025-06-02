@@ -1,6 +1,7 @@
 package model
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/coroot/coroot/timeseries"
@@ -13,6 +14,7 @@ const (
 	AuditReportSLO         AuditReportName = "SLO"
 	AuditReportInstances   AuditReportName = "Instances"
 	AuditReportCPU         AuditReportName = "CPU"
+	AuditReportGPU         AuditReportName = "GPU"
 	AuditReportMemory      AuditReportName = "Memory"
 	AuditReportStorage     AuditReportName = "Storage"
 	AuditReportNetwork     AuditReportName = "Net"
@@ -134,7 +136,7 @@ func (r *AuditReport) GetOrCreateTable(header ...string) *Table {
 		return nil
 	}
 	for _, w := range r.Widgets {
-		if t := w.Table; t != nil {
+		if t := w.Table; t != nil && slices.Equal(t.Header, header) {
 			return t
 		}
 	}

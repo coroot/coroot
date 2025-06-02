@@ -74,6 +74,7 @@ type Node struct {
 
 	Disks         map[string]*DiskStats
 	NetInterfaces []*InterfaceStats
+	GPUs          map[string]*GPU
 
 	Instances []*Instance `json:"-"`
 
@@ -122,6 +123,7 @@ func NewNode(id NodeId) *Node {
 		Id:             id,
 		Disks:          map[string]*DiskStats{},
 		CpuUsageByMode: map[string]*timeseries.TimeSeries{},
+		GPUs:           map[string]*GPU{},
 	}
 }
 
@@ -162,4 +164,28 @@ func (n *Node) Status() Status {
 		return WARNING
 	}
 	return OK
+}
+
+type GPU struct {
+	UUID string
+	Name LabelLastValue
+
+	TotalMemory *timeseries.TimeSeries
+	UsedMemory  *timeseries.TimeSeries
+
+	MemoryUsageAverage *timeseries.TimeSeries
+	MemoryUsagePeak    *timeseries.TimeSeries
+
+	UsageAverage *timeseries.TimeSeries
+	UsagePeak    *timeseries.TimeSeries
+
+	Temperature *timeseries.TimeSeries
+	PowerWatts  *timeseries.TimeSeries
+
+	Instances map[string]*Instance
+}
+
+type InstanceGPUUsage struct {
+	MemoryUsageAverage *timeseries.TimeSeries
+	UsageAverage       *timeseries.TimeSeries
 }

@@ -42,6 +42,8 @@ type Instance struct {
 
 	Volumes []*Volume
 
+	GPUUsage map[string]*InstanceGPUUsage
+
 	Upstreams map[ConnectionKey]*Connection
 
 	Requests Requests
@@ -71,6 +73,7 @@ func NewInstance(name string, owner *Application) *Instance {
 		Containers: map[string]*Container{},
 		Upstreams:  map[ConnectionKey]*Connection{},
 		TcpListens: map[Listen]bool{},
+		GPUUsage:   map[string]*InstanceGPUUsage{},
 	}
 }
 

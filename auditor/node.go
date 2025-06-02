@@ -18,6 +18,7 @@ func AuditNode(w *model.World, node *model.Node) *model.AuditReport {
 
 	report.Status = model.OK
 
+	report.AddWidget(&model.Widget{GroupHeader: "CPU", Width: "100%"})
 	cpuByModeChart(
 		report.GetOrCreateChart("CPU usage, %", model.NewDocLink("inspections", "cpu", "node-cpu-usage")),
 		node.CpuUsageByMode,
@@ -34,6 +35,8 @@ func AuditNode(w *model.World, node *model.Node) *model.AuditReport {
 		node.MemoryTotalBytes,
 		timeseries.Sum(node.MemoryCachedBytes, node.MemoryFreeBytes),
 	)
+	report.AddWidget(&model.Widget{GroupHeader: "Memory", Width: "100%"})
+
 	report.
 		GetOrCreateChart("Memory usage, bytes", nil).
 		Stacked().
@@ -47,6 +50,8 @@ func AuditNode(w *model.World, node *model.Node) *model.AuditReport {
 		Sorted().
 		SetThreshold("total", node.MemoryTotalBytes).
 		AddMany(ncs.memory, 5, timeseries.Max)
+
+	report.AddWidget(&model.Widget{GroupHeader: "Network", Width: "100%"})
 
 	for _, i := range node.NetInterfaces {
 		report.
@@ -85,6 +90,9 @@ func AuditNode(w *model.World, node *model.Node) *model.AuditReport {
 			vol.Instances.Add(i.Name)
 			vol.PVCs.Add(v.Name.Value())
 		}
+	}
+	if len(volumes) > 0 {
+		report.AddWidget(&model.Widget{GroupHeader: "Disks", Width: "100%"})
 	}
 	disks := report.GetOrCreateTable("Device", "Mount points", "Used by", "Latency", "I/O Load", "Space")
 	ioLatencyChart := report.GetOrCreateChartGroup("Average I/O latency <selector>, seconds", nil)
@@ -148,6 +156,54 @@ func AuditNode(w *model.World, node *model.Node) *model.AuditReport {
 		spaceChart.GetOrCreateChart(device).Stacked().
 			AddSeries("used", vol.UsedBytes).
 			SetThreshold("total", vol.CapacityBytes)
+	}
+
+	if len(node.GPUs) > 0 {
+		report.AddWidget(&model.Widget{GroupHeader: "GPUs", Width: "100%"})
+	}
+
+	for _, gpu := range node.GPUs {
+		gpus := report.GetOrCreateTable("GPU UUID", "Name", "vRAM")
+		mem := model.NewTableCell()
+		if last := gpu.TotalMemory.Last(); last > 0 {
+			mem.SetValue(humanize.Bytes(uint64(last)))
+		}
+		gpus.AddRow(model.NewTableCell(gpu.UUID), model.NewTableCell(gpu.Name.Value()), mem)
+		report.
+			GetOrCreateChartGroup("GPU utilization <selector>, %", nil).
+			GetOrCreateChart("average").
+			AddSeries(gpu.UUID, gpu.UsageAverage).Feature()
+		report.
+			GetOrCreateChartGroup("GPU utilization <selector>, %", nil).
+			GetOrCreateChart("peak").
+			AddSeries(gpu.UUID, gpu.UsagePeak)
+		report.
+			GetOrCreateChartGroup("GPU Memory utilization <selector>, %", nil).
+			GetOrCreateChart("average").
+			AddSeries(gpu.UUID, gpu.MemoryUsageAverage).Feature()
+		report.
+			GetOrCreateChartGroup("GPU Memory utilization <selector>, %", nil).
+			GetOrCreateChart("peak").
+			AddSeries(gpu.UUID, gpu.MemoryUsagePeak).Feature()
+		coreChart := report.
+			GetOrCreateChartGroup("GPU consumers <selector>, %", nil).
+			GetOrCreateChart(gpu.UUID).Stacked()
+		memChart := report.
+			GetOrCreateChartGroup("GPU memory consumers <selector>, %", nil).
+			GetOrCreateChart(gpu.UUID).Stacked()
+		for _, ci := range gpu.Instances {
+			if u := ci.GPUUsage[gpu.UUID]; u != nil {
+				coreChart.AddSeries(ci.Name, u.UsageAverage)
+				memChart.AddSeries(ci.Name, u.MemoryUsageAverage)
+			}
+		}
+		report.
+			GetOrCreateChart("GPU temperature, ℃", nil).
+			AddSeries(gpu.UUID, gpu.Temperature)
+		report.
+			GetOrCreateChart("GPU power, watts", nil).
+			AddSeries(gpu.UUID, gpu.PowerWatts)
+
 	}
 	return report
 }

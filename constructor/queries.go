@@ -141,6 +141,15 @@ var QUERIES = []Query{
 	Q("node_net_ip", `node_net_interface_ip`, "interface", "ip"),
 	Q("node_net_rx_bytes", `rate(node_net_received_bytes_total[$RANGE])`, "interface"),
 	Q("node_net_tx_bytes", `rate(node_net_transmitted_bytes_total[$RANGE])`, "interface"),
+	Q("node_gpu_info", `node_gpu_info`, "gpu_uuid", "name"),
+	Q("node_gpu_memory_total_bytes", `node_resources_gpu_memory_total_bytes`, "gpu_uuid"),
+	Q("node_gpu_memory_used_bytes", `node_resources_gpu_memory_used_bytes`, "gpu_uuid"),
+	Q("node_gpu_memory_utilization_percent_avg", `node_resources_gpu_memory_utilization_percent_avg`, "gpu_uuid"),
+	Q("node_gpu_memory_utilization_percent_peak", `node_resources_gpu_memory_utilization_percent_peak`, "gpu_uuid"),
+	Q("node_gpu_utilization_percent_avg", `node_resources_gpu_utilization_percent_avg`, "gpu_uuid"),
+	Q("node_gpu_utilization_percent_peak", `node_resources_gpu_utilization_percent_peak`, "gpu_uuid"),
+	Q("node_gpu_temperature_celsius", `node_resources_gpu_temperature_celsius`, "gpu_uuid"),
+	Q("node_gpu_power_usage_watts", `node_resources_gpu_power_usage_watts`, "gpu_uuid"),
 
 	Q("ip_to_fqdn", `sum by(fqdn, ip) (ip_to_fqdn)`, "ip", "fqdn"),
 
@@ -211,6 +220,8 @@ var QUERIES = []Query{
 	Q("container_restarts", `container_restarts_total % 10000000`, "job", "instance"),
 	Q("container_volume_size", `container_resources_disk_size_bytes`, "mount_point", "volume", "device"),
 	Q("container_volume_used", `container_resources_disk_used_bytes`, "mount_point", "volume", "device"),
+	Q("container_gpu_usage_percent", `container_resources_gpu_usage_percent`, "gpu_uuid"),
+	Q("container_gpu_memory_usage_percent", `container_resources_gpu_memory_usage_percent`, "gpu_uuid"),
 	Q("container_net_tcp_listen_info", `container_net_tcp_listen_info`, "listen_addr", "proxy"),
 
 	qItoI("container_net_latency", `avg by(app_id, destination_ip) (container_net_latency_seconds{app_id!=""}) or container_net_latency_seconds{app_id=""}`),
