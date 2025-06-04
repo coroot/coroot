@@ -516,6 +516,9 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]*model
 		}
 	}
 
+	isEmpty := func(ts *timeseries.TimeSeries) bool {
+		return ts.IsEmpty() || ts.Reduce(timeseries.NanSum) == 0.
+	}
 	for _, app := range w.Applications { // creating ApplicationKindExternalService for unknown remote instances
 		for _, instance := range app.Instances {
 			for _, u := range instance.Upstreams {
@@ -534,6 +537,9 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]*model
 						appId.Name = svc.Name
 					}
 				} else {
+					if isEmpty(u.SuccessfulConnections) && isEmpty(u.Active) && isEmpty(u.FailedConnections) {
+						continue
+					}
 					if u.ActualRemoteIP == "" && net.ParseIP(u.ServiceRemoteIP) == nil {
 						appId.Name = u.ServiceRemoteIP
 					} else if fqdns := ip2fqdn[u.ServiceRemoteIP]; fqdns != nil && fqdns.Len() > 0 {
