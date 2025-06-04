@@ -74,9 +74,13 @@ func availabilityRisks(w *model.World) []*Risk {
 		appNodes := utils.NewStringSet()
 		instanceLifeCycles := utils.NewStringSet()
 		availableInstances := 0
+		availableInstancesByAppType := map[model.ApplicationType]int{}
 		for _, i := range app.Instances {
 			if !i.IsObsolete() && i.IsUp() {
 				availableInstances++
+				for t := range i.ApplicationTypes() {
+					availableInstancesByAppType[t]++
+				}
 				if i.Node != nil {
 					if z := i.Node.AvailabilityZone.Value(); z != "" {
 						appZones.Add(z)
@@ -137,18 +141,24 @@ func availabilityRisks(w *model.World) []*Risk {
 			}
 			replicated := false
 			for _, u := range app.Upstreams {
+				if u.RemoteApplication == app {
+					continue
+				}
 				if u.RemoteApplication.ApplicationTypes()[t] {
 					replicated = true
 				}
 			}
 			if !replicated {
 				for _, u := range app.Downstreams {
+					if u.Application == app {
+						continue
+					}
 					if u.Application.ApplicationTypes()[t] {
 						replicated = true
 					}
 				}
 			}
-			if availableInstances < 2 && !replicated {
+			if availableInstancesByAppType[t] > 0 && availableInstancesByAppType[t] < 2 && !replicated {
 				res = append(res, availabilityRisk(
 					app,
 					dismissals,
