@@ -44,8 +44,8 @@
                                     <v-icon dark>mdi-hexagon-multiple</v-icon>
                                 </v-list-item-icon>
                                 <v-list-item-content class="pa-0">
-                                    <v-list-item-subtitle>Project</v-list-item-subtitle>
-                                    <v-list-item-title>
+                                    <v-list-item-subtitle class="mb-0">Project</v-list-item-subtitle>
+                                    <v-list-item-title style="line-height: inherit">
                                         <template v-if="project">{{ project.name }}</template>
                                         <template v-else>choose a project</template>
                                     </v-list-item-title>
@@ -295,12 +295,12 @@ export default {
                 if (curr.query.from !== prev.query.from || curr.query.to !== prev.query.to || curr.query.incident !== prev.query.incident) {
                     this.$events.emit('refresh');
                 }
-                if (curr.params.projectId !== prev.params.projectId) {
-                    this.$events.emit('refresh');
-                    this.lastProject(curr.params.projectId);
-                }
             },
             immediate: true,
+        },
+        '$route.params.projectId'(v) {
+            this.$events.emit('refresh');
+            this.lastProject(v);
         },
     },
 
