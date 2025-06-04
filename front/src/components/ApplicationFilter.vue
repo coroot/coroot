@@ -103,13 +103,17 @@ export default {
     },
 
     data() {
-        const saved = this.load();
         return {
-            selectedCategories: saved.categories,
-            selectedNamespaces: saved.namespaces,
+            selectedCategories: [],
+            selectedNamespaces: [],
             searchString: '',
-            autoSelectNamespace: !!this.autoSelectNamespaceThreshold && !saved.namespaces.length,
+            autoSelectNamespace: false,
         };
+    },
+
+    mounted() {
+        this.load();
+        this.$events.watch(this, this.load, 'refresh');
     },
 
     computed: {
@@ -210,9 +214,9 @@ export default {
             const projectId = this.$route.params.projectId;
             let saved = this.$storage.local(storageKey) || {};
             saved = saved[projectId] || {};
-            saved.categories = saved.categories || [];
-            saved.namespaces = saved.namespaces || [];
-            return saved;
+            this.selectedCategories = saved.categories || [];
+            this.selectedNamespaces = saved.namespaces || [];
+            this.autoSelectNamespace = !!this.autoSelectNamespaceThreshold && !this.selectedNamespaces.length;
         },
         save() {
             const saved = this.$storage.local(storageKey) || {};
