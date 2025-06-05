@@ -54,7 +54,7 @@
                         <router-link
                             :to="{
                                 name: 'overview',
-                                params: { view: 'applications', report: s.report },
+                                params: { id: $route.params.id, view: 'applications', report: s.report },
                                 query: { from: s.time - 1800000, to: s.time + 1800000 },
                             }"
                             class="d-flex"
