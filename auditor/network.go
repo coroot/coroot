@@ -56,7 +56,7 @@ func (a *appAuditor) network() {
 		}
 		if trafficChart != nil {
 			trafficChart.GetOrCreateChart("inbound").Stacked().AddSeries("←"+u.RemoteApplication.Id.Name, u.BytesReceived)
-			trafficChart.GetOrCreateChart("outbound").Stacked().AddSeries("→"+legend, u.BytesSent)
+			trafficChart.GetOrCreateChart("outbound").Stacked().AddSeries("→"+u.RemoteApplication.Id.Name, u.BytesSent)
 		}
 	}
 }
