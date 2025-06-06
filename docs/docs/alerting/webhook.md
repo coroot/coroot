@@ -162,6 +162,10 @@ Follow the steps below to create a Telegram Bot and obtain `chat_id`:
    * Now, you need to fetch the chat ID. You can do this using various methods:
    * Use a Telegram bot like `@userinfobot` or `@getidsbot`. Send the command `/getid` in the chat and it will reply with the chat ID.
 
+Now build the link for webhook. It will look like `https://api.telegram.org/bot[botID]:[botToken]/sendMessage` and paste it into the Webhook URL
+
+Then proceed with filling templates.
+
 Sample incident template:
 
 ```gotemplate
