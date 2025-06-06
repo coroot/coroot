@@ -77,6 +77,9 @@ func (db *DB) SaveCheckConfig(projectId ProjectId, appId model.ApplicationId, ch
 		return err
 	}
 	res, err := db.db.Exec("UPDATE check_configs SET configs = $1 WHERE project_id = $2 AND application_id = $3", string(data), projectId, appIdStr)
+	if err != nil {
+		return err
+	}
 	rowsAffected, _ := res.RowsAffected()
 	if rowsAffected == 0 {
 		if _, err := db.db.Exec("INSERT INTO check_configs (project_id, application_id, configs) VALUES ($1, $2, $3)", projectId, appIdStr, string(data)); err != nil {

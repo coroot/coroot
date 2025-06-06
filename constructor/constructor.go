@@ -239,20 +239,8 @@ func (c *Constructor) queryCache(ctx context.Context, from, to timeseries.Time, 
 
 func (c *Constructor) calcApplicationCategories(w *model.World) {
 	for _, app := range w.Applications {
-		if annotation := app.CategoryAnnotation.Value(); annotation != "" {
-			app.Category = model.ApplicationCategory(annotation)
-			continue
-		}
-		instanceAnnotations := utils.NewStringSet()
-		for _, i := range app.Instances {
-			if i.IsObsolete() {
-				continue
-			}
-			if annotation := i.ApplicationCategoryAnnotation.Value(); annotation != "" {
-				instanceAnnotations.Add(annotation)
-			}
-		}
-		if annotation := instanceAnnotations.GetFirst(); annotation != "" {
+		if annotation := app.GetAnnotation(model.ApplicationAnnotationCategory); annotation != "" {
+			klog.Infoln(app.Id, annotation)
 			app.Category = model.ApplicationCategory(annotation)
 			continue
 		}
@@ -449,19 +437,7 @@ func (c *Constructor) groupApplications(w *model.World, groups map[model.Applica
 func (c *Constructor) groupCustomApplications(w *model.World) {
 	customApps := map[model.ApplicationId]*appGroup{}
 	for _, app := range w.Applications {
-		customName := app.CustomNameAnnotation.Value()
-		if customName == "" {
-			instanceAnnotations := utils.NewStringSet()
-			for _, i := range app.Instances {
-				if i.IsObsolete() {
-					continue
-				}
-				if name := i.ApplicationCustomNameAnnotation.Value(); name != "" {
-					instanceAnnotations.Add(name)
-				}
-			}
-			customName = instanceAnnotations.GetFirst()
-		}
+		customName := app.GetAnnotation(model.ApplicationAnnotationCustomName)
 		if customName == "" {
 			continue
 		}

@@ -127,12 +127,7 @@ func loadApplications(w *model.World, metrics map[string][]*model.MetricValues) 
 			case "kube_deployment_spec_replicas", "kube_statefulset_replicas", "kube_daemonset_status_desired_number_scheduled":
 				app.DesiredInstances = merge(app.DesiredInstances, m.Values, timeseries.Any)
 			case "kube_deployment_annotations", "kube_statefulset_annotations", "kube_daemonset_annotations", "kube_cronjob_annotations":
-				if category := m.Labels[annotationApplicationCategory]; category != "" {
-					app.CategoryAnnotation.Update(m.Values, category)
-				}
-				if name := m.Labels[annotationCustomApplicationName]; name != "" {
-					app.CustomNameAnnotation.Update(m.Values, name)
-				}
+				app.Annotations.UpdateFromLabels(m.Labels, m.Values)
 			}
 		}
 	}
@@ -293,13 +288,7 @@ func podAnnotations(metrics []*model.MetricValues, pods map[string]*model.Instan
 		if instance == nil {
 			continue
 		}
-
-		if category := m.Labels[annotationApplicationCategory]; category != "" {
-			instance.ApplicationCategoryAnnotation.Update(m.Values, category)
-		}
-		if name := m.Labels[annotationCustomApplicationName]; name != "" {
-			instance.ApplicationCustomNameAnnotation.Update(m.Values, name)
-		}
+		instance.Annotations.UpdateFromLabels(m.Labels, m.Values)
 	}
 }
 

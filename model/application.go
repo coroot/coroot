@@ -16,8 +16,7 @@ type Application struct {
 	Custom   bool
 	Category ApplicationCategory
 
-	CategoryAnnotation   LabelLastValue
-	CustomNameAnnotation LabelLastValue
+	Annotations ApplicationAnnotations
 
 	Instances       []*Instance
 	instancesByName map[string][]*Instance
@@ -52,6 +51,7 @@ type Application struct {
 func NewApplication(id ApplicationId) *Application {
 	app := &Application{
 		Id:              id,
+		Annotations:     ApplicationAnnotations{},
 		instancesByName: map[string][]*Instance{},
 		LogMessages:     map[Severity]*LogMessages{},
 		Upstreams:       map[ApplicationId]*AppToAppConnection{},

@@ -8,6 +8,17 @@ import (
 	"github.com/dustin/go-humanize"
 )
 
+var DefaultHistogramBuckets = []float32{.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10}
+
+func RoundUpToDefaultBucket(threshold float32) float32 {
+	for _, b := range DefaultHistogramBuckets {
+		if b >= threshold {
+			return b
+		}
+	}
+	return threshold
+}
+
 type AvailabilitySLI struct {
 	Config CheckConfigSLOAvailability
 

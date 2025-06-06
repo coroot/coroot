@@ -3,13 +3,16 @@ package constructor
 import (
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 	promModel "github.com/prometheus/common/model"
+	"golang.org/x/exp/maps"
 	"k8s.io/klog"
 )
 
@@ -30,10 +33,10 @@ const (
 	qRecordingRuleApplicationTraffic            = "rr_application_traffic"
 	qRecordingRuleApplicationL7Histogram        = "rr_application_l7_histogram"
 	qRecordingRuleApplicationCategories         = "rr_application_categories"
-
-	annotationApplicationCategory   = "annotation_coroot_com_application_category"
-	annotationCustomApplicationName = "annotation_coroot_com_custom_application_name"
+	qRecordingRuleApplicationSLO                = "rr_application_slo"
 )
+
+var applicationAnnotations = maps.Keys(model.ApplicationAnnotationLabels)
 
 var qConnectionAggregations = []string{
 	qRecordingRuleApplicationTCPSuccessful,
@@ -172,15 +175,13 @@ var QUERIES = []Query{
 	Q("kube_deployment_spec_replicas", `kube_deployment_spec_replicas`, "namespace", "deployment"),
 	Q("kube_daemonset_status_desired_number_scheduled", `kube_daemonset_status_desired_number_scheduled`, "namespace", "daemonset"),
 	Q("kube_statefulset_replicas", `kube_statefulset_replicas`, "namespace", "statefulset"),
-	Q("kube_deployment_annotations", `kube_deployment_annotations`, "namespace", "deployment", annotationApplicationCategory, annotationCustomApplicationName),
-	Q("kube_statefulset_annotations", `kube_statefulset_annotations`, "namespace", "statefulset", annotationApplicationCategory, annotationCustomApplicationName),
-	Q("kube_daemonset_annotations", `kube_daemonset_annotations`, "namespace", "daemonset", annotationApplicationCategory, annotationCustomApplicationName),
-	Q("kube_cronjob_annotations", `kube_cronjob_annotations`, "namespace", "cronjob", annotationApplicationCategory, annotationCustomApplicationName),
+	Q("kube_deployment_annotations", `kube_deployment_annotations`, append(applicationAnnotations, "namespace", "deployment")...),
+	Q("kube_statefulset_annotations", `kube_statefulset_annotations`, append(applicationAnnotations, "namespace", "statefulset")...),
+	Q("kube_daemonset_annotations", `kube_daemonset_annotations`, append(applicationAnnotations, "namespace", "daemonset")...),
+	Q("kube_cronjob_annotations", `kube_cronjob_annotations`, append(applicationAnnotations, "namespace", "cronjob")...),
 
 	qPod("kube_pod_info", `kube_pod_info`, "namespace", "pod", "created_by_name", "created_by_kind", "node", "pod_ip", "host_ip"),
-	qPod("kube_pod_annotations",
-		fmt.Sprintf(`kube_pod_annotations{%s != ""} or kube_pod_annotations{%s != ""}`, annotationApplicationCategory, annotationCustomApplicationName),
-		annotationApplicationCategory, annotationCustomApplicationName),
+	qPod("kube_pod_annotations", hasNotEmptyLabel("kube_pod_annotations", applicationAnnotations), applicationAnnotations...),
 	qPod("kube_pod_labels", `kube_pod_labels`,
 		"label_postgres_operator_crunchydata_com_cluster", "label_postgres_operator_crunchydata_com_role",
 		"label_cluster_name", "label_team", "label_application", "label_spilo_role",
@@ -609,6 +610,14 @@ var RecordingRules = map[string]func(db *db.DB, p *db.Project, w *model.World) [
 		}
 		return nil
 	},
+
+	qRecordingRuleApplicationSLO: func(database *db.DB, p *db.Project, w *model.World) []*model.MetricValues {
+		for _, app := range w.Applications {
+			updateAvailabilitySLOFromAnnotations(database, p, w, app)
+			updateLatencySLOFromAnnotations(database, p, w, app)
+		}
+		return nil
+	},
 }
 
 func aggConnections(w *model.World, tsF func(c *model.Connection) *timeseries.TimeSeries) []*model.MetricValues {
@@ -639,4 +648,94 @@ func aggConnections(w *model.World, tsF func(c *model.Connection) *timeseries.Ti
 		}
 	}
 	return res
+}
+
+func updateAvailabilitySLOFromAnnotations(database *db.DB, p *db.Project, w *model.World, app *model.Application) {
+	objectiveStr := app.GetAnnotation(model.ApplicationAnnotationSLOAvailabilityObjective)
+	cfg, _ := w.CheckConfigs.GetAvailability(app.Id)
+	if objectiveStr == "" {
+		return
+	}
+	cfgSaved := cfg
+	cfg.Source = model.CheckConfigSourceKubernetesAnnotations
+	cfg.Custom = false
+	cfg.Error = ""
+	objective, err := parseObjective(objectiveStr)
+	if err != nil {
+		cfg.Error = fmt.Sprintf("Invalid annotation 'coroot.com/slo-availability-objective': %s", err)
+	}
+	if cfg.Error != "" {
+		cfg.ObjectivePercentage = 0 // disable
+	} else {
+		cfg.ObjectivePercentage = objective
+	}
+	if cfg == cfgSaved {
+		return
+	}
+	if err = database.SaveCheckConfig(p.Id, app.Id, model.Checks.SLOAvailability.Id, []model.CheckConfigSLOAvailability{cfg}); err != nil {
+		klog.Errorln(err)
+	}
+}
+
+func updateLatencySLOFromAnnotations(database *db.DB, p *db.Project, w *model.World, app *model.Application) {
+	objectiveStr := app.GetAnnotation(model.ApplicationAnnotationSLOLatencyObjective)
+	thresholdStr := app.GetAnnotation(model.ApplicationAnnotationSLOLatencyThreshold)
+	if objectiveStr == "" && thresholdStr == "" {
+		return
+	}
+	cfg, _ := w.CheckConfigs.GetLatency(app.Id, app.Category)
+	cfgSaved := cfg
+	cfg.Source = model.CheckConfigSourceKubernetesAnnotations
+	cfg.Custom = false
+	cfg.Error = ""
+	var err error
+	objective := cfg.ObjectivePercentage
+	threshold := cfg.ObjectiveBucket
+	if objectiveStr != "" {
+		objective, err = parseObjective(objectiveStr)
+		if err != nil {
+			cfg.Error = fmt.Sprintf("Invalid annotation 'coroot.com/slo-latency-objective': %s", err)
+		}
+	}
+	if objective > 0 && thresholdStr != "" {
+		threshold, err = parseThreshold(thresholdStr)
+		if err != nil && cfg.Error == "" {
+			cfg.Error = fmt.Sprintf("Invalid annotation 'coroot.com/slo-latency-threshold': %s", err)
+		}
+	}
+	if cfg.Error != "" {
+		cfg.ObjectivePercentage = 0 // disable
+	} else {
+		cfg.ObjectivePercentage = objective
+		cfg.ObjectiveBucket = threshold
+	}
+	if cfg == cfgSaved {
+		return
+	}
+	if err = database.SaveCheckConfig(p.Id, app.Id, model.Checks.SLOLatency.Id, []model.CheckConfigSLOLatency{cfg}); err != nil {
+		klog.Errorln(err)
+	}
+}
+
+func hasNotEmptyLabel(metricName string, labelNames []string) string {
+	var parts []string
+	for _, labelName := range labelNames {
+		parts = append(parts, fmt.Sprintf(`%s{%s != ""}`, metricName, labelName))
+	}
+	return strings.Join(parts, " or ")
+}
+
+func parseObjective(s string) (float32, error) {
+	s = strings.TrimSpace(strings.TrimRight(strings.TrimSpace(s), "%"))
+	v, err := strconv.ParseFloat(s, 32)
+	return float32(v), err
+}
+
+func parseThreshold(s string) (float32, error) {
+	d, err := time.ParseDuration(strings.TrimSpace(s))
+	if err != nil {
+		return 0, err
+	}
+	v := model.RoundUpToDefaultBucket(float32(d.Seconds()))
+	return v, err
 }
