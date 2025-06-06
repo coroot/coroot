@@ -52,8 +52,7 @@ type Instance struct {
 
 	Containers map[string]*Container
 
-	ApplicationCategoryAnnotation   LabelLastValue
-	ApplicationCustomNameAnnotation LabelLastValue
+	Annotations ApplicationAnnotations
 
 	ClusterName      LabelLastValue
 	clusterRole      *timeseries.TimeSeries
@@ -68,12 +67,13 @@ type Instance struct {
 
 func NewInstance(name string, owner *Application) *Instance {
 	return &Instance{
-		Name:       name,
-		Owner:      owner,
-		Containers: map[string]*Container{},
-		Upstreams:  map[ConnectionKey]*Connection{},
-		TcpListens: map[Listen]bool{},
-		GPUUsage:   map[string]*InstanceGPUUsage{},
+		Name:        name,
+		Owner:       owner,
+		Annotations: ApplicationAnnotations{},
+		Containers:  map[string]*Container{},
+		Upstreams:   map[ConnectionKey]*Connection{},
+		TcpListens:  map[Listen]bool{},
+		GPUUsage:    map[string]*InstanceGPUUsage{},
 	}
 }
 

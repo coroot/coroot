@@ -10,7 +10,7 @@
             outlined
             dense
             :menu-props="{ offsetY: true }"
-            :disabled="appId === '::'"
+            :disabled="readonly || appId === '::'"
             hide-details
             class="mb-3"
         />
@@ -34,21 +34,21 @@
         </template>
 
         Objective:
-        <div class="d-flex" style="gap: 4px">
-            <v-checkbox v-model="trackSLO" @change="changeTrackSLO" hide-details class="mt-0 pt-0" />
-            <v-text-field
-                :disabled="!trackSLO"
-                outlined
-                dense
-                v-model.number="config.objective_percentage"
-                :rules="[$validators.isFloat]"
-                hide-details
-                class="input"
-            >
-                <template #append><span class="grey--text">%</span></template>
-            </v-text-field>
-            of requests should not fail
-        </div>
+        <v-alert v-if="config.error" color="error" outlined text class="mt-1 mb-3 pa-2">
+            {{ config.error }}
+        </v-alert>
+        <v-alert v-else-if="config.source === 'kubernetes-annotations'" color="info" outlined text class="mt-1 mb-3 pa-2">
+            This SLO is configured via Kubernetes annotations.
+        </v-alert>
+        <v-form :disabled="readonly" class="d-flex gap-1">
+            <v-checkbox v-model="trackSLO" @change="changeTrackSLO" hide-details class="mt-0 pt-0 checkbox" />
+            <v-form :disabled="readonly || !trackSLO">
+                <v-text-field outlined dense v-model.number="config.objective_percentage" :rules="[$validators.isFloat]" hide-details class="input">
+                    <template #append><span class="grey--text">%</span></template>
+                </v-text-field>
+                of requests should not fail
+            </v-form>
+        </v-form>
     </div>
 </template>
 
@@ -75,21 +75,27 @@ export default {
         config() {
             return this.form.configs[0];
         },
+        readonly() {
+            return !!this.config.source;
+        },
     },
 };
 </script>
 
 <style scoped>
+.checkbox:deep(.v-input--selection-controls__input) {
+    margin-right: 0 !important;
+}
 .input {
     display: inline-flex;
     max-width: 8ch;
 }
-.input >>> .v-input__slot {
+.input:deep(.v-input__slot) {
     min-height: initial !important;
     height: 1.5rem !important;
     padding: 0 8px !important;
 }
-.input >>> .v-input__append-inner {
+.input:deep(.v-input__append-inner) {
     margin-top: 4px !important;
 }
 </style>

@@ -523,6 +523,12 @@ func (ch *Check) Calc() {
 	ch.SetStatus(WARNING, buf.String())
 }
 
+type CheckConfigSource string
+
+const (
+	CheckConfigSourceKubernetesAnnotations CheckConfigSource = "kubernetes-annotations"
+)
+
 type CheckConfigSimple struct {
 	Threshold float32 `json:"threshold"`
 }
@@ -532,6 +538,9 @@ type CheckConfigSLOAvailability struct {
 	TotalRequestsQuery  string  `json:"total_requests_query"`
 	FailedRequestsQuery string  `json:"failed_requests_query"`
 	ObjectivePercentage float32 `json:"objective_percentage"`
+
+	Source CheckConfigSource `json:"source,omitempty"`
+	Error  string            `json:"error,omitempty"`
 }
 
 func (cfg *CheckConfigSLOAvailability) Total() string {
@@ -547,6 +556,9 @@ type CheckConfigSLOLatency struct {
 	HistogramQuery      string  `json:"histogram_query"`
 	ObjectiveBucket     float32 `json:"objective_bucket"`
 	ObjectivePercentage float32 `json:"objective_percentage"`
+
+	Source CheckConfigSource `json:"source,omitempty"`
+	Error  string            `json:"error,omitempty"`
 }
 
 func (cfg *CheckConfigSLOLatency) Histogram() string {
