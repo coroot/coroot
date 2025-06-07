@@ -1,11 +1,24 @@
+FROM node:21 AS frontend-builder
+WORKDIR /tmp/src
+COPY . .
+WORKDIR /tmp/src/front
+
+RUN npm ci
+RUN npm run build-prod
+
+
 FROM golang:1.23-bullseye AS backend-builder
+ARG VERSION=unknown
+
 RUN apt update && apt install -y liblz4-dev
 WORKDIR /tmp/src
 COPY go.mod .
 COPY go.sum .
 RUN go mod download
 COPY . .
-ARG VERSION=unknown
+WORKDIR /tmp/src/static
+COPY --from=frontend-builder /tmp/src/static /tmp/src/static
+WORKDIR /tmp/src
 RUN go build -mod=readonly -ldflags "-X main.version=$VERSION" -o coroot .
 
 
