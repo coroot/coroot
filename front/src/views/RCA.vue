@@ -1,5 +1,5 @@
 <template>
-    <Views :loading="loading" :error="error">
+    <Views :loading="loading" :error="error" :noTitle="noTitle">
         <template #subtitle>{{ $utils.appId(appId).name }}</template>
 
         <v-alert v-if="rca === 'not implemented'" color="info" outlined text class="mt-5">
@@ -192,6 +192,7 @@ export default {
     },
     props: {
         appId: String,
+        noTitle: Boolean,
     },
 
     components: { Views, PropagationMap, Widget, Chart, RcaItem },
