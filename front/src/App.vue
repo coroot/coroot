@@ -3,20 +3,25 @@
         <CheckForUpdates v-if="$coroot.check_for_updates" :currentVersion="$coroot.version" :instanceUuid="$coroot.uuid" />
 
         <v-navigation-drawer v-if="menu" permanent app dark :mini-variant="menuCollapsed" width="188" stateless>
-            <div class="mx-2 my-3">
-                <router-link :to="project ? { name: 'overview', query: $utils.contextQuery() } : { name: 'index' }">
-                    <img :src="`${$coroot.base_path}static/${logo}`" height="38" class="logo" alt=":~#" />
-                </router-link>
-            </div>
-            <v-list v-if="project" dense class="pa-0">
-                <v-list-item @click="search = true">
-                    <v-list-item-icon class="mr-3">
-                        <v-icon dark>mdi-magnify</v-icon>
-                    </v-list-item-icon>
-                    <v-list-item-content class="text-no-wrap">Go to...</v-list-item-content>
-                    <v-list-item-action class="my-0">{{ mac ? '⌘' : 'ctrl' }}+k</v-list-item-action>
-                </v-list-item>
-                <v-divider class="ma-3" style="border-color: var(--border-dark)"></v-divider>
+            <template #prepend>
+                <div class="mx-2 my-3">
+                    <router-link :to="project ? { name: 'overview', query: $utils.contextQuery() } : { name: 'index' }">
+                        <img :src="`${$coroot.base_path}static/${logo}`" height="38" class="logo" alt=":~#" />
+                    </router-link>
+                </div>
+                <v-list v-if="project" dense class="pa-0">
+                    <v-list-item @click="search = true">
+                        <v-list-item-icon class="mr-3">
+                            <v-icon dark>mdi-magnify</v-icon>
+                        </v-list-item-icon>
+                        <v-list-item-content class="text-no-wrap">Go to...</v-list-item-content>
+                        <v-list-item-action class="my-0">{{ mac ? '⌘' : 'ctrl' }}+k</v-list-item-action>
+                    </v-list-item>
+                    <v-divider class="ma-3" style="border-color: var(--border-dark)"></v-divider>
+                </v-list>
+            </template>
+
+            <v-list v-if="project" dense class="ma-0 pa-0">
                 <v-list-item
                     v-for="(v, id) in views"
                     :to="{
@@ -36,7 +41,8 @@
             </v-list>
 
             <template #append>
-                <v-list dense>
+                <v-list dense class="ma-0 pa-0">
+                    <v-divider class="ma-3" style="border-color: var(--border-dark)"></v-divider>
                     <v-menu v-if="user" dark right offset-x tile>
                         <template #activator="{ on }">
                             <v-list-item v-on="on">
