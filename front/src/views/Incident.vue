@@ -117,7 +117,7 @@
             </template>
 
             <template v-else-if="view === 'rca'">
-                <RCA :appId="incident.application_id" />
+                <RCA :appId="incident.application_id" noTitle />
             </template>
         </div>
         <NoData v-else-if="!loading && !error" />

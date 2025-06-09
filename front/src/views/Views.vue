@@ -1,6 +1,6 @@
 <template>
     <div>
-        <v-app-bar app flat>
+        <v-app-bar v-if="!noTitle" app flat>
             <v-container fluid class="py-0 px-0 fill-height flex-nowrap">
                 <div class="text-h5 nowrap">
                     <div v-if="$slots.subtitle" class="d-flex flex-nowrap gap-2">
@@ -57,6 +57,7 @@ export default {
     props: {
         loading: Boolean,
         error: String,
+        noTitle: Boolean,
     },
 
     components: { TimePicker },
