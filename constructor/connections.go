@@ -1,14 +1,16 @@
 package constructor
 
 import (
+	"net"
 	"strings"
 
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
+	"github.com/coroot/coroot/utils"
 	"k8s.io/klog"
 )
 
-func (c *Constructor) loadAppToAppConnections(w *model.World, metrics map[string][]*model.MetricValues) {
+func (c *Constructor) loadAppToAppConnections(w *model.World, metrics map[string][]*model.MetricValues, fqdn2ip map[string]*utils.StringSet) {
 	for queryName := range metrics {
 		if !strings.HasPrefix(queryName, "rr_connection") {
 			continue
@@ -28,6 +30,16 @@ func (c *Constructor) loadAppToAppConnections(w *model.World, metrics map[string
 			conn := app.Upstreams[destId]
 			if conn == nil {
 				dest := w.GetOrCreateApplication(destId, false)
+				if destId.Kind == model.ApplicationKindExternalService {
+					if fqdn, port, _ := net.SplitHostPort(destId.Name); fqdn != "" && port != "" {
+						if ips := fqdn2ip[fqdn]; ips != nil {
+							for _, ip := range ips.Items() {
+								instance := dest.GetOrCreateInstance(ip, nil)
+								instance.TcpListens[model.Listen{IP: ip, Port: port}] = true
+							}
+						}
+					}
+				}
 				conn = &model.AppToAppConnection{
 					Application:       app,
 					RemoteApplication: dest,
