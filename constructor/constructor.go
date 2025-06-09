@@ -88,12 +88,13 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 	ecInstancesById := map[string]*model.Instance{}
 	servicesByClusterIP := map[string]*model.Service{}
 	ip2fqdn := map[string]*utils.StringSet{}
+	fqdn2ip := map[string]*utils.StringSet{}
 	containers := containerCache{}
 
 	// order is important
 	prof.stage("load_job_statuses", func() { loadPromJobStatuses(metrics, pjs) })
 	prof.stage("load_nodes", func() { c.loadNodes(w, metrics, nodes) })
-	prof.stage("load_fqdn", func() { loadFQDNs(metrics, ip2fqdn) })
+	prof.stage("load_fqdn", func() { loadFQDNs(metrics, ip2fqdn, fqdn2ip) })
 	prof.stage("load_fargate_nodes", func() { c.loadFargateNodes(metrics, nodes) })
 	prof.stage("load_k8s_metadata", func() { loadKubernetesMetadata(w, metrics, servicesByClusterIP) })
 	prof.stage("load_aws_status", func() { loadAWSStatus(w, metrics) })
@@ -103,7 +104,7 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 	prof.stage("load_elasticache", func() { c.loadElasticache(w, metrics, pjs, ecInstancesById) })
 	prof.stage("load_fargate_containers", func() { loadFargateContainers(w, metrics, pjs) })
 	prof.stage("load_containers", func() { c.loadContainers(w, metrics, pjs, nodes, containers, servicesByClusterIP, ip2fqdn) })
-	prof.stage("load_app_to_app_connections", func() { c.loadAppToAppConnections(w, metrics) })
+	prof.stage("load_app_to_app_connections", func() { c.loadAppToAppConnections(w, metrics, fqdn2ip) })
 	prof.stage("load_application_traffic", func() { c.loadApplicationTraffic(w, metrics) })
 	prof.stage("load_jvm", func() { c.loadJVM(metrics, containers) })
 	prof.stage("load_dotnet", func() { c.loadDotNet(metrics, containers) })

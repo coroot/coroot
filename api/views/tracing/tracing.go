@@ -345,7 +345,7 @@ func getAppClients(app *model.Application) map[string]*model.Application {
 		if client == nil || client == app {
 			continue
 		}
-		if !app.Category.Monitoring() && client.Category.Monitoring() {
+		if app.Id.Kind != model.ApplicationKindExternalService && !app.Category.Monitoring() && client.Category.Monitoring() {
 			continue
 		}
 		for _, i := range client.Instances {
