@@ -54,7 +54,7 @@ func (c *Client) GetRootSpansHistogram(ctx context.Context, q SpanQuery) ([]mode
 
 func (c *Client) GetRootSpans(ctx context.Context, q SpanQuery) ([]*model.TraceSpan, error) {
 	filter, filterArgs := q.RootSpansFilter()
-	return c.getSpans(ctx, q, "", "Timestamp DESC", filter, filterArgs)
+	return c.getSpans(ctx, q, "", "", filter, filterArgs)
 }
 
 func (c *Client) GetRootSpansSummary(ctx context.Context, q SpanQuery) (*model.TraceSpanSummary, error) {
@@ -102,7 +102,7 @@ func (c *Client) GetSpansByServiceNameHistogram(ctx context.Context, q SpanQuery
 
 func (c *Client) GetSpansByServiceName(ctx context.Context, q SpanQuery) ([]*model.TraceSpan, error) {
 	filter, filterArgs := q.SpansByServiceNameFilter()
-	return c.getSpans(ctx, q, "", "Timestamp DESC", filter, filterArgs)
+	return c.getSpans(ctx, q, "", "", filter, filterArgs)
 }
 
 func (c *Client) GetInboundSpansHistogram(ctx context.Context, q SpanQuery, clients []string, listens []model.Listen) ([]model.HistogramBucket, error) {
@@ -118,7 +118,7 @@ func (c *Client) GetInboundSpans(ctx context.Context, q SpanQuery, clients []str
 		return nil, nil
 	}
 	filter, filterArgs := inboundSpansFilter(clients, listens)
-	return c.getSpans(ctx, q, "", "Timestamp DESC", filter, filterArgs)
+	return c.getSpans(ctx, q, "", "", filter, filterArgs)
 }
 
 func (c *Client) GetParentSpans(ctx context.Context, spans []*model.TraceSpan) ([]*model.TraceSpan, error) {
@@ -375,14 +375,26 @@ func (c *Client) getSpans(ctx context.Context, q SpanQuery, with string, orderBy
 
 func (c *Client) getTraces(ctx context.Context, filters []string, filterArgs []any) ([]*model.Trace, error) {
 	query := fmt.Sprintf(`
-WITH (
-	SELECT min(Timestamp) AS start, max(Timestamp)+1 AS end, groupArray(distinct TraceId) AS ids 
-	FROM (SELECT TraceId, Timestamp FROM @@table_otel_traces@@ WHERE %s ORDER BY Timestamp LIMIT 1000)
-) AS t
+SELECT min(Timestamp) AS start, max(Timestamp)+1 AS end, groupArray(distinct TraceId) AS ids 
+FROM (SELECT TraceId, Timestamp FROM @@table_otel_traces@@ WHERE %s ORDER BY Timestamp LIMIT 1000)`,
+		strings.Join(filters, " AND "))
+	var minTs, maxTs time.Time
+	var traceIds []string
+	if err := c.QueryRow(ctx, query, filterArgs...).Scan(&minTs, &maxTs, &traceIds); err != nil {
+		return nil, err
+	}
+	if len(traceIds) == 0 {
+		return nil, nil
+	}
+	query = `
 SELECT Timestamp, TraceId, SpanId, ParentSpanId, SpanName, ServiceName, Duration, StatusCode, StatusMessage, ResourceAttributes, SpanAttributes, Events.Timestamp, Events.Name, Events.Attributes
 FROM @@table_otel_traces@@
-WHERE Timestamp BETWEEN t.start AND t.end AND has(coalesce(t.ids, []), TraceId)`, strings.Join(filters, " AND "))
-	rows, err := c.Query(ctx, query, filterArgs...)
+WHERE Timestamp BETWEEN @from AND @to AND TraceId IN @traceIds`
+	rows, err := c.Query(ctx, query,
+		clickhouse.DateNamed("from", minTs, clickhouse.NanoSeconds),
+		clickhouse.DateNamed("to", maxTs, clickhouse.NanoSeconds),
+		clickhouse.Named("traceIds", traceIds),
+	)
 	if err != nil {
 		return nil, err
 	}
