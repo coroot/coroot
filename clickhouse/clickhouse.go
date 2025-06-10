@@ -85,3 +85,8 @@ func (c *Client) Query(ctx context.Context, query string, args ...interface{}) (
 	query = collector.ReplaceTables(query, c.useDistributedTables)
 	return c.conn.Query(ctx, query, args...)
 }
+
+func (c *Client) QueryRow(ctx context.Context, query string, args ...interface{}) driver.Row {
+	query = collector.ReplaceTables(query, c.useDistributedTables)
+	return c.conn.QueryRow(ctx, query, args...)
+}
