@@ -169,6 +169,9 @@ func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, 
 }
 
 func renderEntries(ctx context.Context, v *View, ch *clickhouse.Client, app *model.Application, w *model.World, q Query, otelService string) {
+	if len(app.Instances) == 0 {
+		return
+	}
 	var err error
 	lq := clickhouse.LogQuery{
 		Ctx:     w.Ctx,
