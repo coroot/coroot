@@ -12,7 +12,7 @@ import (
 
 func (c *Constructor) loadAppToAppConnections(w *model.World, metrics map[string][]*model.MetricValues, fqdn2ip map[string]*utils.StringSet) {
 	for queryName := range metrics {
-		if !strings.HasPrefix(queryName, "rr_connection") {
+		if !strings.HasPrefix(queryName, "rr_connection") || strings.HasSuffix(queryName, "_raw") {
 			continue
 		}
 		for _, mv := range metrics[queryName] {
