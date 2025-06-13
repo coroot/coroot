@@ -102,17 +102,6 @@ func (c *AppToAppConnection) IsActual() bool {
 	return (c.SuccessfulConnections.Last() > 0) || (c.Active.Last() > 0) || c.FailedConnections.Last() > 0
 }
 
-func (c *AppToAppConnection) IsEmpty() bool {
-	switch {
-	case c.Active.Reduce(timeseries.NanSum) > 0:
-	case c.SuccessfulConnections.Reduce(timeseries.NanSum) > 0:
-	case c.FailedConnections.Reduce(timeseries.NanSum) > 0:
-	default:
-		return true
-	}
-	return false
-}
-
 func (c *AppToAppConnection) HasConnectivityIssues() bool {
 	if !c.IsActual() {
 		return false
