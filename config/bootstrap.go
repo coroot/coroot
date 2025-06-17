@@ -2,6 +2,7 @@ package config
 
 import (
 	"github.com/coroot/coroot/db"
+	"github.com/coroot/coroot/model"
 	"k8s.io/klog"
 )
 
@@ -38,7 +39,8 @@ func (cfg *Config) Bootstrap(database *db.DB) error {
 	byName := map[string]*db.Project{}
 	for _, p := range ps {
 		byName[p.Name] = p
-		p.Settings.Configurable = true
+		p.Settings.Readonly = false
+		p.Settings.Integrations.NotificationIntegrations.Readonly = false
 	}
 	for _, p := range cfg.Projects {
 		pp := byName[p.Name]
@@ -51,8 +53,24 @@ func (cfg *Config) Bootstrap(database *db.DB) error {
 			}
 			byName[pp.Name] = pp
 		}
+		pp.Settings.Readonly = true
 		pp.Settings.ApiKeys = p.ApiKeys
-		pp.Settings.Configurable = false
+		if p.NotificationIntegrations != nil {
+			pp.Settings.Integrations.NotificationIntegrations = *p.NotificationIntegrations
+		}
+		pp.Settings.Integrations.NotificationIntegrations.Readonly = p.NotificationIntegrations != nil
+		if len(p.ApplicationCategories) > 0 {
+			pp.Settings.ApplicationCategorySettings = map[model.ApplicationCategory]*db.ApplicationCategorySettings{}
+			for _, c := range p.ApplicationCategories {
+				pp.Settings.ApplicationCategorySettings[c.Name] = &c.ApplicationCategorySettings
+			}
+		}
+		if len(p.CustomApplications) > 0 {
+			pp.Settings.CustomApplications = map[string]model.CustomApplication{}
+			for _, c := range p.CustomApplications {
+				pp.Settings.CustomApplications[c.Name] = c.CustomApplication
+			}
+		}
 	}
 	for _, p := range byName {
 		if p.Settings.ApiKeys == nil {

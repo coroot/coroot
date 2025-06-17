@@ -26,18 +26,25 @@ type Project struct {
 }
 
 type ProjectSettings struct {
+	Readonly                    bool                                                       `json:"readonly"`
 	ApplicationCategories       map[model.ApplicationCategory][]string                     `json:"application_categories,omitempty"` // deprecated: use ApplicationCategorySettings
 	ApplicationCategorySettings map[model.ApplicationCategory]*ApplicationCategorySettings `json:"application_category_settings"`
 	Integrations                Integrations                                               `json:"integrations"`
 	CustomApplications          map[string]model.CustomApplication                         `json:"custom_applications"`
 	ApiKeys                     []ApiKey                                                   `json:"api_keys"`
-	Configurable                bool                                                       `json:"configurable"`
 	CustomCloudPricing          *CustomCloudPricing                                        `json:"custom_cloud_pricing"`
 }
 
 type ApiKey struct {
-	Key         string `json:"key"`
-	Description string `json:"description"`
+	Key         string `json:"key" yaml:"key"`
+	Description string `json:"description" yaml:"description"`
+}
+
+func (k *ApiKey) Validate() error {
+	if k.Key == "" {
+		return fmt.Errorf("key is required")
+	}
+	return nil
 }
 
 func (p *Project) Migrate(m *Migrator) error {
@@ -77,7 +84,7 @@ func (p *Project) applyDefaults() {
 
 func (p *Project) GetCustomApplicationName(instance string) string {
 	for customAppName, cfg := range p.Settings.CustomApplications {
-		if utils.GlobMatch(instance, cfg.InstancePattens...) {
+		if utils.GlobMatch(instance, cfg.InstancePatterns...) {
 			return customAppName
 		}
 	}
@@ -269,7 +276,7 @@ func (db *DB) SaveCustomApplication(id ProjectId, name, newName string, instance
 			delete(p.Settings.CustomApplications, name)
 			name = newName
 		}
-		p.Settings.CustomApplications[name] = model.CustomApplication{InstancePattens: patterns}
+		p.Settings.CustomApplications[name] = model.CustomApplication{InstancePatterns: patterns}
 	}
 	return db.SaveProjectSettings(p)
 }

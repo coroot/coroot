@@ -6,12 +6,15 @@
         <v-alert v-if="message" color="green" outlined text>
             {{ message }}
         </v-alert>
-        <v-form>
+        <v-alert v-if="readonly" color="primary" outlined text>
+            Notification settings are defined through the config and cannot be modified via the UI.
+        </v-alert>
+        <v-form :disabled="readonly">
             <div class="subtitle-1">Base url</div>
             <div class="caption">This URL is used for things like creating links in alerts.</div>
             <div class="d-flex">
                 <v-text-field v-model="form.base_url" :rules="[$validators.isUrl]" outlined dense />
-                <v-btn @click="save" color="primary" :loading="saving" class="ml-2" height="38">Save</v-btn>
+                <v-btn @click="save" color="primary" :loading="saving" :disabled="readonly" class="ml-2" height="38">Save</v-btn>
             </div>
         </v-form>
 
@@ -43,8 +46,12 @@
                     <td>
                         <v-btn v-if="!i.configured" small @click="open(i, 'new')" color="primary">Configure</v-btn>
                         <div v-else class="d-flex">
-                            <v-btn icon small @click="open(i, 'edit')"><v-icon small>mdi-pencil</v-icon></v-btn>
-                            <v-btn icon small @click="open(i, 'del')"><v-icon small>mdi-trash-can-outline</v-icon></v-btn>
+                            <v-btn icon small :disabled="readonly" @click="open(i, 'edit')">
+                                <v-icon small>mdi-pencil</v-icon>
+                            </v-btn>
+                            <v-btn icon small :disabled="readonly" @click="open(i, 'del')">
+                                <v-icon small>mdi-trash-can-outline</v-icon>
+                            </v-btn>
                         </div>
                     </td>
                 </tr>
@@ -70,6 +77,7 @@ export default {
             loading: false,
             error: '',
             message: '',
+            readonly: false,
             saving: false,
             form: {
                 base_url: '',
@@ -111,6 +119,7 @@ export default {
                     this.$api.saveIntegrations('', 'save', this.form, () => {});
                 }
                 this.integrations = data.integrations;
+                this.readonly = data.readonly;
             });
         },
         save() {

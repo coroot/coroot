@@ -44,9 +44,11 @@ func main() {
 	klog.Infof("edition: %s", Edition)
 	klog.Infof("version: %s", version)
 
-	cfg := config.Load()
+	cfg, err := config.Load()
+	if err != nil {
+		klog.Exitf("failed to load config: %s", err)
+	}
 
-	var err error
 	if err = utils.CreateDirectoryIfNotExists(cfg.DataDir); err != nil {
 		klog.Exitln(err)
 	}

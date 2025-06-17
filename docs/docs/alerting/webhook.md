@@ -93,7 +93,7 @@ Deployment of {{ .Application.Name }}@{{ .Application.Namespace }}
 ```
    </TabItem>
    <TabItem value="json" label="JSON">
-If the system you aim to integrate accepts JSON-formatted messages, you can employ the built-in json template function:
+If the system you aim to integrate accepts JSON-formatted messages, you can employ the built-in `json` template function:
 
 ```gotemplate
 {{ json . }}

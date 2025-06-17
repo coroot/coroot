@@ -1,5 +1,5 @@
 package model
 
 type CustomApplication struct {
-	InstancePattens []string `json:"instance_pattens"`
+	InstancePatterns []string `json:"instance_patterns" yaml:"instancePatterns"`
 }

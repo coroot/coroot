@@ -13,8 +13,8 @@ import (
 )
 
 type Header struct {
-	Key   string `json:"key"`
-	Value string `json:"value"`
+	Key   string `json:"key" yaml:"key"`
+	Value string `json:"value" yaml:"value"`
 }
 
 func (h Header) Valid() bool {
@@ -22,8 +22,8 @@ func (h Header) Valid() bool {
 }
 
 type BasicAuth struct {
-	User     string `json:"user"`
-	Password string `json:"password"`
+	User     string `json:"user" yaml:"username"`
+	Password string `json:"password" yaml:"password"`
 }
 
 func (ba *BasicAuth) AddTo(address string) (string, error) {

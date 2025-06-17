@@ -2,6 +2,8 @@ package db
 
 import (
 	"fmt"
+	"net/url"
+	"strings"
 
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
@@ -21,17 +23,61 @@ const (
 )
 
 type Integrations struct {
-	BaseUrl string `json:"base_url"`
-
-	Slack     *IntegrationSlack     `json:"slack,omitempty"`
-	Pagerduty *IntegrationPagerduty `json:"pagerduty,omitempty"`
-	Teams     *IntegrationTeams     `json:"teams,omitempty"`
-	Opsgenie  *IntegrationOpsgenie  `json:"opsgenie,omitempty"`
-	Webhook   *IntegrationWebhook   `json:"webhook,omitempty"`
-
 	Clickhouse *IntegrationClickhouse `json:"clickhouse,omitempty"`
 
 	AWS *IntegrationAWS `json:"aws"`
+
+	NotificationIntegrations
+}
+
+type NotificationIntegrations struct {
+	Readonly bool   `json:"readonly" yaml:"-"`
+	BaseUrl  string `json:"base_url" yaml:"baseURL"`
+
+	Slack     *IntegrationSlack     `json:"slack,omitempty" yaml:"slack,omitempty"`
+	Teams     *IntegrationTeams     `json:"teams,omitempty" yaml:"teams,omitempty"`
+	Pagerduty *IntegrationPagerduty `json:"pagerduty,omitempty" yaml:"pagerduty,omitempty"`
+	Opsgenie  *IntegrationOpsgenie  `json:"opsgenie,omitempty" yaml:"opsgenie,omitempty"`
+	Webhook   *IntegrationWebhook   `json:"webhook,omitempty" yaml:"webhook,omitempty"`
+}
+
+func (i *NotificationIntegrations) Validate() error {
+	if i.BaseUrl == "" {
+		return fmt.Errorf("base url is required")
+	}
+	if _, err := url.Parse(i.BaseUrl); err != nil {
+		return fmt.Errorf("invalid base url")
+	}
+	i.BaseUrl = strings.TrimRight(i.BaseUrl, "/")
+
+	if i.Slack != nil {
+		if err := i.Slack.Validate(); err != nil {
+			return fmt.Errorf("invalid slack configuration: %w", err)
+		}
+	}
+	if i.Teams != nil {
+		if err := i.Teams.Validate(); err != nil {
+			return fmt.Errorf("invalid teams configuration: %w", err)
+		}
+	}
+	if i.Pagerduty != nil {
+		if err := i.Pagerduty.Validate(); err != nil {
+			return fmt.Errorf("invalid pagerduty configuration: %w", err)
+		}
+	}
+	if i.Opsgenie != nil {
+		if err := i.Opsgenie.Validate(); err != nil {
+			return fmt.Errorf("invalid opsgenie configuration: %w", err)
+		}
+	}
+	if i.Webhook != nil {
+		if err := i.Webhook.Validate(); err != nil {
+			return fmt.Errorf("invalid webhook configuration: %w", err)
+		}
+	}
+
+	return nil
+
 }
 
 type IntegrationInfo struct {
@@ -117,38 +163,82 @@ type IntegrationClickhouse struct {
 }
 
 type IntegrationSlack struct {
-	Token          string `json:"token"`
-	DefaultChannel string `json:"default_channel"`
-	Incidents      bool   `json:"incidents"`
-	Deployments    bool   `json:"deployments"`
+	Token          string `json:"token" yaml:"token"`
+	DefaultChannel string `json:"default_channel" yaml:"defaultChannel"`
+	Incidents      bool   `json:"incidents" yaml:"incidents"`
+	Deployments    bool   `json:"deployments" yaml:"deployments"`
+}
+
+func (i *IntegrationSlack) Validate() error {
+	if i.Token == "" {
+		return fmt.Errorf("token is required")
+	}
+	if i.DefaultChannel == "" {
+		return fmt.Errorf("default channel is required")
+	}
+	return nil
 }
 
 type IntegrationTeams struct {
-	WebhookUrl  string `json:"webhook_url"`
-	Incidents   bool   `json:"incidents"`
-	Deployments bool   `json:"deployments"`
+	WebhookUrl  string `json:"webhook_url" yaml:"webhookURL"`
+	Incidents   bool   `json:"incidents" yaml:"incidents"`
+	Deployments bool   `json:"deployments" yaml:"deployments"`
+}
+
+func (i *IntegrationTeams) Validate() error {
+	if i.WebhookUrl == "" {
+		return fmt.Errorf("webhook url is required")
+	}
+	return nil
 }
 
 type IntegrationPagerduty struct {
-	IntegrationKey string `json:"integration_key"`
-	Incidents      bool   `json:"incidents"`
+	IntegrationKey string `json:"integration_key" yaml:"integrationKey"`
+	Incidents      bool   `json:"incidents" yaml:"incidents"`
+}
+
+func (i *IntegrationPagerduty) Validate() error {
+	if i.IntegrationKey == "" {
+		return fmt.Errorf("integration key is required")
+	}
+	return nil
 }
 
 type IntegrationOpsgenie struct {
-	ApiKey     string `json:"api_key"`
-	EUInstance bool   `json:"eu_instance"`
-	Incidents  bool   `json:"incidents"`
+	ApiKey     string `json:"api_key" yaml:"apiKey"`
+	EUInstance bool   `json:"eu_instance" yaml:"euInstance"`
+	Incidents  bool   `json:"incidents" yaml:"incidents"`
+}
+
+func (i *IntegrationOpsgenie) Validate() error {
+	if i.ApiKey == "" {
+		return fmt.Errorf("api key is required")
+	}
+	return nil
 }
 
 type IntegrationWebhook struct {
-	Url                string           `json:"url"`
-	TlsSkipVerify      bool             `json:"tls_skip_verify"`
-	BasicAuth          *utils.BasicAuth `json:"basic_auth"`
-	CustomHeaders      []utils.Header   `json:"custom_headers"`
-	Incidents          bool             `json:"incidents"`
-	Deployments        bool             `json:"deployments"`
-	IncidentTemplate   string           `json:"incident_template"`
-	DeploymentTemplate string           `json:"deployment_template"`
+	Url                string           `json:"url" yaml:"url"`
+	TlsSkipVerify      bool             `json:"tls_skip_verify" yaml:"tlsSkipVerify"`
+	BasicAuth          *utils.BasicAuth `json:"basic_auth" yaml:"basicAuth"`
+	CustomHeaders      []utils.Header   `json:"custom_headers" yaml:"customHeaders"`
+	Incidents          bool             `json:"incidents" yaml:"incidents"`
+	Deployments        bool             `json:"deployments" yaml:"deployments"`
+	IncidentTemplate   string           `json:"incident_template" yaml:"incidentTemplate"`
+	DeploymentTemplate string           `json:"deployment_template" yaml:"deploymentTemplate"`
+}
+
+func (i *IntegrationWebhook) Validate() error {
+	if i.Url == "" {
+		return fmt.Errorf("url is required")
+	}
+	if i.Incidents && i.IncidentTemplate == "" {
+		return fmt.Errorf("incident template is required")
+	}
+	if i.Deployments && i.DeploymentTemplate == "" {
+		return fmt.Errorf("deployment template is required")
+	}
+	return nil
 }
 
 type IntegrationAWS struct {

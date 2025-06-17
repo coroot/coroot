@@ -473,7 +473,7 @@ type IntegrationFormSlack struct {
 }
 
 func (f *IntegrationFormSlack) Valid() bool {
-	if f.Token == "" || f.DefaultChannel == "" {
+	if err := f.Validate(); err != nil {
 		return false
 	}
 	return true
@@ -510,7 +510,7 @@ type IntegrationFormTeams struct {
 }
 
 func (f *IntegrationFormTeams) Valid() bool {
-	if f.WebhookUrl == "" {
+	if err := f.Validate(); err != nil {
 		return false
 	}
 	return true
@@ -547,7 +547,7 @@ type IntegrationFormPagerduty struct {
 }
 
 func (f *IntegrationFormPagerduty) Valid() bool {
-	if f.IntegrationKey == "" {
+	if err := f.Validate(); err != nil {
 		return false
 	}
 	return true
@@ -583,7 +583,7 @@ type IntegrationFormOpsgenie struct {
 }
 
 func (f *IntegrationFormOpsgenie) Valid() bool {
-	if f.ApiKey == "" {
+	if err := f.Validate(); err != nil {
 		return false
 	}
 	return true
@@ -619,13 +619,7 @@ type IntegrationFormWebhook struct {
 }
 
 func (f *IntegrationFormWebhook) Valid() bool {
-	if f.Url == "" {
-		return false
-	}
-	if f.Incidents && f.IncidentTemplate == "" {
-		return false
-	}
-	if f.Deployments && f.DeploymentTemplate == "" {
+	if err := f.Validate(); err != nil {
 		return false
 	}
 	return true
