@@ -12,14 +12,12 @@ import (
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 	"gopkg.in/yaml.v3"
-	"k8s.io/klog"
 )
 
 type Config struct {
 	ListenAddress string `yaml:"listen_address"`
 	UrlBasePath   string `yaml:"url_base_path"`
 	DataDir       string `yaml:"data_dir"`
-	LicenseKey    string `yaml:"license_key"`
 
 	Cache    Cache    `yaml:"cache"`
 	Traces   Traces   `yaml:"traces"`
@@ -143,13 +141,8 @@ type Auth struct {
 	BootstrapAdminPassword string `yaml:"bootstrap_admin_password"`
 }
 
-type Project struct {
-	Name    string      `yaml:"name"`
-	ApiKeys []db.ApiKey `yaml:"api_keys"`
-}
-
-func Load() *Config {
-	cfg := &Config{
+func NewConfig() *Config {
+	return &Config{
 		ListenAddress: ":8080",
 		UrlBasePath:   "/",
 		DataDir:       "./data",
@@ -173,31 +166,46 @@ func Load() *Config {
 			BootstrapAdminPassword: db.AdminUserDefaultPassword,
 		},
 	}
-	err := cfg.load()
-	if err != nil {
-		klog.Exitln(err)
-	}
-	return cfg
 }
 
-func (cfg *Config) load() error {
-	if *configFile != "" {
-		f, err := os.Open(*configFile)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-		data, err := io.ReadAll(f)
-		if err != nil {
-			return err
-		}
+func Load() (*Config, error) {
+	cfg := NewConfig()
+	data, err := ReadFromFile()
+	if err != nil {
+		return nil, err
+	}
+
+	if len(data) > 0 {
 		if err = yaml.Unmarshal(data, cfg); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	cfg.applyFlags()
+	cfg.ApplyFlags()
 
+	if err = cfg.Validate(); err != nil {
+		return nil, err
+	}
+	return cfg, nil
+}
+
+func ReadFromFile() ([]byte, error) {
+	if *configFile == "" {
+		return nil, nil
+	}
+	f, err := os.Open(*configFile)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	data, err := io.ReadAll(f)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
+func (cfg *Config) Validate() error {
 	var err error
 	cfg.UrlBasePath, err = url.JoinPath("/", cfg.UrlBasePath, "/")
 	if err != nil {
@@ -205,16 +213,8 @@ func (cfg *Config) load() error {
 	}
 
 	for i, p := range cfg.Projects {
-		if p.Name == "" {
-			return fmt.Errorf("invalid project #%d: name is required", i)
-		}
-		if len(p.ApiKeys) == 0 {
-			return fmt.Errorf("invalid project '%s': no api_keys defined", p.Name)
-		}
-		for ik, k := range p.ApiKeys {
-			if k.Key == "" {
-				return fmt.Errorf("invalid api_key #%d for project '%s': key is required", ik, p.Name)
-			}
+		if err = p.Validate(); err != nil {
+			return fmt.Errorf("invalid project #%d: %w", i, err)
 		}
 	}
 

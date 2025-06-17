@@ -21,7 +21,7 @@ func RenderCustomApplications(p *db.Project) *CustomApplicationsView {
 	for name, app := range p.Settings.CustomApplications {
 		v.CustomApplications = append(v.CustomApplications, CustomApplication{
 			Name:             name,
-			InstancePatterns: strings.Join(app.InstancePattens, " "),
+			InstancePatterns: strings.Join(app.InstancePatterns, " "),
 		})
 	}
 	sort.Slice(v.CustomApplications, func(i, j int) bool {

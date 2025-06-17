@@ -237,7 +237,7 @@ func (api *Api) Project(w http.ResponseWriter, r *http.Request, u *db.User) {
 				return
 			}
 			prometheusCfg := project.PrometheusConfig(api.globalPrometheus)
-			res.Readonly = !project.Settings.Configurable
+			res.Readonly = project.Settings.Readonly
 			res.Name = project.Name
 			res.RefreshInterval = prometheusCfg.RefreshInterval
 			if isAllowed {
@@ -264,7 +264,7 @@ func (api *Api) Project(w http.ResponseWriter, r *http.Request, u *db.User) {
 			Id:   db.ProjectId(projectId),
 			Name: form.Name,
 		}
-		project.Settings.Configurable = true
+		project.Settings.Readonly = false
 		err := api.db.SaveProject(project)
 		if err != nil {
 			if errors.Is(err, db.ErrConflict) {
@@ -514,7 +514,7 @@ func (api *Api) ApiKeys(w http.ResponseWriter, r *http.Request, u *db.User) {
 			Editable bool        `json:"editable"`
 			Keys     []db.ApiKey `json:"keys"`
 		}{
-			Editable: isAllowed && project.Settings.Configurable,
+			Editable: isAllowed && !project.Settings.Readonly,
 			Keys:     project.Settings.ApiKeys,
 		}
 		if !isAllowed {
@@ -751,9 +751,11 @@ func (api *Api) Integrations(w http.ResponseWriter, r *http.Request, u *db.User)
 	utils.WriteJson(w, struct {
 		BaseUrl      string               `json:"base_url"`
 		Integrations []db.IntegrationInfo `json:"integrations"`
+		Readonly     bool                 `json:"readonly"`
 	}{
 		BaseUrl:      integrations.BaseUrl,
 		Integrations: integrations.GetInfo(),
+		Readonly:     integrations.Readonly,
 	})
 }
 

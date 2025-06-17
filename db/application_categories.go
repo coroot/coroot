@@ -19,32 +19,32 @@ type ApplicationCategory struct {
 }
 
 type ApplicationCategorySettings struct {
-	CustomPatterns       []string                                `json:"custom_patterns,omitempty"`
+	CustomPatterns       []string                                `json:"custom_patterns,omitempty" yaml:"customPatterns,omitempty"`
 	NotifyOfDeployments  bool                                    `json:"notify_of_deployments,omitempty"` // deprecated: use NotificationSettings
-	NotificationSettings ApplicationCategoryNotificationSettings `json:"notification_settings"`
+	NotificationSettings ApplicationCategoryNotificationSettings `json:"notification_settings,omitempty" yaml:"notificationSettings,omitempty"`
 }
 
 type ApplicationCategoryNotificationSettings struct {
-	Incidents   ApplicationCategoryIncidentNotificationSettings   `json:"incidents,omitempty"`
-	Deployments ApplicationCategoryDeploymentNotificationSettings `json:"deployments,omitempty"`
+	Incidents   ApplicationCategoryIncidentNotificationSettings   `json:"incidents,omitempty" yaml:"incidents,omitempty"`
+	Deployments ApplicationCategoryDeploymentNotificationSettings `json:"deployments,omitempty" yaml:"deployments,omitempty"`
 }
 
 type ApplicationCategoryIncidentNotificationSettings struct {
-	Enabled bool `json:"enabled"`
-	ApplicationCategoryNotificationDestinations
+	Enabled                                     bool `json:"enabled" yaml:"enabled"`
+	ApplicationCategoryNotificationDestinations `yaml:",inline"`
 }
 
 type ApplicationCategoryDeploymentNotificationSettings struct {
-	Enabled bool `json:"enabled"`
-	ApplicationCategoryNotificationDestinations
+	Enabled                                     bool `json:"enabled" yaml:"enabled"`
+	ApplicationCategoryNotificationDestinations `yaml:",inline"`
 }
 
 type ApplicationCategoryNotificationDestinations struct {
-	Slack     *ApplicationCategoryNotificationSettingsSlack     `json:"slack,omitempty"`
-	Teams     *ApplicationCategoryNotificationSettingsTeams     `json:"teams,omitempty"`
-	Pagerduty *ApplicationCategoryNotificationSettingsPagerduty `json:"pagerduty,omitempty"`
-	Opsgenie  *ApplicationCategoryNotificationSettingsOpsgenie  `json:"opsgenie,omitempty"`
-	Webhook   *ApplicationCategoryNotificationSettingsWebhook   `json:"webhook,omitempty"`
+	Slack     *ApplicationCategoryNotificationSettingsSlack     `json:"slack,omitempty" yaml:"slack,omitempty"`
+	Teams     *ApplicationCategoryNotificationSettingsTeams     `json:"teams,omitempty" yaml:"teams,omitempty"`
+	Pagerduty *ApplicationCategoryNotificationSettingsPagerduty `json:"pagerduty,omitempty" yaml:"pagerduty,omitempty"`
+	Opsgenie  *ApplicationCategoryNotificationSettingsOpsgenie  `json:"opsgenie,omitempty" yaml:"opsgenie,omitempty"`
+	Webhook   *ApplicationCategoryNotificationSettingsWebhook   `json:"webhook,omitempty" yaml:"webhook,omitempty"`
 }
 
 func (s ApplicationCategoryNotificationDestinations) hasEnabled() bool {
@@ -56,24 +56,24 @@ func (s ApplicationCategoryNotificationDestinations) hasEnabled() bool {
 }
 
 type ApplicationCategoryNotificationSettingsSlack struct {
-	Enabled bool   `json:"enabled"`
-	Channel string `json:"channel"`
+	Enabled bool   `json:"enabled" yaml:"enabled"`
+	Channel string `json:"channel" yaml:"channel"`
 }
 
 type ApplicationCategoryNotificationSettingsTeams struct {
-	Enabled bool `json:"enabled"`
+	Enabled bool `json:"enabled" yaml:"enabled"`
 }
 
 type ApplicationCategoryNotificationSettingsPagerduty struct {
-	Enabled bool `json:"enabled"`
+	Enabled bool `json:"enabled" yaml:"enabled"`
 }
 
 type ApplicationCategoryNotificationSettingsOpsgenie struct {
-	Enabled bool `json:"enabled"`
+	Enabled bool `json:"enabled" yaml:"enabled"`
 }
 
 type ApplicationCategoryNotificationSettingsWebhook struct {
-	Enabled bool `json:"enabled"`
+	Enabled bool `json:"enabled" yaml:"enabled"`
 }
 
 func (p *Project) CalcApplicationCategory(appId model.ApplicationId) model.ApplicationCategory {

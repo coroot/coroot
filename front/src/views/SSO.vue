@@ -7,13 +7,16 @@
             Single Sign-On through SAML is available only in Coroot Enterprise (from $1 per CPU core/month).
             <a href="https://coroot.com/account" target="_blank" class="font-weight-bold">Start</a> your free trial today.
         </v-alert>
+        <v-alert v-if="readonly" color="primary" outlined text>
+            Single Sing-On is configured through the config and cannot be modified via the UI.
+        </v-alert>
         <v-simple-table v-if="status !== 403" dense class="params">
             <tbody>
                 <tr>
                     <td class="font-weight-medium text-no-wrap">Status</td>
                     <td>
-                        <div v-if="active">
-                            <v-icon v-if="active" color="success" class="mr-1" size="20">mdi-check-circle</v-icon>
+                        <div v-if="enabled">
+                            <v-icon color="success" class="mr-1" size="20">mdi-check-circle</v-icon>
                             Enabled
                         </div>
                         <div v-else>Disabled</div>
@@ -24,10 +27,10 @@
                     <td>
                         <span v-if="provider" style="vertical-align: middle">{{ provider }}</span>
                         <input ref="file" type="file" accept=".xml" @change="upload" class="d-none" />
-                        <v-btn v-if="!provider" color="primary" small :disabled="disabled || loading" @click="$refs.file.click()">
+                        <v-btn v-if="!provider" color="primary" small :disabled="disabled || loading || readonly" @click="$refs.file.click()">
                             Upload Identity Provider Metadata XML
                         </v-btn>
-                        <v-btn v-else :disabled="disabled || loading" small icon @click="$refs.file.click()">
+                        <v-btn v-else :disabled="disabled || loading || readonly" small icon @click="$refs.file.click()">
                             <v-icon small>mdi-pencil</v-icon>
                         </v-btn>
                     </td>
@@ -54,7 +57,7 @@
                         <v-select
                             v-model="default_role"
                             :items="roles"
-                            :disabled="disabled"
+                            :disabled="disabled || readonly"
                             outlined
                             dense
                             :menu-props="{ offsetY: true }"
@@ -67,10 +70,10 @@
             </tbody>
         </v-simple-table>
         <div v-if="status !== 403" class="d-flex mt-2" style="gap: 8px">
-            <v-btn color="primary" small :disabled="disabled || loading || !provider" @click="save">
-                Save <template v-if="!active">and Enable</template>
+            <v-btn color="primary" small :disabled="disabled || loading || readonly || !provider" @click="save">
+                Save <template v-if="!enabled">and Enable</template>
             </v-btn>
-            <v-btn v-if="active" color="error" small :disabled="disabled || loading" @click="disable">Disable</v-btn>
+            <v-btn v-if="enabled" color="error" small :disabled="disabled || loading || readonly" @click="disable">Disable</v-btn>
         </div>
     </div>
 </template>
@@ -89,10 +92,11 @@ export default {
     data() {
         return {
             disabled: this.$coroot.edition !== 'Enterprise',
+            readonly: false,
             loading: false,
             error: '',
             status: undefined,
-            active: false,
+            enabled: false,
             default_role: '',
             provider: '',
             roles: [],
@@ -116,8 +120,8 @@ export default {
                     this.status = status;
                     return;
                 }
-                this.available = data.available;
-                this.active = data.active;
+                this.readonly = data.readonly;
+                this.enabled = data.enabled;
                 this.default_role = data.default_role;
                 this.provider = data.provider;
                 this.roles = data.roles || [];

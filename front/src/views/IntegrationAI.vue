@@ -8,7 +8,10 @@
             Available exclusively in Coroot Enterprise (from $1 per CPU core/month).<br />
             <a href="https://coroot.com/account" target="_blank" class="font-weight-bold">Start</a> your free trial today.
         </v-alert>
-        <v-form v-if="form" v-model="valid" :disabled="disabled" ref="form">
+        <v-alert v-if="readonly" color="primary" outlined text>
+            AI settings are defined through the config and cannot be modified via the UI.
+        </v-alert>
+        <v-form v-if="form" v-model="valid" :disabled="disabled || readonly" ref="form">
             <div class="subtitle-1 mt-3">Model Provider</div>
             <v-radio-group v-model="form.provider" row dense class="mt-0" hide-details>
                 <v-radio value="anthropic">
@@ -94,7 +97,7 @@
                 {{ message }}
             </v-alert>
             <div class="mt-3 d-flex" style="gap: 8px">
-                <v-btn color="primary" @click="save" :disabled="disabled || !valid || !changed" :loading="loading">Save</v-btn>
+                <v-btn color="primary" @click="save" :disabled="disabled || readonly || !valid || !changed" :loading="loading">Save</v-btn>
             </div>
         </v-form>
     </div>
@@ -107,6 +110,7 @@ export default {
     data() {
         return {
             disabled: this.$coroot.edition !== 'Enterprise',
+            readonly: false,
             form: { provider: '', anthropic: {}, openai: {}, openai_compatible: {} },
             valid: false,
             loading: false,
@@ -135,6 +139,7 @@ export default {
                     this.error = error;
                     return;
                 }
+                this.readonly = data.readonly;
                 this.form.provider = data.provider;
                 this.form.anthropic = data.anthropic || {};
                 this.form.openai = data.openai || {};

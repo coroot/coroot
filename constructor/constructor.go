@@ -241,7 +241,6 @@ func (c *Constructor) queryCache(ctx context.Context, from, to timeseries.Time, 
 func (c *Constructor) calcApplicationCategories(w *model.World) {
 	for _, app := range w.Applications {
 		if annotation := app.GetAnnotation(model.ApplicationAnnotationCategory); annotation != "" {
-			klog.Infoln(app.Id, annotation)
 			app.Category = model.ApplicationCategory(annotation)
 			continue
 		}

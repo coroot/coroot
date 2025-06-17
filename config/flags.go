@@ -24,7 +24,6 @@ var (
 	authAnonymousRole          = kingpin.Flag("auth-anonymous-role", "Disable authentication and assign one of the following roles to the anonymous user: Admin, Editor, or Viewer.").Envar("AUTH_ANONYMOUS_ROLE").String()
 	authBootstrapAdminPassword = kingpin.Flag("auth-bootstrap-admin-password", "Password for the default Admin user").Envar("AUTH_BOOTSTRAP_ADMIN_PASSWORD").String()
 	developerMode              = kingpin.Flag("developer-mode", "If enabled, Coroot will not use embedded static assets").Envar("DEVELOPER_MODE").Bool()
-	licenseKey                 = kingpin.Flag("license-key", "License key for Coroot Enterprise Edition.").Envar("LICENSE_KEY").String()
 
 	globalClickhouseAddress         = kingpin.Flag("global-clickhouse-address", "").Envar("GLOBAL_CLICKHOUSE_ADDRESS").String()
 	globalClickhouseUser            = kingpin.Flag("global-clickhouse-user", "").Envar("GLOBAL_CLICKHOUSE_USER").String()
@@ -52,7 +51,7 @@ var (
 	bootstrapClickhouseDatabase = kingpin.Flag("bootstrap-clickhouse-database", "").Envar("BOOTSTRAP_CLICKHOUSE_DATABASE").String()
 )
 
-func (cfg *Config) applyFlags() {
+func (cfg *Config) ApplyFlags() {
 	if *listen != "" {
 		cfg.ListenAddress = *listen
 	}
@@ -100,9 +99,6 @@ func (cfg *Config) applyFlags() {
 	}
 	if *developerMode {
 		cfg.DeveloperMode = *developerMode
-	}
-	if *licenseKey != "" {
-		cfg.LicenseKey = *licenseKey
 	}
 
 	keep := cfg.GlobalClickhouse != nil || *globalClickhouseAddress != ""
