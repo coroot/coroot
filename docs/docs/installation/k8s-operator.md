@@ -247,15 +247,133 @@ spec:
 #      sslmode: disable
 
 # The project defined here will be created if it does not exist and will be configured with the provided API keys.
-# If a project with the same name already exists (e.g., configured via the UI), its API keys will be replaced.
+# If a project with the same name already exists (e.g., configured via the UI), its API keys and other settings will be replaced.
 #  projects: # Create or update projects.
 #    - name:    # Project name (e.g., production, staging; required).
-#      apiKeys: # Project API keys, used by agents to send telemetry data (required).
+#      # Project API keys, used by agents to send telemetry data (required).
+#      apiKeys:
 #        - description: # The API key description (optional).
 #          key:         # Plain-text API key (a random string or UUID). Must be unique. Prefer using `keySecret` for better security.
-#          keySecret:   # Secret with the API key. Generated automatically if missing.
+#          keySecret:   # Secret containing the API key. Generated automatically if missing.
 #            name: # Name of the secret to select from.
 #            key:  # Key of the secret to select from.
+#      # Project notification integrations.
+#      notificationIntegrations:
+#        baseURL: # The URL of Coroot instance (required). Used for generating links in notifications.
+#        slack:
+#          token:        # Slack Bot User OAuth Token (required).
+#          tokenSecret:  # Secret containing the Token.
+#            name: # Name of the secret to select from.
+#            key:  # Key of the secret to select from.
+#          defaultChannel:     # Default channel (required).
+#          incidents: false    # Notify of incidents (SLO violations).
+#          deployments: false  # Notify of deployments.
+#        teams:
+#          webhookURL:        # Microsoft Teams Webhook URL (required).
+#          webhookURLSecret:  # Secret containing the Webhook URL.
+#            name: # Name of the secret to select from.
+#            key:  # Key of the secret to select from.
+#          incidents: false    # Notify of incidents (SLO violations).
+#          deployments: false  # Notify of deployments.
+#        pagerduty:
+#          integrationKey:        # PagerDuty Integration Key (required).
+#          integrationKeySecret:  # Secret containing the Integration Key.
+#            name: # Name of the secret to select from.
+#            key:  # Key of the secret to select from.
+#          incidents: false    # Notify of incidents (SLO violations).
+#        opsgenie:
+#          apiKey:        # Opsgenie API Key (required).
+#          apiKeySecret:  # Secret containing the API Key.
+#            name: # Name of the secret to select from.
+#            key:  # Key of the secret to select from.
+#          euInstance: false   # EU instance of Opsgenie.
+#          incidents: false    # Notify of incidents (SLO violations).
+#        webhook:
+#          url:                    # Webhook URL (required).
+#          tlsSkipVerify: false    # Whether to skip verification of the Webhook server's TLS certificate.
+#          basicAuth:              # Basic auth credentials.
+#            username:        # Basic auth username.
+#            password:        # Basic auth password.
+#            passwordSecret:  # Secret containing password.
+#              name: # Name of the secret to select from.
+#              key:  # Key of the secret to select from.
+#          customHeaders:          # Custom headers to include in requests.
+#            - key:
+#              value:
+#          incidents: false        # Notify of incidents (SLO violations).
+#          deployments: false      # Notify of deployments.
+#          incidentTemplate: ""    # Incident template (required if `incidents: true`).
+#          deploymentTemplate: ""  # Deployment template (required if `deployments: true`).
+#      # Project application category settings.
+#      applicationCategories:
+#        - name:               # Application category name (required).
+#          customPatterns:     # List of glob patterns in the <namespace>/<application_name> format.
+#            - staging/*
+#            - test-*/*
+#          notificationSettings: # Category notification settings.
+#            incidents:          # Notify of incidents (SLO violations).
+#              enabled: true
+#              slack:
+#                enabled: true
+#                channel: ops
+#              teams:
+#                enabled: false
+#              pagerduty:
+#                enabled: false
+#              opsgenie:
+#                enabled: false
+#              webhook:
+#                enabled: false
+#            deployments:        # Notify of deployments.
+#              enabled: true
+#              slack:
+#                enabled: true
+#                channel: general
+#              teams:
+#                enabled: false
+#              webhook:
+#                enabled: false
+#      # Project custom applications settings.
+#      customApplications:
+#        - name: custom-app
+#          instancePatterns:
+#            - app@node1
+#            - app@node2
+
+# Single Sign-on configuration (Coroot Enterprise edition only).
+#  sso:
+#    enabled: false
+#    defaultRole: Viewer # Default role for authenticated users (Admin, Editor, Viewer, or a custom role).
+#    saml:
+#      # SAML Identity Provider Metadata XML (required).
+#      metadata: |
+#        <md:EntityDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata" entityID="http://www.okta.com/exkk72*********n5d7">
+#          ...
+#        </md:EntityDescriptor>
+#      metadataSecret:  # Secret containing the Metadata XML.
+#        name: # Name of the secret to select from.
+#        key:  # Key of the secret to select from.
+  
+# AI configuration (Coroot Enterprise edition only).
+#  ai:
+#    provider: # AI model provider (one of: anthropic, openai, or openai_compatible).
+#    anthropic:
+#      apiKey:        # Anthropic API key (required).
+#      apiKeySecret:  # Secret containing the API key.
+#        name: # Name of the secret to select from.
+#        key:  # Key of the secret to select from.
+#    openai:
+#      apiKey:        # OpenAI API key (required).
+#      apiKeySecret:  # Secret containing the API key.
+#        name: # Name of the secret to select from.
+#        key:  # Key of the secret to select from.
+#    openaiCompatible:
+#      apiKey:        # API key (required).
+#      apiKeySecret:  # Secret containing the API key.
+#        name: # Name of the secret to select from.
+#        key:  # Key of the secret to select from.
+#      baseUrl:  # Base URL (e.g., https://generativelanguage.googleapis.com/v1beta/openai).
+#      model:    # Model name (e.g., gemini-2.5-pro-preview-06-05).
 ```
 
 ## Operator upgrade
