@@ -202,6 +202,7 @@ func ReadFromFile() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	data = []byte(os.ExpandEnv(string(data)))
 	return data, nil
 }
 
