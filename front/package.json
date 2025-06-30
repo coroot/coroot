@@ -22,6 +22,7 @@
     "core-js": "^3.8.3",
     "gridstack": "^12.1.2",
     "highlight.js": "^11.7.0",
+    "markdown-it": "^14.1.0",
     "pluralize": "^8.0.0",
     "sql-formatter": "^12.2.0",
     "uplot": "^1.6.24",
@@ -33,6 +34,7 @@
   "devDependencies": {
     "@babel/core": "^7.12.16",
     "@babel/eslint-parser": "^7.12.16",
+    "@types/markdown-it": "^14.1.2",
     "@vue/cli-plugin-babel": "~5.0.0",
     "@vue/cli-plugin-eslint": "~5.0.0",
     "@vue/cli-plugin-router": "~5.0.0",
