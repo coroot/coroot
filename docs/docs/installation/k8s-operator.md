@@ -39,7 +39,10 @@ spec:
 #  metricsRefreshInterval: 15s # Specifies the metric resolution interval.
 #  cacheTTL: 30d # Duration for which Coroot retains the metric cache.
 #  authAnonymousRole: # Allows access to Coroot without authentication if set (one of Admin, Editor, or Viewer).
-#  authBootstrapAdminPassword: # Initial admin password for bootstrapping.
+#  authBootstrapAdminPassword:        # Initial admin password for bootstrapping (plain-text).
+#  authBootstrapAdminPasswordSecret:  # Secret containing the initial admin password.
+#    name: # Name of the secret to select from.
+#    key:  # Key of the secret to select from.
 #  env: # Environment variables for Coroot.
 #    - name:
 #      value:
