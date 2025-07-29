@@ -53,21 +53,21 @@ func incidentDetails(app *model.Application, incident *model.ApplicationIncident
 	if !incident.Resolved() {
 		for _, r := range app.Reports {
 			for _, ch := range r.Checks {
-				if ch.Status < model.WARNING {
+				if r.Name == model.AuditReportSLO || ch.Status < model.WARNING {
 					continue
 				}
 				reports = append(reports, db.IncidentNotificationDetailsReport{Name: r.Name, Check: ch.Title, Message: ch.Message})
 			}
 		}
 	} else {
-		for _, r := range app.Reports {
-			if r.Name != model.AuditReportSLO {
-				continue
-			}
-			for _, ch := range r.Checks {
-				reports = append(reports, db.IncidentNotificationDetailsReport{Name: r.Name, Check: ch.Title, Message: ch.Message})
-			}
-		}
+		//for _, r := range app.Reports {
+		//if r.Name != model.AuditReportSLO {
+		//	continue
+		//}
+		//for _, ch := range r.Checks {
+		//	reports = append(reports, db.IncidentNotificationDetailsReport{Name: r.Name, Check: ch.Title, Message: ch.Message})
+		//}
+		//}
 	}
 	if len(reports) == 0 {
 		return nil

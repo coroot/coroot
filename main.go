@@ -118,7 +118,9 @@ func main() {
 		klog.Exitln(err)
 	}
 
-	watchers.Start(database, promCache, pricing, !cfg.DoNotCheckSLO, !cfg.DoNotCheckForDeployments)
+	incidents := watchers.NewIncidents(database, nil)
+
+	watchers.Start(database, promCache, pricing, incidents, !cfg.DoNotCheckForDeployments)
 
 	a := api.NewApi(promCache, database, coll, pricing, rbac.NewStaticRoleManager(), globalClickhouse, globalPrometheus)
 	err = a.AuthInit(cfg.Auth.AnonymousRole, cfg.Auth.BootstrapAdminPassword)
@@ -158,6 +160,7 @@ func main() {
 	r.HandleFunc("/api/project/{project}/status", a.Auth(a.Status)).Methods(http.MethodGet)
 	r.HandleFunc("/api/project/{project}/api_keys", a.Auth(a.ApiKeys)).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/project/{project}/overview/{view}", a.Auth(a.Overview)).Methods(http.MethodGet)
+	r.HandleFunc("/api/project/{project}/incidents", a.Auth(a.Incidents)).Methods(http.MethodGet)
 	r.HandleFunc("/api/project/{project}/incident/{incident}", a.Auth(a.Incident)).Methods(http.MethodGet)
 	r.HandleFunc("/api/project/{project}/dashboards", a.Auth(a.Dashboards)).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/project/{project}/dashboards/{dashboard}", a.Auth(a.Dashboards)).Methods(http.MethodGet, http.MethodPost)

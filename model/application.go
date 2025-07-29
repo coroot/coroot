@@ -288,14 +288,6 @@ func (app *Application) hasClientsInAWS() bool {
 	return false
 }
 
-//func (app *Application) GetClientsConnections() map[ApplicationId]*AppToAppConnection {
-//	res := map[ApplicationId]*AppToAppConnection{}
-//	for _, d := range app.Downstreams {
-//		res[d.Application.Id] = d
-//	}
-//	return res
-//}
-
 func (app *Application) AddReport(name AuditReportName, widgets ...*Widget) {
 	app.Reports = append(app.Reports, &AuditReport{Name: name, Widgets: widgets})
 }

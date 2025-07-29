@@ -1,11 +1,5 @@
 <template>
     <Views :loading="loading" :error="error">
-        <v-progress-linear indeterminate v-if="loading" color="green" />
-
-        <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
-            {{ error }}
-        </v-alert>
-
         <ApplicationFilter :applications="applications" @filter="setFilter" class="mb-4" />
 
         <div class="legend mb-3">
@@ -30,7 +24,7 @@
             dense
             class="table"
             mobile-breakpoint="0"
-            :items-per-page="50"
+            :items-per-page="limit"
             :items="items"
             sort-by="opened_at"
             sort-desc
@@ -39,16 +33,24 @@
             :headers="[
                 { value: 'incident', text: 'Incident', sortable: false },
                 { value: 'application', text: 'Application', sortable: false },
+                { value: 'description', text: 'Description', sortable: false },
+                { value: 'rca', text: 'Root Cause', sortable: false },
+                { value: 'impact', text: 'Impacted requests', sortable: true },
                 { value: 'opened_at', text: 'Opened at', sortable: true },
                 { value: 'duration', text: 'Duration', sortable: true },
-                { value: 'availability', text: 'Availability', sortable: false },
-                { value: 'latency', text: 'Latency', sortable: false },
-                { value: 'affected_request_percent', text: 'Affected requests', sortable: true },
-                { value: 'error_budget_consumed_percent', text: 'Consumed error budget', sortable: true },
                 { value: 'actions', text: '', sortable: false, align: 'end', width: '20px' },
             ]"
-            :footer-props="{ itemsPerPageOptions: [10, 20, 50, 100, -1] }"
+            :footer-props="{ itemsPerPageOptions: [10, 20, 50, 100] }"
+            @update:items-per-page="changeLimit"
         >
+            <template #header.rca>
+                <div class="d-flex align-center gap-1">
+                    Root Cause
+                    <a href="https://docs.coroot.com/ai/overview" target="_blank">
+                        <v-icon small>mdi-information-outline</v-icon>
+                    </a>
+                </div>
+            </template>
             <template #item.incident="{ item }">
                 <div class="incident" :class="{ 'grey--text': item.resolved_at }">
                     <div class="status" :class="item.color" />
@@ -79,29 +81,31 @@
                 </div>
             </template>
 
-            <template #item.latency="{ item }">
-                <span v-if="item.latency_slo" :class="item.latency_slo.violated ? 'fired' : undefined">
-                    {{ item.latency_slo.compliance }}
-                </span>
+            <template #item.description="{ item }">
+                <div class="d-flex">
+                    <span :class="{ 'grey--text': item.resolved_at }">
+                        {{ item.short_description }}
+                    </span>
+                </div>
             </template>
 
-            <template #item.availability="{ item }">
-                <span v-if="item.availability_slo" :class="item.availability_slo.violated ? 'fired' : undefined">
-                    {{ item.availability_slo.compliance }}
-                </span>
+            <template #item.rca="{ item }">
+                <div class="">
+                    <template v-if="$coroot.edition !== 'Enterprise'">
+                        <span class="grey--text">&mdash;</span>
+                    </template>
+                    <template v-else-if="item.rca">
+                        <v-icon v-if="item.rca.root_cause" small color="green">mdi-check-circle</v-icon>
+                        <span v-else-if="!item.rca.ai_integration_enabled" class="grey--text">AI disabled</span>
+                    </template>
+                    <span v-else class="grey--text">In progress</span>
+                </div>
             </template>
 
-            <template #item.affected_request_percent="{ item }">
-                <v-progress-linear :value="item.affected_request_percent" color="blue lighten-1" height="16px">
-                    {{ $format.percent(item.affected_request_percent) }} %
-                </v-progress-linear>
+            <template #item.impact="{ item }">
+                <v-progress-linear :value="item.impact" color="red lighten-1" height="16px"> {{ $format.percent(item.impact) }} % </v-progress-linear>
             </template>
 
-            <template #item.error_budget_consumed_percent="{ item }">
-                <v-progress-linear :value="item.error_budget_consumed_percent" color="purple lighten-1" height="16px">
-                    {{ $format.percent(item.error_budget_consumed_percent) }} %
-                </v-progress-linear>
-            </template>
             <template #item.actions="{ item }">
                 <v-menu offset-y>
                     <template v-slot:activator="{ attrs, on }">
@@ -116,15 +120,6 @@
                         </v-list-item>
                         <v-list-item @click="edit(item.application_id, 'SLOLatency', 'Latency')">
                             <v-icon small class="mr-1">mdi-timer-outline</v-icon> Adjust Latency SLO
-                        </v-list-item>
-                        <v-list-item
-                            :to="{
-                                name: 'overview',
-                                params: { view: 'incidents' },
-                                query: { incident: item.key, view: 'rca' },
-                            }"
-                        >
-                            <v-icon small class="mr-1">mdi-creation</v-icon> Investigate with AI
                         </v-list-item>
                     </v-list>
                 </v-menu>
@@ -149,6 +144,7 @@ export default {
 
     data() {
         return {
+            limit: Number(this.$route.query.limit) || 50,
             incidents: [],
             filter: new Set(),
             showResolved: false,
@@ -220,14 +216,19 @@ export default {
         get() {
             this.loading = true;
             this.error = '';
-            this.$api.getOverview('incidents', '', (data, error) => {
+            this.$api.getIncidents(this.limit, (data, error) => {
                 this.loading = false;
                 if (error) {
                     this.error = error;
                     return;
                 }
-                this.incidents = data.incidents || [];
+                this.incidents = data || [];
             });
+        },
+        changeLimit(limit) {
+            this.limit = limit;
+            this.get();
+            this.$router.push({ query: { ...this.$route.query, limit } }).catch((err) => err);
         },
         changeShowResolved() {
             this.showResolved = !this.showResolved;

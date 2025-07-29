@@ -45,42 +45,51 @@
                 </v-row>
             </template>
 
-            <template v-if="rca.propagation_map">
-                <div class="mt-5 mb-3 text-h6">Issue propagation path</div>
-                <PropagationMap :applications="rca.propagation_map" />
-            </template>
-
             <div v-if="rca.summary">
-                <div v-if="rca.summary.text" class="summary" v-html="rca.summary.text" />
-                <div class="d-flex flex-wrap">
-                    <div
-                        v-for="w in rca.summary.widgets"
-                        class="my-5"
-                        :style="{ width: $vuetify.breakpoint.mdAndUp && rca.summary.widgets.length > 1 ? w.width || '50%' : '100%' }"
-                    >
-                        <Widget :w="w" />
-                    </div>
-                </div>
-            </div>
-            <div v-else-if="rca.ai_integration_enabled">
-                <div class="mt-5 mb-3 text-h6">Anomaly Summary</div>
+                <template v-if="rca.summary.root_cause">
+                    <div class="mt-5 mb-3 text-h6"><v-icon color="red">mdi-fire</v-icon> Root Cause</div>
+                    <Markdown :src="rca.summary.root_cause" :widgets="[]" />
 
+                    <template v-if="rca.summary.detailed_root_cause_analysis">
+                        <div>
+                            <a @click="toggle_rca_details"
+                                >Show
+                                <template v-if="!show_details">more</template>
+                                <template v-else>less</template>
+                                details
+
+                                <v-icon v-if="!show_details">mdi-chevron-down</v-icon>
+                                <v-icon v-else>mdi-chevron-up</v-icon>
+                            </a>
+                        </div>
+
+                        <v-card outlined v-if="show_details" class="pa-5 mt-5">
+                            <Markdown :src="rca.summary.detailed_root_cause_analysis" :widgets="rca.summary.widgets" />
+                        </v-card>
+                    </template>
+                </template>
+
+                <template v-if="rca.summary.immediate_fixes">
+                    <div class="mt-5 mb-3 text-h6"><v-icon color="red">mdi-fire-extinguisher</v-icon> Immediate Fixes</div>
+                    <Markdown :src="rca.summary.immediate_fixes" :widgets="[]" />
+                </template>
+            </div>
+
+            <div v-else-if="rca.ai_integration_enabled">
                 <div class="pa-5" style="position: relative; border-radius: 4px">
                     <div style="filter: blur(5px)">
                         <v-skeleton-loader boilerplate type="article, text"></v-skeleton-loader>
                     </div>
 
-                    <v-overlay absolute opacity="0.1">
+                    <v-overlay absolute opacity="0.1" z-index="1">
                         <v-btn color="primary" @click="get('true')" class="mx-auto" :loading="loading">
                             <v-icon small left>mdi-creation</v-icon>
-                            Explain with AI
+                            Investigate with AI
                         </v-btn>
                     </v-overlay>
                 </div>
             </div>
-            <div v-else-if="!aiIntegrationDismissed">
-                <div class="mt-5 mb-3 text-h6">Anomaly Summary</div>
-
+            <div v-else>
                 <div class="pa-5" style="position: relative; border-radius: 4px">
                     <div style="filter: blur(7px)">
                         <v-skeleton-loader boilerplate type="article, text"></v-skeleton-loader>
@@ -91,59 +100,7 @@
                             <v-icon small left>mdi-creation</v-icon>
                             Enable an AI integration
                         </v-btn>
-                        <v-btn class="ml-2" color="grey" @click="dismiss">Dismiss</v-btn>
                     </v-overlay>
-                </div>
-            </div>
-
-            <div v-if="rca.causes && rca.causes.length > 0">
-                <div class="mt-5 mb-3 text-h6">Possible causes</div>
-
-                <v-simple-table dense>
-                    <thead>
-                        <tr>
-                            <th>Issue</th>
-                            <th>Reasons</th>
-                            <th>Applications</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr v-for="c in rca.causes">
-                            <td class="text-no-wrap">
-                                <div>
-                                    <v-icon color="error" small class="mr-1">mdi-alert-circle</v-icon>
-                                    <span v-html="c.summary" />
-                                </div>
-                            </td>
-                            <td class="text-no-wrap">
-                                <ul>
-                                    <li v-for="d in c.details">
-                                        <span v-html="d" />
-                                    </li>
-                                </ul>
-                            </td>
-                            <td>
-                                <div class="d-flex flex-wrap">
-                                    <template v-for="(s, i) in c.affected_services">
-                                        <router-link
-                                            :to="{ name: 'overview', params: { view: 'applications', id: s }, query: $utils.contextQuery() }"
-                                        >
-                                            {{ $utils.appId(s).name }}
-                                        </router-link>
-                                        <span v-if="i + 1 < c.affected_services.length" class="mr-1">,</span>
-                                    </template>
-                                </div>
-                            </td>
-                        </tr>
-                    </tbody>
-                </v-simple-table>
-            </div>
-
-            <div v-if="tree.length">
-                <div class="mt-5 mb-3 text-h6">Detailed RCA report</div>
-
-                <div>
-                    <RcaItem v-for="h in tree" :key="h.id" :hyp="h" :split="70" />
                 </div>
             </div>
         </div>
@@ -151,12 +108,10 @@
 </template>
 
 <script>
-import RcaItem from '@/components/RcaItem.vue';
 import { palette } from '@/utils/colors';
 import Chart from '@/components/Chart.vue';
-import Widget from '@/components/Widget.vue';
-import PropagationMap from '@/components/PropagationMap.vue';
 import Views from '@/views/Views.vue';
+import Markdown from '@/components/Markdown.vue';
 
 export default {
     computed: {
@@ -195,14 +150,14 @@ export default {
         noTitle: Boolean,
     },
 
-    components: { Views, PropagationMap, Widget, Chart, RcaItem },
+    components: { Markdown, Views, Chart },
 
     data() {
         return {
             rca: null,
             loading: false,
+            show_details: false,
             error: '',
-            aiIntegrationDismissed: false,
             selection: { mode: '', from: this.$route.query.rcaFrom || 0, to: this.$route.query.rcaTo || 0 },
         };
     },
@@ -215,15 +170,13 @@ export default {
     },
 
     mounted() {
-        this.aiIntegrationDismissed = this.$storage.local('ai-integration-dismissed');
         this.get();
         this.$events.watch(this, this.get, 'refresh');
     },
 
     methods: {
-        dismiss() {
-            this.aiIntegrationDismissed = true;
-            this.$storage.local('ai-integration-dismissed', true);
+        toggle_rca_details() {
+            this.show_details = !this.show_details;
         },
         explainAnomaly(s) {
             this.selection.from = s.selection.from;

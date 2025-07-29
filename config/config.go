@@ -32,7 +32,6 @@ type Config struct {
 
 	Projects []Project `yaml:"projects"`
 
-	DoNotCheckSLO            bool `yaml:"do_not_check_slo"`
 	DoNotCheckForDeployments bool `yaml:"do_not_check_for_deployments"`
 	DoNotCheckForUpdates     bool `yaml:"do_not_check_for_updates"`
 	DisableUsageStatistics   bool `yaml:"disable_usage_statistics"`

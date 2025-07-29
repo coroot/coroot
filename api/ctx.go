@@ -15,8 +15,9 @@ type DataWithContext struct {
 }
 
 type Context struct {
-	Status Status `json:"status"`
-	Search Search `json:"search"`
+	Status    Status                            `json:"status"`
+	Search    Search                            `json:"search"`
+	Incidents map[model.ApplicationCategory]int `json:"incidents"`
 }
 
 type Status struct {
@@ -62,11 +63,25 @@ type Node struct {
 func (api *Api) WithContext(p *db.Project, cacheStatus *cache.Status, w *model.World, data any) DataWithContext {
 	return DataWithContext{
 		Context: Context{
-			Status: renderStatus(p, cacheStatus, w, api.globalPrometheus),
-			Search: renderSearch(w),
+			Status:    renderStatus(p, cacheStatus, w, api.globalPrometheus),
+			Search:    renderSearch(w),
+			Incidents: renderIncidents(w),
 		},
 		Data: data,
 	}
+}
+
+func renderIncidents(w *model.World) map[model.ApplicationCategory]int {
+	res := map[model.ApplicationCategory]int{}
+	for _, app := range w.Applications {
+		if len(app.Incidents) == 0 {
+			continue
+		}
+		if last := app.Incidents[len(app.Incidents)-1]; !last.Resolved() {
+			res[app.Category]++
+		}
+	}
+	return res
 }
 
 func renderStatus(p *db.Project, cacheStatus *cache.Status, w *model.World, globalPrometheus *db.IntegrationPrometheus) Status {

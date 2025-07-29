@@ -33,6 +33,27 @@ type Series struct {
 	Value string     `json:"value"`
 }
 
+func (s *Series) UnmarshalJSON(data []byte) error {
+	type Alias Series
+
+	aux := &struct {
+		Data json.RawMessage `json:"data"`
+		*Alias
+	}{
+		Alias: (*Alias)(s),
+	}
+
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	var ts timeseries.TimeSeries
+	if err := json.Unmarshal(aux.Data, &ts); err != nil {
+		return err
+	}
+	s.Data = &ts
+	return nil
+}
+
 type SeriesList struct {
 	series []*Series
 
@@ -61,6 +82,19 @@ func (sl SeriesList) MarshalJSON() ([]byte, error) {
 		}
 	}
 	return json.Marshal(ss)
+}
+
+func (sl *SeriesList) UnmarshalJSON(data []byte) error {
+	var ss []*Series
+	if err := json.Unmarshal(data, &ss); err != nil {
+		return err
+	}
+	sl.series = ss
+	sl.topN = 0
+	sl.topF = nil
+	sl.histogram = nil
+	sl.percentiles = nil
+	return nil
 }
 
 type Chart struct {

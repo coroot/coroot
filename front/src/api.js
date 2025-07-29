@@ -15,6 +15,7 @@ export default class Api {
     context = {
         status: {},
         search: {},
+        incidents: {},
     };
 
     constructor(router, vuetify, basePath) {
@@ -50,6 +51,7 @@ export default class Api {
                 if (response.data.context) {
                     this.context.status = response.data.context.status;
                     this.context.search = response.data.context.search;
+                    this.context.incidents = response.data.context.incidents;
                 }
                 try {
                     const data = response.data.data !== undefined ? response.data.data : response.data;
@@ -246,6 +248,10 @@ export default class Api {
 
     getApplication(appId, cb) {
         this.get(this.projectPath(`app/${appId}`), {}, cb);
+    }
+
+    getIncidents(limit, cb) {
+        this.get(this.projectPath(`incidents`), { limit }, cb);
     }
 
     getIncident(key, cb) {
