@@ -670,11 +670,11 @@ func testIncidentNotification(project *db.Project) *db.IncidentNotification {
 		ProjectId:     project.Id,
 		ApplicationId: model.NewApplicationId("default", model.ApplicationKindDeployment, "fake-app"),
 		IncidentKey:   "123ab456",
-		Status:        model.WARNING,
+		Status:        model.CRITICAL,
 		Details: &db.IncidentNotificationDetails{
 			Reports: []db.IncidentNotificationDetailsReport{
-				{Name: model.AuditReportSLO, Check: model.Checks.SLOLatency.Title, Message: "error budget burn rate is 20x within 1 hour"},
 				{Name: model.AuditReportNetwork, Check: model.Checks.NetworkRTT.Title, Message: "high network latency to 2 upstream services"},
+				{Name: model.AuditReportLogs, Check: model.Checks.LogErrors.Title, Message: "1206 errors occurred"},
 			},
 		},
 	}
