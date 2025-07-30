@@ -52,7 +52,7 @@ export function durationPretty(ms) {
         return duration(ms, 'm');
     }
     if (ms > MINUTE) {
-        return duration(ms, 's');
+        return duration(ms, 'm');
     }
     return duration(ms, 'ms');
 }
@@ -62,7 +62,17 @@ export function date(ms, format) {
 }
 
 export function timeSinceNow(ms) {
-    return durationPretty(Date.now() - ms);
+    const d = Date.now() - ms;
+    if (d > DAY) {
+        return duration(d, 'd');
+    }
+    if (d > HOUR) {
+        return duration(d, 'h');
+    }
+    if (d > MINUTE) {
+        return duration(d, 'm');
+    }
+    return duration(d, 'ms');
 }
 
 export function percent(p) {

@@ -104,7 +104,6 @@ auth:
   anonymous_role:           # Disables authentication if set (one of Admin, Editor, or Viewer).
   bootstrap_admin_password: # Password for the default Admin user.
 
-do_not_check_slo: false             # Do not check Service Level Objective (SLO) compliance.
 do_not_check_for_deployments: false # Do not check for new deployments.
 do_not_check_for_updates: false     # Do not check for new versions.
 disable_usage_statistics: false     # Disable anonymous usage statistics.

@@ -19,9 +19,7 @@ It uses multi-window burn rate thresholds to trigger alerts:
 | Severity  | Long Window | Short Window | Burn Rate Threshold | Monthly Error Budget Consumed | Time to Exhaustion |
 |-----------|-------------|--------------|---------------------|-------------------------------|--------------------|
 | Critical  | 1 hour      | 5 minutes    | 14.4                | 2%                            | ≤ 50 hours         |
-| Critical  | 6 hours     | 30 minutes   | 6                   | 5%                            | ≤ 5 days           |
-| Warning   | 24 hours    | 2 hours      | 3                   | 10%                           | ≤ 10 days          |
-
+| Critical  | 6 hours     | 15 minutes   | 6                   | 5%                            | ≤ 5 days           |
 
 An incident will be triggered if the burn rate exceeds the threshold in both the long and short windows. 
 The short window helps ensure the error budget is still being actively used.

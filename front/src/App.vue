@@ -32,10 +32,20 @@
                     :class="{ 'v-list-item--active': id === view }"
                 >
                     <v-list-item-icon class="mr-3">
-                        <v-icon dark>{{ v.icon }}</v-icon>
+                        <span v-if="id === 'incidents' && menuCollapsed && incidentsCount">
+                            <v-badge color="red" dot offset-y="6">
+                                <v-icon dark>{{ v.icon }}</v-icon>
+                            </v-badge>
+                        </span>
+                        <v-icon v-else dark>{{ v.icon }}</v-icon>
                     </v-list-item-icon>
                     <v-list-item-content>
-                        {{ v.name }}
+                        <span v-if="id === 'incidents' && incidentsCount">
+                            <v-badge color="red" :content="incidentsCount" offset-y="12" offset-x="-3" class="badge">
+                                {{ v.name }}
+                            </v-badge>
+                        </span>
+                        <template v-else>{{ v.name }}</template>
                     </v-list-item-content>
                 </v-list-item>
             </v-list>
@@ -285,6 +295,11 @@ export default {
         mac() {
             return /Mac|iPod|iPhone|iPad/.test(navigator.platform);
         },
+        incidentsCount() {
+            return Object.values(this.context.incidents).reduce((acc, current) => {
+                return acc + current;
+            }, 0);
+        },
     },
 
     watch: {
@@ -351,4 +366,10 @@ export default {
 };
 </script>
 
-<style scoped></style>
+<style scoped>
+.badge:deep(.v-badge__badge) {
+    height: 16px;
+    min-width: 16px;
+    padding: 2px 4px;
+}
+</style>

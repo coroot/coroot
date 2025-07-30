@@ -1,8 +1,13 @@
 <template>
-    <div class="markdown">
+    <div class="markdown d-flex flex-wrap">
         <template v-for="b in blocks">
-            <Widget v-if="widgets[b.widget]" :w="widgets[b.widget]" class="mb-4" />
-            <div v-if="b.html" v-html="b.html" />
+            <Widget
+                v-if="widgets[b.widget]"
+                :w="widgets[b.widget]"
+                class="my-5"
+                :style="{ width: $vuetify.breakpoint.mdAndUp ? widgets[b.widget].width || '50%' : '100%' }"
+            />
+            <div v-if="b.html" v-html="b.html" class="text" />
         </template>
     </div>
 </template>
@@ -71,6 +76,9 @@ export default {
     font-size: 1.25rem;
     margin-bottom: 16px;
 }
+.markdown:deep(h3) {
+    margin-bottom: 8px;
+}
 .markdown:deep(pre) {
     font-family: monospace, monospace;
     font-size: 14px;
@@ -99,5 +107,8 @@ export default {
 }
 .markdown:deep(li ol) {
     margin-bottom: unset;
+}
+.text {
+    width: 100%;
 }
 </style>

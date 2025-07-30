@@ -33,6 +33,27 @@ type Series struct {
 	Value string     `json:"value"`
 }
 
+func (s *Series) UnmarshalJSON(data []byte) error {
+	type Alias Series
+
+	aux := &struct {
+		Data json.RawMessage `json:"data"`
+		*Alias
+	}{
+		Alias: (*Alias)(s),
+	}
+
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	var ts timeseries.TimeSeries
+	if err := json.Unmarshal(aux.Data, &ts); err != nil {
+		return err
+	}
+	s.Data = &ts
+	return nil
+}
+
 type SeriesList struct {
 	series []*Series
 
@@ -61,6 +82,19 @@ func (sl SeriesList) MarshalJSON() ([]byte, error) {
 		}
 	}
 	return json.Marshal(ss)
+}
+
+func (sl *SeriesList) UnmarshalJSON(data []byte) error {
+	var ss []*Series
+	if err := json.Unmarshal(data, &ss); err != nil {
+		return err
+	}
+	sl.series = ss
+	sl.topN = 0
+	sl.topF = nil
+	sl.histogram = nil
+	sl.percentiles = nil
+	return nil
 }
 
 type Chart struct {
@@ -408,10 +442,11 @@ func EventsToAnnotations(events []*ApplicationEvent, ctx timeseries.Context) []A
 func IncidentsToAnnotations(incidents []*ApplicationIncident, ctx timeseries.Context) []Annotation {
 	res := make([]Annotation, 0, len(incidents))
 	for _, i := range incidents {
-		if !i.Resolved() {
-			i.ResolvedAt = ctx.To
+		a := Annotation{Name: "incident", X1: i.OpenedAt, X2: i.ResolvedAt}
+		if a.X2.IsZero() {
+			a.X2 = ctx.To
 		}
-		res = append(res, Annotation{Name: "incident", X1: i.OpenedAt, X2: i.ResolvedAt})
+		res = append(res, a)
 	}
 	return res
 }

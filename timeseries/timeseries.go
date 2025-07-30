@@ -66,6 +66,37 @@ func (ts *TimeSeries) MarshalJSON() ([]byte, error) {
 	return d, err
 }
 
+func (ts *TimeSeries) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		ts.data = nil
+		ts.last = NaN
+		return nil
+	}
+
+	var raw []*float32
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+
+	values := make([]float32, len(raw))
+	for i, v := range raw {
+		if v == nil {
+			values[i] = NaN
+		} else {
+			values[i] = *v
+		}
+	}
+
+	ts.data = values
+	if len(values) > 0 {
+		ts.last = values[len(values)-1]
+	} else {
+		ts.last = NaN
+	}
+
+	return nil
+}
+
 func (ts *TimeSeries) String() string {
 	if ts.IsEmpty() {
 		return "TimeSeries(nil)"

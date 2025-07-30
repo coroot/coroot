@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"slices"
 	"sort"
+	"strconv"
 	"time"
 
 	"github.com/coroot/coroot/api/forms"
@@ -364,7 +365,7 @@ func (api *Api) Overview(w http.ResponseWriter, r *http.Request, u *db.User) {
 		return
 	}
 	var ch *clickhouse.Client
-	if ch, err = api.getClickhouseClient(project); err != nil {
+	if ch, err = api.GetClickhouseClient(project); err != nil {
 		klog.Warningln(err)
 	}
 	auditor.Audit(world, project, nil, project.ClickHouseConfig(api.globalClickHouse) != nil, nil)
@@ -929,6 +930,49 @@ func (api *Api) RCA(w http.ResponseWriter, r *http.Request, u *db.User) {
 	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, "not implemented"))
 }
 
+func (api *Api) Incidents(w http.ResponseWriter, r *http.Request, u *db.User) {
+	vars := mux.Vars(r)
+	projectId := db.ProjectId(vars["project"])
+	limit := 100
+	if l := r.URL.Query().Get("limit"); l != "" {
+		l64, err := strconv.ParseUint(l, 10, 32)
+		if err != nil {
+			klog.Warningln("invalid limit:", l)
+			http.Error(w, "", http.StatusBadRequest)
+			return
+		}
+		limit = int(l64)
+	}
+	project, err := api.db.GetProject(projectId)
+	if err != nil {
+		if errors.Is(err, db.ErrNotFound) {
+			http.Error(w, "project not found", http.StatusNotFound)
+			klog.Warningln("project not found:", projectId)
+			return
+		}
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	incidents, err := api.db.GetLatestIncidents(project.Id, limit)
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	world, project, cacheStatus, err := api.LoadWorldByRequest(r)
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	if project == nil || world == nil {
+		utils.WriteJson(w, api.WithContext(project, cacheStatus, world, nil))
+		return
+	}
+	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Incidents(world, incidents)))
+}
+
 func (api *Api) Incident(w http.ResponseWriter, r *http.Request, u *db.User) {
 	vars := mux.Vars(r)
 	projectId := vars["project"]
@@ -1239,7 +1283,7 @@ func (api *Api) Profiling(w http.ResponseWriter, r *http.Request, u *db.User) {
 		return
 	}
 	var ch *clickhouse.Client
-	if ch, err = api.getClickhouseClient(project); err != nil {
+	if ch, err = api.GetClickhouseClient(project); err != nil {
 		klog.Warningln(err)
 		http.Error(w, "ClickHouse is not available", http.StatusInternalServerError)
 		return
@@ -1296,7 +1340,7 @@ func (api *Api) Tracing(w http.ResponseWriter, r *http.Request, u *db.User) {
 	}
 	q := r.URL.Query()
 	var ch *clickhouse.Client
-	if ch, err = api.getClickhouseClient(project); err != nil {
+	if ch, err = api.GetClickhouseClient(project); err != nil {
 		klog.Warningln(err)
 		http.Error(w, "ClickHouse is not available", http.StatusInternalServerError)
 		return
@@ -1350,7 +1394,7 @@ func (api *Api) Logs(w http.ResponseWriter, r *http.Request, u *db.User) {
 		http.Error(w, "Application not found", http.StatusNotFound)
 		return
 	}
-	ch, chErr := api.getClickhouseClient(project)
+	ch, chErr := api.GetClickhouseClient(project)
 	if chErr != nil {
 		klog.Warningln(chErr)
 	}
@@ -1535,12 +1579,11 @@ func (api *Api) getTimeContext(r *http.Request) (from timeseries.Time, to timese
 		if incident, err := api.db.GetIncidentByKey(projectId, incidentKey); err != nil {
 			klog.Warningln("failed to get incident:", err)
 		} else {
-			margin := model.MaxAlertRuleShortWindow + 15*timeseries.Minute
-			from = incident.OpenedAt.Add(-margin)
+			from = incident.OpenedAt.Add(-model.IncidentTimeOffset)
 			if incident.Resolved() {
-				if t := incident.ResolvedAt.Add(margin); t.Before(to) {
-					to = t
-				}
+				to = incident.ResolvedAt.Add(model.IncidentTimeOffset)
+			} else {
+				to = now
 			}
 		}
 	}
@@ -1571,7 +1614,7 @@ func maxDuration(d1, d2 timeseries.Duration) timeseries.Duration {
 	return d2
 }
 
-func (api *Api) getClickhouseClient(project *db.Project) (*clickhouse.Client, error) {
+func (api *Api) GetClickhouseClient(project *db.Project) (*clickhouse.Client, error) {
 	cfg := project.ClickHouseConfig(api.globalClickHouse)
 	if cfg == nil {
 		return nil, nil

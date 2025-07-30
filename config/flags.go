@@ -17,7 +17,6 @@ var (
 	logsTTL                    = timeseries.DurationFlag(kingpin.Flag("logs-ttl", "Logs TTL (e.g. 8h, 3d, 2w; default 7d)").Envar("LOGS_TTL"))
 	profilesTTL                = timeseries.DurationFlag(kingpin.Flag("profiles-ttl", "Profiles TTL (e.g. 8h, 3d, 2w; default 7d)").Envar("PROFILES_TTL"))
 	pgConnectionString         = kingpin.Flag("pg-connection-string", "Postgres connection string (sqlite is used if not set)").Envar("PG_CONNECTION_STRING").String()
-	doNotCheckSLO              = kingpin.Flag("do-not-check-slo", "Don't check SLO compliance").Envar("DO_NOT_CHECK_SLO").Bool()
 	doNotCheckForDeployments   = kingpin.Flag("do-not-check-for-deployments", "Don't check for new deployments").Envar("DO_NOT_CHECK_FOR_DEPLOYMENTS").Bool()
 	doNotCheckForUpdates       = kingpin.Flag("do-not-check-for-updates", "Don't check for new versions").Envar("DO_NOT_CHECK_FOR_UPDATES").Bool()
 	disableUsageStatistics     = kingpin.Flag("disable-usage-statistics", "Disable usage statistics").Envar("DISABLE_USAGE_STATISTICS").Bool()
@@ -78,9 +77,6 @@ func (cfg *Config) ApplyFlags() {
 	}
 	if *pgConnectionString != "" {
 		cfg.Postgres = &Postgres{ConnectionString: *pgConnectionString}
-	}
-	if *doNotCheckSLO {
-		cfg.DoNotCheckSLO = *doNotCheckSLO
 	}
 	if *doNotCheckForDeployments {
 		cfg.DoNotCheckForDeployments = *doNotCheckForDeployments

@@ -44,7 +44,7 @@
                         </v-icon>
                     </td>
                     <td>
-                        <v-btn v-if="!i.configured" small @click="open(i, 'new')" color="primary">Configure</v-btn>
+                        <v-btn v-if="!i.configured" :disabled="readonly" small @click="open(i, 'new')" color="primary">Configure</v-btn>
                         <div v-else class="d-flex">
                             <v-btn icon small :disabled="readonly" @click="open(i, 'edit')">
                                 <v-icon small>mdi-pencil</v-icon>

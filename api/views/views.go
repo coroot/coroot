@@ -35,6 +35,10 @@ func Incident(w *model.World, app *model.Application, i *model.ApplicationIncide
 	return incident.Render(w, app, i)
 }
 
+func Incidents(w *model.World, incidents []*model.ApplicationIncident) []incident.Incident {
+	return incident.RenderList(w, incidents)
+}
+
 func Profiling(ctx context.Context, ch *clickhouse.Client, app *model.Application, q url.Values, wCtx timeseries.Context) *profiling.View {
 	return profiling.Render(ctx, ch, app, q, wCtx)
 }

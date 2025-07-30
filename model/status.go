@@ -1,6 +1,8 @@
 package model
 
-import "encoding/json"
+import (
+	"encoding/json"
+)
 
 const (
 	UNKNOWN Status = iota
@@ -29,6 +31,26 @@ func (s Status) String() string {
 
 func (s Status) MarshalJSON() ([]byte, error) {
 	return json.Marshal(s.String())
+}
+
+func (s *Status) UnmarshalJSON(data []byte) error {
+	var str string
+	if err := json.Unmarshal(data, &str); err != nil {
+		return err
+	}
+	switch str {
+	case "ok":
+		*s = OK
+	case "info":
+		*s = INFO
+	case "warning":
+		*s = WARNING
+	case "critical":
+		*s = CRITICAL
+	default:
+		*s = UNKNOWN
+	}
+	return nil
 }
 
 func (s Status) Color() string {
