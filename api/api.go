@@ -812,14 +812,20 @@ func (api *Api) Integration(w http.ResponseWriter, r *http.Request, u *db.User) 
 			if err != nil {
 				klog.Errorln("failed to get ClickHouse table sizes:", err)
 			}
+			serverDisks, err := api.getClickHouseServerDisks(r.Context(), project, topology)
+			if err != nil {
+				klog.Errorln("failed to get ClickHouse server disks:", err)
+			}
 			utils.WriteJson(w, struct {
-				Form       forms.IntegrationForm    `json:"form"`
-				Topology   []clickhouse.ClusterNode `json:"topology,omitempty"`
-				TableSizes []clickhouse.TableInfo   `json:"table_sizes,omitempty"`
+				Form        forms.IntegrationForm    `json:"form"`
+				Topology    []clickhouse.ClusterNode `json:"topology,omitempty"`
+				TableSizes  []clickhouse.TableInfo   `json:"table_sizes,omitempty"`
+				ServerDisks []ServerDiskInfo         `json:"server_disks,omitempty"`
 			}{
-				Form:       form,
-				Topology:   topology,
-				TableSizes: tableSizes,
+				Form:        form,
+				Topology:    topology,
+				TableSizes:  tableSizes,
+				ServerDisks: serverDisks,
 			})
 		default:
 			utils.WriteJson(w, form)
@@ -904,11 +910,24 @@ func (api *Api) Prom(w http.ResponseWriter, r *http.Request, u *db.User) {
 	c.Proxy(r, w)
 }
 
-func (api *Api) getClickHouseTableSizes(ctx context.Context, project *db.Project, topology []clickhouse.ClusterNode) ([]clickhouse.TableInfo, error) {
+type ServerDiskInfo struct {
+	Addr  string                `json:"addr"`
+	Disks []clickhouse.DiskInfo `json:"disks,omitempty"`
+	Error string                `json:"error,omitempty"`
+}
+
+type ServerResult struct {
+	Addr  string
+	Data  interface{}
+	Error error
+}
+
+func (api *Api) executeOnAllServers(ctx context.Context, project *db.Project, topology []clickhouse.ClusterNode, operation func(*clickhouse.Client) (interface{}, error)) ([]ServerResult, error) {
 	cfg := project.ClickHouseConfig(api.globalClickHouse)
 	if cfg == nil {
 		return nil, nil
 	}
+
 	serverAddrs := make(map[string]bool)
 	for _, node := range topology {
 		serverAddrs[net.JoinHostPort(node.HostName, strconv.Itoa(int(node.Port)))] = true
@@ -917,36 +936,96 @@ func (api *Api) getClickHouseTableSizes(ctx context.Context, project *db.Project
 		serverAddrs[cfg.Addr] = true
 	}
 
-	type serverResult struct {
-		addr       string
-		tableSizes []clickhouse.TableInfo
-		err        error
+	type serverExecResult struct {
+		addr string
+		data interface{}
+		err  error
 	}
 
-	resultChan := make(chan serverResult, len(serverAddrs))
+	resultChan := make(chan serverExecResult, len(serverAddrs))
 
 	for addr := range serverAddrs {
 		go func(serverAddr string) {
-			tableSizes, err := api.getTableSizesFromSingleServer(ctx, cfg, serverAddr)
-			resultChan <- serverResult{
-				addr:       serverAddr,
-				tableSizes: tableSizes,
-				err:        err,
+			config := clickhouse.NewClientConfig(serverAddr, cfg.Auth.User, cfg.Auth.Password)
+			config.Protocol = cfg.Protocol
+			config.Database = cfg.Database
+			config.TlsEnable = cfg.TlsEnable
+			config.TlsSkipVerify = cfg.TlsSkipVerify
+
+			client, err := clickhouse.NewClient(config, false)
+			if err != nil {
+				resultChan <- serverExecResult{addr: serverAddr, err: err}
+				return
+			}
+			defer client.Close()
+
+			data, err := operation(client)
+			resultChan <- serverExecResult{
+				addr: serverAddr,
+				data: data,
+				err:  err,
 			}
 		}(addr)
 	}
 
-	var tables []clickhouse.TableInfo
+	var results []ServerResult
 	for i := 0; i < len(serverAddrs); i++ {
 		result := <-resultChan
-		if result.err != nil {
-			// Log error but continue with other servers
-			klog.Warningf("failed to get table sizes from server %s: %v", result.addr, result.err)
+		results = append(results, ServerResult{
+			Addr:  result.addr,
+			Data:  result.data,
+			Error: result.err,
+		})
+	}
+
+	return results, nil
+}
+
+func (api *Api) getClickHouseTableSizes(ctx context.Context, project *db.Project, topology []clickhouse.ClusterNode) ([]clickhouse.TableInfo, error) {
+	results, err := api.executeOnAllServers(ctx, project, topology, func(client *clickhouse.Client) (interface{}, error) {
+		return client.GetTableSizes(ctx)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var allTables []clickhouse.TableInfo
+	for _, result := range results {
+		if result.Error != nil {
+			klog.Warningf("failed to get table sizes from server %s: %v", result.Addr, result.Error)
 			continue
 		}
-		tables = append(tables, result.tableSizes...)
+		if tables, ok := result.Data.([]clickhouse.TableInfo); ok {
+			allTables = append(allTables, tables...)
+		}
 	}
-	return aggregateClickHouseTableStats(tables), nil
+	return aggregateClickHouseTableStats(allTables), nil
+}
+
+func (api *Api) getClickHouseServerDisks(ctx context.Context, project *db.Project, topology []clickhouse.ClusterNode) ([]ServerDiskInfo, error) {
+	results, err := api.executeOnAllServers(ctx, project, topology, func(client *clickhouse.Client) (interface{}, error) {
+		return client.GetDiskInfo(ctx)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var servers []ServerDiskInfo
+	for _, result := range results {
+		server := ServerDiskInfo{
+			Addr: result.Addr,
+		}
+
+		if result.Error != nil {
+			klog.Warningf("failed to get disk info from server %s: %v", result.Addr, result.Error)
+			server.Error = result.Error.Error()
+		} else if disks, ok := result.Data.([]clickhouse.DiskInfo); ok {
+			server.Disks = disks
+		}
+
+		servers = append(servers, server)
+	}
+	return servers, nil
 }
 
 func aggregateClickHouseTableStats(tables []clickhouse.TableInfo) []clickhouse.TableInfo {
@@ -1005,20 +1084,6 @@ func aggregateClickHouseTableStats(tables []clickhouse.TableInfo) []clickhouse.T
 	})
 
 	return res
-}
-
-func (api *Api) getTableSizesFromSingleServer(ctx context.Context, cfg *db.IntegrationClickhouse, addr string) ([]clickhouse.TableInfo, error) {
-	config := clickhouse.NewClientConfig(addr, cfg.Auth.User, cfg.Auth.Password)
-	config.Protocol = cfg.Protocol
-	config.Database = cfg.Database
-	config.TlsEnable = cfg.TlsEnable
-	config.TlsSkipVerify = cfg.TlsSkipVerify
-	client, err := clickhouse.NewClient(config, false)
-	if err != nil {
-		return nil, err
-	}
-	defer client.Close()
-	return client.GetTableSizes(ctx)
 }
 
 func (api *Api) Application(w http.ResponseWriter, r *http.Request, u *db.User) {

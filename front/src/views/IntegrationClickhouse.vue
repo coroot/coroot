@@ -65,30 +65,8 @@
             />
 
             <div v-if="form.addr" class="mt-4">
-                <div class="subtitle-1">Cluster Topology</div>
-                <v-simple-table v-if="topology && topology.length > 0" dense class="table mt-2">
-                    <thead>
-                        <tr>
-                            <th>Host</th>
-                            <th>Port</th>
-                            <th>Shard</th>
-                            <th>Replica</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr v-for="item in topology" :key="item.host_name + ':' + item.port">
-                            <td>{{ item.host_name }}</td>
-                            <td>{{ item.port }}</td>
-                            <td>{{ item.shard_num }}</td>
-                            <td>{{ item.replica_num }}</td>
-                        </tr>
-                    </tbody>
-                </v-simple-table>
-                <div v-else class="pa-4 text-center caption grey--text mt-2">No cluster topology available</div>
-            </div>
-
-            <div v-if="form.addr" class="mt-4">
-                <div class="subtitle-1">Usage</div>
+                <div class="subtitle-1">Storage Usage</div>
+                <div class="caption">Includes all replicas and shards</div>
                 <v-simple-table v-if="tableSizes && tableSizes.length > 0" dense class="table mt-2">
                     <thead>
                         <tr>
@@ -120,6 +98,66 @@
                 <div v-else class="pa-4 text-center caption grey--text mt-2">No table information available</div>
             </div>
 
+            <div v-if="form.addr && topology && topology.length > 0" class="mt-4">
+                <div class="subtitle-1">Cluster Topology</div>
+                <v-simple-table dense class="table mt-2">
+                    <thead>
+                        <tr>
+                            <th>Server</th>
+                            <th>Disk</th>
+                            <th>Free Space</th>
+                            <th>Total Space</th>
+                            <th>Usage</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template v-for="node in topology">
+                            <template v-if="getServerDisks(node.host_name + ':' + node.port).length === 0">
+                                <tr :key="node.host_name + ':' + node.port + ':no-disks'">
+                                    <td class="server-name">
+                                        <div :title="node.host_name + ':' + node.port">
+                                            {{ truncateServerName(node.host_name + ':' + node.port) }}
+                                        </div>
+                                        <div class="caption grey--text">shard: {{ node.shard_num }}, replica: {{ node.replica_num }}</div>
+                                    </td>
+                                    <td colspan="4" class="caption grey--text">No disk information available</td>
+                                </tr>
+                            </template>
+                            <template v-else>
+                                <tr
+                                    v-for="(disk, index) in getServerDisks(node.host_name + ':' + node.port)"
+                                    :key="node.host_name + ':' + node.port + ':' + disk.name"
+                                >
+                                    <td v-if="index === 0" :rowspan="getServerDisks(node.host_name + ':' + node.port).length" class="server-name">
+                                        <div :title="node.host_name + ':' + node.port">
+                                            {{ truncateServerName(node.host_name + ':' + node.port) }}
+                                        </div>
+                                        <div class="caption grey--text">shard: {{ node.shard_num }}, replica: {{ node.replica_num }}</div>
+                                    </td>
+                                    <td>
+                                        <div>{{ disk.path }}</div>
+                                        <div class="caption grey--text">type: {{ disk.type }}, name: {{ disk.name }}</div>
+                                    </td>
+                                    <td>{{ formatBytes(disk.free_space) }}</td>
+                                    <td>{{ formatBytes(disk.total_space) }}</td>
+                                    <td>
+                                        <v-progress-linear
+                                            background-color="green lighten-3"
+                                            height="16"
+                                            color="green lighten-1"
+                                            :value="getDiskUsagePercent(disk)"
+                                            style="min-width: 64px"
+                                        >
+                                            <span style="font-size: 14px">{{ getDiskUsagePercent(disk) }}%</span>
+                                        </v-progress-linear>
+                                    </td>
+                                </tr>
+                            </template>
+                        </template>
+                    </tbody>
+                </v-simple-table>
+            </div>
+
             <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
                 {{ error }}
             </v-alert>
@@ -137,7 +175,7 @@
 </template>
 
 <script>
-import { formatBytes, durationPretty } from '@/utils/format';
+import { formatBytes } from '@/utils/format';
 
 export default {
     data() {
@@ -150,6 +188,7 @@ export default {
             saved: null,
             topology: null,
             tableSizes: null,
+            serverDisks: null,
         };
     },
 
@@ -165,6 +204,26 @@ export default {
 
     methods: {
         formatBytes,
+        getDiskUsagePercent(disk) {
+            if (disk.total_space === 0) return 0;
+            const usedSpace = disk.total_space - disk.free_space;
+            return Math.round((usedSpace / disk.total_space) * 100);
+        },
+        getServerDisks(addr) {
+            if (!this.serverDisks) return [];
+            const server = this.serverDisks.find((s) => s.addr === addr);
+            return server ? server.disks || [] : [];
+        },
+        truncateServerName(serverName) {
+            if (serverName.length <= 30) {
+                return serverName;
+            }
+            const firstDotIndex = serverName.indexOf('.');
+            if (firstDotIndex > 0 && firstDotIndex <= 30) {
+                return serverName.substring(0, firstDotIndex) + '...';
+            }
+            return serverName.substring(0, 30) + '...';
+        },
         get() {
             this.loading = true;
             this.error = '';
@@ -178,10 +237,12 @@ export default {
                     this.form = data.form;
                     this.topology = data.topology;
                     this.tableSizes = data.table_sizes;
+                    this.serverDisks = data.server_disks;
                 } else {
                     this.form = data;
                     this.topology = null;
                     this.tableSizes = null;
+                    this.serverDisks = null;
                 }
                 this.saved = JSON.parse(JSON.stringify(this.form));
             });
@@ -227,8 +288,8 @@ export default {
     gap: 16px;
 }
 
-.table:deep(table) {
-    min-width: 500px;
+.server-name {
+    max-width: 30ch;
 }
 
 .table:deep(tr:hover) {

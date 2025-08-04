@@ -155,6 +155,15 @@ type TableInfo struct {
 	DataSince             *time.Time `json:"data_since,omitempty"`
 }
 
+type DiskInfo struct {
+	Name          string `json:"name"`
+	Path          string `json:"path"`
+	FreeSpace     uint64 `json:"free_space"`
+	TotalSpace    uint64 `json:"total_space"`
+	KeepFreeSpace uint64 `json:"keep_free_space"`
+	Type          string `json:"type"`
+}
+
 func (c *Client) GetTableSizes(ctx context.Context) ([]TableInfo, error) {
 	query := `
 		SELECT 
@@ -223,6 +232,46 @@ func (c *Client) GetTableSizes(ctx context.Context) ([]TableInfo, error) {
 		return nil, err
 	}
 	return rawTables, nil
+}
+
+func (c *Client) GetDiskInfo(ctx context.Context) ([]DiskInfo, error) {
+	query := `
+		SELECT 
+			name,
+			path,
+			free_space,
+			total_space,
+			keep_free_space,
+			type
+		FROM system.disks
+		ORDER BY name`
+
+	rows, err := c.conn.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var disks []DiskInfo
+	for rows.Next() {
+		var disk DiskInfo
+		if err := rows.Scan(
+			&disk.Name,
+			&disk.Path,
+			&disk.FreeSpace,
+			&disk.TotalSpace,
+			&disk.KeepFreeSpace,
+			&disk.Type,
+		); err != nil {
+			return nil, err
+		}
+		disks = append(disks, disk)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return disks, nil
 }
 
 func parseTTLToSeconds(ttlExpr string) uint64 {
