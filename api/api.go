@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"slices"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/coroot/coroot/api/forms"
@@ -368,6 +370,7 @@ func (api *Api) Overview(w http.ResponseWriter, r *http.Request, u *db.User) {
 	if ch, err = api.GetClickhouseClient(project); err != nil {
 		klog.Warningln(err)
 	}
+	defer ch.Close()
 	auditor.Audit(world, project, nil, project.ClickHouseConfig(api.globalClickHouse) != nil, nil)
 	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Overview(r.Context(), ch, world, view, r.URL.Query().Get("query"))))
 }
@@ -793,6 +796,31 @@ func (api *Api) Integration(w http.ResponseWriter, r *http.Request, u *db.User) 
 				Form: form,
 				View: views.AWS(world),
 			})
+		case db.IntegrationTypeClickhouse:
+			ch, err := api.GetClickhouseClient(project)
+			if err != nil {
+				klog.Errorln(err)
+				http.Error(w, "", http.StatusInternalServerError)
+				return
+			}
+			defer ch.Close()
+			topology, err := ch.GetClusterTopology(r.Context())
+			if err != nil {
+				klog.Errorln("failed to get ClickHouse topology:", err)
+			}
+			tableSizes, err := api.getClickHouseTableSizes(r.Context(), project, topology)
+			if err != nil {
+				klog.Errorln("failed to get ClickHouse table sizes:", err)
+			}
+			utils.WriteJson(w, struct {
+				Form       forms.IntegrationForm    `json:"form"`
+				Topology   []clickhouse.ClusterNode `json:"topology,omitempty"`
+				TableSizes []clickhouse.TableInfo   `json:"table_sizes,omitempty"`
+			}{
+				Form:       form,
+				Topology:   topology,
+				TableSizes: tableSizes,
+			})
 		default:
 			utils.WriteJson(w, form)
 		}
@@ -874,6 +902,119 @@ func (api *Api) Prom(w http.ResponseWriter, r *http.Request, u *db.User) {
 		return
 	}
 	c.Proxy(r, w)
+}
+
+func (api *Api) getClickHouseTableSizes(ctx context.Context, project *db.Project, topology []clickhouse.ClusterNode) ([]clickhouse.TableInfo, error) {
+	cfg := project.ClickHouseConfig(api.globalClickHouse)
+	if cfg == nil {
+		return nil, nil
+	}
+	serverAddrs := make(map[string]bool)
+	for _, node := range topology {
+		serverAddrs[net.JoinHostPort(node.HostName, strconv.Itoa(int(node.Port)))] = true
+	}
+	if len(serverAddrs) == 0 {
+		serverAddrs[cfg.Addr] = true
+	}
+
+	type serverResult struct {
+		addr       string
+		tableSizes []clickhouse.TableInfo
+		err        error
+	}
+
+	resultChan := make(chan serverResult, len(serverAddrs))
+
+	for addr := range serverAddrs {
+		go func(serverAddr string) {
+			tableSizes, err := api.getTableSizesFromSingleServer(ctx, cfg, serverAddr)
+			resultChan <- serverResult{
+				addr:       serverAddr,
+				tableSizes: tableSizes,
+				err:        err,
+			}
+		}(addr)
+	}
+
+	var tables []clickhouse.TableInfo
+	for i := 0; i < len(serverAddrs); i++ {
+		result := <-resultChan
+		if result.err != nil {
+			// Log error but continue with other servers
+			klog.Warningf("failed to get table sizes from server %s: %v", result.addr, result.err)
+			continue
+		}
+		tables = append(tables, result.tableSizes...)
+	}
+	return aggregateClickHouseTableStats(tables), nil
+}
+
+func aggregateClickHouseTableStats(tables []clickhouse.TableInfo) []clickhouse.TableInfo {
+	agg := map[string]*clickhouse.TableInfo{}
+
+	for _, table := range tables {
+		var key string
+
+		switch {
+		case strings.HasPrefix(table.Table, "otel_logs"):
+			key = "logs"
+		case strings.HasPrefix(table.Table, "otel_traces"):
+			key = "traces"
+		case strings.HasPrefix(table.Table, "profiling_"):
+			key = "profiling"
+		default:
+			continue
+		}
+
+		ti := agg[key]
+		if ti == nil {
+			ti = &clickhouse.TableInfo{
+				Table: key,
+			}
+			agg[key] = ti
+		}
+
+		ti.BytesOnDisk += table.BytesOnDisk
+		ti.DataUncompressedBytes += table.DataUncompressedBytes
+
+		if ti.TTLInfo == "" {
+			ti.TTLInfo = table.TTLInfo
+		}
+
+		if table.DataSince != nil {
+			if ti.DataSince == nil || table.DataSince.Before(*ti.DataSince) {
+				ti.DataSince = table.DataSince
+			}
+		}
+	}
+	res := make([]clickhouse.TableInfo, 0, len(agg))
+
+	for _, ti := range agg {
+		if ti.BytesOnDisk > 0 {
+			ti.CompressionRatio = float64(ti.DataUncompressedBytes) / float64(ti.BytesOnDisk)
+		}
+		res = append(res, *ti)
+	}
+
+	sort.Slice(res, func(i, j int) bool {
+		return res[i].Table < res[j].Table
+	})
+
+	return res
+}
+
+func (api *Api) getTableSizesFromSingleServer(ctx context.Context, cfg *db.IntegrationClickhouse, addr string) ([]clickhouse.TableInfo, error) {
+	config := clickhouse.NewClientConfig(addr, cfg.Auth.User, cfg.Auth.Password)
+	config.Protocol = cfg.Protocol
+	config.Database = cfg.Database
+	config.TlsEnable = cfg.TlsEnable
+	config.TlsSkipVerify = cfg.TlsSkipVerify
+	client, err := clickhouse.NewClient(config, false)
+	if err != nil {
+		return nil, err
+	}
+	defer client.Close()
+	return client.GetTableSizes(ctx)
 }
 
 func (api *Api) Application(w http.ResponseWriter, r *http.Request, u *db.User) {
@@ -1288,6 +1429,7 @@ func (api *Api) Profiling(w http.ResponseWriter, r *http.Request, u *db.User) {
 		http.Error(w, "ClickHouse is not available", http.StatusInternalServerError)
 		return
 	}
+	defer ch.Close()
 	q := r.URL.Query()
 	auditor.Audit(world, project, nil, project.ClickHouseConfig(api.globalClickHouse) != nil, nil)
 	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Profiling(r.Context(), ch, app, q, world.Ctx)))
@@ -1345,6 +1487,7 @@ func (api *Api) Tracing(w http.ResponseWriter, r *http.Request, u *db.User) {
 		http.Error(w, "ClickHouse is not available", http.StatusInternalServerError)
 		return
 	}
+	defer ch.Close()
 	auditor.Audit(world, project, nil, project.ClickHouseConfig(api.globalClickHouse) != nil, nil)
 	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Tracing(r.Context(), ch, app, q, world)))
 }
@@ -1398,6 +1541,7 @@ func (api *Api) Logs(w http.ResponseWriter, r *http.Request, u *db.User) {
 	if chErr != nil {
 		klog.Warningln(chErr)
 	}
+	defer ch.Close()
 	auditor.Audit(world, project, nil, project.ClickHouseConfig(api.globalClickHouse) != nil, nil)
 	q := r.URL.Query()
 	res := views.Logs(r.Context(), ch, app, q, world)

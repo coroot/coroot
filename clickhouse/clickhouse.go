@@ -90,3 +90,131 @@ func (c *Client) QueryRow(ctx context.Context, query string, args ...interface{}
 	query = collector.ReplaceTables(query, c.useDistributedTables)
 	return c.conn.QueryRow(ctx, query, args...)
 }
+
+func (c *Client) Close() error {
+	return c.conn.Close()
+}
+
+type ClusterNode struct {
+	Cluster    string `json:"cluster"`
+	ShardNum   uint32 `json:"shard_num"`
+	ReplicaNum uint32 `json:"replica_num"`
+	HostName   string `json:"host_name"`
+	Port       uint16 `json:"port"`
+}
+
+func (c *Client) GetClusterTopology(ctx context.Context) ([]ClusterNode, error) {
+	clusterQuery := `
+		SELECT DISTINCT replaceRegexpOne(engine_full, '^Distributed\\(''([^'']+)''.*', '\\1') as cluster_name
+		FROM system.tables 
+		WHERE engine = 'Distributed' 
+			AND database = currentDatabase()
+		LIMIT 1`
+
+	var clusterName string
+	row := c.conn.QueryRow(ctx, clusterQuery)
+	if err := row.Scan(&clusterName); err != nil {
+		return []ClusterNode{}, nil
+	}
+
+	topologyQuery := `
+		SELECT cluster, shard_num, replica_num, host_name, port 
+		FROM system.clusters 
+		WHERE cluster = ?
+		ORDER BY shard_num, replica_num`
+
+	rows, err := c.conn.Query(ctx, topologyQuery, clusterName)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var nodes []ClusterNode
+	for rows.Next() {
+		var node ClusterNode
+		if err := rows.Scan(&node.Cluster, &node.ShardNum, &node.ReplicaNum, &node.HostName, &node.Port); err != nil {
+			return nil, err
+		}
+		nodes = append(nodes, node)
+	}
+
+	return nodes, rows.Err()
+}
+
+type TableInfo struct {
+	Database              string     `json:"database"`
+	Table                 string     `json:"table"`
+	BytesOnDisk           uint64     `json:"bytes_on_disk"`
+	DataUncompressedBytes uint64     `json:"data_uncompressed_bytes"`
+	CompressionRatio      float64    `json:"compression_ratio"`
+	TTLInfo               string     `json:"ttl_info,omitempty"`
+	TTLSeconds            *uint64    `json:"ttl_seconds,omitempty"`
+	DataSince             *time.Time `json:"data_since,omitempty"`
+}
+
+func (c *Client) GetTableSizes(ctx context.Context) ([]TableInfo, error) {
+	query := `
+		SELECT 
+			p.database,
+			p.table,
+			sum(p.bytes_on_disk) as bytes_on_disk,
+			sum(p.data_uncompressed_bytes) as data_uncompressed_bytes,
+			extract(
+				t.create_table_query,
+				'TTL .+\\+ (INTERVAL \\d+ [A-Z]+|toInterval\\w+\\(\\d+\\))'
+			) AS ttl_expr,
+			min(p.min_time) as data_since
+		FROM system.parts p
+		LEFT JOIN system.tables t ON p.database = t.database AND p.table = t.name
+		WHERE p.active = 1 
+		  	AND p.min_time > 0
+			AND p.database = currentDatabase()
+			AND p.engine NOT LIKE '%Distributed%'
+		GROUP BY p.database, p.table, t.create_table_query
+		ORDER BY p.table`
+
+	rows, err := c.conn.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var rawTables []TableInfo
+	for rows.Next() {
+		var table TableInfo
+
+		var ttlExpr *string
+		var dataSince *time.Time
+		if err := rows.Scan(
+			&table.Database,
+			&table.Table,
+			&table.BytesOnDisk,
+			&table.DataUncompressedBytes,
+			&ttlExpr,
+			&dataSince,
+		); err != nil {
+			return nil, err
+		}
+
+		if ttlExpr != nil && *ttlExpr != "" {
+			table.TTLInfo = *ttlExpr
+		}
+
+		if dataSince != nil {
+			table.DataSince = dataSince
+		}
+
+		if table.BytesOnDisk > 0 {
+			table.CompressionRatio = float64(table.DataUncompressedBytes) / float64(table.BytesOnDisk)
+		} else {
+			table.CompressionRatio = 0
+		}
+
+		rawTables = append(rawTables, table)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return rawTables, nil
+}
