@@ -981,6 +981,10 @@ func aggregateClickHouseTableStats(tables []clickhouse.TableInfo) []clickhouse.T
 			ti.TTLInfo = table.TTLInfo
 		}
 
+		if ti.TTLSeconds == nil && table.TTLSeconds != nil {
+			ti.TTLSeconds = table.TTLSeconds
+		}
+
 		if table.DataSince != nil {
 			if ti.DataSince == nil || table.DataSince.Before(*ti.DataSince) {
 				ti.DataSince = table.DataSince

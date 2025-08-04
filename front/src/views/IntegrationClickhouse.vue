@@ -105,15 +105,13 @@
                             <td>{{ formatBytes(item.bytes_on_disk) }}</td>
                             <td>{{ item.compression_ratio.toFixed(1) }}x</td>
                             <td>
-                                <div v-if="item.ttl_info">
-                                    {{ item.ttl_info }}
+                                <div v-if="item.ttl_seconds">
+                                    {{ $format.durationPretty(item.ttl_seconds * 1000) }}
                                 </div>
                                 <div v-else>-</div>
                             </td>
                             <td>
-                                <div v-if="item.data_since">
-                                    {{ $format.timeSinceNow(new Date(item.data_since).getTime()) }} ago
-                                </div>
+                                <div v-if="item.data_since">{{ $format.timeSinceNow(new Date(item.data_since).getTime()) }} ago</div>
                                 <div v-else>-</div>
                             </td>
                         </tr>
@@ -139,7 +137,7 @@
 </template>
 
 <script>
-import { formatBytes } from '@/utils/format';
+import { formatBytes, durationPretty } from '@/utils/format';
 
 export default {
     data() {

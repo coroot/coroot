@@ -5,6 +5,9 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net"
+	"regexp"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
@@ -198,6 +201,9 @@ func (c *Client) GetTableSizes(ctx context.Context) ([]TableInfo, error) {
 
 		if ttlExpr != nil && *ttlExpr != "" {
 			table.TTLInfo = *ttlExpr
+			if seconds := parseTTLToSeconds(*ttlExpr); seconds > 0 {
+				table.TTLSeconds = &seconds
+			}
 		}
 
 		if dataSince != nil {
@@ -217,4 +223,53 @@ func (c *Client) GetTableSizes(ctx context.Context) ([]TableInfo, error) {
 		return nil, err
 	}
 	return rawTables, nil
+}
+
+func parseTTLToSeconds(ttlExpr string) uint64 {
+	ttlExpr = strings.TrimSpace(ttlExpr)
+
+	intervalRegex := regexp.MustCompile(`INTERVAL\s+(\d+)\s+([A-Z]+)`)
+	if matches := intervalRegex.FindStringSubmatch(ttlExpr); len(matches) == 3 {
+		value, err := strconv.ParseUint(matches[1], 10, 64)
+		if err != nil {
+			return 0
+		}
+		unit := strings.ToUpper(matches[2])
+		return convertIntervalToSeconds(value, unit)
+	}
+
+	toIntervalRegex := regexp.MustCompile(`toInterval([A-Za-z]+)\((\d+)\)`)
+	if matches := toIntervalRegex.FindStringSubmatch(ttlExpr); len(matches) == 3 {
+		value, err := strconv.ParseUint(matches[2], 10, 64)
+		if err != nil {
+			return 0
+		}
+		unit := strings.ToUpper(matches[1])
+		return convertIntervalToSeconds(value, unit)
+	}
+
+	return 0
+}
+
+func convertIntervalToSeconds(value uint64, unit string) uint64 {
+	switch unit {
+	case "SECOND", "SECONDS":
+		return value
+	case "MINUTE", "MINUTES":
+		return value * 60
+	case "HOUR", "HOURS":
+		return value * 3600
+	case "DAY", "DAYS":
+		return value * 86400
+	case "WEEK", "WEEKS":
+		return value * 604800
+	case "MONTH", "MONTHS":
+		return value * 2592000 // 30 days
+	case "QUARTER", "QUARTERS":
+		return value * 7776000 // 90 days
+	case "YEAR", "YEARS":
+		return value * 31536000 // 365 days
+	default:
+		return 0
+	}
 }
