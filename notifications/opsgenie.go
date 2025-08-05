@@ -30,7 +30,7 @@ func NewOpsgenie(apiKey string, euInstance bool) *Opsgenie {
 	}
 
 	if envURL := os.Getenv("OPS_GENIE_API_URL"); envURL != "" {
-		cfg.OpsGenieAPIURL = envURL
+		cfg.OpsGenieAPIURL = client.ApiUrl(envURL)
 	}
 
 	c, _ := alert.NewClient(cfg)
