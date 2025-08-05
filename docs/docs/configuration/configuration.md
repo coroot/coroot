@@ -52,6 +52,9 @@ For instance, the `projects` parameter (a list of predefined projects) can only 
 | --global-prometheus-password         | GLOBAL_PROMETHEUS_PASSWORD         |               | The password for the Prometheus server to be used for all projects.                                                                                                             |
 | --global-prometheus-custom-headers   | GLOBAL_PROMETHEUS_CUSTOM_HEADERS   |               | Custom headers to include in requests to the Prometheus server.                                                                                                                 |
 | --global-prometheus-remote-write-url | GLOBAL_PROMETHEUS_REMOTE_WRITE_URL |               | The URL for metric ingestion though the Prometheus Remote Write protocol.                                                                                                       |
+| --disable-clickhouse-space-manager   | CLICKHOUSE_SPACE_MANAGER_DISABLED  | false         | Disable ClickHouse space manager that automatically cleans up old partitions.                                                                                                   |
+| --clickhouse-space-manager-usage-threshold | CLICKHOUSE_SPACE_MANAGER_USAGE_THRESHOLD | 70      | Disk usage percentage threshold for triggering partition cleanup in ClickHouse.                                                                                                 |
+| --clickhouse-space-manager-min-partitions | CLICKHOUSE_SPACE_MANAGER_MIN_PARTITIONS | 1        | Minimum number of partitions to keep when cleaning up ClickHouse disk space.                                                                                                    |
 
 ## Configuration file
 
@@ -99,6 +102,11 @@ global_clickhouse: # The ClickHouse server to be used for all projects.
   database:              # The initial database on the ClickHouse server.
   tls_enable: false      # Whether TLS is enabled for the ClickHouse server connection.
   tls_skip_verify: false # Whether to skip verification of the ClickHouse server's TLS certificate.
+
+clickhouse_space_manager: # Automatically manage ClickHouse disk space by cleaning up old partitions.
+  enabled: true                    # Enable space manager (default: true).
+  usage_threshold_percent: 70      # Disk usage percentage threshold for triggering cleanup (default: 70).
+  min_partitions: 1               # Minimum number of partitions to keep per table (default: 1).
 
 auth:
   anonymous_role:           # Disables authentication if set (one of Admin, Editor, or Viewer).
