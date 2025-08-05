@@ -54,7 +54,7 @@ func (c *Client) GetRootSpansHistogram(ctx context.Context, q SpanQuery) ([]mode
 
 func (c *Client) GetRootSpans(ctx context.Context, q SpanQuery) ([]*model.TraceSpan, error) {
 	filter, filterArgs := q.RootSpansFilter()
-	return c.getSpans(ctx, q, "", "", filter, filterArgs)
+	return c.getSpans(ctx, q, "", filter, filterArgs)
 }
 
 func (c *Client) GetRootSpansSummary(ctx context.Context, q SpanQuery) (*model.TraceSpanSummary, error) {
@@ -102,7 +102,7 @@ func (c *Client) GetSpansByServiceNameHistogram(ctx context.Context, q SpanQuery
 
 func (c *Client) GetSpansByServiceName(ctx context.Context, q SpanQuery) ([]*model.TraceSpan, error) {
 	filter, filterArgs := q.SpansByServiceNameFilter()
-	return c.getSpans(ctx, q, "", "", filter, filterArgs)
+	return c.getSpans(ctx, q, "", filter, filterArgs)
 }
 
 func (c *Client) GetInboundSpansHistogram(ctx context.Context, q SpanQuery, clients []string, listens []model.Listen) ([]model.HistogramBucket, error) {
@@ -118,7 +118,7 @@ func (c *Client) GetInboundSpans(ctx context.Context, q SpanQuery, clients []str
 		return nil, nil
 	}
 	filter, filterArgs := inboundSpansFilter(clients, listens)
-	return c.getSpans(ctx, q, "", "", filter, filterArgs)
+	return c.getSpans(ctx, q, "", filter, filterArgs)
 }
 
 func (c *Client) GetParentSpans(ctx context.Context, spans []*model.TraceSpan) ([]*model.TraceSpan, error) {
@@ -133,11 +133,20 @@ func (c *Client) GetParentSpans(ctx context.Context, spans []*model.TraceSpan) (
 	if len(ids) == 0 {
 		return nil, nil
 	}
-	var q SpanQuery
-	return c.getSpans(ctx, q,
-		"@traceIds as traceIds, (SELECT min(Start) as start, max(End)+1 as end FROM @@table_otel_traces_trace_id_ts@@ WHERE TraceId IN (traceIds)) as ts",
-		"",
-		[]string{"Timestamp BETWEEN ts.start AND ts.end", "TraceId IN (traceIds)", "(TraceId, SpanId) IN (@ids)"},
+	var minTs, maxTs time.Time
+	err := c.QueryRow(ctx,
+		"SELECT min(Start), max(End)+1 FROM @@table_otel_traces_trace_id_ts@@ WHERE TraceId IN (@traceIds)",
+		clickhouse.Named("traceIds", maps.Keys(traceIds)),
+	).Scan(&minTs, &maxTs)
+	if err != nil {
+		return nil, err
+	}
+	q := SpanQuery{
+		TsFrom: timeseries.TimeFromStandard(minTs),
+		TsTo:   timeseries.TimeFromStandard(maxTs),
+	}
+	return c.getSpans(ctx, q, "",
+		[]string{"TraceId IN (@traceIds)", "(TraceId, SpanId) IN (@ids)"},
 		[]any{
 			clickhouse.Named("traceIds", maps.Keys(traceIds)),
 			clickhouse.Named("ids", ids),
@@ -146,11 +155,20 @@ func (c *Client) GetParentSpans(ctx context.Context, spans []*model.TraceSpan) (
 }
 
 func (c *Client) GetSpansByTraceId(ctx context.Context, traceId string) ([]*model.TraceSpan, error) {
-	var q SpanQuery
-	return c.getSpans(ctx, q,
-		"(SELECT min(Start) as start, max(End)+1 as end FROM @@table_otel_traces_trace_id_ts@@ WHERE TraceId = @traceId) as ts",
-		"Timestamp",
-		[]string{"TraceId = @traceId", "Timestamp BETWEEN ts.start AND ts.end"},
+	var minTs, maxTs time.Time
+	err := c.QueryRow(ctx,
+		"SELECT min(Start), max(End)+1 FROM @@table_otel_traces_trace_id_ts@@ WHERE TraceId = @traceId",
+		clickhouse.Named("traceId", traceId),
+	).Scan(&minTs, &maxTs)
+	if err != nil {
+		return nil, err
+	}
+	q := SpanQuery{
+		TsFrom: timeseries.TimeFromStandard(minTs),
+		TsTo:   timeseries.TimeFromStandard(maxTs),
+	}
+	return c.getSpans(ctx, q, "Timestamp",
+		[]string{"TraceId = @traceId"},
 		[]any{
 			clickhouse.Named("traceId", traceId),
 		},
@@ -309,7 +327,7 @@ func (c *Client) getSpansSummary(ctx context.Context, q SpanQuery, filters []str
 	return res, nil
 }
 
-func (c *Client) getSpans(ctx context.Context, q SpanQuery, with string, orderBy string, filters []string, filterArgs []any) ([]*model.TraceSpan, error) {
+func (c *Client) getSpans(ctx context.Context, q SpanQuery, orderBy string, filters []string, filterArgs []any) ([]*model.TraceSpan, error) {
 	tsFilter := "Timestamp BETWEEN @tsFrom AND @tsTo"
 	tsFilterArgs := []any{
 		clickhouse.DateNamed("tsFrom", q.TsFrom.ToStandard(), clickhouse.NanoSeconds),
@@ -325,11 +343,7 @@ func (c *Client) getSpans(ctx context.Context, q SpanQuery, with string, orderBy
 		filterArgs = append(filterArgs, durFilterArgs...)
 	}
 
-	query := ""
-	if with != "" {
-		query += "WITH " + with
-	}
-	query += " SELECT Timestamp, TraceId, SpanId, ParentSpanId, SpanName, ServiceName, Duration, StatusCode, StatusMessage, ResourceAttributes, SpanAttributes, Events.Timestamp, Events.Name, Events.Attributes"
+	query := "SELECT Timestamp, TraceId, SpanId, ParentSpanId, SpanName, ServiceName, Duration, StatusCode, StatusMessage, ResourceAttributes, SpanAttributes, Events.Timestamp, Events.Name, Events.Attributes"
 	query += " FROM @@table_otel_traces@@"
 	query += " WHERE " + strings.Join(filters, " AND ")
 	if orderBy != "" {
