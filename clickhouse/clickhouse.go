@@ -3,6 +3,8 @@ package clickhouse
 import (
 	"context"
 	"crypto/tls"
+	"database/sql"
+	"errors"
 	"fmt"
 	"net"
 	"regexp"
@@ -117,7 +119,10 @@ func (c *Client) GetClusterTopology(ctx context.Context) ([]ClusterNode, error) 
 	var clusterName string
 	row := c.conn.QueryRow(ctx, clusterQuery)
 	if err := row.Scan(&clusterName); err != nil {
-		return []ClusterNode{}, nil
+		if errors.Is(err, sql.ErrNoRows) {
+			return []ClusterNode{}, nil
+		}
+		return nil, err
 	}
 
 	topologyQuery := `
@@ -156,12 +161,11 @@ type TableInfo struct {
 }
 
 type DiskInfo struct {
-	Name          string `json:"name"`
-	Path          string `json:"path"`
-	FreeSpace     uint64 `json:"free_space"`
-	TotalSpace    uint64 `json:"total_space"`
-	KeepFreeSpace uint64 `json:"keep_free_space"`
-	Type          string `json:"type"`
+	Name       string `json:"name"`
+	Path       string `json:"path"`
+	FreeSpace  uint64 `json:"free_space"`
+	TotalSpace uint64 `json:"total_space"`
+	Type       string `json:"type"`
 }
 
 func (c *Client) GetTableSizes(ctx context.Context) ([]TableInfo, error) {
@@ -182,6 +186,7 @@ func (c *Client) GetTableSizes(ctx context.Context) ([]TableInfo, error) {
 		  	AND p.min_time > 0
 			AND p.database = currentDatabase()
 			AND p.engine NOT LIKE '%Distributed%'
+			AND (p.table LIKE 'otel_%' OR p.table LIKE 'profiling_%')
 		GROUP BY p.database, p.table, t.create_table_query
 		ORDER BY p.table`
 
@@ -241,7 +246,6 @@ func (c *Client) GetDiskInfo(ctx context.Context) ([]DiskInfo, error) {
 			path,
 			free_space,
 			total_space,
-			keep_free_space,
 			type
 		FROM system.disks
 		ORDER BY name`
@@ -260,7 +264,6 @@ func (c *Client) GetDiskInfo(ctx context.Context) ([]DiskInfo, error) {
 			&disk.Path,
 			&disk.FreeSpace,
 			&disk.TotalSpace,
-			&disk.KeepFreeSpace,
 			&disk.Type,
 		); err != nil {
 			return nil, err
