@@ -38,13 +38,13 @@ type Config struct {
 
 	DeveloperMode bool `yaml:"developer_mode"`
 
-	ClickHouseSpaceManager SpaceManager `yaml:"clickhouse_space_manager"`
+	ClickHouseSpaceManager ClickHouseSpaceManager `yaml:"clickhouse_space_manager"`
 
 	BootstrapClickhouse *Clickhouse `yaml:"-"`
 	BootstrapPrometheus *Prometheus `yaml:"-"`
 }
 
-type SpaceManager struct {
+type ClickHouseSpaceManager struct {
 	Enabled               bool `yaml:"enabled"`
 	UsageThresholdPercent int  `yaml:"usage_threshold_percent"`
 	MinPartitions         int  `yaml:"min_partitions"`
@@ -173,7 +173,7 @@ func NewConfig() *Config {
 			BootstrapAdminPassword: db.AdminUserDefaultPassword,
 		},
 
-		ClickHouseSpaceManager: SpaceManager{
+		ClickHouseSpaceManager: ClickHouseSpaceManager{
 			Enabled:               true,
 			UsageThresholdPercent: 70,
 			MinPartitions:         1,

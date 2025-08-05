@@ -5,12 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net"
 	"net/http"
 	"slices"
 	"sort"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/coroot/coroot/api/forms"
@@ -797,35 +795,26 @@ func (api *Api) Integration(w http.ResponseWriter, r *http.Request, u *db.User) 
 				View: views.AWS(world),
 			})
 		case db.IntegrationTypeClickhouse:
-			ch, err := api.GetClickhouseClient(project)
-			if err != nil {
-				klog.Errorln(err)
-				http.Error(w, "", http.StatusInternalServerError)
-				return
+			cfg := project.ClickHouseConfig(api.globalClickHouse)
+			var ci *clickhouse.ClusterInfo
+			if cfg != nil {
+				config := clickhouse.NewClientConfig(cfg.Addr, cfg.Auth.User, cfg.Auth.Password)
+				config.Protocol = cfg.Protocol
+				config.Database = cfg.Database
+				config.TlsEnable = cfg.TlsEnable
+				config.TlsSkipVerify = cfg.TlsSkipVerify
+
+				if ci, err = clickhouse.GetClusterInfo(r.Context(), config); err != nil {
+					klog.Errorln(err)
+				}
 			}
-			defer ch.Close()
-			topology, err := ch.GetClusterTopology(r.Context())
-			if err != nil {
-				klog.Errorln("failed to get ClickHouse topology:", err)
-			}
-			tableSizes, err := api.getClickHouseTableSizes(r.Context(), project, topology)
-			if err != nil {
-				klog.Errorln("failed to get ClickHouse table sizes:", err)
-			}
-			serverDisks, err := api.getClickHouseServerDisks(r.Context(), project, topology)
-			if err != nil {
-				klog.Errorln("failed to get ClickHouse server disks:", err)
-			}
+
 			utils.WriteJson(w, struct {
-				Form        forms.IntegrationForm    `json:"form"`
-				Topology    []clickhouse.ClusterNode `json:"topology,omitempty"`
-				TableSizes  []clickhouse.TableInfo   `json:"table_sizes,omitempty"`
-				ServerDisks []ServerDiskInfo         `json:"server_disks,omitempty"`
+				Form        forms.IntegrationForm   `json:"form"`
+				ClusterInfo *clickhouse.ClusterInfo `json:"cluster_info"`
 			}{
 				Form:        form,
-				Topology:    topology,
-				TableSizes:  tableSizes,
-				ServerDisks: serverDisks,
+				ClusterInfo: ci,
 			})
 		default:
 			utils.WriteJson(w, form)
@@ -908,186 +897,6 @@ func (api *Api) Prom(w http.ResponseWriter, r *http.Request, u *db.User) {
 		return
 	}
 	c.Proxy(r, w)
-}
-
-type ServerDiskInfo struct {
-	Addr  string                `json:"addr"`
-	Disks []clickhouse.DiskInfo `json:"disks,omitempty"`
-	Error string                `json:"error,omitempty"`
-}
-
-type ServerResult struct {
-	Addr  string
-	Data  interface{}
-	Error error
-}
-
-func (api *Api) executeOnAllServers(ctx context.Context, project *db.Project, topology []clickhouse.ClusterNode, operation func(*clickhouse.Client) (interface{}, error)) ([]ServerResult, error) {
-	cfg := project.ClickHouseConfig(api.globalClickHouse)
-	if cfg == nil {
-		return nil, nil
-	}
-
-	serverAddrs := make(map[string]bool)
-	for _, node := range topology {
-		serverAddrs[net.JoinHostPort(node.HostName, strconv.Itoa(int(node.Port)))] = true
-	}
-	if len(serverAddrs) == 0 {
-		serverAddrs[cfg.Addr] = true
-	}
-
-	type serverExecResult struct {
-		addr string
-		data interface{}
-		err  error
-	}
-
-	resultChan := make(chan serverExecResult, len(serverAddrs))
-
-	for addr := range serverAddrs {
-		go func(serverAddr string) {
-			config := clickhouse.NewClientConfig(serverAddr, cfg.Auth.User, cfg.Auth.Password)
-			config.Protocol = cfg.Protocol
-			config.Database = cfg.Database
-			config.TlsEnable = cfg.TlsEnable
-			config.TlsSkipVerify = cfg.TlsSkipVerify
-
-			client, err := clickhouse.NewClient(config, false)
-			if err != nil {
-				resultChan <- serverExecResult{addr: serverAddr, err: err}
-				return
-			}
-			defer client.Close()
-
-			data, err := operation(client)
-			resultChan <- serverExecResult{
-				addr: serverAddr,
-				data: data,
-				err:  err,
-			}
-		}(addr)
-	}
-
-	var results []ServerResult
-	for i := 0; i < len(serverAddrs); i++ {
-		select {
-		case result := <-resultChan:
-			results = append(results, ServerResult{
-				Addr:  result.addr,
-				Data:  result.data,
-				Error: result.err,
-			})
-		case <-ctx.Done():
-			return results, ctx.Err()
-		}
-	}
-
-	return results, nil
-}
-
-func (api *Api) getClickHouseTableSizes(ctx context.Context, project *db.Project, topology []clickhouse.ClusterNode) ([]clickhouse.TableInfo, error) {
-	results, err := api.executeOnAllServers(ctx, project, topology, func(client *clickhouse.Client) (interface{}, error) {
-		return client.GetTableSizes(ctx)
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	var allTables []clickhouse.TableInfo
-	for _, result := range results {
-		if result.Error != nil {
-			klog.Warningf("failed to get table sizes from server %s: %v", result.Addr, result.Error)
-			continue
-		}
-		if tables, ok := result.Data.([]clickhouse.TableInfo); ok {
-			allTables = append(allTables, tables...)
-		}
-	}
-	return aggregateClickHouseTableStats(allTables), nil
-}
-
-func (api *Api) getClickHouseServerDisks(ctx context.Context, project *db.Project, topology []clickhouse.ClusterNode) ([]ServerDiskInfo, error) {
-	results, err := api.executeOnAllServers(ctx, project, topology, func(client *clickhouse.Client) (interface{}, error) {
-		return client.GetDiskInfo(ctx)
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	var servers []ServerDiskInfo
-	for _, result := range results {
-		server := ServerDiskInfo{
-			Addr: result.Addr,
-		}
-
-		if result.Error != nil {
-			klog.Warningf("failed to get disk info from server %s: %v", result.Addr, result.Error)
-			server.Error = result.Error.Error()
-		} else if disks, ok := result.Data.([]clickhouse.DiskInfo); ok {
-			server.Disks = disks
-		}
-
-		servers = append(servers, server)
-	}
-	return servers, nil
-}
-
-func aggregateClickHouseTableStats(tables []clickhouse.TableInfo) []clickhouse.TableInfo {
-	agg := map[string]*clickhouse.TableInfo{}
-
-	for _, table := range tables {
-		var key string
-
-		switch {
-		case strings.HasPrefix(table.Table, "otel_logs"):
-			key = "logs"
-		case strings.HasPrefix(table.Table, "otel_traces"):
-			key = "traces"
-		case strings.HasPrefix(table.Table, "profiling_"):
-			key = "profiling"
-		default:
-			continue
-		}
-
-		ti := agg[key]
-		if ti == nil {
-			ti = &clickhouse.TableInfo{
-				Table: key,
-			}
-			agg[key] = ti
-		}
-
-		ti.BytesOnDisk += table.BytesOnDisk
-		ti.DataUncompressedBytes += table.DataUncompressedBytes
-
-		if ti.TTLInfo == "" {
-			ti.TTLInfo = table.TTLInfo
-		}
-
-		if ti.TTLSeconds == nil && table.TTLSeconds != nil {
-			ti.TTLSeconds = table.TTLSeconds
-		}
-
-		if table.DataSince != nil {
-			if ti.DataSince == nil || table.DataSince.Before(*ti.DataSince) {
-				ti.DataSince = table.DataSince
-			}
-		}
-	}
-	res := make([]clickhouse.TableInfo, 0, len(agg))
-
-	for _, ti := range agg {
-		if ti.BytesOnDisk > 0 {
-			ti.CompressionRatio = float64(ti.DataUncompressedBytes) / float64(ti.BytesOnDisk)
-		}
-		res = append(res, *ti)
-	}
-
-	sort.Slice(res, func(i, j int) bool {
-		return res[i].Table < res[j].Table
-	})
-
-	return res
 }
 
 func (api *Api) Application(w http.ResponseWriter, r *http.Request, u *db.User) {

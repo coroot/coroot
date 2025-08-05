@@ -14,13 +14,13 @@ import (
 
 type SpaceManager struct {
 	client    *Client
-	cfg       config.SpaceManager
+	cfg       config.ClickHouseSpaceManager
 	databases []string
 }
 
 func (sm *SpaceManager) CheckAndCleanup(ctx context.Context, cluster string) error {
 	klog.Infof("cluster %s", cluster)
-	topology, err := sm.client.GetClusterTopology(ctx)
+	topology, err := sm.client.getClusterTopology(ctx)
 	if err != nil {
 		return fmt.Errorf("could not get cluster topology: %w", err)
 	}
@@ -176,7 +176,7 @@ func (sm *SpaceManager) getPartitionsFromDiskOnServer(ctx context.Context, clien
 	return partitions, rows.Err()
 }
 
-func RunSpaceManagerForProjects(ctx context.Context, cfg config.SpaceManager, projects []*db.Project, globalClickHouse *db.IntegrationClickhouse) error {
+func RunSpaceManagerForProjects(ctx context.Context, cfg config.ClickHouseSpaceManager, projects []*db.Project, globalClickHouse *db.IntegrationClickhouse) error {
 	type clusterInfo struct {
 		config    *db.IntegrationClickhouse
 		databases map[string]bool
@@ -210,7 +210,7 @@ func RunSpaceManagerForProjects(ctx context.Context, cfg config.SpaceManager, pr
 	return nil
 }
 
-func runSpaceManagerOnCluster(ctx context.Context, managerCfg config.SpaceManager, cfg *db.IntegrationClickhouse, databases []string) error {
+func runSpaceManagerOnCluster(ctx context.Context, managerCfg config.ClickHouseSpaceManager, cfg *db.IntegrationClickhouse, databases []string) error {
 	config := NewClientConfig(cfg.Addr, cfg.Auth.User, cfg.Auth.Password)
 	config.Protocol = cfg.Protocol
 	config.Database = cfg.Database

@@ -15,7 +15,7 @@ import (
 	"k8s.io/klog"
 )
 
-func Start(database *db.DB, cache *cache.Cache, pricing *pricing.Manager, incidents *Incidents, checkDeployments bool, globalClickHouse *db.IntegrationClickhouse, spaceManagerCfg config.SpaceManager) {
+func Start(database *db.DB, cache *cache.Cache, pricing *pricing.Manager, incidents *Incidents, checkDeployments bool, globalClickHouse *db.IntegrationClickhouse, spaceManagerCfg config.ClickHouseSpaceManager) {
 	var deployments *Deployments
 	if checkDeployments {
 		deployments = NewDeployments(database, pricing)
@@ -122,7 +122,7 @@ func handleProjectUpdate(database *db.DB, cache *cache.Cache, pricing *pricing.M
 	klog.Infof("%s: iteration done in %s", project.Id, time.Since(start).Truncate(time.Millisecond))
 }
 
-func runSpaceManagerOnce(cfg config.SpaceManager, database *db.DB, globalClickHouse *db.IntegrationClickhouse) {
+func runSpaceManagerOnce(cfg config.ClickHouseSpaceManager, database *db.DB, globalClickHouse *db.IntegrationClickhouse) {
 	if !cfg.Enabled {
 		klog.Infof("clickhouse space manager disabled")
 		return

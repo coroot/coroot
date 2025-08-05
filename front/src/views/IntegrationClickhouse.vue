@@ -235,9 +235,15 @@ export default {
                 }
                 if (data.form) {
                     this.form = data.form;
-                    this.topology = data.topology;
-                    this.tableSizes = data.table_sizes;
-                    this.serverDisks = data.server_disks;
+                    if (data.cluster_info) {
+                        this.topology = data.cluster_info.topology;
+                        this.tableSizes = data.cluster_info.table_sizes;
+                        this.serverDisks = data.cluster_info.server_disks;
+                    } else {
+                        this.topology = null;
+                        this.tableSizes = null;
+                        this.serverDisks = null;
+                    }
                 } else {
                     this.form = data;
                     this.topology = null;
