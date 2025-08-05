@@ -133,7 +133,9 @@ func runSpaceManagerOnce(cfg config.SpaceManager, database *db.DB, globalClickHo
 		return
 	}
 
-	if err := clickhouse.RunSpaceManagerForProjects(context.TODO(), cfg, projects, globalClickHouse); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	if err := clickhouse.RunSpaceManagerForProjects(ctx, cfg, projects, globalClickHouse); err != nil {
 		klog.Errorf("clickhouse space manager: failed: %v", err)
 	}
 }

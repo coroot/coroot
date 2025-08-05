@@ -970,12 +970,16 @@ func (api *Api) executeOnAllServers(ctx context.Context, project *db.Project, to
 
 	var results []ServerResult
 	for i := 0; i < len(serverAddrs); i++ {
-		result := <-resultChan
-		results = append(results, ServerResult{
-			Addr:  result.addr,
-			Data:  result.data,
-			Error: result.err,
-		})
+		select {
+		case result := <-resultChan:
+			results = append(results, ServerResult{
+				Addr:  result.addr,
+				Data:  result.data,
+				Error: result.err,
+			})
+		case <-ctx.Done():
+			return results, ctx.Err()
+		}
 	}
 
 	return results, nil
