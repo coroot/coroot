@@ -368,6 +368,7 @@ func (api *Api) Overview(w http.ResponseWriter, r *http.Request, u *db.User) {
 	if ch, err = api.GetClickhouseClient(project); err != nil {
 		klog.Warningln(err)
 	}
+	defer ch.Close()
 	auditor.Audit(world, project, nil, project.ClickHouseConfig(api.globalClickHouse) != nil, nil)
 	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Overview(r.Context(), ch, world, view, r.URL.Query().Get("query"))))
 }
@@ -792,6 +793,28 @@ func (api *Api) Integration(w http.ResponseWriter, r *http.Request, u *db.User) 
 			}{
 				Form: form,
 				View: views.AWS(world),
+			})
+		case db.IntegrationTypeClickhouse:
+			cfg := project.ClickHouseConfig(api.globalClickHouse)
+			var ci *clickhouse.ClusterInfo
+			if cfg != nil {
+				config := clickhouse.NewClientConfig(cfg.Addr, cfg.Auth.User, cfg.Auth.Password)
+				config.Protocol = cfg.Protocol
+				config.Database = cfg.Database
+				config.TlsEnable = cfg.TlsEnable
+				config.TlsSkipVerify = cfg.TlsSkipVerify
+
+				if ci, err = clickhouse.GetClusterInfo(r.Context(), config); err != nil {
+					klog.Errorln(err)
+				}
+			}
+
+			utils.WriteJson(w, struct {
+				Form        forms.IntegrationForm   `json:"form"`
+				ClusterInfo *clickhouse.ClusterInfo `json:"cluster_info"`
+			}{
+				Form:        form,
+				ClusterInfo: ci,
 			})
 		default:
 			utils.WriteJson(w, form)
@@ -1288,6 +1311,7 @@ func (api *Api) Profiling(w http.ResponseWriter, r *http.Request, u *db.User) {
 		http.Error(w, "ClickHouse is not available", http.StatusInternalServerError)
 		return
 	}
+	defer ch.Close()
 	q := r.URL.Query()
 	auditor.Audit(world, project, nil, project.ClickHouseConfig(api.globalClickHouse) != nil, nil)
 	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Profiling(r.Context(), ch, app, q, world.Ctx)))
@@ -1345,6 +1369,7 @@ func (api *Api) Tracing(w http.ResponseWriter, r *http.Request, u *db.User) {
 		http.Error(w, "ClickHouse is not available", http.StatusInternalServerError)
 		return
 	}
+	defer ch.Close()
 	auditor.Audit(world, project, nil, project.ClickHouseConfig(api.globalClickHouse) != nil, nil)
 	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Tracing(r.Context(), ch, app, q, world)))
 }
@@ -1398,6 +1423,7 @@ func (api *Api) Logs(w http.ResponseWriter, r *http.Request, u *db.User) {
 	if chErr != nil {
 		klog.Warningln(chErr)
 	}
+	defer ch.Close()
 	auditor.Audit(world, project, nil, project.ClickHouseConfig(api.globalClickHouse) != nil, nil)
 	q := r.URL.Query()
 	res := views.Logs(r.Context(), ch, app, q, world)

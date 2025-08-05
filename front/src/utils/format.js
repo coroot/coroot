@@ -100,3 +100,20 @@ export function float(f) {
     }
     return f.toFixed(3);
 }
+
+export function formatBytes(bytes) {
+    if (bytes === 0) {
+        return '0B';
+    }
+
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+    if (i === 0) {
+        return bytes + 'B';
+    }
+
+    const value = bytes / Math.pow(k, i);
+    return value.toFixed(1) + sizes[i];
+}

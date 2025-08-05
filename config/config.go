@@ -38,8 +38,16 @@ type Config struct {
 
 	DeveloperMode bool `yaml:"developer_mode"`
 
+	ClickHouseSpaceManager ClickHouseSpaceManager `yaml:"clickhouse_space_manager"`
+
 	BootstrapClickhouse *Clickhouse `yaml:"-"`
 	BootstrapPrometheus *Prometheus `yaml:"-"`
+}
+
+type ClickHouseSpaceManager struct {
+	Enabled               bool `yaml:"enabled"`
+	UsageThresholdPercent int  `yaml:"usage_threshold_percent"`
+	MinPartitions         int  `yaml:"min_partitions"`
 }
 
 type Cache struct {
@@ -164,6 +172,12 @@ func NewConfig() *Config {
 		Auth: Auth{
 			BootstrapAdminPassword: db.AdminUserDefaultPassword,
 		},
+
+		ClickHouseSpaceManager: ClickHouseSpaceManager{
+			Enabled:               true,
+			UsageThresholdPercent: 70,
+			MinPartitions:         1,
+		},
 	}
 }
 
@@ -236,6 +250,9 @@ func (cfg *Config) Validate() error {
 	}
 	if err = cfg.BootstrapPrometheus.Validate(); err != nil {
 		return fmt.Errorf("invalid bootstrap_prometheus: %w", err)
+	}
+	if cfg.ClickHouseSpaceManager.UsageThresholdPercent < 0 || cfg.ClickHouseSpaceManager.UsageThresholdPercent > 100 {
+		return fmt.Errorf("invalid usage_threshold_percent: %d", cfg.ClickHouseSpaceManager.UsageThresholdPercent)
 	}
 
 	return nil

@@ -7,22 +7,25 @@ import (
 )
 
 var (
-	configFile                 = kingpin.Flag("config", "Configuration file").Envar("CONFIG").String()
-	listen                     = kingpin.Flag("listen", "Listen address - ip:port or :port").Envar("LISTEN").String()
-	urlBasePath                = kingpin.Flag("url-base-path", "The base URL to run Coroot at a sub-path, e.g. /coroot/").Envar("URL_BASE_PATH").String()
-	dataDir                    = kingpin.Flag("data-dir", `Path to the data directory`).Envar("DATA_DIR").String()
-	cacheTTL                   = timeseries.DurationFlag(kingpin.Flag("cache-ttl", "Cache TTL (e.g. 8h, 2d, 1w; default 30d)").Envar("CACHE_TTL"))
-	cacheGcInterval            = timeseries.DurationFlag(kingpin.Flag("cache-gc-interval", "Cache GC interval").Envar("CACHE_GC_INTERVAL"))
-	tracesTTL                  = timeseries.DurationFlag(kingpin.Flag("traces-ttl", "Traces TTL (e.g. 8h, 3d, 2w; default 7d)").Envar("TRACES_TTL"))
-	logsTTL                    = timeseries.DurationFlag(kingpin.Flag("logs-ttl", "Logs TTL (e.g. 8h, 3d, 2w; default 7d)").Envar("LOGS_TTL"))
-	profilesTTL                = timeseries.DurationFlag(kingpin.Flag("profiles-ttl", "Profiles TTL (e.g. 8h, 3d, 2w; default 7d)").Envar("PROFILES_TTL"))
-	pgConnectionString         = kingpin.Flag("pg-connection-string", "Postgres connection string (sqlite is used if not set)").Envar("PG_CONNECTION_STRING").String()
-	doNotCheckForDeployments   = kingpin.Flag("do-not-check-for-deployments", "Don't check for new deployments").Envar("DO_NOT_CHECK_FOR_DEPLOYMENTS").Bool()
-	doNotCheckForUpdates       = kingpin.Flag("do-not-check-for-updates", "Don't check for new versions").Envar("DO_NOT_CHECK_FOR_UPDATES").Bool()
-	disableUsageStatistics     = kingpin.Flag("disable-usage-statistics", "Disable usage statistics").Envar("DISABLE_USAGE_STATISTICS").Bool()
-	authAnonymousRole          = kingpin.Flag("auth-anonymous-role", "Disable authentication and assign one of the following roles to the anonymous user: Admin, Editor, or Viewer.").Envar("AUTH_ANONYMOUS_ROLE").String()
-	authBootstrapAdminPassword = kingpin.Flag("auth-bootstrap-admin-password", "Password for the default Admin user").Envar("AUTH_BOOTSTRAP_ADMIN_PASSWORD").String()
-	developerMode              = kingpin.Flag("developer-mode", "If enabled, Coroot will not use embedded static assets").Envar("DEVELOPER_MODE").Bool()
+	configFile                                  = kingpin.Flag("config", "Configuration file").Envar("CONFIG").String()
+	listen                                      = kingpin.Flag("listen", "Listen address - ip:port or :port").Envar("LISTEN").String()
+	urlBasePath                                 = kingpin.Flag("url-base-path", "The base URL to run Coroot at a sub-path, e.g. /coroot/").Envar("URL_BASE_PATH").String()
+	dataDir                                     = kingpin.Flag("data-dir", `Path to the data directory`).Envar("DATA_DIR").String()
+	cacheTTL                                    = timeseries.DurationFlag(kingpin.Flag("cache-ttl", "Cache TTL (e.g. 8h, 2d, 1w; default 30d)").Envar("CACHE_TTL"))
+	cacheGcInterval                             = timeseries.DurationFlag(kingpin.Flag("cache-gc-interval", "Cache GC interval").Envar("CACHE_GC_INTERVAL"))
+	tracesTTL                                   = timeseries.DurationFlag(kingpin.Flag("traces-ttl", "Traces TTL (e.g. 8h, 3d, 2w; default 7d)").Envar("TRACES_TTL"))
+	logsTTL                                     = timeseries.DurationFlag(kingpin.Flag("logs-ttl", "Logs TTL (e.g. 8h, 3d, 2w; default 7d)").Envar("LOGS_TTL"))
+	profilesTTL                                 = timeseries.DurationFlag(kingpin.Flag("profiles-ttl", "Profiles TTL (e.g. 8h, 3d, 2w; default 7d)").Envar("PROFILES_TTL"))
+	pgConnectionString                          = kingpin.Flag("pg-connection-string", "Postgres connection string (sqlite is used if not set)").Envar("PG_CONNECTION_STRING").String()
+	doNotCheckForDeployments                    = kingpin.Flag("do-not-check-for-deployments", "Don't check for new deployments").Envar("DO_NOT_CHECK_FOR_DEPLOYMENTS").Bool()
+	doNotCheckForUpdates                        = kingpin.Flag("do-not-check-for-updates", "Don't check for new versions").Envar("DO_NOT_CHECK_FOR_UPDATES").Bool()
+	disableUsageStatistics                      = kingpin.Flag("disable-usage-statistics", "Disable usage statistics").Envar("DISABLE_USAGE_STATISTICS").Bool()
+	authAnonymousRole                           = kingpin.Flag("auth-anonymous-role", "Disable authentication and assign one of the following roles to the anonymous user: Admin, Editor, or Viewer.").Envar("AUTH_ANONYMOUS_ROLE").String()
+	authBootstrapAdminPassword                  = kingpin.Flag("auth-bootstrap-admin-password", "Password for the default Admin user").Envar("AUTH_BOOTSTRAP_ADMIN_PASSWORD").String()
+	developerMode                               = kingpin.Flag("developer-mode", "If enabled, Coroot will not use embedded static assets").Envar("DEVELOPER_MODE").Bool()
+	clickHouseSpaceManagerDisabled              = kingpin.Flag("disable-clickhouse-space-manager", "If enabled, Coroot will manage ClickHouse disk space by removing old partitions").Envar("CLICKHOUSE_SPACE_MANAGER_DISABLED").Bool()
+	clickHouseSpaceManagerUsageThresholdPercent = kingpin.Flag("clickhouse-space-manager-usage-threshold", "Disk usage percentage threshold for triggering partition cleanup in ClickHouse").Envar("CLICKHOUSE_SPACE_MANAGER_USAGE_THRESHOLD").Int()
+	clickHouseSpaceManagerMinPartitions         = kingpin.Flag("clickhouse-space-manager-min-partitions", "Minimum number of partitions to keep when cleaning up ClickHouse disk space").Envar("CLICKHOUSE_SPACE_MANAGER_MIN_PARTITIONS").Int()
 
 	globalClickhouseAddress         = kingpin.Flag("global-clickhouse-address", "").Envar("GLOBAL_CLICKHOUSE_ADDRESS").String()
 	globalClickhouseUser            = kingpin.Flag("global-clickhouse-user", "").Envar("GLOBAL_CLICKHOUSE_USER").String()
@@ -95,6 +98,15 @@ func (cfg *Config) ApplyFlags() {
 	}
 	if *developerMode {
 		cfg.DeveloperMode = *developerMode
+	}
+	if *clickHouseSpaceManagerDisabled {
+		cfg.ClickHouseSpaceManager.Enabled = false
+	}
+	if *clickHouseSpaceManagerUsageThresholdPercent > 0 {
+		cfg.ClickHouseSpaceManager.UsageThresholdPercent = *clickHouseSpaceManagerUsageThresholdPercent
+	}
+	if *clickHouseSpaceManagerMinPartitions > 0 {
+		cfg.ClickHouseSpaceManager.MinPartitions = *clickHouseSpaceManagerMinPartitions
 	}
 
 	keep := cfg.GlobalClickhouse != nil || *globalClickhouseAddress != ""

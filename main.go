@@ -120,7 +120,7 @@ func main() {
 
 	incidents := watchers.NewIncidents(database, nil)
 
-	watchers.Start(database, promCache, pricing, incidents, !cfg.DoNotCheckForDeployments)
+	watchers.Start(database, promCache, pricing, incidents, !cfg.DoNotCheckForDeployments, globalClickhouse, cfg.ClickHouseSpaceManager)
 
 	a := api.NewApi(promCache, database, coll, pricing, rbac.NewStaticRoleManager(), globalClickhouse, globalPrometheus)
 	err = a.AuthInit(cfg.Auth.AnonymousRole, cfg.Auth.BootstrapAdminPassword)
