@@ -104,7 +104,7 @@ func (wh *Webhook) send(ctx context.Context, data []byte) error {
 	if err != nil {
 		return err
 	}
-	if wh.cfg.BasicAuth != nil {
+	if wh.cfg.BasicAuth != nil && wh.cfg.BasicAuth.User != "" && wh.cfg.BasicAuth.Password != "" {
 		req.SetBasicAuth(wh.cfg.BasicAuth.User, wh.cfg.BasicAuth.Password)
 	}
 	req.Header.Set("Content-Type", "application/json")
