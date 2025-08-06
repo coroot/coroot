@@ -375,7 +375,7 @@ spec:
 #      apiKeySecret:  # Secret containing the API key.
 #        name: # Name of the secret to select from.
 #        key:  # Key of the secret to select from.
-#      baseUrl:  # Base URL (e.g., https://generativelanguage.googleapis.com/v1beta/openai).
+#      baseURL:  # Base URL (e.g., https://generativelanguage.googleapis.com/v1beta/openai).
 #      model:    # Model name (e.g., gemini-2.5-pro-preview-06-05).
 ```
 
