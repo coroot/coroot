@@ -87,11 +87,9 @@ func (w *World) GetCorootComponents() []*Application {
 		components[app.Id] = app
 		types := app.ApplicationTypes()
 		if types[ApplicationTypeCorootCE] || types[ApplicationTypeCorootEE] {
-			for _, i := range app.Instances {
-				for _, u := range i.Upstreams { // prometheus and clickhouse
-					if u.RemoteInstance != nil && u.RemoteInstance.Owner.Id.Kind != ApplicationKindExternalService {
-						components[u.RemoteInstance.Owner.Id] = u.RemoteInstance.Owner
-					}
+			for _, u := range app.Upstreams { // prometheus and clickhouse
+				if a := u.RemoteApplication; a != nil && a.Id.Kind != ApplicationKindExternalService {
+					components[a.Id] = a
 				}
 			}
 		}
