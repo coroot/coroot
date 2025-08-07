@@ -97,8 +97,9 @@ func (w *Deployments) snapshotDeploymentMetrics(project *db.Project, world *mode
 func (w *Deployments) sendNotifications(project *db.Project, world *model.World) {
 	integrations := project.Settings.Integrations
 	now := world.Ctx.To
+	categories := project.GetApplicationCategories()
 	for _, app := range world.Applications {
-		categorySettings := project.Settings.ApplicationCategorySettings[app.Category]
+		categorySettings := categories[app.Category]
 		if categorySettings == nil {
 			continue
 		}
