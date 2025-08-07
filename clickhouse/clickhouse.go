@@ -99,6 +99,9 @@ func (c *Client) QueryRow(ctx context.Context, query string, args ...interface{}
 }
 
 func (c *Client) Close() error {
+	if c == nil {
+		return nil
+	}
 	return c.conn.Close()
 }
 

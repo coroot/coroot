@@ -368,9 +368,7 @@ func (api *Api) Overview(w http.ResponseWriter, r *http.Request, u *db.User) {
 	if ch, err = api.GetClickhouseClient(project); err != nil {
 		klog.Warningln(err)
 	}
-	if ch != nil {
-		defer ch.Close()
-	}
+	defer ch.Close()
 	auditor.Audit(world, project, nil, project.ClickHouseConfig(api.globalClickHouse) != nil, nil)
 	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Overview(r.Context(), ch, world, view, r.URL.Query().Get("query"))))
 }
@@ -1313,9 +1311,7 @@ func (api *Api) Profiling(w http.ResponseWriter, r *http.Request, u *db.User) {
 		http.Error(w, "ClickHouse is not available", http.StatusInternalServerError)
 		return
 	}
-	if ch != nil {
-		defer ch.Close()
-	}
+	defer ch.Close()
 	q := r.URL.Query()
 	auditor.Audit(world, project, nil, project.ClickHouseConfig(api.globalClickHouse) != nil, nil)
 	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Profiling(r.Context(), ch, app, q, world.Ctx)))
@@ -1373,9 +1369,7 @@ func (api *Api) Tracing(w http.ResponseWriter, r *http.Request, u *db.User) {
 		http.Error(w, "ClickHouse is not available", http.StatusInternalServerError)
 		return
 	}
-	if ch != nil {
-		defer ch.Close()
-	}
+	defer ch.Close()
 	auditor.Audit(world, project, nil, project.ClickHouseConfig(api.globalClickHouse) != nil, nil)
 	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Tracing(r.Context(), ch, app, q, world)))
 }
@@ -1429,9 +1423,7 @@ func (api *Api) Logs(w http.ResponseWriter, r *http.Request, u *db.User) {
 	if chErr != nil {
 		klog.Warningln(chErr)
 	}
-	if ch != nil {
-		defer ch.Close()
-	}
+	defer ch.Close()
 	auditor.Audit(world, project, nil, project.ClickHouseConfig(api.globalClickHouse) != nil, nil)
 	q := r.URL.Query()
 	res := views.Logs(r.Context(), ch, app, q, world)
