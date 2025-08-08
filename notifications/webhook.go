@@ -47,12 +47,15 @@ func (wh *Webhook) SendIncident(ctx context.Context, baseUrl string, n *db.Incid
 	}
 
 	var data bytes.Buffer
-	err = tmpl.Execute(&data, IncidentTemplateValues{
+	values := IncidentTemplateValues{
 		Status:      strings.ToUpper(n.Status.String()),
 		Application: n.ApplicationId,
-		Reports:     n.Details.Reports,
 		URL:         incidentUrl(baseUrl, n),
-	})
+	}
+	if n.Details != nil {
+		values.Reports = n.Details.Reports
+	}
+	err = tmpl.Execute(&data, values)
 	if err != nil {
 		return fmt.Errorf("invalid incident template: %s", err)
 	}
