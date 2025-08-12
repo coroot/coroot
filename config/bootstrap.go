@@ -71,6 +71,27 @@ func (cfg *Config) Bootstrap(database *db.DB) error {
 				pp.Settings.CustomApplications[c.Name] = c.CustomApplication
 			}
 		}
+		if p.InspectionOverrides != nil {
+			for _, override := range p.InspectionOverrides.SLOAvailability {
+				c := []model.CheckConfigSLOAvailability{{
+					Custom:              false,
+					ObjectivePercentage: override.ObjectivePercent,
+				}}
+				if err = database.SaveCheckConfig(pp.Id, override.ApplicationId, model.Checks.SLOAvailability.Id, c); err != nil {
+					return err
+				}
+			}
+			for _, override := range p.InspectionOverrides.SLOLatency {
+				c := []model.CheckConfigSLOLatency{{
+					Custom:              false,
+					ObjectivePercentage: override.ObjectivePercent,
+					ObjectiveBucket:     model.RoundUpToDefaultBucket(float32(override.ObjectiveThreshold.Seconds())),
+				}}
+				if err = database.SaveCheckConfig(pp.Id, override.ApplicationId, model.Checks.SLOLatency.Id, c); err != nil {
+					return err
+				}
+			}
+		}
 	}
 	for _, p := range byName {
 		if p.Settings.ApiKeys == nil {
