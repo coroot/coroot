@@ -37,6 +37,7 @@ const (
 	ApplicationTypeVictoriaMetrics ApplicationType = "victoria-metrics"
 	ApplicationTypeVictoriaLogs    ApplicationType = "victoria-logs"
 	ApplicationTypeClickHouse      ApplicationType = "clickhouse"
+	ApplicationTypeFoundationDB    ApplicationType = "foundationdb"
 	ApplicationTypeCorootCE        ApplicationType = "coroot-community-edition"
 	ApplicationTypeCorootEE        ApplicationType = "coroot-enterprise-edition"
 )
@@ -47,7 +48,7 @@ func (at ApplicationType) IsDatabase() bool {
 		ApplicationTypeZookeeper, ApplicationTypeElasticsearch, ApplicationTypeOpensearch, ApplicationTypePostgres,
 		ApplicationTypeMysql, ApplicationTypeRedis, ApplicationTypeKeyDB, ApplicationTypeValkey, ApplicationTypeDragonfly,
 		ApplicationTypeMongodb, ApplicationTypePrometheus, ApplicationTypeVictoriaMetrics, ApplicationTypeVictoriaLogs,
-		ApplicationTypeClickHouse:
+		ApplicationTypeClickHouse, ApplicationTypeFoundationDB:
 		return true
 	}
 	return false
