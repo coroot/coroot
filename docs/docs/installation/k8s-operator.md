@@ -57,6 +57,7 @@ spec:
 #    size: 10Gi # Volume size for Coroot storage.
 #    className: "" # If not set, the default storage class will be used.
 #    reclaimPolicy: Delete # Options: Retain (keeps PVC) or Delete (removes PVC on Coroot CR deletion).
+#    annotations: # Annotations for PersistentVolumeClaim (PVC).
 #  service:
 #    type: # Service type (e.g., ClusterIP, NodePort, LoadBalancer).
 #    port: # Service port number.
@@ -165,6 +166,7 @@ spec:
 #      size: 10Gi # Volume size for Prometheus storage.
 #      className: "" # If not set, the default storage class will be used.
 #      reclaimPolicy: Delete # Options: Retain (keeps PVC) or Delete (removes PVC on Coroot CR deletion).
+#      annotations: # Annotations for PersistentVolumeClaim (PVC).
 #    resources: # Resource requests and limits for Prometheus.
 #    podAnnotations: # Annotations for Prometheus.
 #    retention: 2d # Metrics retention time (e.g. 4h, 3d, 2w, 1y).
@@ -200,6 +202,7 @@ spec:
 #      size: 10Gi # Volume size for EACH ClickHouse instance.
 #      className: "" # If not set, the default storage class will be used.
 #      reclaimPolicy: Delete # Options: Retain (keeps PVC) or Delete (removes PVC on Coroot CR deletion).
+#      annotations: # Annotations for PersistentVolumeClaim (PVC).
 #    nodeSelector: # Restricts scheduling to nodes matching the specified labels.
 #    affinity: # Affinity rules for ClickHouse pods.
 #    tolerations: # Tolerations for ClickHouse pods.
@@ -217,6 +220,7 @@ spec:
 #      storage:
 #        size: 10Gi # Volume size for keeper storage.
 #        className: "" # If not set, the default storage class will be used.
+#        annotations: # Annotations for PersistentVolumeClaim (PVC).
 #      resources: # Resource requests and limits for keeper pods.
 #      podAnnotations: # Annotations for keeper pods.
 #      image: # If unspecified, the operator will install Clickhouse Keeper from Coroot's public registry.
@@ -342,6 +346,19 @@ spec:
 #          instancePatterns:
 #            - app@node1
 #            - app@node2
+#      # Project inspection overrides.
+#      inspectionOverrides:
+#        # `applicationId` format: <namespace>:<kind>:<name>
+#        sloAvailability:
+#          - applicationId: otel-demo:Deployment:cart
+#            objectivePercent: 99.9 # The percentage of requests that should be served without errors (e.g., 95, 99, 99.9).
+#        sloLatency:
+#          - applicationId: otel-demo:Deployment:cart
+#            objectivePercent: 99.9     # The percentage of requests that should be served faster than `objectiveThreshold` (e.g., 95, 99, 99.9).
+#            objectiveThreshold: 100ms  # The latency threshold (e.g., 5ms, 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s, 2.5s, 5s, 10s).
+#          - applicationId: external:ExternalService:api.github.com:443
+#            objectivePercent: 99 
+#            objectiveThreshold: 2s
 
 # Single Sign-on configuration (Coroot Enterprise edition only).
 #  sso:
