@@ -195,7 +195,21 @@ projects: # Create or update projects (configuration file only).
         instancePatterns:
           - app@node1
           - app@node2
-
+    # Project inspection overrides
+    inspectionOverrides:
+      # applicationId format: <namespace>:<kind>:<name>
+      # namespace = `external` for external services, `_` for non-Kubernetes apps
+      sloLatency:
+        - applicationId: external:ExternalService:api.github.com:443 
+          objectivePercent: 99
+          objectiveThreshold: 2s
+        - applicationId: default:Deployment:catalog
+          objectivePercent: 99.9
+          objectiveThreshold: 100ms
+      sloAvailability:
+        - applicationId: default:Deployment:catalog
+          objectivePercent: 98
+          
 # Single Sign-on configuration (Coroot Enterprise edition only).
 sso:
   enabled: false
