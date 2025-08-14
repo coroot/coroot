@@ -147,6 +147,7 @@ func main() {
 	if cfg.UrlBasePath != "/" {
 		r = router.PathPrefix(cfg.UrlBasePath).Subrouter()
 	}
+	r.UseEncodedPath()
 	r.HandleFunc("/api/login", a.Login).Methods(http.MethodPost)
 	r.HandleFunc("/api/logout", a.Logout).Methods(http.MethodPost)
 

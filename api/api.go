@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"slices"
 	"sort"
 	"strconv"
@@ -900,12 +901,11 @@ func (api *Api) Prom(w http.ResponseWriter, r *http.Request, u *db.User) {
 }
 
 func (api *Api) Application(w http.ResponseWriter, r *http.Request, u *db.User) {
-	vars := mux.Vars(r)
-	projectId := vars["project"]
-	appId, err := model.NewApplicationIdFromString(vars["app"])
+	projectId := mux.Vars(r)["project"]
+	appId, err := GetApplicationId(r)
 	if err != nil {
 		klog.Warningln(err)
-		http.Error(w, "invalid application id: "+vars["app"], http.StatusBadRequest)
+		http.Error(w, "invalid application id", http.StatusBadRequest)
 		return
 	}
 	world, project, cacheStatus, err := api.LoadWorldByRequest(r)
@@ -1042,10 +1042,10 @@ func (api *Api) Incident(w http.ResponseWriter, r *http.Request, u *db.User) {
 func (api *Api) Inspection(w http.ResponseWriter, r *http.Request, u *db.User) {
 	vars := mux.Vars(r)
 	projectId := vars["project"]
-	appId, err := model.NewApplicationIdFromString(vars["app"])
+	appId, err := GetApplicationId(r)
 	if err != nil {
 		klog.Warningln(err)
-		http.Error(w, "invalid application id: "+vars["app"], http.StatusBadRequest)
+		http.Error(w, "invalid application id", http.StatusBadRequest)
 		return
 	}
 	checkId := model.CheckId(vars["type"])
@@ -1194,10 +1194,10 @@ func (api *Api) Inspection(w http.ResponseWriter, r *http.Request, u *db.User) {
 func (api *Api) Instrumentation(w http.ResponseWriter, r *http.Request, u *db.User) {
 	vars := mux.Vars(r)
 	projectId := vars["project"]
-	appId, err := model.NewApplicationIdFromString(vars["app"])
+	appId, err := GetApplicationId(r)
 	if err != nil {
 		klog.Warningln(err)
-		http.Error(w, "invalid application id: "+vars["app"], http.StatusBadRequest)
+		http.Error(w, "invalid application id", http.StatusBadRequest)
 		return
 	}
 	world, _, _, err := api.LoadWorldByRequest(r)
@@ -1261,12 +1261,11 @@ func (api *Api) Instrumentation(w http.ResponseWriter, r *http.Request, u *db.Us
 }
 
 func (api *Api) Profiling(w http.ResponseWriter, r *http.Request, u *db.User) {
-	vars := mux.Vars(r)
-	projectId := vars["project"]
-	appId, err := model.NewApplicationIdFromString(vars["app"])
+	projectId := mux.Vars(r)["project"]
+	appId, err := GetApplicationId(r)
 	if err != nil {
 		klog.Warningln(err)
-		http.Error(w, "invalid application id: "+vars["app"], http.StatusBadRequest)
+		http.Error(w, "invalid application id", http.StatusBadRequest)
 		return
 	}
 
@@ -1318,12 +1317,11 @@ func (api *Api) Profiling(w http.ResponseWriter, r *http.Request, u *db.User) {
 }
 
 func (api *Api) Tracing(w http.ResponseWriter, r *http.Request, u *db.User) {
-	vars := mux.Vars(r)
-	projectId := vars["project"]
-	appId, err := model.NewApplicationIdFromString(vars["app"])
+	projectId := mux.Vars(r)["project"]
+	appId, err := GetApplicationId(r)
 	if err != nil {
 		klog.Warningln(err)
-		http.Error(w, "invalid application id: "+vars["app"], http.StatusBadRequest)
+		http.Error(w, "invalid application id", http.StatusBadRequest)
 		return
 	}
 
@@ -1375,12 +1373,11 @@ func (api *Api) Tracing(w http.ResponseWriter, r *http.Request, u *db.User) {
 }
 
 func (api *Api) Logs(w http.ResponseWriter, r *http.Request, u *db.User) {
-	vars := mux.Vars(r)
-	projectId := vars["project"]
-	appId, err := model.NewApplicationIdFromString(vars["app"])
+	projectId := mux.Vars(r)["project"]
+	appId, err := GetApplicationId(r)
 	if err != nil {
 		klog.Warningln(err)
-		http.Error(w, "invalid application id: "+vars["app"], http.StatusBadRequest)
+		http.Error(w, "invalid application id", http.StatusBadRequest)
 		return
 	}
 
@@ -1434,12 +1431,11 @@ func (api *Api) Logs(w http.ResponseWriter, r *http.Request, u *db.User) {
 }
 
 func (api *Api) Risks(w http.ResponseWriter, r *http.Request, u *db.User) {
-	vars := mux.Vars(r)
-	projectId := vars["project"]
-	appId, err := model.NewApplicationIdFromString(vars["app"])
+	projectId := mux.Vars(r)["project"]
+	appId, err := GetApplicationId(r)
 	if err != nil {
 		klog.Warningln(err)
-		http.Error(w, "invalid application id: "+vars["app"], http.StatusBadRequest)
+		http.Error(w, "invalid application id", http.StatusBadRequest)
 		return
 	}
 
@@ -1514,7 +1510,12 @@ func (api *Api) Risks(w http.ResponseWriter, r *http.Request, u *db.User) {
 func (api *Api) Node(w http.ResponseWriter, r *http.Request, u *db.User) {
 	vars := mux.Vars(r)
 	projectId := vars["project"]
-	nodeName := vars["node"]
+	nodeName, err := url.QueryUnescape(vars["node"])
+	if err != nil {
+		klog.Warningln(err)
+		http.Error(w, "invalid node name", http.StatusBadRequest)
+		return
+	}
 	if !api.IsAllowed(u, rbac.Actions.Project(projectId).Node(nodeName).View()) {
 		http.Error(w, "You are not allowed to view this node.", http.StatusForbidden)
 		return
@@ -1655,4 +1656,16 @@ func (api *Api) GetClickhouseClient(project *db.Project) (*clickhouse.Client, er
 		return nil, err
 	}
 	return clickhouse.NewClient(config, distributed)
+}
+
+func GetApplicationId(r *http.Request) (model.ApplicationId, error) {
+	appIdStr, err := url.QueryUnescape(mux.Vars(r)["app"])
+	if err != nil {
+		return model.ApplicationId{}, err
+	}
+	appId, err := model.NewApplicationIdFromString(appIdStr)
+	if err != nil {
+		return model.ApplicationId{}, err
+	}
+	return appId, nil
 }

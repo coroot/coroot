@@ -247,7 +247,7 @@ export default class Api {
     }
 
     getApplication(appId, cb) {
-        this.get(this.projectPath(`app/${appId}`), {}, cb);
+        this.get(this.projectPath(`app/${encodeURIComponent(appId)}`), {}, cb);
     }
 
     getIncidents(limit, cb) {
@@ -259,55 +259,55 @@ export default class Api {
     }
 
     getRCA(appId, withSummary, cb) {
-        this.get(this.projectPath(`app/${appId}/rca`), { withSummary }, cb);
+        this.get(this.projectPath(`app/${encodeURIComponent(appId)}/rca`), { withSummary }, cb);
     }
 
     getInspectionConfig(appId, type, cb) {
-        this.get(this.projectPath(`app/${appId}/inspection/${type}/config`), {}, cb);
+        this.get(this.projectPath(`app/${encodeURIComponent(appId)}/inspection/${type}/config`), {}, cb);
     }
 
     saveInspectionConfig(appId, type, form, cb) {
-        this.post(this.projectPath(`app/${appId}/inspection/${type}/config`), form, cb);
+        this.post(this.projectPath(`app/${encodeURIComponent(appId)}/inspection/${type}/config`), form, cb);
     }
 
     getInstrumentation(appId, type, cb) {
-        this.get(this.projectPath(`app/${appId}/instrumentation/${type}`), {}, cb);
+        this.get(this.projectPath(`app/${encodeURIComponent(appId)}/instrumentation/${type}`), {}, cb);
     }
 
     saveInstrumentationSettings(appId, type, form, cb) {
-        this.post(this.projectPath(`app/${appId}/instrumentation/${type}`), form, cb);
+        this.post(this.projectPath(`app/${encodeURIComponent(appId)}/instrumentation/${type}`), form, cb);
     }
 
     getProfiling(appId, query, cb) {
-        this.get(this.projectPath(`app/${appId}/profiling`), { query }, cb);
+        this.get(this.projectPath(`app/${encodeURIComponent(appId)}/profiling`), { query }, cb);
     }
 
     saveProfilingSettings(appId, form, cb) {
-        this.post(this.projectPath(`app/${appId}/profiling`), form, cb);
+        this.post(this.projectPath(`app/${encodeURIComponent(appId)}/profiling`), form, cb);
     }
 
     getTracing(appId, trace, cb) {
-        this.get(this.projectPath(`app/${appId}/tracing`), { trace }, cb);
+        this.get(this.projectPath(`app/${encodeURIComponent(appId)}/tracing`), { trace }, cb);
     }
 
     saveTracingSettings(appId, form, cb) {
-        this.post(this.projectPath(`app/${appId}/tracing`), form, cb);
+        this.post(this.projectPath(`app/${encodeURIComponent(appId)}/tracing`), form, cb);
     }
 
     getLogs(appId, query, cb) {
-        this.get(this.projectPath(`app/${appId}/logs`), { query }, cb);
+        this.get(this.projectPath(`app/${encodeURIComponent(appId)}/logs`), { query }, cb);
     }
 
     saveLogsSettings(appId, form, cb) {
-        this.post(this.projectPath(`app/${appId}/logs`), form, cb);
+        this.post(this.projectPath(`app/${encodeURIComponent(appId)}/logs`), form, cb);
     }
 
     getNode(nodeName, cb) {
-        this.get(this.projectPath(`node/${nodeName}`), {}, cb);
+        this.get(this.projectPath(`node/${encodeURIComponent(nodeName)}`), {}, cb);
     }
 
     risks(appId, form, cb) {
-        this.post(this.projectPath(`app/${appId}/risks`), form, cb);
+        this.post(this.projectPath(`app/${encodeURIComponent(appId)}/risks`), form, cb);
     }
 
     prom() {
