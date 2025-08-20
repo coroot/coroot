@@ -48,3 +48,14 @@ You can configure coroot-node-agent using command-line flags or environment vari
 | `--scrape-interval` | `SCRAPE_INTERVAL` | `15s` | How often to collect internal metrics |
 | `--wal-dir` | `WAL_DIR` | `/tmp/coroot-node-agent` | Directory for WAL storage |
 | `--max-spool-size` | `MAX_SPOOL_SIZE` | `500MB` | Max size for on-disk spool |
+
+## Container Environment Variables
+
+You can disable specific functionality for individual containers by setting environment variables within the container:
+
+| Environment Variable | Description |
+|---------------------|-------------|
+| `COROOT_EBPF_PROFILING=disabled` | Disable eBPF profiling for this container |
+| `COROOT_LOG_MONITORING=disabled` | Disable log monitoring and parsing for this container |
+
+These environment variables are read from the container's process environment and allow fine-grained control over which containers are monitored by the agent.
