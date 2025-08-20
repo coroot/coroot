@@ -43,3 +43,7 @@ env:
   
 To learn more about the connection string format follow the [Postgres documentation](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNSTRING).
 
+### Connection Poolers
+
+Coroot is incompatible with PostgreSQL connection poolers like pgbouncer when they're configured to run in transactional mode. This is because Coroot relies on connection-level prepared statements, which don't persist across transactions in pooled connections. If you need to use a connection pooler, configure it to operate in session mode to ensure prepared statements remain available throughout the connection lifecycle.
+
