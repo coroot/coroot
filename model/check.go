@@ -568,13 +568,32 @@ func (cfg *CheckConfigSLOLatency) Histogram() string {
 type CheckConfigs map[ApplicationId]map[CheckId]json.RawMessage
 
 func (cc CheckConfigs) getRaw(appId ApplicationId, checkId CheckId) (json.RawMessage, bool) {
-	for _, i := range []ApplicationId{appId, {}} {
-		if appConfigs, ok := cc[i]; ok {
+	appIdStr := appId.String()
+
+	if appConfigs, ok := cc[appId]; ok {
+		if cfg, ok := appConfigs[checkId]; ok {
+			return cfg, false
+		}
+	}
+
+	for configAppId, appConfigs := range cc {
+		if configAppId.IsZero() {
+			continue
+		}
+		configAppIdStr := configAppId.String()
+		if utils.GlobMatch(appIdStr, configAppIdStr) {
 			if cfg, ok := appConfigs[checkId]; ok {
-				return cfg, i.IsZero()
+				return cfg, false
 			}
 		}
 	}
+
+	if appConfigs, ok := cc[ApplicationId{}]; ok {
+		if cfg, ok := appConfigs[checkId]; ok {
+			return cfg, true
+		}
+	}
+
 	return nil, false
 }
 
