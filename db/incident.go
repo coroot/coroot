@@ -243,14 +243,13 @@ func (db *DB) UpdateIncident(projectId ProjectId, appId model.ApplicationId, key
 	return err
 }
 
-func (db *DB) UpdateIncidentRCA(projectId ProjectId, appId model.ApplicationId, key string, rca *model.RCA) error {
-	d, err := json.Marshal(rca)
+func (db *DB) UpdateIncidentRCA(projectId ProjectId, i *model.ApplicationIncident, rca *model.RCA) error {
+	i.RCA = rca
+	d, err := json.Marshal(i.RCA)
 	if err != nil {
 		return err
 	}
-	_, err = db.db.Exec(
-		"UPDATE incident SET rca = $1 WHERE project_id = $2 AND application_id = $3 AND key = $4",
-		string(d), projectId, appId.String(), key)
+	_, err = db.db.Exec("UPDATE incident SET rca = $1 WHERE project_id = $2 AND key = $3", string(d), projectId, i.Key)
 	return err
 }
 

@@ -23,25 +23,28 @@ func RenderList(w *model.World, incidents []*model.ApplicationIncident) []Incide
 	return res
 }
 
-func renderIncident(w *model.World, i *model.ApplicationIncident) Incident {
-	category := model.ApplicationCategoryApplication
+func renderIncident(w *model.World, incident *model.ApplicationIncident) Incident {
+	i := Incident{
+		ApplicationIncident: *incident,
+		ShortDescription:    incident.ShortDescription(),
+		Impact: max(
+			incident.Details.LatencyImpact.AffectedRequestPercentage,
+			incident.Details.AvailabilityImpact.AffectedRequestPercentage,
+		),
+	}
+	i.ApplicationCategory = model.ApplicationCategoryApplication
 	if app := w.GetApplication(i.ApplicationId); app != nil {
-		category = app.Category
+		i.ApplicationCategory = app.Category
 	}
 	to := timeseries.Now()
 	if i.Resolved() {
 		to = i.ResolvedAt
 	}
-	return Incident{
-		ApplicationIncident: *i,
-		ShortDescription:    i.ShortDescription(),
-		ApplicationCategory: category,
-		Duration:            to.Sub(i.OpenedAt),
-		Impact: max(
-			i.Details.LatencyImpact.AffectedRequestPercentage,
-			i.Details.AvailabilityImpact.AffectedRequestPercentage,
-		),
+	i.Duration = to.Sub(i.OpenedAt)
+	if i.RCA != nil && i.RCA.Status == "" && i.RCA.RootCause != "" {
+		i.RCA.Status = "OK"
 	}
+	return i
 }
 
 type SLODetails struct {

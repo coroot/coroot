@@ -24,20 +24,27 @@ const (
 	OptionLoadContainerLogs
 )
 
+type DB interface {
+	GetCheckConfigs(projectId db.ProjectId) (model.CheckConfigs, error)
+	GetApplicationDeployments(projectId db.ProjectId) (map[model.ApplicationId][]*model.ApplicationDeployment, error)
+	GetApplicationIncidents(projectId db.ProjectId, from, to timeseries.Time) (map[model.ApplicationId][]*model.ApplicationIncident, error)
+	GetApplicationSettingsByProject(projectId db.ProjectId) (map[model.ApplicationId]*model.ApplicationSettings, error)
+}
+
 type Cache interface {
 	QueryRange(ctx context.Context, query string, from, to timeseries.Time, step timeseries.Duration, fillFunc timeseries.FillFunc) ([]*model.MetricValues, error)
 	GetStep(from, to timeseries.Time) (timeseries.Duration, error)
 }
 
 type Constructor struct {
-	db      *db.DB
+	db      DB
 	project *db.Project
 	cache   Cache
 	pricing *pricing.Manager
 	options map[Option]bool
 }
 
-func New(db *db.DB, project *db.Project, cache Cache, pricing *pricing.Manager, options ...Option) *Constructor {
+func New(db DB, project *db.Project, cache Cache, pricing *pricing.Manager, options ...Option) *Constructor {
 	c := &Constructor{db: db, project: project, cache: cache, pricing: pricing, options: map[Option]bool{}}
 	for _, o := range options {
 		c.options[o] = true
@@ -54,14 +61,8 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 	if rawStep == 0 {
 		return model.NewWorld(from, to, step, step), nil
 	}
+
 	w := model.NewWorld(from, to, step, rawStep)
-	w.CustomApplications = c.project.Settings.CustomApplications
-	for name := range c.project.Settings.ApplicationCategorySettings {
-		if !name.Default() {
-			w.Categories = append(w.Categories, name)
-		}
-	}
-	utils.SortSlice(w.Categories)
 
 	if prof == nil {
 		prof = &Profile{}
@@ -123,6 +124,21 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 
 	klog.Infof("%s: got %d nodes, %d apps in %s", c.project.Id, len(w.Nodes), len(w.Applications), time.Since(start).Truncate(time.Millisecond))
 	return w, nil
+}
+
+func (c *Constructor) QueryCache(ctx context.Context, from, to timeseries.Time, step timeseries.Duration) (map[string][]*model.MetricValues, error) {
+	rawStep, err := c.cache.GetStep(from, to)
+	if err != nil {
+		return nil, err
+	}
+	if rawStep == 0 {
+		return nil, nil
+	}
+	checkConfigs, err := c.db.GetCheckConfigs(c.project.Id)
+	if err != nil {
+		return nil, err
+	}
+	return c.queryCache(ctx, from, to, step, rawStep, checkConfigs, nil)
 }
 
 type cacheQuery struct {

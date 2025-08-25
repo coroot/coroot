@@ -8,6 +8,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/lib/pq"
 	_ "github.com/lib/pq"
 	"github.com/mattn/go-sqlite3"
@@ -70,6 +71,10 @@ func (db *DB) Query(query string, args ...any) (*sql.Rows, error) {
 	return db.db.Query(query, args...)
 }
 
+func (db *DB) QueryRow(query string, args ...any) *sql.Row {
+	return db.db.QueryRow(query, args...)
+}
+
 func (db *DB) Migrator() *Migrator {
 	return NewMigrator(db.typ, db)
 }
@@ -99,6 +104,28 @@ func (db *DB) IsUniqueViolationError(err error) bool {
 		return ok && e.Code == sqlite3.ErrConstraint
 	}
 	return false
+}
+
+func (db *DB) GetDeploymentUuid() (string, error) {
+	settingKey := "deployment_uuid"
+	var id string
+	err := db.GetSetting(settingKey, &id)
+	if err == nil {
+		return id, nil
+	}
+	if !errors.Is(err, ErrNotFound) {
+		return "", err
+	}
+	uid, err := uuid.NewRandom()
+	if err != nil {
+		return "", err
+	}
+	id = uid.String()
+	err = db.SetSetting(settingKey, id)
+	if err != nil {
+		return "", err
+	}
+	return id, nil
 }
 
 type Table interface {

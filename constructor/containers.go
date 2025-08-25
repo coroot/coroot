@@ -507,7 +507,7 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]*model
 				if svc := servicesByClusterIP[u.ServiceRemoteIP]; svc != nil {
 					u.Service = svc
 					if u.RemoteInstance == nil {
-						if a := w.GetApplicationByNsAndName(svc.Namespace, svc.Name); a != nil && len(a.Instances) > 0 {
+						if a := apps[nsName{ns: svc.Namespace, name: svc.Name}]; a != nil && len(a.Instances) > 0 {
 							u.RemoteInstance = a.Instances[0]
 						}
 					}

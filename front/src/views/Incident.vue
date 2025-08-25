@@ -49,13 +49,18 @@
 
                     <div>
                         <span class="field-name"> Root Cause Analysis: </span>
-                        <span v-if="$coroot.edition !== 'Enterprise'" class="grey--text">not available</span>
-                        <template v-else-if="incident.rca">
-                            <span v-if="incident.rca.root_cause" class="green--text">done</span>
-                            <span v-else-if="!incident.rca.ai_integration_enabled" class="grey--text">AI disabled</span>
-                            <v-btn icon small @click="refresh_rca()" :loading="loading"><v-icon small>mdi-refresh</v-icon></v-btn>
+                        <template v-if="incident.rca">
+                            <span v-if="incident.rca.status === 'OK'" class="green--text">Done</span>
+                            <v-tooltip v-else-if="incident.rca.status === 'Failed'" bottom>
+                                <template #activator="{ on }">
+                                    <span v-on="on" class="red--text">Failed</span>
+                                </template>
+                                <v-card class="pa-2"> Failed: {{ incident.rca.error }} </v-card>
+                            </v-tooltip>
+                            <span v-else class="grey--text">{{ incident.rca.status }}</span>
                         </template>
-                        <span v-else class="grey--text">In progress</span>
+                        <span v-else class="grey--text">&mdash;</span>
+                        <v-btn icon small @click="refresh_rca()" :loading="loading"><v-icon small>mdi-refresh</v-icon></v-btn>
 
                         <a href="https://docs.coroot.com/ai/overview" target="_blank" class="ml-1">
                             <v-icon small>mdi-information-outline</v-icon>
@@ -270,7 +275,7 @@ export default {
             this.$api.getRCA(this.incident.application_id, true, (data, error) => {
                 this.loading = false;
                 if (error) {
-                    this.error = error;
+                    // this.error = error;
                     return;
                 }
                 this.get();

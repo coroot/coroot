@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 
+	"github.com/coroot/coroot/cloud"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/prom"
 	"github.com/coroot/coroot/timeseries"
@@ -39,6 +40,8 @@ type Config struct {
 	DeveloperMode bool `yaml:"developer_mode"`
 
 	ClickHouseSpaceManager ClickHouseSpaceManager `yaml:"clickhouse_space_manager"`
+
+	CorootCloud *cloud.Settings `yaml:"corootCloud"`
 
 	BootstrapClickhouse *Clickhouse `yaml:"-"`
 	BootstrapPrometheus *Prometheus `yaml:"-"`
@@ -224,6 +227,12 @@ func (cfg *Config) Validate() error {
 	cfg.UrlBasePath, err = url.JoinPath("/", cfg.UrlBasePath, "/")
 	if err != nil {
 		return fmt.Errorf("invalid url_base_path: %s", cfg.UrlBasePath)
+	}
+
+	if cfg.CorootCloud != nil {
+		if err = cfg.CorootCloud.Validate(); err != nil {
+			return fmt.Errorf("invalid coroot_cloud settings: %w", err)
+		}
 	}
 
 	for i, p := range cfg.Projects {

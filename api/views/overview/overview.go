@@ -2,8 +2,10 @@ package overview
 
 import (
 	"context"
+	"slices"
 
 	"github.com/coroot/coroot/clickhouse"
+	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 )
 
@@ -19,10 +21,14 @@ type Overview struct {
 	Categories   []model.ApplicationCategory `json:"categories"`
 }
 
-func Render(ctx context.Context, ch *clickhouse.Client, w *model.World, view, query string) *Overview {
-	v := &Overview{
-		Categories: w.Categories,
+func Render(ctx context.Context, ch *clickhouse.Client, project *db.Project, w *model.World, view, query string) *Overview {
+	v := &Overview{}
+	for name := range project.Settings.ApplicationCategorySettings {
+		if !name.Default() {
+			v.Categories = append(v.Categories, name)
+		}
 	}
+	slices.Sort(v.Categories)
 
 	switch view {
 	case "applications":

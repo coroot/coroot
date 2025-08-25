@@ -76,7 +76,7 @@ type Node struct {
 	NetInterfaces []*InterfaceStats
 	GPUs          map[string]*GPU
 
-	Instances []*Instance `json:"-"`
+	Instances []*Instance
 
 	CloudProvider     LabelLastValue
 	Region            LabelLastValue

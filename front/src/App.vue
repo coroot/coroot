@@ -1,6 +1,6 @@
 <template>
     <v-app>
-        <CheckForUpdates v-if="$coroot.check_for_updates" :currentVersion="$coroot.version" :instanceUuid="$coroot.uuid" />
+        <CheckForUpdates v-if="$coroot.check_for_updates" :currentVersion="$coroot.version" :instanceUuid="$coroot.instance_uuid" />
 
         <v-navigation-drawer v-if="menu" permanent app dark :mini-variant="menuCollapsed" width="188" stateless>
             <template #prepend>
@@ -210,6 +210,8 @@
 
                 <ChangePassword v-if="user" v-model="changePassword" />
 
+                <CloudPromoDialog v-if="!ee && user" />
+
                 <Search v-if="search" v-model="search" />
             </v-container>
         </v-main>
@@ -223,11 +225,12 @@ import CheckForUpdates from './components/CheckForUpdates.vue';
 import ThemeSelector from './components/ThemeSelector.vue';
 import AgentInstallation from './views/AgentInstallation.vue';
 import ChangePassword from './views/auth/ChangePassword.vue';
+import CloudPromoDialog from './components/CloudPromoDialog.vue';
 import { views } from '@/views/Views.vue';
 import './app.css';
 
 export default {
-    components: { Welcome, Search, CheckForUpdates, ThemeSelector, AgentInstallation, ChangePassword },
+    components: { Welcome, Search, CheckForUpdates, ThemeSelector, AgentInstallation, ChangePassword, CloudPromoDialog },
 
     data() {
         let menuCollapsed = this.$storage.local('menu-collapsed');

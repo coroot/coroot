@@ -90,15 +90,13 @@
             </template>
 
             <template #item.rca="{ item }">
-                <div class="">
-                    <template v-if="$coroot.edition !== 'Enterprise'">
-                        <span class="grey--text">&mdash;</span>
+                <div>
+                    <template v-if="item.rca">
+                        <v-icon v-if="item.rca.status === 'OK'" small color="success">mdi-check-circle</v-icon>
+                        <v-icon v-else-if="item.rca.status === 'Failed'" small color="error">mdi-alert-circle</v-icon>
+                        <span v-else class="grey--text">{{ item.rca.status }}</span>
                     </template>
-                    <template v-else-if="item.rca">
-                        <v-icon v-if="item.rca.root_cause" small color="green">mdi-check-circle</v-icon>
-                        <span v-else-if="!item.rca.ai_integration_enabled" class="grey--text">AI disabled</span>
-                    </template>
-                    <span v-else class="grey--text">In progress</span>
+                    <span v-else class="grey--text">&mdash;</span>
                 </div>
             </template>
 

@@ -3,6 +3,7 @@ const urlRe = /^https?:\/\/.{3,}$/;
 const addrRe = /^[-_0-9a-z.]+:[0-9]+$/;
 const selectorRe = /^{.+=.+}$/;
 const emailRe = /[^@\r\n\t\f\v ]+@[^@\r\n\t\f\v ]+\.[a-z]+/;
+const minPasswordLength = 8;
 
 export function notEmpty(v) {
     return !!v || 'required';
@@ -30,4 +31,8 @@ export function isPrometheusSelector(v) {
 
 export function isEmail(email) {
     return emailRe.test(email) || 'invalid email';
+}
+
+export function isPassword(password) {
+    return password.length >= minPasswordLength || `password must have at least ${minPasswordLength} letters`;
 }

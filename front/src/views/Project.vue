@@ -2,8 +2,8 @@
     <div class="mx-auto">
         <h1 class="text-h5 mb-5">Configuration</h1>
 
-        <v-tabs height="40" show-arrows slider-size="2">
-            <v-tab v-for="t in tabs" :key="t.id" :to="{ params: { tab: t.id } }" :disabled="t.disabled" exact>
+        <v-tabs :value="tab" height="40" show-arrows slider-size="2">
+            <v-tab v-for="t in tabs" :key="t.id" :to="{ params: { tab: t.id } }" :disabled="t.disabled" :tab-value="t.id" exact>
                 {{ t.name }}
             </v-tab>
         </v-tabs>
@@ -149,6 +149,10 @@
             </h1>
             <SSO />
         </template>
+
+        <template v-if="tab === 'cloud'">
+            <Cloud />
+        </template>
     </div>
 </template>
 
@@ -168,6 +172,7 @@ import Users from './Users.vue';
 import RBAC from './RBAC.vue';
 import SSO from './SSO.vue';
 import IntegrationAI from '@/views/IntegrationAI.vue';
+import Cloud from './cloud/Cloud.vue';
 
 export default {
     props: {
@@ -191,6 +196,7 @@ export default {
         Users,
         RBAC,
         SSO,
+        Cloud,
     },
 
     mounted() {
@@ -202,17 +208,22 @@ export default {
     computed: {
         tabs() {
             const disabled = !this.projectId;
-            return [
+            let tabs = [
                 { id: undefined, name: 'General' },
                 { id: 'prometheus', name: 'Prometheus', disabled },
                 { id: 'clickhouse', name: 'Clickhouse', disabled },
-                { id: 'ai', name: 'AI', disabled },
+                { id: 'ai', name: 'AI' },
+                { id: 'cloud', name: 'Coroot Cloud' },
                 { id: 'aws', name: 'AWS', disabled },
                 { id: 'inspections', name: 'Inspections', disabled },
                 { id: 'applications', name: 'Applications', disabled },
                 { id: 'notifications', name: 'Notifications', disabled },
                 { id: 'organization', name: 'Organization' },
             ];
+            if (this.$coroot.edition === 'Enterprise') {
+                tabs = tabs.filter((t) => t.id !== 'cloud');
+            }
+            return tabs;
         },
     },
 };

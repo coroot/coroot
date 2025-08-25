@@ -42,10 +42,14 @@ type Api struct {
 
 	authSecret        string
 	authAnonymousRole rbac.RoleName
+
+	deploymentUuid string
+	instanceUuid   string
 }
 
 func NewApi(cache *cache.Cache, db *db.DB, collector *collector.Collector, pricing *pricing.Manager, roles rbac.RoleManager,
-	globalClickHouse *db.IntegrationClickhouse, globalPrometheus *db.IntegrationPrometheus) *Api {
+	globalClickHouse *db.IntegrationClickhouse, globalPrometheus *db.IntegrationPrometheus,
+	deploymentUuid, instanceUuid string) *Api {
 	return &Api{
 		cache:            cache,
 		db:               db,
@@ -54,6 +58,8 @@ func NewApi(cache *cache.Cache, db *db.DB, collector *collector.Collector, prici
 		roles:            roles,
 		globalClickHouse: globalClickHouse,
 		globalPrometheus: globalPrometheus,
+		deploymentUuid:   deploymentUuid,
+		instanceUuid:     instanceUuid,
 	}
 }
 
@@ -371,7 +377,7 @@ func (api *Api) Overview(w http.ResponseWriter, r *http.Request, u *db.User) {
 	}
 	defer ch.Close()
 	auditor.Audit(world, project, nil, project.ClickHouseConfig(api.globalClickHouse) != nil, nil)
-	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Overview(r.Context(), ch, world, view, r.URL.Query().Get("query"))))
+	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Overview(r.Context(), ch, project, world, view, r.URL.Query().Get("query"))))
 }
 
 func (api *Api) Dashboards(w http.ResponseWriter, r *http.Request, u *db.User) {
@@ -488,7 +494,7 @@ func (api *Api) PanelData(w http.ResponseWriter, r *http.Request, u *db.User) {
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
-	from, to := api.getTimeContext(r)
+	from, to, _ := api.getTimeContext(r)
 	step := increaseStepForBigDurations(from, to, promConfig.RefreshInterval)
 	data, err := views.Dashboards.PanelData(r.Context(), promClient, config, from, to, step)
 	if err != nil {
@@ -936,21 +942,8 @@ func (api *Api) Application(w http.ResponseWriter, r *http.Request, u *db.User) 
 		app.AddReport(model.AuditReportProfiling, &model.Widget{Profiling: &model.Profiling{ApplicationId: app.Id}, Width: "100%"})
 		app.AddReport(model.AuditReportTracing, &model.Widget{Tracing: &model.Tracing{ApplicationId: app.Id}, Width: "100%"})
 	}
-	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Application(world, app)))
-}
 
-func (api *Api) RCA(w http.ResponseWriter, r *http.Request, u *db.User) {
-	world, project, cacheStatus, err := api.LoadWorldByRequest(r)
-	if err != nil {
-		klog.Errorln(err)
-		http.Error(w, "", http.StatusInternalServerError)
-		return
-	}
-	if project == nil || world == nil {
-		utils.WriteJson(w, api.WithContext(project, cacheStatus, world, nil))
-		return
-	}
-	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, "not implemented"))
+	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Application(project, world, app)))
 }
 
 func (api *Api) Incidents(w http.ResponseWriter, r *http.Request, u *db.User) {
@@ -1583,7 +1576,7 @@ func (api *Api) LoadWorldByRequest(r *http.Request) (*model.World, *db.Project, 
 		return nil, nil, nil, err
 	}
 
-	from, to := api.getTimeContext(r)
+	from, to, _ := api.getTimeContext(r)
 	world, cacheStatus, err := api.LoadWorld(r.Context(), project, from, to)
 	if world == nil {
 		step := increaseStepForBigDurations(from, to, 15*timeseries.Second)
@@ -1592,7 +1585,7 @@ func (api *Api) LoadWorldByRequest(r *http.Request) (*model.World, *db.Project, 
 	return world, project, cacheStatus, err
 }
 
-func (api *Api) getTimeContext(r *http.Request) (from timeseries.Time, to timeseries.Time) {
+func (api *Api) getTimeContext(r *http.Request) (from timeseries.Time, to timeseries.Time, incident *model.ApplicationIncident) {
 	now := timeseries.Now()
 	q := r.URL.Query()
 	from = utils.ParseTime(now, q.Get("from"), now.Add(-timeseries.Hour))
@@ -1603,7 +1596,8 @@ func (api *Api) getTimeContext(r *http.Request) (from timeseries.Time, to timese
 	incidentKey := q.Get("incident")
 	if incidentKey != "" {
 		projectId := db.ProjectId(mux.Vars(r)["project"])
-		if incident, err := api.db.GetIncidentByKey(projectId, incidentKey); err != nil {
+		var err error
+		if incident, err = api.db.GetIncidentByKey(projectId, incidentKey); err != nil {
 			klog.Warningln("failed to get incident:", err)
 		} else {
 			from = incident.OpenedAt.Add(-model.IncidentTimeOffset)

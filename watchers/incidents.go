@@ -1,6 +1,7 @@
 package watchers
 
 import (
+	"context"
 	"time"
 
 	"github.com/coroot/coroot/auditor"
@@ -14,11 +15,13 @@ import (
 
 type Incidents struct {
 	db       *db.DB
-	rca      func(project *db.Project, world *model.World, incident *model.ApplicationIncident)
+	rca      IncidentRCA
 	notifier *notifications.IncidentNotifier
 }
 
-func NewIncidents(db *db.DB, rca func(*db.Project, *model.World, *model.ApplicationIncident)) *Incidents {
+type IncidentRCA func(ctx context.Context, project *db.Project, world *model.World, incident *model.ApplicationIncident)
+
+func NewIncidents(db *db.DB, rca IncidentRCA) *Incidents {
 	return &Incidents{db: db, notifier: notifications.NewIncidentNotifier(db), rca: rca}
 }
 
@@ -119,7 +122,7 @@ func (w *Incidents) Check(project *db.Project, world *model.World) {
 			}
 		}
 		if w.rca != nil {
-			w.rca(project, world, incident)
+			w.rca(context.TODO(), project, world, incident)
 		}
 		if needNotify {
 			w.notifier.Enqueue(project, app, incident, now)
