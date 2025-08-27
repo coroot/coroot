@@ -5,6 +5,7 @@ import (
 	"context"
 	"net/http"
 
+	lz4 "github.com/DataDog/golz4"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
@@ -29,14 +30,16 @@ type RCARequest struct {
 
 func (api *Api) RCA(ctx context.Context, req RCARequest) (*model.RCA, error) {
 	buf := bytes.NewBuffer(nil)
-	err := msgpack.NewEncoder(buf).Encode(req)
-	if err != nil {
+	lw := lz4.NewWriter(buf)
+	if err := msgpack.NewEncoder(lw).Encode(req); err != nil {
+		return nil, err
+	}
+	if err := lw.Close(); err != nil {
 		return nil, err
 	}
 
 	var rca model.RCA
-	err = api.request(ctx, http.MethodPost, "/integration/rca", buf, &rca)
-	if err != nil {
+	if err := api.request(ctx, http.MethodPost, "/integration/rca", "application/msgpack", "lz4", buf, &rca); err != nil {
 		return nil, err
 	}
 	return &rca, nil

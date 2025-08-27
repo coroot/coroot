@@ -141,7 +141,7 @@ func (c *Client) GetKubernetesEvents(ctx context.Context, from, to timeseries.Ti
 		Filters: []LogFilter{{Name: "service.name", Op: "=", Value: "KubernetesEvents"}},
 		Limit:   limit,
 	}
-	return c.GetLogs(context.Background(), q)
+	return c.GetLogs(ctx, q)
 }
 
 type LogQuery struct {

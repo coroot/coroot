@@ -71,7 +71,7 @@ func (api *Api) SaveSettings(settings Settings) error {
 	return api.db.SetSetting(settingName, settings)
 }
 
-func (api *Api) request(ctx context.Context, method, path string, body io.Reader, dest any) error {
+func (api *Api) request(ctx context.Context, method, path, contentType, contentEncoding string, body io.Reader, dest any) error {
 	settings, err := api.GetSettings()
 	if err != nil {
 		return err
@@ -82,6 +82,12 @@ func (api *Api) request(ctx context.Context, method, path string, body io.Reader
 	req, err := http.NewRequestWithContext(ctx, method, URL+"/api"+path, body)
 	if err != nil {
 		return err
+	}
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
+	}
+	if contentEncoding != "" {
+		req.Header.Set("Content-Encoding", contentEncoding)
 	}
 	req.Header.Set("X-API-KEY", settings.ApiKey)
 	req.Header.Set("X-DEPLOYMENT-UUID", api.deploymentUuid)

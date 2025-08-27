@@ -21,7 +21,7 @@ type IntegrationInfoRCA struct {
 
 func (api *Api) IntegrationInfo(ctx context.Context) (*IntegrationInfo, error) {
 	var info IntegrationInfo
-	err := api.request(ctx, http.MethodGet, "/integration/info", nil, &info)
+	err := api.request(ctx, http.MethodGet, "/integration/info", "", "", nil, &info)
 	if err != nil {
 		return nil, err
 	}
