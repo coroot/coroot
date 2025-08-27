@@ -18,7 +18,7 @@ const (
 )
 
 var (
-	URL = "https://coroot.com"
+	URL = "https://cloud.coroot.com"
 )
 
 func init() {
