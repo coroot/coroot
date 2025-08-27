@@ -170,7 +170,7 @@
                             </div>
 
                             <v-card outlined v-if="show_details" class="pa-5 mt-5">
-                                <Markdown :src="incident.rca.detailed_root_cause_analysis" :widgets="incident.rca.widgets" />
+                                <Markdown :src="incident.rca.detailed_root_cause_analysis" :widgets="incident.rca.widgets || []" />
                             </v-card>
                         </template>
                     </template>
