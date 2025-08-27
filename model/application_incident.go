@@ -1,6 +1,8 @@
 package model
 
-import "github.com/coroot/coroot/timeseries"
+import (
+	"github.com/coroot/coroot/timeseries"
+)
 
 type Impact struct {
 	AffectedRequestPercentage float32 `json:"percentage"`
@@ -14,12 +16,13 @@ type IncidentDetails struct {
 }
 
 type RCA struct {
-	AIIntegrationEnabled bool      `json:"ai_integration_enabled"`
-	ShortSummary         string    `json:"short_summary"`
-	RootCause            string    `json:"root_cause"`
-	ImmediateFixes       string    `json:"immediate_fixes"`
-	DetailedRootCause    string    `json:"detailed_root_cause_analysis"`
-	Widgets              []*Widget `json:"widgets"`
+	Status            string    `json:"status"`
+	Error             string    `json:"error"`
+	ShortSummary      string    `json:"short_summary"`
+	RootCause         string    `json:"root_cause"`
+	ImmediateFixes    string    `json:"immediate_fixes"`
+	DetailedRootCause string    `json:"detailed_root_cause_analysis"`
+	Widgets           []*Widget `json:"widgets"`
 }
 
 type ApplicationIncident struct {

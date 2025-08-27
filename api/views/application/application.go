@@ -1,8 +1,10 @@
 package application
 
 import (
+	"slices"
 	"sort"
 
+	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
@@ -46,7 +48,7 @@ type Instance struct {
 	Labels model.Labels `json:"labels"`
 }
 
-func Render(world *model.World, app *model.Application) *View {
+func Render(project *db.Project, world *model.World, app *model.Application) *View {
 	appMap := &AppMap{
 		Application: &Application{
 			Id:         app.Id,
@@ -57,9 +59,14 @@ func Render(world *model.World, app *model.Application) *View {
 			Indicators: model.CalcIndicators(app),
 			Labels:     app.Labels(),
 		},
-		CustomApplications: maps.Keys(world.CustomApplications),
-		Categories:         world.Categories,
+		CustomApplications: maps.Keys(project.Settings.CustomApplications),
 	}
+	for name := range project.Settings.ApplicationCategorySettings {
+		if !name.Default() {
+			appMap.Categories = append(appMap.Categories, name)
+		}
+	}
+	slices.Sort(appMap.Categories)
 
 	for _, instance := range app.Instances {
 		if instance.IsObsolete() || instance.IsFailed() {

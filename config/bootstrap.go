@@ -1,12 +1,21 @@
 package config
 
 import (
+	"github.com/coroot/coroot/cloud"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"k8s.io/klog"
 )
 
 func (cfg *Config) Bootstrap(database *db.DB) error {
+	if cfg.CorootCloud != nil {
+		cloudAPI := cloud.API(database, "", "", "")
+		err := cloudAPI.SaveSettings(*cfg.CorootCloud)
+		if err != nil {
+			return err
+		}
+	}
+
 	if len(cfg.Projects) == 0 {
 		p, err := getOrCreateDefaultProject(database)
 		if err != nil {

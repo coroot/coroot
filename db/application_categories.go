@@ -2,6 +2,7 @@ package db
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/coroot/coroot/model"
@@ -81,7 +82,7 @@ func (p *Project) CalcApplicationCategory(appId model.ApplicationId) model.Appli
 
 	settings := p.Settings.ApplicationCategorySettings
 	names := maps.Keys(settings)
-	utils.SortSlice(names)
+	slices.Sort(names)
 	for _, name := range names {
 		if s := settings[name]; s == nil || len(s.CustomPatterns) == 0 {
 			continue
@@ -91,7 +92,7 @@ func (p *Project) CalcApplicationCategory(appId model.ApplicationId) model.Appli
 	}
 
 	names = maps.Keys(model.BuiltinCategoryPatterns)
-	utils.SortSlice(names)
+	slices.Sort(names)
 	for _, name := range names {
 		if utils.GlobMatch(id, model.BuiltinCategoryPatterns[name]...) {
 			return name

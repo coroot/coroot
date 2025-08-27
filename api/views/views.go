@@ -23,12 +23,12 @@ import (
 	"github.com/coroot/coroot/timeseries"
 )
 
-func Overview(ctx context.Context, ch *clickhouse.Client, w *model.World, view, query string) *overview.Overview {
-	return overview.Render(ctx, ch, w, view, query)
+func Overview(ctx context.Context, ch *clickhouse.Client, p *db.Project, w *model.World, view, query string) *overview.Overview {
+	return overview.Render(ctx, ch, p, w, view, query)
 }
 
-func Application(w *model.World, app *model.Application) *application.View {
-	return application.Render(w, app)
+func Application(p *db.Project, w *model.World, app *model.Application) *application.View {
+	return application.Render(p, w, app)
 }
 
 func Incident(w *model.World, app *model.Application, i *model.ApplicationIncident) *incident.View {

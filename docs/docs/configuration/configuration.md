@@ -209,7 +209,7 @@ projects: # Create or update projects (configuration file only).
       sloAvailability:
         - applicationId: default:Deployment:catalog
           objectivePercent: 98
-          
+
 # Single Sign-on configuration (Coroot Enterprise edition only).
 sso:
   enabled: false
@@ -232,4 +232,13 @@ ai:
     apiKey:   # API key.
     baseUrl:  # Base URL (e.g., https://generativelanguage.googleapis.com/v1beta/openai).
     model:    # Model name (e.g., gemini-2.5-pro-preview-06-05).
+
+# Coroot Cloud integration.
+corootCloud:
+  # API key (required). Can be obtained from the UI after connecting to Coroot Cloud.
+  apiKey:
+  # Root Cause Analysis (RCA) configuration.
+  rca:
+    # If true, incidents will not be investigated automatically.
+    disableIncidentsAutoInvestigation: false
 ```

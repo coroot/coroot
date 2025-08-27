@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"math"
 	"strings"
+
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 var NaN = float32(math.NaN())
@@ -94,6 +96,37 @@ func (ts *TimeSeries) UnmarshalJSON(data []byte) error {
 		ts.last = NaN
 	}
 
+	return nil
+}
+
+type Msgpack struct {
+	From Time     `msgpack:"from"`
+	Step Duration `msgpack:"step"`
+	Data []byte   `msgpack:"data"`
+}
+
+func (ts *TimeSeries) EncodeMsgpack(enc *msgpack.Encoder) error {
+	m := Msgpack{
+		From: ts.from,
+		Step: ts.step,
+		Data: asBytes32(ts.data),
+	}
+	return enc.Encode(m)
+}
+
+func (ts *TimeSeries) DecodeMsgpack(dec *msgpack.Decoder) error {
+	var m Msgpack
+	err := dec.Decode(&m)
+	if err != nil {
+		return err
+	}
+	ts.from = m.From
+	ts.step = m.Step
+	ts.last = NaN
+	if len(m.Data) > 0 {
+		ts.data = asFloats32(m.Data)
+		ts.last = ts.data[len(ts.data)-1]
+	}
 	return nil
 }
 

@@ -135,6 +135,15 @@ func (c *Client) GetLogFilters(ctx context.Context, query LogQuery, name string)
 	return res, nil
 }
 
+func (c *Client) GetKubernetesEvents(ctx context.Context, from, to timeseries.Time, limit int) ([]*model.LogEntry, error) {
+	q := LogQuery{
+		Ctx:     timeseries.NewContext(from, to, 0),
+		Filters: []LogFilter{{Name: "service.name", Op: "=", Value: "KubernetesEvents"}},
+		Limit:   limit,
+	}
+	return c.GetLogs(ctx, q)
+}
+
 type LogQuery struct {
 	Ctx      timeseries.Context
 	Source   model.LogSource

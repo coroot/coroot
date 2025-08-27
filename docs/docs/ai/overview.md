@@ -6,7 +6,11 @@ hide_table_of_contents: true
 # Overview
 
 :::info
-AI-powered Root Cause Analysis is available only in Coroot Enterprise (from $1 per CPU core/month). [Start](https://coroot.com/account) your free trial today.
+AI-powered Root Cause Analysis is available in Coroot Enterprise (from $1 per CPU core/month) or through Coroot Cloud integration for Community Edition users. 
+
+**Enterprise users**: [Start](https://coroot.com/account) your free trial today.
+
+**Community Edition users**: Enable AI features by connecting to [Coroot Cloud](./coroot-cloud.md) with 10 free investigations per month.
 :::
 
 Coroot’s AI-powered Root Cause Analysis helps teams quickly understand and fix incidents.

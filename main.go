@@ -14,6 +14,7 @@ import (
 
 	"github.com/coroot/coroot/api"
 	"github.com/coroot/coroot/cache"
+	"github.com/coroot/coroot/cloud"
 	cloud_pricing "github.com/coroot/coroot/cloud-pricing"
 	"github.com/coroot/coroot/collector"
 	"github.com/coroot/coroot/config"
@@ -84,6 +85,12 @@ func main() {
 		klog.Exitln(err)
 	}
 
+	instanceUuid := utils.GetInstanceUuid(cfg.DataDir)
+	deploymentUuid, err := database.GetDeploymentUuid()
+	if err != nil {
+		klog.Exitln(err)
+	}
+
 	globalClickhouse := cfg.GetGlobalClickhouse()
 	globalPrometheus := cfg.GetGlobalPrometheus()
 
@@ -118,17 +125,15 @@ func main() {
 		klog.Exitln(err)
 	}
 
-	incidents := watchers.NewIncidents(database, nil)
-
-	watchers.Start(database, promCache, pricing, incidents, !cfg.DoNotCheckForDeployments, globalClickhouse, cfg.ClickHouseSpaceManager)
-
-	a := api.NewApi(promCache, database, coll, pricing, rbac.NewStaticRoleManager(), globalClickhouse, globalPrometheus)
+	a := api.NewApi(promCache, database, coll, pricing, rbac.NewStaticRoleManager(), globalClickhouse, globalPrometheus, deploymentUuid, instanceUuid)
 	err = a.AuthInit(cfg.Auth.AnonymousRole, cfg.Auth.BootstrapAdminPassword)
 	if err != nil {
 		klog.Exitln(err)
 	}
 
-	instanceUuid := utils.GetInstanceUuid(cfg.DataDir)
+	incidents := watchers.NewIncidents(database, a.IncidentRCA)
+
+	watchers.Start(database, promCache, pricing, incidents, !cfg.DoNotCheckForDeployments, globalClickhouse, cfg.ClickHouseSpaceManager)
 
 	statsCollector := stats.NewCollector(cfg.DisableUsageStatistics, instanceUuid, version, Edition, database, promCache, pricing, globalClickhouse)
 
@@ -156,6 +161,7 @@ func main() {
 	r.HandleFunc("/api/roles", a.Auth(a.Roles)).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/sso", a.Auth(a.SSO)).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/ai", a.Auth(a.AI)).Methods(http.MethodGet, http.MethodPost)
+	r.HandleFunc("/api/cloud", a.Auth(a.Cloud)).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/project/", a.Auth(a.Project)).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/project/{project}", a.Auth(a.Project)).Methods(http.MethodGet, http.MethodPost, http.MethodDelete)
 	r.HandleFunc("/api/project/{project}/status", a.Auth(a.Status)).Methods(http.MethodGet)
@@ -224,15 +230,17 @@ func readIndexHtml(basePath, version, instanceUuid string, checkForUpdates bool,
 	err = tpl.Execute(&buf, struct {
 		BasePath        string
 		Version         string
-		Uuid            string
+		InstanceUUID    string
 		CheckForUpdates bool
 		Edition         string
+		CloudURL        string
 	}{
 		BasePath:        basePath,
 		Version:         version,
-		Uuid:            instanceUuid,
+		InstanceUUID:    instanceUuid,
 		CheckForUpdates: checkForUpdates,
 		Edition:         Edition,
+		CloudURL:        cloud.URL,
 	})
 	if err != nil {
 		klog.Exitln(err)
