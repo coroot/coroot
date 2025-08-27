@@ -11,6 +11,10 @@
             so you can investigate up to 10 incidents at no cost.
         </v-alert>
 
+        <p>
+            <i>Note: Make sure your Coroot instance can connect to <b>cloud.coroot.com</b> via HTTPS on port 443</i>
+        </p>
+
         <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
             {{ error }}
         </v-alert>
@@ -80,7 +84,7 @@
                     <v-card-text>
                         <p class="mb-3">Are you sure you want to disconnect from Coroot Cloud? This will:</p>
                         <ul class="mb-3">
-                            <li>Remove AI-powered root cause analysis</li>
+                            <li>Disable AI-powered root cause analysis</li>
                             <li>Stop automatic incident investigation</li>
                             <li>Require re-authentication to reconnect</li>
                         </ul>
