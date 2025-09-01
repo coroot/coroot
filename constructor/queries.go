@@ -266,6 +266,9 @@ var QUERIES = []Query{
 	qItoI("container_zookeeper_requests_count", l7Req("container_zookeeper_requests_total"), "status"),
 	qItoI("container_zookeeper_requests_latency_total", l7Latency("container_zookeeper_requests_duration_seconds_total_sum")),
 	qItoI("container_zookeeper_requests_histogram", l7Histogram("container_zookeeper_requests_duration_seconds_total_bucket"), "le"),
+	qItoI("container_foundationdb_requests_count", l7Req("container_foundationdb_requests_total"), "status"),
+	qItoI("container_foundationdb_requests_latency_total", l7Latency("container_foundationdb_requests_duration_seconds_total_sum")),
+	qItoI("container_foundationdb_requests_histogram", l7Histogram("container_foundationdb_requests_duration_seconds_total_bucket"), "le"),
 	qItoI("container_rabbitmq_messages", l7ReqWithMethod("container_rabbitmq_messages_total"), "status", "method"),
 	qItoI("container_nats_messages", l7ReqWithMethod("container_nats_messages_total"), "status", "method"),
 
