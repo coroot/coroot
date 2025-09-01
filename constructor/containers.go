@@ -370,6 +370,7 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]*model
 	loadL7RequestsCount("container_nats_messages", model.ProtocolNats)
 	loadL7RequestsCount("container_clickhouse_queries_count", model.ProtocolClickhouse)
 	loadL7RequestsCount("container_zookeeper_requests_count", model.ProtocolZookeeper)
+	loadL7RequestsCount("container_foundationdb_requests_count", model.ProtocolFoundationdb)
 
 	loadL7RequestsLatency := func(queryName string, protocol model.Protocol) {
 		loadConnection(queryName, func(instance *model.Instance, connection *model.Connection, metric *model.MetricValues) {
@@ -386,6 +387,7 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]*model
 	loadL7RequestsLatency("container_cassandra_queries_latency_total", model.ProtocolCassandra)
 	loadL7RequestsLatency("container_clickhouse_queries_latency_total", model.ProtocolClickhouse)
 	loadL7RequestsLatency("container_zookeeper_requests_latency_total", model.ProtocolZookeeper)
+	loadL7RequestsLatency("container_foundationdb_requests_latency_total", model.ProtocolFoundationdb)
 
 	loadL7RequestsHistogram := func(queryName string, protocol model.Protocol) {
 		loadConnection(queryName, func(instance *model.Instance, connection *model.Connection, metric *model.MetricValues) {
@@ -410,6 +412,7 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]*model
 	loadL7RequestsHistogram("container_cassandra_queries_histogram", model.ProtocolCassandra)
 	loadL7RequestsHistogram("container_clickhouse_queries_histogram", model.ProtocolClickhouse)
 	loadL7RequestsHistogram("container_zookeeper_requests_histogram", model.ProtocolZookeeper)
+	loadL7RequestsHistogram("container_foundationdb_requests_histogram", model.ProtocolFoundationdb)
 
 	loadInstanceByDest := func(queryName string, f func(instance *model.Instance, m *model.MetricValues)) {
 		ms := metrics[queryName]

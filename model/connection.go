@@ -9,18 +9,19 @@ import (
 type Protocol string
 
 const (
-	ProtocolHttp       Protocol = "http"
-	ProtocolPostgres   Protocol = "postgres"
-	ProtocolMongodb    Protocol = "mongo"
-	ProtocolRedis      Protocol = "redis"
-	ProtocolMysql      Protocol = "mysql"
-	ProtocolMemcached  Protocol = "memcached"
-	ProtocolKafka      Protocol = "kafka"
-	ProtocolCassandra  Protocol = "cassandra"
-	ProtocolRabbitmq   Protocol = "rabbitmq"
-	ProtocolNats       Protocol = "nats"
-	ProtocolClickhouse Protocol = "clickhouse"
-	ProtocolZookeeper  Protocol = "zookeeper"
+	ProtocolHttp         Protocol = "http"
+	ProtocolPostgres     Protocol = "postgres"
+	ProtocolMongodb      Protocol = "mongo"
+	ProtocolRedis        Protocol = "redis"
+	ProtocolMysql        Protocol = "mysql"
+	ProtocolMemcached    Protocol = "memcached"
+	ProtocolKafka        Protocol = "kafka"
+	ProtocolCassandra    Protocol = "cassandra"
+	ProtocolRabbitmq     Protocol = "rabbitmq"
+	ProtocolNats         Protocol = "nats"
+	ProtocolClickhouse   Protocol = "clickhouse"
+	ProtocolZookeeper    Protocol = "zookeeper"
+	ProtocolFoundationdb Protocol = "foundationdb"
 )
 
 func (p Protocol) ToApplicationType() ApplicationType {
