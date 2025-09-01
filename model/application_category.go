@@ -84,5 +84,13 @@ var BuiltinCategoryPatterns = map[ApplicationCategory][]string{
 		"jaeger/*",
 		"thanos/*",
 		"sentry/*",
+		"*/*victoria-metrics*",
+		"*/*victoria-logs*",
+		"*/*vminsert*",
+		"*/*vmselect*",
+		"*/*vmstorage*",
+		"*/*vmagent*",
+		"datadog/*",
+		"*/*datadog*",
 	},
 }
