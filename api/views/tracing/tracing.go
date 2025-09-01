@@ -101,7 +101,7 @@ func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, 
 	if app.Settings != nil && app.Settings.Tracing != nil {
 		otelService = app.Settings.Tracing.Service
 	} else {
-		otelService = model.GuessService(otelServices, app.Id)
+		otelService = model.GuessService(otelServices, w, app)
 	}
 	for _, s := range otelServices {
 		v.Services = append(v.Services, Service{Name: s, Linked: s == otelService})

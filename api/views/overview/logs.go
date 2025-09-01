@@ -128,7 +128,7 @@ func (v *Logs) renderEntries(entries []*model.LogEntry, w *model.World) {
 		}
 		if settings := app.Settings; settings != nil && settings.Logs != nil && settings.Logs.Service != "" {
 			apps[settings.Logs.Service] = app
-		} else if service := model.GuessService(services, app.Id); service != "" {
+		} else if service := model.GuessService(services, w, app); service != "" {
 			apps[service] = app
 		}
 	}
