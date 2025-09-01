@@ -10,6 +10,7 @@ import (
 	"slices"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/coroot/coroot/api/forms"
@@ -27,6 +28,7 @@ import (
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 	"github.com/gorilla/mux"
+	"github.com/gorilla/websocket"
 	"golang.org/x/exp/maps"
 	"k8s.io/klog"
 )
@@ -40,6 +42,7 @@ type Api struct {
 	globalClickHouse *db.IntegrationClickhouse
 	globalPrometheus *db.IntegrationPrometheus
 	licenseMgr       LicenseManager
+	wsUpgrader       websocket.Upgrader
 
 	authSecret        string
 	authAnonymousRole rbac.RoleName
@@ -62,6 +65,13 @@ func NewApi(cache *cache.Cache, db *db.DB, collector *collector.Collector, prici
 		licenseMgr:       licenseMgr,
 		deploymentUuid:   deploymentUuid,
 		instanceUuid:     instanceUuid,
+		wsUpgrader: websocket.Upgrader{
+			CheckOrigin: func(r *http.Request) bool {
+				return true // Allow all origins for development
+			},
+			ReadBufferSize:  1024,
+			WriteBufferSize: 1024,
+		},
 	}
 }
 
@@ -380,6 +390,186 @@ func (api *Api) Overview(w http.ResponseWriter, r *http.Request, u *db.User) {
 	defer ch.Close()
 	auditor.Audit(world, project, nil, project.ClickHouseConfig(api.globalClickHouse) != nil, nil)
 	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Overview(r.Context(), ch, project, world, view, r.URL.Query().Get("query"))))
+}
+
+// OverviewLogsWebSocket: WebSocket streaming for global logs tab - real-time like Grafana Loki
+func (api *Api) OverviewLogsWebSocket(w http.ResponseWriter, r *http.Request, u *db.User) {
+	vars := mux.Vars(r)
+	projectId := vars["project"]
+	if !api.IsAllowed(u, rbac.Actions.Project(projectId).Logs().View()) {
+		http.Error(w, "You are not allowed to view logs.", http.StatusForbidden)
+		return
+	}
+
+	// Upgrade HTTP connection to WebSocket
+	conn, err := api.wsUpgrader.Upgrade(w, r, nil)
+	if err != nil {
+		klog.Errorln("WebSocket upgrade failed:", err)
+		return
+	}
+	defer conn.Close()
+
+	world, project, _, err := api.LoadWorldByRequest(r)
+	if err != nil {
+		klog.Errorln(err)
+		conn.WriteMessage(websocket.TextMessage, []byte(`{"error":"Internal server error"}`))
+		return
+	}
+	if project == nil || world == nil {
+		conn.WriteMessage(websocket.TextMessage, []byte(`{"error":"Project not ready"}`))
+		return
+	}
+
+	ch, chErr := api.GetClickhouseClient(project)
+	if chErr != nil || ch == nil {
+		klog.Warningln("ClickHouse is not available for streaming:", chErr)
+		conn.WriteMessage(websocket.TextMessage, []byte(`{"error":"ClickHouse is not available"}`))
+		return
+	}
+	defer ch.Close()
+
+	// Parse LogsQuery from global tab
+	type logsQuery struct {
+		Agent   bool                   `json:"agent"`
+		Otel    bool                   `json:"otel"`
+		Filters []clickhouse.LogFilter `json:"filters"`
+		Limit   int                    `json:"limit"`
+	}
+	
+	var q logsQuery
+	if s := r.URL.Query().Get("query"); s != "" {
+		if err := json.Unmarshal([]byte(s), &q); err != nil {
+			klog.Warningln("invalid overview logs stream query:", err)
+		}
+	}
+	if q.Limit <= 0 {
+		q.Limit = 100
+	}
+
+	ctx := r.Context()
+	ticker := time.NewTicker(50 * time.Millisecond)
+	defer ticker.Stop()
+	lastTs := timeseries.Now()
+
+	// Send initial connection message
+	conn.WriteMessage(websocket.TextMessage, []byte(`{"type":"connected"}`))
+
+	// Configure pong handler for keepalive
+	conn.SetPongHandler(func(string) error {
+		conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+		return nil
+	})
+	conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+	
+	// Goroutine for ping/pong keepalive
+	go func() {
+		pingTicker := time.NewTicker(30 * time.Second)
+		defer pingTicker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-pingTicker.C:
+				if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+					return
+				}
+			}
+		}
+	}()
+
+	sendLogs := func(entries []*model.LogEntry) error {
+		if len(entries) == 0 {
+			return nil
+		}
+		
+		// Sort by timestamp to send in chronological order
+		sort.Slice(entries, func(i, j int) bool { 
+			return entries[i].Timestamp.Before(entries[j].Timestamp) 
+		})
+		
+		for _, e := range entries {
+			ts := timeseries.TimeFromStandard(e.Timestamp)
+			if ts <= lastTs { 
+				continue 
+			}
+			
+			payload := struct {
+				Type        string            `json:"type"`
+				Application string            `json:"application"`
+				Timestamp   int64             `json:"timestamp"`
+				Severity    string            `json:"severity"`
+				Color       string            `json:"color"`
+				Message     string            `json:"message"`
+				Attributes  map[string]string `json:"attributes"`
+				TraceId     string            `json:"trace_id"`
+			}{
+				Type:        "log",
+				Application: e.ServiceName,
+				Timestamp:   e.Timestamp.UnixMilli(),
+				Severity:    e.Severity.String(),
+				Color:       e.Severity.Color(),
+				Message:     e.Body,
+				Attributes:  map[string]string{},
+				TraceId:     e.TraceId,
+			}
+			
+			// Add attributes
+			for n, v := range e.LogAttributes { 
+				if n != "" && v != "" { 
+					payload.Attributes[n] = v 
+				} 
+			}
+			for n, v := range e.ResourceAttributes { 
+				if n != "" && v != "" { 
+					payload.Attributes[n] = v 
+				} 
+			}
+			
+			if err := conn.WriteJSON(payload); err != nil {
+				return err
+			}
+			
+			if ts > lastTs { 
+				lastTs = ts 
+			}
+		}
+		return nil
+	}
+
+	// Main streaming loop - high performance like Loki
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			now := timeseries.Now()
+			lq := clickhouse.LogQuery{
+				Ctx:     timeseries.NewContext(lastTs.Add(1), now, 0),
+				Filters: q.Filters,
+				Limit:   q.Limit,
+			}
+			
+			if !q.Agent || !q.Otel {
+				if q.Agent { 
+					lq.Source = model.LogSourceAgent 
+				}
+				if q.Otel { 
+					lq.Source = model.LogSourceOtel 
+				}
+			}
+			
+			entries, err := ch.GetLogs(ctx, lq)
+			if err != nil {
+				klog.Errorln("overview stream logs error:", err)
+				continue
+			}
+			
+			if err := sendLogs(entries); err != nil {
+				klog.Errorln("WebSocket send error:", err)
+				return
+			}
+		}
+	}
 }
 
 func (api *Api) Dashboards(w http.ResponseWriter, r *http.Request, u *db.User) {
@@ -1423,6 +1613,206 @@ func (api *Api) Logs(w http.ResponseWriter, r *http.Request, u *db.User) {
 		res.Message = "Failed to load logs: ClickHouse is not available"
 	}
 	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, res))
+}
+
+// LogsStream provides WebSocket streaming for new log entries in near real-time.
+// It reuses ClickHouse as a source and periodically polls for new entries since the last sent timestamp.
+func (api *Api) LogsStream(w http.ResponseWriter, r *http.Request, u *db.User) {
+	projectId := mux.Vars(r)["project"]
+	appId, err := GetApplicationId(r)
+	if err != nil {
+		klog.Warningln(err)
+		http.Error(w, "invalid application id", http.StatusBadRequest)
+		return
+	}
+
+	world, project, _, err := api.LoadWorldByRequest(r)
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	if project == nil || world == nil {
+		http.Error(w, "Project not found", http.StatusNotFound)
+		return
+	}
+	app := world.GetApplication(appId)
+	if app == nil {
+		klog.Warningln("application not found:", appId)
+		http.Error(w, "Application not found", http.StatusNotFound)
+		return
+	}
+	if !api.IsAllowed(u, rbac.Actions.Project(projectId).Application(app.Category, app.Id.Namespace, app.Id.Kind, app.Id.Name).View()) {
+		http.Error(w, "You are not allowed to view this application.", http.StatusForbidden)
+		return
+	}
+
+	ch, chErr := api.GetClickhouseClient(project)
+	if chErr != nil || ch == nil {
+		klog.Warningln("ClickHouse is not available for streaming:", chErr)
+		http.Error(w, "ClickHouse is not available", http.StatusServiceUnavailable)
+		return
+	}
+	defer ch.Close()
+
+	// Upgrade HTTP connection to WebSocket
+	conn, err := api.wsUpgrader.Upgrade(w, r, nil)
+	if err != nil {
+		klog.Errorln("WebSocket upgrade failed:", err)
+		return
+	}
+	defer conn.Close()
+
+	// Parse query filters coming from the UI
+	type logsQuery struct {
+		Source  model.LogSource        `json:"source"`
+		Filters []clickhouse.LogFilter `json:"filters"`
+		Limit   int                    `json:"limit"`
+	}
+	var q logsQuery
+	if s := r.URL.Query().Get("query"); s != "" {
+		if err := json.Unmarshal([]byte(s), &q); err != nil {
+			klog.Warningln("invalid logs stream query:", err)
+		}
+	}
+	if q.Limit <= 0 {
+		q.Limit = 100
+	}
+
+	// Decide the source/services once per connection
+	services, err := ch.GetServicesFromLogs(r.Context(), world.Ctx.From)
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "Clickhouse error", http.StatusInternalServerError)
+		return
+	}
+	var logsFromAgentFound bool
+	var otelServices []string
+	for _, s := range services {
+		if strings.HasPrefix(s, "/") {
+			logsFromAgentFound = true
+		} else {
+			otelServices = append(otelServices, s)
+		}
+	}
+	otelService := ""
+	if app.Settings != nil && app.Settings.Logs != nil {
+		otelService = app.Settings.Logs.Service
+	} else {
+		otelService = model.GuessService(otelServices, world, app)
+	}
+	source := q.Source
+	if source == "" {
+		if otelService != "" {
+			source = model.LogSourceOtel
+		} else if logsFromAgentFound {
+			source = model.LogSourceAgent
+		}
+	}
+
+	// Configure WebSocket keepalive
+	conn.SetPongHandler(func(string) error {
+		conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+		return nil
+	})
+	conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+
+	ctx := r.Context()
+	// Start from "now"; we will stream only fresh entries
+	lastTs := timeseries.Now()
+	ticker := time.NewTicker(100 * time.Millisecond) // 100ms for faster streaming
+	defer ticker.Stop()
+
+	// Send initial connection message
+	conn.WriteMessage(websocket.TextMessage, []byte(`{"type":"connected"}`))
+
+	sendLogs := func(entries []*model.LogEntry) error {
+		for _, e := range entries {
+			ts := timeseries.TimeFromStandard(e.Timestamp)
+			if ts <= lastTs {
+				continue
+			}
+			// Build payload compatible with UI entries
+			payload := struct {
+				Type       string            `json:"type"`
+				Timestamp  int64             `json:"timestamp"`
+				Severity   string            `json:"severity"`
+				Color      string            `json:"color"`
+				Message    string            `json:"message"`
+				Attributes map[string]string `json:"attributes"`
+				TraceId    string            `json:"trace_id"`
+			}{
+				Type:       "log",
+				Timestamp:  e.Timestamp.UnixMilli(),
+				Severity:   e.Severity.String(),
+				Color:      e.Severity.Color(),
+				Message:    e.Body,
+				Attributes: map[string]string{},
+				TraceId:    e.TraceId,
+			}
+			for name, value := range e.LogAttributes {
+				if name != "" && value != "" {
+					payload.Attributes[name] = value
+				}
+			}
+			for name, value := range e.ResourceAttributes {
+				if name != "" && value != "" {
+					payload.Attributes[name] = value
+				}
+			}
+			
+			if err := conn.WriteJSON(payload); err != nil {
+				return err
+			}
+			
+			// Advance lastTs
+			if ts > lastTs {
+				lastTs = ts
+			}
+		}
+		return nil
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			now := timeseries.Now()
+			lq := clickhouse.LogQuery{
+				Ctx:     timeseries.NewContext(lastTs.Add(1), now, 0),
+				Filters: q.Filters,
+				Limit:   q.Limit,
+			}
+			switch source {
+			case model.LogSourceOtel:
+				if otelService != "" {
+					lq.Services = []string{otelService}
+				}
+			case model.LogSourceAgent:
+				// derive services from containers of the app
+				for _, i := range app.Instances {
+					for _, c := range i.Containers {
+						lq.Services = append(lq.Services, model.ContainerIdToServiceName(c.Id))
+					}
+				}
+			}
+			entries, err := ch.GetLogs(ctx, lq)
+			if err != nil {
+				klog.Errorln("stream logs error:", err)
+				// transient errors: continue
+				continue
+			}
+			// sort by timestamp asc to send in order
+			sort.Slice(entries, func(i, j int) bool {
+				return entries[i].Timestamp.Before(entries[j].Timestamp)
+			})
+			if err := sendLogs(entries); err != nil {
+				klog.Warningln("client disconnected:", err)
+				return
+			}
+		}
+	}
 }
 
 func (api *Api) Risks(w http.ResponseWriter, r *http.Request, u *db.User) {

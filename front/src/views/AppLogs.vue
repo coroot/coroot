@@ -29,6 +29,10 @@
                         class="flex-grow-1"
                     />
                     <v-btn @click="get" :disabled="disabled" color="primary" height="40">Show logs</v-btn>
+                    <v-btn @click="toggleLive" :color="live ? 'green' : ''" outlined height="40" :disabled="!configured || query.view !== 'messages'">
+                        <v-icon small class="mr-1">{{ live ? 'mdi-pause' : 'mdi-play' }}</v-icon>
+                        {{ live ? 'Live: ON' : 'Live: OFF' }}
+                    </v-btn>
                 </div>
 
                 <v-btn-toggle v-model="query.view" @change="setQuery" mandatory dense class="mt-2">
@@ -149,6 +153,8 @@ export default {
             loading: false,
             loadingError: '',
             data: {},
+            live: false,
+            ws: null,
             query: {
                 source: q.source || 'agent',
                 view: q.view || 'messages',
@@ -306,6 +312,7 @@ export default {
             this.data.chart = null;
             this.data.entries = null;
             this.data.patterns = null;
+            if (this.live) { this.stopLive(); }
             this.$api.getLogs(this.appId, this.$route.query.query, (data, error) => {
                 this.loading = false;
                 const errMsg = 'Failed to load logs';
@@ -320,6 +327,9 @@ export default {
                 this.saved = JSON.stringify(this.form);
                 this.query.source = this.data.source;
                 this.query.view = this.data.view;
+                if (this.query.view === 'messages' && this.live && this.configured) {
+                    this.startLive();
+                }
             });
         },
         save() {
@@ -339,6 +349,110 @@ export default {
                 }, 1000);
                 this.get();
             });
+        },
+        streamUrl() {
+            const projectId = this.$route.params.projectId;
+            const q = JSON.stringify({ source: this.query.source, filters: this.query.filters, limit: this.query.limit });
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const host = window.location.host;
+            return `${protocol}//${host}${this.$coroot.base_path}api/project/${projectId}/app/${this.appId}/logs/stream?query=${encodeURIComponent(q)}`;
+        },
+        startLive() {
+            if (this.ws || !this.configured) return;
+            
+            try {
+                this.ws = new WebSocket(this.streamUrl());
+            } catch (e) {
+                console.error('WebSocket connection failed:', e);
+                this.live = false;
+                return;
+            }
+
+            this.ws.onopen = () => {
+                console.log('WebSocket connected - app logs streaming started');
+                this.live = true;
+            };
+
+            this.ws.onmessage = (ev) => {
+                try {
+                    const data = JSON.parse(ev.data);
+                    
+                    // Ignore system messages
+                    if (data.type === 'connected') {
+                        console.log('App logs WebSocket connected successfully');
+                        return;
+                    }
+                    
+                    if (data.error) {
+                        console.error('WebSocket error:', data.error);
+                        this.stopLive();
+                        return;
+                    }
+                    
+                    // Process real-time log entry
+                    if (data.type === 'log') {
+                        const newline = data.message ? data.message.indexOf('\n') : -1;
+                        const entry = {
+                            ...data,
+                            color: palette.get(data.color),
+                            date: this.$format.date(data.timestamp, '{MMM} {DD} {HH}:{mm}:{ss}'),
+                            multiline: newline > 0 ? newline : 0,
+                        };
+                        
+                        if (!this.data.entries) {
+                            this.$set(this.data, 'entries', []);
+                        }
+                        
+                        this.data.entries.unshift(entry);
+                        
+                        // Keep limit of entries on screen
+                        if (this.data.entries.length > this.query.limit) {
+                            this.data.entries.splice(this.query.limit);
+                        }
+                    }
+                } catch (e) {
+                    console.error('Error processing WebSocket message:', e);
+                }
+            };
+
+            this.ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                this.stopLive();
+            };
+
+            this.ws.onclose = (event) => {
+                console.log('WebSocket closed:', event.code, event.reason);
+                this.live = false;
+                
+                // Auto-reconnect if not closed intentionally
+                if (event.code !== 1000 && this.live) {
+                    setTimeout(() => {
+                        console.log('Attempting WebSocket reconnection...');
+                        this.startLive();
+                    }, 2000);
+                }
+            };
+        },
+        stopLive() {
+            if (this.ws) { 
+                try { 
+                    this.ws.close(1000, 'User stopped live logs'); 
+                } catch (e) { 
+                    console.debug('Error closing WebSocket:', e); 
+                } 
+                this.ws = null; 
+            }
+            this.live = false;
+        },
+        toggleLive() {
+            if (this.live) {
+                this.stopLive();
+            } else {
+                if (this.query.view === 'messages' && this.configured) {
+                    this.data.entries = [];
+                    this.startLive();
+                }
+            }
         },
     },
 };

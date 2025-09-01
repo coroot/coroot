@@ -22,6 +22,10 @@
                         class="flex-grow-1"
                     />
                     <v-btn @click="get" :disabled="disabled" color="primary" height="40">Show logs</v-btn>
+                    <v-btn @click="toggleLive" :color="live ? 'green' : ''" outlined height="40">
+                        <v-icon small class="mr-1">{{ live ? 'mdi-pause' : 'mdi-play' }}</v-icon>
+                        {{ live ? 'Live: ON' : 'Live: OFF' }}
+                    </v-btn>
                 </div>
                 <div class="d-flex gap-2 sources">
                     <v-checkbox v-model="query.agent" label="Container logs" :disabled="disabled" dense hide-details />
@@ -117,6 +121,8 @@ export default {
             loading: false,
             error: '',
             view: {},
+            live: false,
+            ws: null,
             query: {
                 view: q.view || 'messages',
                 agent: q.agent !== undefined ? q.agent : true,
@@ -157,7 +163,8 @@ export default {
             if (!this.view.entries) {
                 return null;
             }
-            return this.view.entries.map((e) => {
+            const sorted = [...this.view.entries].sort((a, b) => b.timestamp - a.timestamp);
+            return sorted.map((e) => {
                 const message = e.message.trim();
                 const newline = message.indexOf('\n');
                 let application = e.application;
@@ -239,6 +246,7 @@ export default {
             this.loading = true;
             this.error = '';
             this.view.entries = null;
+            if (this.live) { this.stopLive(); }
             this.$api.getOverview('logs', JSON.stringify(this.query), (data, error) => {
                 this.loading = false;
                 if (error) {
@@ -246,7 +254,131 @@ export default {
                     return;
                 }
                 this.view = data.logs || {};
+                if (this.query.view === 'messages' && this.live) {
+                    this.startLive();
+                }
             });
+        },
+        streamUrl() {
+            const projectId = this.$route.params.projectId;
+            const q = JSON.stringify({ agent: this.query.agent, otel: this.query.otel, filters: this.query.filters, limit: this.query.limit });
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const host = window.location.host;
+            return `${protocol}//${host}${this.$coroot.base_path}api/project/${projectId}/overview/logs/ws?query=${encodeURIComponent(q)}`;
+        },
+        startLive() {
+            if (this.ws) return;
+            
+            try {
+                this.ws = new WebSocket(this.streamUrl());
+            } catch (e) {
+                console.error('WebSocket connection failed:', e);
+                this.live = false;
+                return;
+            }
+
+            this.ws.onopen = () => {
+                console.log('WebSocket connected - logs streaming started');
+                this.live = true;
+            };
+
+            this.ws.onmessage = (ev) => {
+                try {
+                    const data = JSON.parse(ev.data);
+                    
+                    // Ignore system messages
+                    if (data.type === 'connected') {
+                        console.log('Logs WebSocket connected successfully');
+                        return;
+                    }
+                    
+                    if (data.error) {
+                        console.error('WebSocket error:', data.error);
+                        this.stopLive();
+                        return;
+                    }
+                    
+                    // Process real-time logs
+                    if (data.type === 'log') {
+                        const message = (data.message || '').trim();
+                        const newline = message.indexOf('\n');
+                        let application = data.application;
+                        let link;
+                        
+                        if (application && application.includes(':')) {
+                            const id = this.$utils.appId(application);
+                            application = id.name;
+                            link = { 
+                                name: 'overview', 
+                                params: { view: 'applications', id: data.application, report: 'Logs' }, 
+                                query: this.$utils.contextQuery() 
+                            };
+                        }
+                        
+                        const entry = {
+                            ...data,
+                            application,
+                            link,
+                            message,
+                            color: palette.get(data.color),
+                            date: this.$format.date(data.timestamp, '{MMM} {DD} {HH}:{mm}:{ss}'),
+                            multiline: newline > 0 ? newline : 0,
+                        };
+                        
+                        if (!this.view.entries) {
+                            this.$set(this.view, 'entries', []);
+                        }
+                        
+                        this.view.entries.push(entry);
+                        
+                        // Keep limit of entries on screen
+                        if (this.view.entries.length > this.query.limit) {
+                            this.view.entries.splice(0, this.view.entries.length - this.query.limit);
+                        }
+                    }
+                } catch (e) {
+                    console.error('Error processing WebSocket message:', e);
+                }
+            };
+
+            this.ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                this.stopLive();
+            };
+
+            this.ws.onclose = (event) => {
+                console.log('WebSocket closed:', event.code, event.reason);
+                this.live = false;
+                
+                // Auto-reconnect if not closed intentionally
+                if (event.code !== 1000 && this.live) {
+                    setTimeout(() => {
+                        console.log('Attempting WebSocket reconnection...');
+                        this.startLive();
+                    }, 2000);
+                }
+            };
+        },
+        stopLive() {
+            if (this.ws) { 
+                try { 
+                    this.ws.close(1000, 'User stopped live logs'); 
+                } catch (e) { 
+                    console.debug('Error closing WebSocket:', e); 
+                } 
+                this.ws = null; 
+            }
+            this.live = false;
+        },
+        toggleLive() {
+            if (this.live) {
+                this.stopLive();
+            } else {
+                if (this.query.view === 'messages') {
+                    this.view.entries = [];
+                }
+                this.startLive();
+            }
         },
         zoom(s) {
             const { from, to } = s.selection;
