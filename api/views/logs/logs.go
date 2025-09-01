@@ -119,7 +119,7 @@ func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, 
 	if app.Settings != nil && app.Settings.Logs != nil {
 		otelService = app.Settings.Logs.Service
 	} else {
-		otelService = model.GuessService(otelServices, app.Id)
+		otelService = model.GuessService(otelServices, w, app)
 	}
 
 	if logsFromAgentFound {

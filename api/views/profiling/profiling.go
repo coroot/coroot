@@ -43,7 +43,7 @@ type Query struct {
 	Instance string            `json:"instance"`
 }
 
-func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, query url.Values, wCtx timeseries.Context) *View {
+func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, query url.Values, w *model.World) *View {
 	if ch == nil {
 		return nil
 	}
@@ -61,10 +61,10 @@ func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, 
 		}
 	}
 	if q.From == 0 {
-		q.From = wCtx.From
+		q.From = w.Ctx.From
 	}
 	if q.To == 0 {
-		q.To = wCtx.To
+		q.To = w.Ctx.To
 	}
 
 	v := &View{}
@@ -86,7 +86,7 @@ func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, 
 				services[model.ContainerIdToServiceName(c.Id)] = true
 			}
 		}
-		if s := model.GuessService(maps.Keys(profileTypes), app.Id); len(services) == 0 && s != "" {
+		if s := model.GuessService(maps.Keys(profileTypes), w, app); len(services) == 0 && s != "" {
 			services[s] = true
 		}
 	}
@@ -144,7 +144,7 @@ func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, 
 		q.Type = v.Profiles[0].Type
 	}
 
-	chart, containers := getChart(app, q.Type, wCtx, q.Instance)
+	chart, containers := getChart(app, q.Type, w.Ctx, q.Instance)
 	v.Chart = chart
 	v.Instances = maps.Keys(containers)
 	sort.Strings(v.Instances)

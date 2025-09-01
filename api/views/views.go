@@ -20,7 +20,6 @@ import (
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/rbac"
-	"github.com/coroot/coroot/timeseries"
 )
 
 func Overview(ctx context.Context, ch *clickhouse.Client, p *db.Project, w *model.World, view, query string) *overview.Overview {
@@ -39,8 +38,8 @@ func Incidents(w *model.World, incidents []*model.ApplicationIncident) []inciden
 	return incident.RenderList(w, incidents)
 }
 
-func Profiling(ctx context.Context, ch *clickhouse.Client, app *model.Application, q url.Values, wCtx timeseries.Context) *profiling.View {
-	return profiling.Render(ctx, ch, app, q, wCtx)
+func Profiling(ctx context.Context, ch *clickhouse.Client, app *model.Application, q url.Values, w *model.World) *profiling.View {
+	return profiling.Render(ctx, ch, app, q, w)
 }
 
 func Tracing(ctx context.Context, ch *clickhouse.Client, app *model.Application, q url.Values, w *model.World) *tracing.View {
