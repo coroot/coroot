@@ -39,6 +39,7 @@ type Api struct {
 	roles            rbac.RoleManager
 	globalClickHouse *db.IntegrationClickhouse
 	globalPrometheus *db.IntegrationPrometheus
+	licenseMgr       LicenseManager
 
 	authSecret        string
 	authAnonymousRole rbac.RoleName
@@ -47,7 +48,7 @@ type Api struct {
 	instanceUuid   string
 }
 
-func NewApi(cache *cache.Cache, db *db.DB, collector *collector.Collector, pricing *pricing.Manager, roles rbac.RoleManager,
+func NewApi(cache *cache.Cache, db *db.DB, collector *collector.Collector, pricing *pricing.Manager, roles rbac.RoleManager, licenseMgr LicenseManager,
 	globalClickHouse *db.IntegrationClickhouse, globalPrometheus *db.IntegrationPrometheus,
 	deploymentUuid, instanceUuid string) *Api {
 	return &Api{
@@ -58,6 +59,7 @@ func NewApi(cache *cache.Cache, db *db.DB, collector *collector.Collector, prici
 		roles:            roles,
 		globalClickHouse: globalClickHouse,
 		globalPrometheus: globalPrometheus,
+		licenseMgr:       licenseMgr,
 		deploymentUuid:   deploymentUuid,
 		instanceUuid:     instanceUuid,
 	}

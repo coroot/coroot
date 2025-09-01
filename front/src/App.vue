@@ -1,6 +1,14 @@
 <template>
     <v-app>
-        <CheckForUpdates v-if="$coroot.check_for_updates" :currentVersion="$coroot.version" :instanceUuid="$coroot.instance_uuid" />
+        <v-system-bar
+            :app="!!systemAlerts.length"
+            class="d-block px-0"
+            :height="systemAlertHeight * systemAlerts.length"
+            :style="{ height: systemAlerts.length * systemAlertHeight + 'px' }"
+        >
+            <CheckForUpdates v-if="$coroot.check_for_updates" :height="systemAlertHeight" @show="(v) => toggleSystemAlert('update', v)" />
+            <LicenseCheck v-if="ee" :height="systemAlertHeight" @show="(v) => toggleSystemAlert('license', v)" />
+        </v-system-bar>
 
         <v-navigation-drawer v-if="menu" permanent app dark :mini-variant="menuCollapsed" width="188" stateless>
             <template #prepend>
@@ -226,11 +234,12 @@ import ThemeSelector from './components/ThemeSelector.vue';
 import AgentInstallation from './views/AgentInstallation.vue';
 import ChangePassword from './views/auth/ChangePassword.vue';
 import CloudPromoDialog from './components/CloudPromoDialog.vue';
+import LicenseCheck from './components/LicenseCheck.vue';
 import { views } from '@/views/Views.vue';
 import './app.css';
 
 export default {
-    components: { Welcome, Search, CheckForUpdates, ThemeSelector, AgentInstallation, ChangePassword, CloudPromoDialog },
+    components: { Welcome, Search, CheckForUpdates, ThemeSelector, AgentInstallation, ChangePassword, CloudPromoDialog, LicenseCheck },
 
     data() {
         let menuCollapsed = this.$storage.local('menu-collapsed');
@@ -243,7 +252,7 @@ export default {
             changePassword: false,
             menuCollapsed: menuCollapsed,
             search: false,
-            sss: '',
+            systemAlerts: [],
         };
     },
 
@@ -302,6 +311,9 @@ export default {
             return Object.values(this.context.incidents).reduce((acc, current) => {
                 return acc + current;
             }, 0);
+        },
+        systemAlertHeight() {
+            return this.$vuetify.breakpoint.xs ? 64 : 32;
         },
     },
 
@@ -364,6 +376,18 @@ export default {
                 e.preventDefault();
                 this.search = true;
             }
+        },
+        toggleSystemAlert(name, show) {
+            const set = new Set(this.systemAlerts);
+            if (show) {
+                set.add(name);
+            } else {
+                set.delete(name);
+            }
+            this.systemAlerts.splice(0);
+            set.forEach((item) => {
+                this.systemAlerts.push(item);
+            });
         },
     },
 };

@@ -1,12 +1,14 @@
 <template>
-    <v-system-bar v-if="show" app color="green" dark height="30">
-        <v-spacer />
-        <div style="color: white">Coroot {{ latestVersion }} is available &#127881;</div>
-        <a href="https://github.com/coroot/coroot/releases" target="_blank" class="ml-2 mr-1 link">Changelog</a>
-        (<a href="https://docs.coroot.com/" target="_blank" class="link"> how to upgrade</a>)
-        <v-spacer />
-        <v-btn x-small icon @click="dismiss"><v-icon class="mr-0">mdi-close</v-icon></v-btn>
-    </v-system-bar>
+    <v-alert v-if="show" color="green lighten-3" light :height="height" tile dismissible class="ma-0 py-1">
+        <template #close>
+            <v-btn x-small icon @click="dismiss"><v-icon small>mdi-close</v-icon></v-btn>
+        </template>
+        <div class="text-center">
+            Coroot {{ latestVersion }} is available &#127881;
+            <a href="https://github.com/coroot/coroot/releases" target="_blank" class="ml-2 mr-1 link">Changelog</a>
+            (<a href="https://docs.coroot.com/" target="_blank" class="link">how to upgrade</a>).
+        </div>
+    </v-alert>
 </template>
 
 <script>
@@ -15,8 +17,7 @@ import axios from 'axios';
 const key = 'update-alert-dismissed';
 export default {
     props: {
-        currentVersion: String,
-        instanceUuid: String,
+        height: Number,
     },
 
     data() {
@@ -43,12 +44,20 @@ export default {
         },
     },
 
+    watch: {
+        show(v) {
+            this.$emit('show', v);
+        },
+    },
+
     methods: {
         get() {
-            const url = 'https://coroot.com/ce/version';
-            axios.get(url, { headers: { 'x-instance-version': this.currentVersion, 'x-instance-uuid': this.instanceUuid } }).then((response) => {
-                this.latestVersion = response.data.trim();
-            });
+            const url = this.$coroot.cloud_url + '/ce/version';
+            axios
+                .get(url, { headers: { 'x-instance-version': this.$coroot.version, 'x-instance-uuid': this.$coroot.instance_uuid } })
+                .then((response) => {
+                    this.latestVersion = response.data.trim();
+                });
         },
         dismiss() {
             this.ignoredVersion = this.latestVersion;
@@ -58,10 +67,4 @@ export default {
 };
 </script>
 
-<style scoped>
-.link {
-    color: white;
-    font-weight: 500;
-    text-decoration: underline !important;
-}
-</style>
+<style scoped></style>

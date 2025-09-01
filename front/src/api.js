@@ -16,6 +16,7 @@ export default class Api {
         status: {},
         search: {},
         incidents: {},
+        license: {},
     };
 
     constructor(router, vuetify, basePath) {
@@ -52,6 +53,7 @@ export default class Api {
                     this.context.status = response.data.context.status;
                     this.context.search = response.data.context.search;
                     this.context.incidents = response.data.context.incidents;
+                    this.context.license = response.data.context.license;
                 }
                 try {
                     const data = response.data.data !== undefined ? response.data.data : response.data;

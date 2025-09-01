@@ -18,6 +18,7 @@ type Context struct {
 	Status    Status                            `json:"status"`
 	Search    Search                            `json:"search"`
 	Incidents map[model.ApplicationCategory]int `json:"incidents"`
+	License   *License                          `json:"license,omitempty"`
 }
 
 type Status struct {
@@ -60,8 +61,17 @@ type Node struct {
 	Status model.Status `json:"status"`
 }
 
+type License struct {
+	Invalid bool   `json:"invalid"`
+	Message string `json:"message"`
+}
+
+type LicenseManager interface {
+	CheckLicense() *License
+}
+
 func (api *Api) WithContext(p *db.Project, cacheStatus *cache.Status, w *model.World, data any) DataWithContext {
-	return DataWithContext{
+	res := DataWithContext{
 		Context: Context{
 			Status:    renderStatus(p, cacheStatus, w, api.globalPrometheus),
 			Search:    renderSearch(w),
@@ -69,6 +79,15 @@ func (api *Api) WithContext(p *db.Project, cacheStatus *cache.Status, w *model.W
 		},
 		Data: data,
 	}
+	if lm := api.licenseMgr; lm != nil {
+		if l := lm.CheckLicense(); l != nil {
+			res.Context.License = l
+			if l.Invalid {
+				res.Data = nil
+			}
+		}
+	}
+	return res
 }
 
 func renderIncidents(w *model.World) map[model.ApplicationCategory]int {
