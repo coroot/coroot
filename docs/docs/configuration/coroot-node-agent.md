@@ -42,6 +42,7 @@ You can configure coroot-node-agent using command-line flags or environment vari
 | `--api-key` | `API_KEY` | – | Coroot API key |
 | `--metrics-endpoint` | `METRICS_ENDPOINT` | – | Custom URL for metrics export |
 | `--traces-endpoint` | `TRACES_ENDPOINT` | – | Custom URL for traces export |
+| `--traces-sampling` | `TRACES_SAMPLING` | `1.0` | Trace sampling rate (0.0 to 1.0) |
 | `--logs-endpoint` | `LOGS_ENDPOINT` | – | Custom URL for logs export |
 | `--profiles-endpoint` | `PROFILES_ENDPOINT` | – | Custom URL for profiles export |
 | `--insecure-skip-verify` | `INSECURE_SKIP_VERIFY` | `false` | Skip TLS certificate verification |
@@ -57,5 +58,6 @@ You can disable specific functionality for individual containers by setting envi
 |---------------------|-------------|
 | `COROOT_EBPF_PROFILING=disabled` | Disable eBPF profiling for this container |
 | `COROOT_LOG_MONITORING=disabled` | Disable log monitoring and parsing for this container |
+| `COROOT_EBPF_TRACES=disabled` | Disable eBPF traces for this container |
 
 These environment variables are read from the container's process environment and allow fine-grained control over which containers are monitored by the agent.
