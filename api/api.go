@@ -41,6 +41,7 @@ type Api struct {
 	globalPrometheus *db.IntegrationPrometheus
 	licenseMgr       LicenseManager
 
+
 	authSecret        string
 	authAnonymousRole rbac.RoleName
 
@@ -62,6 +63,7 @@ func NewApi(cache *cache.Cache, db *db.DB, collector *collector.Collector, prici
 		licenseMgr:       licenseMgr,
 		deploymentUuid:   deploymentUuid,
 		instanceUuid:     instanceUuid,
+
 	}
 }
 
@@ -381,6 +383,9 @@ func (api *Api) Overview(w http.ResponseWriter, r *http.Request, u *db.User) {
 	auditor.Audit(world, project, nil, project.ClickHouseConfig(api.globalClickHouse) != nil, nil)
 	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Overview(r.Context(), ch, project, world, view, r.URL.Query().Get("query"))))
 }
+
+
+
 
 func (api *Api) Dashboards(w http.ResponseWriter, r *http.Request, u *db.User) {
 	world, project, cacheStatus, err := api.LoadWorldByRequest(r)
@@ -1433,6 +1438,10 @@ func (api *Api) Logs(w http.ResponseWriter, r *http.Request, u *db.User) {
 	}
 	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, res))
 }
+
+
+// It reuses ClickHouse as a source and periodically polls for new entries since the last sent timestamp.
+
 
 func (api *Api) Risks(w http.ResponseWriter, r *http.Request, u *db.User) {
 	projectId := mux.Vars(r)["project"]

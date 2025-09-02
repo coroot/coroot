@@ -29,6 +29,10 @@
                         class="flex-grow-1"
                     />
                     <v-btn @click="get" :disabled="disabled" color="primary" height="40">Show logs</v-btn>
+                    <v-btn @click="toggleLive" :color="live ? 'green' : ''" outlined height="40" :disabled="!configured || query.view !== 'messages'">
+                        <v-icon small class="mr-1">{{ live ? 'mdi-pause' : 'mdi-play' }}</v-icon>
+                        {{ live ? 'Live: ON' : 'Live: OFF' }}
+                    </v-btn>
                 </div>
 
                 <v-btn-toggle v-model="query.view" @change="setQuery" mandatory dense class="mt-2">
@@ -149,6 +153,8 @@ export default {
             loading: false,
             loadingError: '',
             data: {},
+            live: false,
+            liveInterval: null,
             query: {
                 source: q.source || 'agent',
                 view: q.view || 'messages',
@@ -306,6 +312,7 @@ export default {
             this.data.chart = null;
             this.data.entries = null;
             this.data.patterns = null;
+            if (this.live) { this.stopLive(); }
             this.$api.getLogs(this.appId, this.$route.query.query, (data, error) => {
                 this.loading = false;
                 const errMsg = 'Failed to load logs';
@@ -320,6 +327,9 @@ export default {
                 this.saved = JSON.stringify(this.form);
                 this.query.source = this.data.source;
                 this.query.view = this.data.view;
+                if (this.query.view === 'messages' && this.live && this.configured) {
+                    this.startLive();
+                }
             });
         },
         save() {
@@ -339,6 +349,108 @@ export default {
                 }, 1000);
                 this.get();
             });
+        },
+        buildLogsQuery() {
+            return JSON.stringify({
+                source: this.query.source,
+                filters: this.query.filters,
+                limit: this.query.limit,
+                view: 'messages'
+            });
+        },
+        startLive() {
+            if (this.liveInterval || !this.configured) return;
+            
+            console.log('Starting live logs polling mode');
+            this.live = true;
+            
+            let lastTimestamp = Date.now() * 1000; // Convert to microseconds for ClickHouse
+            
+            const pollLogs = () => {
+                if (!this.live) return;
+                
+                const now = Date.now() * 1000; // Current time in microseconds
+                
+                // Adjust time range: from last timestamp + 1μs to now
+                const timeQuery = {
+                    from: Math.floor(lastTimestamp / 1000) + 1, // Convert back to milliseconds and add 1ms
+                    to: Math.floor(now / 1000)
+                };
+                
+                const queryParams = new URLSearchParams({
+                    ...this.$route.query,
+                    ...timeQuery,
+                    query: this.buildLogsQuery()
+                });
+                
+                this.$api.getLogs(this.appId, queryParams.toString(), (data, error) => {
+                    if (error) {
+                        console.error('Live logs polling error:', error);
+                        return;
+                    }
+                    
+                    if (data.status === 'warning') {
+                        console.warn('Live logs warning:', data.message);
+                        return;
+                    }
+                    
+                    // Process new entries
+                    if (data.entries && data.entries.length > 0) {
+                        const newEntries = data.entries.map((e) => {
+                            const newline = e.message ? e.message.indexOf('\n') : -1;
+                            return {
+                                ...e,
+                                color: palette.get(e.color),
+                                date: this.$format.date(e.timestamp, '{MMM} {DD} {HH}:{mm}:{ss}'),
+                                multiline: newline > 0 ? newline : 0,
+                            };
+                        });
+                        
+                        if (!this.data.entries) {
+                            this.$set(this.data, 'entries', []);
+                        }
+                        
+                        // Add new entries to the beginning (newest first)
+                        this.data.entries.unshift(...newEntries.reverse());
+                        
+                        // Update last timestamp to the newest entry
+                        const timestamps = data.entries.map(e => e.timestamp);
+                        if (timestamps.length > 0) {
+                            lastTimestamp = Math.max(...timestamps.map(t => new Date(t).getTime() * 1000));
+                        }
+                        
+                        // Keep limit of entries on screen
+                        if (this.data.entries.length > this.query.limit) {
+                            this.data.entries.splice(this.query.limit);
+                        }
+                    } else {
+                        // Update timestamp even if no new entries
+                        lastTimestamp = now;
+                    }
+                });
+            };
+            
+            // Initial poll and set up interval for every 2 seconds
+            pollLogs();
+            this.liveInterval = setInterval(pollLogs, 2000);
+        },
+        stopLive() {
+            if (this.liveInterval) {
+                clearInterval(this.liveInterval);
+                this.liveInterval = null;
+            }
+            this.live = false;
+            console.log('Stopped live logs polling');
+        },
+        toggleLive() {
+            if (this.live) {
+                this.stopLive();
+            } else {
+                if (this.query.view === 'messages' && this.configured) {
+                    this.data.entries = [];
+                    this.startLive();
+                }
+            }
         },
     },
 };
