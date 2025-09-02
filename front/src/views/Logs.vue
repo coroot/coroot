@@ -246,7 +246,9 @@ export default {
             this.loading = true;
             this.error = '';
             this.view.entries = null;
-            if (this.live) { this.stopLive(); }
+            if (this.live) {
+                this.stopLive();
+            }
             this.$api.getOverview('logs', JSON.stringify(this.query), (data, error) => {
                 this.loading = false;
                 if (error) {
@@ -265,46 +267,46 @@ export default {
                 otel: this.query.otel,
                 filters: this.query.filters,
                 limit: this.query.limit,
-                view: 'messages'
+                view: 'messages',
             });
         },
         startLive() {
             if (this.liveInterval) return;
-            
+
             this.live = true;
-            
+
             let lastTimestamp = Date.now() * 1000; // Convert to microseconds for ClickHouse
-            
+
             const pollLogs = () => {
                 if (!this.live) return;
-                
+
                 const now = Date.now() * 1000; // Current time in microseconds
-                
+
                 // Adjust time range: from last timestamp + 1μs to now
                 const timeParams = {
                     from: Math.floor(lastTimestamp / 1000) + 1, // Convert back to milliseconds and add 1ms
-                    to: Math.floor(now / 1000)
+                    to: Math.floor(now / 1000),
                 };
-                
+
                 // Create query with time range - same approach as AppLogs.vue
                 const liveQuery = {
                     ...this.query,
                     from: timeParams.from,
-                    to: timeParams.to
+                    to: timeParams.to,
                 };
-                
+
                 // Use $api.getOverview like the regular get() method, but with time range
                 this.$api.getOverview('logs', JSON.stringify(liveQuery), (data, error) => {
                     if (error) {
                         console.error('Live logs polling error:', error);
                         return;
                     }
-                    
+
                     if (data.status === 'warning') {
                         console.warn('Live logs warning:', data.message);
                         return;
                     }
-                    
+
                     // Process new entries - check both possible structures
                     const entries = data.logs?.entries || data.entries;
                     if (entries && entries.length > 0) {
@@ -313,17 +315,17 @@ export default {
                             const newline = message.indexOf('\n');
                             let application = e.application;
                             let link;
-                            
+
                             if (application && application.includes(':')) {
                                 const id = this.$utils.appId(application);
                                 application = id.name;
-                                link = { 
-                                    name: 'overview', 
-                                    params: { view: 'applications', id: e.application, report: 'Logs' }, 
-                                    query: this.$utils.contextQuery() 
+                                link = {
+                                    name: 'overview',
+                                    params: { view: 'applications', id: e.application, report: 'Logs' },
+                                    query: this.$utils.contextQuery(),
                                 };
                             }
-                            
+
                             return {
                                 ...e,
                                 application,
@@ -334,20 +336,20 @@ export default {
                                 multiline: newline > 0 ? newline : 0,
                             };
                         });
-                        
+
                         if (!this.view.entries) {
                             this.$set(this.view, 'entries', []);
                         }
-                        
+
                         // Add new entries to the end (chronological order)
                         this.view.entries.push(...newEntries);
-                        
+
                         // Update last timestamp to the newest entry
-                        const timestamps = entries.map(e => new Date(e.timestamp).getTime() * 1000);
+                        const timestamps = entries.map((e) => new Date(e.timestamp).getTime() * 1000);
                         if (timestamps.length > 0) {
                             lastTimestamp = Math.max(...timestamps);
                         }
-                        
+
                         // Keep limit of entries on screen - remove oldest entries
                         if (this.view.entries.length > this.query.limit) {
                             this.view.entries.splice(0, this.view.entries.length - this.query.limit);
@@ -358,7 +360,7 @@ export default {
                     }
                 });
             };
-            
+
             // Initial poll and set up interval for every 2 seconds
             pollLogs();
             this.liveInterval = setInterval(pollLogs, 2000);

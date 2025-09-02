@@ -312,7 +312,9 @@ export default {
             this.data.chart = null;
             this.data.entries = null;
             this.data.patterns = null;
-            if (this.live) { this.stopLive(); }
+            if (this.live) {
+                this.stopLive();
+            }
             this.$api.getLogs(this.appId, this.$route.query.query, (data, error) => {
                 this.loading = false;
                 const errMsg = 'Failed to load logs';
@@ -355,45 +357,45 @@ export default {
                 source: this.query.source,
                 filters: this.query.filters,
                 limit: this.query.limit,
-                view: 'messages'
+                view: 'messages',
             });
         },
         startLive() {
             if (this.liveInterval || !this.configured) return;
-            
+
             console.log('Starting live logs polling mode');
             this.live = true;
-            
+
             let lastTimestamp = Date.now() * 1000; // Convert to microseconds for ClickHouse
-            
+
             const pollLogs = () => {
                 if (!this.live) return;
-                
+
                 const now = Date.now() * 1000; // Current time in microseconds
-                
+
                 // Adjust time range: from last timestamp + 1μs to now
                 const timeQuery = {
                     from: Math.floor(lastTimestamp / 1000) + 1, // Convert back to milliseconds and add 1ms
-                    to: Math.floor(now / 1000)
+                    to: Math.floor(now / 1000),
                 };
-                
+
                 const queryParams = new URLSearchParams({
                     ...this.$route.query,
                     ...timeQuery,
-                    query: this.buildLogsQuery()
+                    query: this.buildLogsQuery(),
                 });
-                
+
                 this.$api.getLogs(this.appId, queryParams.toString(), (data, error) => {
                     if (error) {
                         console.error('Live logs polling error:', error);
                         return;
                     }
-                    
+
                     if (data.status === 'warning') {
                         console.warn('Live logs warning:', data.message);
                         return;
                     }
-                    
+
                     // Process new entries
                     if (data.entries && data.entries.length > 0) {
                         const newEntries = data.entries.map((e) => {
@@ -405,20 +407,20 @@ export default {
                                 multiline: newline > 0 ? newline : 0,
                             };
                         });
-                        
+
                         if (!this.data.entries) {
                             this.$set(this.data, 'entries', []);
                         }
-                        
+
                         // Add new entries to the beginning (newest first)
                         this.data.entries.unshift(...newEntries.reverse());
-                        
+
                         // Update last timestamp to the newest entry
-                        const timestamps = data.entries.map(e => e.timestamp);
+                        const timestamps = data.entries.map((e) => e.timestamp);
                         if (timestamps.length > 0) {
-                            lastTimestamp = Math.max(...timestamps.map(t => new Date(t).getTime() * 1000));
+                            lastTimestamp = Math.max(...timestamps.map((t) => new Date(t).getTime() * 1000));
                         }
-                        
+
                         // Keep limit of entries on screen
                         if (this.data.entries.length > this.query.limit) {
                             this.data.entries.splice(this.query.limit);
@@ -429,7 +431,7 @@ export default {
                     }
                 });
             };
-            
+
             // Initial poll and set up interval for every 2 seconds
             pollLogs();
             this.liveInterval = setInterval(pollLogs, 2000);
