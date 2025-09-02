@@ -599,6 +599,10 @@ func (api *Api) ApplicationCategories(w http.ResponseWriter, r *http.Request, u 
 			http.Error(w, "You are not allowed to configure application categories.", http.StatusForbidden)
 			return
 		}
+		if project.Settings.Readonly {
+			http.Error(w, "This project is defined through the config and cannot be modified via the UI.", http.StatusForbidden)
+			return
+		}
 		var form forms.ApplicationCategoryForm
 		if err = forms.ReadAndValidate(r, &form); err != nil {
 			klog.Warningln("bad request:", err)
@@ -661,31 +665,36 @@ func (api *Api) CustomApplications(w http.ResponseWriter, r *http.Request, u *db
 	vars := mux.Vars(r)
 	projectId := vars["project"]
 
+	project, err := api.db.GetProject(db.ProjectId(projectId))
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+
 	if r.Method == http.MethodPost {
 		if !api.IsAllowed(u, rbac.Actions.Project(projectId).CustomApplications().Edit()) {
 			http.Error(w, "You are not allowed to configure custom applications.", http.StatusForbidden)
 			return
 		}
+		if project.Settings.Readonly {
+			http.Error(w, "This project is defined through the config and cannot be modified via the UI.", http.StatusForbidden)
+			return
+		}
 		var form forms.CustomApplicationForm
-		if err := forms.ReadAndValidate(r, &form); err != nil {
+		if err = forms.ReadAndValidate(r, &form); err != nil {
 			klog.Warningln("bad request:", err)
 			http.Error(w, "Invalid name or patterns", http.StatusBadRequest)
 			return
 		}
-		if err := api.db.SaveCustomApplication(db.ProjectId(projectId), form.Name, form.NewName, form.InstancePatterns); err != nil {
+		if err = api.db.SaveCustomApplication(project.Id, form.Name, form.NewName, form.InstancePatterns); err != nil {
 			klog.Errorln("failed to save:", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 		return
 	}
-	p, err := api.db.GetProject(db.ProjectId(projectId))
-	if err != nil {
-		klog.Errorln(err)
-		http.Error(w, "", http.StatusInternalServerError)
-		return
-	}
-	utils.WriteJson(w, views.CustomApplications(p))
+	utils.WriteJson(w, views.CustomApplications(project))
 }
 
 func (api *Api) CustomCloudPricing(w http.ResponseWriter, r *http.Request, u *db.User) {
