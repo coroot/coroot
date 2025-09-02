@@ -223,32 +223,28 @@
                     :marker-start="a.markerStart ? `url(#marker-${a.status}-${a.hi(focused)})` : ''"
                     :marker-end="a.markerEnd ? `url(#marker-${a.status}-${a.hi(focused)})` : ''"
                 />
-                
+
                 <!-- Animated particles flowing along the connection -->
                 <g v-if="a._w && a._w > 0 && !a.internal" class="particle-group">
-                    <circle 
-                        v-for="(particle, index) in getParticles(a)" 
+                    <circle
+                        v-for="(particle, index) in getParticles(a)"
                         :key="`particle-appmap-${arrows.indexOf(a)}-${index}`"
-                        :r="getParticleSize(a._w)" 
+                        :r="getParticleSize(a._w)"
                         :class="`particle ${a.status}`"
                         :style="{ animationDelay: `${index * 0.4}s`, animationDuration: `${getAnimationDuration(a._w)}s` }"
                     >
-                        <animateMotion
-                            :dur="`${getAnimationDuration(a._w)}s`"
-                            :begin="`${index * 0.4}s`"
-                            repeatCount="indefinite"
-                        >
-                            <mpath :href="`#appmap-path-${arrows.indexOf(a)}`"/>
+                        <animateMotion :dur="`${getAnimationDuration(a._w)}s`" :begin="`${index * 0.4}s`" repeatCount="indefinite">
+                            <mpath :href="`#appmap-path-${arrows.indexOf(a)}`" />
                         </animateMotion>
                     </circle>
                 </g>
-                
+
                 <!-- Hidden path for animateMotion reference -->
-                <path 
+                <path
                     v-if="a._w && a._w > 0 && !a.internal"
-                    :id="`appmap-path-${arrows.indexOf(a)}`" 
-                    :d="a.d" 
-                    fill="none" 
+                    :id="`appmap-path-${arrows.indexOf(a)}`"
+                    :d="a.d"
+                    fill="none"
                     stroke="none"
                     style="visibility: hidden"
                 />
@@ -472,7 +468,9 @@ export default {
             // Number of particles based on connection weight/importance
             // Higher weight = more particles (max 3 particles for app map)
             const maxParticles = Math.min(3, Math.ceil(arrow._w / 15) || 1);
-            return Array(maxParticles).fill().map((_, i) => ({ id: i }));
+            return Array(maxParticles)
+                .fill()
+                .map((_, i) => ({ id: i }));
         },
         getParticleSize(weight) {
             // Particle size based on connection weight (1px to 3px for app map)
@@ -481,7 +479,7 @@ export default {
         getAnimationDuration(weight) {
             // Animation speed based on weight - higher weight = faster particles
             // Duration between 2-5 seconds (inverse relationship)
-            return Math.max(2, 5 - (weight / 20));
+            return Math.max(2, 5 - weight / 20);
         },
     },
 };

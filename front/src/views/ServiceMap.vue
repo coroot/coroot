@@ -55,35 +55,24 @@
                 <template v-for="a in arrows">
                     <path v-if="a.dd" :d="a.dd" class="arrow" :class="a.status" />
                     <path :d="a.d" class="arrow" :class="a.status" :stroke-opacity="a.hi ? 1 : 0.7" :marker-end="`url(#marker-${a.status})`" />
-                    
+
                     <!-- Animated particles flowing along the connection -->
                     <g v-if="a.w && a.w > 0" class="particle-group">
-                        <circle 
-                            v-for="(particle, index) in getParticles(a)" 
+                        <circle
+                            v-for="(particle, index) in getParticles(a)"
                             :key="`particle-${a.src}-${a.dst}-${index}`"
-                            :r="getParticleSize(a.w)" 
+                            :r="getParticleSize(a.w)"
                             :class="`particle ${a.status}`"
                             :style="{ animationDelay: `${index * 0.3}s`, animationDuration: `${getAnimationDuration(a.w)}s` }"
                         >
-                            <animateMotion
-                                :dur="`${getAnimationDuration(a.w)}s`"
-                                :begin="`${index * 0.3}s`"
-                                repeatCount="indefinite"
-                            >
-                                <mpath :href="`#path-${a.src}-${a.dst}`"/>
+                            <animateMotion :dur="`${getAnimationDuration(a.w)}s`" :begin="`${index * 0.3}s`" repeatCount="indefinite">
+                                <mpath :href="`#path-${a.src}-${a.dst}`" />
                             </animateMotion>
                         </circle>
                     </g>
-                    
+
                     <!-- Hidden path for animateMotion reference -->
-                    <path 
-                        v-if="a.w && a.w > 0"
-                        :id="`path-${a.src}-${a.dst}`" 
-                        :d="a.d" 
-                        fill="none" 
-                        stroke="none"
-                        style="visibility: hidden"
-                    />
+                    <path v-if="a.w && a.w > 0" :id="`path-${a.src}-${a.dst}`" :d="a.d" fill="none" stroke="none" style="visibility: hidden" />
                 </template>
             </svg>
             <template v-for="a in arrows">
@@ -335,7 +324,9 @@ export default {
             // Number of particles based on connection weight/importance
             // Higher weight = more particles (max 4 particles)
             const maxParticles = Math.min(4, Math.ceil(arrow.w / 10) || 1);
-            return Array(maxParticles).fill().map((_, i) => ({ id: i }));
+            return Array(maxParticles)
+                .fill()
+                .map((_, i) => ({ id: i }));
         },
         getParticleSize(weight) {
             // Particle size based on connection weight (1.5px to 4px)
@@ -344,7 +335,7 @@ export default {
         getAnimationDuration(weight) {
             // Animation speed based on weight - higher weight = faster particles
             // Duration between 2-6 seconds (inverse relationship)
-            return Math.max(2, 6 - (weight / 15));
+            return Math.max(2, 6 - weight / 15);
         },
     },
 };
