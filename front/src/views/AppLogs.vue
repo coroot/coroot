@@ -363,7 +363,6 @@ export default {
         startLive() {
             if (this.liveInterval || !this.configured) return;
 
-            console.log('Starting live logs polling mode');
             this.live = true;
 
             let lastTimestamp = Date.now() * 1000; // Convert to microseconds for ClickHouse
@@ -387,12 +386,10 @@ export default {
 
                 this.$api.getLogs(this.appId, queryParams.toString(), (data, error) => {
                     if (error) {
-                        console.error('Live logs polling error:', error);
                         return;
                     }
 
                     if (data.status === 'warning') {
-                        console.warn('Live logs warning:', data.message);
                         return;
                     }
 
@@ -442,7 +439,6 @@ export default {
                 this.liveInterval = null;
             }
             this.live = false;
-            console.log('Stopped live logs polling');
         },
         toggleLive() {
             if (this.live) {

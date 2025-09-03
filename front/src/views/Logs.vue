@@ -298,12 +298,10 @@ export default {
                 // Use $api.getOverview like the regular get() method, but with time range
                 this.$api.getOverview('logs', JSON.stringify(liveQuery), (data, error) => {
                     if (error) {
-                        console.error('Live logs polling error:', error);
                         return;
                     }
 
                     if (data.status === 'warning') {
-                        console.warn('Live logs warning:', data.message);
                         return;
                     }
 
