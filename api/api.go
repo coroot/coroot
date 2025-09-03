@@ -1434,8 +1434,6 @@ func (api *Api) Logs(w http.ResponseWriter, r *http.Request, u *db.User) {
 	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, res))
 }
 
-// It reuses ClickHouse as a source and periodically polls for new entries since the last sent timestamp.
-
 func (api *Api) Risks(w http.ResponseWriter, r *http.Request, u *db.User) {
 	projectId := mux.Vars(r)["project"]
 	appId, err := GetApplicationId(r)
