@@ -88,7 +88,7 @@ const config = {
             items: [
               {
                 label: 'Slack',
-                href: 'https://join.slack.com/t/coroot-community/shared_invite/zt-2te9x672s-4s_Wp732cd~o2vdFLNE5AA',
+                href: 'https://coroot.com/join-slack-community/',
               },
               {
                 label: 'Linkedin',
