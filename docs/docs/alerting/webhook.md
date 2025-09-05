@@ -29,7 +29,7 @@ Coroot applies provided templates to the following data structures:
 type IncidentTemplateValues struct {
     Status string // OK, WARNING, CRITICAL
     Application struct {
-       Namespace string
+        Namespace string
         Kind      string
         Name      string
     }
