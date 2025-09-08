@@ -212,6 +212,7 @@ spec:
 #      name:           # Specifies the full image reference (e.g., <private-registry>/clickhouse-server:<version>)
 #      pullPolicy:     # The image pull policy (e.g., Always, IfNotPresent, Never).
 #      pullSecrets: [] # The pull secrets for pulling the image from a private registry.
+#    logLevel: warning # Log level (fatal, critical, error, warning, notice, information, debug, trace, test, or none).
 #    keeper: # Configuration for ClickHouse Keeper.
 #      replicas: 3 # Use only during initial setup, as changing the replica count for a running Keeper may cause it to fail.
 #      nodeSelector: # Restricts scheduling to nodes matching the specified labels.
@@ -359,6 +360,18 @@ spec:
 #          - applicationId: external:ExternalService:api.github.com:443
 #            objectivePercent: 99 
 #            objectiveThreshold: 2s
+
+# Coroot Cloud integration.
+#  corootCloud:
+#    # Coroot Cloud API key (required). Can be obtained from the UI after connecting to Coroot Cloud.
+#    apiKey:
+#    apiKeySecret: # Secret containing the API key.
+#      name: # Name of the secret to select from.
+#      key:  # Key of the secret to select from.
+#    # Root Cause Analysis (RCA) configuration.
+#    rca:
+#      # If 'true', incidents will not be investigated automatically.
+#      disableIncidentsAutoInvestigation: false
 
 # Single Sign-on configuration (Coroot Enterprise edition only).
 #  sso:

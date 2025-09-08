@@ -231,7 +231,7 @@ func (cfg *Config) Validate() error {
 
 	if cfg.CorootCloud != nil {
 		if err = cfg.CorootCloud.Validate(); err != nil {
-			return fmt.Errorf("invalid coroot_cloud settings: %w", err)
+			return fmt.Errorf("invalid corootCloud settings: %w", err)
 		}
 	}
 
