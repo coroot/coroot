@@ -28,12 +28,16 @@
                         @get="qbGet"
                         class="flex-grow-1"
                     />
-                    <v-btn @click="get" :disabled="disabled" color="primary" height="40">Show logs</v-btn>
+                    <LogSearchButtons :interval="refreshInterval" @search="get" @refresh="setRefreshInterval" />
                 </div>
 
-                <v-btn-toggle v-model="query.view" @change="setQuery" mandatory dense class="mt-2">
-                    <v-btn value="messages" :disabled="false" height="40"><v-icon small>mdi-format-list-bulleted</v-icon>Messages</v-btn>
-                    <v-btn value="patterns" :disabled="query.source !== 'agent'" height="40"><v-icon small>mdi-creation</v-icon>Patterns</v-btn>
+                <v-btn-toggle :value="query.view" mandatory dense class="mt-2">
+                    <v-btn value="messages" height="40" @click="query.view = 'messages'">
+                        <v-icon small>mdi-format-list-bulleted</v-icon>Messages
+                    </v-btn>
+                    <v-btn value="patterns" :disabled="query.source !== 'agent'" height="40" @click="query.view = 'patterns'">
+                        <v-icon small>mdi-creation</v-icon>Patterns
+                    </v-btn>
                 </v-btn-toggle>
             </v-form>
             <v-progress-linear v-if="loading" indeterminate height="4" style="position: absolute; bottom: 0; left: 0" />
@@ -47,7 +51,7 @@
                 <Chart v-if="data.chart" :chart="data.chart" :selection="{}" @select="zoom" class="my-3" />
 
                 <div v-if="query.view === 'messages'">
-                    <v-simple-table v-if="entries" dense class="entries">
+                    <v-simple-table v-if="entries.length" dense class="entries">
                         <thead>
                             <tr>
                                 <th>Date</th>
@@ -67,7 +71,7 @@
                         </tbody>
                     </v-simple-table>
                     <div v-else-if="!loading" class="pa-3 text-center grey--text">No messages found</div>
-                    <div v-if="entries && entries.length === query.limit" class="text-right caption grey--text mt-1">
+                    <div v-if="entries.length === query.limit" class="text-right caption grey--text mt-1">
                         The output is capped at
                         <InlineSelect v-model="query.limit" :items="limits" />
                         messages.
@@ -113,7 +117,7 @@
                 <v-alert v-if="message" color="green" outlined text class="my-3">
                     {{ message }}
                 </v-alert>
-                <v-btn block color="primary" @click="save" :loading="saving" :disabled="!changed" class="mt-5">Save</v-btn>
+                <v-btn block color="primary" @click="save" :loading="saving" class="mt-5">Save</v-btn>
             </v-card>
         </v-dialog>
     </div>
@@ -128,6 +132,7 @@ import QueryBuilder from '@/components/QueryBuilder.vue';
 import LogEntry from '@/components/LogEntry.vue';
 import LogPattern from '@/components/LogPattern.vue';
 import InlineSelect from '@/components/InlineSelect.vue';
+import LogSearchButtons from '@/components/LogSearchButtons.vue';
 
 export default {
     props: {
@@ -135,7 +140,7 @@ export default {
         check: Object,
     },
 
-    components: { InlineSelect, Led, Chart, Check, QueryBuilder, LogPattern, LogEntry },
+    components: { LogSearchButtons, InlineSelect, Led, Chart, Check, QueryBuilder, LogPattern, LogEntry },
 
     data() {
         let q = {};
@@ -149,9 +154,11 @@ export default {
             loading: false,
             loadingError: '',
             data: {},
+            refreshInterval: 0,
+            init: true,
             query: {
-                source: q.source || 'agent',
-                view: q.view || 'messages',
+                source: q.source || '',
+                view: q.view || '',
                 filters: q.filters || [],
                 limit: q.limit || 100,
             },
@@ -160,7 +167,6 @@ export default {
             form: {
                 service: null,
             },
-            saved: '',
             saving: false,
             error: '',
             message: '',
@@ -193,9 +199,13 @@ export default {
         },
         entries() {
             if (!this.data.entries) {
-                return null;
+                return [];
             }
-            return this.data.entries.map((e) => {
+            const sorted = [...this.data.entries].sort((a, b) => b.timestamp - a.timestamp);
+            if (sorted.length > this.query.limit) {
+                sorted.splice(this.query.limit);
+            }
+            return sorted.map((e) => {
                 const newline = e.message.indexOf('\n');
                 return {
                     ...e,
@@ -229,9 +239,6 @@ export default {
         disabled() {
             return this.loading || this.query.view !== 'messages';
         },
-        changed() {
-            return !!this.form && this.saved !== JSON.stringify(this.form);
-        },
     },
 
     mounted() {
@@ -239,9 +246,17 @@ export default {
         this.$events.watch(this, this.get, 'refresh');
     },
 
+    beforeDestroy() {
+        this.refreshInterval = 0;
+    },
+
     watch: {
         query: {
             handler(curr, prev) {
+                if (this.init) {
+                    this.init = false;
+                    return;
+                }
                 this.setQuery(curr.view !== prev.view);
                 this.get();
             },
@@ -301,26 +316,66 @@ export default {
             });
         },
         get() {
+            this.refreshInterval = 0;
             this.loading = true;
             this.loadingError = '';
             this.data.chart = null;
             this.data.entries = null;
             this.data.patterns = null;
-            this.$api.getLogs(this.appId, this.$route.query.query, (data, error) => {
+            this.$api.getLogs(this.appId, JSON.stringify(this.query), (data, error) => {
                 this.loading = false;
-                const errMsg = 'Failed to load logs';
                 if (error || data.status === 'warning') {
                     this.loadingError = error || data.message;
                     this.data.status = 'warning';
-                    this.data.message = errMsg;
+                    this.data.message = 'Failed to load logs';
                     return;
                 }
                 this.data = data;
-                this.form.service = this.data.service;
-                this.saved = JSON.stringify(this.form);
-                this.query.source = this.data.source;
-                this.query.view = this.data.view;
+                this.form.service = this.data.service || '';
+                this.query.source = this.data.source || '';
+                this.query.view = this.data.view || '';
             });
+        },
+        startRefresh(interval) {
+            if (this.$route.query.to) {
+                this.$route.query.to = undefined;
+                this.setQuery(false);
+            }
+            let since = this.data.max_ts || '';
+            const refresh = () => {
+                if (!this.refreshInterval) return;
+                if (document.hidden) {
+                    setTimeout(refresh, interval);
+                    return;
+                }
+                this.loading = true;
+                this.error = '';
+                const query = { ...this.query, since };
+                const started = Date.now();
+                this.$api.getLogs(this.appId, JSON.stringify(query), (data, error) => {
+                    this.loading = false;
+                    const elapsed = Date.now() - started;
+                    setTimeout(refresh, Math.max(0, interval - elapsed));
+                    if (error || data.status === 'warning') {
+                        this.loadingError = error || data.message;
+                        this.data.status = 'warning';
+                        this.data.message = 'Failed to load logs';
+                        return;
+                    }
+                    this.data.chart = data.chart;
+                    if (data.max_ts) {
+                        since = data.max_ts;
+                    }
+                    if (data.entries) {
+                        this.data.entries.push(...data.entries);
+                    }
+                });
+            };
+            refresh();
+        },
+        setRefreshInterval(interval) {
+            this.refreshInterval = interval;
+            this.refreshInterval && this.startRefresh(this.refreshInterval * 1000);
         },
         save() {
             this.saving = true;

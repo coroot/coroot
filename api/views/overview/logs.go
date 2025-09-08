@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"time"
 
 	"github.com/coroot/coroot/clickhouse"
 	"github.com/coroot/coroot/model"
@@ -21,6 +23,7 @@ type Logs struct {
 	Chart   *model.Chart `json:"chart"`
 	Entries []LogEntry   `json:"entries"`
 	Suggest []string     `json:"suggest"`
+	MaxTs   string       `json:"max_ts"` // string because in JS: 1756993779510773600 === 1756993779510773500
 }
 
 type LogEntry struct {
@@ -40,6 +43,7 @@ type LogsQuery struct {
 	Filters []clickhouse.LogFilter `json:"filters"`
 	Limit   int                    `json:"limit"`
 	Suggest *string                `json:"suggest,omitempty"`
+	Since   string                 `json:"since"`
 }
 
 func renderLogs(ctx context.Context, ch *clickhouse.Client, w *model.World, query string) *Logs {
@@ -86,6 +90,11 @@ func renderLogs(ctx context.Context, ch *clickhouse.Client, w *model.World, quer
 	} else {
 		histogram, err = ch.GetLogsHistogram(ctx, lq)
 		if err == nil {
+			if q.Since != "" {
+				if i, _ := strconv.ParseInt(q.Since, 10, 64); i > 0 {
+					lq.Since = time.Unix(0, i)
+				}
+			}
 			entries, err = ch.GetLogs(ctx, lq)
 		}
 	}
@@ -133,6 +142,7 @@ func (v *Logs) renderEntries(entries []*model.LogEntry, w *model.World) {
 		}
 	}
 
+	var maxTs int64
 	for _, e := range entries {
 		entry := LogEntry{
 			Application: e.ServiceName,
@@ -157,5 +167,9 @@ func (v *Logs) renderEntries(entries []*model.LogEntry, w *model.World) {
 			}
 		}
 		v.Entries = append(v.Entries, entry)
+		maxTs = max(maxTs, e.Timestamp.UnixNano())
+	}
+	if maxTs != 0 {
+		v.MaxTs = strconv.FormatInt(maxTs, 10)
 	}
 }

@@ -150,6 +150,7 @@ type LogQuery struct {
 	Services []string
 	Filters  []LogFilter
 	Limit    int
+	Since    time.Time
 }
 
 type LogFilter struct {
@@ -178,11 +179,18 @@ func (q LogQuery) filters(attr *string) ([]string, []any) {
 		args = append(args, clickhouse.Named("serviceName", q.Services))
 	}
 
-	where = append(where, "Timestamp BETWEEN @from AND @to")
-	args = append(args,
-		clickhouse.DateNamed("from", q.Ctx.From.ToStandard(), clickhouse.NanoSeconds),
-		clickhouse.DateNamed("to", q.Ctx.To.ToStandard(), clickhouse.NanoSeconds),
-	)
+	if !q.Since.IsZero() {
+		where = append(where, "Timestamp > @since")
+		args = append(args,
+			clickhouse.DateNamed("since", q.Since, clickhouse.NanoSeconds),
+		)
+	} else {
+		where = append(where, "Timestamp BETWEEN @from AND @to")
+		args = append(args,
+			clickhouse.DateNamed("from", q.Ctx.From.ToStandard(), clickhouse.NanoSeconds),
+			clickhouse.DateNamed("to", q.Ctx.To.ToStandard(), clickhouse.NanoSeconds),
+		)
+	}
 
 	filters := utils.Uniq(q.Filters)
 	var message []string
