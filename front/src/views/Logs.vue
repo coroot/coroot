@@ -21,7 +21,7 @@
                         @get="qbGet"
                         class="flex-grow-1"
                     />
-                    <v-btn @click="get" :disabled="disabled" color="primary" height="40">Show logs</v-btn>
+                    <LogSearchButtons :interval="refreshInterval" @search="get" @refresh="setRefreshInterval" />
                 </div>
                 <div class="d-flex gap-2 sources">
                     <v-checkbox v-model="query.agent" label="Container logs" :disabled="disabled" dense hide-details />
@@ -84,7 +84,7 @@
                     </tbody>
                 </v-simple-table>
                 <div v-else-if="!loading" class="pa-3 text-center grey--text">No messages found</div>
-                <div v-if="entries && entries.length === query.limit" class="text-right caption grey--text mt-1">
+                <div v-if="entries.length === query.limit" class="text-right caption grey--text mt-1">
                     The output is capped at
                     <InlineSelect v-model="query.limit" :items="limits" />
                     messages.
@@ -102,9 +102,10 @@ import QueryBuilder from '@/components/QueryBuilder.vue';
 import Chart from '@/components/Chart.vue';
 import LogEntry from '@/components/LogEntry.vue';
 import InlineSelect from '@/components/InlineSelect.vue';
+import LogSearchButtons from '@/components/LogSearchButtons.vue';
 
 export default {
-    components: { Views, InlineSelect, LogEntry, Chart, QueryBuilder },
+    components: { LogSearchButtons, Views, InlineSelect, LogEntry, Chart, QueryBuilder },
 
     data() {
         let q = {};
@@ -117,6 +118,7 @@ export default {
             loading: false,
             error: '',
             view: {},
+            refreshInterval: 0,
             query: {
                 view: q.view || 'messages',
                 agent: q.agent !== undefined ? q.agent : true,
@@ -139,6 +141,10 @@ export default {
         this.$events.watch(this, this.get, 'refresh');
     },
 
+    beforeDestroy() {
+        this.refreshInterval = 0;
+    },
+
     watch: {
         query: {
             handler(curr, prev) {
@@ -155,9 +161,13 @@ export default {
         },
         entries() {
             if (!this.view.entries) {
-                return null;
+                return [];
             }
-            return this.view.entries.map((e) => {
+            const sorted = [...this.view.entries].sort((a, b) => b.timestamp - a.timestamp);
+            if (sorted.length > this.query.limit) {
+                sorted.splice(this.query.limit);
+            }
+            return sorted.map((e) => {
                 const message = e.message.trim();
                 const newline = message.indexOf('\n');
                 let application = e.application;
@@ -236,9 +246,9 @@ export default {
             });
         },
         get() {
+            this.refreshInterval = 0;
             this.loading = true;
             this.error = '';
-            this.view.entries = null;
             this.$api.getOverview('logs', JSON.stringify(this.query), (data, error) => {
                 this.loading = false;
                 if (error) {
@@ -247,6 +257,47 @@ export default {
                 }
                 this.view = data.logs || {};
             });
+        },
+        startRefresh(interval) {
+            if (this.$route.query.to) {
+                this.$route.query.to = undefined;
+                this.setQuery(false);
+            }
+            let since = this.view.max_ts || '';
+            const refresh = () => {
+                if (!this.refreshInterval) return;
+                if (document.hidden) {
+                    setTimeout(refresh, interval);
+                    return;
+                }
+                this.loading = true;
+                this.error = '';
+                const query = { ...this.query, since };
+                const started = Date.now();
+                this.$api.getOverview('logs', JSON.stringify(query), (data, error) => {
+                    this.loading = false;
+                    const elapsed = Date.now() - started;
+                    setTimeout(refresh, Math.max(0, interval - elapsed));
+                    if (error) {
+                        this.error = error;
+                        return;
+                    }
+                    this.view.error = data.logs.error;
+                    this.view.message = data.logs.message;
+                    this.view.chart = data.logs.chart;
+                    if (data.logs.max_ts) {
+                        since = data.logs.max_ts;
+                    }
+                    if (data.logs.entries) {
+                        this.view.entries.push(...data.logs.entries);
+                    }
+                });
+            };
+            refresh();
+        },
+        setRefreshInterval(interval) {
+            this.refreshInterval = interval;
+            this.refreshInterval && this.startRefresh(this.refreshInterval * 1000);
         },
         zoom(s) {
             const { from, to } = s.selection;

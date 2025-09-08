@@ -9,7 +9,9 @@
     --background-dark-hi: #424242;
     --brightness-dimmed: 80%;
     --border-light: rgba(0, 0, 0, 0.3);
+    --border-light-dimmed: rgba(0, 0, 0, 0.12);
     --border-dark: rgba(255, 255, 255, 0.3);
+    --border-dark-dimmed: rgba(255, 255, 255, 0.12);
     --tooltip-light: white;
     --tooltip-dark: #424242;
 
@@ -28,6 +30,7 @@ body.theme--dark {
     --background-color-hi: var(--background-light-hi);
     --brightness: 100%;
     --border-color: var(--border-light);
+    --border-color-dimmed: var(--border-light-dimmed);
     --tooltip-color: var(--tooltip-light);
 }
 .v-application.theme--dark {
@@ -37,6 +40,7 @@ body.theme--dark {
     --background-color-hi: var(--background-dark-hi);
     --brightness: var(--brightness-dimmed);
     --border-color: var(--border-dark);
+    --border-color-dimmed: var(--border-dark-dimmed);
     --tooltip-color: var(--tooltip-dark);
 }
 .v-application.theme--dark .logo {
@@ -73,6 +77,10 @@ body.theme--dark {
 .v-application .v-btn,
 .v-application .v-chip {
     filter: brightness(var(--brightness)) !important;
+}
+
+.v-application .v-btn .v-icon {
+    filter: unset !important;
 }
 
 a {

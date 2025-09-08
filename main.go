@@ -125,7 +125,7 @@ func main() {
 		klog.Exitln(err)
 	}
 
-	a := api.NewApi(promCache, database, coll, pricing, rbac.NewStaticRoleManager(), nil, globalClickhouse, globalPrometheus, deploymentUuid, instanceUuid)
+	a := api.NewApi(promCache, database, coll, pricing, rbac.NewStaticRoleManager(), nil, globalClickhouse, globalPrometheus, deploymentUuid, instanceUuid, nil)
 	err = a.AuthInit(cfg.Auth.AnonymousRole, cfg.Auth.BootstrapAdminPassword)
 	if err != nil {
 		klog.Exitln(err)

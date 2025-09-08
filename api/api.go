@@ -31,6 +31,8 @@ import (
 	"k8s.io/klog"
 )
 
+type LoadWorldF func(ctx context.Context, project *db.Project, from, to timeseries.Time) (*model.World, error)
+
 type Api struct {
 	cache            *cache.Cache
 	db               *db.DB
@@ -46,11 +48,14 @@ type Api struct {
 
 	deploymentUuid string
 	instanceUuid   string
+
+	loadWorld LoadWorldF
 }
 
 func NewApi(cache *cache.Cache, db *db.DB, collector *collector.Collector, pricing *pricing.Manager, roles rbac.RoleManager, licenseMgr LicenseManager,
 	globalClickHouse *db.IntegrationClickhouse, globalPrometheus *db.IntegrationPrometheus,
-	deploymentUuid, instanceUuid string) *Api {
+	deploymentUuid, instanceUuid string, loadWorld LoadWorldF) *Api {
+
 	return &Api{
 		cache:            cache,
 		db:               db,
@@ -62,6 +67,7 @@ func NewApi(cache *cache.Cache, db *db.DB, collector *collector.Collector, prici
 		licenseMgr:       licenseMgr,
 		deploymentUuid:   deploymentUuid,
 		instanceUuid:     instanceUuid,
+		loadWorld:        loadWorld,
 	}
 }
 
@@ -1545,6 +1551,11 @@ func (api *Api) Node(w http.ResponseWriter, r *http.Request, u *db.User) {
 }
 
 func (api *Api) LoadWorld(ctx context.Context, project *db.Project, from, to timeseries.Time) (*model.World, *cache.Status, error) {
+	if api.loadWorld != nil {
+		w, err := api.loadWorld(ctx, project, from, to)
+		return w, &cache.Status{}, err
+	}
+
 	cacheClient := api.cache.GetCacheClient(project.Id)
 
 	cacheStatus, err := cacheClient.GetStatus()

@@ -8,7 +8,9 @@ import (
 	"net/url"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/coroot/coroot/clickhouse"
 	"github.com/coroot/coroot/model"
@@ -37,6 +39,7 @@ type View struct {
 	Patterns []*Pattern        `json:"patterns"`
 	Limit    int               `json:"limit"`
 	Suggest  []string          `json:"suggest"`
+	MaxTs    string            `json:"max_ts"` // string because in JS: 1756993779510773600 === 1756993779510773500
 }
 
 type Pattern struct {
@@ -63,6 +66,7 @@ type Query struct {
 	Filters []clickhouse.LogFilter `json:"filters"`
 	Limit   int                    `json:"limit"`
 	Suggest *string                `json:"suggest,omitempty"`
+	Since   string                 `json:"since"`
 }
 
 func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, query url.Values, w *model.World) *View {
@@ -201,6 +205,11 @@ func renderEntries(ctx context.Context, v *View, ch *clickhouse.Client, app *mod
 	} else {
 		histogram, err = ch.GetLogsHistogram(ctx, lq)
 		if err == nil {
+			if q.Since != "" {
+				if i, _ := strconv.ParseInt(q.Since, 10, 64); i > 0 {
+					lq.Since = time.Unix(0, i)
+				}
+			}
 			entries, err = ch.GetLogs(ctx, lq)
 		}
 	}
@@ -219,6 +228,7 @@ func renderEntries(ctx context.Context, v *View, ch *clickhouse.Client, app *mod
 		}
 	}
 
+	var maxTs int64
 	for _, e := range entries {
 		entry := Entry{
 			Timestamp:  e.Timestamp.UnixMilli(),
@@ -239,6 +249,10 @@ func renderEntries(ctx context.Context, v *View, ch *clickhouse.Client, app *mod
 			}
 		}
 		v.Entries = append(v.Entries, entry)
+		maxTs = max(maxTs, e.Timestamp.UnixNano())
+	}
+	if maxTs != 0 {
+		v.MaxTs = strconv.FormatInt(maxTs, 10)
 	}
 	if len(v.Entries) >= q.Limit {
 		v.Limit = q.Limit
