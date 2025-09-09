@@ -131,6 +131,9 @@ coroot.com/mongodb-scrape-credentials-password: "&lt;PASSWORD&gt;"
 coroot.com/mongodb-scrape-credentials-secret-name: "mongodb-secret"
 coroot.com/mongodb-scrape-credentials-secret-username-key: "username"
 coroot.com/mongodb-scrape-credentials-secret-password-key: "password"
+
+# client TLS options: true, false (default: false)
+coroot.com/mongodb-scrape-param-tls: "false"
                         </pre>
                         <pre v-if="type === 'memcached'">
 coroot.com/memcached-scrape: "true"
@@ -171,6 +174,18 @@ coroot.com/memcached-scrape-port: "11211"
                             <v-select
                                 v-model="tls"
                                 :items="['false', 'true', 'skip-verify', 'preferred']"
+                                outlined
+                                dense
+                                hide-details
+                                :menu-props="{ offsetY: true }"
+                            />
+                        </div>
+
+                        <div v-if="type === 'mongodb'">
+                            <div class="subtitle-1 mt-3">TLS</div>
+                            <v-select
+                                v-model="tls"
+                                :items="['false', 'true']"
                                 outlined
                                 dense
                                 hide-details
@@ -255,6 +270,9 @@ export default {
                 if (this.type === 'postgres' && this.config.params && this.config.params['sslmode']) {
                     this.sslmode = this.config.params['sslmode'];
                 }
+                if (this.type === 'mongodb' && this.config.params && this.config.params['tls']) {
+                    this.tls = this.config.params['tls'];
+                }
             });
         },
         save() {
@@ -266,6 +284,9 @@ export default {
                 form.params = { sslmode: this.sslmode };
             }
             if (this.type === 'mysql') {
+                form.params = { tls: this.tls };
+            }
+            if (this.type === 'mongodb') {
                 form.params = { tls: this.tls };
             }
             this.$api.saveInstrumentationSettings(this.appId, this.type, form, (data, error) => {
