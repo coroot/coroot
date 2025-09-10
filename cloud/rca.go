@@ -26,6 +26,9 @@ type RCARequest struct {
 	Metrics map[string][]*model.MetricValues
 
 	KubernetesEvents []*model.LogEntry
+
+	ErrorTrace *model.Trace
+	SlowTrace  *model.Trace
 }
 
 func (api *Api) RCA(ctx context.Context, req RCARequest) (*model.RCA, error) {
