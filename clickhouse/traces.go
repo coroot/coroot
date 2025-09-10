@@ -175,6 +175,70 @@ func (c *Client) GetSpansByTraceId(ctx context.Context, traceId string) ([]*mode
 	)
 }
 
+func (c *Client) getOtelTracesServiceName(ctx context.Context, world *model.World, app *model.Application) (string, error) {
+	if app.Settings != nil && app.Settings.Tracing != nil {
+		return app.Settings.Tracing.Service, nil
+	}
+	services, err := c.GetServicesFromTraces(ctx, world.Ctx.From)
+	if err != nil {
+		return "", err
+	}
+	var otelServices []string
+	for _, s := range services {
+		if !strings.HasPrefix(s, "/") {
+			otelServices = append(otelServices, s)
+		}
+	}
+	return model.GuessService(otelServices, world, app), nil
+}
+
+func (c *Client) GetTracesViolatingSLOs(ctx context.Context, from, to timeseries.Time, world *model.World, app *model.Application) (*model.Trace, *model.Trace, error) {
+	serviceName, err := c.getOtelTracesServiceName(ctx, world, app)
+	if err != nil || serviceName == "" {
+		return nil, nil, err
+	}
+
+	sq := SpanQuery{
+		Ctx:    world.Ctx,
+		TsFrom: from,
+		TsTo:   to,
+		Limit:  1,
+	}
+
+	sq.AddFilter("ServiceName", "=", serviceName)
+
+	sq.Errors = true
+	var errorTrace, slowTrace *model.Trace
+
+	if errorTrace, err = c.getTrace(ctx, sq); err != nil {
+		return nil, nil, err
+	}
+
+	if len(app.LatencySLIs) > 0 && app.LatencySLIs[0].Config.ObjectivePercentage > 0 {
+		sq.Errors = false
+		sq.DurFrom = time.Duration(app.LatencySLIs[0].Config.ObjectiveBucket) * time.Second
+		if slowTrace, err = c.getTrace(ctx, sq); err != nil {
+			return nil, nil, err
+		}
+	}
+
+	return errorTrace, slowTrace, nil
+}
+
+func (c *Client) getTrace(ctx context.Context, sq SpanQuery) (*model.Trace, error) {
+	spans, err := c.GetSpansByServiceName(ctx, sq)
+	if err != nil {
+		return nil, err
+	}
+	if len(spans) == 0 || spans[0].TraceId == "" {
+		return nil, nil
+	}
+	if spans, err = c.GetSpansByTraceId(ctx, spans[0].TraceId); err != nil {
+		return nil, err
+	}
+	return &model.Trace{Spans: spans}, nil
+}
+
 func (c *Client) getSpansHistogram(ctx context.Context, q SpanQuery, filters []string, filterArgs []any) ([]model.HistogramBucket, error) {
 	step := q.Ctx.Step
 	from := q.Ctx.From

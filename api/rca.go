@@ -125,6 +125,23 @@ func (api *Api) RCA(w http.ResponseWriter, r *http.Request, u *db.User) {
 		if err != nil {
 			klog.Errorln(err)
 		}
+
+		func() {
+			world, _, _, err := api.LoadWorldByRequest(r)
+			if err != nil {
+				klog.Errorln(err)
+				return
+			}
+			app := world.GetApplication(appId)
+			if app == nil {
+				return
+			}
+			rcaRequest.ErrorTrace, rcaRequest.SlowTrace, err = ch.GetTracesViolatingSLOs(r.Context(), rcaRequest.Ctx.From, rcaRequest.Ctx.To, world, app)
+			if err != nil {
+				klog.Errorln(err)
+				return
+			}
+		}()
 	}
 
 	rcaResponse, err := cloudAPI.RCA(r.Context(), rcaRequest)
@@ -208,6 +225,10 @@ func (api *Api) IncidentRCA(ctx context.Context, project *db.Project, world *mod
 	}
 	if ch != nil {
 		rcaRequest.KubernetesEvents, err = ch.GetKubernetesEvents(ctx, rcaRequest.Ctx.From, rcaRequest.Ctx.To, 1000)
+		if err != nil {
+			klog.Errorln(err)
+		}
+		rcaRequest.ErrorTrace, rcaRequest.SlowTrace, err = ch.GetTracesViolatingSLOs(ctx, rcaRequest.Ctx.From, rcaRequest.Ctx.To, world, app)
 		if err != nil {
 			klog.Errorln(err)
 		}

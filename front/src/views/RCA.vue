@@ -64,7 +64,7 @@
                         </div>
 
                         <v-card outlined v-if="show_details" class="pa-5 mt-5">
-                            <Markdown :src="rca.summary.detailed_root_cause_analysis" :widgets="rca.summary.widgets" />
+                            <Markdown :src="rca.summary.detailed_root_cause_analysis" :widgets="rca.summary.widgets || []" />
                         </v-card>
                     </template>
                 </template>
