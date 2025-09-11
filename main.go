@@ -19,6 +19,7 @@ import (
 	"github.com/coroot/coroot/collector"
 	"github.com/coroot/coroot/config"
 	"github.com/coroot/coroot/db"
+	"github.com/coroot/coroot/grpc"
 	"github.com/coroot/coroot/rbac"
 	"github.com/coroot/coroot/stats"
 	"github.com/coroot/coroot/utils"
@@ -106,16 +107,23 @@ func main() {
 		klog.Exitln(err)
 	}
 
+	grpcServer, err := grpc.NewServer(cfg.GRPC, cfg.TLS)
+	if err != nil {
+		klog.Exitln("grpc server:", err)
+	}
+
 	collConfig := collector.Config{
 		TracesTTL:   cfg.Traces.TTL,
 		LogsTTL:     cfg.Logs.TTL,
 		ProfilesTTL: cfg.Profiles.TTL,
 	}
-	coll := collector.New(collConfig, database, promCache, globalClickhouse, globalPrometheus)
+	coll := collector.New(collConfig, database, promCache, globalClickhouse, globalPrometheus, grpcServer)
+
 	go func() {
 		ch := make(chan os.Signal, 1)
 		signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)
 		<-ch
+		grpcServer.Stop()
 		coll.Close()
 		os.Exit(0)
 	}()
@@ -208,6 +216,10 @@ func main() {
 	})
 
 	router.PathPrefix("").Handler(http.RedirectHandler(cfg.UrlBasePath, http.StatusMovedPermanently))
+
+	if err = grpcServer.Start(); err != nil {
+		klog.Exitln("grpc server:", err)
+	}
 
 	klog.Infoln("listening on", cfg.ListenAddress)
 	klog.Fatalln(http.ListenAndServe(cfg.ListenAddress, router))

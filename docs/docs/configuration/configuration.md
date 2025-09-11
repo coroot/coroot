@@ -23,6 +23,10 @@ For instance, the `projects` parameter (a list of predefined projects) can only 
 |--------------------------------------|------------------------------------|---------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | --config                             | CONFIG                             | 0.0.0.0:8080  | Configuration file.                                                                                                                                                             |
 | --listen                             | LISTEN                             | 0.0.0.0:8080  | Listen address in the format `ip:port` or `:port`.                                                                                                                              |
+| --grpc-disabled                      | GRPC_DISABLED                      | false         | Disable gRPC server.                                                                                                                                                            |
+| --grpc-listen                        | GRPC_LISTEN                        | :4317         | gRPC listen address - ip:port or :port.                                                                                                                                         |
+| --tls-cert-file                      | TLS_CERT_FILE                      |               | Path to the TLS certificate file.                                                                                                                                               |
+| --tls-key-file                       | TLS_KEY_FILE                       |               | Path to the TLS private key file.                                                                                                                                               |
 | --url-base-path                      | URL_BASE_PATH                      | /             | Base URL to run Coroot at a sub-path, e.g., `/coroot/`.                                                                                                                         |
 | --data-dir                           | DATA_DIR                           | /data         | Path to the data directory.                                                                                                                                                     |
 | --cache-ttl                          | CACHE_TTL                          | 30d           | Metric Cache Time-To-Live (TTL).                                                                                                                                                |
@@ -64,6 +68,16 @@ Use the `--config` flag to specify the configuration file to load. The file must
 listen_address: 0.0.0.0:8080 # Listen address in the format `ip:port` or `:port`. 
 url_base_path: /             # Base URL to run Coroot at a sub-path, e.g., `/coroot/`.
 data_dir: /data              # Path to the data directory. 
+
+# gRPC server configuration for receiving OTel traces and logs.
+grpc:
+  disabled: false        # Disable the gRPC server (default: false).
+  listenAddress: :4317   # Address to listen on for gRPC connections (default: :4317).
+
+# TLS configuration for secure connections (enables TLS for gRPC server if defined).
+tls:
+  certFile: # Path to the TLS certificate file.
+  keyFile:  # Path to the TLS private key file.
 
 cache:
   ttl: 30d        # Metric Cache Time-To-Live (TTL).

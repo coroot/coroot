@@ -9,6 +9,10 @@ import (
 var (
 	configFile                                  = kingpin.Flag("config", "Configuration file").Envar("CONFIG").String()
 	listen                                      = kingpin.Flag("listen", "Listen address - ip:port or :port").Envar("LISTEN").String()
+	grpcDisabled                                = kingpin.Flag("grpc-disabled", "Disable gRPC server").Envar("GRPC_DISABLED").Bool()
+	grpcListen                                  = kingpin.Flag("grpc-listen", "gRPC listen address - ip:port or :port").Envar("GRPC_LISTEN").String()
+	tlsCertFile                                 = kingpin.Flag("tls-cert-file", "Path to the TLS certificate file").Envar("TLS_CERT_FILE").String()
+	tlsKeyFile                                  = kingpin.Flag("tls-key-file", "Path to the TLS private key file").Envar("TLS_KEY_FILE").String()
 	urlBasePath                                 = kingpin.Flag("url-base-path", "The base URL to run Coroot at a sub-path, e.g. /coroot/").Envar("URL_BASE_PATH").String()
 	dataDir                                     = kingpin.Flag("data-dir", `Path to the data directory`).Envar("DATA_DIR").String()
 	cacheTTL                                    = timeseries.DurationFlag(kingpin.Flag("cache-ttl", "Cache TTL (e.g. 8h, 2d, 1w; default 30d)").Envar("CACHE_TTL"))
@@ -56,6 +60,17 @@ var (
 func (cfg *Config) ApplyFlags() {
 	if *listen != "" {
 		cfg.ListenAddress = *listen
+	}
+	cfg.GRPC.Disabled = *grpcDisabled
+	if *grpcListen != "" {
+		cfg.GRPC.ListenAddress = *grpcListen
+	}
+	if *tlsCertFile != "" && *tlsKeyFile != "" {
+		if cfg.TLS == nil {
+			cfg.TLS = &TLS{}
+		}
+		cfg.TLS.CertFile = *tlsCertFile
+		cfg.TLS.KeyFile = *tlsKeyFile
 	}
 	if *urlBasePath != "" {
 		cfg.UrlBasePath = *urlBasePath
