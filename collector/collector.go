@@ -11,6 +11,7 @@ import (
 	"github.com/ClickHouse/ch-go"
 	"github.com/coroot/coroot/cache"
 	"github.com/coroot/coroot/db"
+	"github.com/coroot/coroot/grpc"
 	"github.com/coroot/coroot/timeseries"
 	"golang.org/x/exp/maps"
 	"k8s.io/klog"
@@ -24,7 +25,7 @@ const (
 )
 
 var (
-	ErrProjectNotFound         = errors.New("project not found")
+	ErrProjectNotFound         = errors.New("project not found (x-api-key header is missing or invalid)")
 	ErrClickhouseNotConfigured = errors.New("clickhouse integration is not configured")
 )
 
@@ -58,7 +59,7 @@ type Collector struct {
 	profileBatchesLock sync.Mutex
 }
 
-func New(cfg Config, database *db.DB, cache *cache.Cache, globalClickHouse *db.IntegrationClickhouse, globalPrometheus *db.IntegrationPrometheus) *Collector {
+func New(cfg Config, database *db.DB, cache *cache.Cache, globalClickHouse *db.IntegrationClickhouse, globalPrometheus *db.IntegrationPrometheus, grpcServer *grpc.Server) *Collector {
 	c := &Collector{
 		cfg:               cfg,
 		db:                database,
@@ -82,6 +83,8 @@ func New(cfg Config, database *db.DB, cache *cache.Cache, globalClickHouse *db.I
 	}()
 
 	go c.migrateProjects()
+
+	c.registerGRPCServices(grpcServer)
 
 	return c
 }

@@ -1,6 +1,7 @@
 package config
 
 import (
+	"crypto/tls"
 	"fmt"
 	"io"
 	"net"
@@ -19,6 +20,9 @@ type Config struct {
 	ListenAddress string `yaml:"listen_address"`
 	UrlBasePath   string `yaml:"url_base_path"`
 	DataDir       string `yaml:"data_dir"`
+
+	GRPC GRPC `yaml:"grpc"`
+	TLS  *TLS `yaml:"tls"`
 
 	Cache    Cache    `yaml:"cache"`
 	Traces   Traces   `yaml:"traces"`
@@ -45,6 +49,32 @@ type Config struct {
 
 	BootstrapClickhouse *Clickhouse `yaml:"-"`
 	BootstrapPrometheus *Prometheus `yaml:"-"`
+}
+
+type GRPC struct {
+	Disabled      bool   `yaml:"disabled"`
+	ListenAddress string `yaml:"listenAddress"`
+}
+
+type TLS struct {
+	CertFile string `yaml:"certFile"`
+	KeyFile  string `yaml:"keyFile"`
+}
+
+func (c *TLS) Validate() error {
+	if c == nil {
+		return nil
+	}
+	if c.CertFile == "" {
+		return fmt.Errorf("certFile is required")
+	}
+	if c.KeyFile == "" {
+		return fmt.Errorf("keyFile is required")
+	}
+	if _, err := tls.LoadX509KeyPair(c.CertFile, c.KeyFile); err != nil {
+		return fmt.Errorf("invalid certificate: %w", err)
+	}
+	return nil
 }
 
 type ClickHouseSpaceManager struct {
@@ -152,7 +182,7 @@ type Auth struct {
 }
 
 func NewConfig() *Config {
-	return &Config{
+	cfg := &Config{
 		ListenAddress: ":8080",
 		UrlBasePath:   "/",
 		DataDir:       "./data",
@@ -182,6 +212,10 @@ func NewConfig() *Config {
 			MinPartitions:         1,
 		},
 	}
+	if !cfg.GRPC.Disabled && cfg.GRPC.ListenAddress == "" {
+		cfg.GRPC.ListenAddress = ":4317"
+	}
+	return cfg
 }
 
 func Load() (*Config, error) {
@@ -227,6 +261,12 @@ func (cfg *Config) Validate() error {
 	cfg.UrlBasePath, err = url.JoinPath("/", cfg.UrlBasePath, "/")
 	if err != nil {
 		return fmt.Errorf("invalid url_base_path: %s", cfg.UrlBasePath)
+	}
+
+	if cfg.TLS != nil {
+		if err = cfg.TLS.Validate(); err != nil {
+			return fmt.Errorf("invalid tls settings: %w", err)
+		}
 	}
 
 	if cfg.CorootCloud != nil {
