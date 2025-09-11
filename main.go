@@ -159,6 +159,11 @@ func main() {
 	r := router
 	if cfg.UrlBasePath != "/" {
 		r = router.PathPrefix(cfg.UrlBasePath).Subrouter()
+		r.HandleFunc("/v1/metrics", coll.Metrics)
+		r.HandleFunc("/v1/traces", coll.Traces)
+		r.HandleFunc("/v1/logs", coll.Logs)
+		r.HandleFunc("/v1/profiles", coll.Profiles)
+		r.HandleFunc("/v1/config", coll.Config)
 	}
 	r.UseEncodedPath()
 	r.HandleFunc("/api/login", a.Login).Methods(http.MethodPost)
