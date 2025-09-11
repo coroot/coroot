@@ -182,5 +182,12 @@ func (c *AppToAppConnection) GetConnectionsRequestsLatency(protocolFilter func(p
 }
 
 func IsRequestStatusFailed(status string) bool {
-	return status == "failed" || strings.HasPrefix(status, "5")
+	switch {
+	case status == "failed":
+	case strings.HasPrefix(status, "5"):
+	case strings.HasPrefix(status, "grpc:") && status != "grpc:OK":
+	default:
+		return false
+	}
+	return true
 }
