@@ -673,6 +673,9 @@ func (cc CheckConfigs) GetAvailability(appId ApplicationId) (CheckConfigSLOAvail
 
 	raw, _ := cc.getRaw(appId, Checks.SLOAvailability.Id)
 	if raw == nil {
+		if appId.Kind == ApplicationKindExternalService {
+			defaultCfg.ObjectivePercentage = 0
+		}
 		return defaultCfg, true
 	}
 	res, err := unmarshal[[]CheckConfigSLOAvailability](raw)
@@ -699,6 +702,9 @@ func (cc CheckConfigs) GetLatency(appId ApplicationId, category ApplicationCateg
 	}
 	raw, projectDefault := cc.getRaw(appId, Checks.SLOLatency.Id)
 	if raw == nil {
+		if appId.Kind == ApplicationKindExternalService {
+			defaultCfg.ObjectivePercentage = 0
+		}
 		return defaultCfg, true
 	}
 	res, err := unmarshal[[]CheckConfigSLOLatency](raw)
