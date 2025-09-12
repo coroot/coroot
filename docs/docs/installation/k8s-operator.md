@@ -60,8 +60,10 @@ spec:
 #    annotations: # Annotations for PersistentVolumeClaim (PVC).
 #  service:
 #    type: # Service type (e.g., ClusterIP, NodePort, LoadBalancer).
-#    port: # Service port number.
-#    nodePort: # NodePort number (if type is NodePort).
+#    port:      # Service port (default 8080).
+#    nodePort:  # Service nodePort (if type is NodePort).
+#    grpcPort:      # gRPC port (default 4317).
+#    grpcNodePort:  # gRPC nodePort (if type is NodePort).
 #    annotations: # Annotations for Service.
 #  ingress: # Ingress configuration for Coroot.
 #    className: Ingress class name (e.g., nginx, traefik; if not set the default IngressClass will be used).
@@ -71,6 +73,15 @@ spec:
 #    tls: # TLS configuration.
 #      hosts: # The array with host names
 #      secretName: # The name of secret where TLS certificate and private key would be stored
+#  grpc: # gRPC settings.
+#    disabled: false # Disables gRPC server.
+#  tls: # TLS settings (enables TLS for gRPC if defined).
+#    certSecret:  # Secret containing TLS certificate (required).
+#      name: # Name of the secret to select from.
+#      key:  # Key of the secret to select from (e.g., 'tls.crt').
+#    keySecret: # Secret containing TLS private key (required).
+#      name: # Name of the secret to select from.
+#      key:  # Key of the secret to select from (e.g., 'tls.key').
 
 # Coroot stores Traces, Logs, and Profiles in ClickHouse.  
 # Their retention is managed by setting a Time-To-Live (TTL) for the corresponding Clickhouse tables.  
@@ -228,6 +239,7 @@ spec:
 #        name:           # Specifies the full image reference (e.g., <private-registry>/clickhouse-keeper:<version>)
 #        pullPolicy:     # The image pull policy (e.g., Always, IfNotPresent, Never).
 #        pullSecrets: [] # The pull secrets for pulling the image from a private registry.
+#      logLevel: warning # Log level (fatal, critical, error, warning, notice, information, debug, trace, test, or none).
 
 # Use an external ClickHouse instance instead of deploying one.
 #  externalClickhouse:
