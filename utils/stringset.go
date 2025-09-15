@@ -66,3 +66,12 @@ func (ss *StringSet) GetFirst() string {
 func (ss *StringSet) MarshalJSON() ([]byte, error) {
 	return json.Marshal(ss.Items())
 }
+
+func (ss *StringSet) UnmarshalJSON(data []byte) error {
+	var items []string
+	if err := json.Unmarshal(data, &items); err != nil {
+		return err
+	}
+	ss.Add(items...)
+	return nil
+}

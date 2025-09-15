@@ -52,18 +52,19 @@
 
                     <template v-if="rca.summary.detailed_root_cause_analysis">
                         <div>
-                            <a @click="toggle_rca_details"
-                                >Show
-                                <template v-if="!show_details">more</template>
-                                <template v-else>less</template>
-                                details
-
-                                <v-icon v-if="!show_details">mdi-chevron-down</v-icon>
-                                <v-icon v-else>mdi-chevron-up</v-icon>
+                            <a @click="toggle_rca_details">
+                                Show {{ show_details ? 'less' : 'more' }} details
+                                <v-icon v-if="show_details">mdi-chevron-up</v-icon>
+                                <v-icon v-else>mdi-chevron-down</v-icon>
                             </a>
                         </div>
 
                         <v-card outlined v-if="show_details" class="pa-5 mt-5">
+                            <PropagationMap
+                                v-if="rca.summary.propagation_map"
+                                :applications="rca.summary.propagation_map.applications"
+                                class="mb-5"
+                            />
                             <Markdown :src="rca.summary.detailed_root_cause_analysis" :widgets="rca.summary.widgets || []" />
                         </v-card>
                     </template>
@@ -112,6 +113,7 @@ import { palette } from '@/utils/colors';
 import Chart from '@/components/Chart.vue';
 import Views from '@/views/Views.vue';
 import Markdown from '@/components/Markdown.vue';
+import PropagationMap from '@/components/PropagationMap.vue';
 
 export default {
     computed: {
@@ -150,7 +152,7 @@ export default {
         noTitle: Boolean,
     },
 
-    components: { Markdown, Views, Chart },
+    components: { PropagationMap, Markdown, Views, Chart },
 
     data() {
         return {

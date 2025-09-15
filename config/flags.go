@@ -61,7 +61,7 @@ func (cfg *Config) ApplyFlags() {
 	if *listen != "" {
 		cfg.ListenAddress = *listen
 	}
-	cfg.GRPC.Disabled = *grpcDisabled
+	cfg.GRPC.Disabled = cfg.GRPC.Disabled || *grpcDisabled
 	if *grpcListen != "" {
 		cfg.GRPC.ListenAddress = *grpcListen
 	}
