@@ -98,7 +98,6 @@ function calcLevel(index, a, level, backLinks) {
 export default {
     props: {
         applications: Array,
-        categories: Array,
     },
 
     components: { AppIcon },
@@ -230,8 +229,11 @@ export default {
                     a.x1 = s.left + s.width;
                     a.y1 = s.top + s.height / 2;
                     a.x2 = d.left;
-
-                    a.y2 = d.top + 10 + (hash(u.id) % (d.height - 20));
+                    a.y2 = d.top + d.height / 2;
+                    const upstream = index.get(u.id);
+                    if (upstream && Math.abs(upstream.level - app.level) > 1) {
+                        a.y2 = d.top + 10 + (hash(app.id) % (d.height / 2 - 20));
+                    }
 
                     if (a.x1 > a.x2) {
                         a.x1 = s.left;

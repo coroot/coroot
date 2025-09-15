@@ -158,18 +158,19 @@
 
                         <template v-if="incident.rca.detailed_root_cause_analysis">
                             <div>
-                                <a @click="toggle_rca_details"
-                                    >Show
-                                    <template v-if="!show_details">more</template>
-                                    <template v-else>less</template>
-                                    details
-
-                                    <v-icon v-if="!show_details">mdi-chevron-down</v-icon>
-                                    <v-icon v-else>mdi-chevron-up</v-icon>
+                                <a @click="toggle_rca_details">
+                                    Show {{ show_details ? 'less' : 'more' }} details
+                                    <v-icon v-if="show_details">mdi-chevron-up</v-icon>
+                                    <v-icon v-else>mdi-chevron-down</v-icon>
                                 </a>
                             </div>
 
                             <v-card outlined v-if="show_details" class="pa-5 mt-5">
+                                <PropagationMap
+                                    v-if="incident.rca.propagation_map"
+                                    :applications="incident.rca.propagation_map.applications"
+                                    class="mb-5"
+                                />
                                 <Markdown :src="incident.rca.detailed_root_cause_analysis" :widgets="incident.rca.widgets || []" />
                             </v-card>
                         </template>
@@ -208,9 +209,10 @@ import Widget from '@/components/Widget.vue';
 import CheckForm from '@/components/CheckForm.vue';
 import AppTraces from '@/views/AppTraces.vue';
 import Markdown from '@/components/Markdown.vue';
+import PropagationMap from '@/components/PropagationMap.vue';
 
 export default {
-    components: { Markdown, Views, AppTraces, CheckForm, Widget, NoData },
+    components: { PropagationMap, Markdown, Views, AppTraces, CheckForm, Widget, NoData },
 
     computed: {
         availabilityBurnRate() {

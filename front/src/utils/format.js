@@ -48,11 +48,11 @@ export function durationPretty(ms) {
     if (ms > DAY) {
         return duration(ms, 'h');
     }
-    if (ms > HOUR) {
-        return duration(ms, 'm');
-    }
     if (ms > MINUTE) {
         return duration(ms, 'm');
+    }
+    if (ms > SECOND) {
+        return duration(ms, 's');
     }
     return duration(ms, 'ms');
 }

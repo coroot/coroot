@@ -1,7 +1,10 @@
 package model
 
 import (
+	"fmt"
+
 	"github.com/coroot/coroot/timeseries"
+	"github.com/coroot/coroot/utils"
 )
 
 type Impact struct {
@@ -16,13 +19,50 @@ type IncidentDetails struct {
 }
 
 type RCA struct {
-	Status            string    `json:"status"`
-	Error             string    `json:"error"`
-	ShortSummary      string    `json:"short_summary"`
-	RootCause         string    `json:"root_cause"`
-	ImmediateFixes    string    `json:"immediate_fixes"`
-	DetailedRootCause string    `json:"detailed_root_cause_analysis"`
-	Widgets           []*Widget `json:"widgets"`
+	Status            string          `json:"status"`
+	Error             string          `json:"error"`
+	ShortSummary      string          `json:"short_summary"`
+	RootCause         string          `json:"root_cause"`
+	ImmediateFixes    string          `json:"immediate_fixes"`
+	DetailedRootCause string          `json:"detailed_root_cause_analysis"`
+	PropagationMap    *PropagationMap `json:"propagation_map"`
+	Widgets           []*Widget       `json:"widgets"`
+}
+
+type PropagationMap struct {
+	Applications []*PropagationMapApplication `json:"applications"`
+}
+
+type PropagationMapApplication struct {
+	Id     ApplicationId `json:"id"`
+	Icon   string        `json:"icon"`
+	Labels Labels        `json:"labels"`
+	Status Status        `json:"status"`
+	Issues []string      `json:"issues,omitempty"`
+
+	Upstreams   []*PropagationMapApplicationLink `json:"upstreams"`
+	Downstreams []*PropagationMapApplicationLink `json:"downstreams"`
+}
+
+func (app *PropagationMapApplication) Issue(format string, a ...any) {
+	issue := fmt.Sprintf(format, a...)
+	for _, i := range app.Issues {
+		if i == issue {
+			return
+		}
+	}
+	app.Issues = append(app.Issues, issue)
+}
+
+type PropagationMapApplicationLink struct {
+	Id     ApplicationId    `json:"id"`
+	Status Status           `json:"status"`
+	Stats  *utils.StringSet `json:"stats"`
+}
+
+func (l *PropagationMapApplicationLink) AddIssues(issues ...string) {
+	l.Status = CRITICAL
+	l.Stats.Add(issues...)
 }
 
 type ApplicationIncident struct {
