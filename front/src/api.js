@@ -67,6 +67,7 @@ export default class Api {
                 const err = error.response && error.response.data && error.response.data.trim();
                 if (status === 302) {
                     window.location = err;
+                    return;
                 }
                 if (status === 401) {
                     const r = this.router.currentRoute;
@@ -74,6 +75,7 @@ export default class Api {
                     if (!r.meta.anonymous || r.query.action !== action) {
                         const next = r.fullPath !== '/' && r.name !== 'login' ? r.fullPath : undefined;
                         this.router.push({ name: 'login', query: { action, next } }).catch((err) => err);
+                        return;
                     }
                 }
                 cb(null, err || error.message || defaultErrorMessage, status);
