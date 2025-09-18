@@ -92,6 +92,9 @@ func (api *Api) WithContext(p *db.Project, cacheStatus *cache.Status, w *model.W
 
 func renderIncidents(w *model.World) map[model.ApplicationCategory]int {
 	res := map[model.ApplicationCategory]int{}
+	if w == nil {
+		return res
+	}
 	for _, app := range w.Applications {
 		if len(app.Incidents) == 0 {
 			continue
