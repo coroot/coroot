@@ -118,6 +118,8 @@ func (at ApplicationType) AuditReport() AuditReportName {
 		return AuditReportDotNet
 	case ApplicationTypePython:
 		return AuditReportPython
+	case ApplicationTypeNodeJS:
+		return AuditReportNodejs
 	}
 	return ""
 }

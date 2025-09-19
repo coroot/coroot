@@ -371,6 +371,7 @@ var QUERIES = []Query{
 	qDotNet("container_dotnet_thread_pool_size", `container_dotnet_thread_pool_size`),
 
 	Q("container_python_thread_lock_wait_time_seconds", `rate(container_python_thread_lock_wait_time_seconds[$RANGE])`),
+	Q("container_nodejs_event_loop_blocked_time_seconds", `rate(container_nodejs_event_loop_blocked_time_seconds_total[$RANGE])`),
 }
 
 var RecordingRules = map[string]func(db *db.DB, p *db.Project, w *model.World) []*model.MetricValues{

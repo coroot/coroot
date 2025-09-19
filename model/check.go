@@ -62,41 +62,42 @@ type CheckConfig struct {
 var Checks = struct {
 	index map[CheckId]*CheckConfig
 
-	SLOAvailability        CheckConfig
-	SLOLatency             CheckConfig
-	CPUNode                CheckConfig
-	CPUContainer           CheckConfig
-	MemoryOOM              CheckConfig
-	MemoryLeakPercent      CheckConfig
-	StorageSpace           CheckConfig
-	StorageIOLoad          CheckConfig
-	NetworkRTT             CheckConfig
-	NetworkConnectivity    CheckConfig
-	NetworkTCPConnections  CheckConfig
-	InstanceAvailability   CheckConfig
-	DeploymentStatus       CheckConfig
-	InstanceRestarts       CheckConfig
-	RedisAvailability      CheckConfig
-	RedisLatency           CheckConfig
-	MongodbAvailability    CheckConfig
-	MongodbReplicationLag  CheckConfig
-	MemcachedAvailability  CheckConfig
-	PostgresAvailability   CheckConfig
-	PostgresLatency        CheckConfig
-	PostgresReplicationLag CheckConfig
-	PostgresConnections    CheckConfig
-	LogErrors              CheckConfig
-	JvmAvailability        CheckConfig
-	JvmSafepointTime       CheckConfig
-	DotNetAvailability     CheckConfig
-	PythonGILWaitingTime   CheckConfig
-	DnsLatency             CheckConfig
-	DnsServerErrors        CheckConfig
-	DnsNxdomainErrors      CheckConfig
-	MysqlAvailability      CheckConfig
-	MysqlReplicationStatus CheckConfig
-	MysqlReplicationLag    CheckConfig
-	MysqlConnections       CheckConfig
+	SLOAvailability            CheckConfig
+	SLOLatency                 CheckConfig
+	CPUNode                    CheckConfig
+	CPUContainer               CheckConfig
+	MemoryOOM                  CheckConfig
+	MemoryLeakPercent          CheckConfig
+	StorageSpace               CheckConfig
+	StorageIOLoad              CheckConfig
+	NetworkRTT                 CheckConfig
+	NetworkConnectivity        CheckConfig
+	NetworkTCPConnections      CheckConfig
+	InstanceAvailability       CheckConfig
+	DeploymentStatus           CheckConfig
+	InstanceRestarts           CheckConfig
+	RedisAvailability          CheckConfig
+	RedisLatency               CheckConfig
+	MongodbAvailability        CheckConfig
+	MongodbReplicationLag      CheckConfig
+	MemcachedAvailability      CheckConfig
+	PostgresAvailability       CheckConfig
+	PostgresLatency            CheckConfig
+	PostgresReplicationLag     CheckConfig
+	PostgresConnections        CheckConfig
+	LogErrors                  CheckConfig
+	JvmAvailability            CheckConfig
+	JvmSafepointTime           CheckConfig
+	DotNetAvailability         CheckConfig
+	PythonGILWaitingTime       CheckConfig
+	NodejsEventLoopBlockedTime CheckConfig
+	DnsLatency                 CheckConfig
+	DnsServerErrors            CheckConfig
+	DnsNxdomainErrors          CheckConfig
+	MysqlAvailability          CheckConfig
+	MysqlReplicationStatus     CheckConfig
+	MysqlReplicationLag        CheckConfig
+	MysqlConnections           CheckConfig
 }{
 	index: map[CheckId]*CheckConfig{},
 
@@ -310,6 +311,14 @@ var Checks = struct {
 		DefaultThreshold:        0.05,
 		MessageTemplate:         `high GIL waiting times on {{.Items "Python instance"}}`,
 		ConditionFormatTemplate: "the time Python threads have been waiting for acquiring the GIL (Global Interpreter Lock) > <threshold>",
+		Unit:                    CheckUnitSecond,
+	},
+	NodejsEventLoopBlockedTime: CheckConfig{
+		Type:                    CheckTypeItemBased,
+		Title:                   "Node.js event loop blocked time",
+		DefaultThreshold:        0.7,
+		MessageTemplate:         `high Node.js event loop blocked times on {{.Items "Node.js instance"}}`,
+		ConditionFormatTemplate: "the time Node.js event loop executes blocking code > <threshold>",
 		Unit:                    CheckUnitSecond,
 	},
 	DnsLatency: CheckConfig{
