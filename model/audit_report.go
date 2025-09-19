@@ -28,6 +28,7 @@ const (
 	AuditReportJvm         AuditReportName = "JVM"
 	AuditReportDotNet      AuditReportName = ".NET"
 	AuditReportPython      AuditReportName = "Python"
+	AuditReportNodejs      AuditReportName = "Node.js"
 	AuditReportNode        AuditReportName = "Node"
 	AuditReportDeployments AuditReportName = "Deployments"
 	AuditReportProfiling   AuditReportName = "Profiling"

@@ -110,6 +110,7 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 	prof.stage("load_jvm", func() { c.loadJVM(metrics, containers) })
 	prof.stage("load_dotnet", func() { c.loadDotNet(metrics, containers) })
 	prof.stage("load_python", func() { c.loadPython(metrics, containers) })
+	prof.stage("load_nodejs", func() { c.loadNodejs(metrics, containers) })
 	prof.stage("enrich_instances", func() { enrichInstances(w, metrics, rdsInstancesById, ecInstancesById) })
 	prof.stage("calc_app_categories", func() { c.calcApplicationCategories(w) })
 	prof.stage("group_custom_applications", func() { c.groupCustomApplications(w) })

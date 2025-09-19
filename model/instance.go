@@ -39,6 +39,7 @@ type Instance struct {
 	Jvms   map[string]*Jvm
 	DotNet map[string]*DotNet
 	Python *Python
+	Nodejs *Nodejs
 
 	Volumes []*Volume
 

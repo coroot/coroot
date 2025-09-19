@@ -66,6 +66,7 @@ func Audit(w *model.World, p *db.Project, generateDetailedReportFor *model.Appli
 		stages.stage("jvm", a.jvm)
 		stages.stage("dotnet", a.dotnet)
 		stages.stage("python", a.python)
+		stages.stage("nodejs", a.nodejs)
 		stages.stage("logs", a.logs)
 		stages.stage("deployments", a.deployments)
 
