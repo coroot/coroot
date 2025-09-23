@@ -370,6 +370,13 @@ Each JVM metric has the `jvm` label which refers to the main class or path to th
 * **Type**: Counter
 * **Source**: eBPF uprobes
 
+## Python runtime
+
+### container_python_thread_lock_wait_time_seconds
+* **Description**: Time spent waiting acquiring GIL in seconds
+* **Type**: Counter
+* **Source**: eBPF uprobes
+
 ## .NET runtime
 
 Each .NET runtime metric has the `application` label, which allows distinguishing multiple applications within the same container.
