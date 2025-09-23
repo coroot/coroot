@@ -32,6 +32,12 @@ Each container metric has the `container_id` label. This is a compound identifie
 * **Type**: Counter
 * **Source**:  [Delay accounting](https://www.kernel.org/doc/html/latest/accounting/delay-accounting.html)
 
+### container_resources_cpu_pressure_waiting_seconds_total
+* **Description**: Total time in seconds that the container were delayed due to CPU pressure
+* **Type**: Counter
+* **Source**: [PSI](https://www.kernel.org/doc/html/latest/accounting/psi.html) (Pressure Stall Information)
+* **Labels**: kind
+
 ## Memory
 
 ### container_resources_memory_limit_bytes
@@ -54,12 +60,24 @@ Each container metric has the `container_id` label. This is a compound identifie
 * **Type**: Counter
 * **Source**: eBPF: tracepoint/oom/mark_victim
 
+### container_resources_memory_pressure_waiting_seconds_total
+* **Description**: Total time in seconds that the container were delayed due to memory pressure
+* **Type**: Counter
+* **Source**: [PSI](https://www.kernel.org/doc/html/latest/accounting/psi.html) (Pressure Stall Information)
+* **Labels**: kind
+
 ## Disk
 
 ### container_resources_disk_delay_seconds_total
 * **Description**:  Total time duration the container has been waiting for I/Os to complete
 * **Type**: Counter
 * **Source**: [Delay accounting](https://www.kernel.org/doc/html/latest/accounting/delay-accounting.html)
+
+### container_resources_io_pressure_waiting_seconds_total
+* **Description**: Total time in seconds that the container were delayed due to I/O pressure
+* **Type**: Counter
+* **Source**: [PSI](https://www.kernel.org/doc/html/latest/accounting/psi.html) (Pressure Stall Information)
+* **Labels**: kind
 
 ### container_resources_disk_size_bytes
 * **Description**: Total capacity of the volume
