@@ -68,6 +68,7 @@ var Checks = struct {
 	CPUContainer               CheckConfig
 	MemoryOOM                  CheckConfig
 	MemoryLeakPercent          CheckConfig
+	MemoryPressure             CheckConfig
 	StorageSpace               CheckConfig
 	StorageIOLoad              CheckConfig
 	NetworkRTT                 CheckConfig
@@ -146,6 +147,14 @@ var Checks = struct {
 		DefaultThreshold:        10,
 		MessageTemplate:         `memory usage is growing by {{.Value}} %% per hour`,
 		ConditionFormatTemplate: "memory usage is growing by > <threshold> % per hour",
+	},
+	MemoryPressure: CheckConfig{
+		Type:                    CheckTypeItemBased,
+		Title:                   "Memory pressure",
+		DefaultThreshold:        0.02,
+		Unit:                    CheckUnitSecond,
+		MessageTemplate:         `high memory stall time on {{.Items "instances"}}`,
+		ConditionFormatTemplate: "memory stall time > <threshold> per second",
 	},
 	StorageIOLoad: CheckConfig{
 		Type:                    CheckTypeItemBased,

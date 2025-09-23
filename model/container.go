@@ -47,9 +47,11 @@ type Container struct {
 	MemoryRss         *timeseries.TimeSeries
 	MemoryRssForTrend *timeseries.TimeSeries
 
-	MemoryCache   *timeseries.TimeSeries
-	MemoryLimit   *timeseries.TimeSeries
-	MemoryRequest *timeseries.TimeSeries
+	MemoryCache        *timeseries.TimeSeries
+	MemoryLimit        *timeseries.TimeSeries
+	MemoryRequest      *timeseries.TimeSeries
+	MemoryPressureSome *timeseries.TimeSeries
+	MemoryPressureFull *timeseries.TimeSeries
 
 	OOMKills *timeseries.TimeSeries
 }

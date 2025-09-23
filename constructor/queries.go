@@ -217,6 +217,7 @@ var QUERIES = []Query{
 	Q("container_memory_limit", `container_resources_memory_limit_bytes`),
 	Q("container_memory_rss", `container_resources_memory_rss_bytes`),
 	Q("container_memory_cache", `container_resources_memory_cache_bytes`),
+	Q("container_memory_pressure", `rate(container_resources_memory_pressure_waiting_seconds_total[$RANGE])`, "kind"),
 	Q("container_oom_kills_total", `container_oom_kills_total % 10000000`, "job", "instance"),
 	Q("container_restarts", `container_restarts_total % 10000000`, "job", "instance"),
 	Q("container_volume_size", `container_resources_disk_size_bytes`, "mount_point", "volume", "device"),
