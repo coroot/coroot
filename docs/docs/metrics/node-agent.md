@@ -363,6 +363,13 @@ Each JVM metric has the `jvm` label which refers to the main class or path to th
 * **Source**: `hsperfdata`
 * **Labels**: `jvm`
 
+## Node.js runtime
+
+### container_nodejs_event_loop_blocked_time_seconds_total
+* **Description**: Total time the Node.js event loop spent blocked
+* **Type**: Counter
+* **Source**: eBPF uprobes
+
 ## .NET runtime
 
 Each .NET runtime metric has the `application` label, which allows distinguishing multiple applications within the same container.
