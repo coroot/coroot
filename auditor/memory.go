@@ -10,11 +10,16 @@ func (a *appAuditor) memory(ncs nodeConsumersByNode) {
 	relevantNodes := map[string]*model.Node{}
 
 	oomCheck := report.CreateCheck(model.Checks.MemoryOOM)
+	pressureCheck := report.CreateCheck(model.Checks.MemoryPressure)
 	leakCheck := report.CreateCheck(model.Checks.MemoryLeakPercent)
 
 	usageChart := report.GetOrCreateChartGroup(
 		"Memory usage <selector>, bytes",
 		model.NewDocLink("inspections", "memory", "memory-usage"),
+	)
+	pressureChart := report.GetOrCreateChartGroup(
+		"Memory stall time <selector>, seconds per second",
+		nil,
 	)
 	oomChart := report.GetOrCreateChart(
 		"Out of memory events",
@@ -36,6 +41,9 @@ func (a *appAuditor) memory(ncs nodeConsumersByNode) {
 		instanceRss := timeseries.NewAggregate(timeseries.NanSum)
 		instanceRssForTrend := timeseries.NewAggregate(timeseries.NanSum)
 		instancePageCache := timeseries.NewAggregate(timeseries.NanSum)
+		pressureSome := timeseries.NewAggregate(timeseries.NanSum)
+		pressureFull := timeseries.NewAggregate(timeseries.NanSum)
+
 		for _, c := range i.Containers {
 			seenContainers = true
 			if limitByContainer[c.Name] == nil {
@@ -49,6 +57,11 @@ func (a *appAuditor) memory(ncs nodeConsumersByNode) {
 			instanceRssForTrend.Add(c.MemoryRssForTrend)
 			instanceRss.Add(c.MemoryRss)
 			instancePageCache.Add(c.MemoryCache)
+			pressureSome.Add(c.MemoryPressureSome)
+			pressureFull.Add(c.MemoryPressureFull)
+			if v := c.MemoryPressureSome.Last(); v > pressureCheck.Threshold {
+				pressureCheck.AddItem(i.Name)
+			}
 		}
 		if a.app.PeriodicJob() {
 			leakCheck.SetStatus(model.UNKNOWN, "not checked for periodic jobs")
@@ -64,9 +77,13 @@ func (a *appAuditor) memory(ncs nodeConsumersByNode) {
 				}
 			}
 		}
+		if pressureChart != nil {
+			pressureChart.GetOrCreateChart("some").AddSeries(i.Name, pressureSome).Feature()
+			pressureChart.GetOrCreateChart("full").AddSeries(i.Name, pressureFull)
+		}
 
 		if usageChart != nil {
-			usageChart.GetOrCreateChart("RSS").AddSeries(i.Name, instanceRss).Feature()
+			usageChart.GetOrCreateChart("RSS").AddSeries(i.Name, instanceRss)
 			usageChart.GetOrCreateChart("RSS + PageCache").AddSeries(i.Name, timeseries.Sum(instanceRss.Get(), instancePageCache.Get()))
 		}
 
@@ -104,7 +121,7 @@ func (a *appAuditor) memory(ncs nodeConsumersByNode) {
 
 	if usageChart != nil {
 		for container, limit := range limitByContainer {
-			usageChart.GetOrCreateChart("RSS container: "+container).SetThreshold("limit", limit.Get())
+			usageChart.GetOrCreateChart("RSS container: "+container).SetThreshold("limit", limit.Get()).Feature()
 		}
 	}
 
@@ -120,6 +137,7 @@ func (a *appAuditor) memory(ncs nodeConsumersByNode) {
 	if !seenContainers {
 		oomCheck.SetStatus(model.UNKNOWN, "no data")
 		leakCheck.SetStatus(model.UNKNOWN, "no data")
+		pressureCheck.SetStatus(model.UNKNOWN, "no data")
 		return
 	}
 }
