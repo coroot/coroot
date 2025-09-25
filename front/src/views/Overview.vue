@@ -19,8 +19,8 @@
             <Nodes v-else />
         </template>
 
-        <template v-if="view === 'deployments'">
-            <Deployments />
+        <template v-if="view === 'kubernetes'">
+            <Kubernetes />
         </template>
 
         <template v-if="view === 'traces'">
@@ -61,16 +61,17 @@ import Traces from '@/views/Traces.vue';
 import Logs from '@/views/Logs.vue';
 import Nodes from '@/views/Nodes.vue';
 import Node from '@/views/Node.vue';
-import Deployments from '@/views/Deployments.vue';
 import Costs from '@/views/Costs.vue';
 import Anomalies from '@/views/Anomalies.vue';
 import RCA from '@/views/RCA.vue';
 import Risks from '@/views/Risks.vue';
 import Dashboards from '@/views/dashboards/Dashboards.vue';
 import Dashboard from '@/views/dashboards/Dashboard.vue';
+import Kubernetes from '@/views/Kubernetes.vue';
 
 export default {
     components: {
+        Kubernetes,
         Applications,
         Application,
         Incidents,
@@ -80,7 +81,6 @@ export default {
         Logs,
         Nodes,
         Node,
-        Deployments,
         Costs,
         Anomalies,
         RCA,

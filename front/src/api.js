@@ -17,6 +17,7 @@ export default class Api {
         search: {},
         incidents: {},
         license: {},
+        fluxcd: true,
     };
 
     constructor(router, vuetify, basePath) {
@@ -54,6 +55,7 @@ export default class Api {
                     this.context.search = response.data.context.search;
                     this.context.incidents = response.data.context.incidents;
                     this.context.license = response.data.context.license;
+                    this.context.fluxcd = response.data.context.fluxcd;
                 }
                 try {
                     const data = response.data.data !== undefined ? response.data.data : response.data;

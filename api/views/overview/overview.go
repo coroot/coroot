@@ -18,6 +18,7 @@ type Overview struct {
 	Logs         *Logs                       `json:"logs"`
 	Costs        *Costs                      `json:"costs"`
 	Risks        []*Risk                     `json:"risks"`
+	FluxCD       []*FluxCDResource           `json:"fluxcd"`
 	Categories   []model.ApplicationCategory `json:"categories"`
 }
 
@@ -47,6 +48,8 @@ func Render(ctx context.Context, ch *clickhouse.Client, project *db.Project, w *
 		v.Costs = renderCosts(w)
 	case "risks":
 		v.Risks = renderRisks(w)
+	case "fluxcd":
+		v.FluxCD = renderFluxCD(w)
 	}
 	return v
 }

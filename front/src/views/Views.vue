@@ -42,7 +42,7 @@ export const views = {
     traces: { name: 'Traces', icon: 'mdi-chart-timeline' },
     logs: { name: 'Logs', icon: 'mdi-text-search' },
     nodes: { name: 'Nodes', icon: 'mdi-server' },
-    deployments: { name: 'Deployments', icon: 'mdi-rocket-launch-outline' },
+    kubernetes: { name: 'Kubernetes', icon: 'mdi-ship-wheel' },
     costs: { name: 'Costs', icon: 'mdi-currency-usd' },
     anomalies: { name: 'Anomalies', icon: 'mdi-waveform' },
     risks: { name: 'Risks', icon: 'mdi-weather-lightning' },

@@ -98,6 +98,7 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 	prof.stage("load_fqdn", func() { loadFQDNs(metrics, ip2fqdn, fqdn2ip) })
 	prof.stage("load_fargate_nodes", func() { c.loadFargateNodes(metrics, nodes) })
 	prof.stage("load_k8s_metadata", func() { loadKubernetesMetadata(w, metrics, servicesByClusterIP) })
+	prof.stage("load_flux_resources", func() { loadFluxResources(w, metrics) })
 	prof.stage("load_aws_status", func() { loadAWSStatus(w, metrics) })
 	prof.stage("load_rds_metadata", func() { loadRdsMetadata(w, metrics, pjs, rdsInstancesById) })
 	prof.stage("load_elasticache_metadata", func() { loadElasticacheMetadata(w, metrics, pjs, ecInstancesById) })

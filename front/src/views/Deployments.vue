@@ -1,5 +1,5 @@
 <template>
-    <Views :loading="loading" :error="error">
+    <div>
         <ApplicationFilter :applications="applications" @filter="setFilter" class="mb-4" />
 
         <v-data-table
@@ -47,16 +47,15 @@
             </template>
             <template #no-data> No deployments detected </template>
         </v-data-table>
-    </Views>
+    </div>
 </template>
 
 <script>
-import Views from '@/views/Views.vue';
 import Led from '../components/Led.vue';
 import ApplicationFilter from '../components/ApplicationFilter.vue';
 
 export default {
-    components: { Views, ApplicationFilter, Led },
+    components: { ApplicationFilter, Led },
 
     data() {
         return {
@@ -108,6 +107,15 @@ export default {
                 }
                 this.deployments = data.deployments;
             });
+        },
+    },
+
+    watch: {
+        loading(val) {
+            this.$emit('loading', val);
+        },
+        error(val) {
+            this.$emit('error', val);
         },
     },
 };

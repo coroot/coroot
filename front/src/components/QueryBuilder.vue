@@ -52,6 +52,10 @@ export default {
         loading: Boolean,
         error: String,
         disabled: Boolean,
+        hiddenAttributes: {
+            type: Array,
+            default: () => [],
+        },
     },
 
     data() {
@@ -67,11 +71,16 @@ export default {
 
     computed: {
         _items() {
-            return this.items.filter((i) => i.toLocaleLowerCase().includes(this.str.toLocaleLowerCase()));
+            return this.items
+                .filter((i) => !this.hiddenAttributes.includes(i))
+                .filter((i) => i.toLocaleLowerCase().includes(this.str.toLocaleLowerCase()));
         },
     },
 
     watch: {
+        value(newValue) {
+            this.filters = newValue || [];
+        },
         menu() {
             this.menu && this.get();
         },

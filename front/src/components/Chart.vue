@@ -47,7 +47,7 @@
                 v-for="l in legend"
                 class="item"
                 :style="{ opacity: l.hidden ? '0.5' : '1' }"
-                @click="toggleSeries(l.label)"
+                @click="handleLegendClick($event, l)"
                 @mouseover="highlightSeries(l.label)"
                 @mouseleave="highlightSeries(null)"
             >
@@ -393,6 +393,19 @@ export default {
             }
             this.highlightedSeries = null;
             this.redraw();
+        },
+        handleLegendClick(event, legendItem) {
+            if (this.$listeners['legend-click']) {
+                this.$emit('legend-click', {
+                    x: event.clientX,
+                    y: event.clientY,
+                    value: legendItem.label,
+                    label: legendItem.label,
+                    originalEvent: event,
+                });
+            } else {
+                this.toggleSeries(legendItem.label);
+            }
         },
         highlightSeries(name) {
             this.highlightedSeries = name;
