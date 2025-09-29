@@ -35,7 +35,7 @@
                     :to="{
                         name: 'overview',
                         params: { view: id, id: undefined, report: undefined },
-                        query: id === 'incidents' ? { ...$utils.contextQuery(), incident: undefined } : $utils.contextQuery(),
+                        query: getMenuQuery(id),
                     }"
                     :class="{ 'v-list-item--active': id === view }"
                 >
@@ -341,6 +341,18 @@ export default {
     },
 
     methods: {
+        getMenuQuery(viewId) {
+            switch (viewId) {
+                case 'incidents':
+                    return { ...this.$utils.contextQuery(), incident: undefined };
+                case 'logs':
+                    return { ...this.$utils.contextQuery(), query: undefined };
+                case 'kubernetes':
+                    return { ...this.$utils.contextQuery(), query: undefined };
+                default:
+                    return this.$utils.contextQuery();
+            }
+        },
         getUser() {
             if (this.$route.meta.anonymous) {
                 return;

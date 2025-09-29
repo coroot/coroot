@@ -18,6 +18,7 @@ type Context struct {
 	Status    Status                            `json:"status"`
 	Search    Search                            `json:"search"`
 	Incidents map[model.ApplicationCategory]int `json:"incidents"`
+	Fluxcd    bool                              `json:"fluxcd"`
 	License   *License                          `json:"license,omitempty"`
 }
 
@@ -76,6 +77,7 @@ func (api *Api) WithContext(p *db.Project, cacheStatus *cache.Status, w *model.W
 			Status:    renderStatus(p, cacheStatus, w, api.globalPrometheus),
 			Search:    renderSearch(w),
 			Incidents: renderIncidents(w),
+			Fluxcd:    w != nil && w.Flux != nil,
 		},
 		Data: data,
 	}

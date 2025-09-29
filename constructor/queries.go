@@ -373,6 +373,25 @@ var QUERIES = []Query{
 
 	Q("container_python_thread_lock_wait_time_seconds", `rate(container_python_thread_lock_wait_time_seconds[$RANGE])`),
 	Q("container_nodejs_event_loop_blocked_time_seconds", `rate(container_nodejs_event_loop_blocked_time_seconds_total[$RANGE])`),
+
+	qPod("fluxcd_git_repository_info", `fluxcd_git_repository_info`, "name", "namespace", "suspended", "url", "interval"),
+	qPod("fluxcd_git_repository_status", `fluxcd_git_repository_status`, "name", "namespace", "type", "reason"),
+	qPod("fluxcd_oci_repository_info", `fluxcd_oci_repository_info`, "name", "namespace", "suspended", "url", "interval"),
+	qPod("fluxcd_oci_repository_status", `fluxcd_oci_repository_status`, "name", "namespace", "type", "reason"),
+	qPod("fluxcd_helm_repository_info", `fluxcd_helm_repository_info`, "name", "namespace", "suspended", "url", "interval"),
+	qPod("fluxcd_helm_repository_status", `fluxcd_helm_repository_status`, "name", "namespace", "type", "reason"),
+	qPod("fluxcd_helm_chart_info", `fluxcd_helm_chart_info`, "name", "namespace", "suspended", "chart", "interval", "version", "source_kind", "source_name", "source_namespace"),
+	qPod("fluxcd_helm_chart_status", `fluxcd_helm_chart_status`, "name", "namespace", "type", "reason"),
+	qPod("fluxcd_helm_release_info", `fluxcd_helm_release_info`, "name", "namespace", "suspended", "chart", "interval", "version", "source_kind", "source_name", "source_namespace", "chart_ref_kind", "chart_ref_name", "chart_ref_namespace", "target_namespace"),
+	qPod("fluxcd_helm_release_status", `fluxcd_helm_release_status`, "name", "namespace", "type", "reason"),
+	qPod("fluxcd_kustomization_info", `fluxcd_kustomization_info`, "name", "namespace", "suspended", "interval", "path", "source_kind", "source_name", "source_namespace", "target_namespace", "last_applied_revision", "last_attempted_revision"),
+	qPod("fluxcd_kustomization_status", `fluxcd_kustomization_status`, "name", "namespace", "type", "reason"),
+	qPod("fluxcd_kustomization_dependency_info", `fluxcd_kustomization_dependency_info`, "name", "namespace", "depends_on_name", "depends_on_namespace"),
+	qPod("fluxcd_kustomization_inventory_entry_info", `fluxcd_kustomization_inventory_entry_info`, "name", "namespace", "entry_id"),
+	qPod("fluxcd_resourceset_info", `fluxcd_resourceset_info`, "name", "namespace", "last_applied_revision"),
+	qPod("fluxcd_resourceset_status", `fluxcd_resourceset_status`, "name", "namespace", "type", "reason"),
+	qPod("fluxcd_resourceset_dependency_info", `fluxcd_resourceset_dependency_info`, "name", "namespace", "depends_on_name", "depends_on_namespace", "depends_on_kind"),
+	qPod("fluxcd_resourceset_inventory_entry_info", `fluxcd_resourceset_inventory_entry_info`, "name", "namespace", "entry_id"),
 }
 
 var RecordingRules = map[string]func(db *db.DB, p *db.Project, w *model.World) []*model.MetricValues{

@@ -23,6 +23,8 @@ type World struct {
 	Nodes        []*Node
 	Applications map[ApplicationId]*Application
 
+	Flux *Flux
+
 	AWS AWS
 
 	IntegrationStatus IntegrationStatus
