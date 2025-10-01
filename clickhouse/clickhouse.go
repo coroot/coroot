@@ -41,12 +41,12 @@ func NewClientConfig(address, user, password string) ClientConfig {
 }
 
 type Client struct {
-	config               ClientConfig
-	conn                 clickhouse.Conn
-	useDistributedTables bool
+	config ClientConfig
+	conn   clickhouse.Conn
+	chInfo collector.ClickHouseInfo
 }
 
-func NewClient(config ClientConfig, distributed bool) (*Client, error) {
+func NewClient(config ClientConfig, chInfo collector.ClickHouseInfo) (*Client, error) {
 	opts := &clickhouse.Options{
 		Addr: []string{config.Address},
 		Auth: clickhouse.Auth{
@@ -81,7 +81,7 @@ func NewClient(config ClientConfig, distributed bool) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Client{config: config, conn: conn, useDistributedTables: distributed}, nil
+	return &Client{config: config, conn: conn, chInfo: chInfo}, nil
 }
 
 func (c *Client) Ping(ctx context.Context) error {
@@ -89,12 +89,12 @@ func (c *Client) Ping(ctx context.Context) error {
 }
 
 func (c *Client) Query(ctx context.Context, query string, args ...interface{}) (driver.Rows, error) {
-	query = collector.ReplaceTables(query, c.useDistributedTables)
+	query = collector.ReplaceTables(query, c.chInfo.UseDistributed())
 	return c.conn.Query(ctx, query, args...)
 }
 
 func (c *Client) QueryRow(ctx context.Context, query string, args ...interface{}) driver.Row {
-	query = collector.ReplaceTables(query, c.useDistributedTables)
+	query = collector.ReplaceTables(query, c.chInfo.UseDistributed())
 	return c.conn.QueryRow(ctx, query, args...)
 }
 
@@ -106,20 +106,23 @@ func (c *Client) Close() error {
 }
 
 func (c *Client) getClusterTopology(ctx context.Context) ([]ClusterNode, error) {
-	clusterQuery := `
+	var clusterName string
+	if c.chInfo.Cloud {
+		clusterName = "default"
+	} else {
+		clusterQuery := `
 		SELECT DISTINCT replaceRegexpOne(engine_full, '^Distributed\\(''([^'']+)''.*', '\\1') as cluster_name
 		FROM system.tables 
 		WHERE engine = 'Distributed' 
 			AND database = currentDatabase()
 		LIMIT 1`
-
-	var clusterName string
-	row := c.conn.QueryRow(ctx, clusterQuery)
-	if err := row.Scan(&clusterName); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return []ClusterNode{}, nil
+		row := c.conn.QueryRow(ctx, clusterQuery)
+		if err := row.Scan(&clusterName); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return []ClusterNode{}, nil
+			}
+			return nil, err
 		}
-		return nil, err
 	}
 
 	topologyQuery := `
@@ -255,6 +258,15 @@ func (c *Client) GetDiskInfo(ctx context.Context) ([]DiskInfo, error) {
 	return disks, nil
 }
 
+func (c *Client) IsCloud(ctx context.Context) (bool, error) {
+	var cloudMode bool
+	err := c.conn.QueryRow(ctx, "SELECT toBool(value) FROM system.settings WHERE name = 'cloud_mode';").Scan(&cloudMode)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	return cloudMode, err
+}
+
 func parseTTLToSeconds(ttlExpr string) uint64 {
 	ttlExpr = strings.TrimSpace(ttlExpr)
 
@@ -349,8 +361,8 @@ type ClusterInfo struct {
 	ServerDisks []ServerDiskInfo `json:"server_disks,omitempty"`
 }
 
-func GetClusterInfo(ctx context.Context, cfg ClientConfig) (*ClusterInfo, error) {
-	ch, err := NewClient(cfg, false)
+func GetClusterInfo(ctx context.Context, cfg ClientConfig, info collector.ClickHouseInfo) (*ClusterInfo, error) {
+	ch, err := NewClient(cfg, info)
 	if err != nil {
 		return nil, err
 	}
@@ -360,11 +372,11 @@ func GetClusterInfo(ctx context.Context, cfg ClientConfig) (*ClusterInfo, error)
 		klog.Errorln("failed to get ClickHouse cluster topology:", err)
 		return ci, nil
 	}
-	if ci.TableSizes, err = getClusterTableSizes(ctx, cfg, ci.Topology); err != nil {
+	if ci.TableSizes, err = getClusterTableSizes(ctx, cfg, ci.Topology, ch, info); err != nil {
 		klog.Errorln("failed to get ClickHouse table sizes:", err)
 		return ci, nil
 	}
-	if ci.ServerDisks, err = getClusterServerDisks(ctx, cfg, ci.Topology); err != nil {
+	if ci.ServerDisks, err = getClusterServerDisks(ctx, cfg, ci.Topology, info); err != nil {
 		klog.Errorln("failed to get ClickHouse server disks:", err)
 		return ci, nil
 	}
@@ -398,7 +410,7 @@ func executeOnAllServers(ctx context.Context, config ClientConfig, topology []Cl
 			clientConfig := config
 			clientConfig.Address = addr
 
-			client, err := NewClient(clientConfig, false)
+			client, err := NewClient(clientConfig, collector.ClickHouseInfo{})
 			if err != nil {
 				resultsChan <- serverExecResult{addr: addr, err: err}
 				return
@@ -432,7 +444,14 @@ func executeOnAllServers(ctx context.Context, config ClientConfig, topology []Cl
 	}
 }
 
-func getClusterTableSizes(ctx context.Context, config ClientConfig, topology []ClusterNode) ([]TableInfo, error) {
+func getClusterTableSizes(ctx context.Context, config ClientConfig, topology []ClusterNode, ch *Client, info collector.ClickHouseInfo) ([]TableInfo, error) {
+	if info.Cloud {
+		allTables, err := ch.GetTableSizes(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return aggregateTableStats(allTables), nil
+	}
 	results, err := executeOnAllServers(ctx, config, topology, func(client *Client) (interface{}, error) {
 		return client.GetTableSizes(ctx)
 	})
@@ -453,7 +472,10 @@ func getClusterTableSizes(ctx context.Context, config ClientConfig, topology []C
 	return aggregateTableStats(allTables), nil
 }
 
-func getClusterServerDisks(ctx context.Context, config ClientConfig, topology []ClusterNode) ([]ServerDiskInfo, error) {
+func getClusterServerDisks(ctx context.Context, config ClientConfig, topology []ClusterNode, info collector.ClickHouseInfo) ([]ServerDiskInfo, error) {
+	if info.Cloud {
+		return nil, nil
+	}
 	results, err := executeOnAllServers(ctx, config, topology, func(client *Client) (interface{}, error) {
 		return client.GetDiskInfo(ctx)
 	})

@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/coroot/coroot/clickhouse"
+	"github.com/coroot/coroot/collector"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/notifications"
@@ -422,7 +423,7 @@ func (f *IntegrationFormClickhouse) Test(ctx context.Context, project *db.Projec
 	config.Database = f.Database
 	config.TlsEnable = f.TlsEnable
 	config.TlsSkipVerify = f.TlsSkipVerify
-	client, err := clickhouse.NewClient(config, false)
+	client, err := clickhouse.NewClient(config, collector.ClickHouseInfo{})
 	if err != nil {
 		return err
 	}
