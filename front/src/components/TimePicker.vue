@@ -8,7 +8,7 @@
             </v-btn>
         </template>
         <v-list dense class="list">
-            <v-list-item v-for="i in intervals" :key="i.text" :to="{ query: i.query }" @click="quick" exact>
+            <v-list-item v-for="i in intervals" :key="i.text" @click="quick(i)" :input-value="i.active">
                 <v-list-item-content>
                     {{ i.text }}
                 </v-list-item-content>
@@ -92,7 +92,10 @@ export default {
     },
 
     methods: {
-        quick() {
+        quick(interval) {
+            // eslint-disable-next-line no-unused-vars
+            const { from, to, incident, ...query } = this.$route.query;
+            this.$router.push({ query: { ...query, ...interval.query } }).catch((err) => err);
             this.menu = false;
             this.from = this.$route.query.from || 'now-1h';
             this.to = this.$route.query.to || 'now';
@@ -103,7 +106,7 @@ export default {
             this.menu = false;
             const from = isRelative(this.from) ? this.from : new Date(this.from).getTime();
             const to = isRelative(this.to) ? this.to : new Date(this.to).getTime();
-            this.$router.push({ query: { from, to } }).catch((err) => err);
+            this.$router.push({ query: { ...this.$route.query, from, to } }).catch((err) => err);
         },
         change() {
             this.from = this.dates[0] + ' 00:00';
