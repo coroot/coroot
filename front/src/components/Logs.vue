@@ -156,13 +156,7 @@ export default {
             error: '',
             view: {},
             refreshInterval: 0,
-            query: {
-                view: q.view || 'messages',
-                agent: q.agent !== undefined ? q.agent : true,
-                otel: q.otel !== undefined ? q.otel : true,
-                filters: q.filters || [],
-                limit: q.limit || 100,
-            },
+            query: this.makeQuery(q),
             limits: [10, 20, 50, 100, 1000],
             entry: null,
             qb: {
@@ -200,13 +194,7 @@ export default {
                     } catch {
                         //
                     }
-                    this.query = {
-                        view: q.view || 'messages',
-                        agent: q.agent !== undefined ? q.agent : true,
-                        otel: q.otel !== undefined ? q.otel : true,
-                        filters: q.filters || [],
-                        limit: q.limit || 100,
-                    };
+                    this.query = this.makeQuery(q);
                 }
             },
         },
@@ -271,6 +259,15 @@ export default {
     },
 
     methods: {
+        makeQuery(q) {
+            return {
+                view: q.view || 'messages',
+                agent: q.agent !== undefined ? q.agent : true,
+                otel: q.otel !== undefined ? q.otel : true,
+                filters: q.filters || [],
+                limit: q.limit || 100,
+            };
+        },
         setQuery(push) {
             const to = { query: { ...this.$route.query, query: JSON.stringify(this.query) } };
             if (push) {
