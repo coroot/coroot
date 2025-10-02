@@ -36,7 +36,6 @@ In this mode, Coroot automatically creates a dedicated database for each project
 Telemetry data pushed by Coroot agents (coroot-node-agent and coroot-cluster-agent) are stored in their respective project databases, 
 ensuring isolation and efficient querying for individual projects.
 
-
 ## Space Manager
 
 The space manager automatically frees up disk space when your ClickHouse storage gets too full. It deletes old data to prevent your disks from running out of space.
@@ -83,6 +82,39 @@ CLICKHOUSE_SPACE_MANAGER_MIN_PARTITIONS=2       # Always keep at least 2 partiti
 - **Minimum partitions**: 1 per table
 
 **Example:** With default settings and daily partitions, if your disk reaches 70% usage, the space manager will delete the oldest day of data from each table, but will never delete the last remaining partition.
+
+## ClickHouse Cloud
+
+To use Coroot with [ClickHouse Cloud](https://clickhouse.com/cloud), configure the external ClickHouse connection in your Coroot [Custom Resource](/installation/k8s-operator) (CR) specification:
+
+```yaml
+externalClickhouse:
+  address: xxxxxxxxxx.eu-central-1.aws.clickhouse.cloud:9440
+  user: default
+  database: default
+  passwordSecret: 
+    name: your-clickhouse-password # Name of the secret to select from.
+    key: password # Key of the secret to select from.
+  tlsEnabled: true
+```
+
+Key considerations for ClickHouse Cloud:
+- **TLS is required**: Set `tlsEnabled: true` as ClickHouse Cloud enforces encrypted connections
+- **Port 9440**: Use the secure native port (9440) instead of the standard port (9000)
+- **Password secret**: Store your ClickHouse Cloud password in a Kubernetes secret and reference it in `passwordSecret`
+
+To create the password secret using kubectl:
+```bash
+kubectl create secret generic clickhouse-cloud \
+  --from-literal=password=your-clickhouse-password \
+  -n coroot
+```
+- **Database**: Use `default` for initial connection - Coroot will automatically create dedicated databases like `coroot_xxxxx` for each project
+
+:::info
+The Space Manager is automatically disabled for ClickHouse Cloud connections.
+:::
+
 
 ## TTL (Time To Live)
 
