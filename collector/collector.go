@@ -29,6 +29,15 @@ var (
 	ErrClickhouseNotConfigured = errors.New("clickhouse integration is not configured")
 )
 
+type ClickHouseInfo struct {
+	Name  string
+	Cloud bool
+}
+
+func (ci ClickHouseInfo) UseDistributed() bool {
+	return !ci.Cloud && ci.Name != ""
+}
+
 type Config struct {
 	TracesTTL   timeseries.Duration
 	LogsTTL     timeseries.Duration
@@ -274,10 +283,10 @@ func (c *Collector) getProfilesBatch(project *db.Project) *ProfilesBatch {
 	return b
 }
 
-func (c *Collector) IsClickhouseDistributed(project *db.Project) (bool, error) {
+func (c *Collector) GetClickhouseClusterInfo(project *db.Project) (ClickHouseInfo, error) {
 	client, err := c.getClickhouseClient(project)
 	if err != nil {
-		return false, err
+		return ClickHouseInfo{}, err
 	}
-	return client.cluster != "", nil
+	return ClickHouseInfo{Name: client.cluster, Cloud: client.cloud}, nil
 }

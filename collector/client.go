@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -12,11 +13,13 @@ import (
 	chproto "github.com/ClickHouse/ch-go/proto"
 	"github.com/coroot/coroot/db"
 	"golang.org/x/exp/maps"
+	"k8s.io/klog"
 )
 
 type ClickhouseClient struct {
 	pool    *chpool.Pool
 	cluster string
+	cloud   bool
 }
 
 func NewClickhouseClient(ctx context.Context, cfg *db.IntegrationClickhouse) (*ClickhouseClient, error) {
@@ -40,11 +43,9 @@ func NewClickhouseClient(ctx context.Context, cfg *db.IntegrationClickhouse) (*C
 		return nil, err
 	}
 	c := &ClickhouseClient{pool: pool}
-	cluster, err := c.getCluster(ctx)
-	if err != nil {
+	if err = c.info(ctx, opts.Address); err != nil {
 		return nil, err
 	}
-	c.cluster = cluster
 	return c, nil
 }
 
@@ -72,14 +73,31 @@ func (c *ClickhouseClient) Close() {
 	}
 }
 
-func (c *ClickhouseClient) getCluster(ctx context.Context) (string, error) {
+func (c *ClickhouseClient) info(ctx context.Context, address string) error {
 	var exists chproto.ColUInt8
 	q := ch.Query{Body: "EXISTS system.zookeeper", Result: chproto.Results{{Name: "result", Data: &exists}}}
 	if err := c.pool.Do(ctx, q); err != nil {
-		return "", err
+		return err
 	}
 	if exists.Row(0) != 1 {
-		return "", nil
+		return nil
+	}
+
+	var modeStr chproto.ColStr
+	q = ch.Query{
+		Body:   "SELECT value FROM system.settings WHERE name = 'cloud_mode_engine'",
+		Result: chproto.Results{{Name: "value", Data: &modeStr}},
+	}
+	if err := c.pool.Do(ctx, q); err != nil {
+		return err
+	}
+	if modeStr.Rows() > 0 {
+		mode, _ := strconv.ParseUint(modeStr.Row(0), 10, 64)
+		if mode >= 2 {
+			klog.Infoln(address, "is a ClickHouse cloud instance")
+			c.cloud = true
+			return nil
+		}
 	}
 	var clusterCol chproto.ColStr
 	clusters := map[string]bool{}
@@ -96,17 +114,18 @@ func (c *ClickhouseClient) getCluster(ctx context.Context) (string, error) {
 		},
 	}
 	if err := c.pool.Do(ctx, q); err != nil {
-		return "", err
+		return err
 	}
 	switch {
 	case len(clusters) == 0:
-		return "", nil
 	case len(clusters) == 1:
-		return maps.Keys(clusters)[0], nil
+		c.cluster = maps.Keys(clusters)[0]
 	case clusters["coroot"]:
-		return "coroot", nil
+		c.cluster = "coroot"
 	case clusters["default"]:
-		return "default", nil
+		c.cluster = "default"
+	default:
+		return fmt.Errorf(`multiple ClickHouse clusters found, but neither "coroot" nor "default" cluster found`)
 	}
-	return "", fmt.Errorf(`multiple ClickHouse clusters found, but neither "coroot" nor "default" cluster found`)
+	return nil
 }

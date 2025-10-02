@@ -827,8 +827,13 @@ func (api *Api) Integration(w http.ResponseWriter, r *http.Request, u *db.User) 
 				config.Database = cfg.Database
 				config.TlsEnable = cfg.TlsEnable
 				config.TlsSkipVerify = cfg.TlsSkipVerify
-
-				if ci, err = clickhouse.GetClusterInfo(r.Context(), config); err != nil {
+				cInfo, err := api.collector.GetClickhouseClusterInfo(project)
+				if err != nil {
+					klog.Errorln(err)
+					http.Error(w, "", http.StatusInternalServerError)
+					return
+				}
+				if ci, err = clickhouse.GetClusterInfo(r.Context(), config, cInfo); err != nil {
 					klog.Errorln(err)
 				}
 			}
@@ -1667,11 +1672,11 @@ func (api *Api) GetClickhouseClient(project *db.Project) (*clickhouse.Client, er
 	config.Database = cfg.Database
 	config.TlsEnable = cfg.TlsEnable
 	config.TlsSkipVerify = cfg.TlsSkipVerify
-	distributed, err := api.collector.IsClickhouseDistributed(project)
+	clusterInfo, err := api.collector.GetClickhouseClusterInfo(project)
 	if err != nil {
 		return nil, err
 	}
-	return clickhouse.NewClient(config, distributed)
+	return clickhouse.NewClient(config, clusterInfo)
 }
 
 func GetApplicationId(r *http.Request) (model.ApplicationId, error) {
