@@ -247,9 +247,11 @@ spec:
 #    database: # Name of the database to be used.
 #    user: # Username for accessing the external ClickHouse.
 #    password: # Password for accessing the external ClickHouse (plain-text, not recommended).
-#    passwordSecret: # Secret containing password.
+#    passwordSecret: # Secret containing a password for accessing the external ClickHouse.
 #      name: # Name of the secret to select from.
 #      key:  # Key of the secret to select from.
+#    tlsEnabled: false # Whether to enable TLS for the connection to ClickHouse.
+#    tlsSkipVerify: false # Whether to skip verification of the ClickHouse server's TLS certificate.
 
 #  replicas: 1 # Number of Coroot StatefulSet pods.
 
