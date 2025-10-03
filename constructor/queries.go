@@ -181,7 +181,7 @@ var QUERIES = []Query{
 	Q("kube_cronjob_annotations", `kube_cronjob_annotations`, append(applicationAnnotations, "namespace", "cronjob")...),
 
 	qPod("kube_pod_info", `kube_pod_info`, "namespace", "pod", "created_by_name", "created_by_kind", "node", "pod_ip", "host_ip"),
-	qPod("kube_pod_annotations", hasNotEmptyLabel("kube_pod_annotations", applicationAnnotations), applicationAnnotations...),
+	qPod("kube_pod_annotations", `kube_pod_annotations`, applicationAnnotations...),
 	qPod("kube_pod_labels", `kube_pod_labels`,
 		"label_postgres_operator_crunchydata_com_cluster", "label_postgres_operator_crunchydata_com_role",
 		"label_cluster_name", "label_team", "label_application", "label_spilo_role",
@@ -739,14 +739,6 @@ func updateLatencySLOFromAnnotations(database *db.DB, p *db.Project, w *model.Wo
 	if err = database.SaveCheckConfig(p.Id, app.Id, model.Checks.SLOLatency.Id, []model.CheckConfigSLOLatency{cfg}); err != nil {
 		klog.Errorln(err)
 	}
-}
-
-func hasNotEmptyLabel(metricName string, labelNames []string) string {
-	var parts []string
-	for _, labelName := range labelNames {
-		parts = append(parts, fmt.Sprintf(`%s{%s != ""}`, metricName, labelName))
-	}
-	return strings.Join(parts, " or ")
 }
 
 func parseObjective(s string) (float32, error) {

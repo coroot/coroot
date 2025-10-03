@@ -102,7 +102,7 @@ func main() {
 			Interval: cfg.Cache.GCInterval,
 		},
 	}
-	promCache, err := cache.NewCache(cacheConfig, database, globalPrometheus)
+	promCache, err := cache.NewCache(cacheConfig, database, globalPrometheus, globalClickhouse)
 	if err != nil {
 		klog.Exitln(err)
 	}
@@ -112,10 +112,11 @@ func main() {
 		klog.Exitln("grpc server:", err)
 	}
 
-	collConfig := collector.Config{
+	collConfig := config.CollectorConfig{
 		TracesTTL:   cfg.Traces.TTL,
 		LogsTTL:     cfg.Logs.TTL,
 		ProfilesTTL: cfg.Profiles.TTL,
+		MetricsTTL:  cfg.Metrics.TTL,
 	}
 	coll := collector.New(collConfig, database, promCache, globalClickhouse, globalPrometheus, grpcServer)
 
@@ -200,7 +201,7 @@ func main() {
 	r.HandleFunc("/api/project/{project}/app/{app}/logs", a.Auth(a.Logs)).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/project/{project}/app/{app}/risks", a.Auth(a.Risks)).Methods(http.MethodPost)
 	r.HandleFunc("/api/project/{project}/node/{node}", a.Auth(a.Node)).Methods(http.MethodGet)
-	r.PathPrefix("/api/project/{project}/prom").HandlerFunc(a.Auth(a.Prom))
+	r.PathPrefix("/api/project/{project}/prom/api/v1/{rest:.+}").HandlerFunc(a.Auth(a.Prom))
 
 	r.HandleFunc("/stats", func(w http.ResponseWriter, r *http.Request) {
 		statsCollector.RegisterRequest(r)

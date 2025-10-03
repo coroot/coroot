@@ -149,6 +149,7 @@ type IntegrationPrometheus struct {
 	CustomHeaders   []utils.Header      `json:"custom_headers"`
 	RemoteWriteUrl  string              `json:"remote_write_url"`
 	ExtraLabels     map[string]string   `json:"-"`
+	UseClickHouse   bool                `json:"use_clickhouse"`
 }
 
 type IntegrationClickhouse struct {

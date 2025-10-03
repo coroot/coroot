@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -15,7 +16,7 @@ import (
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
-	"github.com/coroot/coroot/collector"
+	"github.com/coroot/coroot/ch"
 	"k8s.io/klog"
 )
 
@@ -43,10 +44,10 @@ func NewClientConfig(address, user, password string) ClientConfig {
 type Client struct {
 	config ClientConfig
 	conn   clickhouse.Conn
-	chInfo collector.ClickHouseInfo
+	chInfo ch.ClickHouseInfo
 }
 
-func NewClient(config ClientConfig, chInfo collector.ClickHouseInfo) (*Client, error) {
+func NewClient(config ClientConfig, chInfo ch.ClickHouseInfo) (*Client, error) {
 	opts := &clickhouse.Options{
 		Addr: []string{config.Address},
 		Auth: clickhouse.Auth{
@@ -89,12 +90,12 @@ func (c *Client) Ping(ctx context.Context) error {
 }
 
 func (c *Client) Query(ctx context.Context, query string, args ...interface{}) (driver.Rows, error) {
-	query = collector.ReplaceTables(query, c.chInfo.UseDistributed())
+	query = ch.ReplaceTables(query, c.chInfo.UseDistributed())
 	return c.conn.Query(ctx, query, args...)
 }
 
 func (c *Client) QueryRow(ctx context.Context, query string, args ...interface{}) driver.Row {
-	query = collector.ReplaceTables(query, c.chInfo.UseDistributed())
+	query = ch.ReplaceTables(query, c.chInfo.UseDistributed())
 	return c.conn.QueryRow(ctx, query, args...)
 }
 
@@ -167,7 +168,7 @@ func (c *Client) GetTableSizes(ctx context.Context) ([]TableInfo, error) {
 		  	AND p.min_time > 0
 			AND p.database = currentDatabase()
 			AND p.engine NOT LIKE '%Distributed%'
-			AND (p.table LIKE 'otel_%' OR p.table LIKE 'profiling_%')
+			AND (p.table LIKE 'otel_%' OR p.table LIKE 'profiling_%' OR p.table LIKE 'metrics%')
 		GROUP BY p.database, p.table, t.create_table_query
 		ORDER BY p.table`
 
@@ -361,7 +362,7 @@ type ClusterInfo struct {
 	ServerDisks []ServerDiskInfo `json:"server_disks,omitempty"`
 }
 
-func GetClusterInfo(ctx context.Context, cfg ClientConfig, info collector.ClickHouseInfo) (*ClusterInfo, error) {
+func GetClusterInfo(ctx context.Context, cfg ClientConfig, info ch.ClickHouseInfo) (*ClusterInfo, error) {
 	ch, err := NewClient(cfg, info)
 	if err != nil {
 		return nil, err
@@ -410,7 +411,7 @@ func executeOnAllServers(ctx context.Context, config ClientConfig, topology []Cl
 			clientConfig := config
 			clientConfig.Address = addr
 
-			client, err := NewClient(clientConfig, collector.ClickHouseInfo{})
+			client, err := NewClient(clientConfig, ch.ClickHouseInfo{})
 			if err != nil {
 				resultsChan <- serverExecResult{addr: addr, err: err}
 				return
@@ -444,7 +445,7 @@ func executeOnAllServers(ctx context.Context, config ClientConfig, topology []Cl
 	}
 }
 
-func getClusterTableSizes(ctx context.Context, config ClientConfig, topology []ClusterNode, ch *Client, info collector.ClickHouseInfo) ([]TableInfo, error) {
+func getClusterTableSizes(ctx context.Context, config ClientConfig, topology []ClusterNode, ch *Client, info ch.ClickHouseInfo) ([]TableInfo, error) {
 	if info.Cloud {
 		allTables, err := ch.GetTableSizes(ctx)
 		if err != nil {
@@ -472,7 +473,7 @@ func getClusterTableSizes(ctx context.Context, config ClientConfig, topology []C
 	return aggregateTableStats(allTables), nil
 }
 
-func getClusterServerDisks(ctx context.Context, config ClientConfig, topology []ClusterNode, info collector.ClickHouseInfo) ([]ServerDiskInfo, error) {
+func getClusterServerDisks(ctx context.Context, config ClientConfig, topology []ClusterNode, info ch.ClickHouseInfo) ([]ServerDiskInfo, error) {
 	if info.Cloud {
 		return nil, nil
 	}
@@ -514,6 +515,8 @@ func aggregateTableStats(tables []TableInfo) []TableInfo {
 			key = "traces"
 		case strings.HasPrefix(table.Table, "profiling_"):
 			key = "profiling"
+		case strings.HasPrefix(table.Table, "metrics"):
+			key = "metrics"
 		default:
 			continue
 		}
@@ -551,5 +554,8 @@ func aggregateTableStats(tables []TableInfo) []TableInfo {
 	for _, ti := range agg {
 		res = append(res, *ti)
 	}
+	sort.Slice(res, func(i, j int) bool {
+		return res[i].Table < res[j].Table
+	})
 	return res
 }

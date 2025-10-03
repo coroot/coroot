@@ -11,8 +11,9 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/coroot/coroot/ch"
 	"github.com/coroot/coroot/clickhouse"
-	"github.com/coroot/coroot/collector"
+	"github.com/coroot/coroot/config"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/notifications"
@@ -273,7 +274,7 @@ type IntegrationForm interface {
 func NewIntegrationForm(t db.IntegrationType, globalClickHouse *db.IntegrationClickhouse, globalPrometheus *db.IntegrationPrometheus) IntegrationForm {
 	switch t {
 	case db.IntegrationTypePrometheus:
-		return &IntegrationFormPrometheus{global: globalPrometheus}
+		return &IntegrationFormPrometheus{global: globalPrometheus, globalClickHouse: globalClickHouse}
 	case db.IntegrationTypeClickhouse:
 		return &IntegrationFormClickhouse{global: globalClickHouse}
 	case db.IntegrationTypeAWS:
@@ -294,7 +295,8 @@ func NewIntegrationForm(t db.IntegrationType, globalClickHouse *db.IntegrationCl
 
 type IntegrationFormPrometheus struct {
 	db.IntegrationPrometheus
-	global *db.IntegrationPrometheus
+	global           *db.IntegrationPrometheus
+	globalClickHouse *db.IntegrationClickhouse
 }
 
 func (f *IntegrationFormPrometheus) Valid() bool {
@@ -306,7 +308,7 @@ func (f *IntegrationFormPrometheus) Valid() bool {
 			return false
 		}
 	}
-	if !prom.IsSelectorValid(f.IntegrationPrometheus.ExtraSelector) {
+	if !config.IsPrometheusSelectorValid(f.IntegrationPrometheus.ExtraSelector) {
 		return false
 	}
 	var validHeaders []utils.Header
@@ -353,15 +355,11 @@ func (f *IntegrationFormPrometheus) Update(ctx context.Context, project *db.Proj
 }
 
 func (f *IntegrationFormPrometheus) Test(ctx context.Context, project *db.Project) error {
-	config := prom.NewClientConfig(f.Url, f.RefreshInterval)
-	config.BasicAuth = f.BasicAuth
-	config.TlsSkipVerify = f.TlsSkipVerify
-	config.ExtraSelector = f.ExtraSelector
-	config.CustomHeaders = f.CustomHeaders
-	client, err := prom.NewClient(config)
+	client, err := prom.NewClient(&f.IntegrationPrometheus, project.ClickHouseConfig(f.globalClickHouse))
 	if err != nil {
 		return err
 	}
+	defer client.Close()
 	if err = client.Ping(ctx); err != nil {
 		return err
 	}
@@ -423,7 +421,7 @@ func (f *IntegrationFormClickhouse) Test(ctx context.Context, project *db.Projec
 	config.Database = f.Database
 	config.TlsEnable = f.TlsEnable
 	config.TlsSkipVerify = f.TlsSkipVerify
-	client, err := clickhouse.NewClient(config, collector.ClickHouseInfo{})
+	client, err := clickhouse.NewClient(config, ch.ClickHouseInfo{})
 	if err != nil {
 		return err
 	}

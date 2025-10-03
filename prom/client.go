@@ -4,29 +4,18 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"net/url"
-	"path"
-	"regexp"
-	"strconv"
-	"strings"
 	"sync"
 	"time"
 
-	"github.com/buger/jsonparser"
+	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
-	"github.com/gorilla/mux"
-	promModel "github.com/prometheus/common/model"
-	"github.com/prometheus/prometheus/promql/parser"
-	"golang.org/x/exp/maps"
-	"k8s.io/klog"
 )
 
 var (
@@ -51,7 +40,7 @@ func init() {
 	}
 }
 
-type ClientConfig struct {
+type httpClientConfig struct {
 	Url           string
 	BasicAuth     *utils.BasicAuth
 	TlsSkipVerify bool
@@ -61,20 +50,26 @@ type ClientConfig struct {
 	Transport     *http.Transport
 }
 
-func NewClientConfig(url string, step timeseries.Duration) ClientConfig {
-	return ClientConfig{
-		Url:  url,
-		Step: step,
+func NewClient(promConfig *db.IntegrationPrometheus, clickhouseConfig *db.IntegrationClickhouse) (Client, error) {
+	if promConfig == nil {
+		return nil, errors.New("promConfig is nil")
 	}
+	if promConfig.UseClickHouse {
+		return newClickHouse(clickhouseConfig, promConfig.RefreshInterval)
+	}
+
+	cfg := httpClientConfig{
+		Url:           promConfig.Url,
+		BasicAuth:     promConfig.BasicAuth,
+		TlsSkipVerify: promConfig.TlsSkipVerify,
+		ExtraSelector: promConfig.ExtraSelector,
+		CustomHeaders: promConfig.CustomHeaders,
+		Step:          promConfig.RefreshInterval,
+	}
+	return newHttpClient(cfg)
 }
 
-type Client struct {
-	config     ClientConfig
-	url        url.URL
-	httpClient *http.Client
-}
-
-func NewClient(config ClientConfig) (*Client, error) {
+func newHttpClient(config httpClientConfig) (Client, error) {
 	u, err := url.Parse(config.Url)
 	if err != nil {
 		return nil, err
@@ -89,210 +84,23 @@ func NewClient(config ClientConfig) (*Client, error) {
 			tr = insecureTransport
 		}
 	}
-	c := &Client{
+	c := &HttpClient{
 		config:     config,
 		url:        *u,
 		httpClient: &http.Client{Transport: tr},
 	}
+	if config.Url == "" {
+		return nil, fmt.Errorf("prometheus is not configured")
+	}
 	return c, nil
 }
 
-func (c *Client) Ping(ctx context.Context) error {
-	now := timeseries.Now()
-	_, err := c.QueryRange(ctx, "up", FilterLabelsDropAll, now.Add(-timeseries.Hour), now, timeseries.Minute)
-	return err
-}
-
-func (c *Client) GetStep(from, to timeseries.Time) (timeseries.Duration, error) {
-	return c.config.Step, nil
-}
-
-func (c *Client) QueryRange(ctx context.Context, query string, filterLabels FilterLabelsF, from, to timeseries.Time, step timeseries.Duration) ([]*model.MetricValues, error) {
-	query = strings.ReplaceAll(query, "$RANGE", fmt.Sprintf(`%.0fs`, (step*3).ToStandard().Seconds()))
-	var err error
-	query, err = addExtraSelector(query, c.config.ExtraSelector)
-	if err != nil {
-		return nil, err
-	}
-	from = from.Truncate(step)
-	to = to.Truncate(step)
-
-	u := c.url
-	u.Path = path.Join(u.Path, "/api/v1/query_range")
-	q := u.Query()
-
-	q.Set("query", query)
-	q.Set("start", from.String())
-	q.Set("end", to.String())
-	q.Set("step", strconv.FormatInt(int64(step), 10))
-
-	req, err := http.NewRequest(http.MethodPost, u.String(), strings.NewReader(q.Encode()))
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	for _, h := range c.config.CustomHeaders {
-		req.Header.Add(h.Key, h.Value)
-	}
-	req = req.WithContext(ctx)
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		d, _ := io.ReadAll(resp.Body)
-		var j struct {
-			Error string `json:"error"`
-		}
-		_ = json.Unmarshal(d, &j)
-		if j.Error != "" {
-			return nil, fmt.Errorf(j.Error)
-		}
-		return nil, errors.New(resp.Status)
-	}
-	buf := pool.Get().(*bytes.Buffer)
-	buf.Reset()
-	defer pool.Put(buf)
-	if _, err = buf.ReadFrom(resp.Body); err != nil {
-		return nil, err
-	}
-
-	res := map[uint64]*model.MetricValues{}
-	f := func(value []byte, dataType jsonparser.ValueType, offset int, err error) {
-		ls := map[string]string{}
-		err = jsonparser.ObjectEach(value, func(key []byte, value []byte, dataType jsonparser.ValueType, offset int) error {
-			v, err := jsonparser.ParseString(value)
-			if err != nil {
-				return err
-			}
-			k := string(key)
-			if filterLabels(k) {
-				ls[string(key)] = v
-			}
-			return nil
-		}, "metric")
-		if err != nil {
-			return
-		}
-
-		lsHash := promModel.LabelsToSignature(ls)
-		mv := res[lsHash]
-		if mv == nil {
-			mv = &model.MetricValues{
-				Labels:     ls,
-				LabelsHash: lsHash,
-				Values:     timeseries.New(from, int(to.Sub(from)/step)+1, step),
-			}
-			res[lsHash] = mv
-		}
-
-		_, err = jsonparser.ArrayEach(value, func(value []byte, dataType jsonparser.ValueType, offset int, err error) {
-			var (
-				state int
-				start int
-				t     timeseries.Time
-				v     float64
-			)
-			for i, b := range value {
-				switch b {
-				case '[':
-					state = 1
-					start = i + 1
-				case '.', ',':
-					if state == 1 {
-						tInt, err := jsonparser.ParseInt(value[start:i])
-						if err != nil {
-							return
-						}
-						t = timeseries.Time(tInt)
-						state = 0
-						start = 0
-					}
-				case '"':
-					if state == 0 {
-						state = 2
-						start = i + 1
-					} else {
-						v, err = jsonparser.ParseFloat(value[start:i])
-						if err != nil {
-							return
-						}
-						state = 0
-					}
-				}
-			}
-			mv.Values.Set(t, float32(v))
-		}, "values")
-		if err != nil {
-			return
-		}
-	}
-	if _, err := jsonparser.ArrayEach(buf.Bytes(), f, "data", "result"); err != nil {
-		return nil, err
-	}
-	return maps.Values(res), nil
-}
-
-func (c *Client) Proxy(r *http.Request, w http.ResponseWriter) {
-	reStr, err := mux.CurrentRoute(r).GetPathRegexp()
-	if err != nil {
-		klog.Errorln(err)
-		http.Error(w, "", http.StatusInternalServerError)
-		return
-	}
-	re, err := regexp.Compile(reStr)
-	if err != nil {
-		klog.Errorln(err)
-		http.Error(w, "", http.StatusInternalServerError)
-		return
-	}
-	p := re.ReplaceAllString(r.URL.Path, "")
-	u := c.url
-	u.Path = path.Join(u.Path, p)
-	r.URL = &u
-	r.RequestURI = ""
-	resp, err := c.httpClient.Do(r)
-	if err != nil {
-		klog.Errorln(err)
-		http.Error(w, "", http.StatusInternalServerError)
-		return
-	}
-	defer resp.Body.Close()
-	var buf bytes.Buffer
-	if _, err = buf.ReadFrom(resp.Body); err != nil {
-		klog.Errorln(err)
-		http.Error(w, "", http.StatusInternalServerError)
-		return
-	}
-	for k, vv := range resp.Header {
-		for _, v := range vv {
-			w.Header().Add(k, v)
-		}
-	}
-	w.WriteHeader(resp.StatusCode)
-	_, _ = w.Write(buf.Bytes())
-}
-
-func addExtraSelector(query string, extraSelector string) (string, error) {
-	if extraSelector == "" {
-		return query, nil
-	}
-	extra, err := parser.ParseMetricSelector(extraSelector)
-	if err != nil {
-		return "", err
-	}
-	expr, err := parser.ParseExpr(query)
-	if err != nil {
-		return "", err
-	}
-	parser.Inspect(expr, func(node parser.Node, _ []parser.Node) error {
-		vs, ok := node.(*parser.VectorSelector)
-		if ok {
-			vs.LabelMatchers = append(vs.LabelMatchers, extra...)
-		}
-		return nil
-	})
-	return expr.String(), nil
+type Client interface {
+	Ping(ctx context.Context) error
+	GetStep(from, to timeseries.Time) (timeseries.Duration, error)
+	QueryRange(ctx context.Context, query string, filterLabels FilterLabelsF, from, to timeseries.Time, step timeseries.Duration) ([]*model.MetricValues, error)
+	MetricMetadata(r *http.Request, w http.ResponseWriter)
+	LabelValues(r *http.Request, w http.ResponseWriter, labelName string)
+	Series(r *http.Request, w http.ResponseWriter)
+	Close()
 }

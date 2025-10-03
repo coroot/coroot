@@ -8,11 +8,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ClickHouse/ch-go"
+	chgo "github.com/ClickHouse/ch-go"
 	"github.com/coroot/coroot/cache"
+	"github.com/coroot/coroot/ch"
+	"github.com/coroot/coroot/config"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/grpc"
-	"github.com/coroot/coroot/timeseries"
 	"golang.org/x/exp/maps"
 	"k8s.io/klog"
 )
@@ -29,23 +30,8 @@ var (
 	ErrClickhouseNotConfigured = errors.New("clickhouse integration is not configured")
 )
 
-type ClickHouseInfo struct {
-	Name  string
-	Cloud bool
-}
-
-func (ci ClickHouseInfo) UseDistributed() bool {
-	return !ci.Cloud && ci.Name != ""
-}
-
-type Config struct {
-	TracesTTL   timeseries.Duration
-	LogsTTL     timeseries.Duration
-	ProfilesTTL timeseries.Duration
-}
-
 type Collector struct {
-	cfg              Config
+	cfg              config.CollectorConfig
 	db               *db.DB
 	cache            *cache.Cache
 	globalClickHouse *db.IntegrationClickhouse
@@ -57,7 +43,7 @@ type Collector struct {
 	migrationDone     map[db.ProjectId]bool
 	migrationDoneLock sync.RWMutex
 
-	clickhouseClients     map[db.ProjectId]*ClickhouseClient
+	clickhouseClients     map[db.ProjectId]*ch.LowLevelClient
 	clickhouseClientsLock sync.RWMutex
 
 	traceBatches       map[db.ProjectId]*TracesBatch
@@ -66,9 +52,11 @@ type Collector struct {
 	logBatchesLock     sync.Mutex
 	profileBatches     map[db.ProjectId]*ProfilesBatch
 	profileBatchesLock sync.Mutex
+	metricsBatches     map[db.ProjectId]*MetricsBatch
+	metricsBatchesLock sync.Mutex
 }
 
-func New(cfg Config, database *db.DB, cache *cache.Cache, globalClickHouse *db.IntegrationClickhouse, globalPrometheus *db.IntegrationPrometheus, grpcServer *grpc.Server) *Collector {
+func New(cfg config.CollectorConfig, database *db.DB, cache *cache.Cache, globalClickHouse *db.IntegrationClickhouse, globalPrometheus *db.IntegrationPrometheus, grpcServer *grpc.Server) *Collector {
 	c := &Collector{
 		cfg:               cfg,
 		db:                database,
@@ -76,10 +64,11 @@ func New(cfg Config, database *db.DB, cache *cache.Cache, globalClickHouse *db.I
 		globalClickHouse:  globalClickHouse,
 		globalPrometheus:  globalPrometheus,
 		migrationDone:     map[db.ProjectId]bool{},
-		clickhouseClients: map[db.ProjectId]*ClickhouseClient{},
+		clickhouseClients: map[db.ProjectId]*ch.LowLevelClient{},
 		traceBatches:      map[db.ProjectId]*TracesBatch{},
 		profileBatches:    map[db.ProjectId]*ProfilesBatch{},
 		logBatches:        map[db.ProjectId]*LogsBatch{},
+		metricsBatches:    map[db.ProjectId]*MetricsBatch{},
 	}
 
 	c.updateProjects()
@@ -170,6 +159,11 @@ func (c *Collector) Close() {
 	for _, b := range c.profileBatches {
 		b.Close()
 	}
+	c.metricsBatchesLock.Lock()
+	defer c.metricsBatchesLock.Unlock()
+	for _, b := range c.metricsBatches {
+		b.Close()
+	}
 
 	c.clickhouseClientsLock.Lock()
 	defer c.clickhouseClientsLock.Unlock()
@@ -200,7 +194,7 @@ func (c *Collector) deleteClickhouseClient(projectId db.ProjectId) {
 	delete(c.clickhouseClients, projectId)
 }
 
-func (c *Collector) getClickhouseClient(project *db.Project) (*ClickhouseClient, error) {
+func (c *Collector) getClickhouseClient(project *db.Project) (*ch.LowLevelClient, error) {
 	c.clickhouseClientsLock.RLock()
 	client := c.clickhouseClients[project.Id]
 	c.clickhouseClientsLock.RUnlock()
@@ -213,7 +207,7 @@ func (c *Collector) getClickhouseClient(project *db.Project) (*ClickhouseClient,
 		return nil, ErrClickhouseNotConfigured
 	}
 	var err error
-	if client, err = NewClickhouseClient(context.TODO(), cfg); err != nil {
+	if client, err = ch.NewLowLevelClient(context.TODO(), cfg); err != nil {
 		return nil, err
 	}
 
@@ -224,7 +218,7 @@ func (c *Collector) getClickhouseClient(project *db.Project) (*ClickhouseClient,
 	return client, nil
 }
 
-func (c *Collector) clickhouseDo(ctx context.Context, project *db.Project, query ch.Query) error {
+func (c *Collector) clickhouseDo(ctx context.Context, project *db.Project, query chgo.Query) error {
 	c.migrationDoneLock.RLock()
 	done := c.migrationDone[project.Id]
 	c.migrationDoneLock.RUnlock()
@@ -235,8 +229,7 @@ func (c *Collector) clickhouseDo(ctx context.Context, project *db.Project, query
 	if err != nil {
 		return err
 	}
-	query.Body = ReplaceTables(query.Body, client.cluster != "")
-	err = client.pool.Do(ctx, query)
+	err = client.Do(ctx, query)
 	if err != nil {
 		c.deleteClickhouseClient(project.Id)
 		return err
@@ -249,7 +242,7 @@ func (c *Collector) getTracesBatch(project *db.Project) *TracesBatch {
 	defer c.traceBatchesLock.Unlock()
 	b := c.traceBatches[project.Id]
 	if b == nil {
-		b = NewTracesBatch(batchLimit, batchTimeout, func(query ch.Query) error {
+		b = NewTracesBatch(batchLimit, batchTimeout, func(query chgo.Query) error {
 			return c.clickhouseDo(context.TODO(), project, query)
 		})
 		c.traceBatches[project.Id] = b
@@ -262,7 +255,7 @@ func (c *Collector) getLogsBatch(project *db.Project) *LogsBatch {
 	defer c.logBatchesLock.Unlock()
 	b := c.logBatches[project.Id]
 	if b == nil {
-		b = NewLogsBatch(batchLimit, batchTimeout, func(query ch.Query) error {
+		b = NewLogsBatch(batchLimit, batchTimeout, func(query chgo.Query) error {
 			return c.clickhouseDo(context.TODO(), project, query)
 		})
 		c.logBatches[project.Id] = b
@@ -275,7 +268,7 @@ func (c *Collector) getProfilesBatch(project *db.Project) *ProfilesBatch {
 	defer c.profileBatchesLock.Unlock()
 	b := c.profileBatches[project.Id]
 	if b == nil {
-		b = NewProfilesBatch(batchLimit, batchTimeout, func(query ch.Query) error {
+		b = NewProfilesBatch(batchLimit, batchTimeout, func(query chgo.Query) error {
 			return c.clickhouseDo(context.TODO(), project, query)
 		})
 		c.profileBatches[project.Id] = b
@@ -283,10 +276,23 @@ func (c *Collector) getProfilesBatch(project *db.Project) *ProfilesBatch {
 	return b
 }
 
-func (c *Collector) GetClickhouseClusterInfo(project *db.Project) (ClickHouseInfo, error) {
+func (c *Collector) getMetricsBatch(project *db.Project) *MetricsBatch {
+	c.metricsBatchesLock.Lock()
+	defer c.metricsBatchesLock.Unlock()
+	b := c.metricsBatches[project.Id]
+	if b == nil {
+		b = NewMetricsBatch(batchLimit, batchTimeout, func(query chgo.Query) error {
+			return c.clickhouseDo(context.TODO(), project, query)
+		})
+		c.metricsBatches[project.Id] = b
+	}
+	return b
+}
+
+func (c *Collector) GetClickhouseClusterInfo(project *db.Project) (ch.ClickHouseInfo, error) {
 	client, err := c.getClickhouseClient(project)
 	if err != nil {
-		return ClickHouseInfo{}, err
+		return ch.ClickHouseInfo{}, err
 	}
-	return ClickHouseInfo{Name: client.cluster, Cloud: client.cloud}, nil
+	return client.GetInfo()
 }

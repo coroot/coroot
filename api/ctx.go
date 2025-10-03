@@ -127,7 +127,7 @@ func renderStatus(p *db.Project, cacheStatus *cache.Status, w *model.World, glob
 		refreshInterval = cache.MinRefreshInterval
 	}
 	switch {
-	case promCfg.Url == "":
+	case promCfg.Url == "" && !promCfg.UseClickHouse:
 		res.Prometheus.Status = model.WARNING
 		res.Prometheus.Message = "Prometheus is not configured."
 		res.Prometheus.Action = "configure"

@@ -4,7 +4,9 @@ sidebar_position: 4
 
 # Prometheus
 
-Coroot uses Prometheus to store metrics. To integrate Coroot with Prometheus, go to the **Project Settings**, 
+Coroot uses Prometheus to store metrics. Alternatively, you can configure ClickHouse as your metrics storage backend instead of Prometheus. 
+
+To integrate Coroot with Prometheus, go to the **Project Settings**, 
 click on **Prometheus**, and define the Prometheus address and credentials as shown in the following example:
 
 <img alt="Prometheus Configuration" src="/img/docs/prometheus_configuration.png" class="card w-1200"/>
@@ -14,6 +16,14 @@ click on **Prometheus**, and define the Prometheus address and credentials as sh
 Coroot fully supports VictoriaMetrics as a drop-in replacement for Prometheus. In clustered mode, you may need separate 
 URLs for metric ingestion and queries. To configure this, set [GLOBAL_PROMETHEUS_REMOTE_WRITE_URL](/configuration/configuration) to point to `vminsert` for ingestion, 
 while keeping [GLOBAL_PROMETHEUS_URL](/configuration/configuration) directed to `vmselect` for queries.
+
+## ClickHouse as metrics storage
+
+Coroot can store metrics directly in ClickHouse instead of Prometheus.
+When enabled, ClickHouse becomes the primary metrics backend, while PromQL remains available for dashboard configuration.
+
+To enable this option, set the flag `--global-prometheus-use-clickhouse` (or environment variable `GLOBAL_PROMETHEUS_USE_CLICKHOUSE`), or simply check "Use ClickHouse for metrics storage" on the Prometheus settings page.
+
 
 ## Multi-tenancy mode
 
