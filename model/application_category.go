@@ -90,6 +90,7 @@ var BuiltinCategoryPatterns = map[ApplicationCategory][]string{
 		"*/*vmselect*",
 		"*/*vmstorage*",
 		"*/*vmagent*",
+		"*/*vmalert*",
 		"datadog/*",
 		"*/*datadog*",
 	},
