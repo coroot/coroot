@@ -36,7 +36,7 @@ Navigate to the Prometheus download page, and find the URL for the latest versio
 Use wget to download it:
 
 ```bash
-wget https://github.com/prometheus/prometheus/releases/download/v2.51.2/prometheus-2.51.2.linux-amd64.tar.gz
+wget https://github.com/prometheus/prometheus/releases/download/v2.53.5/prometheus-2.53.5.linux-amd64.tar.gz
 ```
 
 Extract the downloaded tarball and move the binary to `/usr/local/bin/`:
