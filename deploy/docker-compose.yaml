@@ -60,7 +60,7 @@ services:
 
   prometheus:
     restart: always
-    image: prom/prometheus:v2.45.4
+    image: prom/prometheus:v2.53.5
     volumes:
       - prometheus_data:/prometheus
     command:
