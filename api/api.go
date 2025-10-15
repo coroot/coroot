@@ -10,6 +10,7 @@ import (
 	"slices"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/coroot/coroot/api/forms"
@@ -491,17 +492,13 @@ func (api *Api) PanelData(w http.ResponseWriter, r *http.Request, u *db.User) {
 	}
 
 	promConfig := project.PrometheusConfig(api.globalPrometheus)
-	cfg := prom.NewClientConfig(promConfig.Url, promConfig.RefreshInterval)
-	cfg.BasicAuth = promConfig.BasicAuth
-	cfg.TlsSkipVerify = promConfig.TlsSkipVerify
-	cfg.ExtraSelector = promConfig.ExtraSelector
-	cfg.CustomHeaders = promConfig.CustomHeaders
-	promClient, err := prom.NewClient(cfg)
+	promClient, err := prom.NewClient(promConfig, project.ClickHouseConfig(api.globalClickHouse))
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
+	defer promClient.Close()
 	from, to, _ := api.getTimeContext(r)
 	step := increaseStepForBigDurations(from, to, promConfig.RefreshInterval)
 	data, err := views.Dashboards.PanelData(r.Context(), promClient, config, from, to, step)
@@ -830,10 +827,7 @@ func (api *Api) Integration(w http.ResponseWriter, r *http.Request, u *db.User) 
 				cInfo, err := api.collector.GetClickhouseClusterInfo(project)
 				if err != nil {
 					klog.Errorln(err)
-					http.Error(w, "", http.StatusInternalServerError)
-					return
-				}
-				if ci, err = clickhouse.GetClusterInfo(r.Context(), config, cInfo); err != nil {
+				} else if ci, err = clickhouse.GetClusterInfo(r.Context(), config, cInfo); err != nil {
 					klog.Errorln(err)
 				}
 			}
@@ -913,19 +907,30 @@ func (api *Api) Prom(w http.ResponseWriter, r *http.Request, u *db.User) {
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
-	p := project.PrometheusConfig(api.globalPrometheus)
-	cfg := prom.NewClientConfig(p.Url, p.RefreshInterval)
-	cfg.BasicAuth = p.BasicAuth
-	cfg.TlsSkipVerify = p.TlsSkipVerify
-	cfg.ExtraSelector = p.ExtraSelector
-	cfg.CustomHeaders = p.CustomHeaders
-	c, err := prom.NewClient(cfg)
+	rest := vars["rest"]
+	c, err := prom.NewClient(project.PrometheusConfig(api.globalPrometheus), project.ClickHouseConfig(api.globalClickHouse))
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
-	c.Proxy(r, w)
+	defer c.Close()
+
+	switch rest {
+	case "series":
+		c.Series(r, w)
+	case "metadata":
+		c.MetricMetadata(r, w)
+	default:
+		parts := strings.Split(rest, "/")
+		var labelName string
+		if len(parts) == 3 && parts[0] == "label" && parts[2] == "values" {
+			labelName = parts[1]
+			c.LabelValues(r, w, labelName)
+		} else {
+			http.Error(w, "", http.StatusNotFound)
+		}
+	}
 }
 
 func (api *Api) Application(w http.ResponseWriter, r *http.Request, u *db.User) {

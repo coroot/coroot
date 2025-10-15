@@ -6,7 +6,7 @@ import (
 	"net"
 	"strconv"
 
-	"github.com/coroot/coroot/collector"
+	"github.com/coroot/coroot/ch"
 	"github.com/coroot/coroot/config"
 	"github.com/coroot/coroot/db"
 	"golang.org/x/exp/maps"
@@ -52,7 +52,7 @@ func (sm *SpaceManager) runCleanupOnReplica(ctx context.Context, replicaAddr str
 	config.TlsEnable = sm.client.config.TlsEnable
 	config.TlsSkipVerify = sm.client.config.TlsSkipVerify
 
-	client, err := NewClient(config, collector.ClickHouseInfo{})
+	client, err := NewClient(config, ch.ClickHouseInfo{})
 	if err != nil {
 		return fmt.Errorf("failed to create client for replica %s: %w", replicaAddr, err)
 	}
@@ -218,7 +218,7 @@ func runSpaceManagerOnCluster(ctx context.Context, managerCfg config.ClickHouseS
 	config.TlsEnable = cfg.TlsEnable
 	config.TlsSkipVerify = cfg.TlsSkipVerify
 
-	client, err := NewClient(config, collector.ClickHouseInfo{})
+	client, err := NewClient(config, ch.ClickHouseInfo{})
 	if err != nil {
 		return fmt.Errorf("failed to create client: %w", err)
 	}

@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
@@ -35,9 +36,11 @@ func TestQueryRange(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(h))
 	defer ts.Close()
 
-	cfg := NewClientConfig(ts.URL, step)
-	cfg.TlsSkipVerify = true
-	client, err := NewClient(cfg)
+	cfg := &db.IntegrationPrometheus{
+		Url:           ts.URL,
+		TlsSkipVerify: true,
+	}
+	client, err := NewClient(cfg, nil)
 	require.NoError(t, err)
 
 	ctx := context.Background()

@@ -20,6 +20,7 @@ var (
 	tracesTTL                                   = timeseries.DurationFlag(kingpin.Flag("traces-ttl", "Traces TTL (e.g. 8h, 3d, 2w; default 7d)").Envar("TRACES_TTL"))
 	logsTTL                                     = timeseries.DurationFlag(kingpin.Flag("logs-ttl", "Logs TTL (e.g. 8h, 3d, 2w; default 7d)").Envar("LOGS_TTL"))
 	profilesTTL                                 = timeseries.DurationFlag(kingpin.Flag("profiles-ttl", "Profiles TTL (e.g. 8h, 3d, 2w; default 7d)").Envar("PROFILES_TTL"))
+	metricsTTL                                  = timeseries.DurationFlag(kingpin.Flag("metrics-ttl", "Metrics TTL (e.g. 8h, 30d, 1y; default 7d)").Envar("METRICS_TTL"))
 	pgConnectionString                          = kingpin.Flag("pg-connection-string", "Postgres connection string (sqlite is used if not set)").Envar("PG_CONNECTION_STRING").String()
 	doNotCheckForDeployments                    = kingpin.Flag("do-not-check-for-deployments", "Don't check for new deployments").Envar("DO_NOT_CHECK_FOR_DEPLOYMENTS").Bool()
 	doNotCheckForUpdates                        = kingpin.Flag("do-not-check-for-updates", "Don't check for new versions").Envar("DO_NOT_CHECK_FOR_UPDATES").Bool()
@@ -45,11 +46,13 @@ var (
 	globalPrometheusPassword       = kingpin.Flag("global-prometheus-password", "").Envar("GLOBAL_PROMETHEUS_PASSWORD").String()
 	globalPrometheusCustomHeaders  = kingpin.Flag("global-prometheus-custom-headers", "").Envar("GLOBAL_PROMETHEUS_CUSTOM_HEADERS").StringMap()
 	globalPrometheusRemoteWriteUrl = kingpin.Flag("global-prometheus-remote-write-url", "").Envar("GLOBAL_PROMETHEUS_REMOTE_WRITE_URL").String()
+	globalPrometheusUseClickHouse  = kingpin.Flag("global-prometheus-use-clickhouse", "Use ClickHouse instead of Prometheus for metrics storage").Envar("GLOBAL_PROMETHEUS_USE_CLICKHOUSE").Bool()
 
 	bootstrapPrometheusUrl            = kingpin.Flag("bootstrap-prometheus-url", "").Envar("BOOTSTRAP_PROMETHEUS_URL").String()
 	bootstrapRefreshInterval          = timeseries.DurationFlag(kingpin.Flag("bootstrap-refresh-interval", "").Envar("BOOTSTRAP_REFRESH_INTERVAL"))
 	bootstrapPrometheusExtraSelector  = kingpin.Flag("bootstrap-prometheus-extra-selector", "").Envar("BOOTSTRAP_PROMETHEUS_EXTRA_SELECTOR").String()
 	bootstrapPrometheusRemoteWriteUrl = kingpin.Flag("bootstrap-prometheus-remote-write-url", "").Envar("BOOTSTRAP_PROMETHEUS_REMOTE_WRITE_URL").String()
+	bootstrapPrometheusUseClickHouse  = kingpin.Flag("bootstrap-prometheus-use-clickhouse", "Use ClickHouse instead of Prometheus for metrics storage").Envar("BOOTSTRAP_PROMETHEUS_USE_CLICKHOUSE").Bool()
 
 	bootstrapClickhouseAddress  = kingpin.Flag("bootstrap-clickhouse-address", "").Envar("BOOTSTRAP_CLICKHOUSE_ADDRESS").String()
 	bootstrapClickhouseUser     = kingpin.Flag("bootstrap-clickhouse-user", "").Envar("BOOTSTRAP_CLICKHOUSE_USER").String()
@@ -92,6 +95,9 @@ func (cfg *Config) ApplyFlags() {
 	}
 	if *profilesTTL > 0 {
 		cfg.Profiles.TTL = *profilesTTL
+	}
+	if *metricsTTL > 0 {
+		cfg.Metrics.TTL = *metricsTTL
 	}
 	if *pgConnectionString != "" {
 		cfg.Postgres = &Postgres{ConnectionString: *pgConnectionString}
@@ -150,7 +156,7 @@ func (cfg *Config) ApplyFlags() {
 		cfg.GlobalClickhouse = nil
 	}
 
-	keep = cfg.GlobalPrometheus != nil || *globalPrometheusUrl != ""
+	keep = cfg.GlobalPrometheus != nil || *globalPrometheusUrl != "" || *globalPrometheusUseClickHouse
 	if cfg.GlobalPrometheus == nil {
 		cfg.GlobalPrometheus = &Prometheus{
 			CustomHeaders: map[string]string{},
@@ -174,6 +180,9 @@ func (cfg *Config) ApplyFlags() {
 	if *globalPrometheusRemoteWriteUrl != "" {
 		cfg.GlobalPrometheus.RemoteWriteUrl = *globalPrometheusRemoteWriteUrl
 	}
+	if *globalPrometheusUseClickHouse {
+		cfg.GlobalPrometheus.UseClickHouse = *globalPrometheusUseClickHouse
+	}
 	for name, value := range *globalPrometheusCustomHeaders {
 		cfg.GlobalPrometheus.CustomHeaders[name] = value
 	}
@@ -187,6 +196,7 @@ func (cfg *Config) ApplyFlags() {
 			RefreshInterval: *bootstrapRefreshInterval,
 			ExtraSelector:   *bootstrapPrometheusExtraSelector,
 			RemoteWriteUrl:  *bootstrapPrometheusRemoteWriteUrl,
+			UseClickHouse:   *bootstrapPrometheusUseClickHouse,
 		}
 		if cfg.BootstrapPrometheus.RefreshInterval <= 0 {
 			cfg.BootstrapPrometheus.RefreshInterval = db.DefaultRefreshInterval

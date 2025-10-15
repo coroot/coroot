@@ -4,7 +4,7 @@ sidebar_position: 5
 
 # ClickHouse
 
-Coroot uses ClickHouse to store Logs, Traces, and Profiles. 
+Coroot uses ClickHouse to store Logs, Traces, Profiles, and optionally Metrics. 
 To integrate Coroot with ClickHouse, go to the **Project Settings**, click on **Clickhouse**, and configure the ClickHouse 
 address and credentials as shown in the following example:
 
@@ -12,10 +12,22 @@ address and credentials as shown in the following example:
 
 Coroot handles its own schema in ClickHouse, so you don't need to do anything manually.
 
+## Metrics Storage
+
+In addition to logs, traces, and profiles, ClickHouse can be configured as an alternative storage backend for metrics instead of Prometheus. When both ClickHouse and Prometheus are configured, Coroot will prioritize ClickHouse for metrics storage.
+
+**Benefits of using ClickHouse for metrics:**
+- **Unified storage**: Store all telemetry data (logs, traces, profiles, and metrics) in a single database system
+- **Better compression**: ClickHouse's columnar storage provides excellent compression for time-series data
+- **Scalability**: Leverages ClickHouse's distributed architecture for handling large metric volumes
+- **Cost efficiency**: Reduced infrastructure complexity by consolidating storage systems
+
+When metrics storage is enabled in ClickHouse, Coroot creates dedicated tables for metrics and metadata, optimized for time-series workloads with appropriate indexing and TTL policies.
+
 ## Statistics
 
 Once ClickHouse is integrated, Coroot visualizes the cluster topology and breaks down storage usage by telemetry type. 
-You can see how much space is used by logs, traces, and profiles, along with compression ratios and retention settings. 
+You can see how much space is used by logs, traces, profiles, and metrics (when enabled), along with compression ratios and retention settings. 
 In clustered setups, Coroot also shows per-node disk usage and available space, making it easy to track storage health across the entire cluster.
 
 ## Clustered ClickHouse
@@ -30,7 +42,7 @@ Here’s how Coroot chooses a cluster:
 
 ## Multi-tenancy mode
 
-Coroot supports a multi-tenancy mode, enabling a single ClickHouse instance to store logs, metrics, and profiles for multiple projects (or clusters).
+Coroot supports a multi-tenancy mode, enabling a single ClickHouse instance to store logs, traces, profiles, and metrics for multiple projects (or clusters).
 
 In this mode, Coroot automatically creates a dedicated database for each project. 
 Telemetry data pushed by Coroot agents (coroot-node-agent and coroot-cluster-agent) are stored in their respective project databases, 
@@ -50,7 +62,7 @@ The space manager checks your disk usage regularly. When disk usage gets too hig
 
 **Important:** Even if your TTL is set to 7 days, the space manager might keep only 6 days of data if disk space is tight. The space manager always prioritizes keeping your system running over keeping data for the full TTL period.
 
-The cleanup only affects telemetry data (logs, traces, profiles) and always keeps at least the minimum number of partitions you configure.
+The cleanup only affects telemetry data (logs, traces, profiles, and metrics) and always keeps at least the minimum number of partitions you configure.
 
 You can configure the space manager in three ways:
 

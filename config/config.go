@@ -10,7 +10,6 @@ import (
 
 	"github.com/coroot/coroot/cloud"
 	"github.com/coroot/coroot/db"
-	"github.com/coroot/coroot/prom"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 	"gopkg.in/yaml.v3"
@@ -28,6 +27,7 @@ type Config struct {
 	Traces   Traces   `yaml:"traces"`
 	Logs     Logs     `yaml:"logs"`
 	Profiles Profiles `yaml:"profiles"`
+	Metrics  Metrics  `yaml:"metrics"`
 
 	Postgres         *Postgres   `yaml:"postgres"`
 	GlobalPrometheus *Prometheus `yaml:"global_prometheus"`
@@ -100,6 +100,10 @@ type Profiles struct {
 	TTL timeseries.Duration `yaml:"ttl"`
 }
 
+type Metrics struct {
+	TTL timeseries.Duration `yaml:"ttl"`
+}
+
 type Postgres struct {
 	ConnectionString string `yaml:"connection_string"`
 }
@@ -139,6 +143,7 @@ type Prometheus struct {
 	ExtraSelector   string              `yaml:"extra_selector"`
 	CustomHeaders   map[string]string   `yaml:"custom_headers"`
 	RemoteWriteUrl  string              `yaml:"remote_write_url"`
+	UseClickHouse   bool                `yaml:"use_clickhouse"`
 }
 
 func validateUrl(urlString string) error {
@@ -170,7 +175,7 @@ func (p *Prometheus) Validate() error {
 	if p.RefreshInterval <= 0 {
 		return fmt.Errorf("invalid refresh-interval: %d", p.RefreshInterval)
 	}
-	if !prom.IsSelectorValid(p.ExtraSelector) {
+	if !IsPrometheusSelectorValid(p.ExtraSelector) {
 		return fmt.Errorf("invalid extra_selector: %s", p.ExtraSelector)
 	}
 	return nil
@@ -199,6 +204,9 @@ func NewConfig() *Config {
 			TTL: 7 * timeseries.Day,
 		},
 		Profiles: Profiles{
+			TTL: 7 * timeseries.Day,
+		},
+		Metrics: Metrics{
 			TTL: 7 * timeseries.Day,
 		},
 
@@ -381,6 +389,7 @@ func (cfg *Config) GetGlobalPrometheus() *db.IntegrationPrometheus {
 		TlsSkipVerify:   prometheus.TlsSkipVerify,
 		ExtraSelector:   prometheus.ExtraSelector,
 		RemoteWriteUrl:  prometheus.RemoteWriteUrl,
+		UseClickHouse:   prometheus.UseClickHouse,
 	}
 	if prometheus.User != "" && prometheus.Password != "" {
 		p.BasicAuth = &utils.BasicAuth{
@@ -405,6 +414,7 @@ func (cfg *Config) GetBootstrapPrometheus() *db.IntegrationPrometheus {
 		TlsSkipVerify:   prometheus.TlsSkipVerify,
 		ExtraSelector:   prometheus.ExtraSelector,
 		RemoteWriteUrl:  prometheus.RemoteWriteUrl,
+		UseClickHouse:   prometheus.UseClickHouse,
 	}
 	if prometheus.User != "" && prometheus.Password != "" {
 		p.BasicAuth = &utils.BasicAuth{

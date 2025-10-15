@@ -38,15 +38,22 @@ func (c *Cache) updater() {
 		}
 		ids := map[db.ProjectId]bool{}
 		for _, project := range projects {
-			promClient, _ := c.getPrometheusClient(project)
-			if promClient == nil {
+			promClient, err := c.getPromClient(project)
+			if err != nil {
+				klog.Warningln(err)
+				continue
+			}
+			step, err := getScrapeInterval(promClient)
+			promClient.Close()
+			if err != nil {
+				klog.Errorln(err)
 				continue
 			}
 			ids[project.Id] = true
 			_, ok := workers.Load(project.Id)
 			workers.Store(project.Id, project)
 			if !ok {
-				go c.updaterWorker(workers, project.Id, promClient)
+				go c.updaterWorker(workers, project.Id, step)
 			}
 		}
 		workers.Range(func(key, value interface{}) bool {
@@ -63,12 +70,11 @@ type UpdateTask struct {
 	state *PrometheusQueryState
 }
 
-func (c *Cache) updaterWorker(projects *sync.Map, projectId db.ProjectId, promClient *prom.Client) {
-	step, err := getScrapeInterval(promClient)
-	if err != nil {
-		klog.Errorln(err)
-	}
+func (c *Cache) getPromClient(project *db.Project) (prom.Client, error) {
+	return prom.NewClient(project.PrometheusConfig(c.globalPrometheus), project.ClickHouseConfig(c.globalClickHouse))
+}
 
+func (c *Cache) updaterWorker(projects *sync.Map, projectId db.ProjectId, step timeseries.Duration) {
 	c.lock.Lock()
 	if projData := c.byProject[projectId]; projData == nil {
 		projData = newProjectData()
@@ -144,7 +150,12 @@ func (c *Cache) updaterWorker(projects *sync.Map, projectId db.ProjectId, promCl
 			}
 		}
 
-		if promClient, _ = c.getPrometheusClient(project); promClient != nil {
+		func() {
+			promClient, err := c.getPromClient(project)
+			if err != nil {
+				return
+			}
+			defer promClient.Close()
 			si, err := getScrapeInterval(promClient)
 			if err != nil {
 				klog.Errorln(err)
@@ -180,10 +191,10 @@ func (c *Cache) updaterWorker(projects *sync.Map, projectId db.ProjectId, promCl
 			cacheTo, err := c.getMinUpdateTimeWithoutRecordingRules(project.Id)
 			if err != nil {
 				klog.Errorln(err)
-				continue
+				return
 			}
 			if cacheTo.IsZero() {
-				continue
+				return
 			}
 			c.processRecordingRules(cacheTo, project, step, states)
 
@@ -191,7 +202,8 @@ func (c *Cache) updaterWorker(projects *sync.Map, projectId db.ProjectId, promCl
 			case c.updates <- project.Id:
 			default:
 			}
-		}
+		}()
+
 		duration := time.Since(start)
 		klog.Infof("%s: cache updated in %s", projectId, duration.Truncate(time.Millisecond))
 		refreshInterval := step
@@ -202,7 +214,7 @@ func (c *Cache) updaterWorker(projects *sync.Map, projectId db.ProjectId, promCl
 	}
 }
 
-func (c *Cache) download(to timeseries.Time, promClient *prom.Client, projectId db.ProjectId, step timeseries.Duration, task UpdateTask) {
+func (c *Cache) download(to timeseries.Time, promClient prom.Client, projectId db.ProjectId, step timeseries.Duration, task UpdateTask) {
 	hash, jitter := QueryId(projectId, task.query.Query)
 	pointsCount := int(chunk.Size / step)
 	from := task.state.LastTs
@@ -374,7 +386,7 @@ func calcIntervals(lastSavedTime timeseries.Time, scrapeInterval timeseries.Dura
 	return res
 }
 
-func getScrapeInterval(promClient *prom.Client) (timeseries.Duration, error) {
+func getScrapeInterval(promClient prom.Client) (timeseries.Duration, error) {
 	step, _ := promClient.GetStep(0, 0)
 	if step == 0 {
 		klog.Warningln("step is zero")

@@ -2,7 +2,6 @@ package cache
 
 import (
 	"database/sql"
-	"fmt"
 	"os"
 	"path"
 	"strings"
@@ -11,7 +10,6 @@ import (
 
 	"github.com/coroot/coroot/cache/chunk"
 	"github.com/coroot/coroot/db"
-	"github.com/coroot/coroot/prom"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 	"github.com/prometheus/client_golang/prometheus"
@@ -27,6 +25,7 @@ type Cache struct {
 	stateLock sync.Mutex
 
 	globalPrometheus *db.IntegrationPrometheus
+	globalClickHouse *db.IntegrationClickhouse
 
 	updates chan db.ProjectId
 
@@ -34,7 +33,7 @@ type Cache struct {
 	compactedChunks    *prometheus.CounterVec
 }
 
-func NewCache(cfg Config, database *db.DB, globalPrometheus *db.IntegrationPrometheus) (*Cache, error) {
+func NewCache(cfg Config, database *db.DB, globalPrometheus *db.IntegrationPrometheus, globalClickHouse *db.IntegrationClickhouse) (*Cache, error) {
 	err := utils.CreateDirectoryIfNotExists(cfg.Path)
 	if err != nil {
 		return nil, err
@@ -55,6 +54,7 @@ func NewCache(cfg Config, database *db.DB, globalPrometheus *db.IntegrationProme
 		state:     state.DB(),
 
 		globalPrometheus: globalPrometheus,
+		globalClickHouse: globalClickHouse,
 
 		updates: make(chan db.ProjectId),
 
@@ -135,24 +135,6 @@ func (c *Cache) initCacheIndexFromDir() error {
 	}
 	klog.Infof("loaded from disk in %s", time.Since(t).Truncate(time.Millisecond))
 	return nil
-}
-
-func (c *Cache) getPrometheusClient(p *db.Project) (*prom.Client, error) {
-	cfg := p.PrometheusConfig(c.globalPrometheus)
-	if cfg.Url == "" {
-		return nil, fmt.Errorf("prometheus is not configured")
-	}
-
-	cc := prom.NewClientConfig(cfg.Url, cfg.RefreshInterval)
-	cc.BasicAuth = cfg.BasicAuth
-	cc.TlsSkipVerify = cfg.TlsSkipVerify
-	cc.ExtraSelector = cfg.ExtraSelector
-	cc.CustomHeaders = cfg.CustomHeaders
-	client, err := prom.NewClient(cc)
-	if err != nil {
-		return nil, err
-	}
-	return client, nil
 }
 
 type projectData struct {

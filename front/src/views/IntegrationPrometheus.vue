@@ -4,6 +4,9 @@
             This project uses a global Prometheus configuration that can't be changed through the UI
         </v-alert>
 
+        <v-checkbox v-model="form.use_clickhouse" label="Use ClickHouse for metrics storage" class="my-2" hide-details :disabled="form.global" />
+        <div class="caption mb-3">When enabled, ClickHouse will be used instead of Prometheus for metrics storage.</div>
+
         <div class="subtitle-1">Prometheus URL</div>
         <div class="caption">Coroot works on top of the telemetry data stored in your Prometheus server.</div>
         <v-text-field
@@ -15,19 +18,27 @@
             hide-details="auto"
             class="flex-grow-1"
             single-line
-            :disabled="form.global"
+            :disabled="form.global || form.use_clickhouse"
         />
         <v-checkbox
             v-model="form.tls_skip_verify"
-            :disabled="!form.url.startsWith('https') || form.global"
+            :disabled="!form.url.startsWith('https') || form.global || form.use_clickhouse"
             label="Skip TLS verify"
             hide-details
             class="my-2"
         />
 
-        <v-checkbox v-model="basic_auth" label="HTTP basic auth" class="my-2" hide-details :disabled="form.global" />
+        <v-checkbox v-model="basic_auth" label="HTTP basic auth" class="my-2" hide-details :disabled="form.global || form.use_clickhouse" />
         <div v-if="basic_auth" class="d-flex gap">
-            <v-text-field outlined dense v-model="form.basic_auth.user" label="username" hide-details single-line :disabled="form.global" />
+            <v-text-field
+                outlined
+                dense
+                v-model="form.basic_auth.user"
+                label="username"
+                hide-details
+                single-line
+                :disabled="form.global || form.use_clickhouse"
+            />
             <v-text-field
                 v-model="form.basic_auth.password"
                 label="password"
@@ -36,20 +47,31 @@
                 dense
                 hide-details
                 single-line
-                :disabled="form.global"
+                :disabled="form.global || form.use_clickhouse"
             />
         </div>
 
-        <v-checkbox v-model="custom_headers" label="Custom HTTP headers" class="my-2" hide-details :disabled="form.global" />
+        <v-checkbox v-model="custom_headers" label="Custom HTTP headers" class="my-2" hide-details :disabled="form.global || form.use_clickhouse" />
         <template v-if="custom_headers">
             <div v-for="(h, i) in form.custom_headers" :key="i" class="d-flex gap mb-2 align-center">
-                <v-text-field outlined dense v-model="h.key" label="header" hide-details single-line :disabled="form.global" />
-                <v-text-field outlined dense v-model="h.value" type="password" label="value" hide-details single-line :disabled="form.global" />
-                <v-btn @click="form.custom_headers.splice(i, 1)" icon small :disabled="form.global">
+                <v-text-field outlined dense v-model="h.key" label="header" hide-details single-line :disabled="form.global || form.use_clickhouse" />
+                <v-text-field
+                    outlined
+                    dense
+                    v-model="h.value"
+                    type="password"
+                    label="value"
+                    hide-details
+                    single-line
+                    :disabled="form.global || form.use_clickhouse"
+                />
+                <v-btn @click="form.custom_headers.splice(i, 1)" icon small :disabled="form.global || form.use_clickhouse">
                     <v-icon small>mdi-trash-can-outline</v-icon>
                 </v-btn>
             </div>
-            <v-btn color="primary" @click="form.custom_headers.push({ key: '', value: '' })" :disabled="form.global">Add header</v-btn>
+            <v-btn color="primary" @click="form.custom_headers.push({ key: '', value: '' })" :disabled="form.global || form.use_clickhouse"
+                >Add header</v-btn
+            >
         </template>
 
         <div class="subtitle-1 mt-3">Refresh interval</div>
@@ -64,14 +86,28 @@
 
         <div class="subtitle-1">Extra selector</div>
         <div class="caption">An additional metric selector that will be added to every Prometheus query (e.g. <var>{cluster="us-west-1"}</var>)</div>
-        <v-text-field outlined dense v-model="form.extra_selector" :rules="[$validators.isPrometheusSelector]" single-line :disabled="form.global" />
+        <v-text-field
+            outlined
+            dense
+            v-model="form.extra_selector"
+            :rules="[$validators.isPrometheusSelector]"
+            single-line
+            :disabled="form.global || form.use_clickhouse"
+        />
 
         <div class="subtitle-1">Remote Write URL</div>
         <div class="caption">
             If you're using a drop-in Prometheus replacement like VictoriaMetrics in cluster mode, you may need to configure a different Remote Write
             URL. By default, Coroot appends <var>/api/v1/write</var> to the base URL configured above.
         </div>
-        <v-text-field outlined dense v-model="form.remote_write_url" :rules="[$validators.isUrl]" single-line :disabled="form.global" />
+        <v-text-field
+            outlined
+            dense
+            v-model="form.remote_write_url"
+            :rules="[$validators.isUrl]"
+            single-line
+            :disabled="form.global || form.use_clickhouse"
+        />
 
         <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
             {{ error }}
@@ -79,7 +115,7 @@
         <v-alert v-if="message" color="green" outlined text>
             {{ message }}
         </v-alert>
-        <v-btn block color="primary" @click="save" :disabled="!valid || form.global" :loading="loading">Save</v-btn>
+        <v-btn block color="primary" @click="save" :disabled="(!valid && !form.use_clickhouse) || form.global" :loading="loading">Save</v-btn>
     </v-form>
 </template>
 
@@ -102,6 +138,8 @@ export default {
                 custom_headers: [],
                 refresh_interval: 0,
                 extra_selector: '',
+                remote_write_url: '',
+                use_clickhouse: false,
             },
             basic_auth: false,
             custom_headers: true,

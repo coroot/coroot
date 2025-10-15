@@ -36,7 +36,9 @@ For faster access, Coroot maintains its own on-disk metric cache, continuously r
 As a result, Coroot treats the time series database as a source for updating its cache. 
 This allows you to configure Prometheus with a shorter retention period, such as a few hours.
 
+Alternatively, you can configure ClickHouse as your metrics storage backend instead of Prometheus, providing a unified storage solution for all telemetry data.
+
 ## ClickHouse
 
-Coroot uses ClickHouse for storing logs, traces, and profiles. 
-Thanks to the efficient data compression implemented by ClickHouse, you can expect a compression ratio of 10x or more for this telemetry data.
+Coroot uses ClickHouse for storing logs, traces, profiles, and optionally metrics.
+Thanks to the efficient data compression implemented by ClickHouse, you can expect a compression ratio of 10x or more for this telemetry data. The columnar storage format is particularly well-suited for time-series metrics, providing excellent compression and query performance.

@@ -15,7 +15,7 @@ type PanelData struct {
 	Chart *model.Chart `json:"chart,omitempty"`
 }
 
-func (ds *Dashboards) PanelData(ctx context.Context, pc *prom.Client, config db.DashboardPanel, from, to timeseries.Time, step timeseries.Duration) (*PanelData, error) {
+func (ds *Dashboards) PanelData(ctx context.Context, pc prom.Client, config db.DashboardPanel, from, to timeseries.Time, step timeseries.Duration) (*PanelData, error) {
 	var res PanelData
 	switch {
 	case config.Source.Metrics != nil:

@@ -56,6 +56,7 @@ For instance, the `projects` parameter (a list of predefined projects) can only 
 | --global-prometheus-password         | GLOBAL_PROMETHEUS_PASSWORD         |               | The password for the Prometheus server to be used for all projects.                                                                                                             |
 | --global-prometheus-custom-headers   | GLOBAL_PROMETHEUS_CUSTOM_HEADERS   |               | Custom headers to include in requests to the Prometheus server.                                                                                                                 |
 | --global-prometheus-remote-write-url | GLOBAL_PROMETHEUS_REMOTE_WRITE_URL |               | The URL for metric ingestion though the Prometheus Remote Write protocol.                                                                                                       |
+| --global-prometheus-use-clickhouse   | GLOBAL_PROMETHEUS_USE_CLICKHOUSE   | false         | Use ClickHouse for metrics storage instead of Prometheus. When enabled, ClickHouse becomes the primary metrics backend.                                                        |
 | --disable-clickhouse-space-manager   | CLICKHOUSE_SPACE_MANAGER_DISABLED  | false         | Disable ClickHouse space manager that automatically cleans up old partitions.                                                                                                   |
 | --clickhouse-space-manager-usage-threshold | CLICKHOUSE_SPACE_MANAGER_USAGE_THRESHOLD | 70      | Disk usage percentage threshold for triggering partition cleanup in ClickHouse.                                                                                                 |
 | --clickhouse-space-manager-min-partitions | CLICKHOUSE_SPACE_MANAGER_MIN_PARTITIONS | 1        | Minimum number of partitions to keep when cleaning up ClickHouse disk space.                                                                                                    |
@@ -108,6 +109,7 @@ global_prometheus: # The Prometheus server to be used for all projects.
   custom_headers:        # Custom headers to include in requests to the Prometheus server.
 #    header_name: header_value
   remote_write_url:      # The URL for metric ingestion though the Prometheus Remote Write protocol.
+  use_clickhouse: false  # Use ClickHouse for metrics storage instead of Prometheus.
 
 global_clickhouse: # The ClickHouse server to be used for all projects.
   address:               # IP:Port or Domain:Port.
