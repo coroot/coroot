@@ -27,16 +27,30 @@ var (
 	}}
 )
 
+const (
+	requestTimeout = 5 * time.Minute
+)
+
 func init() {
 	d := net.Dialer{Timeout: 30 * time.Second}
 	secureTransport = &http.Transport{
-		DialContext:         d.DialContext,
-		TLSHandshakeTimeout: 10 * time.Second,
+		DialContext:           d.DialContext,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ResponseHeaderTimeout: requestTimeout,
+		IdleConnTimeout:       90 * time.Second,
+		ExpectContinueTimeout: time.Second,
+		MaxIdleConns:          100,
+		MaxIdleConnsPerHost:   10,
 	}
 	insecureTransport = &http.Transport{
-		DialContext:         d.DialContext,
-		TLSHandshakeTimeout: 10 * time.Second,
-		TLSClientConfig:     &tls.Config{InsecureSkipVerify: true},
+		DialContext:           d.DialContext,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ResponseHeaderTimeout: requestTimeout,
+		IdleConnTimeout:       90 * time.Second,
+		ExpectContinueTimeout: time.Second,
+		MaxIdleConns:          100,
+		MaxIdleConnsPerHost:   10,
+		TLSClientConfig:       &tls.Config{InsecureSkipVerify: true},
 	}
 }
 
@@ -85,9 +99,12 @@ func newHttpClient(config httpClientConfig) (Client, error) {
 		}
 	}
 	c := &HttpClient{
-		config:     config,
-		url:        *u,
-		httpClient: &http.Client{Transport: tr},
+		config: config,
+		url:    *u,
+		httpClient: &http.Client{
+			Transport: tr,
+			Timeout:   requestTimeout,
+		},
 	}
 	if config.Url == "" {
 		return nil, fmt.Errorf("prometheus is not configured")
