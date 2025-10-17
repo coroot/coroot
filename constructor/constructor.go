@@ -29,6 +29,7 @@ type DB interface {
 	GetApplicationDeployments(projectId db.ProjectId) (map[model.ApplicationId][]*model.ApplicationDeployment, error)
 	GetApplicationIncidents(projectId db.ProjectId, from, to timeseries.Time) (map[model.ApplicationId][]*model.ApplicationIncident, error)
 	GetApplicationSettingsByProject(projectId db.ProjectId) (map[model.ApplicationId]*model.ApplicationSettings, error)
+	GetProjects() (map[string]*db.Project, error)
 }
 
 type Cache interface {
@@ -37,24 +38,67 @@ type Cache interface {
 }
 
 type Constructor struct {
-	db      DB
-	project *db.Project
-	cache   Cache
-	pricing *pricing.Manager
-	options map[Option]bool
+	db           DB
+	rootProject  *db.Project
+	cacheClients map[db.ProjectId]Cache
+	pricing      *pricing.Manager
+	options      map[Option]bool
 }
 
-func New(db DB, project *db.Project, cache Cache, pricing *pricing.Manager, options ...Option) *Constructor {
-	c := &Constructor{db: db, project: project, cache: cache, pricing: pricing, options: map[Option]bool{}}
+func New(db DB, project *db.Project, cacheClients map[db.ProjectId]Cache, pricing *pricing.Manager, options ...Option) *Constructor {
+	c := &Constructor{db: db, rootProject: project, cacheClients: cacheClients, pricing: pricing, options: map[Option]bool{}}
 	for _, o := range options {
 		c.options[o] = true
 	}
 	return c
 }
 
+func (c *Constructor) newApplicationId(clusterId string, namespace string, kind model.ApplicationKind, name string) model.ApplicationId {
+	return model.NewApplicationId(clusterId, namespace, kind, name)
+}
+
 func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, step timeseries.Duration, prof *Profile) (*model.World, error) {
+	if !c.rootProject.Multicluster() {
+		cache, ok := c.cacheClients[c.rootProject.Id]
+		if !ok {
+			return nil, fmt.Errorf("metrics cache is missing for project %s", c.rootProject.Id)
+		}
+		return c.loadProjectWorld(ctx, cache, c.rootProject, from, to, step, prof, nil)
+	}
+	projects, err := c.db.GetProjects()
+	if err != nil {
+		return nil, err
+	}
+	var memberProjects []*db.Project
+	for _, pName := range c.rootProject.Settings.MemberProjects {
+		p := projects[pName]
+		if p == nil {
+			return nil, fmt.Errorf("project %s not found", pName)
+		}
+		memberProjects = append(memberProjects, p)
+	}
+	checkConfigs, err := c.db.GetCheckConfigs(c.rootProject.Id)
+	if err != nil {
+		return nil, err
+	}
+	var worlds []*model.World
+	for _, mp := range memberProjects {
+		cache, ok := c.cacheClients[mp.Id]
+		if !ok {
+			return nil, fmt.Errorf("metrics cache is missing for project %s", mp.Id)
+		}
+		w, err := c.loadProjectWorld(ctx, cache, mp, from, to, step, prof, c.rootProject)
+		if err != nil {
+			return nil, err
+		}
+		worlds = append(worlds, w)
+	}
+	return mergeWorlds(worlds, checkConfigs), nil
+}
+
+func (c *Constructor) loadProjectWorld(ctx context.Context, cache Cache, project *db.Project, from, to timeseries.Time, step timeseries.Duration, prof *Profile, parentProject *db.Project) (*model.World, error) {
 	start := time.Now()
-	rawStep, err := c.cache.GetStep(from, to)
+	rawStep, err := cache.GetStep(from, to)
 	if err != nil {
 		return nil, err
 	}
@@ -63,13 +107,14 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 	}
 
 	w := model.NewWorld(from, to, step, rawStep)
+	w.ProjectNamesById[string(project.Id)] = project.Name
 
 	if prof == nil {
 		prof = &Profile{}
 	}
 
 	prof.stage("get_check_configs", func() {
-		w.CheckConfigs, err = c.db.GetCheckConfigs(c.project.Id)
+		w.CheckConfigs, err = c.db.GetCheckConfigs(project.Id)
 	})
 	if err != nil {
 		return nil, err
@@ -77,7 +122,7 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 
 	var metrics map[string][]*model.MetricValues
 	prof.stage("query", func() {
-		metrics, err = c.queryCache(ctx, from, to, step, rawStep, w.CheckConfigs, prof.Queries)
+		metrics, err = c.queryCache(ctx, cache, project, from, to, step, rawStep, w.CheckConfigs, prof.Queries)
 	})
 	if err != nil {
 		return nil, err
@@ -94,53 +139,53 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 
 	// order is important
 	prof.stage("load_job_statuses", func() { loadPromJobStatuses(metrics, pjs) })
-	prof.stage("load_nodes", func() { c.loadNodes(w, metrics, nodes) })
+	prof.stage("load_nodes", func() { c.loadNodes(w, metrics, nodes, project) })
 	prof.stage("load_fqdn", func() { loadFQDNs(metrics, ip2fqdn, fqdn2ip) })
 	prof.stage("load_fargate_nodes", func() { c.loadFargateNodes(metrics, nodes) })
-	prof.stage("load_k8s_metadata", func() { loadKubernetesMetadata(w, metrics, servicesByClusterIP) })
+	prof.stage("load_k8s_metadata", func() { c.loadKubernetesMetadata(w, metrics, servicesByClusterIP, project) })
 	prof.stage("load_flux_resources", func() { loadFluxResources(w, metrics) })
 	prof.stage("load_aws_status", func() { loadAWSStatus(w, metrics) })
-	prof.stage("load_rds_metadata", func() { loadRdsMetadata(w, metrics, pjs, rdsInstancesById) })
-	prof.stage("load_elasticache_metadata", func() { loadElasticacheMetadata(w, metrics, pjs, ecInstancesById) })
+	prof.stage("load_rds_metadata", func() { c.loadRdsMetadata(w, metrics, pjs, rdsInstancesById, project) })
+	prof.stage("load_elasticache_metadata", func() { c.loadElasticacheMetadata(w, metrics, pjs, ecInstancesById, project) })
 	prof.stage("load_rds", func() { c.loadRds(w, metrics, pjs, rdsInstancesById) })
 	prof.stage("load_elasticache", func() { c.loadElasticache(w, metrics, pjs, ecInstancesById) })
 	prof.stage("load_fargate_containers", func() { loadFargateContainers(w, metrics, pjs) })
-	prof.stage("load_containers", func() { c.loadContainers(w, metrics, pjs, nodes, containers, servicesByClusterIP, ip2fqdn) })
-	prof.stage("load_app_to_app_connections", func() { c.loadAppToAppConnections(w, metrics, fqdn2ip) })
-	prof.stage("load_application_traffic", func() { c.loadApplicationTraffic(w, metrics) })
+	prof.stage("load_containers", func() { c.loadContainers(w, metrics, pjs, nodes, containers, servicesByClusterIP, ip2fqdn, project) })
+	prof.stage("load_app_to_app_connections", func() { c.loadAppToAppConnections(w, metrics, fqdn2ip, project) })
+	prof.stage("load_application_traffic", func() { c.loadApplicationTraffic(w, metrics, project) })
 	prof.stage("load_jvm", func() { c.loadJVM(metrics, containers) })
 	prof.stage("load_dotnet", func() { c.loadDotNet(metrics, containers) })
 	prof.stage("load_python", func() { c.loadPython(metrics, containers) })
 	prof.stage("load_nodejs", func() { c.loadNodejs(metrics, containers) })
 	prof.stage("enrich_instances", func() { enrichInstances(w, metrics, rdsInstancesById, ecInstancesById) })
-	prof.stage("calc_app_categories", func() { c.calcApplicationCategories(w) })
-	prof.stage("group_custom_applications", func() { c.groupCustomApplications(w) })
-	prof.stage("join_db_cluster_components", func() { c.joinDBClusterComponents(w) })
-	prof.stage("load_app_settings", func() { c.loadApplicationSettings(w) })
-	prof.stage("load_app_sli", func() { c.loadSLIs(w, metrics) })
+	prof.stage("calc_app_categories", func() { c.calcApplicationCategories(w, project) })
+	prof.stage("group_custom_applications", func() { c.groupCustomApplications(w, project) })
+	prof.stage("join_db_cluster_components", func() { c.joinDBClusterComponents(w, project) })
+	prof.stage("load_app_settings", func() { c.loadApplicationSettings(w, project) })
+	prof.stage("load_app_sli", func() { c.loadSLIs(w, metrics, project) })
 	prof.stage("load_container_logs", func() { c.loadContainerLogs(metrics, containers, pjs) })
-	prof.stage("load_app_logs", func() { c.loadApplicationLogs(w, metrics) })
-	prof.stage("load_app_deployments", func() { c.loadApplicationDeployments(w) })
-	prof.stage("load_app_incidents", func() { c.loadApplicationIncidents(w) })
+	prof.stage("load_app_logs", func() { c.loadApplicationLogs(w, metrics, project) })
+	prof.stage("load_app_deployments", func() { c.loadApplicationDeployments(w, project) })
+	prof.stage("load_app_incidents", func() { c.loadApplicationIncidents(w, project, parentProject) })
 	prof.stage("calc_app_events", func() { calcAppEvents(w) })
 
-	klog.Infof("%s: got %d nodes, %d apps in %s", c.project.Id, len(w.Nodes), len(w.Applications), time.Since(start).Truncate(time.Millisecond))
+	klog.Infof("%s: got %d nodes, %d apps in %s", project.Id, len(w.Nodes), len(w.Applications), time.Since(start).Truncate(time.Millisecond))
 	return w, nil
 }
 
-func (c *Constructor) QueryCache(ctx context.Context, from, to timeseries.Time, step timeseries.Duration) (map[string][]*model.MetricValues, error) {
-	rawStep, err := c.cache.GetStep(from, to)
+func (c *Constructor) QueryCache(ctx context.Context, cache Cache, project *db.Project, from, to timeseries.Time, step timeseries.Duration) (map[string][]*model.MetricValues, error) {
+	rawStep, err := cache.GetStep(from, to)
 	if err != nil {
 		return nil, err
 	}
 	if rawStep == 0 {
 		return nil, nil
 	}
-	checkConfigs, err := c.db.GetCheckConfigs(c.project.Id)
+	checkConfigs, err := c.db.GetCheckConfigs(project.Id)
 	if err != nil {
 		return nil, err
 	}
-	return c.queryCache(ctx, from, to, step, rawStep, checkConfigs, nil)
+	return c.queryCache(ctx, cache, project, from, to, step, rawStep, checkConfigs, nil)
 }
 
 type cacheQuery struct {
@@ -151,7 +196,7 @@ type cacheQuery struct {
 	fillFunc  timeseries.FillFunc
 }
 
-func (c *Constructor) queryCache(ctx context.Context, from, to timeseries.Time, step, rawStep timeseries.Duration, checkConfigs model.CheckConfigs, stats map[string]QueryStats) (map[string][]*model.MetricValues, error) {
+func (c *Constructor) queryCache(ctx context.Context, cache Cache, project *db.Project, from, to timeseries.Time, step, rawStep timeseries.Duration, checkConfigs model.CheckConfigs, stats map[string]QueryStats) (map[string][]*model.MetricValues, error) {
 	loadRawSLIs := !c.options[OptionDoNotLoadRawSLIs]
 	rawFrom := from
 	if t := to.Add(-model.MaxAlertRuleWindow); t.Before(rawFrom) {
@@ -213,7 +258,7 @@ func (c *Constructor) queryCache(ctx context.Context, from, to timeseries.Time, 
 			addQuery(qName+"total_requests", qApplicationCustomSLI, availabilityCfg.Total(), true)
 			addQuery(qName+"failed_requests", qApplicationCustomSLI, availabilityCfg.Failed(), true)
 		}
-		latencyCfg, _ := checkConfigs.GetLatency(appId, c.project.CalcApplicationCategory(appId))
+		latencyCfg, _ := checkConfigs.GetLatency(appId, project.CalcApplicationCategory(appId))
 		if latencyCfg.Custom {
 			addQuery(qName+"requests_histogram", qApplicationCustomSLI, latencyCfg.Histogram(), true)
 		}
@@ -231,7 +276,7 @@ func (c *Constructor) queryCache(ctx context.Context, from, to timeseries.Time, 
 			if q.fillFunc == nil {
 				q.fillFunc = timeseries.FillAny
 			}
-			metrics, err := c.cache.QueryRange(ctx, q.query, q.from, q.to, q.step, q.fillFunc)
+			metrics, err := cache.QueryRange(ctx, q.query, q.from, q.to, q.step, q.fillFunc)
 			if stats != nil {
 				queryTime := float32(time.Since(now).Seconds())
 				lock.Lock()
@@ -256,18 +301,18 @@ func (c *Constructor) queryCache(ctx context.Context, from, to timeseries.Time, 
 	return res, lastErr
 }
 
-func (c *Constructor) calcApplicationCategories(w *model.World) {
+func (c *Constructor) calcApplicationCategories(w *model.World, project *db.Project) {
 	for _, app := range w.Applications {
 		if annotation := app.GetAnnotation(model.ApplicationAnnotationCategory); annotation != "" {
 			app.Category = model.ApplicationCategory(annotation)
 			continue
 		}
-		app.Category = c.project.CalcApplicationCategory(app.Id)
+		app.Category = project.CalcApplicationCategory(app.Id)
 	}
 }
 
-func (c *Constructor) loadApplicationSettings(w *model.World) {
-	settings, err := c.db.GetApplicationSettingsByProject(c.project.Id)
+func (c *Constructor) loadApplicationSettings(w *model.World, project *db.Project) {
+	settings, err := c.db.GetApplicationSettingsByProject(project.Id)
 	if err != nil {
 		klog.Errorln(err)
 		return
@@ -277,8 +322,8 @@ func (c *Constructor) loadApplicationSettings(w *model.World) {
 	}
 }
 
-func (c *Constructor) loadApplicationDeployments(w *model.World) {
-	byApp, err := c.db.GetApplicationDeployments(c.project.Id)
+func (c *Constructor) loadApplicationDeployments(w *model.World, project *db.Project) {
+	byApp, err := c.db.GetApplicationDeployments(project.Id)
 	if err != nil {
 		klog.Errorln(err)
 		return
@@ -292,8 +337,12 @@ func (c *Constructor) loadApplicationDeployments(w *model.World) {
 	}
 }
 
-func (c *Constructor) loadApplicationIncidents(w *model.World) {
-	byApp, err := c.db.GetApplicationIncidents(c.project.Id, w.Ctx.From, w.Ctx.To)
+func (c *Constructor) loadApplicationIncidents(w *model.World, project, parentProject *db.Project) {
+	projectId := project.Id
+	if parentProject != nil {
+		projectId = parentProject.Id
+	}
+	byApp, err := c.db.GetApplicationIncidents(projectId, w.Ctx.From, w.Ctx.To)
 	if err != nil {
 		klog.Errorln(err)
 		return
@@ -418,7 +467,7 @@ type appGroup struct {
 	members map[model.ApplicationId]*model.Application
 }
 
-func (c *Constructor) groupApplications(w *model.World, groups map[model.ApplicationId]*appGroup) {
+func (c *Constructor) groupApplications(w *model.World, groups map[model.ApplicationId]*appGroup, project *db.Project) {
 	for _, group := range groups {
 		categories := utils.NewStringSet()
 		for _, app := range group.members {
@@ -447,19 +496,19 @@ func (c *Constructor) groupApplications(w *model.World, groups map[model.Applica
 		}
 		group.app.Category = model.ApplicationCategory(categories.GetFirst())
 		if group.app.Category == "" {
-			group.app.Category = c.project.CalcApplicationCategory(group.app.Id)
+			group.app.Category = project.CalcApplicationCategory(group.app.Id)
 		}
 	}
 }
 
-func (c *Constructor) groupCustomApplications(w *model.World) {
+func (c *Constructor) groupCustomApplications(w *model.World, project *db.Project) {
 	customApps := map[model.ApplicationId]*appGroup{}
 	for _, app := range w.Applications {
 		customName := app.GetAnnotation(model.ApplicationAnnotationCustomName)
 		if customName == "" {
 			continue
 		}
-		id := model.NewApplicationId(app.Id.Namespace, model.ApplicationKindCustomApplication, customName)
+		id := c.newApplicationId(project.ClusterId(), app.Id.Namespace, model.ApplicationKindCustomApplication, customName)
 		group := customApps[id]
 		if group == nil {
 			group = &appGroup{app: w.GetOrCreateApplication(id, true), members: map[model.ApplicationId]*model.Application{}}
@@ -467,17 +516,17 @@ func (c *Constructor) groupCustomApplications(w *model.World) {
 		}
 		group.members[app.Id] = app
 	}
-	c.groupApplications(w, customApps)
+	c.groupApplications(w, customApps, project)
 }
 
-func (c *Constructor) joinDBClusterComponents(w *model.World) {
+func (c *Constructor) joinDBClusterComponents(w *model.World, project *db.Project) {
 	dbClusters := map[model.ApplicationId]*appGroup{}
 	for _, app := range w.Applications {
 		for _, instance := range app.Instances {
 			if instance.ClusterName.Value() == "" {
 				continue
 			}
-			id := model.NewApplicationId(app.Id.Namespace, model.ApplicationKindDatabaseCluster, instance.ClusterName.Value())
+			id := c.newApplicationId(project.ClusterId(), app.Id.Namespace, model.ApplicationKindDatabaseCluster, instance.ClusterName.Value())
 			cluster := dbClusters[id]
 			if cluster == nil {
 				cluster = &appGroup{app: w.GetOrCreateApplication(id, false), members: map[model.ApplicationId]*model.Application{}}
@@ -486,7 +535,7 @@ func (c *Constructor) joinDBClusterComponents(w *model.World) {
 			cluster.members[app.Id] = app
 		}
 	}
-	c.groupApplications(w, dbClusters)
+	c.groupApplications(w, dbClusters, project)
 }
 
 func guessPod(ls model.Labels) string {

@@ -42,6 +42,11 @@ func (c *Collector) Config(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
+	if project.Multicluster() {
+		klog.Warningf("an attempt to get config for the multicluster project %s", project.Id)
+		http.Error(w, "project not found", http.StatusNotFound)
+		return
+	}
 	cacheClient := c.cache.GetCacheClient(project.Id)
 	cacheTo, err := cacheClient.GetTo()
 	if err != nil {
@@ -60,7 +65,7 @@ func (c *Collector) Config(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
-	ctr := constructor.New(c.db, project, cacheClient, nil)
+	ctr := constructor.New(c.db, project, map[db.ProjectId]constructor.Cache{project.Id: cacheClient}, nil)
 	world, err := ctr.LoadWorld(r.Context(), from, to, step, nil)
 	if err != nil {
 		klog.Errorln(err)

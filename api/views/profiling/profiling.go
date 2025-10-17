@@ -45,7 +45,7 @@ type Query struct {
 
 func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, query url.Values, w *model.World) *View {
 	if ch == nil {
-		return nil
+		return &View{Status: model.WARNING, Message: "Clickhouse integration is not configured"}
 	}
 
 	var q Query

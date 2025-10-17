@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"sort"
 	"strings"
 	"time"
 
@@ -46,6 +47,7 @@ type Span struct {
 	Details    model.TraceSpanDetails `json:"details"`
 	Attributes map[string]string      `json:"attributes"`
 	Events     []Event                `json:"events"`
+	Cluster    string                 `json:"cluster"`
 }
 
 type Event struct {
@@ -77,11 +79,11 @@ type Filter struct {
 	Value string `json:"value"`
 }
 
-func renderTraces(ctx context.Context, ch *clickhouse.Client, w *model.World, query string) *Traces {
+func renderTraces(ctx context.Context, chs []*clickhouse.Client, w *model.World, query string) *Traces {
 	res := &Traces{}
 
-	if ch == nil {
-		res.Message = "no_clickhouse"
+	if len(chs) == 0 {
+		res.Message = "Clickhouse integration is not configured."
 		return res
 	}
 
@@ -98,27 +100,54 @@ func renderTraces(ctx context.Context, ch *clickhouse.Client, w *model.World, qu
 		sq.AddFilter("SpanName", "!~", "GET /(health[z]*|metrics|debug/.+|actuator/.+)")
 	}
 
-	histogram, err := ch.GetRootSpansHistogram(ctx, sq)
-	if err != nil {
-		klog.Errorln(err)
-		res.Error = fmt.Sprintf("Clickhouse error: %s", err)
-		return res
-	}
-	if len(histogram) > 1 {
-		res.Heatmap = model.NewHeatmap(w.Ctx, "Latency & Errors heatmap, requests per second")
-		for _, h := range model.HistogramSeries(histogram[1:], 0, 0) {
-			res.Heatmap.AddSeries(h.Name, h.Title, h.Data, h.Threshold, h.Value)
-		}
-		res.Heatmap.AddSeries("errors", "errors", histogram[0].TimeSeries, "", "err")
-	} else {
-		services, err := ch.GetServicesFromTraces(ctx, w.Ctx.From)
+	byLe := map[float32]*timeseries.Aggregate{}
+
+	for _, ch := range chs {
+		histogram, err := ch.GetRootSpansHistogram(ctx, sq)
 		if err != nil {
 			klog.Errorln(err)
 			res.Error = fmt.Sprintf("Clickhouse error: %s", err)
 			return res
 		}
+		for _, h := range histogram {
+			agg := byLe[h.Le]
+			if agg == nil {
+				agg = timeseries.NewAggregate(timeseries.NanSum)
+				byLe[h.Le] = agg
+			}
+			agg.Add(h.TimeSeries)
+		}
+	}
+	if len(byLe) > 1 {
+		hist := make([]model.HistogramBucket, 0, len(byLe)-1)
+		var errors *timeseries.Aggregate
+		for le, agg := range byLe {
+			if le == 0 {
+				errors = agg
+			} else {
+				hist = append(hist, model.HistogramBucket{Le: le, TimeSeries: agg.Get()})
+			}
+		}
+		sort.Slice(hist, func(i, j int) bool { return hist[i].Le < hist[j].Le })
+		res.Heatmap = model.NewHeatmap(w.Ctx, "Latency & Errors heatmap, requests per second")
+		for _, h := range model.HistogramSeries(hist, 0, 0) {
+			res.Heatmap.AddSeries(h.Name, h.Title, h.Data, h.Threshold, h.Value)
+		}
+		res.Heatmap.AddSeries("errors", "errors", errors, "", "err")
+	} else {
+		services := utils.NewStringSet()
+		for _, ch := range chs {
+			svcs, err := ch.GetServicesFromTraces(ctx, w.Ctx.From)
+			if err != nil {
+				klog.Errorln(err)
+				res.Error = fmt.Sprintf("Clickhouse error: %s", err)
+				return res
+			}
+			services.Add(svcs...)
+		}
+
 		var otelTracesFound bool
-		for _, s := range services {
+		for _, s := range services.Items() {
 			if !strings.HasPrefix(s, "/") {
 				otelTracesFound = true
 				break
@@ -144,34 +173,143 @@ func renderTraces(ctx context.Context, ch *clickhouse.Client, w *model.World, qu
 	sq.Limit = spansLimit
 	sq.Diff = q.Diff
 
-	var spans []*model.TraceSpan
-	switch {
-	case q.TraceId != "":
-		spans, err = ch.GetSpansByTraceId(ctx, q.TraceId)
-	case q.View == "traces":
-		spans, err = ch.GetRootSpans(ctx, sq)
-	case q.View == "attributes":
-		sq.Limit = attrValuesLimit
-		res.AttrStats, err = ch.GetSpanAttrStats(ctx, sq)
-	case q.View == "errors":
-		res.Errors, err = ch.GetTraceErrors(ctx, sq)
-	case q.View == "latency":
-		res.Latency, err = ch.GetTraceLatencyProfile(ctx, sq)
+	var overallSpans []*model.TraceSpan
+	overallErrors := map[model.TraceSpanKey]*model.TraceErrorsStat{}
+	overallSpanStats := map[model.TraceSpanKey]*model.TraceSpanStats{}
+	totalStats := &model.TraceSpanStats{Histogram: map[float32]float32{}}
+	totalErrors := float32(0)
+	var overallSelectionTraces, overallBaselineTraces []*model.Trace
+
+	for _, ch := range chs {
+		switch {
+		case q.TraceId != "":
+			spans, err := ch.GetSpansByTraceId(ctx, q.TraceId)
+			if err != nil {
+				klog.Errorln(err)
+				res.Error = fmt.Sprintf("Clickhouse error: %s", err)
+				return res
+			}
+			overallSpans = append(overallSpans, spans...)
+		case q.View == "traces":
+			spans, err := ch.GetRootSpans(ctx, sq)
+			if err != nil {
+				klog.Errorln(err)
+				res.Error = fmt.Sprintf("Clickhouse error: %s", err)
+				return res
+			}
+			overallSpans = append(overallSpans, spans...)
+		case q.View == "attributes":
+			sq.Limit = attrValuesLimit
+			sq.Diff = true
+			selectionTraces, baselineTraces, err := ch.GetSelectionAndBaselineTraces(ctx, sq)
+			if err != nil {
+				klog.Errorln(err)
+				res.Error = fmt.Sprintf("Clickhouse error: %s", err)
+				return res
+			}
+			overallSelectionTraces = append(overallSelectionTraces, selectionTraces...)
+			overallBaselineTraces = append(overallBaselineTraces, baselineTraces...)
+		case q.View == "errors":
+			errors, err := ch.GetTraceErrors(ctx, sq)
+			if err != nil {
+				klog.Errorln(err)
+				res.Error = fmt.Sprintf("Clickhouse error: %s", err)
+				return res
+			}
+			for k, v := range errors {
+				totalErrors += v.Count
+				existing := overallErrors[k]
+				if existing == nil {
+					overallErrors[k] = v
+				} else {
+					existing.Count += v.Count
+				}
+			}
+		case q.View == "latency":
+			selectionTraces, baselineTraces, err := ch.GetSelectionAndBaselineTraces(ctx, sq)
+			if err != nil {
+				klog.Errorln(err)
+				res.Error = fmt.Sprintf("Clickhouse error: %s", err)
+				return res
+			}
+			overallSelectionTraces = append(overallSelectionTraces, selectionTraces...)
+			overallBaselineTraces = append(overallBaselineTraces, baselineTraces...)
+		default:
+			stats, err := ch.GetTraceSpanStats(ctx, sq)
+			if err != nil {
+				klog.Errorln(err)
+				res.Error = fmt.Sprintf("Clickhouse error: %s", err)
+				return res
+			}
+			for k, v := range stats {
+				s := overallSpanStats[k]
+				if s == nil {
+					overallSpanStats[k] = v
+				} else {
+					s.Failed += v.Failed
+					s.Total += v.Total
+					for b, vv := range v.Histogram {
+						s.Histogram[b] = vv
+					}
+				}
+				totalStats.Total += v.Total
+				totalStats.Failed += v.Failed
+				for b, vv := range v.Histogram {
+					totalStats.Histogram[b] = vv
+				}
+			}
+		}
+
+	}
+	switch q.View {
+	case "attributes":
+		res.AttrStats = spanAttrStats(overallSelectionTraces, overallBaselineTraces, sq.Limit)
+	case "latency":
+		fgBase := getTraceLatencyFlamegraph(overallBaselineTraces)
+		fgComp := getTraceLatencyFlamegraph(overallSelectionTraces)
+
+		res.Latency = &model.Profile{Type: "::nanoseconds"}
+		if q.Diff {
+			fgBase.Diff(fgComp)
+			res.Latency.FlameGraph = fgBase
+			res.Latency.Diff = true
+		} else {
+			if sq.IsSelectionDefined() {
+				res.Latency.FlameGraph = fgComp
+			} else {
+				res.Latency.FlameGraph = fgBase
+			}
+		}
+	case "errors":
+		for _, v := range overallErrors {
+			v.Count /= totalErrors
+			res.Errors = append(res.Errors, *v)
+		}
 	default:
-		res.Summary, err = ch.GetRootSpansSummary(ctx, sq)
+		if len(overallSpanStats) > 0 {
+			res.Summary = &model.TraceSpanSummary{}
+			duration := sq.TsTo.Sub(sq.TsFrom)
+			klog.Infoln(duration)
+			quantiles := []float32{0.5, 0.95, 0.99}
+			for _, v := range overallSpanStats {
+				v.DurationQuantiles = getQuantiles(v.Histogram, quantiles)
+				v.Failed /= v.Total
+				v.Total /= float32(duration)
+				res.Summary.Stats = append(res.Summary.Stats, *v)
+			}
+			v := *totalStats
+			v.DurationQuantiles = getQuantiles(v.Histogram, quantiles)
+			v.Failed /= v.Total
+			v.Total /= float32(duration)
+			res.Summary.Overall = v
+		}
 	}
 
-	if err != nil {
-		klog.Errorln(err)
-		res.Error = fmt.Sprintf("Clickhouse error: %s", err)
-		return res
-	}
-
-	if len(spans) == spansLimit {
+	if len(overallSpans) == spansLimit {
 		res.Limit = spansLimit
 	}
 
-	for _, s := range spans {
+	for _, s := range overallSpans {
 		ss := Span{
 			Service:    s.ServiceName,
 			TraceId:    s.TraceId,
@@ -184,6 +322,8 @@ func renderTraces(ctx context.Context, ch *clickhouse.Client, w *model.World, qu
 			Attributes: map[string]string{},
 			Details:    s.Details(),
 		}
+		ss.Cluster = s.ClusterName
+		ss.Attributes["Cluster"] = s.ClusterName
 		for name, value := range s.ResourceAttributes {
 			ss.Attributes[name] = value
 		}
@@ -200,6 +340,10 @@ func renderTraces(ctx context.Context, ch *clickhouse.Client, w *model.World, qu
 		if q.TraceId != "" {
 			res.Trace = append(res.Trace, ss)
 		} else {
+			if len(res.Traces) >= spansLimit {
+				res.Limit = spansLimit
+				break
+			}
 			res.Traces = append(res.Traces, ss)
 		}
 	}
@@ -233,5 +377,212 @@ func parseQuery(query string, ctx timeseries.Context) Query {
 	res.durFrom = utils.ParseHeatmapDuration(res.DurFrom)
 	res.durTo = utils.ParseHeatmapDuration(res.DurTo)
 	res.errors = res.DurFrom == "inf" || res.DurTo == "err"
+	return res
+}
+
+func getTraceLatencyFlamegraph(traces []*model.Trace) *model.FlameGraphNode {
+	if len(traces) == 0 {
+		return nil
+	}
+	byParent := map[string][]*model.TraceSpan{}
+	for _, t := range traces {
+		for _, s := range t.Spans {
+			byParent[s.ParentSpanId] = append(byParent[s.ParentSpanId], s)
+		}
+	}
+
+	root := &model.FlameGraphNode{Name: "total"}
+	addChildrenSpans(root, byParent, "")
+	for _, ch := range root.Children {
+		root.Total += ch.Total
+		if root.Data == nil {
+			root.Data = ch.Data
+		}
+	}
+	root.Self = 0
+	return root
+
+}
+
+func addChildrenSpans(node *model.FlameGraphNode, byParent map[string][]*model.TraceSpan, parentId string) {
+	spans := byParent[parentId]
+	if len(spans) == 0 {
+		return
+	}
+
+	durations := map[*model.TraceSpan]int64{}
+	if parentId == "" {
+		for _, s := range spans {
+			durations[s] = s.Duration.Nanoseconds()
+		}
+	} else {
+		intervalSet := map[int64]bool{}
+		for _, s := range spans {
+			intervalSet[s.Timestamp.UnixNano()] = true
+			intervalSet[s.Timestamp.Add(s.Duration).UnixNano()] = true
+		}
+		intervals := maps.Keys(intervalSet)
+		sort.Slice(intervals, func(i, j int) bool { return intervals[i] < intervals[j] })
+		for i := range intervals[:len(intervals)-1] {
+			from, to := intervals[i], intervals[i+1]
+			var ss []*model.TraceSpan
+			for _, s := range spans {
+				if s.Timestamp.UnixNano() <= from && s.Timestamp.Add(s.Duration).UnixNano() >= to {
+					ss = append(ss, s)
+				}
+			}
+			for _, s := range ss {
+				durations[s] += (to - from) / int64(len(ss))
+			}
+		}
+	}
+
+	for _, s := range spans {
+		var child *model.FlameGraphNode
+		name := s.ServiceName + ": " + s.Name + " " + s.Labels().String()
+		for _, n := range node.Children {
+			if n.Name == name {
+				child = n
+				break
+			}
+		}
+		if child == nil {
+			child = &model.FlameGraphNode{Name: name, ColorBy: s.ServiceName, Data: map[string]string{"trace_id": s.TraceId}}
+			node.Children = append(node.Children, child)
+		}
+		child.Total += durations[s]
+		addChildrenSpans(child, byParent, s.SpanId)
+	}
+	sort.Slice(node.Children, func(i, j int) bool {
+		return node.Children[i].Name < node.Children[j].Name
+	})
+	node.Self = node.Total
+	for _, ch := range node.Children {
+		node.Self -= ch.Total
+	}
+}
+
+func spanAttrStats(selectionTraces, baselineTraces []*model.Trace, limit int) []model.TraceSpanAttrStats {
+	type Attr struct{ name, value string }
+	type Counts struct {
+		selection, baseline float32
+		sampleTraceId       string
+	}
+	attrs := map[Attr]*Counts{}
+	for _, t := range selectionTraces {
+		for _, s := range t.Spans {
+			for name, value := range s.SpanAttributes {
+				a := Attr{name: name, value: value}
+				if attrs[a] == nil {
+					attrs[a] = &Counts{sampleTraceId: s.TraceId}
+				}
+				attrs[a].selection++
+			}
+			for name, value := range s.ResourceAttributes {
+				a := Attr{name: name, value: value}
+				if attrs[a] == nil {
+					attrs[a] = &Counts{sampleTraceId: s.TraceId}
+				}
+				attrs[a].selection++
+			}
+		}
+	}
+	for _, t := range baselineTraces {
+		for _, s := range t.Spans {
+			for name, value := range s.SpanAttributes {
+				a := Attr{name: name, value: value}
+				if attrs[a] == nil {
+					attrs[a] = &Counts{sampleTraceId: s.TraceId}
+				}
+				attrs[a].baseline++
+			}
+			for name, value := range s.ResourceAttributes {
+				a := Attr{name: name, value: value}
+				if attrs[a] == nil {
+					attrs[a] = &Counts{sampleTraceId: s.TraceId}
+				}
+				attrs[a].baseline++
+			}
+		}
+	}
+	byName := map[string][]*model.TraceSpanAttrStatsValue{}
+	for attr, counts := range attrs {
+		byName[attr.name] = append(byName[attr.name], &model.TraceSpanAttrStatsValue{
+			Name:          attr.value,
+			Selection:     counts.selection,
+			Baseline:      counts.baseline,
+			SampleTraceId: counts.sampleTraceId,
+		})
+	}
+	var res []model.TraceSpanAttrStats
+	maxDiff := map[string]float32{}
+	for name, values := range byName {
+		var total Counts
+		for _, v := range values {
+			total.selection += v.Selection
+			total.baseline += v.Baseline
+		}
+		for _, v := range values {
+			if total.selection > 0 {
+				v.Selection /= total.selection
+			}
+			if total.baseline > 0 {
+				v.Baseline /= total.baseline
+			}
+			diff := v.Selection - v.Baseline
+			if diff > maxDiff[name] {
+				maxDiff[name] = diff
+			}
+		}
+		sort.Slice(values, func(i, j int) bool {
+			vi, vj := values[i], values[j]
+			return vi.Selection+vi.Baseline > vj.Selection+vj.Baseline
+		})
+		if len(values) > limit {
+			values = values[:limit]
+		}
+		res = append(res, model.TraceSpanAttrStats{Name: name, Values: values})
+	}
+	sort.Slice(res, func(i, j int) bool {
+		ri, rj := res[i], res[j]
+		return maxDiff[ri.Name] > maxDiff[rj.Name]
+	})
+	return res
+}
+
+type histBucket struct {
+	ge, count float32
+}
+
+func getQuantiles(buckets map[float32]float32, quantiles []float32) []float32 {
+	hist := make([]histBucket, 0, len(buckets))
+	for k, v := range buckets {
+		hist = append(hist, histBucket{ge: k, count: v})
+	}
+	sort.Slice(hist, func(i, j int) bool {
+		return hist[i].ge < hist[j].ge
+	})
+	var total float32
+	for _, b := range hist {
+		total += b.count
+	}
+	var res []float32
+	for _, q := range quantiles {
+		target := q * total
+		var sum float32
+		for _, b := range hist {
+			if sum+b.count < target {
+				sum += b.count
+				continue
+			}
+			bNext := clickhouse.HistogramNextBucket[b.ge]
+			v := b.ge
+			if bNext > 0 && b.count > 0 {
+				v += (bNext - b.ge) * (target - sum) / b.count
+			}
+			res = append(res, v)
+			break
+		}
+	}
 	return res
 }

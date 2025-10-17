@@ -4,13 +4,14 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/coroot/coroot/db"
 	"k8s.io/klog"
 
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 )
 
-func initNodesList(w *model.World, metrics map[string][]*model.MetricValues, nodes nodeCache) {
+func (c *Constructor) initNodesList(w *model.World, metrics map[string][]*model.MetricValues, nodes nodeCache, project *db.Project) {
 	nodesBySystemUUID := map[string]*model.Node{}
 	for _, m := range metrics["node_info"] {
 		name := m.Labels["hostname"]
@@ -22,7 +23,7 @@ func initNodesList(w *model.World, metrics map[string][]*model.MetricValues, nod
 		w.IntegrationStatus.NodeAgent.Installed = true
 		node := nodes[id]
 		if node == nil {
-			node = model.NewNode(id)
+			node = model.NewNode(string(project.Id), id)
 			w.Nodes = append(w.Nodes, node)
 			nodes[node.Id] = node
 			nodesBySystemUUID[node.Id.SystemUUID] = node
@@ -39,7 +40,7 @@ func initNodesList(w *model.World, metrics map[string][]*model.MetricValues, nod
 		}
 		node := nodesBySystemUUID[id.SystemUUID]
 		if node == nil {
-			node = model.NewNode(id)
+			node = model.NewNode(string(project.Id), id)
 			w.Nodes = append(w.Nodes, node)
 			nodes[node.Id] = node
 			nodesBySystemUUID[node.Id.SystemUUID] = node
@@ -51,8 +52,8 @@ func initNodesList(w *model.World, metrics map[string][]*model.MetricValues, nod
 	}
 }
 
-func (c *Constructor) loadNodes(w *model.World, metrics map[string][]*model.MetricValues, nodes nodeCache) {
-	initNodesList(w, metrics, nodes)
+func (c *Constructor) loadNodes(w *model.World, metrics map[string][]*model.MetricValues, nodes nodeCache, project *db.Project) {
+	c.initNodesList(w, metrics, nodes, project)
 
 	for queryName := range metrics {
 		if !strings.HasPrefix(queryName, "node_") {
@@ -120,7 +121,7 @@ func (c *Constructor) loadNodes(w *model.World, metrics map[string][]*model.Metr
 	}
 	if c.pricing != nil {
 		for _, n := range w.Nodes {
-			n.Price = c.pricing.GetNodePrice(c.project.Settings.CustomCloudPricing, n)
+			n.Price = c.pricing.GetNodePrice(project.Settings.CustomCloudPricing, n)
 			n.DataTransferPrice = c.pricing.GetDataTransferPrice(n)
 		}
 	}

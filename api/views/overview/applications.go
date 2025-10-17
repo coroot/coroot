@@ -13,6 +13,7 @@ import (
 
 type ApplicationStatus struct {
 	Id       model.ApplicationId       `json:"id"`
+	Cluster  string                    `json:"cluster"`
 	Category model.ApplicationCategory `json:"category"`
 	Status   model.Status              `json:"status"`
 	Type     *ApplicationType          `json:"type"`
@@ -57,6 +58,7 @@ func renderApplications(w *model.World) []*ApplicationStatus {
 
 		a := &ApplicationStatus{
 			Id:       app.Id,
+			Cluster:  w.ClusterName(app.Id.ClusterId),
 			Category: app.Category,
 			Type:     getApplicationType(app),
 		}

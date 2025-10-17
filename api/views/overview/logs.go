@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strconv"
 	"time"
 
 	"github.com/coroot/coroot/clickhouse"
 	"github.com/coroot/coroot/model"
+	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 	"k8s.io/klog"
 )
@@ -34,6 +36,7 @@ type LogEntry struct {
 	Message     string            `json:"message"`
 	Attributes  map[string]string `json:"attributes"`
 	TraceId     string            `json:"trace_id"`
+	Cluster     string            `json:"cluster"`
 }
 
 type LogsQuery struct {
@@ -46,10 +49,10 @@ type LogsQuery struct {
 	Since   string                 `json:"since"`
 }
 
-func renderLogs(ctx context.Context, ch *clickhouse.Client, w *model.World, query string) *Logs {
+func renderLogs(ctx context.Context, chs []*clickhouse.Client, w *model.World, query string) *Logs {
 	v := &Logs{}
 
-	if ch == nil {
+	if len(chs) == 0 {
 		v.Message = "Clickhouse integration is not configured."
 		return v
 	}
@@ -66,11 +69,15 @@ func renderLogs(ctx context.Context, ch *clickhouse.Client, w *model.World, quer
 	if q.Limit <= 0 {
 		q.Limit = defaultLimit
 	}
+	lq := clickhouse.LogQuery{Ctx: w.Ctx, Limit: q.Limit}
+	var clusterFilter *clickhouse.LogFilter
 
-	lq := clickhouse.LogQuery{
-		Ctx:     w.Ctx,
-		Filters: q.Filters,
-		Limit:   q.Limit,
+	for _, f := range q.Filters {
+		if f.Name == "Cluster" {
+			clusterFilter = &f
+		} else {
+			lq.Filters = append(lq.Filters, f)
+		}
 	}
 
 	if !q.Agent || !q.Otel {
@@ -85,39 +92,58 @@ func renderLogs(ctx context.Context, ch *clickhouse.Client, w *model.World, quer
 	var histogram []model.LogHistogramBucket
 	var entries []*model.LogEntry
 	var err error
-	if q.Suggest != nil {
-		v.Suggest, err = ch.GetLogFilters(ctx, lq, *q.Suggest)
-	} else {
-		histogram, err = ch.GetLogsHistogram(ctx, lq)
-		if err == nil {
-			if q.Since != "" {
-				if i, _ := strconv.ParseInt(q.Since, 10, 64); i > 0 {
-					lq.Since = time.Unix(0, i)
+	var items []string
+	suggest := utils.NewStringSet()
+	bySeverity := map[model.Severity]*timeseries.Aggregate{}
+	var overallEntries []*model.LogEntry
+
+	for _, ch := range chs {
+		if !clusterFilter.Matches(ch.Project().Name) {
+			continue
+		}
+		if q.Suggest != nil {
+			items, err = ch.GetLogFilters(ctx, lq, *q.Suggest)
+			suggest.Add(items...)
+		} else {
+			histogram, err = ch.GetLogsHistogram(ctx, lq)
+			for _, b := range histogram {
+				agg := bySeverity[b.Severity]
+				if agg == nil {
+					agg = timeseries.NewAggregate(timeseries.NanSum)
+					bySeverity[b.Severity] = agg
 				}
+				agg.Add(b.Timeseries)
 			}
-			entries, err = ch.GetLogs(ctx, lq)
+			if err == nil {
+				if q.Since != "" {
+					if i, _ := strconv.ParseInt(q.Since, 10, 64); i > 0 {
+						lq.Since = time.Unix(0, i)
+					}
+				}
+				entries, err = ch.GetLogs(ctx, lq)
+				overallEntries = append(overallEntries, entries...)
+			}
+		}
+		if err != nil {
+			klog.Errorln(err)
+			v.Error = fmt.Sprintf("Clickhouse error: %s", err)
+			return v
 		}
 	}
+	v.Suggest = suggest.Items()
 
-	if err != nil {
-		klog.Errorln(err)
-		v.Error = fmt.Sprintf("Clickhouse error: %s", err)
-		return v
-	}
-
-	if len(histogram) > 0 {
+	if len(bySeverity) > 0 {
 		v.Chart = model.NewChart(w.Ctx, "").Column().Sorted()
-		for _, b := range histogram {
-			v.Chart.AddSeries(b.Severity.String(), b.Timeseries, b.Severity.Color())
+		for severity, agg := range bySeverity {
+			v.Chart.AddSeries(severity.String(), agg, severity.Color())
 		}
 	}
 
-	v.renderEntries(entries, w)
-
+	v.renderEntries(overallEntries, w, q.Limit)
 	return v
 }
 
-func (v *Logs) renderEntries(entries []*model.LogEntry, w *model.World) {
+func (v *Logs) renderEntries(entries []*model.LogEntry, w *model.World, limit int) {
 	if len(entries) == 0 {
 		return
 	}
@@ -128,17 +154,22 @@ func (v *Logs) renderEntries(entries []*model.LogEntry, w *model.World) {
 	}
 	services := ss.Items()
 
-	apps := map[string]*model.Application{}
+	type key struct {
+		service   string
+		clusterId string
+	}
+
+	apps := map[key]*model.Application{}
 	for _, app := range w.Applications {
 		for _, i := range app.Instances {
 			for _, c := range i.Containers {
-				apps[model.ContainerIdToServiceName(c.Id)] = app
+				apps[key{service: model.ContainerIdToServiceName(c.Id), clusterId: app.Id.ClusterId}] = app
 			}
 		}
 		if settings := app.Settings; settings != nil && settings.Logs != nil && settings.Logs.Service != "" {
-			apps[settings.Logs.Service] = app
+			apps[key{service: settings.Logs.Service, clusterId: app.Id.ClusterId}] = app
 		} else if service := model.GuessService(services, w, app); service != "" {
-			apps[service] = app
+			apps[key{service: service, clusterId: app.Id.ClusterId}] = app
 		}
 	}
 
@@ -152,8 +183,9 @@ func (v *Logs) renderEntries(entries []*model.LogEntry, w *model.World) {
 			Message:     e.Body,
 			Attributes:  map[string]string{},
 			TraceId:     e.TraceId,
+			Cluster:     e.ClusterName,
 		}
-		if app := apps[e.ServiceName]; app != nil {
+		if app := apps[key{service: e.ServiceName, clusterId: e.ClusterId}]; app != nil {
 			entry.Application = app.Id.String()
 		}
 		for name, value := range e.LogAttributes {
@@ -166,8 +198,15 @@ func (v *Logs) renderEntries(entries []*model.LogEntry, w *model.World) {
 				entry.Attributes[name] = value
 			}
 		}
+		entry.Attributes["Cluster"] = e.ClusterName
 		v.Entries = append(v.Entries, entry)
 		maxTs = max(maxTs, e.Timestamp.UnixNano())
+	}
+	sort.Slice(v.Entries, func(i, j int) bool {
+		return v.Entries[i].Timestamp > v.Entries[j].Timestamp
+	})
+	if len(v.Entries) > limit {
+		v.Entries = v.Entries[:limit]
 	}
 	if maxTs != 0 {
 		v.MaxTs = strconv.FormatInt(maxTs, 10)

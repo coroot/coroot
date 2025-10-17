@@ -12,7 +12,7 @@ import (
 type Overview struct {
 	Applications []*ApplicationStatus        `json:"applications"`
 	Map          []*Application              `json:"map"`
-	Nodes        *model.Table                `json:"nodes"`
+	Nodes        []Node                      `json:"nodes"`
 	Deployments  []*Deployment               `json:"deployments"`
 	Traces       *Traces                     `json:"traces"`
 	Logs         *Logs                       `json:"logs"`
@@ -22,7 +22,7 @@ type Overview struct {
 	Categories   []model.ApplicationCategory `json:"categories"`
 }
 
-func Render(ctx context.Context, ch *clickhouse.Client, project *db.Project, w *model.World, view, query string) *Overview {
+func Render(ctx context.Context, chs []*clickhouse.Client, project *db.Project, w *model.World, view, query string) *Overview {
 	v := &Overview{}
 	for name := range project.Settings.ApplicationCategorySettings {
 		if !name.Default() {
@@ -37,13 +37,13 @@ func Render(ctx context.Context, ch *clickhouse.Client, project *db.Project, w *
 	case "map":
 		v.Map = renderServiceMap(w)
 	case "nodes":
-		v.Nodes = renderNodes(w)
+		v.Nodes = renderNodes(w, project)
 	case "deployments":
 		v.Deployments = renderDeployments(w)
 	case "traces":
-		v.Traces = renderTraces(ctx, ch, w, query)
+		v.Traces = renderTraces(ctx, chs, w, query)
 	case "logs":
-		v.Logs = renderLogs(ctx, ch, w, query)
+		v.Logs = renderLogs(ctx, chs, w, query)
 	case "costs":
 		v.Costs = renderCosts(w)
 	case "risks":

@@ -18,7 +18,12 @@
                         </div>
                         <AppIcon :icon="app.icon" class="ml-1" />
                     </div>
-                    <Labels v-if="!hideLabels(clients)" :labels="app.labels" class="d-none d-sm-block label" />
+                    <Labels
+                        :labels="app.labels"
+                        :hideLabels="hideLabels(clients)"
+                        :cluster="$api.context.multicluster ? app.cluster : ''"
+                        class="d-none d-sm-block label"
+                    />
                 </div>
             </div>
             <div v-if="map.clients">
@@ -49,7 +54,11 @@
                         </div>
                         <AppIcon :icon="map.application.icon" />
                     </div>
-                    <Labels :labels="map.application.labels" class="d-none d-sm-block label" />
+                    <Labels
+                        :labels="map.application.labels"
+                        :cluster="$api.context.multicluster ? map.application.cluster : ''"
+                        class="d-none d-sm-block label"
+                    />
                 </div>
                 <div v-if="instances && instances.length" class="instances">
                     <div v-for="i in instances" class="instance" :ref="'instance:' + i.id" :class="{ hi: highlighted.instances.has(i.id) }">
@@ -158,7 +167,12 @@
                         </div>
                         <AppIcon :icon="app.icon" class="ml-1" />
                     </div>
-                    <Labels v-if="!hideLabels(dependencies)" :labels="app.labels" class="d-none d-sm-block label" />
+                    <Labels
+                        :labels="app.labels"
+                        :hideLabels="hideLabels(dependencies)"
+                        :cluster="$api.context.multicluster ? app.cluster : ''"
+                        class="d-none d-sm-block label"
+                    />
                 </div>
             </div>
             <div v-if="map.dependencies">

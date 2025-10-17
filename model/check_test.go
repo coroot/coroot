@@ -8,23 +8,24 @@ import (
 )
 
 func TestCheckConfigs_getRaw(t *testing.T) {
+	cluster := "cluster-a"
 	configs := CheckConfigs{
-		ApplicationId{Namespace: "default", Kind: "deployment", Name: "user-service"}: {
+		NewApplicationId(cluster, "default", ApplicationKindDeployment, "user-service"): {
 			Checks.SLOAvailability.Id: json.RawMessage(`{"threshold": 95}`),
 		},
-		ApplicationId{Namespace: "default", Kind: "deployment", Name: "test-service"}: {
+		NewApplicationId(cluster, "default", ApplicationKindDeployment, "test-service"): {
 			Checks.SLOAvailability.Id: json.RawMessage(`{"threshold": 96}`),
 		},
-		ApplicationId{Namespace: "default", Kind: "deployment", Name: "*-api"}: {
+		NewApplicationId(cluster, "default", ApplicationKindDeployment, "*-api"): {
 			Checks.SLOAvailability.Id: json.RawMessage(`{"threshold": 98}`),
 		},
-		ApplicationId{Namespace: "default", Kind: "deployment", Name: "test-*"}: {
+		NewApplicationId(cluster, "default", ApplicationKindDeployment, "test-*"): {
 			Checks.SLOAvailability.Id: json.RawMessage(`{"threshold": 90}`),
 		},
-		ApplicationId{Namespace: "production", Kind: "*", Name: "*"}: {
+		NewApplicationId(cluster, "production", "*", "*"): {
 			Checks.SLOAvailability.Id: json.RawMessage(`{"threshold": 99.9}`),
 		},
-		ApplicationId{Namespace: "staging", Kind: "deployment", Name: "web-*"}: {
+		NewApplicationId(cluster, "staging", ApplicationKindDeployment, "web-*"): {
 			Checks.SLOLatency.Id: json.RawMessage(`{"threshold": 85}`),
 		},
 		ApplicationId{}: {
@@ -34,63 +35,63 @@ func TestCheckConfigs_getRaw(t *testing.T) {
 	}
 
 	raw, isDefault := configs.getRaw(
-		ApplicationId{Namespace: "default", Kind: "deployment", Name: "user-service"},
+		ApplicationId{ClusterId: cluster, Namespace: "default", Kind: ApplicationKindDeployment, Name: "user-service"},
 		Checks.SLOAvailability.Id,
 	)
 	assert.Equal(t, `{"threshold": 95}`, string(raw))
 	assert.False(t, isDefault)
 
 	raw, isDefault = configs.getRaw(
-		ApplicationId{Namespace: "default", Kind: "deployment", Name: "test-service"},
+		ApplicationId{ClusterId: cluster, Namespace: "default", Kind: ApplicationKindDeployment, Name: "test-service"},
 		Checks.SLOAvailability.Id,
 	)
 	assert.Equal(t, `{"threshold": 96}`, string(raw))
 	assert.False(t, isDefault)
 
 	raw, isDefault = configs.getRaw(
-		ApplicationId{Namespace: "default", Kind: "deployment", Name: "auth-api"},
+		ApplicationId{ClusterId: cluster, Namespace: "default", Kind: ApplicationKindDeployment, Name: "auth-api"},
 		Checks.SLOAvailability.Id,
 	)
 	assert.Equal(t, `{"threshold": 98}`, string(raw))
 	assert.False(t, isDefault)
 
 	raw, isDefault = configs.getRaw(
-		ApplicationId{Namespace: "production", Kind: "deployment", Name: "payment-service"},
+		ApplicationId{ClusterId: cluster, Namespace: "production", Kind: ApplicationKindDeployment, Name: "payment-service"},
 		Checks.SLOAvailability.Id,
 	)
 	assert.Equal(t, `{"threshold": 99.9}`, string(raw))
 	assert.False(t, isDefault)
 
 	raw, isDefault = configs.getRaw(
-		ApplicationId{Namespace: "staging", Kind: "deployment", Name: "web-frontend"},
+		ApplicationId{ClusterId: cluster, Namespace: "staging", Kind: ApplicationKindDeployment, Name: "web-frontend"},
 		Checks.SLOLatency.Id,
 	)
 	assert.Equal(t, `{"threshold": 85}`, string(raw))
 	assert.False(t, isDefault)
 
 	raw, isDefault = configs.getRaw(
-		ApplicationId{Namespace: "test", Kind: "deployment", Name: "random-service"},
+		ApplicationId{ClusterId: cluster, Namespace: "test", Kind: ApplicationKindDeployment, Name: "random-service"},
 		Checks.SLOAvailability.Id,
 	)
 	assert.Equal(t, `{"threshold": 80}`, string(raw))
 	assert.True(t, isDefault)
 
 	raw, isDefault = configs.getRaw(
-		ApplicationId{Namespace: "test", Kind: "deployment", Name: "random-service"},
+		ApplicationId{ClusterId: cluster, Namespace: "test", Kind: ApplicationKindDeployment, Name: "random-service"},
 		Checks.CPUNode.Id,
 	)
 	assert.Nil(t, raw)
 	assert.False(t, isDefault)
 
 	raw, isDefault = configs.getRaw(
-		ApplicationId{Namespace: "default", Kind: "deployment", Name: "worker-service"},
+		ApplicationId{ClusterId: cluster, Namespace: "default", Kind: ApplicationKindDeployment, Name: "worker-service"},
 		Checks.SLOAvailability.Id,
 	)
 	assert.Equal(t, `{"threshold": 80}`, string(raw))
 	assert.True(t, isDefault)
 
 	raw, isDefault = configs.getRaw(
-		ApplicationId{Namespace: "production", Kind: "deployment", Name: "payment-api"},
+		ApplicationId{ClusterId: cluster, Namespace: "production", Kind: ApplicationKindDeployment, Name: "payment-api"},
 		Checks.SLOAvailability.Id,
 	)
 	assert.Equal(t, `{"threshold": 99.9}`, string(raw))

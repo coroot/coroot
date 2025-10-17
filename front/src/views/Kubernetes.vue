@@ -17,6 +17,7 @@
                         :hidden-attributes="['service.name']"
                         :columns="[
                             { key: 'date', label: 'Date' },
+                            { key: 'cluster', label: 'Cluster', maxWidth: 20 },
                             { key: 'object.namespace', label: 'Namespace', maxWidth: 20 },
                             { key: 'object.name', label: 'Object', maxWidth: 20 },
                             { key: 'object.kind', label: 'Kind' },

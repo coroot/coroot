@@ -33,7 +33,7 @@ func (db *DB) GetCheckConfigs(projectId ProjectId) (model.CheckConfigs, error) {
 		if err := rows.Scan(&appId, &configs); err != nil {
 			return nil, err
 		}
-		id, err := model.NewApplicationIdFromString(appId.String)
+		id, err := model.NewApplicationIdFromString(appId.String, string(projectId))
 		if err != nil {
 			klog.Warningln(err)
 			continue

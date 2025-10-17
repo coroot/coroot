@@ -140,6 +140,9 @@ license_key: # License key for Coroot Enterprise Edition.
 #  its API keys and other settings will be replaced.
 projects: # Create or update projects (configuration file only).
   - name:     # Project name (e.g., production, staging; must be unique; required).
+    memberProjects: # Optional list of existing project names to aggregate (multi-cluster mode).
+      - prod-eu
+      - prod-us
     # Project API keys, used by agents to send telemetry data (required).
     apiKeys:
       - key:         # Random string or UUID (must be unique; required).

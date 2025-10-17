@@ -10,12 +10,11 @@ import (
 )
 
 type appAuditor struct {
-	w                 *model.World
-	p                 *db.Project
-	app               *model.Application
-	reports           []*model.AuditReport
-	detailed          bool
-	clickHouseEnabled bool
+	w        *model.World
+	p        *db.Project
+	app      *model.Application
+	reports  []*model.AuditReport
+	detailed bool
 }
 
 type Profile struct {
@@ -34,7 +33,7 @@ func (ss Stages) stage(name string, f func()) {
 	ss[name] += time.Since(t)
 }
 
-func Audit(w *model.World, p *db.Project, generateDetailedReportFor *model.Application, clickHouseEnabled bool, prof *Profile) {
+func Audit(w *model.World, p *db.Project, generateDetailedReportFor *model.Application, prof *Profile) {
 	start := time.Now()
 	ncs := nodeConsumersByNode{}
 
@@ -44,11 +43,10 @@ func Audit(w *model.World, p *db.Project, generateDetailedReportFor *model.Appli
 	}
 	for _, app := range w.Applications {
 		a := &appAuditor{
-			w:                 w,
-			p:                 p,
-			app:               app,
-			detailed:          app == generateDetailedReportFor,
-			clickHouseEnabled: clickHouseEnabled,
+			w:        w,
+			p:        p,
+			app:      app,
+			detailed: app == generateDetailedReportFor,
 		}
 		stages.stage("slo", a.slo)
 		stages.stage("instances", a.instances)

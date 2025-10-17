@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
@@ -20,8 +21,8 @@ type serviceId struct {
 	name, ns string
 }
 
-func loadKubernetesMetadata(w *model.World, metrics map[string][]*model.MetricValues, servicesByClusterIP map[string]*model.Service) {
-	pods := podInfo(w, metrics["kube_pod_info"])
+func (c *Constructor) loadKubernetesMetadata(w *model.World, metrics map[string][]*model.MetricValues, servicesByClusterIP map[string]*model.Service, project *db.Project) {
+	pods := c.podInfo(w, metrics["kube_pod_info"], project)
 	podLabels(metrics["kube_pod_labels"], pods)
 	podAnnotations(metrics["kube_pod_annotations"], pods)
 
@@ -56,7 +57,7 @@ func loadKubernetesMetadata(w *model.World, metrics map[string][]*model.MetricVa
 			podContainer(q.Name, metrics[q.Name], pods)
 		}
 	}
-	loadApplications(w, metrics)
+	c.loadApplications(w, metrics, project)
 }
 
 func loadServices(metrics map[string][]*model.MetricValues) map[serviceId]*model.Service {
@@ -67,8 +68,10 @@ func loadServices(metrics map[string][]*model.MetricValues) map[serviceId]*model
 			Name:            name,
 			Namespace:       m.Labels["namespace"],
 			ClusterIP:       m.Labels["cluster_ip"],
-			EndpointIPs:     &utils.StringSet{},
-			LoadBalancerIPs: &utils.StringSet{},
+			EndpointIPs:     utils.NewStringSet(),
+			LoadBalancerIPs: utils.NewStringSet(),
+			Ports:           utils.NewStringSet(),
+			NodePorts:       utils.NewStringSet(),
 			DestinationApps: map[model.ApplicationId]*model.Application{},
 		}
 		services[serviceId{name: s.Name, ns: s.Namespace}] = s
@@ -88,6 +91,14 @@ func loadServices(metrics map[string][]*model.MetricValues) map[serviceId]*model
 			s.EndpointIPs.Add(m.Labels["ip"])
 		}
 	}
+	for _, m := range metrics["kube_service_port"] {
+		if s := services[serviceId{name: m.Labels["service"], ns: m.Labels["namespace"]}]; s != nil {
+			s.Ports.Add(m.Labels["port"])
+			if np := m.Labels["node_port"]; np != "" {
+				s.NodePorts.Add(np)
+			}
+		}
+	}
 	for _, s := range services {
 		if s.Name == "kubernetes" {
 			s.Name = "kube-apiserver"
@@ -96,7 +107,7 @@ func loadServices(metrics map[string][]*model.MetricValues) map[serviceId]*model
 	return services
 }
 
-func loadApplications(w *model.World, metrics map[string][]*model.MetricValues) {
+func (c *Constructor) loadApplications(w *model.World, metrics map[string][]*model.MetricValues, project *db.Project) {
 	for queryName := range metrics {
 		var (
 			kind      model.ApplicationKind
@@ -119,7 +130,7 @@ func loadApplications(w *model.World, metrics map[string][]*model.MetricValues) 
 			continue
 		}
 		for _, m := range metrics[queryName] {
-			app := w.GetApplication(model.NewApplicationId(m.Labels["namespace"], kind, m.Labels[nameLabel]))
+			app := w.GetApplication(c.newApplicationId(project.ClusterId(), m.Labels["namespace"], kind, m.Labels[nameLabel]))
 			if app == nil {
 				continue
 			}
@@ -133,7 +144,7 @@ func loadApplications(w *model.World, metrics map[string][]*model.MetricValues) 
 	}
 }
 
-func podInfo(w *model.World, metrics []*model.MetricValues) map[string]*model.Instance {
+func (c *Constructor) podInfo(w *model.World, metrics []*model.MetricValues, project *db.Project) map[string]*model.Instance {
 	pods := map[string]*model.Instance{}
 	podOwners := map[podId]model.ApplicationId{}
 	var podsOwnedByPods []*model.Instance
@@ -154,11 +165,11 @@ func podInfo(w *model.World, metrics []*model.MetricValues) map[string]*model.In
 
 		switch {
 		case ownerKind == "" || ownerKind == "<none>" || ownerKind == "Node":
-			appId = model.NewApplicationId(ns, model.ApplicationKindStaticPods, strings.TrimSuffix(pod, "-"+nodeName))
+			appId = c.newApplicationId(project.ClusterId(), ns, model.ApplicationKindStaticPods, strings.TrimSuffix(pod, "-"+nodeName))
 		case ownerKind == model.ApplicationKindSparkApplication || ownerKind == model.ApplicationKindArgoWorkflow:
-			appId = model.NewApplicationId(ns, ownerKind, jobSuffixRe.ReplaceAllString(ownerName, ""))
+			appId = c.newApplicationId(project.ClusterId(), ns, ownerKind, jobSuffixRe.ReplaceAllString(ownerName, ""))
 		case ownerName != "":
-			appId = model.NewApplicationId(ns, ownerKind, ownerName)
+			appId = c.newApplicationId(project.ClusterId(), ns, ownerKind, ownerName)
 		default:
 			continue
 		}

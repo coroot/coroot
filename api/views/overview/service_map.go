@@ -8,6 +8,7 @@ import (
 
 type Application struct {
 	Id         model.ApplicationId       `json:"id"`
+	Cluster    string                    `json:"cluster"`
 	Custom     bool                      `json:"custom"`
 	Category   model.ApplicationCategory `json:"category"`
 	Labels     model.Labels              `json:"labels"`
@@ -33,6 +34,7 @@ func renderServiceMap(w *model.World) []*Application {
 	for _, a := range w.Applications {
 		app := &Application{
 			Id:          a.Id,
+			Cluster:     w.ClusterName(a.Id.ClusterId),
 			Custom:      a.Custom,
 			Category:    a.Category,
 			Labels:      a.Labels(),

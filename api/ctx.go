@@ -15,11 +15,13 @@ type DataWithContext struct {
 }
 
 type Context struct {
-	Status    Status                            `json:"status"`
-	Search    Search                            `json:"search"`
-	Incidents map[model.ApplicationCategory]int `json:"incidents"`
-	Fluxcd    bool                              `json:"fluxcd"`
-	License   *License                          `json:"license,omitempty"`
+	Status         Status                            `json:"status"`
+	Search         Search                            `json:"search"`
+	Incidents      map[model.ApplicationCategory]int `json:"incidents"`
+	Fluxcd         bool                              `json:"fluxcd"`
+	License        *License                          `json:"license,omitempty"`
+	Multicluster   bool                              `json:"multicluster"`
+	MemberProjects []string                          `json:"member_projects,omitempty"`
 }
 
 type Status struct {
@@ -74,10 +76,12 @@ type LicenseManager interface {
 func (api *Api) WithContext(p *db.Project, cacheStatus *cache.Status, w *model.World, data any) DataWithContext {
 	res := DataWithContext{
 		Context: Context{
-			Status:    renderStatus(p, cacheStatus, w, api.globalPrometheus),
-			Search:    renderSearch(w),
-			Incidents: renderIncidents(w),
-			Fluxcd:    w != nil && w.Flux != nil,
+			Status:         renderStatus(p, cacheStatus, w, api.globalPrometheus),
+			Search:         renderSearch(w),
+			Incidents:      renderIncidents(w),
+			Fluxcd:         w != nil && w.Flux != nil,
+			Multicluster:   p.Multicluster(),
+			MemberProjects: p.Settings.MemberProjects,
 		},
 		Data: data,
 	}
@@ -127,7 +131,7 @@ func renderStatus(p *db.Project, cacheStatus *cache.Status, w *model.World, glob
 		refreshInterval = cache.MinRefreshInterval
 	}
 	switch {
-	case promCfg.Url == "" && !promCfg.UseClickHouse:
+	case promCfg.Url == "" && !promCfg.UseClickHouse && !p.Multicluster():
 		res.Prometheus.Status = model.WARNING
 		res.Prometheus.Message = "Prometheus is not configured."
 		res.Prometheus.Action = "configure"

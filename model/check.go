@@ -586,7 +586,7 @@ func (cfg *CheckConfigSLOLatency) Histogram() string {
 type CheckConfigs map[ApplicationId]map[CheckId]json.RawMessage
 
 func (cc CheckConfigs) getRaw(appId ApplicationId, checkId CheckId) (json.RawMessage, bool) {
-	appIdStr := appId.String()
+	appIdStr := appId.StringWithoutClusterId()
 
 	if appConfigs, ok := cc[appId]; ok {
 		if cfg, ok := appConfigs[checkId]; ok {
@@ -598,7 +598,7 @@ func (cc CheckConfigs) getRaw(appId ApplicationId, checkId CheckId) (json.RawMes
 		if configAppId.IsZero() {
 			continue
 		}
-		configAppIdStr := configAppId.String()
+		configAppIdStr := configAppId.StringWithoutClusterId()
 		if utils.GlobMatch(appIdStr, configAppIdStr) {
 			if cfg, ok := appConfigs[checkId]; ok {
 				return cfg, false

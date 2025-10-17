@@ -63,9 +63,10 @@ type DashboardPanelSourceMetrics struct {
 }
 
 type DashboardPanelSourceMetricsQuery struct {
-	Query  string `json:"query"`
-	Legend string `json:"legend"`
-	Color  string `json:"color"`
+	DataSource string `json:"datasource"`
+	Query      string `json:"query"`
+	Legend     string `json:"legend"`
+	Color      string `json:"color"`
 }
 
 type DashboardPanelWidget struct {

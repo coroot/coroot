@@ -98,7 +98,7 @@ func (db *DB) GetApplicationSettingsByProject(projectId ProjectId) (map[model.Ap
 		if !settingsStr.Valid {
 			continue
 		}
-		appId, err = model.NewApplicationIdFromString(appIdStr.String)
+		appId, err = model.NewApplicationIdFromString(appIdStr.String, string(projectId))
 		if err != nil {
 			klog.Warningln(err)
 			continue

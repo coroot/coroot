@@ -108,7 +108,7 @@ func (a *appAuditor) cpu(ncs nodeConsumersByNode) {
 		}
 	}
 
-	if a.clickHouseEnabled && usageChart != nil {
+	if usageChart != nil {
 		for _, ch := range usageChart.Charts {
 			ch.DrillDownLink = model.NewRouterLink("profile", "overview").
 				SetParam("view", "applications").

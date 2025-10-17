@@ -13,7 +13,7 @@ import (
 func TestCalcDeployments(t *testing.T) {
 	var app *model.Application
 	createApp := func() {
-		app = model.NewApplication(model.NewApplicationId("default", model.ApplicationKindDeployment, "catalog"))
+		app = model.NewApplication(model.NewApplicationId("", "default", model.ApplicationKindDeployment, "catalog"))
 	}
 	addInstance := func(name string, rs string, lifeSpan ...float32) {
 		i := app.GetOrCreateInstance(name, nil)

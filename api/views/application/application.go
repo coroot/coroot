@@ -29,6 +29,7 @@ type AppMap struct {
 
 type Application struct {
 	Id         model.ApplicationId       `json:"id"`
+	Cluster    string                    `json:"cluster"`
 	Category   model.ApplicationCategory `json:"category"`
 	Custom     bool                      `json:"custom"`
 	Status     model.Status              `json:"status"`
@@ -52,6 +53,7 @@ func Render(project *db.Project, world *model.World, app *model.Application) *Vi
 	appMap := &AppMap{
 		Application: &Application{
 			Id:         app.Id,
+			Cluster:    world.ClusterName(app.Id.ClusterId),
 			Category:   app.Category,
 			Custom:     app.Custom,
 			Status:     app.Status,
@@ -94,12 +96,12 @@ func Render(project *db.Project, world *model.World, app *model.Application) *Vi
 
 	for _, connection := range app.Upstreams {
 		if connection.RemoteApplication.Id != app.Id {
-			appMap.addDependency(connection)
+			appMap.addDependency(connection, world)
 		}
 	}
 	for _, connection := range app.Downstreams {
 		if connection.Application.Id != app.Id {
-			appMap.addClient(connection)
+			appMap.addClient(connection, world)
 		}
 	}
 	sort.Slice(appMap.Instances, func(i1, i2 int) bool {
@@ -127,10 +129,11 @@ func Render(project *db.Project, world *model.World, app *model.Application) *Vi
 	return v
 }
 
-func (m *AppMap) addDependency(c *model.AppToAppConnection) {
+func (m *AppMap) addDependency(c *model.AppToAppConnection, world *model.World) {
 	status, reason := c.Status()
 	a := &Application{
 		Id:         c.RemoteApplication.Id,
+		Cluster:    world.ClusterName(c.RemoteApplication.Id.ClusterId),
 		Custom:     c.RemoteApplication.Custom,
 		Status:     c.RemoteApplication.Status,
 		Icon:       c.RemoteApplication.ApplicationType().Icon(),
@@ -153,7 +156,7 @@ func (m *AppMap) addDependency(c *model.AppToAppConnection) {
 	a.LinkStats = utils.FormatLinkStats(requests, latency, bytesSent, bytesReceived, reason)
 }
 
-func (m *AppMap) addClient(c *model.AppToAppConnection) {
+func (m *AppMap) addClient(c *model.AppToAppConnection, world *model.World) {
 	for _, d := range m.Dependencies {
 		if d.Id == c.Application.Id {
 			d.LinkDirection = "both"
@@ -163,6 +166,7 @@ func (m *AppMap) addClient(c *model.AppToAppConnection) {
 	status, reason := c.Status()
 	a := &Application{
 		Id:         c.Application.Id,
+		Cluster:    world.ClusterName(c.Application.Id.ClusterId),
 		Custom:     c.Application.Custom,
 		Status:     c.Application.Status,
 		Icon:       c.Application.ApplicationType().Icon(),

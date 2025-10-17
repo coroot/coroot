@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"sort"
 	"strings"
 	"time"
 	"unicode"
@@ -16,13 +15,13 @@ import (
 )
 
 var (
-	histogramBuckets    = []float64{0, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, math.Inf(1)}
-	histogramNextBucket = map[float32]float32{}
+	HistogramBuckets    = []float64{0, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, math.Inf(1)}
+	HistogramNextBucket = map[float32]float32{}
 )
 
 func init() {
-	for i, b := range histogramBuckets[:len(histogramBuckets)-2] {
-		histogramNextBucket[float32(b)] = float32(histogramBuckets[i+1])
+	for i, b := range HistogramBuckets[:len(HistogramBuckets)-2] {
+		HistogramNextBucket[float32(b)] = float32(HistogramBuckets[i+1])
 	}
 }
 
@@ -57,42 +56,13 @@ func (c *Client) GetRootSpans(ctx context.Context, q SpanQuery) ([]*model.TraceS
 	return c.getSpans(ctx, q, "", filter, filterArgs)
 }
 
-func (c *Client) GetRootSpansSummary(ctx context.Context, q SpanQuery) (*model.TraceSpanSummary, error) {
+func (c *Client) GetTraceSpanStats(ctx context.Context, q SpanQuery) (map[model.TraceSpanKey]*model.TraceSpanStats, error) {
 	filter, filterArgs := q.RootSpansFilter()
-	return c.getSpansSummary(ctx, q, filter, filterArgs)
+	return c.getTraceSpanStats(ctx, q, filter, filterArgs)
 }
 
-func (c *Client) GetSpanAttrStats(ctx context.Context, q SpanQuery) ([]model.TraceSpanAttrStats, error) {
-	return c.getSpanAttrStats(ctx, q)
-}
-
-func (c *Client) GetTraceErrors(ctx context.Context, q SpanQuery) ([]model.TraceErrorsStat, error) {
+func (c *Client) GetTraceErrors(ctx context.Context, q SpanQuery) (map[model.TraceSpanKey]*model.TraceErrorsStat, error) {
 	return c.getTraceErrors(ctx, q)
-}
-
-func (c *Client) GetTraceLatencyProfile(ctx context.Context, q SpanQuery) (*model.Profile, error) {
-	selectionTraces, baselineTraces, err := c.getSelectionAndBaselineTraces(ctx, q)
-	if err != nil {
-		return nil, err
-	}
-
-	fgBase := getTraceLatencyFlamegraph(baselineTraces)
-	fgComp := getTraceLatencyFlamegraph(selectionTraces)
-
-	profile := &model.Profile{Type: "::nanoseconds"}
-	if q.Diff {
-		fgBase.Diff(fgComp)
-		profile.FlameGraph = fgBase
-		profile.Diff = true
-	} else {
-		if q.IsSelectionDefined() {
-			profile.FlameGraph = fgComp
-		} else {
-			profile.FlameGraph = fgBase
-		}
-	}
-
-	return profile, nil
 }
 
 func (c *Client) GetSpansByServiceNameHistogram(ctx context.Context, q SpanQuery) ([]model.HistogramBucket, error) {
@@ -247,7 +217,7 @@ func (c *Client) getSpansHistogram(ctx context.Context, q SpanQuery, filters []s
 	filters = append(filters, "Timestamp BETWEEN @from AND @to")
 	filterArgs = append(filterArgs,
 		clickhouse.Named("step", int(step)),
-		clickhouse.Named("buckets", histogramBuckets[:len(histogramBuckets)-1]),
+		clickhouse.Named("buckets", HistogramBuckets[:len(HistogramBuckets)-1]),
 		clickhouse.DateNamed("from", from.ToStandard(), clickhouse.NanoSeconds),
 		clickhouse.DateNamed("to", to.ToStandard(), clickhouse.NanoSeconds),
 	)
@@ -289,8 +259,8 @@ func (c *Client) getSpansHistogram(ctx context.Context, q SpanQuery, filters []s
 	for ts, count := range errors {
 		res[0].TimeSeries.Set(ts, float32(count)/float32(step))
 	}
-	for i := 1; i < len(histogramBuckets); i++ {
-		ts := byBucket[histogramBuckets[i-1]]
+	for i := 1; i < len(HistogramBuckets); i++ {
+		ts := byBucket[HistogramBuckets[i-1]]
 		if ts.IsEmpty() {
 			ts = timeseries.New(from, int(to.Sub(from)/step), step)
 		}
@@ -306,21 +276,21 @@ func (c *Client) getSpansHistogram(ctx context.Context, q SpanQuery, filters []s
 			})
 		}
 		res = append(res, model.HistogramBucket{
-			Le:         float32(histogramBuckets[i] / 1000),
+			Le:         float32(HistogramBuckets[i] / 1000),
 			TimeSeries: ts,
 		})
 	}
 	return res, nil
 }
 
-func (c *Client) getSpansSummary(ctx context.Context, q SpanQuery, filters []string, filterArgs []any) (*model.TraceSpanSummary, error) {
+func (c *Client) getTraceSpanStats(ctx context.Context, q SpanQuery, filters []string, filterArgs []any) (map[model.TraceSpanKey]*model.TraceSpanStats, error) {
 	filters = append(filters,
 		"Timestamp BETWEEN @tsFrom AND @tsTo",
 	)
 	filterArgs = append(filterArgs,
 		clickhouse.DateNamed("tsFrom", q.TsFrom.ToStandard(), clickhouse.NanoSeconds),
 		clickhouse.DateNamed("tsTo", q.TsTo.ToStandard(), clickhouse.NanoSeconds),
-		clickhouse.Named("buckets", histogramBuckets[:len(histogramBuckets)-1]),
+		clickhouse.Named("buckets", HistogramBuckets[:len(HistogramBuckets)-1]),
 	)
 	durFilter, durFilterArgs := q.DurationFilter()
 	if durFilter != "" {
@@ -339,55 +309,25 @@ func (c *Client) getSpansSummary(ctx context.Context, q SpanQuery, filters []str
 	}
 	defer rows.Close()
 
-	var serviceName, spanName string
 	var bucket float64
 	var total, failed uint64
-	type key struct {
-		serviceName, spanName string
-	}
-	totalByKey := map[key]uint64{}
-	failedByKey := map[key]uint64{}
-	histByKey := map[key][]histBucket{}
+
+	res := map[model.TraceSpanKey]*model.TraceSpanStats{}
+
+	var k model.TraceSpanKey
 	for rows.Next() {
-		if err = rows.Scan(&serviceName, &spanName, &bucket, &total, &failed); err != nil {
+		if err = rows.Scan(&k.ServiceName, &k.SpanName, &bucket, &total, &failed); err != nil {
 			return nil, err
 		}
-		k := key{serviceName: serviceName, spanName: spanName}
-		totalByKey[k] += total
-		failedByKey[k] += failed
-		histByKey[k] = append(histByKey[k], histBucket{ge: float32(bucket), count: float32(total)})
-	}
-
-	if len(totalByKey) == 0 {
-		return nil, nil
-	}
-
-	res := &model.TraceSpanSummary{}
-	duration := q.TsTo.Sub(q.TsFrom)
-	quantiles := []float32{0.5, 0.95, 0.99}
-	totalHist := map[float32]float32{}
-	for k := range totalByKey {
-		res.Stats = append(res.Stats, model.TraceSpanStats{
-			ServiceName:       k.serviceName,
-			SpanName:          k.spanName,
-			Total:             float32(totalByKey[k]) / float32(duration),
-			Failed:            float32(failedByKey[k]) / float32(totalByKey[k]),
-			DurationQuantiles: getQuantiles(histByKey[k], quantiles),
-		})
-		res.Overall.Total += float32(totalByKey[k])
-		res.Overall.Failed += float32(failedByKey[k])
-		for _, b := range histByKey[k] {
-			totalHist[b.ge] += b.count
+		stats := res[k]
+		if stats == nil {
+			stats = &model.TraceSpanStats{TraceSpanKey: k, Histogram: map[float32]float32{}}
+			res[k] = stats
 		}
+		stats.Total += float32(total)
+		stats.Failed += float32(failed)
+		stats.Histogram[float32(bucket)] = float32(total)
 	}
-	var hist []histBucket
-	for ge, count := range totalHist {
-		hist = append(hist, histBucket{ge: ge, count: count})
-	}
-	res.Overall.Failed /= res.Overall.Total
-	res.Overall.Total /= float32(duration)
-	res.Overall.DurationQuantiles = getQuantiles(hist, quantiles)
-
 	return res, nil
 }
 
@@ -446,6 +386,7 @@ func (c *Client) getSpans(ctx context.Context, q SpanQuery, orderBy string, filt
 				s.Events[i].Attributes = eventsAttributes[i]
 			}
 		}
+		s.ClusterName = c.Project().Name
 		res = append(res, &s)
 	}
 	return res, nil
@@ -508,101 +449,7 @@ WHERE Timestamp BETWEEN @from AND @to AND TraceId IN @traceIds`
 	return maps.Values(res), nil
 }
 
-func (c *Client) getSpanAttrStats(ctx context.Context, q SpanQuery) ([]model.TraceSpanAttrStats, error) {
-	q.Diff = true
-	selectionTraces, baselineTraces, err := c.getSelectionAndBaselineTraces(ctx, q)
-	if err != nil {
-		return nil, err
-	}
-
-	type Attr struct{ name, value string }
-	type Counts struct {
-		selection, baseline float32
-		sampleTraceId       string
-	}
-	attrs := map[Attr]*Counts{}
-	for _, t := range selectionTraces {
-		for _, s := range t.Spans {
-			for name, value := range s.SpanAttributes {
-				a := Attr{name: name, value: value}
-				if attrs[a] == nil {
-					attrs[a] = &Counts{sampleTraceId: s.TraceId}
-				}
-				attrs[a].selection++
-			}
-			for name, value := range s.ResourceAttributes {
-				a := Attr{name: name, value: value}
-				if attrs[a] == nil {
-					attrs[a] = &Counts{sampleTraceId: s.TraceId}
-				}
-				attrs[a].selection++
-			}
-		}
-	}
-	for _, t := range baselineTraces {
-		for _, s := range t.Spans {
-			for name, value := range s.SpanAttributes {
-				a := Attr{name: name, value: value}
-				if attrs[a] == nil {
-					attrs[a] = &Counts{sampleTraceId: s.TraceId}
-				}
-				attrs[a].baseline++
-			}
-			for name, value := range s.ResourceAttributes {
-				a := Attr{name: name, value: value}
-				if attrs[a] == nil {
-					attrs[a] = &Counts{sampleTraceId: s.TraceId}
-				}
-				attrs[a].baseline++
-			}
-		}
-	}
-	byName := map[string][]*model.TraceSpanAttrStatsValue{}
-	for attr, counts := range attrs {
-		byName[attr.name] = append(byName[attr.name], &model.TraceSpanAttrStatsValue{
-			Name:          attr.value,
-			Selection:     counts.selection,
-			Baseline:      counts.baseline,
-			SampleTraceId: counts.sampleTraceId,
-		})
-	}
-	var res []model.TraceSpanAttrStats
-	maxDiff := map[string]float32{}
-	for name, values := range byName {
-		var total Counts
-		for _, v := range values {
-			total.selection += v.Selection
-			total.baseline += v.Baseline
-		}
-		for _, v := range values {
-			if total.selection > 0 {
-				v.Selection /= total.selection
-			}
-			if total.baseline > 0 {
-				v.Baseline /= total.baseline
-			}
-			diff := v.Selection - v.Baseline
-			if diff > maxDiff[name] {
-				maxDiff[name] = diff
-			}
-		}
-		sort.Slice(values, func(i, j int) bool {
-			vi, vj := values[i], values[j]
-			return vi.Selection+vi.Baseline > vj.Selection+vj.Baseline
-		})
-		if len(values) > q.Limit {
-			values = values[:q.Limit]
-		}
-		res = append(res, model.TraceSpanAttrStats{Name: name, Values: values})
-	}
-	sort.Slice(res, func(i, j int) bool {
-		ri, rj := res[i], res[j]
-		return maxDiff[ri.Name] > maxDiff[rj.Name]
-	})
-	return res, nil
-}
-
-func (c *Client) getTraceErrors(ctx context.Context, q SpanQuery) ([]model.TraceErrorsStat, error) {
+func (c *Client) getTraceErrors(ctx context.Context, q SpanQuery) (map[model.TraceSpanKey]*model.TraceErrorsStat, error) {
 	filters, filterArgs := q.RootSpansFilter()
 	filters = append(filters, "Timestamp BETWEEN @from AND @to")
 	filterArgs = append(filterArgs,
@@ -620,12 +467,7 @@ func (c *Client) getTraceErrors(ctx context.Context, q SpanQuery) ([]model.Trace
 		return nil, err
 	}
 
-	type Key struct {
-		serviceName string
-		spanName    string
-		labelsHash  uint64
-	}
-	errors := map[Key]*model.TraceErrorsStat{}
+	errors := map[model.TraceSpanKey]*model.TraceErrorsStat{}
 	var total float32
 	for _, t := range traces {
 		parents := map[string]string{}
@@ -646,15 +488,14 @@ func (c *Client) getTraceErrors(ctx context.Context, q SpanQuery) ([]model.Trace
 
 		for _, s := range errorSpans {
 			ls := s.Labels()
-			k := Key{
-				serviceName: s.ServiceName,
-				spanName:    s.Name,
-				labelsHash:  ls.Hash(),
+			k := model.TraceSpanKey{
+				ServiceName: s.ServiceName,
+				SpanName:    s.Name,
+				LabelsHash:  ls.Hash(),
 			}
 			if errors[k] == nil {
 				errors[k] = &model.TraceErrorsStat{
-					ServiceName:   s.ServiceName,
-					SpanName:      s.Name,
+					TraceSpanKey:  k,
 					Labels:        ls,
 					SampleTraceId: s.TraceId,
 					SampleError:   s.ErrorMessage(),
@@ -664,17 +505,10 @@ func (c *Client) getTraceErrors(ctx context.Context, q SpanQuery) ([]model.Trace
 			total++
 		}
 	}
-
-	var res []model.TraceErrorsStat
-	for _, v := range errors {
-		v.Count /= total
-		res = append(res, *v)
-	}
-
-	return res, nil
+	return errors, nil
 }
 
-func (c *Client) getSelectionAndBaselineTraces(ctx context.Context, q SpanQuery) ([]*model.Trace, []*model.Trace, error) {
+func (c *Client) GetSelectionAndBaselineTraces(ctx context.Context, q SpanQuery) ([]*model.Trace, []*model.Trace, error) {
 	filters, filterArgs := q.RootSpansFilter()
 
 	var err error
@@ -844,119 +678,4 @@ func inboundSpansFilter(clients []string, listens []model.Listen) ([]string, []a
 		clickhouse.Named("addrs", addrs),
 	}
 	return filter, args
-}
-
-type histBucket struct {
-	ge, count float32
-}
-
-func getQuantiles(hist []histBucket, quantiles []float32) []float32 {
-	sort.Slice(hist, func(i, j int) bool {
-		return hist[i].ge < hist[j].ge
-	})
-	var total float32
-	for _, b := range hist {
-		total += b.count
-	}
-	var res []float32
-	for _, q := range quantiles {
-		target := q * total
-		var sum float32
-		for _, b := range hist {
-			if sum+b.count < target {
-				sum += b.count
-				continue
-			}
-			bNext := histogramNextBucket[b.ge]
-			v := b.ge
-			if bNext > 0 && b.count > 0 {
-				v += (bNext - b.ge) * (target - sum) / b.count
-			}
-			res = append(res, v)
-			break
-		}
-	}
-	return res
-}
-
-func getTraceLatencyFlamegraph(traces []*model.Trace) *model.FlameGraphNode {
-	if len(traces) == 0 {
-		return nil
-	}
-	byParent := map[string][]*model.TraceSpan{}
-	for _, t := range traces {
-		for _, s := range t.Spans {
-			byParent[s.ParentSpanId] = append(byParent[s.ParentSpanId], s)
-		}
-	}
-
-	root := &model.FlameGraphNode{Name: "total"}
-	addChildrenSpans(root, byParent, "")
-	for _, ch := range root.Children {
-		root.Total += ch.Total
-		if root.Data == nil {
-			root.Data = ch.Data
-		}
-	}
-	root.Self = 0
-	return root
-
-}
-
-func addChildrenSpans(node *model.FlameGraphNode, byParent map[string][]*model.TraceSpan, parentId string) {
-	spans := byParent[parentId]
-	if len(spans) == 0 {
-		return
-	}
-
-	durations := map[*model.TraceSpan]int64{}
-	if parentId == "" {
-		for _, s := range spans {
-			durations[s] = s.Duration.Nanoseconds()
-		}
-	} else {
-		intervalSet := map[int64]bool{}
-		for _, s := range spans {
-			intervalSet[s.Timestamp.UnixNano()] = true
-			intervalSet[s.Timestamp.Add(s.Duration).UnixNano()] = true
-		}
-		intervals := maps.Keys(intervalSet)
-		sort.Slice(intervals, func(i, j int) bool { return intervals[i] < intervals[j] })
-		for i := range intervals[:len(intervals)-1] {
-			from, to := intervals[i], intervals[i+1]
-			var ss []*model.TraceSpan
-			for _, s := range spans {
-				if s.Timestamp.UnixNano() <= from && s.Timestamp.Add(s.Duration).UnixNano() >= to {
-					ss = append(ss, s)
-				}
-			}
-			for _, s := range ss {
-				durations[s] += (to - from) / int64(len(ss))
-			}
-		}
-	}
-
-	for _, s := range spans {
-		var child *model.FlameGraphNode
-		name := s.ServiceName + ": " + s.Name + " " + s.Labels().String()
-		for _, n := range node.Children {
-			if n.Name == name {
-				child = n
-				break
-			}
-		}
-		if child == nil {
-			child = &model.FlameGraphNode{Name: name, ColorBy: s.ServiceName, Data: map[string]string{"trace_id": s.TraceId}}
-			node.Children = append(node.Children, child)
-		}
-		child.Total += durations[s]
-		addChildrenSpans(child, byParent, s.SpanId)
-	}
-	sort.Slice(node.Children, func(i, j int) bool {
-		return node.Children[i].Name < node.Children[j].Name
-	})
-	node.Self = node.Total
-	for _, ch := range node.Children {
-		node.Self -= ch.Total
-	}
 }

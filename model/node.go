@@ -55,6 +55,8 @@ func NewNodeIdFromLabels(mv *MetricValues) NodeId {
 }
 
 type Node struct {
+	ClusterId string
+
 	AgentVersion  LabelLastValue
 	KernelVersion LabelLastValue
 
@@ -118,8 +120,9 @@ func (dtp *DataTransferPrice) GetInternetEgressPrice() float32 {
 	return price
 }
 
-func NewNode(id NodeId) *Node {
+func NewNode(clusterId string, id NodeId) *Node {
 	return &Node{
+		ClusterId:      clusterId,
 		Id:             id,
 		Disks:          map[string]*DiskStats{},
 		CpuUsageByMode: map[string]*timeseries.TimeSeries{},
@@ -147,7 +150,7 @@ func (n *Node) IsUp() bool {
 		return n.Instances[0].Elasticache.Status.Value() == "available"
 	}
 
-	return !n.MemoryTotalBytes.TailIsEmpty()
+	return !n.CpuUsagePercent.TailIsEmpty()
 }
 
 func (n *Node) IsDown() bool {

@@ -11,6 +11,8 @@ import (
 type Project struct {
 	Name string `yaml:"name"`
 
+	MemberProjects []string `yaml:"memberProjects"`
+
 	ApiKeys      []db.ApiKey `yaml:"apiKeys"`
 	ApiKeysSnake []db.ApiKey `yaml:"api_keys"` // TODO: remove
 
@@ -29,7 +31,7 @@ func (p *Project) Validate() error {
 	if len(p.ApiKeys) == 0 {
 		p.ApiKeys = p.ApiKeysSnake
 	}
-	if len(p.ApiKeys) == 0 {
+	if len(p.ApiKeys) == 0 && len(p.MemberProjects) == 0 {
 		return fmt.Errorf("no api keys defined")
 	}
 	for i, k := range p.ApiKeys {

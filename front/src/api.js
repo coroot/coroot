@@ -18,6 +18,8 @@ export default class Api {
         incidents: {},
         license: {},
         fluxcd: true,
+        multicluster: false,
+        member_projects: [],
     };
 
     constructor(router, vuetify, basePath) {
@@ -56,6 +58,8 @@ export default class Api {
                     this.context.incidents = response.data.context.incidents;
                     this.context.license = response.data.context.license;
                     this.context.fluxcd = response.data.context.fluxcd;
+                    this.context.multicluster = response.data.context.multicluster;
+                    this.context.member_projects = response.data.context.member_projects || [];
                 }
                 try {
                     const data = response.data.data !== undefined ? response.data.data : response.data;

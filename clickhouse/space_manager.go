@@ -19,7 +19,7 @@ type SpaceManager struct {
 	databases []string
 }
 
-func (sm *SpaceManager) CheckAndCleanup(ctx context.Context, cluster string) error {
+func (sm *SpaceManager) CheckAndCleanup(ctx context.Context, project *db.Project, cluster string) error {
 	klog.Infof("cluster %s", cluster)
 	topology, err := sm.client.getClusterTopology(ctx)
 	if err != nil {
@@ -33,7 +33,7 @@ func (sm *SpaceManager) CheckAndCleanup(ctx context.Context, cluster string) err
 
 	for _, node := range topology {
 		replicaAddr := net.JoinHostPort(node.HostName, strconv.Itoa(int(node.Port)))
-		if err := sm.runCleanupOnReplica(ctx, replicaAddr); err != nil {
+		if err := sm.runCleanupOnReplica(ctx, project, replicaAddr); err != nil {
 			klog.Errorf("cleanup failed for replica %s (shard %d, replica %d): %v",
 				replicaAddr, node.ShardNum, node.ReplicaNum, err)
 		} else {
@@ -45,14 +45,14 @@ func (sm *SpaceManager) CheckAndCleanup(ctx context.Context, cluster string) err
 	return nil
 }
 
-func (sm *SpaceManager) runCleanupOnReplica(ctx context.Context, replicaAddr string) error {
+func (sm *SpaceManager) runCleanupOnReplica(ctx context.Context, project *db.Project, replicaAddr string) error {
 	config := NewClientConfig(replicaAddr, sm.client.config.User, sm.client.config.Password)
 	config.Protocol = sm.client.config.Protocol
 	config.Database = sm.client.config.Database
 	config.TlsEnable = sm.client.config.TlsEnable
 	config.TlsSkipVerify = sm.client.config.TlsSkipVerify
 
-	client, err := NewClient(config, ch.ClickHouseInfo{})
+	client, err := NewClient(config, ch.ClickHouseInfo{}, project)
 	if err != nil {
 		return fmt.Errorf("failed to create client for replica %s: %w", replicaAddr, err)
 	}
@@ -181,10 +181,14 @@ func RunSpaceManagerForProjects(ctx context.Context, cfg config.ClickHouseSpaceM
 	type clusterInfo struct {
 		config    *db.IntegrationClickhouse
 		databases map[string]bool
+		project   *db.Project
 	}
 	clusters := map[string]*clusterInfo{}
 
 	for _, project := range projects {
+		if project.Multicluster() {
+			continue
+		}
 		cfg := project.ClickHouseConfig(globalClickHouse)
 		if cfg == nil {
 			continue
@@ -193,6 +197,7 @@ func RunSpaceManagerForProjects(ctx context.Context, cfg config.ClickHouseSpaceM
 			clusters[cfg.Addr] = &clusterInfo{
 				config:    cfg,
 				databases: make(map[string]bool),
+				project:   project,
 			}
 		}
 		if cfg.Database != "" {
@@ -204,21 +209,21 @@ func RunSpaceManagerForProjects(ctx context.Context, cfg config.ClickHouseSpaceM
 		return nil
 	}
 	for addr, cluster := range clusters {
-		if err := runSpaceManagerOnCluster(ctx, cfg, cluster.config, maps.Keys(cluster.databases)); err != nil {
+		if err := runSpaceManagerOnCluster(ctx, cluster.project, cfg, cluster.config, maps.Keys(cluster.databases)); err != nil {
 			klog.Errorf("failed for cluster %s: %v", addr, err)
 		}
 	}
 	return nil
 }
 
-func runSpaceManagerOnCluster(ctx context.Context, managerCfg config.ClickHouseSpaceManager, cfg *db.IntegrationClickhouse, databases []string) error {
+func runSpaceManagerOnCluster(ctx context.Context, project *db.Project, managerCfg config.ClickHouseSpaceManager, cfg *db.IntegrationClickhouse, databases []string) error {
 	config := NewClientConfig(cfg.Addr, cfg.Auth.User, cfg.Auth.Password)
 	config.Protocol = cfg.Protocol
 	config.Database = cfg.Database
 	config.TlsEnable = cfg.TlsEnable
 	config.TlsSkipVerify = cfg.TlsSkipVerify
 
-	client, err := NewClient(config, ch.ClickHouseInfo{})
+	client, err := NewClient(config, ch.ClickHouseInfo{}, project)
 	if err != nil {
 		return fmt.Errorf("failed to create client: %w", err)
 	}
@@ -239,7 +244,7 @@ func runSpaceManagerOnCluster(ctx context.Context, managerCfg config.ClickHouseS
 		databases: databases,
 	}
 
-	return spaceManager.CheckAndCleanup(ctx, cfg.Addr)
+	return spaceManager.CheckAndCleanup(ctx, project, cfg.Addr)
 }
 
 type PartitionInfo struct {

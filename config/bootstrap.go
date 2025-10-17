@@ -4,6 +4,7 @@ import (
 	"github.com/coroot/coroot/cloud"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
+	"golang.org/x/exp/maps"
 	"k8s.io/klog"
 )
 
@@ -63,6 +64,7 @@ func (cfg *Config) Bootstrap(database *db.DB) error {
 			byName[pp.Name] = pp
 		}
 		pp.Settings.Readonly = true
+		pp.Settings.MemberProjects = p.MemberProjects
 		pp.Settings.ApiKeys = p.ApiKeys
 		if p.NotificationIntegrations != nil {
 			pp.Settings.Integrations.NotificationIntegrations = *p.NotificationIntegrations
@@ -128,7 +130,7 @@ func getOrCreateDefaultProject(database *db.DB) (*db.Project, error) {
 		}
 		return p, nil
 	case 1:
-		return projects[0], nil
+		return maps.Values(projects)[0], nil
 	}
 	return nil, nil
 }

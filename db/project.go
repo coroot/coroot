@@ -33,6 +33,7 @@ type ProjectSettings struct {
 	CustomApplications          map[string]model.CustomApplication                         `json:"custom_applications"`
 	ApiKeys                     []ApiKey                                                   `json:"api_keys"`
 	CustomCloudPricing          *CustomCloudPricing                                        `json:"custom_cloud_pricing"`
+	MemberProjects              []string                                                   `json:"member_projects"`
 }
 
 type ApiKey struct {
@@ -73,6 +74,14 @@ func (p *Project) Migrate(m *Migrator) error {
 	return nil
 }
 
+func (p *Project) Multicluster() bool {
+	return len(p.Settings.MemberProjects) > 0
+}
+
+func (p *Project) ClusterId() string {
+	return string(p.Id)
+}
+
 func (p *Project) applyDefaults() {
 	if p.Prometheus.RefreshInterval == 0 {
 		p.Prometheus.RefreshInterval = DefaultRefreshInterval
@@ -110,7 +119,7 @@ func (p *Project) ClickHouseConfig(globalClickHouse *IntegrationClickhouse) *Int
 	return p.Settings.Integrations.Clickhouse
 }
 
-func (db *DB) GetProjects() ([]*Project, error) {
+func (db *DB) GetProjects() (map[string]*Project, error) {
 	rows, err := db.db.Query("SELECT id, name, prometheus, settings FROM project")
 	if err != nil {
 		return nil, err
@@ -118,7 +127,7 @@ func (db *DB) GetProjects() ([]*Project, error) {
 	defer func() {
 		_ = rows.Close()
 	}()
-	var res []*Project
+	res := map[string]*Project{}
 	var prometheus sql.NullString
 	var settings sql.NullString
 	for rows.Next() {
@@ -137,7 +146,7 @@ func (db *DB) GetProjects() ([]*Project, error) {
 			}
 		}
 		p.applyDefaults()
-		res = append(res, &p)
+		res[p.Name] = &p
 	}
 	return res, nil
 }
@@ -197,7 +206,7 @@ func (db *DB) SaveProject(p *Project) error {
 		if db.IsUniqueViolationError(err) {
 			return ErrConflict
 		}
-		if err == nil {
+		if err == nil && !p.Multicluster() {
 			p.Settings.ApiKeys = []ApiKey{{Key: utils.RandomString(32), Description: "default"}}
 			err = db.SaveProjectSettings(p)
 		}

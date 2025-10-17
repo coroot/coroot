@@ -3,6 +3,7 @@ package constructor
 import (
 	"strings"
 
+	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
@@ -67,9 +68,9 @@ func (c *Constructor) loadContainerLogs(metrics map[string][]*model.MetricValues
 	}
 }
 
-func (c *Constructor) loadApplicationLogs(w *model.World, metrics map[string][]*model.MetricValues) {
+func (c *Constructor) loadApplicationLogs(w *model.World, metrics map[string][]*model.MetricValues, project *db.Project) {
 	for _, metric := range metrics[qRecordingRuleApplicationLogMessages] {
-		appId, err := model.NewApplicationIdFromString(metric.Labels["application"])
+		appId, err := model.NewApplicationIdFromString(metric.Labels["application"], project.ClusterId())
 		if err != nil {
 			klog.Error(err)
 			continue

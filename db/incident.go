@@ -116,6 +116,9 @@ func (db *DB) GetIncidentByKey(projectId ProjectId, key string) (*model.Applicat
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
+	if i.ApplicationId.ClusterId == "" {
+		i.ApplicationId.ClusterId = string(projectId)
+	}
 	if d.String != "" {
 		if err = json.Unmarshal([]byte(d.String), &i.Details); err != nil {
 			return nil, err
@@ -146,6 +149,9 @@ func (db *DB) GetLatestIncidents(projectId ProjectId, limit int) ([]*model.Appli
 		var d, rca sql.NullString
 		if err := rows.Scan(&i.ApplicationId, &i.Key, &i.OpenedAt, &i.ResolvedAt, &i.Severity, &d, &rca); err != nil {
 			return nil, err
+		}
+		if i.ApplicationId.ClusterId == "" {
+			i.ApplicationId.ClusterId = string(projectId)
 		}
 		if d.String != "" {
 			if err = json.Unmarshal([]byte(d.String), &i.Details); err != nil {
@@ -180,6 +186,9 @@ func (db *DB) GetApplicationIncidents(projectId ProjectId, from, to timeseries.T
 		if err := rows.Scan(&i.ApplicationId, &i.Key, &i.OpenedAt, &i.ResolvedAt, &i.Severity, &d, &rca); err != nil {
 			return nil, err
 		}
+		if i.ApplicationId.ClusterId == "" {
+			i.ApplicationId.ClusterId = string(projectId)
+		}
 		if d.String != "" {
 			if err = json.Unmarshal([]byte(d.String), &i.Details); err != nil {
 				return nil, err
@@ -200,10 +209,15 @@ func (db *DB) GetLastOpenIncident(projectId ProjectId, appId model.ApplicationId
 	last := model.ApplicationIncident{
 		ApplicationId: appId,
 	}
+
+	appIdWithoutCluster := appId
+	appIdWithoutCluster.ClusterId = ""
+
 	var dd, rca sql.NullString
 	err := db.db.QueryRow(
-		"SELECT key, opened_at, resolved_at, severity, details, rca FROM incident WHERE project_id = $1 AND application_id = $2 AND resolved_at = 0 ORDER BY opened_at DESC LIMIT 1",
-		projectId, appId.String()).Scan(&last.Key, &last.OpenedAt, &last.ResolvedAt, &last.Severity, &dd, &rca)
+		"SELECT key, opened_at, resolved_at, severity, details, rca FROM incident WHERE project_id = $1 AND (application_id = $2 OR application_id = $3) AND resolved_at = 0 ORDER BY opened_at DESC LIMIT 1",
+		projectId, appId.String(), appIdWithoutCluster.String()).
+		Scan(&last.Key, &last.OpenedAt, &last.ResolvedAt, &last.Severity, &dd, &rca)
 	switch err {
 	case nil:
 		if dd.String != "" {
@@ -235,11 +249,10 @@ func (db *DB) CreateIncident(projectId ProjectId, appId model.ApplicationId, i *
 	return err
 }
 
-func (db *DB) UpdateIncident(projectId ProjectId, appId model.ApplicationId, key string, severity model.Status, details model.IncidentDetails) error {
+func (db *DB) UpdateIncident(projectId ProjectId, key string, severity model.Status, details model.IncidentDetails) error {
 	d, _ := json.Marshal(details)
 	_, err := db.db.Exec(
-		"UPDATE incident SET severity = $1, details = $2 WHERE project_id = $3 AND application_id = $4 AND key = $5",
-		severity, string(d), projectId, appId.String(), key)
+		"UPDATE incident SET severity = $1, details = $2 WHERE project_id = $3 AND key = $4", severity, string(d), projectId, key)
 	return err
 }
 
@@ -253,10 +266,10 @@ func (db *DB) UpdateIncidentRCA(projectId ProjectId, i *model.ApplicationInciden
 	return err
 }
 
-func (db *DB) ResolveIncident(projectId ProjectId, appId model.ApplicationId, incident *model.ApplicationIncident) error {
+func (db *DB) ResolveIncident(projectId ProjectId, incident *model.ApplicationIncident) error {
 	_, err := db.db.Exec(
-		"UPDATE incident SET resolved_at = $1 WHERE project_id = $2 AND application_id = $3 AND key = $4",
-		incident.ResolvedAt, projectId, appId.String(), incident.Key)
+		"UPDATE incident SET resolved_at = $1 WHERE project_id = $2 AND key = $3",
+		incident.ResolvedAt, projectId, incident.Key)
 	return err
 }
 
@@ -277,8 +290,8 @@ func (db *DB) PutIncidentNotification(n IncidentNotification) {
 
 func (db *DB) UpdateIncidentNotification(n IncidentNotification) error {
 	_, err := db.db.Exec(
-		"UPDATE incident_notification SET sent_at = $1, external_key = $2 WHERE project_id = $3 AND application_id = $4 AND incident_key = $5 AND timestamp = $6 AND destination = $7",
-		n.SentAt, n.ExternalKey, n.ProjectId, n.ApplicationId, n.IncidentKey, n.Timestamp, n.Destination,
+		"UPDATE incident_notification SET sent_at = $1, external_key = $2 WHERE project_id = $3 AND incident_key = $4 AND timestamp = $5 AND destination = $6",
+		n.SentAt, n.ExternalKey, n.ProjectId, n.IncidentKey, n.Timestamp, n.Destination,
 	)
 	return err
 }
@@ -303,6 +316,9 @@ func (db *DB) GetNotSentIncidentNotifications(from timeseries.Time) ([]IncidentN
 		if err := rows.Scan(&n.ProjectId, &n.ApplicationId, &n.IncidentKey, &n.Status, &n.Destination, &n.Timestamp, &n.ExternalKey, &details); err != nil {
 			return nil, err
 		}
+		if n.ApplicationId.ClusterId == "" {
+			n.ApplicationId.ClusterId = string(n.ProjectId)
+		}
 		if details.String != "" {
 			if err := unmarshal(details.String, &n.Details); err != nil {
 				klog.Warningln(err)
@@ -317,9 +333,9 @@ func (db *DB) GetPreviousIncidentNotifications(n IncidentNotification) ([]Incide
 	rows, err := db.db.Query(`
 		SELECT project_id, application_id, incident_key, status, destination, timestamp, external_key, details 
 		FROM incident_notification 
-		WHERE project_id = $1 AND application_id = $2 AND incident_key = $3 AND destination = $4 AND timestamp < $5 
+		WHERE project_id = $1 AND incident_key = $2 AND destination = $3 AND timestamp < $4 
 		ORDER BY timestamp
-	`, n.ProjectId, n.ApplicationId, n.IncidentKey, n.Destination, n.Timestamp,
+	`, n.ProjectId, n.IncidentKey, n.Destination, n.Timestamp,
 	)
 	if err != nil {
 		return nil, err
@@ -333,6 +349,9 @@ func (db *DB) GetPreviousIncidentNotifications(n IncidentNotification) ([]Incide
 		var n IncidentNotification
 		if err := rows.Scan(&n.ProjectId, &n.ApplicationId, &n.IncidentKey, &n.Status, &n.Destination, &n.Timestamp, &n.ExternalKey, &details); err != nil {
 			return nil, err
+		}
+		if n.ApplicationId.ClusterId == "" {
+			n.ApplicationId.ClusterId = string(n.ProjectId)
 		}
 		if details.String != "" {
 			if err := unmarshal(details.String, &n.Details); err != nil {

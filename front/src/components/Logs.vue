@@ -56,46 +56,50 @@
                 <v-simple-table v-if="entries" :key="entries.length" dense class="entries">
                     <thead>
                         <tr>
-                            <th v-for="col in columns" :key="col.key" class="px-2">{{ col.label }}</th>
+                            <template v-for="col in columns">
+                                <th v-if="col.key !== 'cluster' || $api.context.multicluster" :key="col.key" class="px-2">{{ col.label }}</th>
+                            </template>
                         </tr>
                     </thead>
                     <tbody class="mono">
                         <tr v-for="(e, index) in entries" :key="`${e.timestamp}-${index}`" @click="entry = e" style="cursor: pointer">
-                            <td v-for="col in columns" :key="col.key" class="text-no-wrap px-2" :class="{ 'pl-0': col.key === columns[0].key }">
-                                <div v-if="col.key === 'date'" class="d-flex gap-1">
-                                    <div class="marker" :style="{ backgroundColor: e.color }" />
-                                    <div>{{ getColumnValue(e, col) }}</div>
-                                </div>
-                                <v-menu v-else-if="col.key === 'application'" offset-y @click.stop>
-                                    <template #activator="{ on }">
-                                        <a v-on="on" class="nowrap" style="display: inline-block; max-width: 20ch" @click.stop>{{
-                                            getColumnValue(e, col)
-                                        }}</a>
-                                    </template>
-                                    <v-list dense>
-                                        <template v-if="e.attributes['service.name']">
-                                            <v-list-item @click="qbAdd('service.name', '=', e.attributes['service.name'])">
-                                                <v-icon small class="mr-1">mdi-plus</v-icon>
-                                                add to search
-                                            </v-list-item>
-                                            <v-list-item @click="qbAdd('service.name', '!=', e.attributes['service.name'])">
-                                                <v-icon small class="mr-1">mdi-minus</v-icon>
-                                                exclude from search
-                                            </v-list-item>
+                            <template v-for="col in cols">
+                                <td :key="col.key" class="text-no-wrap px-2" :class="{ 'pl-0': col.key === columns[0].key }">
+                                    <div v-if="col.key === 'date'" class="d-flex gap-1">
+                                        <div class="marker" :style="{ backgroundColor: e.color }" />
+                                        <div>{{ getColumnValue(e, col) }}</div>
+                                    </div>
+                                    <v-menu v-else-if="col.key === 'application'" offset-y @click.stop>
+                                        <template #activator="{ on }">
+                                            <a v-on="on" class="nowrap" style="display: inline-block; max-width: 20ch" @click.stop>{{
+                                                getColumnValue(e, col)
+                                            }}</a>
                                         </template>
-                                        <v-list-item v-if="e.link" :to="e.link">
-                                            <v-icon small class="mr-1">mdi-open-in-new</v-icon>
-                                            go to application
-                                        </v-list-item>
-                                    </v-list>
-                                </v-menu>
-                                <div v-else>
-                                    <span v-if="col.maxWidth" :title="getColumnValue(e, col)">
-                                        {{ truncateText(getColumnValue(e, col), col.maxWidth) }}
-                                    </span>
-                                    <span v-else>{{ getColumnValue(e, col) }}</span>
-                                </div>
-                            </td>
+                                        <v-list dense>
+                                            <template v-if="e.attributes['service.name']">
+                                                <v-list-item @click="qbAdd('service.name', '=', e.attributes['service.name'])">
+                                                    <v-icon small class="mr-1">mdi-plus</v-icon>
+                                                    add to search
+                                                </v-list-item>
+                                                <v-list-item @click="qbAdd('service.name', '!=', e.attributes['service.name'])">
+                                                    <v-icon small class="mr-1">mdi-minus</v-icon>
+                                                    exclude from search
+                                                </v-list-item>
+                                            </template>
+                                            <v-list-item v-if="e.link" :to="e.link">
+                                                <v-icon small class="mr-1">mdi-open-in-new</v-icon>
+                                                go to application
+                                            </v-list-item>
+                                        </v-list>
+                                    </v-menu>
+                                    <div v-else>
+                                        <span v-if="col.maxWidth" :title="getColumnValue(e, col)">
+                                            {{ truncateText(getColumnValue(e, col), col.maxWidth) }}
+                                        </span>
+                                        <span v-else>{{ getColumnValue(e, col) }}</span>
+                                    </div>
+                                </td>
+                            </template>
                         </tr>
                     </tbody>
                 </v-simple-table>
@@ -139,6 +143,7 @@ export default {
             type: Array,
             default: () => [
                 { key: 'date', label: 'Date' },
+                { key: 'cluster', label: 'Cluster', maxWidth: 20 },
                 { key: 'application', label: 'Application' },
                 { key: 'message', label: 'Message' },
             ],
@@ -214,6 +219,14 @@ export default {
     },
 
     computed: {
+        cols() {
+            if (this.$api.context.multicluster) {
+                return this.columns;
+            }
+            return this.columns().filter((c) => {
+                return c.key !== 'cluster';
+            });
+        },
         queryWithDefaults() {
             return {
                 ...this.query,
@@ -382,6 +395,8 @@ export default {
                     return entry.application;
                 case 'message':
                     return entry.multiline ? entry.message.substr(0, entry.multiline) : entry.message;
+                case 'cluster':
+                    return entry.cluster;
                 default:
                     // For custom attributes, look in the entry.attributes
                     return entry.attributes[column.key] || '';

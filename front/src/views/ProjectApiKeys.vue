@@ -1,5 +1,7 @@
 <template>
     <div style="max-width: 800px">
+        <h2 class="text-h5 mt-10 mb-5">API keys</h2>
+        <p>The API keys below authorize Coroot's agents and other applications to write telemetry data for this project.</p>
         <v-simple-table dense>
             <thead>
                 <tr>

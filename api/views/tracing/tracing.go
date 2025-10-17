@@ -63,7 +63,7 @@ type Event struct {
 
 func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, q url.Values, w *model.World) *View {
 	if ch == nil {
-		return nil
+		return &View{Status: model.WARNING, Message: "Clickhouse integration is not configured"}
 	}
 
 	parts := strings.Split(q.Get("trace")+"::::", ":")

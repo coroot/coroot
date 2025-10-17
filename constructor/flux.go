@@ -27,6 +27,7 @@ func loadFluxResources(w *model.World, metrics map[string][]*model.MetricValues)
 func loadFluxResourceSets(flux *model.Flux, metrics map[string][]*model.MetricValues) {
 	for _, m := range metrics["fluxcd_resourceset_info"] {
 		id := model.ApplicationId{
+			ClusterId: "_",
 			Namespace: m.Labels["namespace"],
 			Kind:      model.ApplicationKindFluxResourceSet,
 			Name:      m.Labels["name"],
@@ -46,6 +47,7 @@ func loadFluxResourceSets(flux *model.Flux, metrics map[string][]*model.MetricVa
 
 	for _, m := range metrics["fluxcd_resourceset_dependency_info"] {
 		id := model.ApplicationId{
+			ClusterId: "_",
 			Namespace: m.Labels["namespace"],
 			Kind:      model.ApplicationKindFluxResourceSet,
 			Name:      m.Labels["name"],
@@ -55,6 +57,7 @@ func loadFluxResourceSets(flux *model.Flux, metrics map[string][]*model.MetricVa
 			continue
 		}
 		depId := model.ApplicationId{
+			ClusterId: "_",
 			Namespace: m.Labels["depends_on_namespace"],
 			Name:      m.Labels["depends_on_name"],
 			Kind:      model.ApplicationKind(m.Labels["depends_on_kind"]),

@@ -11,7 +11,7 @@ import (
 
 func (a *appAuditor) slo() {
 	report := a.addReport(model.AuditReportSLO)
-	sloRequestsChart(a.app, report, a.clickHouseEnabled)
+	sloRequestsChart(a.app, report)
 	availability(a.w, a.app, report)
 	latency(a.w, a.app, report)
 	clientRequests(a.app, report)
@@ -74,7 +74,7 @@ func lastIncident(app *model.Application) *model.ApplicationIncident {
 	return app.Incidents[len(app.Incidents)-1]
 }
 
-func sloRequestsChart(app *model.Application, report *model.AuditReport, clickHouseEnabled bool) {
+func sloRequestsChart(app *model.Application, report *model.AuditReport) {
 	hm := report.GetOrCreateHeatmap("Latency & Errors heatmap, requests per second")
 	if hm == nil {
 		return
@@ -108,12 +108,6 @@ func sloRequestsChart(app *model.Application, report *model.AuditReport, clickHo
 			}
 			hm.AddSeries("errors", "errors", failed, "", "err")
 		}
-	}
-	if clickHouseEnabled {
-		hm.DrillDownLink = model.NewRouterLink("tracing", "overview").
-			SetParam("view", "applications").
-			SetParam("id", app.Id).
-			SetParam("report", model.AuditReportTracing)
 	}
 }
 

@@ -1,14 +1,15 @@
 package constructor
 
 import (
+	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"k8s.io/klog"
 )
 
-func (c *Constructor) loadApplicationTraffic(w *model.World, metrics map[string][]*model.MetricValues) {
+func (c *Constructor) loadApplicationTraffic(w *model.World, metrics map[string][]*model.MetricValues, project *db.Project) {
 	for _, mv := range metrics[qRecordingRuleApplicationTraffic] {
-		appId, err := model.NewApplicationIdFromString(mv.Labels["app"])
+		appId, err := model.NewApplicationIdFromString(mv.Labels["app"], project.ClusterId())
 		if err != nil {
 			klog.Warningln(err)
 			continue

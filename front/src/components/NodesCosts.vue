@@ -16,19 +16,15 @@
             class="table"
             mobile-breakpoint="0"
             item-key="name"
-            :headers="[
-                { value: 'name', text: 'Node', align: 'center' },
-                { value: 'fake', text: '', align: 'end', sortable: false },
-                { value: 'cpu_usage', text: 'CPU', align: 'center', width: '25%' },
-                { value: 'memory_usage', text: 'Memory', align: 'center', width: '25%' },
-                { value: 'price', text: 'Price', align: 'end' },
-                { value: 'idle_costs', text: 'Idle cost', align: 'end', class: 'text-no-wrap' },
-            ]"
+            :headers="headers"
             :footer-props="{ itemsPerPageOptions: [10, 20, 50, 100, -1] }"
         >
             <template #item.name="{ item }">
                 <router-link :to="{ name: 'overview', params: { view: 'nodes', id: item.name } }" class="name">{{ item.name }}</router-link>
                 <div v-if="$vuetify.breakpoint.mdAndUp" class="caption grey--text name">{{ item.description }}</div>
+            </template>
+            <template #item.cluster="{ item }">
+                {{ item.cluster }}
             </template>
             <template #item.fake="{}">
                 <div class="caption grey--text">usage:</div>
@@ -75,6 +71,21 @@ export default {
     components: { NodeUsageBar },
 
     computed: {
+        headers() {
+            let headers = [
+                { value: 'name', text: 'Node', align: 'center' },
+                { value: 'cluster', text: 'Cluster', align: 'center' },
+                { value: 'fake', text: '', align: 'end', sortable: false },
+                { value: 'cpu_usage', text: 'CPU', align: 'center', width: '25%' },
+                { value: 'memory_usage', text: 'Memory', align: 'center', width: '25%' },
+                { value: 'price', text: 'Price', align: 'end' },
+                { value: 'idle_costs', text: 'Idle cost', align: 'end', class: 'text-no-wrap' },
+            ];
+            if (!this.$api.context.multicluster) {
+                return headers.filter((h) => h.value !== 'cluster');
+            }
+            return headers;
+        },
         total() {
             const res = { price: 0, idle_costs: 0, cross_az_traffic_costs: 0, internet_egress_costs: 0 };
             this.nodes.forEach((n) => {

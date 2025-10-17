@@ -4,24 +4,25 @@ import (
 	"net"
 	"strings"
 
+	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 	"k8s.io/klog"
 )
 
-func (c *Constructor) loadAppToAppConnections(w *model.World, metrics map[string][]*model.MetricValues, fqdn2ip map[string]*utils.StringSet) {
+func (c *Constructor) loadAppToAppConnections(w *model.World, metrics map[string][]*model.MetricValues, fqdn2ip map[string]*utils.StringSet, project *db.Project) {
 	for queryName := range metrics {
 		if !strings.HasPrefix(queryName, "rr_connection") || strings.HasSuffix(queryName, "_raw") {
 			continue
 		}
 		for _, mv := range metrics[queryName] {
-			appId, err := model.NewApplicationIdFromString(mv.Labels["app"])
+			appId, err := model.NewApplicationIdFromString(mv.Labels["app"], project.ClusterId())
 			if err != nil {
 				klog.Warningln(err)
 				continue
 			}
-			destId, err := model.NewApplicationIdFromString(mv.Labels["dest"])
+			destId, err := model.NewApplicationIdFromString(mv.Labels["dest"], project.ClusterId())
 			if err != nil {
 				klog.Warningln(err)
 				continue
@@ -39,12 +40,16 @@ func (c *Constructor) loadAppToAppConnections(w *model.World, metrics map[string
 							}
 						}
 					}
+					if len(dest.Instances) == 0 {
+						dest.GetOrCreateInstance(destId.Name, nil)
+					}
 				}
 				conn = &model.AppToAppConnection{
 					Application:       app,
 					RemoteApplication: dest,
 					RequestsCount:     map[model.Protocol]map[string]*timeseries.TimeSeries{},
 					RequestsLatency:   map[model.Protocol]*timeseries.TimeSeries{},
+					Endpoints:         utils.NewStringSet(),
 				}
 				app.Upstreams[destId] = conn
 				dest.Downstreams[appId] = conn
@@ -80,6 +85,9 @@ func (c *Constructor) loadAppToAppConnections(w *model.World, metrics map[string
 				}
 				status := mv.Labels["status"]
 				conn.RequestsCount[proto][status] = merge(conn.RequestsCount[proto][status], mv.Values, timeseries.NanSum)
+			case qRecordingRuleApplicationExternalEndpoint:
+				conn.Endpoints.Add(mv.ActualDestination)
+				conn.RemoteApplication.GetOrCreateInstance(mv.ActualDestination, nil)
 			}
 		}
 	}

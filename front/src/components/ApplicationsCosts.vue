@@ -122,20 +122,16 @@
             :items-per-page="20"
             :items="filteredApplications"
             item-key="id"
-            :headers="[
-                { value: 'name', text: 'Application', align: 'center' },
-                { value: 'usage_costs', text: 'Usage costs', align: 'end', filterable: false },
-                { value: 'allocation_costs', text: 'Allocation costs', align: 'end', filterable: false },
-                { value: 'over_provisioning_costs', text: 'Overprovisioning costs', align: 'end', filterable: false },
-                { value: 'cross_az_traffic_costs', text: 'Cross-AZ traffic', align: 'end', filterable: false },
-                { value: 'internet_egress_costs', text: 'Internet egress traffic', align: 'end', filterable: false },
-            ]"
+            :headers="headers"
             :footer-props="{ itemsPerPageOptions: [10, 20, 50, 100, -1] }"
             :search="search"
             :custom-filter="searchApplication"
         >
             <template #item.name="{ item }">
                 <a class="name" @click="application = item">{{ $utils.appId(item.id).name }}</a>
+            </template>
+            <template #item.cluster="{ item }">
+                <span class="cluster">{{ item.cluster }}</span>
             </template>
             <template #item.usage_costs="{ item }"> ${{ item.usage_costs.toFixed(2) }}<span class="caption grey--text">/mo</span> </template>
             <template #item.allocation_costs="{ item }">
@@ -259,6 +255,21 @@ export default {
     },
 
     computed: {
+        headers() {
+            let headers = [
+                { value: 'name', text: 'Application', align: 'center' },
+                { value: 'cluster', text: 'Cluster', align: 'left' },
+                { value: 'usage_costs', text: 'Usage costs', align: 'end', filterable: false },
+                { value: 'allocation_costs', text: 'Allocation costs', align: 'end', filterable: false },
+                { value: 'over_provisioning_costs', text: 'Overprovisioning costs', align: 'end', filterable: false },
+                { value: 'cross_az_traffic_costs', text: 'Cross-AZ traffic', align: 'end', filterable: false },
+                { value: 'internet_egress_costs', text: 'Internet egress traffic', align: 'end', filterable: false },
+            ];
+            if (!this.$api.context.multicluster) {
+                return headers.filter((h) => h.value !== 'cluster');
+            }
+            return headers;
+        },
         categories() {
             const cs = new Map();
             this.applications.forEach((a) => {
@@ -363,6 +374,15 @@ export default {
     text-overflow: ellipsis;
     text-align: left;
 }
+.table .cluster {
+    display: block;
+    max-width: 20ch;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: left;
+}
+
 .table:deep(.v-data-footer) {
     border-top: none;
     flex-wrap: nowrap;
