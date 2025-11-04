@@ -15,7 +15,7 @@
         </template>
 
         <template v-if="view === 'nodes'">
-            <Node v-if="id" :name="id" />
+            <Node v-if="id" :id="id" />
             <Nodes v-else />
         </template>
 

@@ -19,7 +19,7 @@ import NoData from '../components/NoData';
 
 export default {
     props: {
-        name: String,
+        id: String,
     },
 
     components: { Views, Dashboard, NoData },
@@ -30,6 +30,12 @@ export default {
             loading: false,
             error: '',
         };
+    },
+
+    computed: {
+        name() {
+            return this.$utils.nodeId(this.id).name;
+        },
     },
 
     mounted() {

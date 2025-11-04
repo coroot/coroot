@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/coroot/coroot/timeseries"
+	"github.com/coroot/coroot/utils"
 )
 
 type Protocol string
@@ -62,6 +63,8 @@ type AppToAppConnection struct {
 
 	RequestsCount   map[Protocol]map[string]*timeseries.TimeSeries // by status
 	RequestsLatency map[Protocol]*timeseries.TimeSeries
+
+	Endpoints *utils.StringSet // destination IP:PORT pairs used for connections to external services, allowing Coroot to identify the actual service in multi-cluster mode
 }
 
 type Connection struct {

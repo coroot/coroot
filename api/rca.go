@@ -46,6 +46,14 @@ func (api *Api) RCA(w http.ResponseWriter, r *http.Request, u *db.User) {
 		rca.Error = err.Error()
 		return
 	}
+
+	if project.Multicluster() {
+		klog.Errorln("RCA is not supported for multi-cluster projects")
+		rca.Status = "Failed"
+		rca.Error = "RCA is not supported for multi-cluster projects"
+		return
+	}
+
 	appId, err := GetApplicationId(r)
 	if err != nil {
 		klog.Errorln(err)
@@ -108,8 +116,8 @@ func (api *Api) RCA(w http.ResponseWriter, r *http.Request, u *db.User) {
 		return
 	}
 
-	ctr := constructor.New(api.db, project, cacheClient, api.pricing)
-	if rcaRequest.Metrics, err = ctr.QueryCache(r.Context(), rcaRequest.Ctx.From, rcaRequest.Ctx.To, rcaRequest.Ctx.Step); err != nil {
+	ctr := constructor.New(api.db, project, map[db.ProjectId]constructor.Cache{project.Id: cacheClient}, api.pricing)
+	if rcaRequest.Metrics, err = ctr.QueryCache(r.Context(), cacheClient, project, rcaRequest.Ctx.From, rcaRequest.Ctx.To, rcaRequest.Ctx.Step); err != nil {
 		klog.Errorln(err)
 		rca.Status = "Failed"
 		rca.Error = err.Error()
@@ -117,7 +125,7 @@ func (api *Api) RCA(w http.ResponseWriter, r *http.Request, u *db.User) {
 	}
 
 	var ch *clickhouse.Client
-	if ch, err = api.GetClickhouseClient(project); err != nil {
+	if ch, err = api.GetClickhouseClient(project, ""); err != nil {
 		klog.Errorln(err)
 	}
 	if ch != nil {
@@ -184,6 +192,13 @@ func (api *Api) IncidentRCA(ctx context.Context, project *db.Project, world *mod
 		}
 	}
 
+	if project.Multicluster() {
+		klog.Errorln("RCA is not supported for mult-cluster projects")
+		rca.Status = "Failed"
+		rca.Error = "RCA is not supported for mult-cluster projects"
+		return
+	}
+
 	app := world.GetApplication(incident.ApplicationId)
 	if app == nil {
 		klog.Errorln("application not found")
@@ -211,8 +226,8 @@ func (api *Api) IncidentRCA(ctx context.Context, project *db.Project, world *mod
 	}
 
 	cacheClient := api.cache.GetCacheClient(project.Id)
-	ctr := constructor.New(api.db, project, cacheClient, api.pricing)
-	if rcaRequest.Metrics, err = ctr.QueryCache(ctx, rcaRequest.Ctx.From, rcaRequest.Ctx.To, rcaRequest.Ctx.Step); err != nil {
+	ctr := constructor.New(api.db, project, map[db.ProjectId]constructor.Cache{project.Id: cacheClient}, api.pricing)
+	if rcaRequest.Metrics, err = ctr.QueryCache(ctx, cacheClient, project, rcaRequest.Ctx.From, rcaRequest.Ctx.To, rcaRequest.Ctx.Step); err != nil {
 		klog.Errorln(err)
 		rca.Status = "Failed"
 		rca.Error = err.Error()
@@ -220,7 +235,7 @@ func (api *Api) IncidentRCA(ctx context.Context, project *db.Project, world *mod
 	}
 
 	var ch *clickhouse.Client
-	if ch, err = api.GetClickhouseClient(project); err != nil {
+	if ch, err = api.GetClickhouseClient(project, ""); err != nil {
 		klog.Errorln(err)
 	}
 	if ch != nil {

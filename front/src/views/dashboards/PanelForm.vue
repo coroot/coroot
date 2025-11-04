@@ -43,8 +43,24 @@
 
                 <div v-for="(_, i) in config.source.metrics.queries" class="mb-6">
                     <div class="subtitle-1 mt-2">Query #{{ i + 1 }}</div>
+
+                    <div v-if="$api.context.multicluster" class="mb-3">
+                        <div class="subtitle-1">Data Source</div>
+                        <div class="caption">Select which cluster/project to query.</div>
+                        <v-select
+                            v-model="config.source.metrics.queries[i].datasource"
+                            :items="datasources"
+                            :rules="[$validators.notEmpty]"
+                            outlined
+                            dense
+                            hide-details
+                            placeholder="Select data source"
+                        />
+                    </div>
+
+                    <div class="subtitle-1 mt-2">PromQL Query</div>
                     <div class="caption">PromQL expression.</div>
-                    <MetricSelector v-model="config.source.metrics.queries[i].query" />
+                    <MetricSelector v-model="config.source.metrics.queries[i].query" :datasource="config.source.metrics.queries[i].datasource" />
 
                     <div class="subtitle-1 mt-2">Legend</div>
                     <div class="caption">
@@ -52,7 +68,7 @@
                     </div>
                     <v-text-field v-model="config.source.metrics.queries[i].legend" outlined dense hide-details />
                 </div>
-                <v-btn color="primary" @click="config.source.metrics.queries.push({ query: '', legend: '', color: '' })">
+                <v-btn color="primary" @click="addQuery()">
                     <v-icon>mdi-plus</v-icon>
                     Add query
                 </v-btn>
@@ -98,7 +114,7 @@ export default {
             panel.config = {
                 name: '',
                 description: '',
-                source: { metrics: { queries: [{ query: '', legend: '', color: '' }] } },
+                source: { metrics: { queries: [{ query: '', legend: '', color: '', datasource: '' }] } },
                 widget: { chart: {} },
             };
         }
@@ -113,6 +129,12 @@ export default {
         };
     },
 
+    mounted() {
+        if (this.panel.config.source.metrics.queries[0].datasource === '' && this.$api.context.multicluster && this.datasources.length > 0) {
+            this.panel.config.source.metrics.queries[0].datasource = this.datasources[0];
+        }
+    },
+
     watch: {
         dialog(v) {
             !v && this.$emit('input', null);
@@ -120,6 +142,9 @@ export default {
     },
 
     computed: {
+        datasources() {
+            return this.$api.context.member_projects;
+        },
         groups_() {
             const groups = this.groups.map((g) => ({ value: g, text: g }));
             if (!this.search || this.groups.includes(this.search)) {
@@ -133,6 +158,14 @@ export default {
     },
 
     methods: {
+        addQuery() {
+            const newQuery = { query: '', legend: '', color: '', datasource: '' };
+            if (this.$api.context.multicluster && this.datasources.length > 0) {
+                newQuery.datasource = this.datasources[0];
+            }
+            this.config.source.metrics.queries.push(newQuery);
+        },
+
         apply() {
             this.dialog = false;
             this.$emit(this.action, JSON.parse(JSON.stringify(this.panel)));

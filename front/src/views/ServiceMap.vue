@@ -28,7 +28,12 @@
                             </div>
                             <AppIcon :icon="a.icon" />
                         </div>
-                        <Labels v-if="!hideLabels" :labels="a.labels" class="d-none d-sm-block label" />
+                        <Labels
+                            :labels="a.labels"
+                            :cluster="$api.context.multicluster ? a.cluster : ''"
+                            :hideLabels="hideLabels"
+                            class="d-none d-sm-block label"
+                        />
                     </div>
                 </div>
             </div>

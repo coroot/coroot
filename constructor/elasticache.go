@@ -3,11 +3,12 @@ package constructor
 import (
 	"strings"
 
+	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 )
 
-func loadElasticacheMetadata(w *model.World, metrics map[string][]*model.MetricValues, pjs promJobStatuses, ecInstancesById map[string]*model.Instance) {
+func (c *Constructor) loadElasticacheMetadata(w *model.World, metrics map[string][]*model.MetricValues, pjs promJobStatuses, ecInstancesById map[string]*model.Instance, project *db.Project) {
 	for _, m := range metrics["aws_elasticache_info"] {
 		ecId := m.Labels["ec_instance_id"]
 		if ecId == "" {
@@ -20,7 +21,7 @@ func loadElasticacheMetadata(w *model.World, metrics map[string][]*model.MetricV
 			if len(instanceParts) != 3 {
 				continue
 			}
-			appId = model.NewApplicationId("", model.ApplicationKindElasticacheCluster, m.Labels["cluster_id"])
+			appId = c.newApplicationId(project.ClusterId(), "", model.ApplicationKindElasticacheCluster, m.Labels["cluster_id"])
 			instanceName := instanceParts[1] + "-" + instanceParts[2]
 			instance = w.GetOrCreateApplication(appId, false).GetOrCreateInstance(instanceName, nil)
 			ecInstancesById[ecId] = instance
@@ -28,7 +29,7 @@ func loadElasticacheMetadata(w *model.World, metrics map[string][]*model.MetricV
 		}
 		if instance.Node == nil {
 			name := "elasticache:" + instance.Name
-			instance.Node = model.NewNode(model.NewNodeId(name, name))
+			instance.Node = model.NewNode(string(project.Id), model.NewNodeId(name, name))
 			instance.Node.Name.Update(m.Values, name)
 			instance.Node.Instances = append(instance.Node.Instances, instance)
 			w.Nodes = append(w.Nodes, instance.Node)

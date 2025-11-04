@@ -12,6 +12,7 @@ import (
 type Risk struct {
 	Key                 model.RiskKey             `json:"key"`
 	ApplicationId       model.ApplicationId       `json:"application_id"`
+	Cluster             string                    `json:"cluster"`
 	ApplicationCategory model.ApplicationCategory `json:"application_category"`
 	ApplicationType     *ApplicationType          `json:"application_type"`
 	Severity            model.Status              `json:"severity"`
@@ -98,6 +99,7 @@ func availabilityRisks(w *model.World) []*Risk {
 		case app.IsStandalone():
 		case availableInstances == 1 && len(w.Nodes) > 1:
 			res = append(res, availabilityRisk(
+				w,
 				app,
 				dismissals,
 				model.WARNING,
@@ -106,6 +108,7 @@ func availabilityRisks(w *model.World) []*Risk {
 			))
 		case appNodes.Len() == 1 && len(w.Nodes) > 1:
 			res = append(res, availabilityRisk(
+				w,
 				app,
 				dismissals,
 				model.WARNING,
@@ -114,6 +117,7 @@ func availabilityRisks(w *model.World) []*Risk {
 			))
 		case appZones.Len() == 1 && zones.Len() > 1:
 			res = append(res, availabilityRisk(
+				w,
 				app,
 				dismissals,
 				model.WARNING,
@@ -122,6 +126,7 @@ func availabilityRisks(w *model.World) []*Risk {
 			))
 		case seenOnDemandNodes && instanceLifeCycles.Len() == 1 && instanceLifeCycles.Items()[0] == "spot":
 			res = append(res, availabilityRisk(
+				w,
 				app,
 				dismissals,
 				model.WARNING,
@@ -160,6 +165,7 @@ func availabilityRisks(w *model.World) []*Risk {
 			}
 			if availableInstancesByAppType[t] > 0 && availableInstancesByAppType[t] < 2 && !replicated {
 				res = append(res, availabilityRisk(
+					w,
 					app,
 					dismissals,
 					model.CRITICAL,
@@ -173,7 +179,7 @@ func availabilityRisks(w *model.World) []*Risk {
 	return res
 }
 
-func availabilityRisk(app *model.Application, dismissals map[model.RiskKey]*model.RiskDismissal, status model.Status, typ model.RiskType, format string, args ...any) *Risk {
+func availabilityRisk(w *model.World, app *model.Application, dismissals map[model.RiskKey]*model.RiskDismissal, status model.Status, typ model.RiskType, format string, args ...any) *Risk {
 	key := model.RiskKey{
 		Category: model.RiskCategoryAvailability,
 		Type:     typ,
@@ -185,6 +191,7 @@ func availabilityRisk(app *model.Application, dismissals map[model.RiskKey]*mode
 	return &Risk{
 		Key:                 key,
 		ApplicationId:       app.Id,
+		Cluster:             w.ClusterName(app.Id.ClusterId),
 		ApplicationCategory: app.Category,
 		ApplicationType:     getApplicationType(app),
 		Severity:            status,
@@ -267,6 +274,7 @@ func dbPortExposures(w *model.World) []*Risk {
 			res = append(res, &Risk{
 				Key:                 key,
 				ApplicationId:       app.Id,
+				Cluster:             w.ClusterName(app.Id.ClusterId),
 				ApplicationCategory: app.Category,
 				ApplicationType:     getApplicationType(app),
 				Severity:            severity,

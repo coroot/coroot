@@ -29,9 +29,18 @@ export default class Utils {
     appId(id) {
         const parts = id.split(':');
         return {
-            ns: parts[0] !== '_' ? parts[0] : '',
-            kind: parts[1],
-            name: parts[3] ? parts[2] + ':' + parts[3] : parts[2],
+            cluster: parts[0],
+            ns: parts[1] !== '_' ? parts[1] : '',
+            kind: parts[2],
+            name: parts[4] ? parts[3] + ':' + parts[4] : parts[3],
+        };
+    }
+
+    nodeId(id) {
+        const parts = id.split(':');
+        return {
+            cluster: parts[0],
+            name: parts[1],
         };
     }
 

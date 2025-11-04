@@ -3,6 +3,7 @@ package clickhouse
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -85,6 +86,8 @@ func (c *Client) GetLogs(ctx context.Context, query LogQuery) ([]*model.LogEntry
 			return nil, err
 		}
 		e.Severity = model.Severity(sev)
+		e.ClusterId = c.project.ClusterId()
+		e.ClusterName = c.project.Name
 		res = append(res, &e)
 	}
 	return res, nil
@@ -96,7 +99,7 @@ func (c *Client) GetLogFilters(ctx context.Context, query LogQuery, name string)
 	var res []string
 	switch name {
 	case "":
-		res = append(res, "Severity", "Message")
+		res = append(res, "Severity", "Message", "Cluster")
 		q = "SELECT DISTINCT arrayJoin(arrayConcat(mapKeys(LogAttributes), mapKeys(ResourceAttributes)))"
 	case "Severity":
 		q = "SELECT DISTINCT multiIf(SeverityNumber=0, 0, intDiv(SeverityNumber, 4)+1)"
@@ -157,6 +160,26 @@ type LogFilter struct {
 	Name  string `json:"name"`
 	Op    string `json:"op"`
 	Value string `json:"value"`
+}
+
+func (lf *LogFilter) Matches(value string) bool {
+	if lf == nil {
+		return true
+	}
+	switch lf.Op {
+	case "=":
+		return value == lf.Value
+	case "!=":
+		return value != lf.Value
+	case "~":
+		m, _ := regexp.MatchString(lf.Value, value)
+		return m
+	case "!~":
+		m, _ := regexp.MatchString(lf.Value, value)
+		return !m
+
+	}
+	return false
 }
 
 func (q LogQuery) filters(attr *string) ([]string, []any) {

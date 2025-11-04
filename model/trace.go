@@ -29,6 +29,7 @@ type TraceSpan struct {
 	ResourceAttributes map[string]string
 	SpanAttributes     map[string]string
 	Events             []TraceSpanEvent
+	ClusterName        string
 }
 
 type TraceSpanEvent struct {
@@ -129,9 +130,14 @@ func (s *TraceSpan) Details() TraceSpanDetails {
 	return res
 }
 
+type TraceSpanKey struct {
+	ServiceName string `json:"service_name"`
+	SpanName    string `json:"span_name"`
+	LabelsHash  uint64 `json:"-"`
+}
+
 type TraceErrorsStat struct {
-	ServiceName   string  `json:"service_name"`
-	SpanName      string  `json:"span_name"`
+	TraceSpanKey
 	Labels        Labels  `json:"labels"`
 	SampleTraceId string  `json:"sample_trace_id"`
 	SampleError   string  `json:"sample_error"`
@@ -156,9 +162,9 @@ type TraceSpanSummary struct {
 }
 
 type TraceSpanStats struct {
-	ServiceName       string    `json:"service_name"`
-	SpanName          string    `json:"span_name"`
-	Total             float32   `json:"total"`
-	Failed            float32   `json:"failed"`
-	DurationQuantiles []float32 `json:"duration_quantiles"`
+	TraceSpanKey
+	Total             float32             `json:"total"`
+	Failed            float32             `json:"failed"`
+	Histogram         map[float32]float32 `json:"-"`
+	DurationQuantiles []float32           `json:"duration_quantiles"`
 }

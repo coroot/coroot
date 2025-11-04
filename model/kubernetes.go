@@ -67,6 +67,8 @@ type Service struct {
 	Type            LabelLastValue
 	EndpointIPs     *utils.StringSet
 	LoadBalancerIPs *utils.StringSet
+	NodePorts       *utils.StringSet
+	Ports           *utils.StringSet
 	DestinationApps map[ApplicationId]*Application
 }
 

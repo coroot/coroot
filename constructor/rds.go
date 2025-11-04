@@ -3,11 +3,12 @@ package constructor
 import (
 	"strings"
 
+	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 )
 
-func loadRdsMetadata(w *model.World, metrics map[string][]*model.MetricValues, pjs promJobStatuses, rdsInstancesById map[string]*model.Instance) {
+func (c *Constructor) loadRdsMetadata(w *model.World, metrics map[string][]*model.MetricValues, pjs promJobStatuses, rdsInstancesById map[string]*model.Instance, project *db.Project) {
 	for _, m := range metrics["aws_rds_info"] {
 		rdsId := m.Labels["rds_instance_id"]
 		if rdsId == "" {
@@ -21,9 +22,9 @@ func loadRdsMetadata(w *model.World, metrics map[string][]*model.MetricValues, p
 				continue
 			}
 			if clusterParts := strings.SplitN(m.Labels["cluster_id"], "/", 2); len(clusterParts) == 2 {
-				id = model.NewApplicationId("", model.ApplicationKindRds, clusterParts[1])
+				id = c.newApplicationId(project.ClusterId(), "", model.ApplicationKindRds, clusterParts[1])
 			} else {
-				id = model.NewApplicationId("", model.ApplicationKindRds, instanceParts[1])
+				id = c.newApplicationId(project.ClusterId(), "", model.ApplicationKindRds, instanceParts[1])
 			}
 			instance = w.GetOrCreateApplication(id, false).GetOrCreateInstance(instanceParts[1], nil)
 			rdsInstancesById[rdsId] = instance
@@ -31,7 +32,7 @@ func loadRdsMetadata(w *model.World, metrics map[string][]*model.MetricValues, p
 		}
 		if instance.Node == nil {
 			name := "rds:" + instance.Name
-			instance.Node = model.NewNode(model.NewNodeId(name, name))
+			instance.Node = model.NewNode(string(project.Id), model.NewNodeId(name, name))
 			instance.Node.Name.Update(m.Values, name)
 			instance.Node.Instances = append(instance.Node.Instances, instance)
 			w.Nodes = append(w.Nodes, instance.Node)

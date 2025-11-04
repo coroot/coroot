@@ -37,6 +37,8 @@ type LogEntry struct {
 	TraceId            string
 	LogAttributes      map[string]string
 	ResourceAttributes map[string]string
+	ClusterId          string
+	ClusterName        string
 }
 
 type LogHistogramBucket struct {

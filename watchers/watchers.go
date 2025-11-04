@@ -12,10 +12,11 @@ import (
 	"github.com/coroot/coroot/constructor"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/timeseries"
+	"golang.org/x/exp/maps"
 	"k8s.io/klog"
 )
 
-func Start(database *db.DB, cache *cache.Cache, pricing *pricing.Manager, incidents *Incidents, checkDeployments bool, globalClickHouse *db.IntegrationClickhouse, spaceManagerCfg config.ClickHouseSpaceManager) {
+func Start(database *db.DB, mcache *cache.Cache, pricing *pricing.Manager, incidents *Incidents, checkDeployments bool, globalClickHouse *db.IntegrationClickhouse, spaceManagerCfg config.ClickHouseSpaceManager) {
 	var deployments *Deployments
 	if checkDeployments {
 		deployments = NewDeployments(database, pricing)
@@ -33,7 +34,7 @@ func Start(database *db.DB, cache *cache.Cache, pricing *pricing.Manager, incide
 
 	// Fast consumer goroutine - just receives and deduplicates
 	go func() {
-		for projectId := range cache.Updates() {
+		for projectId := range mcache.Updates() {
 			pendingLock.Lock()
 			if !pending[projectId] {
 				pending[projectId] = true
@@ -50,22 +51,42 @@ func Start(database *db.DB, cache *cache.Cache, pricing *pricing.Manager, incide
 	}()
 
 	go func() {
-		for projectId := range projectChan {
-			// Remove from pending set
-			pendingLock.Lock()
-			delete(pending, projectId)
-			pendingLock.Unlock()
+		// multi-cluster projects are skipped in the cache updater, so we need to check Incidents and Deployments by a ticker
+		ticker := time.NewTicker(cache.MinRefreshInterval.ToStandard()).C
 
-			if !database.GetPrimaryLock(context.TODO()) {
-				klog.Infoln("not the primary replica: skipping")
-				continue
-			}
+		for {
+			select {
+			case <-ticker:
+				if !database.GetPrimaryLock(context.TODO()) {
+					continue
+				}
+				projects, err := database.GetProjects()
+				if err != nil {
+					klog.Errorln(err)
+				} else {
+					for _, project := range projects {
+						if project.Multicluster() {
+							handleProjectUpdate(database, mcache, pricing, incidents, deployments, project.Id)
+						}
+					}
+				}
+			case projectId := <-projectChan:
+				// Remove from pending set
+				pendingLock.Lock()
+				delete(pending, projectId)
+				pendingLock.Unlock()
 
-			handleProjectUpdate(database, cache, pricing, incidents, deployments, projectId)
+				if !database.GetPrimaryLock(context.TODO()) {
+					klog.Infoln("not the primary replica: skipping")
+					continue
+				}
 
-			if time.Since(lastSpaceManagerRun) >= time.Hour {
-				lastSpaceManagerRun = time.Now()
-				runSpaceManagerOnce(spaceManagerCfg, database, globalClickHouse)
+				handleProjectUpdate(database, mcache, pricing, incidents, deployments, projectId)
+
+				if time.Since(lastSpaceManagerRun) >= time.Hour {
+					lastSpaceManagerRun = time.Now()
+					runSpaceManagerOnce(spaceManagerCfg, database, globalClickHouse)
+				}
 			}
 		}
 	}()
@@ -79,24 +100,72 @@ func handleProjectUpdate(database *db.DB, cache *cache.Cache, pricing *pricing.M
 		return
 	}
 
-	cacheClient := cache.GetCacheClient(project.Id)
-	cacheTo, err := cacheClient.GetTo()
-	if err != nil {
-		klog.Errorln(err)
-		return
+	cacheClients := map[db.ProjectId]constructor.Cache{}
+
+	var (
+		step     timeseries.Duration
+		from, to timeseries.Time
+	)
+
+	if !project.Multicluster() {
+		cacheClient := cache.GetCacheClient(project.Id)
+		cacheTo, err := cacheClient.GetTo()
+		if err != nil {
+			klog.Errorln(err)
+			return
+		}
+		if cacheTo.IsZero() {
+			return
+		}
+		to = cacheTo
+		from = to.Add(-timeseries.Hour)
+		st, err := cacheClient.GetStep(from, to)
+		if err != nil {
+			klog.Errorln(err)
+			return
+		}
+		if st > step {
+			step = st
+		}
+		cacheClients[project.Id] = cacheClient
+	} else {
+		projects, err := database.GetProjects()
+		if err != nil {
+			klog.Errorln(err)
+			return
+		}
+		for _, mp := range project.Settings.MemberProjects {
+			p := projects[mp]
+			if p == nil {
+				klog.Warningln("member project not found:", mp)
+				return
+			}
+			cacheClient := cache.GetCacheClient(p.Id)
+			cacheTo, err := cacheClient.GetTo()
+			if err != nil {
+				klog.Errorln(err)
+				return
+			}
+			if cacheTo.IsZero() || cacheTo.Before(from) {
+				return
+			}
+			st, err := cacheClient.GetStep(from, to)
+			if err != nil {
+				klog.Errorln(err)
+				return
+			}
+			if st > step {
+				step = st
+			}
+			if to.IsZero() || cacheTo.Before(to) {
+				to = cacheTo
+				from = to.Add(-timeseries.Hour)
+			}
+			cacheClients[p.Id] = cacheClient
+		}
 	}
-	if cacheTo.IsZero() {
-		return
-	}
-	to := cacheTo
-	from := to.Add(-timeseries.Hour)
-	step, err := cacheClient.GetStep(from, to)
-	if err != nil {
-		klog.Errorln(err)
-		return
-	}
-	cacheClient.GetStatus()
-	ctr := constructor.New(database, project, cacheClient, pricing)
+
+	ctr := constructor.New(database, project, cacheClients, pricing)
 	world, err := ctr.LoadWorld(context.TODO(), from, to, step, nil)
 	if err != nil {
 		klog.Errorln("failed to load world:", err)
@@ -135,7 +204,7 @@ func runSpaceManagerOnce(cfg config.ClickHouseSpaceManager, database *db.DB, glo
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	if err := clickhouse.RunSpaceManagerForProjects(ctx, cfg, projects, globalClickHouse); err != nil {
+	if err := clickhouse.RunSpaceManagerForProjects(ctx, cfg, maps.Values(projects), globalClickHouse); err != nil {
 		klog.Errorf("clickhouse space manager: failed: %v", err)
 	}
 }

@@ -48,15 +48,23 @@ export default {
         value: String,
         rules: Array,
         wrap: String,
+        datasource: String,
     },
 
-    view: null,
+    data() {
+        return {
+            view: null,
+        };
+    },
 
     watch: {
         value() {
             if (this.value !== this.view.state.doc.toString()) {
                 this.view.dispatch({ changes: { from: 0, to: this.view.state.doc.length, insert: this.value } });
             }
+        },
+        datasource() {
+            this.createView();
         },
     },
 
@@ -74,37 +82,7 @@ export default {
     },
 
     mounted() {
-        const enterKeymap = {
-            key: 'Enter',
-            run: (view) => {
-                this.apply(view);
-                return true;
-            },
-        };
-        const promConf = {
-            remote: {
-                apiPrefix: this.$api.prom() + '/api/v1',
-            },
-        };
-        const promQL = new PromQLExtension().setComplete(promConf);
-        this.view = new EditorView({
-            state: EditorState.create({
-                doc: this.value,
-                extensions: [
-                    closeBrackets(),
-                    autocompletion(),
-                    keymap.of([enterKeymap, ...closeBracketsKeymap, ...completionKeymap]),
-                    EditorView.theme(themeSpec, { dark: this.$vuetify.theme.dark }),
-                    promQL.asExtension(),
-                    EditorView.updateListener.of((update) => {
-                        if (update.focusChanged) {
-                            this.apply(update);
-                        }
-                    }),
-                ],
-            }),
-            parent: this.$refs.cm,
-        });
+        this.createView();
     },
 
     beforeDestroy() {
@@ -112,6 +90,43 @@ export default {
     },
 
     methods: {
+        createView() {
+            if (this.view) {
+                this.view.destroy();
+            }
+            const enterKeymap = {
+                key: 'Enter',
+                run: (view) => {
+                    this.apply(view);
+                    return true;
+                },
+            };
+            const promConf = {
+                remote: {
+                    apiPrefix: this.$api.prom() + '/api/v1',
+                    requestHeaders: new Headers({ 'X-Datasource': this.datasource }),
+                },
+            };
+            const promQL = new PromQLExtension().setComplete(promConf);
+            this.view = new EditorView({
+                state: EditorState.create({
+                    doc: this.value,
+                    extensions: [
+                        closeBrackets(),
+                        autocompletion(),
+                        keymap.of([enterKeymap, ...closeBracketsKeymap, ...completionKeymap]),
+                        EditorView.theme(themeSpec, { dark: this.$vuetify.theme.dark }),
+                        promQL.asExtension(),
+                        EditorView.updateListener.of((update) => {
+                            if (update.focusChanged) {
+                                this.apply(update);
+                            }
+                        }),
+                    ],
+                }),
+                parent: this.$refs.cm,
+            });
+        },
         focus() {
             this.view && this.view.focus();
         },

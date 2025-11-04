@@ -30,6 +30,24 @@ func NewFlux() *Flux {
 	}
 }
 
+func (f *Flux) Merge(other *Flux) {
+	for appId, v := range other.Repositories {
+		f.Repositories[appId] = v
+	}
+	for appId, v := range other.HelmCharts {
+		f.HelmCharts[appId] = v
+	}
+	for appId, v := range other.HelmReleases {
+		f.HelmReleases[appId] = v
+	}
+	for appId, v := range other.Kustomizations {
+		f.Kustomizations[appId] = v
+	}
+	for appId, v := range other.ResourceSets {
+		f.ResourceSets[appId] = v
+	}
+}
+
 type FluxStatus struct {
 	Status Status
 	Reason LabelLastValue

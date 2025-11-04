@@ -117,3 +117,20 @@ export function formatBytes(bytes) {
     const value = bytes / Math.pow(k, i);
     return value.toFixed(1) + sizes[i];
 }
+
+export function formatBandwidth(bps) {
+    if (bps === 0) {
+        return '0bps';
+    }
+
+    const k = 1000;
+    const sizes = ['bps', 'Kbps', 'Mbps', 'Gbps', 'Tbps'];
+    const i = Math.floor(Math.log(bps) / Math.log(k));
+
+    if (i === 0) {
+        return bps + 'bps';
+    }
+
+    const value = bps / Math.pow(k, i);
+    return value.toFixed(1) + sizes[i];
+}

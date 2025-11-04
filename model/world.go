@@ -28,13 +28,16 @@ type World struct {
 	AWS AWS
 
 	IntegrationStatus IntegrationStatus
+
+	ProjectNamesById map[string]string
 }
 
 func NewWorld(from, to timeseries.Time, step, rawStep timeseries.Duration) *World {
 	return &World{
-		Ctx:          timeseries.Context{From: from, To: to, Step: step, RawStep: rawStep},
-		Applications: map[ApplicationId]*Application{},
-		AWS:          AWS{DiscoveryErrors: map[string]bool{}},
+		Ctx:              timeseries.Context{From: from, To: to, Step: step, RawStep: rawStep},
+		Applications:     map[ApplicationId]*Application{},
+		AWS:              AWS{DiscoveryErrors: map[string]bool{}},
+		ProjectNamesById: map[string]string{},
 	}
 }
 
@@ -78,4 +81,12 @@ func (w *World) GetCorootComponents() []*Application {
 		}
 	}
 	return maps.Values(components)
+}
+
+func (w *World) ClusterName(clusterId string) string {
+	name := w.ProjectNamesById[clusterId]
+	if name == "" {
+		name = clusterId
+	}
+	return name
 }

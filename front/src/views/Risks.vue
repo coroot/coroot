@@ -27,13 +27,7 @@
             must-sort
             no-data-text="No risks found"
             ref="table"
-            :headers="[
-                { value: 'application_id', text: 'Application', sortable: false },
-                { value: 'application_type', text: 'Application type', sortable: false },
-                { value: 'severity', text: 'Risk category', sortable: false },
-                { value: 'description', text: 'Description', sortable: false },
-                { value: 'actions', text: '', sortable: false, align: 'end', width: '20px' },
-            ]"
+            :headers="headers"
             :footer-props="{ itemsPerPageOptions: [10, 20, 50, 100, -1] }"
         >
             <template #item.application_id="{ item }">
@@ -43,6 +37,12 @@
                             {{ $utils.appId(item.application_id).name }}
                         </router-link>
                     </div>
+                </div>
+            </template>
+
+            <template #item.cluster="{ item }">
+                <div class="cluster">
+                    {{ item.cluster }}
                 </div>
             </template>
 
@@ -191,6 +191,20 @@ export default {
     },
 
     computed: {
+        headers() {
+            let headers = [
+                { value: 'application_id', text: 'Application', sortable: true },
+                { value: 'cluster', text: 'Cluster', sortable: true },
+                { value: 'application_type', text: 'Application type', sortable: false },
+                { value: 'severity', text: 'Risk category', sortable: false },
+                { value: 'description', text: 'Description', sortable: true },
+                { value: 'actions', text: '', sortable: false, align: 'end', width: '20px' },
+            ];
+            if (!this.$api.context.multicluster) {
+                return headers.filter((h) => h.value !== 'cluster');
+            }
+            return headers;
+        },
         applications() {
             if (!this.risks) {
                 return [];
@@ -290,6 +304,13 @@ export default {
 }
 .table .application .name {
     max-width: 30ch;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.table .cluster {
+    max-width: 20ch;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;

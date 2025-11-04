@@ -28,7 +28,7 @@ func NewIncidents(db *db.DB, rca IncidentRCA) *Incidents {
 func (w *Incidents) Check(project *db.Project, world *model.World) {
 	start := time.Now()
 
-	auditor.Audit(world, project, nil, false, nil)
+	auditor.Audit(world, project, nil, nil)
 
 	var apps int
 
@@ -104,7 +104,7 @@ func (w *Incidents) Check(project *db.Project, world *model.World) {
 			if status == model.OK {
 				incident.ResolvedAt = now
 				incident.Severity = model.OK
-				if err = w.db.ResolveIncident(project.Id, app.Id, incident); err != nil {
+				if err = w.db.ResolveIncident(project.Id, incident); err != nil {
 					klog.Errorln(err)
 					continue
 				}
@@ -115,7 +115,7 @@ func (w *Incidents) Check(project *db.Project, world *model.World) {
 				incident.Details.LatencyBurnRates = details.LatencyBurnRates
 				incident.Details.AvailabilityImpact.AffectedRequestPercentage = calcImpact(incident.OpenedAt, aBadF, aTotalF)
 				incident.Details.LatencyImpact.AffectedRequestPercentage = calcImpact(incident.OpenedAt, lBadF, lTotalF)
-				if err = w.db.UpdateIncident(project.Id, app.Id, incident.Key, incident.Severity, incident.Details); err != nil {
+				if err = w.db.UpdateIncident(project.Id, incident.Key, incident.Severity, incident.Details); err != nil {
 					klog.Errorln(err)
 					continue
 				}

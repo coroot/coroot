@@ -2,6 +2,7 @@ package constructor
 
 import (
 	"fmt"
+	"net"
 	"slices"
 	"strconv"
 	"strings"
@@ -34,6 +35,7 @@ const (
 	qRecordingRuleApplicationL7Histogram        = "rr_application_l7_histogram"
 	qRecordingRuleApplicationCategories         = "rr_application_categories"
 	qRecordingRuleApplicationSLO                = "rr_application_slo"
+	qRecordingRuleApplicationExternalEndpoint   = "rr_connection_external_endpoints"
 )
 
 var applicationAnnotations = maps.Keys(model.ApplicationAnnotationLabels)
@@ -50,6 +52,7 @@ var qConnectionAggregations = []string{
 	qRecordingRuleApplicationL7Requests,
 	qRecordingRuleApplicationL7Latency,
 	qRecordingRuleApplicationTraffic,
+	qRecordingRuleApplicationExternalEndpoint,
 }
 
 var (
@@ -125,8 +128,8 @@ var QUERIES = []Query{
 
 	Q("node_info", `node_info`, "hostname", "kernel_version"),
 	Q("node_cloud_info", `node_cloud_info`, "provider", "region", "availability_zone", "instance_type", "instance_life_cycle"),
-	Q("node_uptime_seconds", `node_uptime_second`),
-	Q("node_cpu_cores", `node_resources_cpu_logical_cores`, ""),
+	Q("node_uptime_seconds", `node_uptime_seconds`),
+	Q("node_cpu_cores", `node_resources_cpu_logical_cores`),
 	Q("node_cpu_usage_percent", `sum(rate(node_resources_cpu_usage_seconds_total{mode!="idle"}[$RANGE])) without(mode) /sum(rate(node_resources_cpu_usage_seconds_total[$RANGE])) without(mode)*100`),
 	Q("node_cpu_usage_by_mode", `rate(node_resources_cpu_usage_seconds_total{mode!="idle"}[$RANGE]) / ignoring(mode) group_left sum(rate(node_resources_cpu_usage_seconds_total[$RANGE])) without(mode)*100`, "mode"),
 	Q("node_memory_total_bytes", `node_resources_memory_total_bytes`),
@@ -169,6 +172,7 @@ var QUERIES = []Query{
 
 	Q("kube_node_info", `kube_node_info`, "node", "kernel_version"),
 	Q("kube_service_info", `kube_service_info`, "namespace", "service", "cluster_ip"),
+	Q("kube_service_port", `kube_service_port`, "namespace", "service", "port", "node_port"),
 	Q("kube_service_spec_type", `kube_service_spec_type`, "namespace", "service", "type"),
 	Q("kube_endpoint_address", `kube_endpoint_address`, "namespace", "endpoint", "ip"),
 	Q("kube_service_status_load_balancer_ingress", `kube_service_status_load_balancer_ingress`, "namespace", "service", "ip"),
@@ -641,6 +645,43 @@ var RecordingRules = map[string]func(db *db.DB, p *db.Project, w *model.World) [
 			updateLatencySLOFromAnnotations(database, p, w, app)
 		}
 		return nil
+	},
+	qRecordingRuleApplicationExternalEndpoint: func(db *db.DB, p *db.Project, w *model.World) []*model.MetricValues {
+		var res []*model.MetricValues
+		if w.Ctx.PointsCount() < 1 {
+			return res
+		}
+		values := make([]float32, w.Ctx.PointsCount())
+		for i := range values {
+			values[i] = 1
+		}
+		ts := timeseries.NewWithData(w.Ctx.From, w.Ctx.Step, values)
+		for _, app := range w.Applications {
+			byDest := map[model.ApplicationId]*utils.StringSet{}
+			for _, instance := range app.Instances {
+				for _, u := range instance.Upstreams {
+					dest := u.RemoteApplication()
+					if dest == nil || dest.Id.Kind != model.ApplicationKindExternalService {
+						continue
+					}
+
+					endpoints := byDest[dest.Id]
+					if endpoints == nil {
+						endpoints = utils.NewStringSet()
+						byDest[dest.Id] = endpoints
+					}
+					endpoints.Add(net.JoinHostPort(u.ActualRemoteIP, u.ActualRemotePort))
+				}
+			}
+			appId := app.Id.String()
+			for destId, endpoints := range byDest {
+				for _, ep := range endpoints.Items() {
+					ls := model.Labels{"app": appId, "dest": destId.String(), model.LabelActualDestination: ep}
+					res = append(res, &model.MetricValues{Labels: ls, LabelsHash: promModel.LabelsToSignature(ls), Values: ts})
+				}
+			}
+		}
+		return res
 	},
 }
 

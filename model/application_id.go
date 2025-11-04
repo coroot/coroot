@@ -8,18 +8,23 @@ import (
 	"strings"
 )
 
+const (
+	ClusterIdExternal = "external"
+)
+
 var (
 	ApplicationIdZero = ApplicationId{}
 	hexPattern        = regexp.MustCompile(`[\da-f]+`)
 )
 
 type ApplicationId struct {
+	ClusterId string
 	Namespace string
 	Kind      ApplicationKind
 	Name      string
 }
 
-func NewApplicationId(ns string, kind ApplicationKind, name string) ApplicationId {
+func NewApplicationId(clusterId, ns string, kind ApplicationKind, name string) ApplicationId {
 	switch kind {
 	case ApplicationKindReplicaSet:
 		parts := strings.Split(name, "-")
@@ -36,18 +41,37 @@ func NewApplicationId(ns string, kind ApplicationKind, name string) ApplicationI
 	case "", "<none>":
 		kind = ApplicationKindPod
 	}
+	if clusterId == "" {
+		clusterId = "_"
+	}
 	if ns == "" {
 		ns = "_"
 	}
-	return ApplicationId{Namespace: ns, Kind: kind, Name: name}
+	return ApplicationId{ClusterId: clusterId, Namespace: ns, Kind: kind, Name: name}
 }
 
-func NewApplicationIdFromString(src string) (ApplicationId, error) {
-	parts := strings.SplitN(src, ":", 3)
-	if len(parts) < 3 {
+func NewApplicationIdFromString(src string, fallbackClusterId string) (ApplicationId, error) {
+	parts := strings.SplitN(src, ":", 4)
+	var id ApplicationId
+
+	switch len(parts) {
+	case 3: // without cluster_id
+		id = ApplicationId{ClusterId: "", Namespace: parts[0], Kind: ApplicationKind(parts[1]), Name: parts[2]}
+	case 4:
+		id = ApplicationId{ClusterId: parts[0], Namespace: parts[1], Kind: ApplicationKind(parts[2]), Name: parts[3]}
+		if id.ClusterId == "external" && id.Namespace != "external" { // without cluster_id with ':' in the name
+			id = ApplicationId{ClusterId: "", Namespace: parts[0], Kind: ApplicationKind(parts[1]), Name: parts[2] + ":" + parts[3]}
+		}
+	default:
 		return ApplicationId{}, fmt.Errorf("invalid application id: %s", src)
 	}
-	return ApplicationId{Namespace: parts[0], Kind: ApplicationKind(parts[1]), Name: parts[2]}, nil
+	if id.ClusterId == "" {
+		id.ClusterId = fallbackClusterId
+	}
+	if id.Kind == ApplicationKindExternalService {
+		id.ClusterId = ClusterIdExternal
+	}
+	return id, nil
 }
 
 func (a ApplicationId) IsZero() bool {
@@ -55,6 +79,10 @@ func (a ApplicationId) IsZero() bool {
 }
 
 func (a ApplicationId) String() string {
+	return fmt.Sprintf("%s:%s:%s:%s", a.ClusterId, a.Namespace, a.Kind, a.Name)
+}
+
+func (a ApplicationId) StringWithoutClusterId() string {
 	return fmt.Sprintf("%s:%s:%s", a.Namespace, a.Kind, a.Name)
 }
 
@@ -64,7 +92,7 @@ func (a ApplicationId) MarshalText() ([]byte, error) {
 
 func (a *ApplicationId) UnmarshalText(text []byte) error {
 	var err error
-	*a, err = NewApplicationIdFromString(string(text))
+	*a, err = NewApplicationIdFromString(string(text), "")
 	return err
 }
 
@@ -78,6 +106,6 @@ func (a *ApplicationId) Scan(src any) error {
 		return nil
 	}
 	var err error
-	*a, err = NewApplicationIdFromString(src.(string))
+	*a, err = NewApplicationIdFromString(src.(string), "")
 	return err
 }

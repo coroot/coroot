@@ -16,22 +16,7 @@
             :items-per-page="50"
             :items="items"
             no-data-text="No applications found"
-            :headers="[
-                { value: 'application', text: 'Application', sortable: false },
-                { value: 'type', text: 'Type', sortable: false },
-                { value: 'errors', text: 'Errors', sortable: false, align: 'end' },
-                { value: 'latency', text: 'Latency', sortable: false, align: 'end' },
-                { value: 'upstreams', text: 'Upstreams', sortable: false, align: 'end' },
-                { value: 'instances', text: 'Instances', sortable: false, align: 'end' },
-                { value: 'restarts', text: 'Restarts', sortable: false, align: 'end' },
-                { value: 'cpu', text: 'CPU', sortable: false, align: 'end' },
-                { value: 'memory', text: 'Mem', sortable: false, align: 'end' },
-                { value: 'disk_io_load', text: 'I/O load', sortable: false, align: 'end' },
-                { value: 'disk_usage', text: 'Disk', sortable: false, align: 'end' },
-                { value: 'network', text: 'Net', sortable: false, align: 'end' },
-                { value: 'dns', text: 'DNS', sortable: false, align: 'end' },
-                { value: 'logs', text: 'Logs', sortable: false, align: 'center' },
-            ]"
+            :headers="headers"
             :footer-props="{ itemsPerPageOptions: [10, 20, 50, 100, -1] }"
         >
             <template #item.application="{ item: { id, name, ns, color } }">
@@ -42,6 +27,9 @@
                         <span v-if="ns" class="caption grey--text"> (ns:{{ ns }})</span>
                     </div>
                 </div>
+            </template>
+            <template #item.cluster="{ item: { cluster } }">
+                <span class="cluster grey--text"> {{ cluster }} </span>
             </template>
             <template #item.type="{ item: { id, type } }">
                 <div v-if="type" class="d-flex align-center">
@@ -138,6 +126,32 @@ export default {
     },
 
     computed: {
+        headers() {
+            let headers = [
+                { value: 'application', text: 'Application', sortable: false },
+                { value: 'cluster', text: 'Cluster', sortable: false },
+                { value: 'type', text: 'Type', sortable: false },
+                { value: 'errors', text: 'Errors', sortable: false, align: 'end' },
+                { value: 'latency', text: 'Latency', sortable: false, align: 'end' },
+                { value: 'upstreams', text: 'Upstreams', sortable: false, align: 'end' },
+                { value: 'instances', text: 'Instances', sortable: false, align: 'end' },
+                { value: 'restarts', text: 'Restarts', sortable: false, align: 'end' },
+                { value: 'cpu', text: 'CPU', sortable: false, align: 'end' },
+                { value: 'memory', text: 'Mem', sortable: false, align: 'end' },
+                { value: 'disk_io_load', text: 'I/O load', sortable: false, align: 'end' },
+                { value: 'disk_usage', text: 'Disk', sortable: false, align: 'end' },
+                { value: 'network', text: 'Net', sortable: false, align: 'end' },
+                { value: 'dns', text: 'DNS', sortable: false, align: 'end' },
+                { value: 'logs', text: 'Logs', sortable: false, align: 'center' },
+            ];
+            if (!this.$api.context.multicluster) {
+                return headers.filter((h) => h.value !== 'cluster');
+            }
+            return headers;
+        },
+        multicluster() {
+            return this.$api.context.multicluster;
+        },
         categories() {
             return Array.from(new Set((this.applications || []).map((a) => a.category)).values());
         },
@@ -226,6 +240,12 @@ export default {
 }
 .table .application .name {
     max-width: 30ch;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.table .application .cluster {
+    max-width: 20ch;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;

@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
@@ -47,7 +48,7 @@ func (c *Constructor) getInstanceByAppId(apps map[nsName]*model.Application, app
 	return app.Instances[0], nil
 }
 
-func (c *Constructor) getInstanceAndContainer(w *model.World, node *model.Node, instances map[instanceId]*model.Instance, containerId string) (*model.Instance, *model.Container) {
+func (c *Constructor) getInstanceAndContainer(w *model.World, node *model.Node, instances map[instanceId]*model.Instance, containerId string, project *db.Project) (*model.Instance, *model.Container) {
 	var nodeId model.NodeId
 	var nodeName string
 	if node != nil {
@@ -80,17 +81,17 @@ func (c *Constructor) getInstanceAndContainer(w *model.World, node *model.Node, 
 		w.IntegrationStatus.KubeStateMetrics.Required = true
 		ns, job := parts[2], parts[3]
 		containerName = parts[4]
-		appId = model.NewApplicationId(ns, model.ApplicationKindCronJob, job)
+		appId = c.newApplicationId(project.ClusterId(), ns, model.ApplicationKindCronJob, job)
 		id = instanceId{ns: ns, name: fmt.Sprintf("%s@%s", job, nodeName), node: nodeId}
 	} else if len(parts) == 7 && parts[1] == "nomad" {
 		ns, job, group, allocId, task := parts[2], parts[3], parts[4], parts[5], parts[6]
 		containerName = task
-		appId = model.NewApplicationId(ns, model.ApplicationKindNomadJobGroup, job+"."+group)
+		appId = c.newApplicationId(project.ClusterId(), ns, model.ApplicationKindNomadJobGroup, job+"."+group)
 		id = instanceId{ns: ns, name: group + "-" + allocId, node: nodeId}
 	} else {
 		if len(parts) == 5 && parts[1] == "swarm" {
 			id.ns = parts[2]
-			appId = model.NewApplicationId(id.ns, model.ApplicationKindDockerSwarmService, parts[3])
+			appId = c.newApplicationId(project.ClusterId(), id.ns, model.ApplicationKindDockerSwarmService, parts[3])
 			containerName = parts[3]
 			id.name = parts[3] + "." + parts[4]
 		} else {
@@ -98,7 +99,7 @@ func (c *Constructor) getInstanceAndContainer(w *model.World, node *model.Node, 
 				strings.TrimSuffix(parts[len(parts)-1], ".service"),
 				".slice")
 			id.name = fmt.Sprintf("%s@%s", containerName, nodeName)
-			appId = model.NewApplicationId("", model.ApplicationKindUnknown, containerName)
+			appId = c.newApplicationId(project.ClusterId(), "", model.ApplicationKindUnknown, containerName)
 		}
 	}
 	if id.name == "" {
@@ -110,7 +111,7 @@ func (c *Constructor) getInstanceAndContainer(w *model.World, node *model.Node, 
 	id.node = nodeId
 	instance = instances[id]
 	if instance == nil {
-		customApp := c.project.GetCustomApplicationName(id.name)
+		customApp := project.GetCustomApplicationName(id.name)
 		if customApp != "" {
 			appId.Name = customApp
 		}
@@ -127,7 +128,7 @@ type containerCache map[model.NodeContainerId]struct {
 	container *model.Container
 }
 
-func (c *Constructor) loadContainers(w *model.World, metrics map[string][]*model.MetricValues, pjs promJobStatuses, nodes nodeCache, containers containerCache, servicesByClusterIP map[string]*model.Service, ip2fqdn map[string]*utils.StringSet) {
+func (c *Constructor) loadContainers(w *model.World, metrics map[string][]*model.MetricValues, pjs promJobStatuses, nodes nodeCache, containers containerCache, servicesByClusterIP map[string]*model.Service, ip2fqdn map[string]*utils.StringSet, project *db.Project) {
 	instances := map[instanceId]*model.Instance{}
 	apps := map[nsName]*model.Application{}
 	rttByInstance := map[instanceId]map[string]*timeseries.TimeSeries{}
@@ -162,7 +163,7 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]*model
 				v, ok := containers[m.NodeContainerId]
 				if !ok {
 					nodeId := model.NewNodeIdFromLabels(m)
-					v.instance, v.container = c.getInstanceAndContainer(w, nodes[nodeId], instances, m.ContainerId)
+					v.instance, v.container = c.getInstanceAndContainer(w, nodes[nodeId], instances, m.ContainerId, project)
 					containers[m.NodeContainerId] = v
 				}
 				if v.instance == nil || v.container == nil {
@@ -536,7 +537,7 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]*model
 				if u.RemoteInstance != nil {
 					continue
 				}
-				appId := model.NewApplicationId("external", model.ApplicationKindExternalService, "")
+				appId := c.newApplicationId(model.ClusterIdExternal, "external", model.ApplicationKindExternalService, "")
 				svc := servicesByClusterIP[u.ServiceRemoteIP]
 				instanceName := u.ServiceRemoteIP + ":" + u.ServiceRemotePort
 				if svc != nil {
@@ -559,7 +560,7 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]*model
 						appId.Name = externalServiceName(u.ServiceRemotePort)
 					}
 				}
-				customApp := c.project.GetCustomApplicationName(instanceName)
+				customApp := project.GetCustomApplicationName(instanceName)
 				if customApp != "" {
 					appId.Name = customApp
 				}

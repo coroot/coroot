@@ -367,16 +367,6 @@ func (cfg *Config) GetBootstrapClickhouse() *db.IntegrationClickhouse {
 	return c
 }
 
-func (cfg *Config) GetProjects() []db.Project {
-	var projects []db.Project
-	for _, p := range cfg.Projects {
-		pp := db.Project{Name: p.Name}
-		pp.Settings.ApiKeys = p.ApiKeys
-		projects = append(projects, pp)
-	}
-	return projects
-}
-
 func (cfg *Config) GetGlobalPrometheus() *db.IntegrationPrometheus {
 	prometheus := cfg.GlobalPrometheus
 	if prometheus == nil {

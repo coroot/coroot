@@ -1,10 +1,13 @@
 <template>
     <span class="labels">
-        <span v-for="k in keys" class="label">
-            <template v-if="k === 'db'"><v-icon x-small>mdi-database</v-icon>{{ labels[k] }}</template>
-            <template v-else-if="k === 'queue'"><v-icon x-small>mdi-tray-full</v-icon>{{ labels[k] }}</template>
-            <template v-else>{{ k }}:{{ labels[k] }}</template>
-        </span>
+        <span v-if="cluster" class="label">{{ cluster }}</span>
+        <template v-if="!hideLabels">
+            <span v-for="k in keys" class="label">
+                <template v-if="k === 'db'"><v-icon x-small>mdi-database</v-icon>{{ labels[k] }}</template>
+                <template v-else-if="k === 'queue'"><v-icon x-small>mdi-tray-full</v-icon>{{ labels[k] }}</template>
+                <template v-else>{{ k }}:{{ labels[k] }}</template>
+            </span>
+        </template>
     </span>
 </template>
 
@@ -12,6 +15,8 @@
 export default {
     props: {
         labels: Object,
+        cluster: String,
+        hideLabels: Boolean,
     },
 
     computed: {

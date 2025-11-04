@@ -5,18 +5,19 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"k8s.io/klog"
 )
 
-func (c *Constructor) loadSLIs(w *model.World, metrics map[string][]*model.MetricValues) {
-	builtinAvailabilityRaw := builtinAvailability(w, metrics[qRecordingRuleApplicationL7Requests+"_raw"])
-	builtinLatencyRaw := builtinLatency(w, metrics[qRecordingRuleApplicationL7Histogram+"_raw"])
+func (c *Constructor) loadSLIs(w *model.World, metrics map[string][]*model.MetricValues, project *db.Project) {
+	builtinAvailabilityRaw := builtinAvailability(w, metrics[qRecordingRuleApplicationL7Requests+"_raw"], project)
+	builtinLatencyRaw := builtinLatency(w, metrics[qRecordingRuleApplicationL7Histogram+"_raw"], project)
 
 	customAvailabilityRaw := map[model.ApplicationId]availabilitySlis{}
 	customLatencyRaw := map[model.ApplicationId][]model.HistogramBucket{}
-	loadCustomSLIs(metrics, customAvailabilityRaw, customLatencyRaw)
+	loadCustomSLIs(metrics, customAvailabilityRaw, customLatencyRaw, project)
 
 	for _, app := range w.Applications {
 		availabilityCfg, _ := w.CheckConfigs.GetAvailability(app.Id)
@@ -60,6 +61,7 @@ func (c *Constructor) loadSLIs(w *model.World, metrics map[string][]*model.Metri
 func loadCustomSLIs(metrics map[string][]*model.MetricValues,
 	availabilityRaw map[model.ApplicationId]availabilitySlis,
 	latencyRaw map[model.ApplicationId][]model.HistogramBucket,
+	project *db.Project,
 ) {
 	for queryName, values := range metrics {
 		if len(values) == 0 || !strings.HasPrefix(queryName, qApplicationCustomSLI) {
@@ -69,7 +71,7 @@ func loadCustomSLIs(metrics map[string][]*model.MetricValues,
 		if len(parts) != 3 {
 			continue
 		}
-		appId, _ := model.NewApplicationIdFromString(parts[1])
+		appId, _ := model.NewApplicationIdFromString(parts[1], project.ClusterId())
 		switch parts[2] {
 		case "total_requests_raw":
 			a := availabilityRaw[appId]
@@ -95,18 +97,18 @@ type availabilitySlis struct {
 	failed *timeseries.TimeSeries
 }
 
-func builtinAvailability(w *model.World, values []*model.MetricValues) map[model.ApplicationId]availabilitySlis {
+func builtinAvailability(w *model.World, values []*model.MetricValues, project *db.Project) map[model.ApplicationId]availabilitySlis {
 	if len(values) == 0 {
 		return nil
 	}
 	byApp := map[model.ApplicationId]map[string]*timeseries.TimeSeries{}
 	for _, mv := range values {
-		dstId, err := model.NewApplicationIdFromString(mv.Labels["dest"])
+		dstId, err := model.NewApplicationIdFromString(mv.Labels["dest"], project.ClusterId())
 		if err != nil {
 			klog.Warningln(err)
 			continue
 		}
-		srcId, err := model.NewApplicationIdFromString(mv.Labels["app"])
+		srcId, err := model.NewApplicationIdFromString(mv.Labels["app"], project.ClusterId())
 		if err != nil {
 			klog.Warningln(err)
 			continue
@@ -140,14 +142,14 @@ func builtinAvailability(w *model.World, values []*model.MetricValues) map[model
 	return res
 }
 
-func builtinLatency(w *model.World, values []*model.MetricValues) map[model.ApplicationId][]model.HistogramBucket {
+func builtinLatency(w *model.World, values []*model.MetricValues, project *db.Project) map[model.ApplicationId][]model.HistogramBucket {
 	if len(values) == 0 {
 		return nil
 	}
 
 	byApp := map[model.ApplicationId]map[string]*timeseries.TimeSeries{}
 	for _, mv := range values {
-		appId, err := model.NewApplicationIdFromString(mv.Labels["app"])
+		appId, err := model.NewApplicationIdFromString(mv.Labels["app"], project.ClusterId())
 		if err != nil {
 			klog.Warningln(err)
 			continue

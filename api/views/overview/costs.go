@@ -21,6 +21,7 @@ type Costs struct {
 
 type NodeCosts struct {
 	Name                      string            `json:"name"`
+	Cluster                   string            `json:"cluster"`
 	InstanceLifeCycle         string            `json:"instance_life_cycle"`
 	Description               string            `json:"description"`
 	CpuUsage                  float32           `json:"cpu_usage"`
@@ -51,6 +52,7 @@ type NodeApplicationInstance struct {
 type ApplicationCosts struct {
 	Id       model.ApplicationId       `json:"id"`
 	Category model.ApplicationCategory `json:"category"`
+	Cluster  string                    `json:"cluster"`
 
 	UsageCosts            float32                 `json:"usage_costs"`
 	AllocationCosts       float32                 `json:"allocation_costs"`
@@ -163,6 +165,7 @@ func renderCosts(w *model.World) *Costs {
 
 		nc := &NodeCosts{
 			Name:              n.GetName(),
+			Cluster:           w.ClusterName(n.ClusterId),
 			InstanceLifeCycle: n.InstanceLifeCycle.Value(),
 			Description:       strings.Join(getNodeTags(n), " / "),
 			Price:             n.Price.Total * month,
@@ -198,6 +201,7 @@ func renderCosts(w *model.World) *Costs {
 	for appId, appInstances := range applications {
 		ac := renderApplicationCosts(w.GetApplication(appId), appInstances, desiredInstances, dataTransferPrice)
 		ac.Id = appId
+		ac.Cluster = w.ClusterName(appId.ClusterId)
 		ac.Category = applicationsIndex[appId].Category
 		res.Applications = append(res.Applications, ac)
 	}

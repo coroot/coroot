@@ -1,55 +1,77 @@
 package overview
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
+	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 	"k8s.io/klog"
 )
 
-func renderNodes(w *model.World) *model.Table {
-	nodes := model.NewTable("Node", "Status", "Availability zone", "IP", "CPU", "Memory", "GPU", "Network")
-	unknown := model.NewTable(nodes.Header...)
+type NetworkBandWidth struct {
+	Rx int `json:"rx"`
+	Tx int `json:"tx"`
+}
+
+type Node struct {
+	Name                  string            `json:"name"`
+	ClusterId             string            `json:"cluster_id"`
+	ClusterName           string            `json:"cluster_name"`
+	Status                model.Indicator   `json:"status"`
+	UptimeMs              int64             `json:"uptime_ms"`
+	AvailabilityZone      string            `json:"availability_zone"`
+	CloudProvider         string            `json:"cloud_provider"`
+	InstanceType          string            `json:"instance_type"`
+	Compute               string            `json:"compute"`
+	IPs                   []string          `json:"ips"`
+	CPUPercent            int               `json:"cpu_percent"`
+	MemoryPercent         int               `json:"memory_percent"`
+	GPUs                  int               `json:"gpus"`
+	TotalNetworkBandWidth int               `json:"total_network_band_width"`
+	NetworkBandwidth      *NetworkBandWidth `json:"network_bandwidth"`
+}
+
+func renderNodes(w *model.World, project *db.Project) []Node {
+	nodes := make([]Node, 0, len(w.Nodes))
 	for _, n := range w.Nodes {
 		name := n.GetName()
 		if name == "" {
 			klog.Warningln("empty node name for", n.Id)
 			continue
 		}
-
-		node := model.NewTableCell(name).SetMaxWidth(30)
-		node.Link = model.NewRouterLink(name, "overview").
-			SetParam("view", "nodes").
-			SetParam("id", name)
-		for _, t := range getNodeTags(n) {
-			node.AddTag(t)
+		node := Node{
+			Name:          name,
+			ClusterId:     n.ClusterId,
+			ClusterName:   w.ClusterName(n.ClusterId),
+			Status:        model.Indicator{Status: model.OK, Message: "up"},
+			InstanceType:  n.InstanceType.Value(),
+			Compute:       compute(n),
+			GPUs:          len(n.GPUs),
+			CloudProvider: strings.ToLower(n.CloudProvider.Value()),
 		}
-
-		status := model.NewTableCell().SetStatus(model.OK, "up")
 		switch {
 		case !n.IsAgentInstalled():
-			status.SetStatus(model.UNKNOWN, "no agent installed")
+			node.Status = model.Indicator{Status: model.UNKNOWN, Message: "no agent installed"}
 		case n.IsDown():
-			status.SetStatus(model.WARNING, "down (no metrics)")
+			node.Status = model.Indicator{Status: model.WARNING, Message: "down (no metrics)"}
 		}
 		if v := n.Uptime.Last(); !timeseries.IsNaN(v) {
-			status.SetUnit("(" + utils.FormatDurationShort(timeseries.Duration(int64(v)), 1) + ")")
+			node.UptimeMs = int64(v) * 1000
 		}
 
-		cpuPercent, memoryPercent := model.NewTableCell(), model.NewTableCell()
 		if l := n.CpuUsagePercent.Last(); !timeseries.IsNaN(l) {
-			cpuPercent.SetProgress(int(l), "blue")
+			node.CPUPercent = int(l)
 		}
 		if total := n.MemoryTotalBytes.Last(); !timeseries.IsNaN(total) {
 			if avail := n.MemoryAvailableBytes.Last(); !timeseries.IsNaN(avail) {
-				memoryPercent.SetProgress(int(100-avail/total*100), "deep-purple")
+				node.MemoryPercent = int(100 - avail/total*100)
 			}
 		}
 
-		network := model.NewTableCell()
 		var rxTotalBytes, txTotalBytes float32
 		ips := utils.NewStringSet()
 		for _, iface := range n.NetInterfaces {
@@ -70,40 +92,30 @@ func renderNodes(w *model.World) *model.Table {
 			}
 		}
 		if rxTotalBytes > 0 || txTotalBytes > 0 {
-			network.Bandwidth = &model.Bandwidth{
-				Rx: utils.HumanBits(rxTotalBytes * 8),
-				Tx: utils.HumanBits(txTotalBytes * 8),
+			node.NetworkBandwidth = &NetworkBandWidth{
+				Rx: int(rxTotalBytes * 8),
+				Tx: int(txTotalBytes * 8),
 			}
+			node.TotalNetworkBandWidth = int((rxTotalBytes + txTotalBytes) * 8)
 		}
-
-		az := n.AvailabilityZone.Value()
-		if az == "" {
-			az = n.Region.Value()
+		node.IPs = ips.Items()
+		node.AvailabilityZone = n.AvailabilityZone.Value()
+		if node.AvailabilityZone == "" {
+			node.AvailabilityZone = n.Region.Value()
 		}
-
-		table := nodes
-		if *status.Status == model.UNKNOWN {
-			table = unknown
-		}
-		gpus := model.NewTableCell()
-		if len(n.GPUs) > 0 {
-			gpus.SetValue(strconv.Itoa(len(n.GPUs)))
-		}
-		table.AddRow(
-			node,
-			status,
-			model.NewTableCell(az).SetMaxWidth(20).SetUnit("("+strings.ToLower(n.CloudProvider.Value())+")"),
-			model.NewTableCell(ips.Items()...),
-			cpuPercent,
-			memoryPercent,
-			gpus,
-			network,
-		)
+		nodes = append(nodes, node)
 	}
-
-	nodes.Rows = append(nodes.Rows, unknown.Rows...)
-
 	return nodes
+}
+
+func compute(n *model.Node) string {
+	c := n.CpuCapacity.Last()
+	m := n.MemoryTotalBytes.Last()
+	if !timeseries.IsNaN(c) && !timeseries.IsNaN(m) {
+		v, u := utils.FormatBytes(m)
+		return fmt.Sprintf("%d vCPU / %s%s", int(c), v, u)
+	}
+	return ""
 }
 
 func getNodeTags(n *model.Node) []string {

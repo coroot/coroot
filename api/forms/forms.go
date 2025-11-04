@@ -44,12 +44,18 @@ func ReadAndValidate(r *http.Request, f Form) error {
 }
 
 type ProjectForm struct {
-	Name string `json:"name"`
+	Name           string   `json:"name"`
+	MemberProjects []string `json:"member_projects"`
 }
 
 func (f *ProjectForm) Valid() bool {
 	if !slugRe.MatchString(f.Name) {
 		return false
+	}
+	for _, mp := range f.MemberProjects {
+		if !slugRe.MatchString(mp) {
+			return false
+		}
 	}
 	return true
 }
@@ -174,7 +180,7 @@ func (f *ApplicationCategoryForm) SendTestNotification(ctx context.Context, proj
 			client = notifications.NewWebhook(integrations.Webhook)
 		}
 		if client != nil {
-			return client.SendDeployment(ctx, project, testDeploymentNotification())
+			return client.SendDeployment(ctx, project, testDeploymentNotification(project))
 		}
 	}
 	return nil
@@ -421,7 +427,7 @@ func (f *IntegrationFormClickhouse) Test(ctx context.Context, project *db.Projec
 	config.Database = f.Database
 	config.TlsEnable = f.TlsEnable
 	config.TlsSkipVerify = f.TlsSkipVerify
-	client, err := clickhouse.NewClient(config, ch.ClickHouseInfo{})
+	client, err := clickhouse.NewClient(config, ch.ClickHouseInfo{}, project)
 	if err != nil {
 		return err
 	}
@@ -656,7 +662,7 @@ func (f *IntegrationFormWebhook) Test(ctx context.Context, project *db.Project) 
 		}
 	}
 	if cfg.Deployments {
-		err := wh.SendDeployment(ctx, project, testDeploymentNotification())
+		err := wh.SendDeployment(ctx, project, testDeploymentNotification(project))
 		if err != nil {
 			return err
 		}
@@ -667,7 +673,7 @@ func (f *IntegrationFormWebhook) Test(ctx context.Context, project *db.Project) 
 func testIncidentNotification(project *db.Project) *db.IncidentNotification {
 	return &db.IncidentNotification{
 		ProjectId:     project.Id,
-		ApplicationId: model.NewApplicationId("default", model.ApplicationKindDeployment, "fake-app"),
+		ApplicationId: model.NewApplicationId(string(project.Id), "default", model.ApplicationKindDeployment, "fake-app"),
 		IncidentKey:   "123ab456",
 		Status:        model.CRITICAL,
 		Details: &db.IncidentNotificationDetails{
@@ -679,7 +685,7 @@ func testIncidentNotification(project *db.Project) *db.IncidentNotification {
 	}
 }
 
-func testDeploymentNotification() model.ApplicationDeploymentStatus {
+func testDeploymentNotification(project *db.Project) model.ApplicationDeploymentStatus {
 	return model.ApplicationDeploymentStatus{
 		Status: model.OK,
 		State:  model.ApplicationDeploymentStateSummary,
@@ -689,7 +695,7 @@ func testDeploymentNotification() model.ApplicationDeploymentStatus {
 			{Report: model.AuditReportCPU, Ok: true, Message: "Memory: looks like the memory leak has been fixed"},
 		},
 		Deployment: &model.ApplicationDeployment{
-			ApplicationId: model.NewApplicationId("default", model.ApplicationKindDeployment, "fake-app"),
+			ApplicationId: model.NewApplicationId(string(project.Id), "default", model.ApplicationKindDeployment, "fake-app"),
 			Name:          "123ab456",
 			StartedAt:     timeseries.Now().Add(-model.ApplicationDeploymentMinLifetime),
 			Details:       &model.ApplicationDeploymentDetails{ContainerImages: []string{"app:v1.8.2"}},

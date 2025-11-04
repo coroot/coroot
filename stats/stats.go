@@ -365,6 +365,9 @@ func (c *Collector) collect() Stats {
 	var loadTime, auditTime []time.Duration
 	now := timeseries.Now()
 	for _, p := range projects {
+		if p.Multicluster() {
+			continue
+		}
 		if p.Prometheus.Url != "" {
 			stats.Integration.Prometheus = true
 		}
@@ -422,7 +425,7 @@ func (c *Collector) collect() Stats {
 			klog.Errorln(err)
 			continue
 		}
-		ctr := constructor.New(c.db, p, cacheClient, c.pricing)
+		ctr := constructor.New(c.db, p, map[db.ProjectId]constructor.Cache{p.Id: cacheClient}, c.pricing)
 		w, err := ctr.LoadWorld(context.Background(), from, to, step, &stats.Performance.Constructor)
 		if err != nil {
 			klog.Errorln("failed to load world:", err)
@@ -431,7 +434,7 @@ func (c *Collector) collect() Stats {
 		loadTime = append(loadTime, time.Since(t))
 
 		t = time.Now()
-		auditor.Audit(w, p, nil, p.ClickHouseConfig(c.globalClickHouse) != nil, &stats.Performance.Auditor)
+		auditor.Audit(w, p, nil, &stats.Performance.Auditor)
 		auditTime = append(auditTime, time.Since(t))
 
 		stats.Integration.NodeAgent = stats.Integration.NodeAgent || w.IntegrationStatus.NodeAgent.Installed

@@ -272,7 +272,11 @@ spec:
 # If a project with the same name already exists (e.g., configured via the UI), its API keys and other settings will be replaced.
 #  projects: # Create or update projects.
 #    - name:    # Project name (e.g., production, staging; required).
-#      # Project API keys, used by agents to send telemetry data (required).
+#      # Multi-cluster aggregation: list existing project names to combine (optional).
+#      memberProjects:
+#        - prod-eu
+#        - prod-us
+#      # Project API keys, used by agents to send telemetry data (required unless memberProjects is set).
 #      apiKeys:
 #        - description: # The API key description (optional).
 #          key:         # Plain-text API key (a random string or UUID). Must be unique. Prefer using `keySecret` for better security.

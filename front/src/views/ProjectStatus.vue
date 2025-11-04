@@ -1,5 +1,6 @@
 <template>
     <div style="max-width: 800px">
+        <h2 class="text-h5 mt-10 mb-5">Status</h2>
         <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
             {{ error }}
         </v-alert>
