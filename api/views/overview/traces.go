@@ -79,11 +79,16 @@ type Filter struct {
 	Value string `json:"value"`
 }
 
-func renderTraces(ctx context.Context, chs []*clickhouse.Client, w *model.World, query string) *Traces {
+func renderTraces(ctx context.Context, chs clickhouse.Clients, w *model.World, query string) *Traces {
 	res := &Traces{}
 
-	if len(chs) == 0 {
-		res.Message = "Clickhouse integration is not configured."
+	if chs.Error != nil {
+		res.Error = fmt.Sprintf("Clickhouse error: %s", chs.Error)
+		return res
+	}
+
+	if len(chs.Clients) == 0 {
+		res.Message = "no_clickhouse"
 		return res
 	}
 
@@ -102,7 +107,7 @@ func renderTraces(ctx context.Context, chs []*clickhouse.Client, w *model.World,
 
 	byLe := map[float32]*timeseries.Aggregate{}
 
-	for _, ch := range chs {
+	for _, ch := range chs.Clients {
 		histogram, err := ch.GetRootSpansHistogram(ctx, sq)
 		if err != nil {
 			klog.Errorln(err)
@@ -136,7 +141,7 @@ func renderTraces(ctx context.Context, chs []*clickhouse.Client, w *model.World,
 		res.Heatmap.AddSeries("errors", "errors", errors, "", "err")
 	} else {
 		services := utils.NewStringSet()
-		for _, ch := range chs {
+		for _, ch := range chs.Clients {
 			svcs, err := ch.GetServicesFromTraces(ctx, w.Ctx.From)
 			if err != nil {
 				klog.Errorln(err)
@@ -180,7 +185,7 @@ func renderTraces(ctx context.Context, chs []*clickhouse.Client, w *model.World,
 	totalErrors := float32(0)
 	var overallSelectionTraces, overallBaselineTraces []*model.Trace
 
-	for _, ch := range chs {
+	for _, ch := range chs.Clients {
 		switch {
 		case q.TraceId != "":
 			spans, err := ch.GetSpansByTraceId(ctx, q.TraceId)

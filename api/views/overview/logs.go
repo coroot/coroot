@@ -49,10 +49,15 @@ type LogsQuery struct {
 	Since   string                 `json:"since"`
 }
 
-func renderLogs(ctx context.Context, chs []*clickhouse.Client, w *model.World, query string) *Logs {
+func renderLogs(ctx context.Context, chs clickhouse.Clients, w *model.World, query string) *Logs {
 	v := &Logs{}
 
-	if len(chs) == 0 {
+	if chs.Error != nil {
+		v.Error = fmt.Sprintf("Clickhouse error: %s", chs.Error)
+		return v
+	}
+
+	if len(chs.Clients) == 0 {
 		v.Message = "Clickhouse integration is not configured."
 		return v
 	}
@@ -97,7 +102,7 @@ func renderLogs(ctx context.Context, chs []*clickhouse.Client, w *model.World, q
 	bySeverity := map[model.Severity]*timeseries.Aggregate{}
 	var overallEntries []*model.LogEntry
 
-	for _, ch := range chs {
+	for _, ch := range chs.Clients {
 		if !clusterFilter.Matches(ch.Project().Name) {
 			continue
 		}

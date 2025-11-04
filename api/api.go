@@ -425,39 +425,11 @@ func (api *Api) Overview(w http.ResponseWriter, r *http.Request, u *db.User) {
 		utils.WriteJson(w, api.WithContext(project, cacheStatus, world, nil))
 		return
 	}
-	var chs []*clickhouse.Client
-	if project.Multicluster() {
-		projects, err := api.db.GetProjects()
-		if err != nil {
-			klog.Errorln(err)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-		for _, mp := range project.Settings.MemberProjects {
-			p, ok := projects[mp]
-			if !ok {
-				klog.Errorln("project not found:", mp)
-				http.Error(w, "", http.StatusInternalServerError)
-				return
-			}
-			ch, err := api.GetClickhouseClient(p, "")
-			if err != nil {
-				klog.Errorln(err)
-				http.Error(w, "", http.StatusInternalServerError)
-				return
-			}
-			defer ch.Close()
-			chs = append(chs, ch)
-		}
-	} else {
-		ch, err := api.GetClickhouseClient(project, "")
-		if err != nil {
-			klog.Errorln(err)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-		defer ch.Close()
-		chs = append(chs, ch)
+
+	chs := api.GetClickhouseClients(project)
+	defer chs.Close()
+	if chs.Error != nil {
+		klog.Warningln(chs.Error)
 	}
 
 	auditor.Audit(world, project, nil, nil)
@@ -1857,6 +1829,34 @@ func maxDuration(d1, d2 timeseries.Duration) timeseries.Duration {
 		return d1
 	}
 	return d2
+}
+
+func (api *Api) GetClickhouseClients(project *db.Project) (res clickhouse.Clients) {
+	if project.Multicluster() {
+		var projects map[string]*db.Project
+		if projects, res.Error = api.db.GetProjects(); res.Error != nil {
+			return
+		}
+		for _, mp := range project.Settings.MemberProjects {
+			p, ok := projects[mp]
+			if !ok {
+				res.Error = fmt.Errorf("project doesn't exist: %s", mp)
+				return
+			}
+			var ch *clickhouse.Client
+			if ch, res.Error = api.GetClickhouseClient(p, ""); res.Error != nil {
+				return
+			}
+			res.Clients = append(res.Clients, ch)
+		}
+	} else {
+		var ch *clickhouse.Client
+		if ch, res.Error = api.GetClickhouseClient(project, ""); res.Error != nil {
+			return
+		}
+		res.Clients = append(res.Clients, ch)
+	}
+	return
 }
 
 func (api *Api) GetClickhouseClient(project *db.Project, memberProjectId string) (*clickhouse.Client, error) {
