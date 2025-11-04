@@ -210,13 +210,10 @@ func (db *DB) GetLastOpenIncident(projectId ProjectId, appId model.ApplicationId
 		ApplicationId: appId,
 	}
 
-	appIdWithoutCluster := appId
-	appIdWithoutCluster.ClusterId = ""
-
 	var dd, rca sql.NullString
 	err := db.db.QueryRow(
 		"SELECT key, opened_at, resolved_at, severity, details, rca FROM incident WHERE project_id = $1 AND (application_id = $2 OR application_id = $3) AND resolved_at = 0 ORDER BY opened_at DESC LIMIT 1",
-		projectId, appId.String(), appIdWithoutCluster.String()).
+		projectId, appId.String(), appId.StringWithoutClusterId()).
 		Scan(&last.Key, &last.OpenedAt, &last.ResolvedAt, &last.Severity, &dd, &rca)
 	switch err {
 	case nil:
