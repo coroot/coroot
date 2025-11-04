@@ -22,7 +22,7 @@ import (
 	"github.com/coroot/coroot/rbac"
 )
 
-func Overview(ctx context.Context, chs []*clickhouse.Client, p *db.Project, w *model.World, view, query string) *overview.Overview {
+func Overview(ctx context.Context, chs clickhouse.Clients, p *db.Project, w *model.World, view, query string) *overview.Overview {
 	return overview.Render(ctx, chs, p, w, view, query)
 }
 

@@ -565,3 +565,14 @@ func aggregateTableStats(tables []TableInfo) []TableInfo {
 	})
 	return res
 }
+
+type Clients struct {
+	Clients []*Client
+	Error   error
+}
+
+func (chs Clients) Close() {
+	for _, c := range chs.Clients {
+		_ = c.Close()
+	}
+}

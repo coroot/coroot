@@ -22,7 +22,7 @@ type Overview struct {
 	Categories   []model.ApplicationCategory `json:"categories"`
 }
 
-func Render(ctx context.Context, chs []*clickhouse.Client, project *db.Project, w *model.World, view, query string) *Overview {
+func Render(ctx context.Context, chs clickhouse.Clients, project *db.Project, w *model.World, view, query string) *Overview {
 	v := &Overview{}
 	for name := range project.Settings.ApplicationCategorySettings {
 		if !name.Default() {
