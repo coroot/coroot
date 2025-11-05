@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"path"
 	"strings"
 
@@ -20,6 +21,8 @@ type Type string
 const (
 	TypeSqlite   Type = "sqlite"
 	TypePostgres Type = "postgres"
+
+	defaultPostgresTimeoutSecond = "30"
 )
 
 var (
@@ -48,11 +51,35 @@ func NewSqlite(dataDir string) (*DB, error) {
 }
 
 func NewPostgres(dsn string) (*DB, error) {
+	var err error
+	if dsn, err = addPostgresConnectTimeout(dsn); err != nil {
+		return nil, err
+	}
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
 		return nil, err
 	}
 	return &DB{typ: TypePostgres, db: db}, nil
+}
+
+func addPostgresConnectTimeout(dsn string) (string, error) {
+	if strings.HasPrefix(dsn, "postgres://") || strings.HasPrefix(dsn, "postgresql://") {
+		u, err := url.Parse(dsn)
+		if err != nil {
+			return "", err
+		}
+		q := u.Query()
+		if q.Get("connect_timeout") == "" {
+			q.Set("connect_timeout", defaultPostgresTimeoutSecond)
+		}
+		u.RawQuery = q.Encode()
+		return u.String(), nil
+	} else {
+		if !strings.Contains(dsn, "connect_timeout=") {
+			dsn += " connect_timeout=" + defaultPostgresTimeoutSecond
+		}
+		return dsn, nil
+	}
 }
 
 func (db *DB) Type() Type {
