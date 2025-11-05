@@ -151,3 +151,13 @@ helm uninstall coroot -n coroot
 
 
 </Tabs>
+
+## Troubleshooting
+
+### Pod Security Standards
+
+The Coroot node agent requires privileged access for eBPF monitoring, host filesystem access, and container inspection. If the node agent fails to start due to Pod Security violations (common in Talos clusters), allow privileged workloads in the namespace:
+
+```bash
+kubectl label ns coroot pod-security.kubernetes.io/enforce=privileged
+```
