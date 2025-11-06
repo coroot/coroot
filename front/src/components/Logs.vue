@@ -223,7 +223,7 @@ export default {
             if (this.$api.context.multicluster) {
                 return this.columns;
             }
-            return this.columns().filter((c) => {
+            return this.columns.filter((c) => {
                 return c.key !== 'cluster';
             });
         },
