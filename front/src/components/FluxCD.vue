@@ -369,7 +369,7 @@ export default {
             if (this.search) {
                 const searchLower = this.search.toLowerCase();
                 resources = resources.filter((resource) =>
-                    ['name', 'namespace', 'target_namespace', 'url'].some((field) => resource[field]?.toLowerCase().includes(searchLower)),
+                    ['name', 'namespace', 'target_namespace', 'url', 'cluster'].some((field) => resource[field]?.toLowerCase().includes(searchLower)),
                 );
             }
 
@@ -552,6 +552,7 @@ export default {
                 GitRepository: [
                     { value: 'name', text: 'Name', align: 'left', sortable: true },
                     { value: 'namespace', text: 'Namespace', align: 'left', sortable: true },
+                    { value: 'cluster', text: 'Cluster', align: 'left', sortable: true },
                     { value: 'status', text: 'Status', align: 'left', sortable: true },
                     { value: 'url', text: 'URL', align: 'left', sortable: false },
                     { value: 'interval', text: 'Interval', align: 'left', sortable: true },
@@ -559,6 +560,7 @@ export default {
                 HelmRepository: [
                     { value: 'name', text: 'Name', align: 'left', sortable: true },
                     { value: 'namespace', text: 'Namespace', align: 'left', sortable: true },
+                    { value: 'cluster', text: 'Cluster', align: 'left', sortable: true },
                     { value: 'status', text: 'Status', align: 'left', sortable: true },
                     { value: 'url', text: 'URL', align: 'left', sortable: false },
                     { value: 'interval', text: 'Interval', align: 'left', sortable: true },
@@ -566,6 +568,7 @@ export default {
                 OCIRepository: [
                     { value: 'name', text: 'Name', align: 'left', sortable: true },
                     { value: 'namespace', text: 'Namespace', align: 'left', sortable: true },
+                    { value: 'cluster', text: 'Cluster', align: 'left', sortable: true },
                     { value: 'status', text: 'Status', align: 'left', sortable: true },
                     { value: 'url', text: 'URL', align: 'left', sortable: false },
                     { value: 'interval', text: 'Interval', align: 'left', sortable: true },
@@ -573,6 +576,7 @@ export default {
                 HelmChart: [
                     { value: 'name', text: 'Name', align: 'left', sortable: true },
                     { value: 'namespace', text: 'Namespace', align: 'left', sortable: true },
+                    { value: 'cluster', text: 'Cluster', align: 'left', sortable: true },
                     { value: 'status', text: 'Status', align: 'left', sortable: true },
                     { value: 'repository', text: 'Repository', align: 'left', sortable: true },
                     { value: 'chart', text: 'Chart', align: 'left', sortable: true },
@@ -582,6 +586,7 @@ export default {
                 HelmRelease: [
                     { value: 'name', text: 'Name', align: 'left', sortable: true },
                     { value: 'namespace', text: 'Namespace', align: 'left', sortable: true },
+                    { value: 'cluster', text: 'Cluster', align: 'left', sortable: true },
                     { value: 'status', text: 'Status', align: 'left', sortable: true },
                     { value: 'repository', text: 'Repository', align: 'left', sortable: true },
                     { value: 'chart', text: 'Chart', align: 'left', sortable: true },
@@ -592,6 +597,7 @@ export default {
                 Kustomization: [
                     { value: 'name', text: 'Name', align: 'left', sortable: true },
                     { value: 'namespace', text: 'Namespace', align: 'left', sortable: true },
+                    { value: 'cluster', text: 'Cluster', align: 'left', sortable: true },
                     { value: 'status', text: 'Status', align: 'left', sortable: true },
                     { value: 'repository', text: 'Repository', align: 'left', sortable: true },
                     { value: 'last_applied_revision', text: 'Revision', align: 'left', sortable: false },
@@ -603,13 +609,18 @@ export default {
                 ResourceSet: [
                     { value: 'name', text: 'Name', align: 'left', sortable: true },
                     { value: 'namespace', text: 'Namespace', align: 'left', sortable: true },
+                    { value: 'cluster', text: 'Cluster', align: 'left', sortable: true },
                     { value: 'status', text: 'Status', align: 'left', sortable: true },
                     { value: 'last_applied_revision', text: 'Revision', align: 'left', sortable: false },
                     { value: 'dependencies', text: 'Dependencies', align: 'left', sortable: false },
                     { value: 'inventory_entries', text: 'Inventory Entries', align: 'left', sortable: false },
                 ],
             };
-            return columnConfigs[resourceType] || [];
+            let headers = columnConfigs[resourceType] || [];
+            if (!this.$api.context.multicluster) {
+                return headers.filter((h) => h.value !== 'cluster');
+            }
+            return headers;
         },
         stateFromUri() {
             const query = this.$route.query;

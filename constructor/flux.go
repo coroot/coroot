@@ -3,35 +3,31 @@ package constructor
 import (
 	"strings"
 
+	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 )
 
-func loadFluxResources(w *model.World, metrics map[string][]*model.MetricValues) {
+func loadFluxResources(w *model.World, metrics map[string][]*model.MetricValues, project *db.Project) {
 	flux := model.NewFlux()
 
-	loadFluxRepos(flux, metrics["fluxcd_git_repository_info"], metrics["fluxcd_git_repository_status"], model.ApplicationKindFluxGitRepository)
-	loadFluxRepos(flux, metrics["fluxcd_oci_repository_info"], metrics["fluxcd_oci_repository_status"], model.ApplicationKindFluxOCIRepository)
-	loadFluxRepos(flux, metrics["fluxcd_helm_repository_info"], metrics["fluxcd_helm_repository_status"], model.ApplicationKindFluxHelmRepository)
+	loadFluxRepos(flux, metrics["fluxcd_git_repository_info"], metrics["fluxcd_git_repository_status"], model.ApplicationKindFluxGitRepository, project)
+	loadFluxRepos(flux, metrics["fluxcd_oci_repository_info"], metrics["fluxcd_oci_repository_status"], model.ApplicationKindFluxOCIRepository, project)
+	loadFluxRepos(flux, metrics["fluxcd_helm_repository_info"], metrics["fluxcd_helm_repository_status"], model.ApplicationKindFluxHelmRepository, project)
 
-	loadFluxHelmCharts(flux, metrics)
-	loadFluxHelmReleases(flux, metrics)
-	loadFluxKustomizations(flux, metrics)
-	loadFluxResourceSets(flux, metrics)
+	loadFluxHelmCharts(flux, metrics, project)
+	loadFluxHelmReleases(flux, metrics, project)
+	loadFluxKustomizations(flux, metrics, project)
+	loadFluxResourceSets(flux, metrics, project)
 
 	if len(flux.Repositories) > 0 || len(flux.HelmCharts) > 0 || len(flux.HelmReleases) > 0 || len(flux.Kustomizations) > 0 || len(flux.ResourceSets) > 0 {
 		w.Flux = flux
 	}
 }
 
-func loadFluxResourceSets(flux *model.Flux, metrics map[string][]*model.MetricValues) {
+func loadFluxResourceSets(flux *model.Flux, metrics map[string][]*model.MetricValues, project *db.Project) {
 	for _, m := range metrics["fluxcd_resourceset_info"] {
-		id := model.ApplicationId{
-			ClusterId: "_",
-			Namespace: m.Labels["namespace"],
-			Kind:      model.ApplicationKindFluxResourceSet,
-			Name:      m.Labels["name"],
-		}
+		id := model.NewApplicationId(project.ClusterId(), m.Labels["namespace"], model.ApplicationKindFluxResourceSet, m.Labels["name"])
 		rs, ok := flux.ResourceSets[id]
 		if !ok {
 			rs = &model.FluxResourceSet{
@@ -43,11 +39,11 @@ func loadFluxResourceSets(flux *model.Flux, metrics map[string][]*model.MetricVa
 		rs.LastAppliedRevision.Update(m.Values, m.Labels["last_applied_revision"])
 	}
 
-	updateStatuses(flux, metrics["fluxcd_resourceset_status"], model.ApplicationKindFluxResourceSet)
+	updateStatuses(flux, metrics["fluxcd_resourceset_status"], model.ApplicationKindFluxResourceSet, project)
 
 	for _, m := range metrics["fluxcd_resourceset_dependency_info"] {
 		id := model.ApplicationId{
-			ClusterId: "_",
+			ClusterId: project.ClusterId(),
 			Namespace: m.Labels["namespace"],
 			Kind:      model.ApplicationKindFluxResourceSet,
 			Name:      m.Labels["name"],
@@ -56,38 +52,30 @@ func loadFluxResourceSets(flux *model.Flux, metrics map[string][]*model.MetricVa
 		if !ok {
 			continue
 		}
-		depId := model.ApplicationId{
-			ClusterId: "_",
-			Namespace: m.Labels["depends_on_namespace"],
-			Name:      m.Labels["depends_on_name"],
-			Kind:      model.ApplicationKind(m.Labels["depends_on_kind"]),
-		}
-		if depId.Namespace == "" {
+		depId := model.NewApplicationId(project.ClusterId(), m.Labels["depends_on_namespace"], model.ApplicationKind(m.Labels["depends_on_kind"]), m.Labels["depends_on_name"])
+		if depId.NamespaceIsEmpty() {
 			depId.Namespace = id.Namespace
 		}
 		rs.DependsOn[depId] = true
 	}
 	for _, m := range metrics["fluxcd_resourceset_inventory_entry_info"] {
 		id := model.ApplicationId{
+			ClusterId: project.ClusterId(),
 			Namespace: m.Labels["namespace"],
 			Kind:      model.ApplicationKindFluxResourceSet,
 			Name:      m.Labels["name"],
 		}
 		if rs := flux.ResourceSets[id]; rs != nil {
-			if eId := parseEntryId(m.Labels["entry_id"]); !eId.IsZero() {
+			if eId := parseEntryId(m.Labels["entry_id"], project); !eId.IsZero() {
 				rs.InventoryEntries[eId] = true
 			}
 		}
 	}
 }
 
-func loadFluxKustomizations(flux *model.Flux, metrics map[string][]*model.MetricValues) {
+func loadFluxKustomizations(flux *model.Flux, metrics map[string][]*model.MetricValues, project *db.Project) {
 	for _, m := range metrics["fluxcd_kustomization_info"] {
-		id := model.ApplicationId{
-			Namespace: m.Labels["namespace"],
-			Kind:      model.ApplicationKindFluxKustomization,
-			Name:      m.Labels["name"],
-		}
+		id := model.NewApplicationId(project.ClusterId(), m.Labels["namespace"], model.ApplicationKindFluxKustomization, m.Labels["name"])
 		k, ok := flux.Kustomizations[id]
 		if !ok {
 			k = &model.FluxKustomization{
@@ -102,12 +90,8 @@ func loadFluxKustomizations(flux *model.Flux, metrics map[string][]*model.Metric
 		}
 
 		k.LastInfo = t
-		sourceId := model.ApplicationId{
-			Namespace: m.Labels["source_namespace"],
-			Kind:      model.ApplicationKind(m.Labels["source_kind"]),
-			Name:      m.Labels["source_name"],
-		}
-		if sourceId.Namespace == "" {
+		sourceId := model.NewApplicationId(project.ClusterId(), m.Labels["source_namespace"], model.ApplicationKind(m.Labels["source_kind"]), m.Labels["source_name"])
+		if sourceId.NamespaceIsEmpty() {
 			sourceId.Namespace = id.Namespace
 		}
 		k.RepositoryId = sourceId
@@ -121,24 +105,16 @@ func loadFluxKustomizations(flux *model.Flux, metrics map[string][]*model.Metric
 		}
 	}
 
-	updateStatuses(flux, metrics["fluxcd_kustomization_status"], model.ApplicationKindFluxKustomization)
+	updateStatuses(flux, metrics["fluxcd_kustomization_status"], model.ApplicationKindFluxKustomization, project)
 
 	for _, m := range metrics["fluxcd_kustomization_dependency_info"] {
-		id := model.ApplicationId{
-			Namespace: m.Labels["namespace"],
-			Kind:      model.ApplicationKindFluxKustomization,
-			Name:      m.Labels["name"],
-		}
+		id := model.NewApplicationId(project.ClusterId(), m.Labels["namespace"], model.ApplicationKindFluxKustomization, m.Labels["name"])
 		k, ok := flux.Kustomizations[id]
 		if !ok {
 			continue
 		}
-		depId := model.ApplicationId{
-			Namespace: m.Labels["depends_on_namespace"],
-			Name:      m.Labels["depends_on_name"],
-			Kind:      model.ApplicationKindFluxKustomization,
-		}
-		if depId.Namespace == "" {
+		depId := model.NewApplicationId(project.ClusterId(), m.Labels["depends_on_namespace"], model.ApplicationKindFluxKustomization, m.Labels["depends_on_name"])
+		if depId.NamespaceIsEmpty() {
 			depId.Namespace = id.Namespace
 		}
 		if dep := flux.Kustomizations[depId]; dep != nil {
@@ -147,26 +123,18 @@ func loadFluxKustomizations(flux *model.Flux, metrics map[string][]*model.Metric
 
 	}
 	for _, m := range metrics["fluxcd_kustomization_inventory_entry_info"] {
-		id := model.ApplicationId{
-			Namespace: m.Labels["namespace"],
-			Kind:      model.ApplicationKindFluxKustomization,
-			Name:      m.Labels["name"],
-		}
+		id := model.NewApplicationId(project.ClusterId(), m.Labels["namespace"], model.ApplicationKindFluxKustomization, m.Labels["name"])
 		if k := flux.Kustomizations[id]; k != nil {
-			if eId := parseEntryId(m.Labels["entry_id"]); !eId.IsZero() {
+			if eId := parseEntryId(m.Labels["entry_id"], project); !eId.IsZero() {
 				k.InventoryEntries[eId] = true
 			}
 		}
 	}
 }
 
-func loadFluxHelmReleases(flux *model.Flux, metrics map[string][]*model.MetricValues) {
+func loadFluxHelmReleases(flux *model.Flux, metrics map[string][]*model.MetricValues, project *db.Project) {
 	for _, m := range metrics["fluxcd_helm_release_info"] {
-		id := model.ApplicationId{
-			Namespace: m.Labels["namespace"],
-			Kind:      model.ApplicationKindFluxHelmRelease,
-			Name:      m.Labels["name"],
-		}
+		id := model.NewApplicationId(project.ClusterId(), m.Labels["namespace"], model.ApplicationKindFluxHelmRelease, m.Labels["name"])
 		r, ok := flux.HelmReleases[id]
 		if !ok {
 			r = &model.FluxHelmRelease{}
@@ -179,6 +147,7 @@ func loadFluxHelmReleases(flux *model.Flux, metrics map[string][]*model.MetricVa
 
 		r.LastInfo = t
 		sourceId := model.ApplicationId{
+			ClusterId: project.ClusterId(),
 			Namespace: m.Labels["source_namespace"],
 			Kind:      model.ApplicationKind(m.Labels["source_kind"]),
 			Name:      m.Labels["source_name"],
@@ -188,7 +157,7 @@ func loadFluxHelmReleases(flux *model.Flux, metrics map[string][]*model.MetricVa
 			sourceId.Namespace = m.Labels["chart_ref_namespace"]
 			sourceId.Kind = model.ApplicationKind(m.Labels["chart_ref_kind"])
 		}
-		if sourceId.Namespace == "" {
+		if sourceId.NamespaceIsEmpty() {
 			sourceId.Namespace = id.Namespace
 		}
 
@@ -201,16 +170,12 @@ func loadFluxHelmReleases(flux *model.Flux, metrics map[string][]*model.MetricVa
 			r.Suspended = true
 		}
 	}
-	updateStatuses(flux, metrics["fluxcd_helm_release_status"], model.ApplicationKindFluxHelmRelease)
+	updateStatuses(flux, metrics["fluxcd_helm_release_status"], model.ApplicationKindFluxHelmRelease, project)
 }
 
-func loadFluxHelmCharts(flux *model.Flux, metrics map[string][]*model.MetricValues) {
+func loadFluxHelmCharts(flux *model.Flux, metrics map[string][]*model.MetricValues, project *db.Project) {
 	for _, m := range metrics["fluxcd_helm_chart_info"] {
-		id := model.ApplicationId{
-			Namespace: m.Labels["namespace"],
-			Kind:      model.ApplicationKindFluxHelmChart,
-			Name:      m.Labels["name"],
-		}
+		id := model.NewApplicationId(project.ClusterId(), m.Labels["namespace"], model.ApplicationKindFluxHelmChart, m.Labels["name"])
 		chart, ok := flux.HelmCharts[id]
 		if !ok {
 			chart = &model.FluxHelmChart{}
@@ -223,11 +188,12 @@ func loadFluxHelmCharts(flux *model.Flux, metrics map[string][]*model.MetricValu
 
 		chart.LastInfo = t
 		sourceId := model.ApplicationId{
+			ClusterId: project.ClusterId(),
 			Namespace: m.Labels["source_namespace"],
 			Kind:      model.ApplicationKind(m.Labels["source_kind"]),
 			Name:      m.Labels["source_name"],
 		}
-		if sourceId.Namespace == "" {
+		if sourceId.NamespaceIsEmpty() {
 			sourceId.Namespace = id.Namespace
 		}
 		chart.RepositoryId = sourceId
@@ -238,12 +204,12 @@ func loadFluxHelmCharts(flux *model.Flux, metrics map[string][]*model.MetricValu
 			chart.Suspended = true
 		}
 	}
-	updateStatuses(flux, metrics["fluxcd_helm_chart_status"], model.ApplicationKindFluxHelmChart)
+	updateStatuses(flux, metrics["fluxcd_helm_chart_status"], model.ApplicationKindFluxHelmChart, project)
 }
 
-func loadFluxRepos(flux *model.Flux, info, status []*model.MetricValues, kind model.ApplicationKind) {
+func loadFluxRepos(flux *model.Flux, info, status []*model.MetricValues, kind model.ApplicationKind, project *db.Project) {
 	for _, m := range info {
-		id := model.ApplicationId{Namespace: m.Labels["namespace"], Kind: kind, Name: m.Labels["name"]}
+		id := model.NewApplicationId(project.ClusterId(), m.Labels["namespace"], kind, m.Labels["name"])
 		r, ok := flux.Repositories[id]
 		if !ok {
 			r = &model.FluxRepository{}
@@ -255,12 +221,12 @@ func loadFluxRepos(flux *model.Flux, info, status []*model.MetricValues, kind mo
 			r.Suspended = true
 		}
 	}
-	updateStatuses(flux, status, kind)
+	updateStatuses(flux, status, kind, project)
 }
 
-func updateStatuses(flux *model.Flux, metrics []*model.MetricValues, kind model.ApplicationKind) {
+func updateStatuses(flux *model.Flux, metrics []*model.MetricValues, kind model.ApplicationKind, project *db.Project) {
 	for _, m := range metrics {
-		id := model.ApplicationId{Namespace: m.Labels["namespace"], Kind: kind, Name: m.Labels["name"]}
+		id := model.NewApplicationId(project.ClusterId(), m.Labels["namespace"], kind, m.Labels["name"])
 		var ready *model.FluxStatus
 		switch kind {
 		case model.ApplicationKindFluxGitRepository, model.ApplicationKindFluxHelmRepository, model.ApplicationKindFluxOCIRepository:
@@ -300,12 +266,13 @@ func updateStatuses(flux *model.Flux, metrics []*model.MetricValues, kind model.
 	}
 }
 
-func parseEntryId(id string) model.ApplicationId {
+func parseEntryId(id string, project *db.Project) model.ApplicationId {
 	parts := strings.SplitN(id, "_", 4)
 	if len(parts) != 4 {
 		return model.ApplicationId{}
 	}
 	return model.ApplicationId{
+		ClusterId: project.ClusterId(),
 		Namespace: parts[0],
 		Name:      parts[1],
 		Kind:      model.ApplicationKind(parts[3]),
