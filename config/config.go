@@ -161,6 +161,12 @@ func (p *Prometheus) Validate() error {
 	if p == nil {
 		return nil
 	}
+	if p.RefreshInterval <= 0 {
+		return fmt.Errorf("invalid refresh-interval: %d", p.RefreshInterval)
+	}
+	if p.UseClickHouse {
+		return nil
+	}
 	if p.Url == "" {
 		return fmt.Errorf("url is required")
 	}
@@ -171,9 +177,6 @@ func (p *Prometheus) Validate() error {
 		if err := validateUrl(p.RemoteWriteUrl); err != nil {
 			return err
 		}
-	}
-	if p.RefreshInterval <= 0 {
-		return fmt.Errorf("invalid refresh-interval: %d", p.RefreshInterval)
 	}
 	if !IsPrometheusSelectorValid(p.ExtraSelector) {
 		return fmt.Errorf("invalid extra_selector: %s", p.ExtraSelector)
