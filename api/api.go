@@ -1847,14 +1847,18 @@ func (api *Api) GetClickhouseClients(project *db.Project) (res clickhouse.Client
 			if ch, res.Error = api.GetClickhouseClient(p, ""); res.Error != nil {
 				return
 			}
-			res.Clients = append(res.Clients, ch)
+			if ch != nil {
+				res.Clients = append(res.Clients, ch)
+			}
 		}
 	} else {
 		var ch *clickhouse.Client
 		if ch, res.Error = api.GetClickhouseClient(project, ""); res.Error != nil {
 			return
 		}
-		res.Clients = append(res.Clients, ch)
+		if ch != nil {
+			res.Clients = append(res.Clients, ch)
+		}
 	}
 	return
 }

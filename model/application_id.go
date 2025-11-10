@@ -74,6 +74,10 @@ func NewApplicationIdFromString(src string, fallbackClusterId string) (Applicati
 	return id, nil
 }
 
+func (a ApplicationId) NamespaceIsEmpty() bool {
+	return a.Namespace == "" || a.Namespace == "_"
+}
+
 func (a ApplicationId) IsZero() bool {
 	return a == ApplicationIdZero
 }

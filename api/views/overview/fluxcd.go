@@ -14,6 +14,7 @@ type InventoryEntry struct {
 
 type FluxCDResource struct {
 	ID                    model.ApplicationId   `json:"id"`
+	Cluster               string                `json:"cluster"`
 	Type                  string                `json:"type"`
 	Name                  string                `json:"name"`
 	Namespace             string                `json:"namespace"`
@@ -42,6 +43,7 @@ func renderFluxCD(w *model.World) []*FluxCDResource {
 	for id, repo := range flux.Repositories {
 		resources = append(resources, &FluxCDResource{
 			ID:        id,
+			Cluster:   w.ClusterName(id.ClusterId),
 			Type:      string(id.Kind),
 			Name:      id.Name,
 			Namespace: id.Namespace,
@@ -56,6 +58,7 @@ func renderFluxCD(w *model.World) []*FluxCDResource {
 	for id, chart := range flux.HelmCharts {
 		resources = append(resources, &FluxCDResource{
 			ID:           id,
+			Cluster:      w.ClusterName(id.ClusterId),
 			Type:         string(id.Kind),
 			Name:         id.Name,
 			Namespace:    id.Namespace,
@@ -72,6 +75,7 @@ func renderFluxCD(w *model.World) []*FluxCDResource {
 	for id, release := range flux.HelmReleases {
 		resources = append(resources, &FluxCDResource{
 			ID:              id,
+			Cluster:         w.ClusterName(id.ClusterId),
 			Type:            string(id.Kind),
 			Name:            id.Name,
 			Namespace:       id.Namespace,
@@ -93,6 +97,7 @@ func renderFluxCD(w *model.World) []*FluxCDResource {
 		})
 		resources = append(resources, &FluxCDResource{
 			ID:                    id,
+			Cluster:               w.ClusterName(id.ClusterId),
 			Type:                  string(id.Kind),
 			Name:                  id.Name,
 			Namespace:             id.Namespace,
@@ -116,6 +121,7 @@ func renderFluxCD(w *model.World) []*FluxCDResource {
 		})
 		resources = append(resources, &FluxCDResource{
 			ID:                  id,
+			Cluster:             w.ClusterName(id.ClusterId),
 			Type:                string(id.Kind),
 			Name:                id.Name,
 			Namespace:           id.Namespace,
