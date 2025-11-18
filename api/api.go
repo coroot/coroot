@@ -32,6 +32,10 @@ import (
 	"k8s.io/klog"
 )
 
+const (
+	MaxIncidentWindow = timeseries.Day
+)
+
 type LoadWorldF func(ctx context.Context, project *db.Project, from, to timeseries.Time) (*model.World, error)
 
 type Api struct {
@@ -580,7 +584,7 @@ func (api *Api) PanelData(w http.ResponseWriter, r *http.Request, u *db.User) {
 		}
 	}
 
-	from, to, _ := api.getTimeContext(r)
+	from, to, _, _ := api.getTimeContext(r)
 	step := increaseStepForBigDurations(from, to, maxRefreshInterval)
 	data, err := views.Dashboards.PanelData(r.Context(), promClients, config, from, to, step)
 	if err != nil {
@@ -1772,16 +1776,17 @@ func (api *Api) LoadWorldByRequest(r *http.Request) (*model.World, *db.Project, 
 		return nil, nil, nil, err
 	}
 
-	from, to, _ := api.getTimeContext(r)
+	from, to, _, truncated := api.getTimeContext(r)
 	world, cacheStatus, err := api.LoadWorld(r.Context(), project, from, to)
 	if world == nil {
 		step := increaseStepForBigDurations(from, to, 15*timeseries.Second)
 		world = model.NewWorld(from, to.Add(-step), step, step)
 	}
+	world.Ctx.Truncated = truncated
 	return world, project, cacheStatus, err
 }
 
-func (api *Api) getTimeContext(r *http.Request) (from timeseries.Time, to timeseries.Time, incident *model.ApplicationIncident) {
+func (api *Api) getTimeContext(r *http.Request) (from timeseries.Time, to timeseries.Time, incident *model.ApplicationIncident, truncated bool) {
 	now := timeseries.Now()
 	q := r.URL.Query()
 	from = utils.ParseTime(now, q.Get("from"), now.Add(-timeseries.Hour))
@@ -1801,6 +1806,10 @@ func (api *Api) getTimeContext(r *http.Request) (from timeseries.Time, to timese
 				to = incident.ResolvedAt.Add(model.IncidentTimeOffset)
 			} else {
 				to = now
+			}
+			if to.Sub(from) > MaxIncidentWindow {
+				from = to.Add(-MaxIncidentWindow)
+				truncated = true
 			}
 		}
 	}

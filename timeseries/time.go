@@ -20,10 +20,11 @@ const (
 )
 
 type Context struct {
-	From    Time     `json:"from"`
-	To      Time     `json:"to"`
-	Step    Duration `json:"step"`
-	RawStep Duration `json:"raw_step"`
+	From      Time     `json:"from"`
+	To        Time     `json:"to"`
+	Step      Duration `json:"step"`
+	RawStep   Duration `json:"raw_step"`
+	Truncated bool     `json:"truncated"`
 }
 
 func NewContext(from, to Time, step Duration) Context {
