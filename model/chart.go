@@ -114,6 +114,9 @@ type Chart struct {
 }
 
 func NewChart(ctx timeseries.Context, title string) *Chart {
+	if ctx.Truncated {
+		title += " (truncated range)"
+	}
 	return &Chart{Ctx: ctx, Title: title}
 }
 
@@ -245,6 +248,10 @@ type ChartGroup struct {
 }
 
 func NewChartGroup(ctx timeseries.Context, title string) *ChartGroup {
+	if ctx.Truncated {
+		title += " (truncated range)"
+		ctx.Truncated = false
+	}
 	return &ChartGroup{ctx: ctx, Title: title}
 }
 
