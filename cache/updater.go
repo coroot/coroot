@@ -40,6 +40,7 @@ func (c *Cache) updater() {
 			if project.Multicluster() {
 				continue
 			}
+			ids[project.Id] = true
 			promClient, err := c.getPromClient(project)
 			if err != nil {
 				klog.Warningln(err)
@@ -51,7 +52,6 @@ func (c *Cache) updater() {
 				klog.Errorln(err)
 				continue
 			}
-			ids[project.Id] = true
 			_, ok := workers.Load(project.Id)
 			workers.Store(project.Id, project)
 			if !ok {
@@ -76,6 +76,108 @@ func (c *Cache) getPromClient(project *db.Project) (prom.Client, error) {
 	return prom.NewClient(project.PrometheusConfig(c.globalPrometheus), project.ClickHouseConfig(c.globalClickHouse))
 }
 
+func (c *Cache) projectUpdateIteration(project *db.Project, step timeseries.Duration) error {
+	states, err := c.loadStates(project.Id)
+	if err != nil {
+		return fmt.Errorf("could not get query states: %w", err)
+
+	}
+	checkConfigs, err := c.db.GetCheckConfigs(project.Id)
+	if err != nil {
+		return fmt.Errorf("could not get check configs: %w", err)
+	}
+
+	queries := slices.Clone(constructor.QUERIES)
+	for appId := range checkConfigs {
+		availabilityCfg, _ := checkConfigs.GetAvailability(appId)
+		if availabilityCfg.Custom {
+			queries = append(queries, constructor.Q("", availabilityCfg.Total()), constructor.Q("", availabilityCfg.Failed()))
+		}
+		latencyCfg, _ := checkConfigs.GetLatency(appId, project.CalcApplicationCategory(appId))
+		if latencyCfg.Custom {
+			queries = append(queries, constructor.Q("", latencyCfg.Histogram(), "le"))
+		}
+	}
+
+	var recordingRules []constructor.Query
+	for q := range constructor.RecordingRules {
+		recordingRules = append(recordingRules, constructor.Q("", q))
+	}
+
+	actualQueries := map[string]bool{}
+	now := timeseries.Now()
+	for _, q := range append(queries, recordingRules...) {
+		actualQueries[q.Query] = true
+		state := states[q.Query]
+		if state == nil {
+			state = &PrometheusQueryState{ProjectId: project.Id, Query: q.Query, LastTs: now.Add(-BackFillInterval)}
+			if err := c.saveState(state); err != nil {
+				return fmt.Errorf("failed to create query state: %w", err)
+			}
+			states[q.Query] = state
+		}
+	}
+	for q, s := range states {
+		if actualQueries[q] {
+			continue
+		}
+		if err := c.deleteState(s); err != nil {
+			klog.Warningln("failed to delete obsolete query state:", err)
+			continue
+		}
+	}
+
+	promClient, err := c.getPromClient(project)
+	if err != nil {
+		return err
+	}
+	defer promClient.Close()
+	si, err := getScrapeInterval(promClient)
+	if err != nil {
+		klog.Errorln(err)
+	} else if si != step {
+		step = si
+		c.lock.Lock()
+		if c.byProject[project.Id] == nil {
+			c.lock.Unlock()
+			return fmt.Errorf("unknown project: %s", project.Id)
+		}
+		c.byProject[project.Id].step = step
+		c.lock.Unlock()
+	}
+	wg := sync.WaitGroup{}
+	tasks := make(chan UpdateTask)
+	to := now.Add(-step)
+	for i := 0; i < QueryConcurrency; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for task := range tasks {
+				c.download(to, promClient, project.Id, step, task)
+			}
+		}()
+	}
+	for _, q := range queries {
+		tasks <- UpdateTask{query: q, state: states[q.Query]}
+	}
+	close(tasks)
+	wg.Wait()
+
+	cacheTo, err := c.getMinUpdateTimeWithoutRecordingRules(project.Id)
+	if err != nil {
+		return err
+	}
+	if cacheTo.IsZero() {
+		return nil
+	}
+	c.processRecordingRules(cacheTo, project, step, states)
+	select {
+	case c.updates <- project.Id:
+	default:
+	}
+	return nil
+}
+
 func (c *Cache) updaterWorker(projects *sync.Map, projectId db.ProjectId, step timeseries.Duration) {
 	c.lock.Lock()
 	if projData := c.byProject[projectId]; projData == nil {
@@ -98,114 +200,10 @@ func (c *Cache) updaterWorker(projects *sync.Map, projectId db.ProjectId, step t
 			klog.Infoln("stopping worker for project:", projectId)
 			return
 		}
-
 		project := p.(*db.Project)
-		states, err := c.loadStates(projectId)
-		if err != nil {
-			klog.Errorln("could not get query states:", err)
-			return
+		if err := c.projectUpdateIteration(project, step); err != nil {
+			klog.Errorln(err)
 		}
-		checkConfigs, err := c.db.GetCheckConfigs(projectId)
-		if err != nil {
-			klog.Errorln("could not get check configs:", err)
-			return
-		}
-
-		queries := slices.Clone(constructor.QUERIES)
-		for appId := range checkConfigs {
-			availabilityCfg, _ := checkConfigs.GetAvailability(appId)
-			if availabilityCfg.Custom {
-				queries = append(queries, constructor.Q("", availabilityCfg.Total()), constructor.Q("", availabilityCfg.Failed()))
-			}
-			latencyCfg, _ := checkConfigs.GetLatency(appId, project.CalcApplicationCategory(appId))
-			if latencyCfg.Custom {
-				queries = append(queries, constructor.Q("", latencyCfg.Histogram(), "le"))
-			}
-		}
-
-		var recordingRules []constructor.Query
-		for q := range constructor.RecordingRules {
-			recordingRules = append(recordingRules, constructor.Q("", q))
-		}
-
-		actualQueries := map[string]bool{}
-		now := timeseries.Now()
-		for _, q := range append(queries, recordingRules...) {
-			actualQueries[q.Query] = true
-			state := states[q.Query]
-			if state == nil {
-				state = &PrometheusQueryState{ProjectId: projectId, Query: q.Query, LastTs: now.Add(-BackFillInterval)}
-				if err := c.saveState(state); err != nil {
-					klog.Errorln("failed to create query state:", err)
-					return
-				}
-				states[q.Query] = state
-			}
-		}
-		for q, s := range states {
-			if actualQueries[q] {
-				continue
-			}
-			if err := c.deleteState(s); err != nil {
-				klog.Warningln("failed to delete obsolete query state:", err)
-				continue
-			}
-		}
-
-		func() {
-			promClient, err := c.getPromClient(project)
-			if err != nil {
-				return
-			}
-			defer promClient.Close()
-			si, err := getScrapeInterval(promClient)
-			if err != nil {
-				klog.Errorln(err)
-			} else if si != step {
-				step = si
-				c.lock.Lock()
-				if c.byProject[projectId] == nil {
-					c.lock.Unlock()
-					klog.Warningln("unknown project:", projectId)
-					return
-				}
-				c.byProject[projectId].step = step
-				c.lock.Unlock()
-			}
-			wg := sync.WaitGroup{}
-			tasks := make(chan UpdateTask)
-			to := now.Add(-step)
-			for i := 0; i < QueryConcurrency; i++ {
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					for task := range tasks {
-						c.download(to, promClient, project.Id, step, task)
-					}
-				}()
-			}
-			for _, q := range queries {
-				tasks <- UpdateTask{query: q, state: states[q.Query]}
-			}
-			close(tasks)
-			wg.Wait()
-
-			cacheTo, err := c.getMinUpdateTimeWithoutRecordingRules(project.Id)
-			if err != nil {
-				klog.Errorln(err)
-				return
-			}
-			if cacheTo.IsZero() {
-				return
-			}
-			c.processRecordingRules(cacheTo, project, step, states)
-
-			select {
-			case c.updates <- project.Id:
-			default:
-			}
-		}()
-
 		duration := time.Since(start)
 		klog.Infof("%s: cache updated in %s", projectId, duration.Truncate(time.Millisecond))
 		refreshInterval := step
