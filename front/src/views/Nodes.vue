@@ -50,7 +50,7 @@
             </template>
 
             <template #item.gpus="{ item }">
-                <span v-if="item.gpus">{{ item.gpus }})</span>
+                <span v-if="item.gpus">{{ item.gpus }}</span>
                 <span v-else>-</span>
             </template>
 
