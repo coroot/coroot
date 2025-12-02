@@ -125,8 +125,8 @@ func (c *Collector) Config(w http.ResponseWriter, r *http.Request) {
 
 			for instance := range instancesByType[t] {
 				ips := map[string]netaddr.IP{}
-				for listen, active := range instance.TcpListens {
-					if active && listen.Port == instrumentation.Port {
+				for listen := range instance.TcpListens {
+					if listen.Port == instrumentation.Port {
 						if ip, err := netaddr.ParseIP(listen.IP); err == nil {
 							ips[listen.IP] = ip
 						}
