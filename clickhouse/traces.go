@@ -621,7 +621,7 @@ func (q *SpanQuery) RootSpansFilter() ([]string, []any) {
 
 func (q *SpanQuery) SpansByServiceNameFilter() ([]string, []any) {
 	filter, args := q.Filter()
-	filter = append(filter, "SpanKind = 'SPAN_KIND_SERVER'")
+	filter = append(filter, "(SpanKind = 'SPAN_KIND_SERVER' OR SpanKind = 'SPAN_KIND_CONSUMER')")
 	if len(q.ExcludePeerAddrs) > 0 {
 		filter = append(filter, "NetSockPeerAddr NOT IN (@addrs)")
 		args = append(args, clickhouse.Named("addrs", q.ExcludePeerAddrs))
