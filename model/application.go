@@ -46,6 +46,8 @@ type Application struct {
 
 	DNSRequests          map[DNSRequest]map[string]*timeseries.TimeSeries
 	DNSRequestsHistogram map[float32]*timeseries.TimeSeries
+
+	PeriodicSystemdJob bool
 }
 
 func NewApplication(id ApplicationId) *Application {
@@ -349,14 +351,7 @@ func (app *Application) PeriodicJob() bool {
 	case ApplicationKindJob, ApplicationKindCronJob:
 		return true
 	}
-	for _, i := range app.Instances {
-		for _, c := range i.Containers {
-			if c.PeriodicSystemdJob {
-				return true
-			}
-		}
-	}
-	return false
+	return app.PeriodicSystemdJob
 }
 
 func (app *Application) IsCorootComponent() bool {

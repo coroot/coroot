@@ -36,6 +36,7 @@ func (a *appAuditor) memory(ncs nodeConsumersByNode) {
 
 	seenContainers := false
 	limitByContainer := map[string]*timeseries.Aggregate{}
+	periodicJob := a.app.PeriodicJob()
 	for _, i := range a.app.Instances {
 		oom := timeseries.NewAggregate(timeseries.NanSum)
 		instanceRss := timeseries.NewAggregate(timeseries.NanSum)
@@ -63,7 +64,7 @@ func (a *appAuditor) memory(ncs nodeConsumersByNode) {
 				pressureCheck.AddItem(i.Name)
 			}
 		}
-		if a.app.PeriodicJob() {
+		if periodicJob {
 			leakCheck.SetStatus(model.UNKNOWN, "not checked for periodic jobs")
 		} else {
 			v := instanceRssForTrend.Get().MapInPlace(timeseries.ZeroToNan)
