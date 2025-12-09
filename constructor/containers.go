@@ -179,7 +179,7 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]*model
 			container.Image = image
 		}
 		if strings.HasSuffix(metric.Labels["systemd_triggered_by"], ".timer") {
-			container.PeriodicSystemdJob = true
+			instance.Owner.PeriodicSystemdJob = true
 		}
 	})
 	loadContainer("container_application_type", func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
