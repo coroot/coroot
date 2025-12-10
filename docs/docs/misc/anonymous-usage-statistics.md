@@ -116,14 +116,17 @@ Docker:
 docker run ... ghcr.io/coroot/coroot --disable-usage-statistics
 ```
 
-Kubernetes:
+Kubernetes operator:
 
 ```yaml
-...
+apiVersion: coroot.com/v1
+kind: Coroot
+metadata:
+  name: coroot
+  namespace: coroot
 spec:
-containers:
-- name: coroot
-  image: ghcr.io/coroot/coroot
-  args: ["--disable-usage-statistics"]
+  env:
+    - name: DISABLE_USAGE_STATISTICS
+      value: "true"
   ...
 ```
