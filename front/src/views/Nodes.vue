@@ -4,8 +4,7 @@
             <v-text-field v-model="search" label="search" clearable dense hide-details prepend-inner-icon="mdi-magnify" outlined class="search" />
         </div>
         <v-data-table
-            sort-by=""
-            sort-desc
+            sort-by="name"
             must-sort
             dense
             class="table"

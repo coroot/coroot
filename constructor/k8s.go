@@ -148,6 +148,12 @@ func (c *Constructor) podInfo(w *model.World, metrics []*model.MetricValues, pro
 	pods := map[string]*model.Instance{}
 	podOwners := map[podId]model.ApplicationId{}
 	var podsOwnedByPods []*model.Instance
+
+	k8sNodes := make(map[string]*model.Node, len(w.Nodes))
+	for _, n := range w.Nodes {
+		k8sNodes[n.K8sName.Value()] = n
+	}
+
 	for _, m := range metrics {
 		w.IntegrationStatus.KubeStateMetrics.Installed = true
 		pod := m.Labels["pod"]
@@ -160,7 +166,7 @@ func (c *Constructor) podInfo(w *model.World, metrics []*model.MetricValues, pro
 			klog.Errorln("invalid 'kube_pod_info' metric: 'uid' label is empty")
 			continue
 		}
-		node := w.GetNode(nodeName)
+		node := k8sNodes[nodeName]
 		var appId model.ApplicationId
 
 		switch {
