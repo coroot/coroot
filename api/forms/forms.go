@@ -329,11 +329,10 @@ func (f *IntegrationFormPrometheus) Valid() bool {
 
 func (f *IntegrationFormPrometheus) Get(project *db.Project, masked bool) {
 	cfg := project.PrometheusConfig(f.global)
+	f.IntegrationPrometheus = *cfg
 	if cfg.Url == "" {
-		f.RefreshInterval = db.DefaultRefreshInterval
 		return
 	}
-	f.IntegrationPrometheus = *cfg
 	if masked {
 		f.Url = "http://<hidden>"
 		if f.BasicAuth != nil {
