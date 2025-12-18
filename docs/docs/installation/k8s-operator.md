@@ -73,6 +73,7 @@ spec:
 #    tls: # TLS configuration.
 #      hosts: # The array with host names
 #      secretName: # The name of secret where TLS certificate and private key would be stored
+#  storeMetricsInClickhouse: false # Store metrics in ClickHouse. If enabled, Prometheus will not be installed.
 #  grpc: # gRPC settings.
 #    disabled: false # Disables gRPC server.
 #  tls: # TLS settings (enables TLS for gRPC if defined).
