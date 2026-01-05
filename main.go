@@ -156,6 +156,7 @@ func main() {
 	router.HandleFunc("/v1/logs", coll.Logs)
 	router.HandleFunc("/v1/profiles", coll.Profiles)
 	router.HandleFunc("/v1/config", coll.Config)
+	router.HandleFunc("/api/v1/query_range", a.PrometheusQueryRange)
 
 	r := router
 	if cfg.UrlBasePath != "/" {
@@ -165,6 +166,7 @@ func main() {
 		r.HandleFunc("/v1/logs", coll.Logs)
 		r.HandleFunc("/v1/profiles", coll.Profiles)
 		r.HandleFunc("/v1/config", coll.Config)
+		r.HandleFunc("/api/v1/query_range", a.PrometheusQueryRange)
 	}
 	r.UseEncodedPath()
 	r.HandleFunc("/api/login", a.Login).Methods(http.MethodPost)

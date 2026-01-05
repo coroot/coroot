@@ -1048,6 +1048,49 @@ func (api *Api) Prom(w http.ResponseWriter, r *http.Request, u *db.User) {
 	}
 }
 
+func (api *Api) PrometheusQueryRange(w http.ResponseWriter, r *http.Request) {
+	projects, err := api.db.GetProjects()
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	apiKey := r.Header.Get(collector.ApiKeyHeader)
+	if apiKey == "" {
+		klog.Warningln("no api key")
+		http.Error(w, "no api key", http.StatusBadRequest)
+		return
+	}
+
+	project := func(apiKey string) *db.Project {
+		for _, p := range projects {
+			if p.Multicluster() {
+				continue
+			}
+			for _, key := range p.Settings.ApiKeys {
+				if !key.IsEmpty() && key.Key == apiKey {
+					return p
+				}
+			}
+		}
+		return nil
+	}(apiKey)
+	if project == nil {
+		klog.Warningln("no project found")
+		http.Error(w, "no project found", http.StatusNotFound)
+		return
+	}
+	c, err := prom.NewClient(project.PrometheusConfig(api.globalPrometheus), project.ClickHouseConfig(api.globalClickHouse))
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	defer c.Close()
+
+	c.QueryRangeHandler(r, w)
+}
+
 func (api *Api) Application(w http.ResponseWriter, r *http.Request, u *db.User) {
 	projectId := mux.Vars(r)["project"]
 	appId, err := GetApplicationId(r)

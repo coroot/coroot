@@ -15,6 +15,10 @@ const (
 	DefaultRefreshInterval = 30
 )
 
+var (
+	emptyApiKey = strings.Repeat("0", 32)
+)
+
 type ProjectId string
 
 type Project struct {
@@ -46,6 +50,10 @@ func (k *ApiKey) Validate() error {
 		return fmt.Errorf("key is required")
 	}
 	return nil
+}
+
+func (k *ApiKey) IsEmpty() bool {
+	return k.Key == emptyApiKey
 }
 
 func (p *Project) Migrate(m *Migrator) error {

@@ -116,6 +116,7 @@ type Client interface {
 	Ping(ctx context.Context) error
 	GetStep(from, to timeseries.Time) (timeseries.Duration, error)
 	QueryRange(ctx context.Context, query string, filterLabels FilterLabelsF, from, to timeseries.Time, step timeseries.Duration) ([]*model.MetricValues, error)
+	QueryRangeHandler(r *http.Request, w http.ResponseWriter)
 	MetricMetadata(r *http.Request, w http.ResponseWriter)
 	LabelValues(r *http.Request, w http.ResponseWriter, labelName string)
 	Series(r *http.Request, w http.ResponseWriter)

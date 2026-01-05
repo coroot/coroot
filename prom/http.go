@@ -178,6 +178,10 @@ func (c *HttpClient) Series(r *http.Request, w http.ResponseWriter) {
 	c.proxy(r, w, "/api/v1/series")
 }
 
+func (c *HttpClient) QueryRangeHandler(r *http.Request, w http.ResponseWriter) {
+	c.proxy(r, w, "/api/v1/query_range")
+}
+
 func (c *HttpClient) proxy(r *http.Request, w http.ResponseWriter, promUrlPath string) {
 	u := c.url
 	u.Path = path.Join(u.Path, promUrlPath)

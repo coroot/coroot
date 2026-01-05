@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -77,7 +78,7 @@ func (c *ClickHouse) QueryRange(ctx context.Context, query string, filterLabels 
 	defer q.Close()
 	resp := q.Exec(ctx)
 	if resp.Err != nil {
-		klog.Infoln(resp.Err.Error(), query)
+		klog.Errorln(resp.Err.Error(), query)
 		return nil, resp.Err
 	}
 	matrix, err := resp.Matrix()
@@ -107,6 +108,56 @@ func (c *ClickHouse) QueryRange(ctx context.Context, query string, filterLabels 
 		}
 	}
 	return maps.Values(res), nil
+}
+
+func (c *ClickHouse) QueryRangeHandler(r *http.Request, w http.ResponseWriter) {
+	start, err := parseTime(r.FormValue("start"))
+	if err != nil {
+		writePrometheusResponse(w, err, errorBadData, nil)
+		return
+	}
+	end, err := parseTime(r.FormValue("end"))
+	if err != nil {
+		writePrometheusResponse(w, err, errorBadData, nil)
+		return
+	}
+	if end.Before(start) {
+		writePrometheusResponse(w, errors.New("end timestamp must not be before start time"), errorBadData, nil)
+		return
+	}
+
+	step, err := parseDuration(r.FormValue("step"))
+	if err != nil {
+		writePrometheusResponse(w, err, errorBadData, nil)
+		return
+	}
+
+	if step <= 0 {
+		writePrometheusResponse(w, errors.New("zero or negative query resolution step widths are not accepted. Try a positive integer"), errorBadData, nil)
+		return
+	}
+
+	if end.Sub(start)/step > 11000 {
+		err := errors.New("exceeded maximum resolution of 11,000 points per timeseries. Try decreasing the query resolution (?step=XX)")
+		writePrometheusResponse(w, err, errorBadData, nil)
+		return
+	}
+	opts := promql.NewPrometheusQueryOpts(false, 0)
+
+	query := r.FormValue("query")
+	q, err := c.engine.NewRangeQuery(r.Context(), c, opts, query, start, end, step)
+	if err != nil {
+		writePrometheusResponse(w, err, errorInternal, nil)
+		return
+	}
+	defer q.Close()
+	resp := q.Exec(r.Context())
+
+	data := &PrometheusQueryData{ResultType: parser.ValueTypeMatrix, Result: resp.Value}
+	if v, ok := data.Result.(promql.Matrix); ok && v == nil {
+		data.Result = promql.Matrix{}
+	}
+	writePrometheusResponse(w, resp.Err, errorInternal, data)
 }
 
 func (c *ClickHouse) MetricMetadata(r *http.Request, w http.ResponseWriter) {
@@ -271,6 +322,11 @@ const (
 	errorNotAcceptable errorType = "not_acceptable"
 )
 
+type PrometheusQueryData struct {
+	ResultType parser.ValueType `json:"resultType"`
+	Result     parser.Value     `json:"result"`
+}
+
 type PrometheusResponse struct {
 	Status    string      `json:"status"`
 	Data      interface{} `json:"data,omitempty"`
@@ -291,4 +347,21 @@ func writePrometheusResponse(w http.ResponseWriter, err error, errorType errorTy
 		resp.ErrorType = errorType
 	}
 	_ = json.NewEncoder(w).Encode(resp)
+}
+
+func parseTime(s string) (time.Time, error) {
+	if unixSeconds, err := strconv.ParseFloat(s, 64); err == nil {
+		return time.Unix(int64(unixSeconds), 0).UTC(), nil
+	}
+	return time.Parse(time.RFC3339Nano, s)
+}
+
+func parseDuration(s string) (time.Duration, error) {
+	if d, err := strconv.ParseFloat(s, 64); err == nil {
+		return time.Duration(d * float64(time.Second)), nil
+	}
+	if d, err := promModel.ParseDuration(s); err == nil {
+		return time.Duration(d), nil
+	}
+	return 0, fmt.Errorf("cannot parse %q to a valid duration", s)
 }
