@@ -11,6 +11,7 @@
             <v-radio-group v-model="form.protocol" row dense class="mt-0" :disabled="form.global">
                 <v-radio label="Native" value="native"></v-radio>
                 <v-radio label="HTTP" value="http"></v-radio>
+                <v-radio label="Coroot" value="coroot"></v-radio>
             </v-radio-group>
 
             <div class="subtitle-1">Clickhouse address</div>

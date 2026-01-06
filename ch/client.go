@@ -3,7 +3,12 @@ package ch
 import (
 	"context"
 	"crypto/tls"
+	"encoding/binary"
+	"encoding/json"
 	"fmt"
+	"net"
+	"net/http"
+	"net/textproto"
 	"strconv"
 	"strings"
 	"time"
@@ -17,6 +22,12 @@ import (
 	"k8s.io/klog"
 )
 
+const (
+	dialTimeout    = 10 * time.Second
+	authHeader     = "X-API-Key"
+	ProtocolCoroot = "coroot"
+)
+
 type LowLevelClient struct {
 	pool    *chpool.Pool
 	cluster string
@@ -24,6 +35,17 @@ type LowLevelClient struct {
 }
 
 func NewLowLevelClient(ctx context.Context, cfg *db.IntegrationClickhouse) (*LowLevelClient, error) {
+	var err error
+	var dialer *Dialer
+	if cfg.Protocol == ProtocolCoroot {
+		var err error
+		origConfig := cfg
+		if cfg, err = GetConfigFromRemoteCoroot(origConfig); err != nil {
+			return nil, err
+		}
+		dialer = GetRemoteCorootDialer(origConfig)
+	}
+
 	opts := ch.Options{
 		Address:          cfg.Addr,
 		Database:         cfg.Database,
@@ -31,13 +53,16 @@ func NewLowLevelClient(ctx context.Context, cfg *db.IntegrationClickhouse) (*Low
 		Password:         cfg.Auth.Password,
 		Compression:      ch.CompressionLZ4,
 		ReadTimeout:      30 * time.Second,
-		DialTimeout:      10 * time.Second,
-		HandshakeTimeout: 10 * time.Second,
+		DialTimeout:      dialTimeout,
+		HandshakeTimeout: dialTimeout,
 	}
 	if cfg.TlsEnable {
 		opts.TLS = &tls.Config{
 			InsecureSkipVerify: cfg.TlsSkipVerify,
 		}
+	}
+	if dialer != nil {
+		opts.Dialer = dialer
 	}
 	pool, err := chpool.Dial(context.Background(), chpool.Options{ClientOptions: opts})
 	if err != nil {
@@ -417,4 +442,91 @@ func ReplaceTables(query string, distributed bool) string {
 		query = strings.ReplaceAll(query, placeholder, t)
 	}
 	return query
+}
+
+func GetConfigFromRemoteCoroot(cfg *db.IntegrationClickhouse) (*db.IntegrationClickhouse, error) {
+	tr := &http.Transport{}
+	if cfg.TlsEnable && cfg.TlsSkipVerify {
+		tr.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	}
+	httpClient := &http.Client{
+		Transport: tr,
+		Timeout:   dialTimeout,
+	}
+	scheme := "http"
+	if cfg.TlsEnable {
+		scheme = "https"
+	}
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s://%s/api/clickhouse-config", scheme, cfg.Addr), nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set(authHeader, cfg.Auth.Password)
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("got \"%s\" from remote Coroot", resp.Status)
+	}
+	var res db.IntegrationClickhouse
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return nil, fmt.Errorf("failed to decode clickhouse config: %w", err)
+	}
+	return &res, nil
+}
+
+type Dialer struct {
+	cfg *db.IntegrationClickhouse
+}
+
+func (d *Dialer) Dial(ctx context.Context, address string) (net.Conn, error) {
+	return d.DialContext(ctx, "tcp", address)
+}
+
+func (d *Dialer) DialContext(ctx context.Context, network, address string) (net.Conn, error) {
+	host, _, err := net.SplitHostPort(d.cfg.Addr)
+	if err != nil {
+		return nil, err
+	}
+	conn, err := net.DialTimeout("tcp", d.cfg.Addr, dialTimeout)
+	if err != nil {
+		return nil, err
+	}
+	if d.cfg.TlsEnable {
+		conn = tls.Client(conn, &tls.Config{ServerName: host, InsecureSkipVerify: d.cfg.TlsSkipVerify})
+	}
+
+	payload := fmt.Sprintf(
+		"CONNECT /api/clickhouse-connect HTTP/1.1\r\nHost: %s\r\n%s: %s\r\n\r\n",
+		host,
+		headerKey(authHeader),
+		headerValue(d.cfg.Auth.Password),
+	)
+	if _, err = conn.Write([]byte(payload)); err != nil {
+		conn.Close()
+		return nil, err
+	}
+	var status uint32
+	if err = binary.Read(conn, binary.LittleEndian, &status); err != nil {
+		return nil, err
+	}
+	if status != http.StatusOK {
+		return nil, fmt.Errorf("failed to connect to clickhouse: %d", status)
+	}
+	return conn, nil
+}
+
+func GetRemoteCorootDialer(cfg *db.IntegrationClickhouse) *Dialer {
+	return &Dialer{cfg: cfg}
+}
+
+var newlineReplaces = strings.NewReplacer("\n", " ", "\r", " ")
+
+func headerKey(s string) string {
+	return textproto.CanonicalMIMEHeaderKey(s)
+}
+func headerValue(s string) string {
+	return textproto.TrimString(strings.TrimSpace(newlineReplaces.Replace(s)))
 }

@@ -156,7 +156,6 @@ func main() {
 	router.HandleFunc("/v1/logs", coll.Logs)
 	router.HandleFunc("/v1/profiles", coll.Profiles)
 	router.HandleFunc("/v1/config", coll.Config)
-	router.HandleFunc("/api/v1/query_range", a.PrometheusQueryRange)
 
 	r := router
 	if cfg.UrlBasePath != "/" {
@@ -166,7 +165,6 @@ func main() {
 		r.HandleFunc("/v1/logs", coll.Logs)
 		r.HandleFunc("/v1/profiles", coll.Profiles)
 		r.HandleFunc("/v1/config", coll.Config)
-		r.HandleFunc("/api/v1/query_range", a.PrometheusQueryRange)
 	}
 	r.UseEncodedPath()
 	r.HandleFunc("/api/login", a.Login).Methods(http.MethodPost)
@@ -204,6 +202,10 @@ func main() {
 	r.HandleFunc("/api/project/{project}/app/{app}/risks", a.Auth(a.Risks)).Methods(http.MethodPost)
 	r.HandleFunc("/api/project/{project}/node/{node}", a.Auth(a.Node)).Methods(http.MethodGet)
 	r.PathPrefix("/api/project/{project}/prom/api/v1/{rest:.+}").HandlerFunc(a.Auth(a.Prom))
+
+	r.HandleFunc("/api/v1/query_range", a.PrometheusQueryRange)
+	r.HandleFunc("/api/clickhouse-config", a.ClickhouseConfig).Methods(http.MethodGet)
+	r.HandleFunc("/api/clickhouse-connect", a.ClickhouseConnect).Methods(http.MethodConnect)
 
 	r.HandleFunc("/stats", func(w http.ResponseWriter, r *http.Request) {
 		statsCollector.RegisterRequest(r)

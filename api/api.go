@@ -2,9 +2,12 @@ package api
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"slices"
@@ -17,6 +20,7 @@ import (
 	"github.com/coroot/coroot/api/views"
 	"github.com/coroot/coroot/auditor"
 	"github.com/coroot/coroot/cache"
+	"github.com/coroot/coroot/ch"
 	"github.com/coroot/coroot/clickhouse"
 	pricing "github.com/coroot/coroot/cloud-pricing"
 	"github.com/coroot/coroot/collector"
@@ -903,16 +907,11 @@ func (api *Api) Integration(w http.ResponseWriter, r *http.Request, u *db.User) 
 		case db.IntegrationTypeClickhouse:
 			cfg := project.ClickHouseConfig(api.globalClickHouse)
 			var ci *clickhouse.ClusterInfo
-			if cfg != nil {
-				config := clickhouse.NewClientConfig(cfg.Addr, cfg.Auth.User, cfg.Auth.Password)
-				config.Protocol = cfg.Protocol
-				config.Database = cfg.Database
-				config.TlsEnable = cfg.TlsEnable
-				config.TlsSkipVerify = cfg.TlsSkipVerify
+			if cfg != nil && cfg.Protocol != ch.ProtocolCoroot {
 				cInfo, err := api.collector.GetClickhouseClusterInfo(project)
 				if err != nil {
 					klog.Errorln(err)
-				} else if ci, err = clickhouse.GetClusterInfo(r.Context(), config, cInfo, project); err != nil {
+				} else if ci, err = clickhouse.GetClusterInfo(r.Context(), cfg, cInfo, project); err != nil {
 					klog.Errorln(err)
 				}
 			}
@@ -1048,33 +1047,37 @@ func (api *Api) Prom(w http.ResponseWriter, r *http.Request, u *db.User) {
 	}
 }
 
-func (api *Api) PrometheusQueryRange(w http.ResponseWriter, r *http.Request) {
+func (api *Api) getProjectByApiKey(apiKey string) (*db.Project, error) {
 	projects, err := api.db.GetProjects()
 	if err != nil {
-		klog.Errorln(err)
-		http.Error(w, "", http.StatusInternalServerError)
-		return
+		return nil, err
 	}
+	for _, p := range projects {
+		if p.Multicluster() {
+			continue
+		}
+		for _, key := range p.Settings.ApiKeys {
+			if !key.IsEmpty() && key.Key == apiKey {
+				return p, nil
+			}
+		}
+	}
+	return nil, nil
+}
+
+func (api *Api) PrometheusQueryRange(w http.ResponseWriter, r *http.Request) {
 	apiKey := r.Header.Get(collector.ApiKeyHeader)
 	if apiKey == "" {
 		klog.Warningln("no api key")
 		http.Error(w, "no api key", http.StatusBadRequest)
 		return
 	}
-
-	project := func(apiKey string) *db.Project {
-		for _, p := range projects {
-			if p.Multicluster() {
-				continue
-			}
-			for _, key := range p.Settings.ApiKeys {
-				if !key.IsEmpty() && key.Key == apiKey {
-					return p
-				}
-			}
-		}
-		return nil
-	}(apiKey)
+	project, err := api.getProjectByApiKey(apiKey)
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
 	if project == nil {
 		klog.Warningln("no project found")
 		http.Error(w, "no project found", http.StatusNotFound)
@@ -1089,6 +1092,86 @@ func (api *Api) PrometheusQueryRange(w http.ResponseWriter, r *http.Request) {
 	defer c.Close()
 
 	c.QueryRangeHandler(r, w)
+}
+
+func (api *Api) ClickhouseConfig(w http.ResponseWriter, r *http.Request) {
+	apiKey := r.Header.Get(collector.ApiKeyHeader)
+	if apiKey == "" {
+		klog.Warningln("no api key")
+		http.Error(w, "no api key", http.StatusBadRequest)
+		return
+	}
+	project, err := api.getProjectByApiKey(apiKey)
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	if project == nil {
+		klog.Warningln("no project found")
+		http.Error(w, "no project found", http.StatusNotFound)
+		return
+	}
+
+	cfg := project.ClickHouseConfig(api.globalClickHouse)
+	utils.WriteJson(w, cfg)
+}
+
+func (api *Api) ClickhouseConnect(w http.ResponseWriter, r *http.Request) {
+	apiKey := r.Header.Get(collector.ApiKeyHeader)
+	hj, ok := w.(http.Hijacker)
+	if !ok {
+		klog.Errorln("connection hijacking not supported")
+		http.Error(w, "hijacking not supported", http.StatusInternalServerError)
+		return
+	}
+	clientConn, _, err := hj.Hijack()
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "hijack failed", http.StatusInternalServerError)
+		return
+	}
+	defer clientConn.Close()
+
+	if apiKey == "" {
+		_ = binary.Write(clientConn, binary.LittleEndian, uint32(http.StatusBadRequest))
+		klog.Warningln("no api key")
+		return
+	}
+	project, err := api.getProjectByApiKey(apiKey)
+	if err != nil {
+		_ = binary.Write(clientConn, binary.LittleEndian, uint32(http.StatusInternalServerError))
+		klog.Errorln(err)
+		return
+	}
+	if project == nil {
+		klog.Warningln("no project found")
+		_ = binary.Write(clientConn, binary.LittleEndian, uint32(http.StatusNotFound))
+		return
+	}
+	cfg := project.ClickHouseConfig(api.globalClickHouse)
+
+	upstreamConn, err := net.DialTimeout("tcp", cfg.Addr, 10*time.Second)
+	if err != nil {
+		klog.Errorln(err)
+		_ = binary.Write(clientConn, binary.LittleEndian, uint32(http.StatusBadGateway))
+		return
+	}
+	defer upstreamConn.Close()
+
+	_ = binary.Write(clientConn, binary.LittleEndian, uint32(http.StatusOK))
+	errCh := make(chan error, 2)
+
+	go func() {
+		_, e := io.Copy(upstreamConn, clientConn)
+		errCh <- e
+	}()
+	go func() {
+		_, e := io.Copy(clientConn, upstreamConn)
+		errCh <- e
+	}()
+
+	<-errCh
 }
 
 func (api *Api) Application(w http.ResponseWriter, r *http.Request, u *db.User) {
@@ -1123,10 +1206,8 @@ func (api *Api) Application(w http.ResponseWriter, r *http.Request, u *db.User) 
 
 	auditor.Audit(world, project, app, nil)
 
-	//if project.ClickHouseConfig(api.globalClickHouse) != nil {
 	app.AddReport(model.AuditReportProfiling, &model.Widget{Profiling: &model.Profiling{ApplicationId: app.Id}, Width: "100%"})
 	app.AddReport(model.AuditReportTracing, &model.Widget{Tracing: &model.Tracing{ApplicationId: app.Id}, Width: "100%"})
-	//}
 
 	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Application(project, world, app)))
 }
@@ -1931,16 +2012,11 @@ func (api *Api) GetClickhouseClient(project *db.Project, memberProjectId string)
 	if cfg == nil {
 		return nil, nil
 	}
-	config := clickhouse.NewClientConfig(cfg.Addr, cfg.Auth.User, cfg.Auth.Password)
-	config.Protocol = cfg.Protocol
-	config.Database = cfg.Database
-	config.TlsEnable = cfg.TlsEnable
-	config.TlsSkipVerify = cfg.TlsSkipVerify
 	clusterInfo, err := api.collector.GetClickhouseClusterInfo(p)
 	if err != nil {
 		return nil, err
 	}
-	return clickhouse.NewClient(config, clusterInfo, p)
+	return clickhouse.NewClient(cfg, clusterInfo, p)
 }
 
 func GetApplicationId(r *http.Request) (model.ApplicationId, error) {

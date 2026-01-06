@@ -21,44 +21,37 @@ import (
 	"k8s.io/klog"
 )
 
-type ClientConfig struct {
-	Protocol      string
-	Address       string
-	TlsEnable     bool
-	TlsSkipVerify bool
-	User          string
-	Password      string
-	Database      string
-	DialContext   func(ctx context.Context, addr string) (net.Conn, error)
-}
-
-func NewClientConfig(address, user, password string) ClientConfig {
-	return ClientConfig{
-		Protocol: "native",
-		Address:  address,
-		User:     user,
-		Password: password,
-		Database: "default",
-	}
-}
+const (
+	dialTimeout = 10 * time.Second
+)
 
 type Client struct {
-	config  ClientConfig
 	conn    clickhouse.Conn
 	chInfo  ch.ClickHouseInfo
 	project *db.Project
 }
 
-func NewClient(config ClientConfig, chInfo ch.ClickHouseInfo, project *db.Project) (*Client, error) {
+func NewClient(config *db.IntegrationClickhouse, chInfo ch.ClickHouseInfo, project *db.Project) (*Client, error) {
+	var err error
+	var dialer *ch.Dialer
+
+	if config.Protocol == ch.ProtocolCoroot {
+		origConfig := config
+		if config, err = ch.GetConfigFromRemoteCoroot(origConfig); err != nil {
+			return nil, err
+		}
+		dialer = ch.GetRemoteCorootDialer(origConfig)
+	}
+
 	opts := &clickhouse.Options{
-		Addr: []string{config.Address},
+		Addr: []string{config.Addr},
 		Auth: clickhouse.Auth{
 			Database: config.Database,
-			Username: config.User,
-			Password: config.Password,
+			Username: config.Auth.User,
+			Password: config.Auth.Password,
 		},
 		Compression: &clickhouse.Compression{Method: clickhouse.CompressionLZ4},
-		DialTimeout: 10 * time.Second,
+		DialTimeout: dialTimeout,
 		//Debug:       true,
 		//Debugf: func(format string, v ...interface{}) {
 		//	klog.Infof(format, v...)
@@ -72,8 +65,8 @@ func NewClient(config ClientConfig, chInfo ch.ClickHouseInfo, project *db.Projec
 	default:
 		return nil, fmt.Errorf("unknown protocol: %s", config.Protocol)
 	}
-	if config.DialContext != nil {
-		opts.DialContext = config.DialContext
+	if dialer != nil {
+		opts.DialContext = dialer.Dial
 	}
 	if config.TlsEnable {
 		opts.TLS = &tls.Config{
@@ -84,7 +77,7 @@ func NewClient(config ClientConfig, chInfo ch.ClickHouseInfo, project *db.Projec
 	if err != nil {
 		return nil, err
 	}
-	return &Client{config: config, conn: conn, chInfo: chInfo, project: project}, nil
+	return &Client{conn: conn, chInfo: chInfo, project: project}, nil
 }
 
 func (c *Client) Project() *db.Project {
@@ -368,7 +361,7 @@ type ClusterInfo struct {
 	ServerDisks []ServerDiskInfo `json:"server_disks,omitempty"`
 }
 
-func GetClusterInfo(ctx context.Context, cfg ClientConfig, info ch.ClickHouseInfo, project *db.Project) (*ClusterInfo, error) {
+func GetClusterInfo(ctx context.Context, cfg *db.IntegrationClickhouse, info ch.ClickHouseInfo, project *db.Project) (*ClusterInfo, error) {
 	ch, err := NewClient(cfg, info, project)
 	if err != nil {
 		return nil, err
@@ -390,13 +383,13 @@ func GetClusterInfo(ctx context.Context, cfg ClientConfig, info ch.ClickHouseInf
 	return ci, nil
 }
 
-func executeOnAllServers(ctx context.Context, config ClientConfig, topology []ClusterNode, project *db.Project, operation func(*Client) (interface{}, error)) ([]ServerResult, error) {
+func executeOnAllServers(ctx context.Context, config *db.IntegrationClickhouse, topology []ClusterNode, project *db.Project, operation func(*Client) (interface{}, error)) ([]ServerResult, error) {
 	serverAddrs := make(map[string]bool)
 	for _, node := range topology {
 		serverAddrs[net.JoinHostPort(node.HostName, strconv.Itoa(int(node.Port)))] = true
 	}
 	if len(serverAddrs) == 0 {
-		serverAddrs[config.Address] = true
+		serverAddrs[config.Addr] = true
 	}
 
 	type serverExecResult struct {
@@ -415,7 +408,7 @@ func executeOnAllServers(ctx context.Context, config ClientConfig, topology []Cl
 			defer wg.Done()
 
 			clientConfig := config
-			clientConfig.Address = addr
+			clientConfig.Addr = addr
 
 			client, err := NewClient(clientConfig, ch.ClickHouseInfo{}, project)
 			if err != nil {
@@ -451,7 +444,7 @@ func executeOnAllServers(ctx context.Context, config ClientConfig, topology []Cl
 	}
 }
 
-func getClusterTableSizes(ctx context.Context, config ClientConfig, project *db.Project, topology []ClusterNode, ch *Client, info ch.ClickHouseInfo) ([]TableInfo, error) {
+func getClusterTableSizes(ctx context.Context, config *db.IntegrationClickhouse, project *db.Project, topology []ClusterNode, ch *Client, info ch.ClickHouseInfo) ([]TableInfo, error) {
 	if info.Cloud {
 		allTables, err := ch.GetTableSizes(ctx)
 		if err != nil {
@@ -479,7 +472,7 @@ func getClusterTableSizes(ctx context.Context, config ClientConfig, project *db.
 	return aggregateTableStats(allTables), nil
 }
 
-func getClusterServerDisks(ctx context.Context, config ClientConfig, project *db.Project, topology []ClusterNode, info ch.ClickHouseInfo) ([]ServerDiskInfo, error) {
+func getClusterServerDisks(ctx context.Context, config *db.IntegrationClickhouse, project *db.Project, topology []ClusterNode, info ch.ClickHouseInfo) ([]ServerDiskInfo, error) {
 	if info.Cloud {
 		return nil, nil
 	}

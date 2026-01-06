@@ -14,9 +14,10 @@ import (
 )
 
 type SpaceManager struct {
-	client    *Client
-	cfg       config.ClickHouseSpaceManager
-	databases []string
+	client     *Client
+	clusterCfg db.IntegrationClickhouse
+	cfg        config.ClickHouseSpaceManager
+	databases  []string
 }
 
 func (sm *SpaceManager) CheckAndCleanup(ctx context.Context, project *db.Project, cluster string) error {
@@ -46,13 +47,10 @@ func (sm *SpaceManager) CheckAndCleanup(ctx context.Context, project *db.Project
 }
 
 func (sm *SpaceManager) runCleanupOnReplica(ctx context.Context, project *db.Project, replicaAddr string) error {
-	config := NewClientConfig(replicaAddr, sm.client.config.User, sm.client.config.Password)
-	config.Protocol = sm.client.config.Protocol
-	config.Database = sm.client.config.Database
-	config.TlsEnable = sm.client.config.TlsEnable
-	config.TlsSkipVerify = sm.client.config.TlsSkipVerify
+	cfg := sm.clusterCfg
+	cfg.Addr = replicaAddr
 
-	client, err := NewClient(config, ch.ClickHouseInfo{}, project)
+	client, err := NewClient(&cfg, ch.ClickHouseInfo{}, project)
 	if err != nil {
 		return fmt.Errorf("failed to create client for replica %s: %w", replicaAddr, err)
 	}
@@ -217,13 +215,10 @@ func RunSpaceManagerForProjects(ctx context.Context, cfg config.ClickHouseSpaceM
 }
 
 func runSpaceManagerOnCluster(ctx context.Context, project *db.Project, managerCfg config.ClickHouseSpaceManager, cfg *db.IntegrationClickhouse, databases []string) error {
-	config := NewClientConfig(cfg.Addr, cfg.Auth.User, cfg.Auth.Password)
-	config.Protocol = cfg.Protocol
-	config.Database = cfg.Database
-	config.TlsEnable = cfg.TlsEnable
-	config.TlsSkipVerify = cfg.TlsSkipVerify
-
-	client, err := NewClient(config, ch.ClickHouseInfo{}, project)
+	if cfg.Protocol == ch.ProtocolCoroot {
+		return nil
+	}
+	client, err := NewClient(cfg, ch.ClickHouseInfo{}, project)
 	if err != nil {
 		return fmt.Errorf("failed to create client: %w", err)
 	}
@@ -239,9 +234,10 @@ func runSpaceManagerOnCluster(ctx context.Context, project *db.Project, managerC
 	}
 
 	spaceManager := &SpaceManager{
-		client:    client,
-		cfg:       managerCfg,
-		databases: databases,
+		clusterCfg: *cfg,
+		client:     client,
+		cfg:        managerCfg,
+		databases:  databases,
 	}
 
 	return spaceManager.CheckAndCleanup(ctx, project, cfg.Addr)
