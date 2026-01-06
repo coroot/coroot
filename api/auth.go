@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/coroot/coroot/api/forms"
+	"github.com/coroot/coroot/collector"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/rbac"
 	"github.com/coroot/coroot/utils"
@@ -88,6 +89,48 @@ func (api *Api) Auth(h func(http.ResponseWriter, *http.Request, *db.User)) http.
 		} else {
 			http.Error(w, "", http.StatusUnauthorized)
 		}
+		return
+	}
+}
+
+func (api *Api) getProjectByApiKey(apiKey string) (*db.Project, error) {
+	projects, err := api.db.GetProjects()
+	if err != nil {
+		return nil, err
+	}
+	for _, p := range projects {
+		if p.Multicluster() {
+			continue
+		}
+		for _, key := range p.Settings.ApiKeys {
+			if !key.IsEmpty() && key.Key == apiKey {
+				return p, nil
+			}
+		}
+	}
+	return nil, nil
+}
+
+func (api *Api) ApiKeyAuth(h func(http.ResponseWriter, *http.Request, *db.Project)) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		apiKey := r.Header.Get(collector.ApiKeyHeader)
+		if apiKey == "" {
+			klog.Warningln("no api key")
+			http.Error(w, "no api key", http.StatusBadRequest)
+			return
+		}
+		project, err := api.getProjectByApiKey(apiKey)
+		if err != nil {
+			klog.Errorln(err)
+			http.Error(w, "", http.StatusUnauthorized)
+			return
+		}
+		if project == nil {
+			klog.Warningln("no project found")
+			http.Error(w, "no project found", http.StatusNotFound)
+			return
+		}
+		h(w, r, project)
 		return
 	}
 }

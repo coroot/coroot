@@ -185,9 +185,13 @@ func (c *HttpClient) QueryRangeHandler(r *http.Request, w http.ResponseWriter) {
 func (c *HttpClient) proxy(r *http.Request, w http.ResponseWriter, promUrlPath string) {
 	u := c.url
 	u.Path = path.Join(u.Path, promUrlPath)
-	r.URL = &u
-	r.RequestURI = ""
-	resp, err := c.httpClient.Do(r)
+	req := r.Clone(r.Context())
+	req.URL = &u
+	req.RequestURI = ""
+	for _, h := range c.config.CustomHeaders {
+		req.Header.Add(h.Key, h.Value)
+	}
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
