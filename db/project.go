@@ -109,6 +109,9 @@ func (p *Project) GetCustomApplicationName(instance string) string {
 }
 
 func (p *Project) PrometheusConfig(globalPrometheus *IntegrationPrometheus) *IntegrationPrometheus {
+	if p.Prometheus.Url != "" {
+		return &p.Prometheus
+	}
 	if globalPrometheus != nil {
 		gp := *globalPrometheus
 		gp.ExtraSelector = fmt.Sprintf(`{coroot_project_id="%s"}`, p.Id)
@@ -119,6 +122,9 @@ func (p *Project) PrometheusConfig(globalPrometheus *IntegrationPrometheus) *Int
 }
 
 func (p *Project) ClickHouseConfig(globalClickHouse *IntegrationClickhouse) *IntegrationClickhouse {
+	if p.Settings.Integrations.Clickhouse != nil {
+		return p.Settings.Integrations.Clickhouse
+	}
 	if globalClickHouse != nil {
 		gc := *globalClickHouse
 		gc.Database = "coroot_" + string(p.Id)

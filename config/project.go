@@ -2,16 +2,73 @@ package config
 
 import (
 	"fmt"
+	"net"
+	"net/url"
 	"time"
 
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
+	"github.com/coroot/coroot/timeseries"
+	"github.com/coroot/coroot/utils"
 )
+
+type RemoteCoroot struct {
+	Url              string        `yaml:"url"`
+	TlsSkipVerify    bool          `yaml:"tlsSkipVerify"`
+	ApiKey           string        `yaml:"apiKey"`
+	MetricResolution time.Duration `yaml:"metricResolution"`
+}
+
+func (rc *RemoteCoroot) Validate() error {
+	if _, err := url.Parse(rc.Url); err != nil {
+		return fmt.Errorf("invalid url %s: %w", rc.Url, err)
+	}
+	if len(rc.ApiKey) == 0 {
+		return fmt.Errorf("missing api key")
+	}
+	if rc.MetricResolution < time.Second {
+		return fmt.Errorf("metric_resolution too short")
+	}
+	return nil
+}
+
+func (rc *RemoteCoroot) ClickHouseConfig() *db.IntegrationClickhouse {
+	u, _ := url.Parse(rc.Url)
+	host, port, _ := net.SplitHostPort(u.Host)
+	if port == "" {
+		if u.Scheme == "https" {
+			port = "443"
+		} else {
+			port = "80"
+		}
+	}
+	return &db.IntegrationClickhouse{
+		Global:        true,
+		Protocol:      "coroot",
+		Addr:          net.JoinHostPort(host, port),
+		Auth:          utils.BasicAuth{User: "default", Password: rc.ApiKey},
+		Database:      "default",
+		TlsEnable:     u.Scheme == "https",
+		TlsSkipVerify: rc.TlsSkipVerify,
+	}
+}
+
+func (rc *RemoteCoroot) PrometheusConfig() *db.IntegrationPrometheus {
+	return &db.IntegrationPrometheus{
+		Global:          true,
+		Url:             rc.Url,
+		RefreshInterval: timeseries.DurationFromStandard(rc.MetricResolution),
+		TlsSkipVerify:   rc.TlsSkipVerify,
+		CustomHeaders:   []utils.Header{{Key: "X-API-Key", Value: rc.ApiKey}},
+	}
+}
 
 type Project struct {
 	Name string `yaml:"name"`
 
 	MemberProjects []string `yaml:"memberProjects"`
+
+	RemoteCoroot *RemoteCoroot `yaml:"remoteCoroot"`
 
 	ApiKeys      []db.ApiKey `yaml:"apiKeys"`
 	ApiKeysSnake []db.ApiKey `yaml:"api_keys"` // TODO: remove
@@ -31,7 +88,7 @@ func (p *Project) Validate() error {
 	if len(p.ApiKeys) == 0 {
 		p.ApiKeys = p.ApiKeysSnake
 	}
-	if len(p.ApiKeys) == 0 && len(p.MemberProjects) == 0 {
+	if len(p.ApiKeys) == 0 && len(p.MemberProjects) == 0 && p.RemoteCoroot == nil {
 		return fmt.Errorf("no api keys defined")
 	}
 	for i, k := range p.ApiKeys {
@@ -62,7 +119,11 @@ func (p *Project) Validate() error {
 			return err
 		}
 	}
-
+	if p.RemoteCoroot != nil {
+		if err := p.RemoteCoroot.Validate(); err != nil {
+			return fmt.Errorf("invalie remoteCoroot config: %w", err)
+		}
+	}
 	return nil
 }
 
