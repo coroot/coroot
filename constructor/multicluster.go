@@ -20,7 +20,7 @@ func mergeWorlds(worlds []*model.World, checkConfigs model.CheckConfigs) *model.
 	res.AWS = model.AWS{}
 	res.IntegrationStatus = model.IntegrationStatus{}
 	for _, w := range worlds[1:] {
-		updateSocketToApplicationMapping(worlds[0], sock2app)
+		updateSocketToApplicationMapping(w, sock2app)
 		res.Nodes = append(res.Nodes, w.Nodes...)
 		for appId, app := range w.Applications {
 			dest := res.Applications[appId]
