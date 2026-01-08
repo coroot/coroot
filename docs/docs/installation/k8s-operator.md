@@ -277,7 +277,16 @@ spec:
 #      memberProjects:
 #        - prod-eu
 #        - prod-us
-#      # Project API keys, used by agents to send telemetry data (required unless memberProjects is set).
+#      # Use another Coroot instance as the data source for this project (optional).
+#      remoteCoroot:
+#        url: # Base URL of the remote Coroot instance (e.g., https://coroot.example.com).
+#        tlsSkipVerify: false # Whether to skip verification of the Coroot server's TLS certificate.
+#        apiKey: # API key of the remote project. Prefer using `apiKeySecret` for better security.
+#        apiKeySecret: # Secret containing the API key.
+#          name: # Name of the secret to select from.
+#          key:  # Key of the secret to select from.
+#        metricResolution: 15s # Prometheus query resolution/refresh interval.
+#      # Project API keys, used by agents to send telemetry data (required unless memberProjects or remoteCoroot is set).
 #      apiKeys:
 #        - description: # The API key description (optional).
 #          key:         # Plain-text API key (a random string or UUID). Must be unique. Prefer using `keySecret` for better security.
