@@ -139,15 +139,22 @@ license_key: # License key for Coroot Enterprise Edition.
 #  and will be configured with the provided API keys.
 # If a project with the same name already exists (e.g., configured via the UI), 
 #  its API keys and other settings will be replaced.
+# If remoteCoroot is set, Coroot uses the remote instance for metrics and ClickHouse access.
 projects: # Create or update projects (configuration file only).
   - name:     # Project name (e.g., production, staging; must be unique; required).
     memberProjects: # Optional list of existing project names to aggregate (multi-cluster mode).
       - prod-eu
       - prod-us
-    # Project API keys, used by agents to send telemetry data (required).
+    # Project API keys, used by agents to send telemetry data (required unless remoteCoroot is set).
     apiKeys:
       - key:         # Random string or UUID (must be unique; required).
         description: # The API key description (optional).
+    # Use another Coroot instance as the data source for this project.
+    remoteCoroot:
+      url: https://coroot.example.com # Base URL of the remote Coroot instance.
+      apiKey:                         # API key of the remote project (required).
+      tlsSkipVerify: false            # Whether to skip TLS verification (default: false).
+      metricResolution: 15s           # Prometheus query resolution/refresh interval (required).
     # Project notification integrations.
     notificationIntegrations:
       baseURL: # The URL of Coroot instance (required). Used for generating links in notifications.
