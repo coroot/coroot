@@ -48,7 +48,7 @@ func (c *Collector) migrateProjects() {
 
 func (c *Collector) migrateProject(ctx context.Context, p *db.Project) error {
 	cfg := p.ClickHouseConfig(c.globalClickHouse)
-	if cfg == nil {
+	if cfg == nil || cfg.Protocol == ch.ProtocolCoroot {
 		return nil
 	}
 	if cfg.Global {

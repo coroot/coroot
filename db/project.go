@@ -15,6 +15,10 @@ const (
 	DefaultRefreshInterval = 30
 )
 
+var (
+	emptyApiKey = strings.Repeat("0", 32)
+)
+
 type ProjectId string
 
 type Project struct {
@@ -46,6 +50,10 @@ func (k *ApiKey) Validate() error {
 		return fmt.Errorf("key is required")
 	}
 	return nil
+}
+
+func (k *ApiKey) IsEmpty() bool {
+	return k.Key == emptyApiKey
 }
 
 func (p *Project) Migrate(m *Migrator) error {
@@ -101,6 +109,9 @@ func (p *Project) GetCustomApplicationName(instance string) string {
 }
 
 func (p *Project) PrometheusConfig(globalPrometheus *IntegrationPrometheus) *IntegrationPrometheus {
+	if p.Prometheus.Url != "" {
+		return &p.Prometheus
+	}
 	if globalPrometheus != nil {
 		gp := *globalPrometheus
 		gp.ExtraSelector = fmt.Sprintf(`{coroot_project_id="%s"}`, p.Id)
@@ -111,6 +122,9 @@ func (p *Project) PrometheusConfig(globalPrometheus *IntegrationPrometheus) *Int
 }
 
 func (p *Project) ClickHouseConfig(globalClickHouse *IntegrationClickhouse) *IntegrationClickhouse {
+	if p.Settings.Integrations.Clickhouse != nil {
+		return p.Settings.Integrations.Clickhouse
+	}
 	if globalClickHouse != nil {
 		gc := *globalClickHouse
 		gc.Database = "coroot_" + string(p.Id)

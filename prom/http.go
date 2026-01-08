@@ -178,12 +178,59 @@ func (c *HttpClient) Series(r *http.Request, w http.ResponseWriter) {
 	c.proxy(r, w, "/api/v1/series")
 }
 
+func (c *HttpClient) QueryRangeHandler(r *http.Request, w http.ResponseWriter) {
+	if c.config.ExtraSelector != "" {
+		switch r.Method {
+		case http.MethodGet:
+			form := r.URL.Query()
+			withExtraSelector, err := addExtraSelector(form.Get("query"), c.config.ExtraSelector)
+			if err != nil {
+				klog.Warningln(err)
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			form.Set("query", withExtraSelector)
+			r.URL.RawQuery = form.Encode()
+		case http.MethodPost:
+			if err := r.ParseForm(); err != nil {
+				http.Error(w, "invalid form", http.StatusBadRequest)
+				return
+			}
+			withExtraSelector, err := addExtraSelector(r.PostForm.Get("query"), c.config.ExtraSelector)
+			if err != nil {
+				klog.Warningln(err)
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			r.PostForm.Set("query", withExtraSelector)
+			encoded := r.PostForm.Encode()
+			r.Body = io.NopCloser(strings.NewReader(encoded))
+		}
+	}
+	c.proxy(r, w, "/api/v1/query_range")
+}
+
 func (c *HttpClient) proxy(r *http.Request, w http.ResponseWriter, promUrlPath string) {
 	u := c.url
 	u.Path = path.Join(u.Path, promUrlPath)
-	r.URL = &u
-	r.RequestURI = ""
-	resp, err := c.httpClient.Do(r)
+	u.RawQuery = r.URL.RawQuery
+	body := r.Body
+	req, err := http.NewRequest(r.Method, u.String(), body)
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	for _, h := range []string{"Content-Type", "Accept-Encoding"} {
+		if v := r.Header.Get(h); v != "" {
+			req.Header.Set(h, v)
+		}
+	}
+	req = req.WithContext(r.Context())
+	for _, h := range c.config.CustomHeaders {
+		req.Header.Add(h.Key, h.Value)
+	}
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)

@@ -69,6 +69,18 @@ func (cfg *Config) Bootstrap(database *db.DB) error {
 		if p.NotificationIntegrations != nil {
 			pp.Settings.Integrations.NotificationIntegrations = *p.NotificationIntegrations
 		}
+
+		if p.RemoteCoroot != nil {
+			pp.Prometheus = *p.RemoteCoroot.PrometheusConfig()
+			if err = database.SaveProjectIntegration(pp, db.IntegrationTypePrometheus); err != nil {
+				return err
+			}
+			pp.Settings.Integrations.Clickhouse = p.RemoteCoroot.ClickHouseConfig()
+			if err = database.SaveProjectSettings(pp); err != nil {
+				return err
+			}
+		}
+
 		pp.Settings.Integrations.NotificationIntegrations.Readonly = p.NotificationIntegrations != nil
 		if len(p.ApplicationCategories) > 0 {
 			pp.Settings.ApplicationCategorySettings = map[model.ApplicationCategory]*db.ApplicationCategorySettings{}

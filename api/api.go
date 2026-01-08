@@ -17,6 +17,7 @@ import (
 	"github.com/coroot/coroot/api/views"
 	"github.com/coroot/coroot/auditor"
 	"github.com/coroot/coroot/cache"
+	"github.com/coroot/coroot/ch"
 	"github.com/coroot/coroot/clickhouse"
 	pricing "github.com/coroot/coroot/cloud-pricing"
 	"github.com/coroot/coroot/collector"
@@ -903,16 +904,11 @@ func (api *Api) Integration(w http.ResponseWriter, r *http.Request, u *db.User) 
 		case db.IntegrationTypeClickhouse:
 			cfg := project.ClickHouseConfig(api.globalClickHouse)
 			var ci *clickhouse.ClusterInfo
-			if cfg != nil {
-				config := clickhouse.NewClientConfig(cfg.Addr, cfg.Auth.User, cfg.Auth.Password)
-				config.Protocol = cfg.Protocol
-				config.Database = cfg.Database
-				config.TlsEnable = cfg.TlsEnable
-				config.TlsSkipVerify = cfg.TlsSkipVerify
+			if cfg != nil && cfg.Protocol != ch.ProtocolCoroot {
 				cInfo, err := api.collector.GetClickhouseClusterInfo(project)
 				if err != nil {
 					klog.Errorln(err)
-				} else if ci, err = clickhouse.GetClusterInfo(r.Context(), config, cInfo, project); err != nil {
+				} else if ci, err = clickhouse.GetClusterInfo(r.Context(), cfg, cInfo, project); err != nil {
 					klog.Errorln(err)
 				}
 			}
@@ -1080,10 +1076,8 @@ func (api *Api) Application(w http.ResponseWriter, r *http.Request, u *db.User) 
 
 	auditor.Audit(world, project, app, nil)
 
-	//if project.ClickHouseConfig(api.globalClickHouse) != nil {
 	app.AddReport(model.AuditReportProfiling, &model.Widget{Profiling: &model.Profiling{ApplicationId: app.Id}, Width: "100%"})
 	app.AddReport(model.AuditReportTracing, &model.Widget{Tracing: &model.Tracing{ApplicationId: app.Id}, Width: "100%"})
-	//}
 
 	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Application(project, world, app)))
 }
@@ -1888,16 +1882,11 @@ func (api *Api) GetClickhouseClient(project *db.Project, memberProjectId string)
 	if cfg == nil {
 		return nil, nil
 	}
-	config := clickhouse.NewClientConfig(cfg.Addr, cfg.Auth.User, cfg.Auth.Password)
-	config.Protocol = cfg.Protocol
-	config.Database = cfg.Database
-	config.TlsEnable = cfg.TlsEnable
-	config.TlsSkipVerify = cfg.TlsSkipVerify
 	clusterInfo, err := api.collector.GetClickhouseClusterInfo(p)
 	if err != nil {
 		return nil, err
 	}
-	return clickhouse.NewClient(config, clusterInfo, p)
+	return clickhouse.NewClient(cfg, clusterInfo, p)
 }
 
 func GetApplicationId(r *http.Request) (model.ApplicationId, error) {

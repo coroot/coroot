@@ -203,6 +203,14 @@ func main() {
 	r.HandleFunc("/api/project/{project}/node/{node}", a.Auth(a.Node)).Methods(http.MethodGet)
 	r.PathPrefix("/api/project/{project}/prom/api/v1/{rest:.+}").HandlerFunc(a.Auth(a.Prom))
 
+	r.HandleFunc("/api/v1/query_range", a.ApiKeyAuth(a.PrometheusQueryRange))
+	r.HandleFunc("/api/v1/series", a.ApiKeyAuth(a.PrometheusSeries))
+	r.HandleFunc("/api/v1/metadata", a.ApiKeyAuth(a.PrometheusMetricMetadata))
+	r.HandleFunc("/api/v1/label/{labelName}/values", a.ApiKeyAuth(a.PrometheusLabelValues))
+
+	r.HandleFunc("/api/clickhouse-config", a.ApiKeyAuth(a.ClickhouseConfig)).Methods(http.MethodGet)
+	r.HandleFunc("/api/clickhouse-connect", a.ClickhouseConnect).Methods(http.MethodConnect)
+
 	r.HandleFunc("/stats", func(w http.ResponseWriter, r *http.Request) {
 		statsCollector.RegisterRequest(r)
 	}).Methods(http.MethodPost)

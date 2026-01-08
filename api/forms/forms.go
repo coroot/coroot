@@ -421,12 +421,7 @@ func (f *IntegrationFormClickhouse) Update(ctx context.Context, project *db.Proj
 }
 
 func (f *IntegrationFormClickhouse) Test(ctx context.Context, project *db.Project) error {
-	config := clickhouse.NewClientConfig(f.Addr, f.Auth.User, f.Auth.Password)
-	config.Protocol = f.Protocol
-	config.Database = f.Database
-	config.TlsEnable = f.TlsEnable
-	config.TlsSkipVerify = f.TlsSkipVerify
-	client, err := clickhouse.NewClient(config, ch.ClickHouseInfo{}, project)
+	client, err := clickhouse.NewClient(&f.IntegrationClickhouse, ch.ClickHouseInfo{}, project)
 	if err != nil {
 		return err
 	}
