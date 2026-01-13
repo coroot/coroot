@@ -88,6 +88,12 @@ func (c *Constructor) loadAppToAppConnections(w *model.World, metrics map[string
 			case qRecordingRuleApplicationExternalEndpoint:
 				conn.Endpoints.Add(mv.ActualDestination)
 				conn.RemoteApplication.GetOrCreateInstance(mv.ActualDestination, nil)
+				if ip, port, _ := net.SplitHostPort(mv.ActualDestination); ip != "" && port != "" {
+					if net.ParseIP(ip) != nil {
+						instance := conn.RemoteApplication.GetOrCreateInstance(mv.ActualDestination, nil)
+						instance.TcpListens[model.Listen{IP: ip, Port: port}] = true
+					}
+				}
 			}
 		}
 	}

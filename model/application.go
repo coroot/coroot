@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"net"
 	"sort"
 	"strconv"
 
@@ -313,6 +314,25 @@ func (app *Application) ApplicationTypes() map[ApplicationType]bool {
 
 	if app.Id.Kind == ApplicationKindExternalService {
 		for _, d := range app.Downstreams {
+			for _, ep := range d.Endpoints.Items() {
+				_, port, _ := net.SplitHostPort(ep)
+				var t ApplicationType
+				switch port {
+				case "5432":
+					t = ApplicationTypePostgres
+				case "3306":
+					t = ApplicationTypeMysql
+				case "6379":
+					t = ApplicationTypeRedis
+				case "11211":
+					t = ApplicationTypeMemcached
+				case "27017", "27018":
+					t = ApplicationTypeMongodb
+				}
+				if t != "" {
+					res[t] = true
+				}
+			}
 			for p := range d.RequestsCount {
 				t := p.ToApplicationType()
 				if t == ApplicationTypeUnknown {
