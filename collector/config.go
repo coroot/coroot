@@ -80,20 +80,13 @@ func (c *Collector) Config(w http.ResponseWriter, r *http.Request) {
 	for _, app := range world.Applications {
 		instancesByType := map[model.ApplicationType]map[*model.Instance]bool{}
 		if app.Id.Kind == model.ApplicationKindExternalService {
-			for _, d := range app.Downstreams {
-				for protocol := range d.RequestsCount {
-					t := protocol.ToApplicationType()
-					if t == model.ApplicationTypeUnknown {
-						continue
-					}
-					if instancesByType[t] == nil {
-						instancesByType[t] = map[*model.Instance]bool{}
-					}
-					for _, i := range d.Application.Instances {
-						if !i.IsObsolete() {
-							instancesByType[t][i] = true
-						}
-					}
+			appTypes := app.ApplicationTypes()
+			for t := range appTypes {
+				if instancesByType[t] == nil {
+					instancesByType[t] = map[*model.Instance]bool{}
+				}
+				for _, i := range app.Instances {
+					instancesByType[t][i] = true
 				}
 			}
 		} else {
