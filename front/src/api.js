@@ -146,6 +146,10 @@ export default class Api {
         }
     }
 
+    ssoStatus(cb) {
+        this.get(`sso-status`, {}, cb);
+    }
+
     ai(form, cb) {
         if (form) {
             this.post(`ai`, form, cb);

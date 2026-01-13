@@ -238,15 +238,23 @@ projects: # Create or update projects (configuration file only).
           objectivePercent: 98
 
 # Single Sign-on configuration (Coroot Enterprise edition only).
+# Choose either SAML or OIDC as the provider.
 sso:
   enabled: false
+  provider: saml # SSO provider: "saml" or "oidc".
   defaultRole: Viewer # Default role for authenticated users (Admin, Editor, Viewer, or a custom role).
+  # SAML configuration (required if provider is "saml").
   saml:
     # SAML Identity Provider Metadata XML (required).
     metadata: |
       <md:EntityDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata" entityID="http://www.okta.com/exkk72*********n5d7">
         ...
       </md:EntityDescriptor>
+  # OIDC configuration (required if provider is "oidc").
+  oidc:
+    issuerURL: https://accounts.google.com  # OIDC provider issuer URL (required).
+    clientID: your-client-id                # OAuth client ID (required).
+    clientSecret: your-client-secret        # OAuth client secret (required).
 
 # AI configuration (Coroot Enterprise edition only).
 ai:

@@ -47,13 +47,13 @@ The Enterprise Edition allows you to create custom roles with granular permissio
 Single Sign-On is available only in Coroot Enterprise (from $1 per CPU core/month). [Start](https://coroot.com/account) your free trial today.
 :::
 
-Single Sign-On (SSO) feature streamlines user authentication by allowing team members to access the Coroot platform using 
-a single set of credentials linked to an identity provider, such as Google Workspace, Okta, or other SSO solutions. 
+Single Sign-On (SSO) feature streamlines user authentication by allowing team members to access the Coroot platform using
+a single set of credentials linked to an identity provider, such as Google Workspace, Okta, or other SSO solutions.
 With SSO, users no longer need to manage separate passwords for Coroot, enhancing both security and user experience.
 
-Coroot's Single Sign-On (SSO) uses the SAML protocol, where Coroot acts as the service provider (SP). 
-SAML allows users to log in through an identity provider (IdP) and access Coroot without needing separate credentials. 
-This makes the login process easier and more secure by centralizing authentication through the IdP.
+Coroot supports two SSO protocols:
+* **SAML 2.0** - Coroot acts as the service provider (SP) and communicates with your identity provider (IdP) using SAML assertions.
+* **OIDC (OpenID Connect)** - A protocol built on OAuth 2.0, commonly used by Google, Azure AD, Okta, and other providers.
 
 ### Setup SAML with Okta
 
@@ -115,9 +115,66 @@ This makes the login process easier and more secure by centralizing authenticati
 * Click Save and Enable.
   <img alt="SSO Enabled" src="/img/docs/saml_enabled.png"  class="card w-800"/>
 
-* Once Single Sign-On is enabled, Coroot will redirect your team members to the Identity Provider for authentication.
+* Once Single Sign-On is enabled, users can click the "Login with SSO" button on the login page to authenticate through the Identity Provider.
 
 Each team member authenticated through the Identity Provider will be displayed in the Users list in Coroot, allowing you to manually change their roles.
+
+### Setup OIDC with Google Workspace
+
+* Go to the [Google Cloud Console](https://console.cloud.google.com/).
+* Select your project or create a new one.
+* Navigate to **APIs & Services** > **Credentials**.
+* Click **Create Credentials** > **OAuth client ID**.
+* Select **Web application** as the application type.
+* Enter a name for your OAuth client (e.g., "Coroot SSO").
+* Under **Authorized redirect URIs**, add: `https://COROOT_ADDRESS/sso/oidc`
+  <img alt="Google OAuth redirect URI" src="/img/docs/google_oidc.png" class="card w-600"/>
+* Click **Create**.
+* Copy the **Client ID** and **Client Secret**.
+* [Configure and enable](#configure-oidc-for-coroot) OIDC authentication for Coroot using:
+  * Issuer URL: `https://accounts.google.com`
+  * Client ID and Client Secret from the previous step
+
+### Setup OIDC with Azure AD (Entra ID)
+
+* Log in to the [Azure Portal](https://portal.azure.com/).
+* Navigate to **Microsoft Entra ID** (formerly Azure Active Directory).
+* Go to **App registrations** > **New registration**.
+* Enter a name for your application (e.g., "Coroot SSO").
+* Under **Redirect URI**, select **Web** and enter: `https://COROOT_ADDRESS/sso/oidc`
+* Click **Register**.
+* On the application overview page, copy the **Application (client) ID** and **Directory (tenant) ID**.
+* Navigate to **Certificates & secrets** > **New client secret**.
+* Add a description and select an expiration period.
+* Copy the **Value** of the new secret (this is your Client Secret).
+* [Configure and enable](#configure-oidc-for-coroot) OIDC authentication for Coroot using:
+  * Issuer URL: `https://login.microsoftonline.com/{tenant-id}/v2.0` (replace `{tenant-id}` with your Directory ID)
+  * Client ID and Client Secret from the previous steps
+
+### Configure OIDC for Coroot
+
+* Navigate to the **Project Settings** > **Organization** > **Single Sign-On** section.
+* Select **OIDC** as the provider.
+  <img alt="OIDC Configuration" src="/img/docs/oidc_form.png" class="card w-800"/>
+
+* Enter the following:
+  * **Issuer URL**: The URL of your identity provider (e.g., `https://accounts.google.com`)
+  * **Client ID**: The client ID from your identity provider
+  * **Client Secret**: The client secret from your identity provider
+  * **Default Role**: The role assigned to new users authenticated through SSO
+
+* Copy the **Redirect URI** displayed and ensure it matches the redirect URI configured in your identity provider.
+
+* Click **Save and Enable**.
+
+* Once OIDC is enabled, users can click the "Login with SSO" button on the login page to authenticate.
+
+<img alt="Login with SSO" src="/img/docs/login_with_sso.png" class="card w-800"/>
+
+:::info
+Coroot expects to receive the **email**, **given_name**, and **family_name** claims from the ID token.
+Most OIDC providers include these claims by default when the `openid`, `profile`, and `email` scopes are requested.
+:::
 
 ### Troubleshooting
 

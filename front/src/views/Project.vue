@@ -200,7 +200,7 @@
             </h1>
             <RBAC />
             <h1 class="text-h5 mt-10 mb-5">
-                Single Sign-On (SAML)
+                Single Sign-On (SSO)
                 <a href="https://docs.coroot.com/configuration/authentication/#single-sign-on-sso" target="_blank">
                     <v-icon>mdi-information-outline</v-icon>
                 </a>

@@ -6,7 +6,7 @@
 export default {
     created() {
         this.$api.logout(() => {
-            this.$router.push({ name: 'index' });
+            this.$router.push({ name: 'login' });
         });
     },
 };
