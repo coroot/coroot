@@ -402,16 +402,25 @@ spec:
 #      disableIncidentsAutoInvestigation: false
 
 # Single Sign-on configuration (Coroot Enterprise edition only).
+# Define either `saml` or `oidc` section to enable SSO.
 #  sso:
-#    enabled: false
+#    enabled: true
 #    defaultRole: Viewer # Default role for authenticated users (Admin, Editor, Viewer, or a custom role).
+#    # SAML configuration (define this section to use SAML SSO).
 #    saml:
-#      # SAML Identity Provider Metadata XML (required).
-#      metadata: |
+#      metadata: |  # SAML Identity Provider Metadata XML.
 #        <md:EntityDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata" entityID="http://www.okta.com/exkk72*********n5d7">
 #          ...
 #        </md:EntityDescriptor>
 #      metadataSecret:  # Secret containing the Metadata XML.
+#        name: # Name of the secret to select from.
+#        key:  # Key of the secret to select from.
+#    # OIDC configuration (define this section to use OIDC SSO).
+#    oidc:
+#      issuerURL:     # OIDC provider issuer URL (e.g., https://accounts.google.com).
+#      clientID:      # OAuth client ID.
+#      clientSecret:  # OAuth client secret (plain-text). Prefer using `clientSecretSecret` for better security.
+#      clientSecretSecret:  # Secret containing the client secret (recommended).
 #        name: # Name of the secret to select from.
 #        key:  # Key of the secret to select from.
   
