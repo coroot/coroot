@@ -69,7 +69,7 @@ func (t *Teams) SendDeployment(ctx context.Context, project *db.Project, ds mode
 	status := "Deployed"
 	switch ds.State {
 	case model.ApplicationDeploymentStateInProgress:
-		return nil
+		status = "In-progress"
 	case model.ApplicationDeploymentStateStuck:
 		status = "Stuck"
 	case model.ApplicationDeploymentStateCancelled:
