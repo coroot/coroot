@@ -73,7 +73,7 @@ func (wh *Webhook) SendDeployment(ctx context.Context, project *db.Project, ds m
 	var summary []string
 	switch ds.State {
 	case model.ApplicationDeploymentStateInProgress:
-		return nil
+		status = "InProgress"
 	case model.ApplicationDeploymentStateStuck:
 		status = "Stuck"
 	case model.ApplicationDeploymentStateCancelled:
