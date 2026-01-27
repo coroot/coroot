@@ -10,7 +10,7 @@ import TabItem from '@theme/TabItem';
 <Tabs queryString="edition">
   <TabItem value="ce" label="Community Edition" default>
 
-**Step #1: Install Docker Compose (if not installed)**
+## Install Docker Compose
 
 Use the following commands to install Docker Compose on Ubuntu:
 
@@ -19,7 +19,7 @@ apt update
 apt install docker-compose-v2
 ```
 
-**Step #2: Deploy Coroot**
+## Deploy Coroot
 
 To deploy Coroot using Docker Compose, run the following command. Before applying it, you can review the configuration file in Coroot's GitHub repository: docker-compose.yaml
 
@@ -28,7 +28,34 @@ curl -fsS https://raw.githubusercontent.com/coroot/coroot/main/deploy/docker-com
   docker compose -f - up -d
 ```
 
-**Step #3: Validate the deployment**
+### ClickHouse system tables
+ClickHouse stores system log tables on the file system by default. As Coroot consults ClickHouse heavily, this will consume a lot of disk space.
+It is recommended to disable the system logs by mounting an xml override config into your clickhouse container.
+
+This can be achieved by creating an xml file `clickhouse-disable-system-logs.xml` and mounting it in the ClickHouse container.
+``` xml
+<?xml version="1.0"?>
+<clickhouse>
+  <asynchronous_metric_log remove="1"/>
+  <metric_log remove="1"/>
+  <query_log remove="1" />
+  <query_thread_log remove="1" />
+  <query_views_log remove="1" />
+  <part_log remove="1"/>
+  <text_log remove="1" />
+  <trace_log remove="1"/>
+  <opentelemetry_span_log remove="1"/>
+  <processors_profile_log remove="1"/>
+</clickhouse>
+```
+
+Then, modify the docker compose by mounting the file into the ClickHouse container.
+``` yaml
+    volumes:
+      - ./clickhouse-disable-system-logs.xml:/etc/clickhouse-server/config.d/disable-system-logs.xml
+```
+
+## Validate the deployment
 
 Ensure that the Coroot containers are running by executing the following command:
 
@@ -47,13 +74,13 @@ d0143aea889b   clickhouse/clickhouse-server:24.3     "/entrypoint.sh"         5 
 a6618978d560   prom/prometheus:v2.45.4               "/bin/prometheus --c…"   5 seconds ago   Up 4 seconds   127.0.0.1:9090->9090/tcp                              coroot-prometheus-1
 ```
 
-**Step #4: Accessing Coroot**
+## Accessing Coroot
 
 If you installed Coroot on your desktop machine, you can access it at http://localhost:8080/.
 If Coroot is deployed on a remote node, replace `NODE_IP_ADDRESS` with the IP address of the node in the following URL: 
 http://NODE_IP_ADDRESS:8080/.
 
-**Uninstall Coroot**
+## Uninstall Coroot
 
 To uninstall Coroot run the following command:
 
@@ -70,7 +97,7 @@ Coroot Enterprise Edition is a paid subscription (from $1 per CPU core/month) th
 To install the Enterprise Edition, you'll need a license. [Start](https://coroot.com/account) your free trial today.
 :::
 
-**Step #1: Install Docker Compose (if not installed)**
+## Install Docker Compose
 
 Use the following commands to install Docker Compose on Ubuntu:
 
@@ -79,7 +106,7 @@ apt update
 apt install docker-compose-v2
 ```
 
-**Step #2: Deploy Coroot**
+## Deploy Coroot
 
 To install Coroot Enterprise Edition, you'll need a license (from $1 per CPU core/month). Start your free trial today.
 
@@ -91,7 +118,34 @@ curl -fsS https://raw.githubusercontent.com/coroot/coroot/main/deploy/docker-com
   LICENSE_KEY="COROOT-LICENSE-KEY-HERE" docker compose -f - up -d
 ```
 
-**Step #3: Validate the deployment**
+### ClickHouse system tables
+ClickHouse stores system log tables on the file system by default. As Coroot consults ClickHouse heavily, this will consume a lot of disk space.
+It is recommended to disable the system logs by mounting an xml override config into your clickhouse container.
+
+This can be achieved by creating an xml file `clickhouse-disable-system-logs.xml` and mounting it in the ClickHouse container.
+``` xml
+<?xml version="1.0"?>
+<clickhouse>
+  <asynchronous_metric_log remove="1"/>
+  <metric_log remove="1"/>
+  <query_log remove="1" />
+  <query_thread_log remove="1" />
+  <query_views_log remove="1" />
+  <part_log remove="1"/>
+  <text_log remove="1" />
+  <trace_log remove="1"/>
+  <opentelemetry_span_log remove="1"/>
+  <processors_profile_log remove="1"/>
+</clickhouse>
+```
+
+Then, modify the docker compose by mounting the file into the ClickHouse container.
+``` yaml
+    volumes:
+      - ./clickhouse-disable-system-logs.xml:/etc/clickhouse-server/config.d/disable-system-logs.xml
+```
+
+## Validate the deployment
 
 Ensure that the Coroot containers are running by executing the following command:
 
@@ -110,13 +164,13 @@ CONTAINER ID   IMAGE                                 COMMAND                  CR
 51e91e09e58a   ghcr.io/coroot/coroot-node-agent      "coroot-node-agent -…"   About a minute ago   Up About a minute                                                  coroot-node-agent-1
 ```
 
-**Step #4: Accessing Coroot**
+## Accessing Coroot
 
 If you installed Coroot on your desktop machine, you can access it at http://localhost:8080/.
 If Coroot is deployed on a remote node, replace `NODE_IP_ADDRESS` with the IP address of the node in the following URL: 
 http://NODE_IP_ADDRESS:8080/.
 
-**Uninstall Coroot**
+## Uninstall Coroot
 
 To uninstall Coroot run the following command:
 
