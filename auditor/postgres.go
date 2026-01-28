@@ -41,6 +41,18 @@ func (a *appAuditor) postgres() {
 	replicationCheck := report.CreateCheck(model.Checks.PostgresReplicationLag)
 	connectionsCheck := report.CreateCheck(model.Checks.PostgresConnections)
 
+	latencyChartTitle := "Postgres average query latency <selector>, seconds"
+	replicationLagChartTitle := "Replication lag, bytes"
+	tableColumns := []string{"Instance", "Role", "Status", "Queries", "Latency", "Replication lag"}
+
+	latencyChartGroup := report.GetOrCreateChartGroup(latencyChartTitle, nil)
+	replicationLagChart := report.GetOrCreateChart(replicationLagChartTitle, nil)
+	instanceTable := report.GetOrCreateTable(tableColumns...)
+
+	availabilityCheck.AddWidget(instanceTable.Widget())
+	latencyCheck.AddWidget(latencyChartGroup.Widget())
+	replicationCheck.AddWidget(replicationLagChart.Widget())
+
 	primaryLsn := timeseries.NewAggregate(timeseries.Max)
 	for _, i := range a.app.Instances {
 		if i.Postgres != nil && i.Postgres.WalCurrentLsn != nil {
@@ -53,14 +65,14 @@ func (a *appAuditor) postgres() {
 			continue
 		}
 		report.
-			GetOrCreateChartInGroup("Postgres average query latency <selector>, seconds", "overview", nil).
+			GetOrCreateChartInGroup(latencyChartTitle, "overview", nil).
 			Feature().
 			AddSeries(i.Name, i.Postgres.Avg)
 		if i.Postgres.Avg.Last() > latencyCheck.Threshold {
 			latencyCheck.AddItem(i.Name)
 		}
 		report.
-			GetOrCreateChartInGroup("Postgres average query latency <selector>, seconds", i.Name, nil).
+			GetOrCreateChartInGroup(latencyChartTitle, i.Name, nil).
 			AddSeries("avg", i.Postgres.Avg).
 			AddSeries("p50", i.Postgres.P50).
 			AddSeries("p95", i.Postgres.P95).
@@ -75,7 +87,7 @@ func (a *appAuditor) postgres() {
 		pgLocks(report, i)
 		primaryLsnTs := primaryLsn.Get()
 		lag := pgReplicationLag(primaryLsnTs, i.Postgres.WalReplayLsn)
-		report.GetOrCreateChart("Replication lag, bytes", nil).AddSeries(i.Name, lag)
+		report.GetOrCreateChart(replicationLagChartTitle, nil).AddSeries(i.Name, lag)
 
 		if i.IsObsolete() {
 			continue
@@ -104,7 +116,7 @@ func (a *appAuditor) postgres() {
 		}
 		lagCell := checkReplicationLag(i.Name, primaryLsnTs, lag, role, replicationCheck)
 		report.
-			GetOrCreateTable("Instance", "Role", "Status", "Queries", "Latency", "Replication lag").
+			GetOrCreateTable(tableColumns...).
 			AddRow(
 				model.NewTableCell(i.Name).AddTag("version: %s", i.Postgres.Version.Value()),
 				roleCell,

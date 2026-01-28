@@ -72,7 +72,7 @@ export function timeSinceNow(ms) {
     if (d > MINUTE) {
         return duration(d, 'm');
     }
-    return duration(d, 'ms');
+    return duration(d, 's');
 }
 
 export function percent(p) {

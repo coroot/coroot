@@ -3,7 +3,7 @@
         <v-card class="pa-5">
             <div class="d-flex align-center font-weight-medium mb-4">
                 <div>
-                    Configure {{ title }} integration
+                    {{ value === 'view' ? 'View' : 'Configure' }} {{ title }} integration
                     <a :href="`https://docs.coroot.com/alerting/${type}`" target="_blank">
                         <v-icon>mdi-information-outline</v-icon>
                     </a>
@@ -12,7 +12,7 @@
                 <v-spacer />
                 <v-btn icon @click="dialog = false"><v-icon>mdi-close</v-icon></v-btn>
             </div>
-            <v-form ref="form" v-model="valid" :disabled="value === 'del'">
+            <v-form ref="form" v-model="valid" :disabled="value === 'del' || value === 'view'">
                 <IntegrationFormSlack v-if="type === 'slack'" :form="form" />
                 <IntegrationFormTeams v-if="type === 'teams'" :form="form" />
                 <IntegrationFormPagerduty v-if="type === 'pagerduty'" :form="form" />
@@ -28,6 +28,9 @@
                 <div class="d-flex align-center">
                     <v-spacer />
                     <v-btn v-if="value === 'del'" @click="del" color="error" :loading="saving">Delete</v-btn>
+                    <template v-else-if="value === 'view'">
+                        <v-btn @click="test" color="secondary" :loading="testing">Send test alert</v-btn>
+                    </template>
                     <template v-else>
                         <v-btn @click="test" color="secondary" :disabled="!valid" :loading="testing" class="mr-4">Send test alert</v-btn>
                         <v-btn @click="save" color="primary" :disabled="!valid" :loading="saving">Save</v-btn>

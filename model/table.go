@@ -12,6 +12,14 @@ type Table struct {
 	Rows   []*TableRow `json:"rows"`
 
 	sorted bool
+	widget *Widget
+}
+
+func (t *Table) Widget() *Widget {
+	if t == nil {
+		return nil
+	}
+	return t.widget
 }
 
 func NewTable(header ...string) *Table {

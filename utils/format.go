@@ -7,6 +7,7 @@ import (
 
 	"github.com/coroot/coroot/timeseries"
 	"github.com/dustin/go-humanize"
+	"github.com/dustin/go-humanize/english"
 	"github.com/hako/durafmt"
 )
 
@@ -126,4 +127,12 @@ func Capitalize(s string) string {
 		return strings.ToUpper(s)
 	}
 	return strings.ToUpper(s[0:1]) + s[1:]
+}
+
+func PluralWithToBe(quantity int, singular string) string {
+	verb := "is"
+	if quantity > 1 {
+		verb = "are"
+	}
+	return english.PluralWord(quantity, singular, "") + " " + verb
 }

@@ -49,11 +49,16 @@ export default {
         rules: Array,
         wrap: String,
         datasource: String,
+        debounce: {
+            type: Number,
+            default: 0,
+        },
     },
 
     data() {
         return {
             view: null,
+            debounceTimer: null,
         };
     },
 
@@ -86,6 +91,7 @@ export default {
     },
 
     beforeDestroy() {
+        clearTimeout(this.debounceTimer);
         this.view && this.view.destroy();
     },
 
@@ -120,6 +126,8 @@ export default {
                         EditorView.updateListener.of((update) => {
                             if (update.focusChanged) {
                                 this.apply(update);
+                            } else if (update.docChanged && this.debounce > 0) {
+                                this.applyDebounced(update);
                             }
                         }),
                     ],
@@ -131,7 +139,14 @@ export default {
             this.view && this.view.focus();
         },
         apply(v) {
+            clearTimeout(this.debounceTimer);
             this.$emit('input', v.state.doc.toString());
+        },
+        applyDebounced(v) {
+            clearTimeout(this.debounceTimer);
+            this.debounceTimer = setTimeout(() => {
+                this.apply(v);
+            }, this.debounce);
         },
     },
 };

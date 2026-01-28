@@ -19,6 +19,11 @@ func (a *appAuditor) jvm() {
 	gcChart := report.GetOrCreateChartGroup("GC time <selector>, seconds/second", nil)
 	safepointChart := report.GetOrCreateChart("Safepoint time, seconds/second", nil)
 
+	availabilityCheck.AddWidget(table.Widget())
+
+	safepointCheck.AddWidget(safepointChart.Widget())
+	safepointCheck.AddWidget(gcChart.Widget())
+
 	for _, i := range a.app.Instances {
 		obsolete := i.IsObsolete()
 		succeeded := false

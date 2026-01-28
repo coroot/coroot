@@ -50,6 +50,11 @@ func (a *appAuditor) dns() {
 		"DNS latency, seconds",
 		nil,
 	)
+
+	latencyCheck.AddWidget(latencyChart.Widget())
+	serverErrorsCheck.AddWidget(errorsChart.Widget())
+	nxdomainCheck.AddWidget(errorsChart.Widget())
+
 	byType := map[string]*timeseries.Aggregate{}
 	errors := map[string]*timeseries.Aggregate{}
 	byDomain := map[string]*DNSStats{}

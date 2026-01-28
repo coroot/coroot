@@ -23,6 +23,8 @@ var (
 			NewPermission(ScopeProjectInspections, ActionEdit, nil),
 			NewPermission(ScopeProjectRisks, ActionEdit, nil),
 			NewPermission(ScopeDashboards, ActionEdit, nil),
+			NewPermission(ScopeProjectAlertingRules, ActionEdit, nil),
+			NewPermission(ScopeProjectAlerts, ActionEdit, nil),
 		),
 		NewRole(RoleViewer,
 			NewPermission(ScopeAll, ActionView, nil),

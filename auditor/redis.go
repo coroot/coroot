@@ -31,6 +31,9 @@ func (a *appAuditor) redis() {
 	latencyChart := report.GetOrCreateChart("Redis average latency, seconds", nil)
 	queriesChart := report.GetOrCreateChartGroup("Redis queries on <selector>, per seconds", nil)
 
+	availabilityCheck.AddWidget(table.Widget())
+	latencyCheck.AddWidget(latencyChart.Widget())
+
 	for _, i := range a.app.Instances {
 		if i.Redis == nil {
 			continue

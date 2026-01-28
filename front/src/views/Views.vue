@@ -38,6 +38,7 @@ import TimePicker from '@/components/TimePicker.vue';
 export const views = {
     applications: { name: 'Applications', icon: 'mdi-apps' },
     incidents: { name: 'Incidents', icon: 'mdi-alert-outline' },
+    alerts: { name: 'Alerts', icon: 'mdi-bell-outline' },
     map: { name: 'Service Map', icon: 'mdi-map-outline' },
     traces: { name: 'Traces', icon: 'mdi-chart-timeline' },
     logs: { name: 'Logs', icon: 'mdi-text-search' },

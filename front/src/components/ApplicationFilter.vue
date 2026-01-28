@@ -114,6 +114,9 @@ export default {
     mounted() {
         this.load();
         this.$events.watch(this, this.load, 'refresh');
+        if (this.$route.query.search) {
+            this.searchString = this.$route.query.search;
+        }
     },
 
     computed: {
@@ -161,7 +164,7 @@ export default {
             const search = this.search;
             const applications = (this.applications || []).filter((a) => {
                 if (search) {
-                    return a.id.includes(search) || (a.type && a.type.name.includes(search)) || a.cluster.includes(search);
+                    return a.id.includes(search) || (a.type && a.type.name.includes(search)) || (a.cluster && a.cluster.includes(search));
                 }
                 if (selectedNamespaces.size) {
                     return selectedNamespaces.has(this.$utils.appId(a.id).ns);
@@ -192,6 +195,12 @@ export default {
                     return;
                 }
                 this.$emit('filter', this.filter);
+            },
+            immediate: true,
+        },
+        search: {
+            handler(v) {
+                this.$emit('search', v);
             },
             immediate: true,
         },
@@ -269,6 +278,6 @@ export default {
     font-size: 16px !important;
 }
 .search:deep(input) {
-    width: 100px !important;
+    width: 200px !important;
 }
 </style>

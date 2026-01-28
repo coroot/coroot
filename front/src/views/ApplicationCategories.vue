@@ -7,6 +7,7 @@
                     <th>Patterns</th>
                     <th>Notify of incidents</th>
                     <th>Notify of deployments</th>
+                    <th>Notify of alerts</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -29,6 +30,9 @@
                     </td>
                     <td>
                         {{ c.notification_settings.deployments.enabled ? 'on' : 'off' }}
+                    </td>
+                    <td>
+                        {{ c.notification_settings.alerts.enabled ? 'on' : 'off' }}
                     </td>
                     <td>
                         <div class="d-flex">
