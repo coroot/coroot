@@ -94,6 +94,10 @@ func (c *Constructor) getInstanceAndContainer(w *model.World, node *model.Node, 
 			appId = c.newApplicationId(project.ClusterId(), id.ns, model.ApplicationKindDockerSwarmService, parts[3])
 			containerName = parts[3]
 			id.name = parts[3] + "." + parts[4]
+		} else if len(parts) == 4 && parts[1] == "docker" {
+			ns, containerName := parts[2], parts[3]
+			id = instanceId{ns: ns, name: fmt.Sprintf("%s@%s", containerName, nodeName)}
+			appId = c.newApplicationId(project.ClusterId(), ns, model.ApplicationKindUnknown, containerName)
 		} else {
 			containerName = strings.TrimSuffix(
 				strings.TrimSuffix(parts[len(parts)-1], ".service"),
