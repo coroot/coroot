@@ -25,6 +25,7 @@ You can configure coroot-node-agent using command-line flags or environment vari
 | `--disable-log-parsing` | `DISABLE_LOG_PARSING` | `false` | Disable container log parsing |
 | `--disable-pinger` | `DISABLE_PINGER` | `false` | Disable ICMP ping to upstreams |
 | `--disable-l7-tracing` | `DISABLE_L7_TRACING` | `false` | Disable application-layer (L7) tracing |
+| `--disable-gpu-monitoring` | `DISABLE_GPU_MONITORING` | `false` | Disable GPU monitoring (NVML) |
 | `--container-allowlist` | `CONTAINER_ALLOWLIST` | – | List of allowed containers (regex patterns) |
 | `--container-denylist` | `CONTAINER_DENYLIST` | – | List of denied containers (regex patterns) |
 | `--exclude-http-requests-by-path` | `EXCLUDE_HTTP_REQUESTS_BY_PATH` | – | Exclude HTTP paths from metrics/traces |
