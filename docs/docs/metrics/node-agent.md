@@ -107,6 +107,12 @@ Each container metric has the `container_id` label. This is a compound identifie
 * **Source**: [Blkio](https://www.kernel.org/doc/Documentation/cgroup-v1/blkio-controller.txt) cgroup, the `blkio.throttle.io_service_bytes` file
 * **Labels**: mount_point, device, volume
 
+### container_net_tcp_connection_time_seconds_total
+* **Description**: Time spent on TCP connections
+* **Type**: Counter
+* **Source**: eBPF: `tracepoint/sock/inet_sock_set_state`
+* **Labels**: `destination`, `actual_destination`
+
 ## GPU
 
 ### container_resources_gpu_usage_percent
@@ -159,11 +165,11 @@ Each container metric has the `container_id` label. This is a compound identifie
 * **Source**: The agent measures the round-trip time of an ICMP request sent to IP addresses the container is currently working with
 * **Labels**: `destination_ip`
 
-### container_net_latency_seconds
-* **Description**: Round-trip time between the container and a remote IP
-* **Type**: Gauge
-* **Source**: The agent measures the round-trip time of an ICMP request sent to IP addresses the container is currently working with
-* **Labels**: `destination_ip`
+### container_net_tcp_bytes_(sent|received)_total
+* **Description**: Total number of bytes sent/received from the peer
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `destination`, `actual_destination`
 
 ## Application layer protocol metrics
 
@@ -299,13 +305,13 @@ Each container metric has the `container_id` label. This is a compound identifie
 * **Source**: eBPF
 * **Labels**: `le`
 
-### container_clickhouse_requests_total
+### container_clickhouse_queries_total
 * **Description**: Total number of outbound ClickHouse queries
 * **Type**: Counter
 * **Source**: eBPF
 * **Labels**: `destination`, `actual_destination`, `status`
 
-### container_clickhouse_requests_duration_seconds_total
+### container_clickhouse_queries_duration_seconds_total
 * **Description**: Histogram of the response time for each outbound ClickHouse query
 * **Type**: Counter
 * **Source**: eBPF
@@ -322,6 +328,12 @@ Each container metric has the `container_id` label. This is a compound identifie
 * **Type**: Counter
 * **Source**: eBPF
 * **Labels**: `destination`, `actual_destination`, `le`
+
+### ip_to_fqdn
+* **Description**: Mapping IP addresses to FQDNs based on DNS requests initiated by containers
+* **Type**: Gauge
+* **Source**: eBPF DNS request tracking
+* **Labels**: `ip`, `fqdn`
 
 ## JVM
 
@@ -585,11 +597,6 @@ E.g., if the derivative of this metric for a minute interval is 60s, this means 
 * **Description**: Status of the interface (0: down, 1:up)
 * **Type**: Gauge
 * **Labels**: interface
-
-### node_net_interface_ip
-* **Description**: IP address assigned to the interface
-* **Type**: Gauge
-* **Labels**: interface, ip
 
 ### node_net_interface_ip
 * **Description**: IP address assigned to the interface
