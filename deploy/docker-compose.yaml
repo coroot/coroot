@@ -17,9 +17,10 @@ services:
     environment:
       - LICENSE_KEY=${LICENSE_KEY:-}
     depends_on:
-      - clickhouse:
-          condition: service_healthy
-      - prometheus
+      clickhouse:
+        condition: service_healthy
+      prometheus:
+        condition: service_healthy
 
   node-agent:
     restart: always
@@ -64,6 +65,12 @@ services:
       - '--web.enable-remote-write-receiver'
     ports:
       - '127.0.0.1:9090:9090'
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 3s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   clickhouse:
     restart: always
