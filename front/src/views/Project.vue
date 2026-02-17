@@ -118,6 +118,16 @@
             <IntegrationAWS />
         </template>
 
+        <template v-if="tab === 'inspections'">
+            <h1 class="text-h5 my-5">
+                Inspection configs
+                <a href="https://docs.coroot.com/inspections" target="_blank">
+                    <v-icon>mdi-information-outline</v-icon>
+                </a>
+            </h1>
+            <Inspections />
+        </template>
+
         <template v-if="tab === 'applications'">
             <h2 class="text-h5 my-5" id="categories">
                 Application categories
@@ -207,6 +217,7 @@
 <script>
 import ProjectApiKeys from './ProjectApiKeys.vue';
 import ProjectDelete from './ProjectDelete.vue';
+import Inspections from './Inspections.vue';
 import ApplicationCategories from './ApplicationCategories.vue';
 import Integrations from './Integrations.vue';
 import IntegrationPrometheus from './IntegrationPrometheus.vue';
@@ -233,6 +244,7 @@ export default {
         IntegrationPrometheus,
         IntegrationClickhouse,
         IntegrationAWS,
+        Inspections,
         ProjectApiKeys,
         ProjectDelete,
         ApplicationCategories,
@@ -285,6 +297,7 @@ export default {
                 { id: 'ai', name: 'AI' },
                 { id: 'cloud', name: 'Coroot Cloud' },
                 { id: 'aws', name: 'AWS', disabled },
+                { id: 'inspections', name: 'Inspections', disabled },
                 { id: 'applications', name: 'Applications', disabled },
                 { id: 'notifications', name: 'Notifications', disabled },
                 { id: 'organization', name: 'Organization' },

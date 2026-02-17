@@ -111,15 +111,6 @@ type Chart struct {
 	Annotations   []Annotation `json:"annotations"`
 	DrillDownLink *RouterLink  `json:"drill_down_link"`
 	HideLegend    bool         `json:"hide_legend"`
-
-	widget *Widget
-}
-
-func (ch *Chart) Widget() *Widget {
-	if ch == nil {
-		return nil
-	}
-	return ch.widget
 }
 
 func NewChart(ctx timeseries.Context, title string) *Chart {
@@ -254,15 +245,6 @@ type ChartGroup struct {
 	ctx    timeseries.Context
 	Title  string   `json:"title"`
 	Charts []*Chart `json:"charts"`
-
-	widget *Widget
-}
-
-func (cg *ChartGroup) Widget() *Widget {
-	if cg == nil {
-		return nil
-	}
-	return cg.widget
 }
 
 func NewChartGroup(ctx timeseries.Context, title string) *ChartGroup {
@@ -307,15 +289,6 @@ type Heatmap struct {
 	Annotations []Annotation `json:"annotations"`
 
 	DrillDownLink *RouterLink `json:"drill_down_link"`
-
-	widget *Widget
-}
-
-func (hm *Heatmap) Widget() *Widget {
-	if hm == nil {
-		return nil
-	}
-	return hm.widget
 }
 
 func NewHeatmap(ctx timeseries.Context, title string) *Heatmap {

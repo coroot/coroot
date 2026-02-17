@@ -133,66 +133,6 @@ func (s *Slack) SendDeployment(ctx context.Context, project *db.Project, ds mode
 	return nil
 }
 
-func (s *Slack) SendAlert(ctx context.Context, baseUrl string, n *db.AlertNotification) error {
-	var ch, ts string
-	parts := strings.Split(n.ExternalKey, ":")
-	if len(parts) == 2 {
-		ch, ts = parts[0], parts[1]
-	}
-	if ch == "" {
-		ch = s.channel
-	}
-	displayName := alertDisplayName(n)
-	var header, snippet string
-	if n.Status == model.OK {
-		resolvedText := "resolved"
-		if n.Details != nil && n.Details.ResolvedBy != "" {
-			resolvedText = fmt.Sprintf("manually resolved by *%s*", n.Details.ResolvedBy)
-		}
-		if n.Details != nil && n.Details.Duration != "" {
-			header = fmt.Sprintf("<%s|*%s* alert %s> (duration: %s)", alertUrl(baseUrl, n), displayName, resolvedText, n.Details.Duration)
-			snippet = fmt.Sprintf("%s alert %s (duration: %s)", displayName, resolvedText, n.Details.Duration)
-		} else {
-			header = fmt.Sprintf("<%s|*%s* alert %s>", alertUrl(baseUrl, n), displayName, resolvedText)
-			snippet = fmt.Sprintf("%s alert %s", displayName, resolvedText)
-		}
-	} else {
-		header = fmt.Sprintf("[%s] <%s|*%s*: %s>", strings.ToUpper(n.Status.String()), alertUrl(baseUrl, n), displayName, n.Details.Summary)
-		snippet = fmt.Sprintf("%s: %s", displayName, n.Details.Summary)
-	}
-	var details []string
-	if n.Details != nil {
-		if n.Details.RuleName != "" {
-			details = append(details, fmt.Sprintf("*Alerting rule*: %s", n.Details.RuleName))
-		}
-		for _, d := range n.Details.Details {
-			if d.Code {
-				details = append(details, fmt.Sprintf("*%s*:\n```%s```", d.Name, d.Value))
-			} else {
-				details = append(details, fmt.Sprintf("*%s*: %s", d.Name, d.Value))
-			}
-		}
-	}
-	blocks := []slack.Block{
-		s.section(s.text(header)),
-	}
-	if len(details) > 0 {
-		blocks = append(blocks, s.section(s.text(strings.Join(details, "\n"))))
-	}
-	body := s.body(n.Status.Color(), snippet, blocks...)
-	opts := []slack.MsgOption{body, slack.MsgOptionDisableLinkUnfurl()}
-	if ts != "" {
-		opts = append(opts, slack.MsgOptionTS(ts), slack.MsgOptionBroadcast())
-	}
-	var err error
-	ch, ts, err = s.client.PostMessageContext(ctx, ch, opts...)
-	if err != nil {
-		return fmt.Errorf("slack error: %w", err)
-	}
-	n.ExternalKey = fmt.Sprintf("%s:%s", ch, ts)
-	return nil
-}
-
 func (s *Slack) body(color string, fallback string, blocks ...slack.Block) slack.MsgOption {
 	return slack.MsgOptionAttachments(slack.Attachment{
 		Color:    color,
@@ -206,9 +146,5 @@ func (s *Slack) section(text *slack.TextBlockObject, fields ...*slack.TextBlockO
 }
 
 func (s *Slack) text(format string, a ...any) *slack.TextBlockObject {
-	text := format
-	if len(a) > 0 {
-		text = fmt.Sprintf(format, a...)
-	}
-	return slack.NewTextBlockObject(slack.MarkdownType, text, false, false)
+	return slack.NewTextBlockObject(slack.MarkdownType, fmt.Sprintf(format, a...), false, false)
 }

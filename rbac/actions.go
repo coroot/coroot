@@ -80,10 +80,6 @@ func (as ProjectActionSet) List() []Action {
 		as.Node("*").View(),
 		as.Dashboards().Edit(),
 		as.Dashboard("*").View(),
-		as.AlertingRules().View(),
-		as.AlertingRules().Edit(),
-		as.Alerts().View(),
-		as.Alerts().Edit(),
 	}
 }
 
@@ -149,14 +145,6 @@ func (as ProjectActionSet) Dashboards() ProjectEditAction {
 
 func (as ProjectActionSet) Dashboard(name string) DashboardActionSet {
 	return DashboardActionSet{project: &as, name: name}
-}
-
-func (as ProjectActionSet) AlertingRules() ProjectAction {
-	return ProjectAction{project: &as, scope: ScopeProjectAlertingRules}
-}
-
-func (as ProjectActionSet) Alerts() ProjectAction {
-	return ProjectAction{project: &as, scope: ScopeProjectAlerts}
 }
 
 type ProjectViewAction struct {

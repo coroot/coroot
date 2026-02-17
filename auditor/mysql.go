@@ -39,13 +39,6 @@ func (a *appAuditor) mysql() {
 	newConnectionsChart := report.GetOrCreateChart("New connections, per second", nil)
 	replicationLagChart := report.GetOrCreateChart("Replication lag, seconds", nil)
 
-	availabilityCheck.AddWidget(table.Widget())
-
-	replicationStatusCheck.AddWidget(table.Widget())
-	replicationStatusCheck.AddWidget(replicationLagChart.Widget())
-	replicationLagCheck.AddWidget(replicationLagChart.Widget())
-	connectionsCheck.AddWidget(connectionsChart.Widget())
-
 	for _, i := range a.app.Instances {
 		if i.Mysql == nil {
 			continue

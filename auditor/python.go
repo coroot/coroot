@@ -12,7 +12,6 @@ func (a *appAuditor) python() {
 	report := a.addReport(model.AuditReportPython)
 	gilCheck := report.CreateCheck(model.Checks.PythonGILWaitingTime)
 	gilChart := report.GetOrCreateChart("GIL waiting time, seconds/second", nil)
-	gilCheck.AddWidget(gilChart.Widget())
 	for _, i := range a.app.Instances {
 		if i.Python == nil {
 			continue

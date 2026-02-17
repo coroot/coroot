@@ -20,50 +20,32 @@ const (
 type NotificationClient interface {
 	SendIncident(ctx context.Context, baseUrl string, n *db.IncidentNotification) error
 	SendDeployment(ctx context.Context, project *db.Project, ds model.ApplicationDeploymentStatus) error
-	SendAlert(ctx context.Context, baseUrl string, n *db.AlertNotification) error
 }
 
-type NotificationType int
-
-const (
-	NotificationTypeIncident NotificationType = iota
-	NotificationTypeAlert
-)
-
-func getClient(destination db.IncidentNotificationDestination, integrations db.Integrations, notificationType NotificationType) NotificationClient {
+func getClient(destination db.IncidentNotificationDestination, integrations db.Integrations) NotificationClient {
 	switch destination.IntegrationType {
 	case db.IntegrationTypeSlack:
-		if cfg := integrations.Slack; cfg != nil && isEnabled(cfg.Incidents, cfg.Alerts, notificationType) {
+		if cfg := integrations.Slack; cfg != nil && cfg.Incidents {
 			return NewSlack(cfg.Token, cmp.Or(destination.SlackChannel, cfg.DefaultChannel))
 		}
 	case db.IntegrationTypeTeams:
-		if cfg := integrations.Teams; cfg != nil && isEnabled(cfg.Incidents, cfg.Alerts, notificationType) {
+		if cfg := integrations.Teams; cfg != nil && cfg.Incidents {
 			return NewTeams(cfg.WebhookUrl)
 		}
 	case db.IntegrationTypePagerduty:
-		if cfg := integrations.Pagerduty; cfg != nil && isEnabled(cfg.Incidents, cfg.Alerts, notificationType) {
+		if cfg := integrations.Pagerduty; cfg != nil && cfg.Incidents {
 			return NewPagerduty(cfg.IntegrationKey)
 		}
 	case db.IntegrationTypeOpsgenie:
-		if cfg := integrations.Opsgenie; cfg != nil && isEnabled(cfg.Incidents, cfg.Alerts, notificationType) {
+		if cfg := integrations.Opsgenie; cfg != nil && cfg.Incidents {
 			return NewOpsgenie(cfg.ApiKey, cfg.EUInstance)
 		}
 	case db.IntegrationTypeWebhook:
-		if cfg := integrations.Webhook; cfg != nil && isEnabled(cfg.Incidents, cfg.Alerts, notificationType) {
+		if cfg := integrations.Webhook; cfg != nil && cfg.Incidents {
 			return NewWebhook(cfg)
 		}
 	}
 	return nil
-}
-
-func isEnabled(incidents bool, alerts *bool, notificationType NotificationType) bool {
-	switch notificationType {
-	case NotificationTypeIncident:
-		return incidents
-	case NotificationTypeAlert:
-		return alerts != nil && *alerts
-	}
-	return false
 }
 
 func incidentDetails(app *model.Application, incident *model.ApplicationIncident) *db.IncidentNotificationDetails {
@@ -99,14 +81,4 @@ func incidentUrl(baseUrl string, n *db.IncidentNotification) string {
 
 func deploymentUrl(baseUrl string, projectId db.ProjectId, d *model.ApplicationDeployment) string {
 	return fmt.Sprintf("%s/p/%s/app/%s/Deployments#%s", baseUrl, projectId, d.ApplicationId.String(), d.Id())
-}
-
-func alertDisplayName(n *db.AlertNotification) string {
-	if n.ApplicationId.Name != "" {
-		return n.ApplicationId.Name
-	}
-	if n.Details != nil && n.Details.RuleName != "" {
-		return n.Details.RuleName
-	}
-	return "Alert"
 }

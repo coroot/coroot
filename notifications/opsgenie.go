@@ -65,44 +65,6 @@ func (og *Opsgenie) SendIncident(ctx context.Context, baseUrl string, n *db.Inci
 	return err
 }
 
-func (og *Opsgenie) SendAlert(ctx context.Context, baseUrl string, n *db.AlertNotification) error {
-	if n.Status == model.OK {
-		req := &alert.CloseAlertRequest{
-			IdentifierType:  alert.ALIAS,
-			IdentifierValue: n.ExternalKey,
-			Source:          "Coroot",
-		}
-		_, err := og.client.Close(ctx, req)
-		return err
-	}
-
-	displayName := alertDisplayName(n)
-	req := &alert.CreateAlertRequest{
-		Message: fmt.Sprintf("[%s] %s: %s", strings.ToUpper(n.Status.String()), displayName, n.Details.Summary),
-		Alias:   n.ExternalKey,
-		Source:  "Coroot",
-	}
-	switch n.Status {
-	case model.CRITICAL:
-		req.Priority = alert.P2
-	case model.WARNING:
-		req.Priority = alert.P3
-	case model.INFO:
-		req.Priority = alert.P4
-	}
-	if n.Details != nil {
-		if n.Details.RuleName != "" {
-			req.Description += fmt.Sprintf("Alerting rule: %s\n", n.Details.RuleName)
-		}
-		for _, d := range n.Details.Details {
-			req.Description += fmt.Sprintf("%s: %s\n", d.Name, d.Value)
-		}
-	}
-	req.Description += fmt.Sprintf("\n%s", alertUrl(baseUrl, n))
-	_, err := og.client.Create(ctx, req)
-	return err
-}
-
 func (og *Opsgenie) SendDeployment(ctx context.Context, project *db.Project, ds model.ApplicationDeploymentStatus) error {
 	return fmt.Errorf("not supported")
 }

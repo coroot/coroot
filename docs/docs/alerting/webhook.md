@@ -1,5 +1,5 @@
 ---
-sidebar_position: 8
+sidebar_position: 7
 ---
 
 import Tabs from '@theme/Tabs';
@@ -17,7 +17,7 @@ To configure a Webhook integration:
 * Paste a Webhook URL to the form
   <img alt="Coroot Webhook integration" src="/img/docs/webhook-integration.png" class="card w-800"/>
 * Configure HTTP basic authentication and headers if required.
-* Define templates for incidents, deployments, and alerts.
+* Define templates for incidents and deployments.
 * Send a test alert to check the integration.
 
 ## Template data
@@ -56,27 +56,6 @@ type DeploymentTemplateValues struct {
 }
 ```
 
-```go
-type AlertTemplateValues struct {
-    Status string // OK, WARNING, CRITICAL
-    Application struct {
-        Namespace string
-        Kind      string
-        Name      string
-    }
-    RuleName    string // alerting rule name, e.g. "Low disk space"
-    Severity    string // warning, critical
-    Summary     string // human-readable description, e.g. "disk space is low on /dev/sda1 (12% free)"
-    Details     []struct {
-        Name  string // detail label, e.g. "Log pattern"
-        Value string // detail value
-    }
-    Duration    string // how long the alert was active, e.g. "5m30s", "1h30m" (only set for resolved alerts)
-    ResolvedBy  string // who resolved the alert (only set for manually resolved or suppressed alerts)
-    URL         string // backlink to the alert page
-}
-```
-
 ## Examples
 
 <Tabs queryString="example">
@@ -112,21 +91,6 @@ Deployment of {{ .Application.Name }}@{{ .Application.Namespace }}
 {{- end }}
 {{ .URL }}
 ```
-
-Alert template:
-
-```gotemplate
-{{- if eq .Status `OK` }}
-[RESOLVED] {{ .RuleName }}: {{ .Application.Name }}@{{ .Application.Namespace }}
-{{- else }}
-[{{ .Status }}] {{ .RuleName }}: {{ .Application.Name }}@{{ .Application.Namespace }}
-{{- end }}
-{{ .Summary }}
-{{- range .Details }}
-• {{ .Name }}: {{ .Value }}
-{{- end }}
-{{ .URL }}
-```
    </TabItem>
    <TabItem value="json" label="JSON">
 If the system you aim to integrate accepts JSON-formatted messages, you can employ the built-in `json` template function:
@@ -135,7 +99,7 @@ If the system you aim to integrate accepts JSON-formatted messages, you can empl
 {{ json . }}
 ```
 
-This template will encode the incident, deployment, and alert data structures into valid JSON messages with the specified schema.
+This template will encode the incident and deployment data structures into valid JSON messages with the specified schema.
 
 A sample of resulting incident message:
 
@@ -172,25 +136,6 @@ A sample of resulting deployment message:
     "🎉 Memory: looks like the memory leak has been fixed"
   ],
   "url": "http://127.0.0.1:8080/p/x0xwl4jz/app/default:Deployment:app1/Deployments#123ab456:123"
-}
-```
-
-A sample of resulting alert message:
-
-```json
-{
-  "status": "WARNING",
-  "application": "default:Deployment:app1",
-  "rule_name": "Low disk space",
-  "severity": "warning",
-  "summary": "disk space is low on /dev/sda1 (12% free)",
-  "details": [
-    {
-      "name": "Log pattern",
-      "value": "ERROR: disk space is running low"
-    }
-  ],
-  "url": "http://127.0.0.1:8080/p/x0xwl4jz/alerts?alert=abc123"
 }
 ```
    </TabItem>
@@ -257,26 +202,6 @@ Deployment of [{{ .Application.Name }}@{{ .Application.Namespace }}]({{ .URL }})
   "parse_mode": "Markdown"
 }
 ```
-
-Sample alert template:
-
-```gotemplate
-{
-  "chat_id": "-123456789",
-  "text": "
-{{- if eq .Status `OK` }}
-[RESOLVED] *{{ .RuleName }}*: {{ .Application.Name }}@{{ .Application.Namespace }}
-{{- else }}
-[{{ .Status }}] *{{ .RuleName }}*: {{ .Application.Name }}@{{ .Application.Namespace }}
-{{- end }}
-{{ .Summary }}
-{{- range .Details }}
-• {{ .Name }}: {{ .Value }}
-{{- end }}
-{{ .URL }}",
-  "parse_mode": "Markdown"
-}
-```
    </TabItem>
    <TabItem value="mattermost" label="Mattermost">
 
@@ -315,24 +240,6 @@ Sample deployment template:
 {{- end }}"
 }
 ```
-
-Sample alert template:
-
-```gotemplate
-{
-  "text": "
-{{- if eq .Status `OK` }}
-#### [RESOLVED] **{{ .RuleName }}**: {{ .Application.Name }}@{{ .Application.Namespace }}
-{{- else }}
-#### [{{ .Status }}] **{{ .RuleName }}**: {{ .Application.Name }}@{{ .Application.Namespace }}
-{{- end }}
-{{ .Summary }}
-{{- range .Details }}
-• {{ .Name }}: {{ .Value }}
-{{- end }}
-{{ .URL }}"
-}
-```
    </TabItem>
    <TabItem value="discord" label="Discord">
 
@@ -368,24 +275,6 @@ Sample deployment template:
 • {{ . }}
 {{- end }}
 {{- end }}"
-}
-```
-
-Sample alert template:
-
-```gotemplate
-{
-  "content": "
-{{- if eq .Status `OK` }}
-### [RESOLVED] **{{ .RuleName }}**: {{ .Application.Name }}@{{ .Application.Namespace }}
-{{- else }}
-### [{{ .Status }}] **{{ .RuleName }}**: {{ .Application.Name }}@{{ .Application.Namespace }}
-{{- end }}
-{{ .Summary }}
-{{- range .Details }}
-• {{ .Name }}: {{ .Value }}
-{{- end }}
-{{ .URL }}"
 }
 ```
 

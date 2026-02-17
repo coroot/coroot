@@ -36,6 +36,7 @@
                         >
                             <v-list-item-content>
                                 <v-list-item-title>
+                                    <Led :status="a.status" class="mr-1" />
                                     <span>{{ a.name }}</span>
                                     <span v-if="a.ns" class="caption"> (ns: {{ a.ns }})</span>
                                 </v-list-item-title>
@@ -57,6 +58,7 @@
                         >
                             <v-list-item-content>
                                 <v-list-item-title>
+                                    <Led :status="n.status" class="mr-1" />
                                     <span>{{ n.name }}</span>
                                 </v-list-item-title>
                             </v-list-item-content>
@@ -69,10 +71,14 @@
 </template>
 
 <script>
+import Led from '../components/Led.vue';
+
 export default {
     props: {
         value: Boolean,
     },
+
+    components: { Led },
 
     data() {
         return {
@@ -106,6 +112,7 @@ export default {
                         id: a.id,
                         name: id.name,
                         ns: id.ns,
+                        status: a.status,
                     };
                 });
             apps.sort((a1, a2) => a1.name.localeCompare(a2.name));

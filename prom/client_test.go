@@ -61,9 +61,9 @@ func TestQueryRange(t *testing.T) {
 	assert.Equal(t, "TimeSeries(1675329015, 5, 15, [1 0.100000 . . 0.040000])", res[1].Values.String())
 }
 
-func Test_AddExtraSelector(t *testing.T) {
+func Test_addExtraSelector(t *testing.T) {
 	check := func(src, extraSelector, expected string) {
-		actual, err := AddExtraSelector(src, extraSelector)
+		actual, err := addExtraSelector(src, extraSelector)
 		assert.NoError(t, err)
 		assert.Equal(t, expected, actual)
 	}

@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/url"
 
-	"github.com/coroot/coroot/api/views/alert"
 	"github.com/coroot/coroot/api/views/application"
 	"github.com/coroot/coroot/api/views/applications"
 	"github.com/coroot/coroot/api/views/aws"
@@ -37,14 +36,6 @@ func Incident(w *model.World, app *model.Application, i *model.ApplicationIncide
 
 func Incidents(w *model.World, incidents []*model.ApplicationIncident) []incident.Incident {
 	return incident.RenderList(w, incidents)
-}
-
-func Alert(w *model.World, a *model.Alert, app *model.Application, rules []*model.AlertingRule, notifications []db.AlertNotification) alert.Alert {
-	return alert.Render(w, a, app, rules, notifications)
-}
-
-func Alerts(w *model.World, result *db.AlertsResult, rules []*model.AlertingRule, notifications map[string][]db.AlertNotification) *alert.AlertsListView {
-	return alert.RenderList(w, result, rules, notifications)
 }
 
 func Profiling(ctx context.Context, ch *clickhouse.Client, app *model.Application, q url.Values, w *model.World) *profiling.View {

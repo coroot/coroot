@@ -29,7 +29,6 @@ var (
 	ErrNotFound = errors.New("not found")
 	ErrConflict = errors.New("conflict")
 	ErrInvalid  = errors.New("invalid")
-	ErrReadonly = errors.New("readonly")
 )
 
 type DB struct {
@@ -113,14 +112,11 @@ func (db *DB) Migrate(extraTables ...Table) error {
 		&CheckConfigs{},
 		&Incident{},
 		&IncidentNotification{},
-		&AlertNotification{},
 		&ApplicationDeployment{},
 		&ApplicationSettings{},
 		&Dashboards{},
 		&Setting{},
 		&User{},
-		&AlertingRule{},
-		&Alert{},
 	}
 	return db.Migrator().Migrate(append(defaultTables, extraTables...)...)
 }

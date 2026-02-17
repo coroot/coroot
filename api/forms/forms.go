@@ -29,10 +29,6 @@ var (
 	emailRe = regexp.MustCompile(`^[^@\r\n\t\f\v ]+@[^@\r\n\t\f\v ]+\.[a-z]+$`)
 )
 
-func ptrBool(v bool) *bool {
-	return &v
-}
-
 type Form interface {
 	Valid() bool
 }
@@ -487,7 +483,6 @@ func (f *IntegrationFormSlack) Get(project *db.Project, masked bool) {
 	if cfg == nil {
 		f.Incidents = true
 		f.Deployments = true
-		f.Alerts = ptrBool(true)
 		return
 	}
 	f.IntegrationSlack = *cfg
@@ -525,7 +520,6 @@ func (f *IntegrationFormTeams) Get(project *db.Project, masked bool) {
 	if cfg == nil {
 		f.Incidents = true
 		f.Deployments = true
-		f.Alerts = ptrBool(true)
 		return
 	}
 	f.IntegrationTeams = *cfg
@@ -562,7 +556,6 @@ func (f *IntegrationFormPagerduty) Get(project *db.Project, masked bool) {
 	cfg := project.Settings.Integrations.Pagerduty
 	if cfg == nil {
 		f.Incidents = true
-		f.Alerts = ptrBool(true)
 		return
 	}
 	f.IntegrationPagerduty = *cfg
@@ -599,7 +592,6 @@ func (f *IntegrationFormOpsgenie) Get(project *db.Project, masked bool) {
 	cfg := project.Settings.Integrations.Opsgenie
 	if cfg == nil {
 		f.Incidents = true
-		f.Alerts = ptrBool(true)
 		return
 	}
 	f.IntegrationOpsgenie = *cfg
@@ -637,7 +629,6 @@ func (f *IntegrationFormWebhook) Get(project *db.Project, masked bool) {
 	if cfg == nil {
 		f.Incidents = true
 		f.Deployments = true
-		f.Alerts = ptrBool(true)
 		return
 	}
 	f.IntegrationWebhook = *cfg

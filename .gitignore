@@ -2,6 +2,3 @@
 /static/
 /data*
 /tmp
-/.gocache/*
-/config.yaml
-/coroot

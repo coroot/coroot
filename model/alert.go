@@ -24,7 +24,6 @@ var (
 	MinAlertRuleShortWindow timeseries.Duration
 
 	IncidentTimeOffset = timeseries.Hour + 5*timeseries.Minute // long + short window of the first rule
-	AlertTimeOffset    = timeseries.Hour
 )
 
 func init() {
@@ -60,34 +59,4 @@ type BurnRate struct {
 func (br BurnRate) FormatSLOStatus() string {
 	hours := int(br.LongWindow / timeseries.Hour)
 	return fmt.Sprintf("error budget burn rate is %.1fx within %s", br.LongWindowBurnRate, english.Plural(hours, "hour", ""))
-}
-
-type AlertDetail struct {
-	Name  string `json:"name"`
-	Value string `json:"value"`
-	Code  bool   `json:"code,omitempty"`
-}
-
-type Alert struct {
-	Id                  string              `json:"id"`
-	Fingerprint         string              `json:"fingerprint"`
-	RuleId              string              `json:"rule_id"`
-	ProjectId           string              `json:"project_id"`
-	ApplicationId       ApplicationId       `json:"application_id"`
-	ApplicationCategory ApplicationCategory `json:"application_category,omitempty"`
-	Severity            Status              `json:"severity"`
-	Summary             string              `json:"summary"`
-	Details             []AlertDetail       `json:"details,omitempty"`
-	OpenedAt            timeseries.Time     `json:"opened_at"`
-	ResolvedAt          timeseries.Time     `json:"resolved_at"`
-	ManuallyResolvedAt  timeseries.Time     `json:"manually_resolved_at"`
-	UpdatedAt           timeseries.Time     `json:"updated_at"`
-	Suppressed          bool                `json:"suppressed"`
-	ResolvedBy          string              `json:"resolved_by,omitempty"`
-	Report              AuditReportName     `json:"report,omitempty"`
-	PatternWords        string              `json:"-"`
-}
-
-func (a *Alert) IsFiring() bool {
-	return a.ResolvedAt == 0
 }

@@ -11,43 +11,18 @@ func (a *appAuditor) network() {
 	}
 	report := a.addReport(model.AuditReportNetwork)
 
-	rttCheckInCluster := report.CreateCheck(model.Checks.NetworkRTT)
-	rttCheckExternal := report.CreateCheck(model.Checks.NetworkRTTExternal)
-	rttCheckOtherClusters := report.CreateCheck(model.Checks.NetworkRTTOtherClusters)
-
+	rttCheck := report.CreateCheck(model.Checks.NetworkRTT)
 	connectionsCheck := report.CreateCheck(model.Checks.NetworkTCPConnections)
 	connectivityCheck := report.CreateCheck(model.Checks.NetworkConnectivity)
 
-	rttInClusterChart := report.GetOrCreateChart("Network RTT (in-cluster), seconds", nil)
-	rttExternalChart := report.GetOrCreateChart("Network RTT (external), seconds", nil)
-	rttOtherClustersChart := report.GetOrCreateChart("Network RTT (cross-cluster), seconds", nil)
+	rttChart := report.GetOrCreateChart("Network round-trip time, seconds", nil)
 	connectionLatencyChart := report.GetOrCreateChart("TCP connection latency, seconds", nil)
 	activeConnectionsChart := report.GetOrCreateChart("Active TCP connections", nil)
 	connectionAttemptsChart := report.GetOrCreateChart("TCP connection attempts, per second", nil)
 	failedConnectionsChart := report.GetOrCreateChart("Failed TCP connections, per second", nil)
 	trafficChart := report.GetOrCreateChartGroup("Traffic <selector>, bytes/second", nil)
 	retransmissionsChart := report.GetOrCreateChart("TCP retransmissions, segments/second", nil)
-
-	rttCheckInCluster.AddWidget(rttInClusterChart.Widget())
-	rttCheckExternal.AddWidget(rttExternalChart.Widget())
-	rttCheckOtherClusters.AddWidget(rttOtherClustersChart.Widget())
-	connectionsCheck.AddWidget(failedConnectionsChart.Widget())
-	connectivityCheck.AddWidget(activeConnectionsChart.Widget())
-
 	for _, u := range a.app.Upstreams {
-		var rttCheck *model.Check
-		var rttChart *model.Chart
-		switch {
-		case u.RemoteApplication.Id.Kind == model.ApplicationKindExternalService:
-			rttCheck = rttCheckExternal
-			rttChart = rttExternalChart
-		case a.app.Id.ClusterId != u.RemoteApplication.Id.ClusterId:
-			rttCheck = rttCheckOtherClusters
-			rttChart = rttOtherClustersChart
-		default:
-			rttCheck = rttCheckInCluster
-			rttChart = rttInClusterChart
-		}
 		if last := u.Rtt.Last(); !timeseries.IsNaN(last) {
 			if last > rttCheck.Value() {
 				rttCheck.SetValue(last)

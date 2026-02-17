@@ -63,60 +63,6 @@ func (t *Teams) SendIncident(ctx context.Context, baseUrl string, n *db.Incident
 	return nil
 }
 
-func (t *Teams) SendAlert(ctx context.Context, baseUrl string, n *db.AlertNotification) error {
-	displayName := alertDisplayName(n)
-	var title string
-	if n.Status == model.OK {
-		resolvedText := "resolved"
-		if n.Details != nil && n.Details.ResolvedBy != "" {
-			resolvedText = fmt.Sprintf("manually resolved by **%s**", n.Details.ResolvedBy)
-		}
-		if n.Details != nil && n.Details.Duration != "" {
-			title = fmt.Sprintf("**%s** alert %s (duration: %s)", displayName, resolvedText, n.Details.Duration)
-		} else {
-			title = fmt.Sprintf("**%s** alert %s", displayName, resolvedText)
-		}
-	} else {
-		title = fmt.Sprintf("[%s] **%s**: %s", strings.ToUpper(n.Status.String()), displayName, n.Details.Summary)
-	}
-	text := ""
-	if n.Details != nil {
-		if n.Details.RuleName != "" {
-			text += fmt.Sprintf("**Alerting rule**: %s\n\n", n.Details.RuleName)
-		}
-		for _, d := range n.Details.Details {
-			if d.Code {
-				text += fmt.Sprintf("**%s**:\n```\n%s\n```\n\n", d.Name, d.Value)
-			} else {
-				text += fmt.Sprintf("**%s**: %s\n\n", d.Name, d.Value)
-			}
-		}
-	}
-	if text == "" {
-		text = " "
-	}
-	card, err := adaptivecard.NewTextBlockCard(text, title, true)
-	if err != nil {
-		return err
-	}
-	action, err := adaptivecard.NewActionOpenURL(alertUrl(baseUrl, n), "View alert")
-	if err != nil {
-		return err
-	}
-	err = card.AddAction(true, action)
-	if err != nil {
-		return err
-	}
-	msg, err := adaptivecard.NewMessageFromCard(card)
-	if err != nil {
-		return err
-	}
-	if err = t.client.SendWithContext(ctx, t.webhookUrl, msg); err != nil {
-		return err
-	}
-	return nil
-}
-
 func (t *Teams) SendDeployment(ctx context.Context, project *db.Project, ds model.ApplicationDeploymentStatus) error {
 	d := ds.Deployment
 

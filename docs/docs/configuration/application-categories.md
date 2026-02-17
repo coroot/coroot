@@ -56,13 +56,5 @@ To make organizing your apps easier, Coroot allows you to define the category fo
 
 ## Notification routing
 
-Each category has independent notification settings for three event types: **Incidents** (SLO violations), **Deployments**, and **Alerts** (check-based, log-based, and PromQL-based).
-
-For each event type, you can enable or disable individual integrations (Slack, Microsoft Teams, PagerDuty, OpsGenie, Webhook).
-For Slack, you can also override the default channel on a per-category basis.
-
+A category can be configured to enable or disable notifications about incidents (SLO violations) and new deployments.
 <img alt="Setting Categories from the Application page" src="/img/docs/category_configuration.png" class="card w-600"/>
-
-When an alert fires for an application, Coroot looks up the application's category and checks whether notifications are enabled for that category. If disabled, the notification is silently skipped.
-
-See [Alerts — Notification routing](/alerting/alerts#notification-routing) for more details.

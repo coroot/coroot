@@ -212,7 +212,7 @@ var QUERIES = []Query{
 	qPod("kube_pod_container_status_terminated_reason", `kube_pod_container_status_terminated_reason > 0`, "namespace", "pod", "container", "reason"),
 	qPod("kube_pod_container_status_last_terminated_reason", `kube_pod_container_status_last_terminated_reason`, "namespace", "pod", "container", "reason"),
 
-	Q("container_info", `container_info`, "image", "systemd_triggered_by", "systemd_type"),
+	Q("container_info", `container_info`, "image", "systemd_triggered_by"),
 	Q("container_application_type", `container_application_type`, "application_type"),
 	Q("container_cpu_limit", `container_resources_cpu_limit_cores`),
 	Q("container_cpu_usage", `rate(container_resources_cpu_usage_seconds_total[$RANGE])`),

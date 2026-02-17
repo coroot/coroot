@@ -14,7 +14,6 @@ type View struct {
 
 type Check struct {
 	model.Check
-	Category             string        `json:"category"`
 	GlobalThreshold      float32       `json:"global_threshold"`
 	ProjectThreshold     *float32      `json:"project_threshold"`
 	ProjectDetails       string        `json:"project_details"`
@@ -29,72 +28,80 @@ type Application struct {
 
 func Render(configs model.CheckConfigs) *View {
 	v := &View{configs: configs}
+	cs := model.Checks
 
-	for _, c := range model.GetCheckConfigs() {
-		if c.Category == "" {
-			continue
-		}
-		v.addCheck(*c)
-	}
+	v.addReport(model.AuditReportSLO, cs.SLOAvailability, cs.SLOLatency)
+	v.addReport(model.AuditReportInstances, cs.InstanceAvailability, cs.InstanceRestarts)
+	v.addReport(model.AuditReportDeployments, cs.DeploymentStatus)
+	v.addReport(model.AuditReportCPU, cs.CPUNode, cs.CPUContainer)
+	v.addReport(model.AuditReportMemory, cs.MemoryOOM, cs.MemoryLeakPercent)
+	v.addReport(model.AuditReportStorage, cs.StorageIOLoad, cs.StorageSpace)
+	v.addReport(model.AuditReportNetwork, cs.NetworkRTT)
+	v.addReport(model.AuditReportLogs, cs.LogErrors)
+	v.addReport(model.AuditReportPostgres, cs.PostgresAvailability, cs.PostgresLatency, cs.PostgresReplicationLag, cs.PostgresConnections)
+	v.addReport(model.AuditReportRedis, cs.RedisAvailability, cs.RedisLatency)
+	v.addReport(model.AuditReportJvm, cs.JvmAvailability, cs.JvmSafepointTime)
+	v.addReport(model.AuditReportMongodb, cs.MongodbAvailability, cs.MongodbReplicationLag)
 
 	return v
 }
 
-func (v *View) addCheck(c model.CheckConfig) {
-	ch := Check{
-		Check: model.Check{
-			Id:                      c.Id,
-			Title:                   c.Title,
-			Unit:                    c.Unit,
-			ConditionFormatTemplate: c.ConditionFormatTemplate,
-		},
-		Category:        string(c.Category),
-		GlobalThreshold: c.DefaultThreshold,
-	}
-	for appId, configs := range v.configs.GetByCheck(c.Id) {
-		for _, unk := range configs {
-			switch cfg := unk.(type) {
-			case model.CheckConfigSimple:
-				if appId.IsZero() {
-					t := cfg.Threshold
-					ch.ProjectThreshold = &t
-				} else {
-					ch.ApplicationOverrides = append(ch.ApplicationOverrides, Application{
-						Id:        appId,
-						Threshold: cfg.Threshold,
-					})
-				}
-			case []model.CheckConfigSLOAvailability:
-				for _, c := range cfg {
+func (v *View) addReport(name model.AuditReportName, checks ...model.CheckConfig) {
+	for _, c := range checks {
+		ch := Check{
+			Check: model.Check{
+				Id:                      c.Id,
+				Title:                   string(name) + " / " + c.Title,
+				Unit:                    c.Unit,
+				ConditionFormatTemplate: c.ConditionFormatTemplate,
+			},
+			GlobalThreshold: c.DefaultThreshold,
+		}
+		for appId, configs := range v.configs.GetByCheck(c.Id) {
+			for _, unk := range configs {
+				switch cfg := unk.(type) {
+				case model.CheckConfigSimple:
 					if appId.IsZero() {
-						t := c.ObjectivePercentage
+						t := cfg.Threshold
 						ch.ProjectThreshold = &t
 					} else {
 						ch.ApplicationOverrides = append(ch.ApplicationOverrides, Application{
 							Id:        appId,
-							Threshold: c.ObjectivePercentage,
+							Threshold: cfg.Threshold,
 						})
 					}
-				}
-			case []model.CheckConfigSLOLatency:
-				for _, c := range cfg {
-					details := "< " + utils.FormatLatency(c.ObjectiveBucket)
-					if appId.IsZero() {
-						t := c.ObjectivePercentage
-						ch.ProjectThreshold = &t
-						ch.ProjectDetails = details
-					} else {
-						ch.ApplicationOverrides = append(ch.ApplicationOverrides, Application{
-							Id:        appId,
-							Threshold: c.ObjectivePercentage,
-							Details:   details,
-						})
+				case []model.CheckConfigSLOAvailability:
+					for _, c := range cfg {
+						if appId.IsZero() {
+							t := c.ObjectivePercentage
+							ch.ProjectThreshold = &t
+						} else {
+							ch.ApplicationOverrides = append(ch.ApplicationOverrides, Application{
+								Id:        appId,
+								Threshold: c.ObjectivePercentage,
+							})
+						}
 					}
+				case []model.CheckConfigSLOLatency:
+					for _, c := range cfg {
+						details := "< " + utils.FormatLatency(c.ObjectiveBucket)
+						if appId.IsZero() {
+							t := c.ObjectivePercentage
+							ch.ProjectThreshold = &t
+							ch.ProjectDetails = details
+						} else {
+							ch.ApplicationOverrides = append(ch.ApplicationOverrides, Application{
+								Id:        appId,
+								Threshold: c.ObjectivePercentage,
+								Details:   details,
+							})
+						}
+					}
+				default:
+					klog.Warningln("unknown config type")
 				}
-			default:
-				klog.Warningln("unknown config type")
 			}
 		}
+		v.Checks = append(v.Checks, ch)
 	}
-	v.Checks = append(v.Checks, ch)
 }

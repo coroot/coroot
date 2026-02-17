@@ -29,8 +29,6 @@ func (a *appAuditor) memcached() {
 	hitRateChart := report.GetOrCreateChart("Hit rate, %", nil)
 	evictionsChart := report.GetOrCreateChart("Items evicted, per seconds", nil)
 
-	availabilityCheck.AddWidget(table.Widget())
-
 	for _, i := range a.app.Instances {
 		if i.Memcached == nil {
 			continue

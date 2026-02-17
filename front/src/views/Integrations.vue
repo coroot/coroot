@@ -24,7 +24,6 @@
                     <th>Type</th>
                     <th>Notify of incidents</th>
                     <th>Notify of deployments</th>
-                    <th>Notify of alerts</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -45,15 +44,10 @@
                         </v-icon>
                     </td>
                     <td>
-                        <v-icon v-if="i.configured" small :color="i.alerts ? 'green' : ''">
-                            {{ i.alerts ? 'mdi-check' : 'mdi-minus' }}
-                        </v-icon>
-                    </td>
-                    <td>
                         <v-btn v-if="!i.configured" :disabled="readonly" small @click="open(i, 'new')" color="primary">Configure</v-btn>
                         <div v-else class="d-flex">
-                            <v-btn icon small @click="open(i, readonly ? 'view' : 'edit')">
-                                <v-icon small>{{ readonly ? 'mdi-eye' : 'mdi-pencil' }}</v-icon>
+                            <v-btn icon small :disabled="readonly" @click="open(i, 'edit')">
+                                <v-icon small>mdi-pencil</v-icon>
                             </v-btn>
                             <v-btn icon small :disabled="readonly" @click="open(i, 'del')">
                                 <v-icon small>mdi-trash-can-outline</v-icon>

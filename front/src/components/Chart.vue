@@ -52,7 +52,7 @@
                 @mouseleave="highlightSeries(null)"
             >
                 <span class="marker" :style="{ backgroundColor: l.color }"></span>
-                <span class="label" :title="l.label">{{ l.label }}</span>
+                <span class="label">{{ l.label }}</span>
             </div>
         </div>
     </div>
@@ -258,12 +258,6 @@ export default {
                 padding: [10, 20, -10, 0],
                 width: this.$refs.uplot.clientWidth,
                 ms: 1,
-                scales: {
-                    x: {
-                        auto: false,
-                        range: [c.ctx.from, c.ctx.to + c.ctx.step],
-                    },
-                },
                 axes: [
                     {
                         space: 80,
@@ -532,7 +526,6 @@ export default {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 300px;
 }
 
 .loading {

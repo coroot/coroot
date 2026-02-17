@@ -19,14 +19,8 @@ func (a *appAuditor) instances() {
 
 	instancesChart := report.GetOrCreateChart("Instances", nil).Stacked()
 	restartsChart := report.GetOrCreateChart("Restarts", nil).Column()
-	tableColumns := []string{"Instance", "Status", "Restarts", "IP", "Node"}
-
-	availabilityCheck.AddWidget(instancesChart.Widget())
-	restartsCheck.AddWidget(restartsChart.Widget())
 
 	up := timeseries.NewAggregate(timeseries.NanSum)
-	var availableInstances, unavailableInstances int
-
 	for _, i := range a.app.Instances {
 		if instancesChart != nil {
 			up.Add(i.UpAndRunning())
@@ -117,21 +111,14 @@ func (a *appAuditor) instances() {
 		}
 		if *status.Status == model.OK {
 			availabilityCheck.Inc(1)
-			availableInstances++
-		} else if *status.Status >= model.WARNING {
-			unavailableInstances++
 		}
 		instanceRestarts := timeseries.NewAggregate(timeseries.NanSum)
 		var instanceRestartsTotal int64
 		for _, c := range i.Containers {
 			instanceRestarts.Add(c.Restarts)
 			if r := c.Restarts.Reduce(timeseries.NanSum); !timeseries.IsNaN(r) {
-				restarts := int64(r)
-				instanceRestartsTotal += restarts
-				restartsCheck.Inc(restarts)
-				if restarts > int64(restartsCheck.Threshold) {
-					restartsCheck.AddItem("%s/%s", i.Name, c.Name)
-				}
+				restartsCheck.Inc(int64(r))
+				instanceRestartsTotal += int64(r)
 			}
 		}
 		if restartsChart != nil {
@@ -151,7 +138,7 @@ func (a *appAuditor) instances() {
 			SetParam("view", "nodes").
 			SetParam("id", nodeId)
 
-		report.GetOrCreateTable(tableColumns...).AddRow(
+		report.GetOrCreateTable("Instance", "Status", "Restarts", "IP", "Node").AddRow(
 			model.NewTableCell(i.Name),
 			status,
 			restartsCell,
@@ -159,7 +146,6 @@ func (a *appAuditor) instances() {
 			node,
 		)
 	}
-	availabilityCheck.AddWidget(report.GetOrCreateTable(tableColumns...).Widget())
 	desired := a.app.DesiredInstances.Last()
 	if a.app.Id.Kind == model.ApplicationKindUnknown {
 		desired = float32(len(a.app.Instances))
@@ -177,18 +163,10 @@ func (a *appAuditor) instances() {
 			availabilityCheck.SetStatus(model.WARNING, "no instances available")
 		case a.app.Id.Kind == model.ApplicationKindDaemonSet:
 			if available < desired {
-				availabilityCheck.SetStatus(
-					model.WARNING,
-					"%d %s unavailable",
-					unavailableInstances, utils.PluralWithToBe(unavailableInstances, "DaemonSet instance"),
-				)
+				availabilityCheck.SetStatus(model.WARNING, "some instances of the DaemonSet are not available")
 			}
 		case percentage < availabilityCheck.Threshold:
-			availabilityCheck.SetStatus(
-				model.WARNING,
-				"%d %s unavailable",
-				unavailableInstances, utils.PluralWithToBe(unavailableInstances, "instance"),
-			)
+			availabilityCheck.SetStatus(model.WARNING, "%.0f/%.0f instances are currently available", available, desired)
 		}
 	}
 

@@ -52,8 +52,6 @@ func (a *appAuditor) dotnet() {
 		model.NewDocLink("inspections", "dotnet", "monitors-lock-contentions"),
 	)
 
-	availabilityCheck.AddWidget(table.Widget())
-
 	for _, i := range a.app.Instances {
 		obsolete := i.IsObsolete()
 		for name, runtime := range i.DotNet {

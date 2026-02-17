@@ -125,67 +125,6 @@ func (cfg *Config) Bootstrap(database *db.DB) error {
 			return err
 		}
 	}
-
-	if cfg.DisableBuiltinAlerts {
-		for _, p := range byName {
-			if err := database.DisableBuiltinAlertingRules(p.Id); err != nil {
-				klog.Errorln("failed to disable builtin alerting rules:", err)
-			}
-		}
-	}
-
-	for _, p := range cfg.Projects {
-		pp := byName[p.Name]
-		if pp == nil {
-			continue
-		}
-		if len(p.AlertingRules) > 0 {
-			if err := syncConfigAlertingRules(database, pp.Id, p.AlertingRules); err != nil {
-				klog.Errorln("failed to sync config alerting rules:", err)
-			}
-		} else {
-			if err := database.ClearAlertingRulesReadonly(pp.Id); err != nil {
-				klog.Errorln("failed to clear alerting rules readonly:", err)
-			}
-		}
-	}
-
-	return nil
-}
-
-func syncConfigAlertingRules(database *db.DB, projectId db.ProjectId, configRules []AlertingRule) error {
-	if err := database.ClearAlertingRulesReadonly(projectId); err != nil {
-		return err
-	}
-	existing, err := database.GetAlertingRules(projectId)
-	if err != nil {
-		return err
-	}
-	byId := map[model.AlertingRuleId]*model.AlertingRule{}
-	for _, r := range existing {
-		byId[r.Id] = r
-	}
-	for _, cr := range configRules {
-		ruleId := model.AlertingRuleId(cr.Id)
-		if existingRule, ok := byId[ruleId]; ok {
-			merged := applyConfigOverrides(existingRule, cr)
-			merged.Readonly = true
-			if err := database.UpdateAlertingRule(projectId, merged); err != nil {
-				return err
-			}
-		} else {
-			base := &model.AlertingRule{
-				Id:       ruleId,
-				Readonly: true,
-				Enabled:  true,
-			}
-			newRule := applyConfigOverrides(base, cr)
-			newRule.ProjectId = string(projectId)
-			if err := database.CreateAlertingRule(projectId, newRule); err != nil {
-				return err
-			}
-		}
-	}
 	return nil
 }
 

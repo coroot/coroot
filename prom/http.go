@@ -41,7 +41,7 @@ func (c *HttpClient) GetStep(from, to timeseries.Time) (timeseries.Duration, err
 func (c *HttpClient) QueryRange(ctx context.Context, query string, filterLabels FilterLabelsF, from, to timeseries.Time, step timeseries.Duration) ([]*model.MetricValues, error) {
 	query = strings.ReplaceAll(query, "$RANGE", fmt.Sprintf(`%.0fs`, (step*3).ToStandard().Seconds()))
 	var err error
-	query, err = AddExtraSelector(query, c.config.ExtraSelector)
+	query, err = addExtraSelector(query, c.config.ExtraSelector)
 	if err != nil {
 		return nil, err
 	}
@@ -183,7 +183,7 @@ func (c *HttpClient) QueryRangeHandler(r *http.Request, w http.ResponseWriter) {
 		switch r.Method {
 		case http.MethodGet:
 			form := r.URL.Query()
-			withExtraSelector, err := AddExtraSelector(form.Get("query"), c.config.ExtraSelector)
+			withExtraSelector, err := addExtraSelector(form.Get("query"), c.config.ExtraSelector)
 			if err != nil {
 				klog.Warningln(err)
 				http.Error(w, err.Error(), http.StatusBadRequest)
@@ -196,7 +196,7 @@ func (c *HttpClient) QueryRangeHandler(r *http.Request, w http.ResponseWriter) {
 				http.Error(w, "invalid form", http.StatusBadRequest)
 				return
 			}
-			withExtraSelector, err := AddExtraSelector(r.PostForm.Get("query"), c.config.ExtraSelector)
+			withExtraSelector, err := addExtraSelector(r.PostForm.Get("query"), c.config.ExtraSelector)
 			if err != nil {
 				klog.Warningln(err)
 				http.Error(w, err.Error(), http.StatusBadRequest)
@@ -254,7 +254,7 @@ func (c *HttpClient) proxy(r *http.Request, w http.ResponseWriter, promUrlPath s
 
 func (c *HttpClient) Close() {}
 
-func AddExtraSelector(query string, extraSelector string) (string, error) {
+func addExtraSelector(query string, extraSelector string) (string, error) {
 	if extraSelector == "" {
 		return query, nil
 	}

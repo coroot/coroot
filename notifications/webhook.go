@@ -36,18 +36,6 @@ type DeploymentTemplateValues struct {
 	URL         string              `json:"url"`
 }
 
-type AlertTemplateValues struct {
-	Status      string              `json:"status"`
-	Application model.ApplicationId `json:"application"`
-	RuleName    string              `json:"rule_name"`
-	Severity    string              `json:"severity"`
-	Summary     string              `json:"summary"`
-	Details     []model.AlertDetail `json:"details,omitempty"`
-	Duration    string              `json:"duration,omitempty"`
-	ResolvedBy  string              `json:"resolved_by,omitempty"`
-	URL         string              `json:"url"`
-}
-
 func NewWebhook(cfg *db.IntegrationWebhook) *Webhook {
 	return &Webhook{cfg: cfg}
 }
@@ -70,37 +58,6 @@ func (wh *Webhook) SendIncident(ctx context.Context, baseUrl string, n *db.Incid
 	err = tmpl.Execute(&data, values)
 	if err != nil {
 		return fmt.Errorf("invalid incident template: %s", err)
-	}
-
-	return wh.send(ctx, data.Bytes())
-}
-
-func (wh *Webhook) SendAlert(ctx context.Context, baseUrl string, n *db.AlertNotification) error {
-	if wh.cfg.AlertTemplate == "" {
-		return nil
-	}
-	tmpl, err := template.New("alertTemplate").Funcs(templateFunctions).Parse(wh.cfg.AlertTemplate)
-	if err != nil {
-		return fmt.Errorf("invalid alert template: %s", err)
-	}
-
-	var data bytes.Buffer
-	values := AlertTemplateValues{
-		Status:      strings.ToUpper(n.Status.String()),
-		Application: n.ApplicationId,
-		URL:         alertUrl(baseUrl, n),
-	}
-	if n.Details != nil {
-		values.RuleName = n.Details.RuleName
-		values.Severity = n.Details.Severity
-		values.Summary = n.Details.Summary
-		values.Details = n.Details.Details
-		values.Duration = n.Details.Duration
-		values.ResolvedBy = n.Details.ResolvedBy
-	}
-	err = tmpl.Execute(&data, values)
-	if err != nil {
-		return fmt.Errorf("invalid alert template: %s", err)
 	}
 
 	return wh.send(ctx, data.Bytes())

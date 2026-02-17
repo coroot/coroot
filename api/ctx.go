@@ -18,7 +18,6 @@ type Context struct {
 	Status         Status                            `json:"status"`
 	Search         Search                            `json:"search"`
 	Incidents      map[model.ApplicationCategory]int `json:"incidents"`
-	Alerts         map[string]int                    `json:"alerts"`
 	Fluxcd         bool                              `json:"fluxcd"`
 	License        *License                          `json:"license,omitempty"`
 	Multicluster   bool                              `json:"multicluster"`
@@ -56,11 +55,13 @@ type Search struct {
 }
 
 type Application struct {
-	Id model.ApplicationId `json:"id"`
+	Id     model.ApplicationId `json:"id"`
+	Status model.Status        `json:"status"`
 }
 
 type Node struct {
-	Name string `json:"name"`
+	Name   string       `json:"name"`
+	Status model.Status `json:"status"`
 }
 
 type License struct {
@@ -73,16 +74,11 @@ type LicenseManager interface {
 }
 
 func (api *Api) WithContext(p *db.Project, cacheStatus *cache.Status, w *model.World, data any) DataWithContext {
-	alerts, _ := api.db.GetFiringAlertCountsBySeverity(p.Id)
-	if alerts == nil {
-		alerts = map[string]int{}
-	}
 	res := DataWithContext{
 		Context: Context{
 			Status:         renderStatus(p, cacheStatus, w, api.globalPrometheus),
 			Search:         renderSearch(w),
 			Incidents:      renderIncidents(w),
-			Alerts:         alerts,
 			Fluxcd:         w != nil && w.Flux != nil,
 			Multicluster:   p.Multicluster(),
 			MemberProjects: p.Settings.MemberProjects,
@@ -189,12 +185,14 @@ func renderSearch(w *model.World) Search {
 	}
 	for _, app := range w.Applications {
 		search.Applications = append(search.Applications, Application{
-			Id: app.Id,
+			Id:     app.Id,
+			Status: app.Status,
 		})
 	}
 	for _, node := range w.Nodes {
 		search.Nodes = append(search.Nodes, Node{
-			Name: node.GetName(),
+			Name:   node.GetName(),
+			Status: node.Status(),
 		})
 	}
 	return search

@@ -87,7 +87,7 @@ func (n *IncidentNotifier) sendIncidents() {
 		}
 		integrations := project.Settings.Integrations
 		var sendErr error
-		client := getClient(notification.Destination, integrations, NotificationTypeIncident)
+		client := getClient(notification.Destination, integrations)
 		if client != nil {
 			if notification.Destination.IntegrationType == db.IntegrationTypeSlack {
 				if prevNotifications, err := n.db.GetPreviousIncidentNotifications(notification); err != nil {

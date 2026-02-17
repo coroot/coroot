@@ -26,17 +26,13 @@
 
         <div class="subtitle-1 mt-5">Notify of</div>
         <v-checkbox v-model="form.incidents" label="Incidents" dense hide-details />
-        <v-checkbox v-model="form.deployments" label="Deployments" dense hide-details />
-        <v-checkbox v-model="form.alerts" label="Alerts" dense />
+        <v-checkbox v-model="form.deployments" label="Deployments" dense />
 
         <div class="subtitle-1">Incident template</div>
         <v-textarea v-model="form.incident_template" outlined dense :rules="form.incidents ? [$validators.notEmpty] : []" />
 
         <div class="subtitle-1">Deployment template</div>
         <v-textarea v-model="form.deployment_template" outlined dense :rules="form.deployments ? [$validators.notEmpty] : []" />
-
-        <div class="subtitle-1">Alert template</div>
-        <v-textarea v-model="form.alert_template" outlined dense :rules="form.alerts ? [$validators.notEmpty] : []" />
         <!-- eslint-enable vue/no-mutating-props -->
     </div>
 </template>

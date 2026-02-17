@@ -122,58 +122,6 @@
                         </div>
                     </div>
                 </div>
-
-                <div class="d-flex mt-3 mb-2">
-                    <v-checkbox v-model="form.notification_settings.alerts.enabled" hide-details class="mt-0 pt-0" />
-                    <div>Get notified of alerts</div>
-                </div>
-                <div v-if="form.notification_settings.alerts.enabled" class="mt-1">
-                    <div class="ml-3">
-                        <div v-if="form.notification_settings.alerts.slack" class="d-flex align-center mt-2">
-                            <v-checkbox v-model="form.notification_settings.alerts.slack.enabled" dense hide-details class="mt-0 pt-0" />
-                            <div class="mr-2">Slack</div>
-                            <v-text-field
-                                v-model="form.notification_settings.alerts.slack.channel"
-                                hide-details
-                                outlined
-                                dense
-                                prefix="channel:"
-                                class="x-dense"
-                            />
-                            <v-btn
-                                small
-                                color="secondary"
-                                class="ml-2"
-                                @click="test({ alert: { slack: { channel: form.notification_settings.alerts.slack.channel } } })"
-                            >
-                                Test
-                            </v-btn>
-                        </div>
-                        <div v-if="form.notification_settings.alerts.teams" class="d-flex align-center mt-2">
-                            <v-checkbox v-model="form.notification_settings.alerts.teams.enabled" dense hide-details class="mt-0 pt-0" />
-                            <div class="mr-2">MS Teams</div>
-                            <v-btn small color="secondary" class="ml-2" @click="test({ alert: { teams: {} } })">Test</v-btn>
-                        </div>
-                        <div v-if="form.notification_settings.alerts.pagerduty" class="d-flex align-center mt-2">
-                            <v-checkbox v-model="form.notification_settings.alerts.pagerduty.enabled" dense hide-details class="mt-0 pt-0" />
-                            <div>Pagerduty</div>
-                            <v-btn small color="secondary" class="ml-2" @click="test({ alert: { pagerduty: {} } })">Test</v-btn>
-                        </div>
-                        <div v-if="form.notification_settings.alerts.opsgenie" class="d-flex align-center mt-2">
-                            <v-checkbox v-model="form.notification_settings.alerts.opsgenie.enabled" dense hide-details class="mt-0 pt-0" />
-                            <div>Opsgenie</div>
-                            <v-btn small color="secondary" class="ml-2" @click="test({ alert: { opsgenie: {} } })">Test</v-btn>
-                        </div>
-                        <div v-if="form.notification_settings.alerts.webhook" class="d-flex align-center mt-2">
-                            <v-checkbox v-model="form.notification_settings.alerts.webhook.enabled" dense hide-details class="mt-0 pt-0" />
-                            <div>Webhook</div>
-                            <v-btn small color="secondary" class="ml-2" @click="test({ alert: { webhook: {} } })">Test</v-btn>
-                        </div>
-                        <div v-if="!hasConfiguredIntegration(form.notification_settings.alerts)" class="ml-5 grey--text">
-                            No notification integrations configured.
-                        </div>
-                    </div>
-                </div>
                 <v-btn
                     color="primary"
                     small

@@ -97,22 +97,6 @@ func (p *Project) applyDefaults() {
 	if p.Settings.CustomCloudPricing == nil {
 		p.Settings.CustomCloudPricing = &defaultCustomCloudPricing
 	}
-	if slack := p.Settings.Integrations.Slack; slack != nil && slack.Alerts == nil {
-		slack.Alerts = &slack.Incidents
-	}
-	if teams := p.Settings.Integrations.Teams; teams != nil && teams.Alerts == nil {
-		teams.Alerts = &teams.Incidents
-	}
-	if pagerduty := p.Settings.Integrations.Pagerduty; pagerduty != nil && pagerduty.Alerts == nil {
-		pagerduty.Alerts = &pagerduty.Incidents
-	}
-	if opsgenie := p.Settings.Integrations.Opsgenie; opsgenie != nil && opsgenie.Alerts == nil {
-		opsgenie.Alerts = &opsgenie.Incidents
-	}
-	if webhook := p.Settings.Integrations.Webhook; webhook != nil && webhook.Alerts == nil {
-		alerts := webhook.Incidents && webhook.AlertTemplate != ""
-		webhook.Alerts = &alerts
-	}
 }
 
 func (p *Project) GetCustomApplicationName(instance string) string {
@@ -240,9 +224,6 @@ func (db *DB) SaveProject(p *Project) error {
 			p.Settings.ApiKeys = []ApiKey{{Key: utils.RandomString(32), Description: "default"}}
 			err = db.SaveProjectSettings(p)
 		}
-		if err == nil {
-			err = db.InitBuiltinAlertingRules(p.Id)
-		}
 		return err
 	}
 	if _, err := db.db.Exec("UPDATE project SET name = $1 WHERE id = $2", p.Name, p.Id); err != nil {
@@ -275,12 +256,6 @@ func (db *DB) DeleteProject(id ProjectId) error {
 		return err
 	}
 	if _, err = tx.Exec("DELETE FROM dashboards WHERE project_id = $1", id); err != nil {
-		return err
-	}
-	if _, err = tx.Exec("DELETE FROM alert WHERE project_id = $1", id); err != nil {
-		return err
-	}
-	if _, err = tx.Exec("DELETE FROM alerting_rule WHERE project_id = $1", id); err != nil {
 		return err
 	}
 	if _, err = tx.Exec("DELETE FROM project WHERE id = $1", id); err != nil {

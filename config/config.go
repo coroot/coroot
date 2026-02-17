@@ -40,7 +40,6 @@ type Config struct {
 	DoNotCheckForDeployments bool `yaml:"do_not_check_for_deployments"`
 	DoNotCheckForUpdates     bool `yaml:"do_not_check_for_updates"`
 	DisableUsageStatistics   bool `yaml:"disable_usage_statistics"`
-	DisableBuiltinAlerts     bool `yaml:"disableBuiltinAlerts"`
 
 	DeveloperMode bool `yaml:"developer_mode"`
 

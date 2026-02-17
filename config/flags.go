@@ -25,7 +25,6 @@ var (
 	doNotCheckForDeployments                    = kingpin.Flag("do-not-check-for-deployments", "Don't check for new deployments").Envar("DO_NOT_CHECK_FOR_DEPLOYMENTS").Bool()
 	doNotCheckForUpdates                        = kingpin.Flag("do-not-check-for-updates", "Don't check for new versions").Envar("DO_NOT_CHECK_FOR_UPDATES").Bool()
 	disableUsageStatistics                      = kingpin.Flag("disable-usage-statistics", "Disable usage statistics").Envar("DISABLE_USAGE_STATISTICS").Bool()
-	disableBuiltinAlerts                        = kingpin.Flag("disable-builtin-alerts", "Disable all built-in alerting rules").Envar("DISABLE_BUILTIN_ALERTS").Bool()
 	authAnonymousRole                           = kingpin.Flag("auth-anonymous-role", "Disable authentication and assign one of the following roles to the anonymous user: Admin, Editor, or Viewer.").Envar("AUTH_ANONYMOUS_ROLE").String()
 	authBootstrapAdminPassword                  = kingpin.Flag("auth-bootstrap-admin-password", "Password for the default Admin user").Envar("AUTH_BOOTSTRAP_ADMIN_PASSWORD").String()
 	developerMode                               = kingpin.Flag("developer-mode", "If enabled, Coroot will not use embedded static assets").Envar("DEVELOPER_MODE").Bool()
@@ -111,9 +110,6 @@ func (cfg *Config) ApplyFlags() {
 	}
 	if *disableUsageStatistics {
 		cfg.DisableUsageStatistics = *disableUsageStatistics
-	}
-	if *disableBuiltinAlerts {
-		cfg.DisableBuiltinAlerts = *disableBuiltinAlerts
 	}
 	if *authAnonymousRole != "" {
 		cfg.Auth.AnonymousRole = *authAnonymousRole

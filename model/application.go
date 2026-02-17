@@ -382,14 +382,3 @@ func (app *Application) IsCorootComponent() bool {
 	}
 	return false
 }
-
-func (app *Application) GetCheckWithReport(checkId CheckId) (*Check, AuditReportName) {
-	for _, r := range app.Reports {
-		for _, ch := range r.Checks {
-			if ch.Id == checkId {
-				return ch, r.Name
-			}
-		}
-	}
-	return nil, ""
-}

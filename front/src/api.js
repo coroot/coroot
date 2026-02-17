@@ -16,7 +16,6 @@ export default class Api {
         status: {},
         search: {},
         incidents: {},
-        alerts: {},
         license: {},
         fluxcd: true,
         multicluster: false,
@@ -57,7 +56,6 @@ export default class Api {
                     this.context.status = response.data.context.status;
                     this.context.search = response.data.context.search;
                     this.context.incidents = response.data.context.incidents;
-                    this.context.alerts = response.data.context.alerts || {};
                     this.context.license = response.data.context.license;
                     this.context.fluxcd = response.data.context.fluxcd;
                     this.context.multicluster = response.data.context.multicluster;
@@ -91,8 +89,8 @@ export default class Api {
     }
 
     get(url, args, cb) {
-        const { from, to, incident, alert, rcaFrom, rcaTo } = this.router.currentRoute.query;
-        const params = { ...args, from, to, incident, alert, rcaFrom, rcaTo };
+        const { from, to, incident, rcaFrom, rcaTo } = this.router.currentRoute.query;
+        const params = { ...args, from, to, incident, rcaFrom, rcaTo };
         this.request({ method: 'get', url, params }, cb);
     }
 
@@ -274,33 +272,6 @@ export default class Api {
         this.get(this.projectPath(`incident/${key}`), {}, cb);
     }
 
-    getAlerts(params, cb) {
-        this.get(this.projectPath(`alerts`), {
-            limit: params.limit,
-            offset: params.offset,
-            include_resolved: params.includeResolved ? 'true' : 'false',
-            search: params.search || undefined,
-            sort_by: params.sortBy,
-            sort_desc: params.sortDesc ? 'true' : 'false',
-        }, cb);
-    }
-
-    getAlert(id, cb) {
-        this.get(this.projectPath(`alerts/${id}`), { alert: id }, cb);
-    }
-
-    resolveAlerts(ids, cb) {
-        this.post(this.projectPath(`alerts/resolve`), { ids }, cb);
-    }
-
-    suppressAlerts(ids, cb) {
-        this.post(this.projectPath(`alerts/suppress`), { ids }, cb);
-    }
-
-    reopenAlerts(ids, cb) {
-        this.post(this.projectPath(`alerts/reopen`), { ids }, cb);
-    }
-
     getRCA(appId, withSummary, cb) {
         this.get(this.projectPath(`app/${encodeURIComponent(appId)}/rca`), { withSummary }, cb);
     }
@@ -355,25 +326,5 @@ export default class Api {
 
     prom() {
         return this.basePath + 'api/' + this.projectPath('prom');
-    }
-
-    getAlertingRules(cb) {
-        this.get(this.projectPath('alerting-rules'), {}, cb);
-    }
-
-    getAlertingRule(ruleId, cb) {
-        this.get(this.projectPath(`alerting-rules/${ruleId}`), {}, cb);
-    }
-
-    createAlertingRule(form, cb) {
-        this.post(this.projectPath('alerting-rules'), form, cb);
-    }
-
-    updateAlertingRule(ruleId, form, cb) {
-        this.put(this.projectPath(`alerting-rules/${ruleId}`), form, cb);
-    }
-
-    deleteAlertingRule(ruleId, cb) {
-        this.del(this.projectPath(`alerting-rules/${ruleId}`), cb);
     }
 }

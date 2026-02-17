@@ -34,11 +34,6 @@ func (a *appAuditor) memory(ncs nodeConsumersByNode) {
 		model.NewDocLink("inspections", "memory", "memory-consumers"),
 	)
 
-	oomCheck.AddWidget(oomChart.Widget())
-	oomCheck.AddWidget(usageChart.Widget())
-	leakCheck.AddWidget(usageChart.Widget())
-	pressureCheck.AddWidget(pressureChart.Widget())
-
 	seenContainers := false
 	limitByContainer := map[string]*timeseries.Aggregate{}
 	periodicJob := a.app.PeriodicJob()
@@ -99,7 +94,6 @@ func (a *appAuditor) memory(ncs nodeConsumersByNode) {
 		}
 		if ooms := oomTs.Reduce(timeseries.NanSum); ooms > 0 {
 			oomCheck.Inc(int64(ooms))
-			oomCheck.SetValue(oomCheck.Value() + float32(int(ooms)))
 		}
 
 		if node := i.Node; node != nil {
