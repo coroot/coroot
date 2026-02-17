@@ -35,6 +35,9 @@ func (rc *RemoteCoroot) Validate() error {
 func (rc *RemoteCoroot) ClickHouseConfig() *db.IntegrationClickhouse {
 	u, _ := url.Parse(rc.Url)
 	host, port, _ := net.SplitHostPort(u.Host)
+	if host == "" {
+		host = u.Host
+	}
 	if port == "" {
 		if u.Scheme == "https" {
 			port = "443"
@@ -63,6 +66,97 @@ func (rc *RemoteCoroot) PrometheusConfig() *db.IntegrationPrometheus {
 	}
 }
 
+type AlertingRule struct {
+	Id                   string                     `yaml:"id"`
+	Name                 *string                    `yaml:"name,omitempty"`
+	Source               *model.AlertSource         `yaml:"source,omitempty"`
+	Selector             *model.AppSelector         `yaml:"selector,omitempty"`
+	Severity             *string                    `yaml:"severity,omitempty"`
+	For                  *timeseries.Duration       `yaml:"for,omitempty"`
+	KeepFiringFor        *timeseries.Duration       `yaml:"keepFiringFor,omitempty"`
+	Templates            *model.AlertTemplates      `yaml:"templates,omitempty"`
+	NotificationCategory *model.ApplicationCategory `yaml:"notificationCategory,omitempty"`
+	Enabled              *bool                      `yaml:"enabled,omitempty"`
+}
+
+func (ar *AlertingRule) Validate() error {
+	if ar.Id == "" {
+		return fmt.Errorf("id is required")
+	}
+	if ar.Source != nil {
+		switch ar.Source.Type {
+		case model.AlertSourceTypeCheck:
+			if ar.Source.Check == nil || ar.Source.Check.CheckId == "" {
+				return fmt.Errorf("source.check.check_id is required for check source")
+			}
+			configs := model.GetCheckConfigs()
+			if _, ok := configs[ar.Source.Check.CheckId]; !ok {
+				return fmt.Errorf("unknown check_id: %s", ar.Source.Check.CheckId)
+			}
+		case model.AlertSourceTypePromQL:
+			if ar.Source.PromQL == nil || ar.Source.PromQL.Expression == "" {
+				return fmt.Errorf("source.promql.expression is required for promql source")
+			}
+		case model.AlertSourceTypeLogPatterns:
+			if ar.Source.LogPattern == nil || len(ar.Source.LogPattern.Severities) == 0 {
+				return fmt.Errorf("source.log_pattern.severities is required for log_patterns source")
+			}
+		default:
+			return fmt.Errorf("invalid source type: %s", ar.Source.Type)
+		}
+	}
+	if ar.Severity != nil {
+		switch *ar.Severity {
+		case "warning", "critical":
+		default:
+			return fmt.Errorf("invalid severity: %s (must be 'warning' or 'critical')", *ar.Severity)
+		}
+	}
+	return nil
+}
+
+func applyConfigOverrides(base *model.AlertingRule, override AlertingRule) *model.AlertingRule {
+	result := *base
+	if override.Name != nil {
+		result.Name = *override.Name
+	}
+	if override.Source != nil {
+		result.Source = *override.Source
+	}
+	if override.Selector != nil {
+		result.Selector = *override.Selector
+	}
+	if override.Severity != nil {
+		switch *override.Severity {
+		case "warning":
+			result.Severity = model.WARNING
+		case "critical":
+			result.Severity = model.CRITICAL
+		}
+	}
+	if override.For != nil {
+		result.For = *override.For
+	}
+	if override.KeepFiringFor != nil {
+		result.KeepFiringFor = *override.KeepFiringFor
+	}
+	if override.Templates != nil {
+		if override.Templates.Summary != "" {
+			result.Templates.Summary = override.Templates.Summary
+		}
+		if override.Templates.Description != "" {
+			result.Templates.Description = override.Templates.Description
+		}
+	}
+	if override.NotificationCategory != nil {
+		result.NotificationCategory = *override.NotificationCategory
+	}
+	if override.Enabled != nil {
+		result.Enabled = *override.Enabled
+	}
+	return &result
+}
+
 type Project struct {
 	Name string `yaml:"name"`
 
@@ -76,6 +170,8 @@ type Project struct {
 	NotificationIntegrations *db.NotificationIntegrations `yaml:"notificationIntegrations"`
 	ApplicationCategories    []ApplicationCategory        `yaml:"applicationCategories"`
 	CustomApplications       []CustomApplication          `yaml:"customApplications"`
+
+	AlertingRules []AlertingRule `yaml:"alertingRules"`
 
 	InspectionOverrides *InspectionOverrides `yaml:"inspectionOverrides"`
 }
@@ -112,6 +208,11 @@ func (p *Project) Validate() error {
 	for i, c := range p.CustomApplications {
 		if err := c.Validate(); err != nil {
 			return fmt.Errorf("invalid custom application #%d: %w", i, err)
+		}
+	}
+	for i, ar := range p.AlertingRules {
+		if err := ar.Validate(); err != nil {
+			return fmt.Errorf("invalid alerting rule #%d: %w", i, err)
 		}
 	}
 	if p.InspectionOverrides != nil {

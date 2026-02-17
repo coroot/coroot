@@ -23,6 +23,8 @@
         <!-- eslint-disable-next-line vue/no-mutating-props -->
         <v-checkbox v-model="form.incidents" label="Incidents" dense hide-details />
         <v-checkbox :value="false" disabled label="Deployments (unavailable for Opsgenie integrations)" dense hide-details />
+        <!-- eslint-disable-next-line vue/no-mutating-props -->
+        <v-checkbox v-model="form.alerts" label="Alerts" dense hide-details />
     </div>
 </template>
 

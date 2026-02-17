@@ -30,6 +30,9 @@ func (a *appAuditor) mongodb() {
 	latencyChart := report.GetOrCreateChart("Average latency, seconds", nil)
 	replicationLagChart := report.GetOrCreateChart("Replication lag, seconds", nil)
 
+	availabilityCheck.AddWidget(table.Widget())
+	replicationLagCheck.AddWidget(replicationLagChart.Widget())
+
 	primaryLastApplied := calcMongoPrimaryBaseline(a.app)
 
 	for _, i := range a.app.Instances {

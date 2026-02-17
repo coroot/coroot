@@ -12,6 +12,7 @@ func (a *appAuditor) nodejs() {
 	report := a.addReport(model.AuditReportNodejs)
 	check := report.CreateCheck(model.Checks.NodejsEventLoopBlockedTime)
 	chart := report.GetOrCreateChart("Node.js event loop blocked time, seconds/second", nil)
+	check.AddWidget(chart.Widget())
 	for _, i := range a.app.Instances {
 		if i.Nodejs == nil {
 			continue

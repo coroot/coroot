@@ -19,6 +19,8 @@
         <v-checkbox v-model="form.incidents" label="Incidents" dense hide-details />
         <!-- eslint-disable-next-line vue/no-mutating-props -->
         <v-checkbox v-model="form.deployments" label="Deployments" dense hide-details />
+        <!-- eslint-disable-next-line vue/no-mutating-props -->
+        <v-checkbox v-model="form.alerts" label="Alerts" dense hide-details />
     </div>
 </template>
 

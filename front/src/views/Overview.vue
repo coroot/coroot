@@ -10,6 +10,10 @@
             <Incidents v-else />
         </template>
 
+        <template v-if="view === 'alerts'">
+            <Alerts />
+        </template>
+
         <template v-if="view === 'map'">
             <ServiceMap />
         </template>
@@ -56,6 +60,7 @@ import Applications from '@/views/Applications.vue';
 import Application from '@/views/Application.vue';
 import Incidents from '@/views/Incidents.vue';
 import Incident from '@/views/Incident.vue';
+import Alerts from '@/views/Alerts.vue';
 import ServiceMap from '@/views/ServiceMap.vue';
 import Traces from '@/views/Traces.vue';
 import Logs from '@/views/Logs.vue';
@@ -76,6 +81,7 @@ export default {
         Application,
         Incidents,
         Incident,
+        Alerts,
         ServiceMap,
         Traces,
         Logs,

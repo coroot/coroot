@@ -1,6 +1,6 @@
 <template>
     <Views :loading="loading" :error="error">
-        <ApplicationFilter :applications="applications" @filter="setFilter" class="mb-4" />
+        <ApplicationFilter :applications="applications" @filter="setFilter" @search="setSearch" class="mb-4" />
 
         <div class="legend mb-3">
             <div v-for="s in statuses" class="item">
@@ -145,6 +145,7 @@ export default {
             limit: Number(this.$route.query.limit) || 50,
             incidents: [],
             filter: new Set(),
+            search: '',
             showResolved: false,
             editing: {
                 active: false,
@@ -183,7 +184,13 @@ export default {
             if (!this.incidents) {
                 return [];
             }
-            let filtered = this.incidents.filter((i) => this.filter.has(i.application_id));
+            const search = (this.search || '').trim().toLowerCase();
+            let filtered;
+            if (search) {
+                filtered = this.incidents.filter((i) => i.short_description.toLowerCase().includes(search) || i.application_id.toLowerCase().includes(search));
+            } else {
+                filtered = this.incidents.filter((i) => this.filter.has(i.application_id));
+            }
             const shr = this.$route.query.show_resolved;
             if (shr === '0') {
                 filtered = filtered.filter((i) => !i.resolved_at);
@@ -234,6 +241,9 @@ export default {
         },
         setFilter(filter) {
             this.filter = filter;
+        },
+        setSearch(search) {
+            this.search = search;
         },
         edit(app_id, check_id, check_title) {
             this.editing = { active: true, appId: app_id, check: { id: check_id, title: check_title } };

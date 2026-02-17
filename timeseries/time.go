@@ -76,6 +76,10 @@ func (d *Duration) UnmarshalYAML(value *yaml.Node) error {
 	return d.Set(value.Value)
 }
 
+func (d Duration) MarshalYAML() (any, error) {
+	return d.String(), nil
+}
+
 func DurationFlag(s kingpin.Settings) *Duration {
 	var d Duration
 	s.SetValue(&d)

@@ -136,6 +136,11 @@ export default {
                 intervals.unshift({ text: 'incident: ' + incident, query: { incident }, active: true });
                 return intervals;
             }
+            const alert = this.$route.query.alert;
+            if (alert) {
+                intervals.unshift({ text: 'alert: ' + alert, query: { alert }, active: true });
+                return intervals;
+            }
             const from = this.$route.query.from;
             const to = this.$route.query.to === 'now' ? undefined : this.$route.query.to;
             const selected = intervals.find((i) => i.query.from === from && i.query.to === to);

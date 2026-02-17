@@ -24,12 +24,14 @@ import (
 	"github.com/coroot/coroot/constructor"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
+	"github.com/coroot/coroot/notifications"
 	"github.com/coroot/coroot/prom"
 	"github.com/coroot/coroot/rbac"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 	"github.com/gorilla/mux"
 	"golang.org/x/exp/maps"
+	"gopkg.in/yaml.v3"
 	"k8s.io/klog"
 )
 
@@ -489,8 +491,6 @@ func (api *Api) Dashboards(w http.ResponseWriter, r *http.Request, u *db.User) {
 		return
 	}
 
-	auditor.Audit(world, project, nil, nil)
-
 	if id != "" {
 		dashboard, err := api.db.GetDashboard(project.Id, id)
 		if err != nil {
@@ -669,7 +669,17 @@ func (api *Api) Inspections(w http.ResponseWriter, r *http.Request, u *db.User) 
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
-	utils.WriteJson(w, views.Inspections(checkConfigs))
+	world, project, cacheStatus, err := api.LoadWorldByRequest(r)
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	if project == nil || world == nil {
+		utils.WriteJson(w, api.WithContext(project, cacheStatus, world, nil))
+		return
+	}
+	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Inspections(checkConfigs)))
 }
 
 func (api *Api) ApplicationCategories(w http.ResponseWriter, r *http.Request, u *db.User) {
@@ -1168,6 +1178,551 @@ func (api *Api) Incident(w http.ResponseWriter, r *http.Request, u *db.User) {
 	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Incident(world, app, incident)))
 }
 
+func (api *Api) Alerts(w http.ResponseWriter, r *http.Request, u *db.User) {
+	vars := mux.Vars(r)
+	projectId := db.ProjectId(vars["project"])
+
+	if !api.IsAllowed(u, rbac.Actions.Project(string(projectId)).Alerts().View()) {
+		http.Error(w, "", http.StatusForbidden)
+		return
+	}
+
+	query := db.AlertsQuery{
+		IncludeResolved: r.URL.Query().Get("include_resolved") == "true",
+		Search:          r.URL.Query().Get("search"),
+		SortBy:          r.URL.Query().Get("sort_by"),
+		SortDesc:        r.URL.Query().Get("sort_desc") != "false", // default to desc
+		Limit:           50,
+		Offset:          0,
+	}
+	if l := r.URL.Query().Get("limit"); l != "" {
+		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 {
+			query.Limit = parsed
+		}
+	}
+	if o := r.URL.Query().Get("offset"); o != "" {
+		if parsed, err := strconv.Atoi(o); err == nil && parsed >= 0 {
+			query.Offset = parsed
+		}
+	}
+
+	result, err := api.db.QueryAlerts(projectId, query)
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+
+	rules, err := api.db.GetAlertingRules(projectId)
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+
+	alertIds := make([]string, 0, len(result.Alerts))
+	for _, a := range result.Alerts {
+		alertIds = append(alertIds, a.Id)
+	}
+	notifications, err := api.db.GetAlertNotificationsByAlertIds(projectId, alertIds)
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+
+	world, project, cacheStatus, err := api.LoadWorldByRequest(r)
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	if project == nil || world == nil {
+		utils.WriteJson(w, api.WithContext(project, cacheStatus, world, nil))
+		return
+	}
+	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Alerts(world, result, rules, notifications)))
+}
+
+func (api *Api) Alert(w http.ResponseWriter, r *http.Request, u *db.User) {
+	vars := mux.Vars(r)
+	projectId := db.ProjectId(vars["project"])
+	alertId := vars["alert"]
+
+	if !api.IsAllowed(u, rbac.Actions.Project(string(projectId)).Alerts().View()) {
+		http.Error(w, "", http.StatusForbidden)
+		return
+	}
+
+	a, err := api.db.GetAlert(projectId, alertId)
+	if err != nil {
+		if errors.Is(err, db.ErrNotFound) {
+			http.Error(w, "Alert not found", http.StatusNotFound)
+			return
+		}
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+
+	rules, err := api.db.GetAlertingRules(projectId)
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+
+	notifications, err := api.db.GetAlertNotificationsByAlertIds(projectId, []string{alertId})
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+
+	world, project, cacheStatus, err := api.LoadWorldByRequest(r)
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	if project == nil {
+		utils.WriteJson(w, api.WithContext(nil, nil, nil, nil))
+		return
+	}
+
+	app := world.GetApplication(a.ApplicationId)
+	if app != nil {
+		if !api.IsAllowed(u, rbac.Actions.Project(string(projectId)).Application(app.Category, app.Id.Namespace, app.Id.Kind, app.Id.Name).View()) {
+			http.Error(w, "You are not allowed to view this application.", http.StatusForbidden)
+			return
+		}
+		auditor.Audit(world, project, app, nil)
+	}
+	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Alert(world, a, app, rules, notifications[alertId])))
+}
+
+func (api *Api) ResolveAlerts(w http.ResponseWriter, r *http.Request, u *db.User) {
+	vars := mux.Vars(r)
+	projectId := vars["project"]
+
+	if !api.IsAllowed(u, rbac.Actions.Project(projectId).Alerts().Edit()) {
+		http.Error(w, "", http.StatusForbidden)
+		return
+	}
+
+	var req struct {
+		Ids []string `json:"ids"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Get alerts before resolving to use for notifications
+	var alertsToNotify []*model.Alert
+	for _, id := range req.Ids {
+		alert, err := api.db.GetAlert(db.ProjectId(projectId), id)
+		if err != nil {
+			continue
+		}
+		if alert.ResolvedAt == 0 {
+			alertsToNotify = append(alertsToNotify, alert)
+		}
+	}
+
+	resolvedBy := u.Name
+	if resolvedBy == "" {
+		resolvedBy = u.Email
+	}
+
+	if err := api.db.ResolveAlerts(db.ProjectId(projectId), req.Ids, resolvedBy); err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+
+	// Send notifications for manually resolved alerts
+	if len(alertsToNotify) > 0 {
+		project, err := api.db.GetProject(db.ProjectId(projectId))
+		if err != nil {
+			klog.Errorln("failed to get project for notifications:", err)
+		} else {
+			rulesMap := make(map[string]*model.AlertingRule)
+			for _, alert := range alertsToNotify {
+				alert.ResolvedBy = resolvedBy
+				rule := rulesMap[alert.RuleId]
+				if rule == nil {
+					rule, _ = api.db.GetAlertingRule(db.ProjectId(projectId), model.AlertingRuleId(alert.RuleId))
+					rulesMap[alert.RuleId] = rule
+				}
+				if rule != nil {
+					notifications.EnqueueResolvedAlerts(api.db, project, []*model.Alert{alert}, rule)
+				}
+			}
+		}
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (api *Api) SuppressAlerts(w http.ResponseWriter, r *http.Request, u *db.User) {
+	vars := mux.Vars(r)
+	projectId := vars["project"]
+
+	if !api.IsAllowed(u, rbac.Actions.Project(projectId).Alerts().Edit()) {
+		http.Error(w, "", http.StatusForbidden)
+		return
+	}
+
+	var req struct {
+		Ids []string `json:"ids"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	if len(req.Ids) == 0 {
+		http.Error(w, "no alert ids provided", http.StatusBadRequest)
+		return
+	}
+
+	var alertsToNotify []*model.Alert
+	for _, id := range req.Ids {
+		alert, err := api.db.GetAlert(db.ProjectId(projectId), id)
+		if err != nil {
+			continue
+		}
+		if alert.ResolvedAt == 0 && alert.ManuallyResolvedAt == 0 && !alert.Suppressed {
+			alertsToNotify = append(alertsToNotify, alert)
+		}
+	}
+
+	suppressedBy := u.Name
+	if suppressedBy == "" {
+		suppressedBy = u.Email
+	}
+
+	if err := api.db.SuppressAlerts(db.ProjectId(projectId), req.Ids, suppressedBy); err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+
+	if len(alertsToNotify) > 0 {
+		project, err := api.db.GetProject(db.ProjectId(projectId))
+		if err != nil {
+			klog.Errorln("failed to get project for notifications:", err)
+		} else {
+			rulesMap := make(map[string]*model.AlertingRule)
+			for _, alert := range alertsToNotify {
+				alert.ResolvedBy = suppressedBy
+				rule := rulesMap[alert.RuleId]
+				if rule == nil {
+					rule, _ = api.db.GetAlertingRule(db.ProjectId(projectId), model.AlertingRuleId(alert.RuleId))
+					rulesMap[alert.RuleId] = rule
+				}
+				if rule != nil {
+					notifications.EnqueueResolvedAlerts(api.db, project, []*model.Alert{alert}, rule)
+				}
+			}
+		}
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (api *Api) ReopenAlerts(w http.ResponseWriter, r *http.Request, u *db.User) {
+	vars := mux.Vars(r)
+	projectId := vars["project"]
+
+	if !api.IsAllowed(u, rbac.Actions.Project(projectId).Alerts().Edit()) {
+		http.Error(w, "", http.StatusForbidden)
+		return
+	}
+
+	var req struct {
+		Ids []string `json:"ids"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	if len(req.Ids) == 0 {
+		http.Error(w, "no alert ids provided", http.StatusBadRequest)
+		return
+	}
+
+	_, err := api.db.ReopenAlerts(db.ProjectId(projectId), req.Ids)
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (api *Api) AlertingRules(w http.ResponseWriter, r *http.Request, u *db.User) {
+	vars := mux.Vars(r)
+	projectId := vars["project"]
+
+	switch r.Method {
+	case http.MethodGet:
+		if !api.IsAllowed(u, rbac.Actions.Project(projectId).AlertingRules().View()) {
+			http.Error(w, "", http.StatusForbidden)
+			return
+		}
+		rules, err := api.db.GetAlertingRules(db.ProjectId(projectId))
+		if err != nil {
+			klog.Errorln(err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		alertCounts, err := api.db.GetFiringAlertCountsByRule(db.ProjectId(projectId))
+		if err != nil {
+			klog.Errorln(err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		world, project, cacheStatus, err := api.LoadWorldByRequest(r)
+		if err != nil {
+			klog.Errorln(err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		if project == nil || world == nil {
+			utils.WriteJson(w, api.WithContext(project, cacheStatus, world, nil))
+			return
+		}
+		type checkOption struct {
+			Id    model.CheckId `json:"id"`
+			Title string        `json:"title"`
+		}
+		var checks []checkOption
+		for id, cfg := range model.GetCheckConfigs() {
+			checks = append(checks, checkOption{Id: id, Title: cfg.Title})
+		}
+		type categoryOption struct {
+			Name model.ApplicationCategory `json:"name"`
+		}
+		var categories []categoryOption
+		for name := range project.GetApplicationCategories() {
+			categories = append(categories, categoryOption{Name: name})
+		}
+		utils.WriteJson(w, api.WithContext(project, cacheStatus, world, map[string]any{"rules": rules, "checks": checks, "categories": categories, "alert_counts": alertCounts}))
+	case http.MethodPost:
+		if !api.IsAllowed(u, rbac.Actions.Project(projectId).AlertingRules().Edit()) {
+			http.Error(w, "", http.StatusForbidden)
+			return
+		}
+		var rule model.AlertingRule
+		if err := json.NewDecoder(r.Body).Decode(&rule); err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+		rule.Id = model.AlertingRuleId(utils.NanoId(8))
+		rule.ProjectId = projectId
+		rule.Builtin = false
+		if err := api.db.CreateAlertingRule(db.ProjectId(projectId), &rule); err != nil {
+			klog.Errorln(err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		utils.WriteJson(w, rule)
+	}
+}
+
+func (api *Api) AlertingRule(w http.ResponseWriter, r *http.Request, u *db.User) {
+	vars := mux.Vars(r)
+	projectId := vars["project"]
+	ruleId := model.AlertingRuleId(vars["rule"])
+
+	switch r.Method {
+	case http.MethodGet:
+		if !api.IsAllowed(u, rbac.Actions.Project(projectId).AlertingRules().View()) {
+			http.Error(w, "", http.StatusForbidden)
+			return
+		}
+		rule, err := api.db.GetAlertingRule(db.ProjectId(projectId), ruleId)
+		if err != nil {
+			if errors.Is(err, db.ErrNotFound) {
+				http.Error(w, "Rule not found", http.StatusNotFound)
+				return
+			}
+			klog.Errorln(err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		utils.WriteJson(w, rule)
+
+	case http.MethodPut:
+		if !api.IsAllowed(u, rbac.Actions.Project(projectId).AlertingRules().Edit()) {
+			http.Error(w, "", http.StatusForbidden)
+			return
+		}
+		existing, err := api.db.GetAlertingRule(db.ProjectId(projectId), ruleId)
+		if err != nil {
+			if errors.Is(err, db.ErrNotFound) {
+				http.Error(w, "Rule not found", http.StatusNotFound)
+				return
+			}
+			klog.Errorln(err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		if existing.Readonly {
+			http.Error(w, "This rule is managed via config and cannot be edited", http.StatusForbidden)
+			return
+		}
+		var rule model.AlertingRule
+		if err := json.NewDecoder(r.Body).Decode(&rule); err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+		rule.Id = ruleId
+		rule.ProjectId = projectId
+		if err := api.db.UpdateAlertingRule(db.ProjectId(projectId), &rule); err != nil {
+			klog.Errorln(err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		utils.WriteJson(w, rule)
+
+	case http.MethodDelete:
+		if !api.IsAllowed(u, rbac.Actions.Project(projectId).AlertingRules().Edit()) {
+			http.Error(w, "", http.StatusForbidden)
+			return
+		}
+		rule, err := api.db.GetAlertingRule(db.ProjectId(projectId), ruleId)
+		if err != nil {
+			if errors.Is(err, db.ErrNotFound) {
+				http.Error(w, "Rule not found or is builtin", http.StatusNotFound)
+				return
+			}
+			klog.Errorln(err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		if rule.Readonly {
+			http.Error(w, "This rule is managed via config and cannot be deleted", http.StatusForbidden)
+			return
+		}
+		if resolvedAlerts, err := api.db.ResolveAlertsByRule(db.ProjectId(projectId), string(ruleId)); err != nil {
+			klog.Errorln(err)
+		} else if len(resolvedAlerts) > 0 {
+			if project, err := api.db.GetProject(db.ProjectId(projectId)); err != nil {
+				klog.Errorln(err)
+			} else {
+				notifications.EnqueueResolvedAlerts(api.db, project, resolvedAlerts, rule)
+			}
+		}
+		if err := api.db.DeleteAlertingRule(db.ProjectId(projectId), ruleId); err != nil {
+			klog.Errorln(err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+func (api *Api) AlertingRulesExport(w http.ResponseWriter, r *http.Request, u *db.User) {
+	vars := mux.Vars(r)
+	projectId := vars["project"]
+
+	if !api.IsAllowed(u, rbac.Actions.Project(projectId).AlertingRules().View()) {
+		http.Error(w, "", http.StatusForbidden)
+		return
+	}
+
+	rules, err := api.db.GetAlertingRules(db.ProjectId(projectId))
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+
+	type exportSource struct {
+		Type       model.AlertSourceType   `yaml:"type"`
+		Check      *model.CheckSource      `yaml:"check,omitempty"`
+		LogPattern *model.LogPatternSource `yaml:"log_pattern,omitempty"`
+		PromQL     *model.PromQLSource     `yaml:"promql,omitempty"`
+	}
+	type exportSelector struct {
+		Type                  model.AppSelectorType `yaml:"type"`
+		Categories            []string              `yaml:"categories,omitempty"`
+		ApplicationIdPatterns []string              `yaml:"application_id_patterns,omitempty"`
+	}
+	type exportTemplates struct {
+		Summary     string `yaml:"summary,omitempty"`
+		Description string `yaml:"description,omitempty"`
+	}
+	type exportRule struct {
+		Id                   model.AlertingRuleId      `yaml:"id"`
+		Name                 string                    `yaml:"name,omitempty"`
+		Source               *exportSource             `yaml:"source,omitempty"`
+		Selector             *exportSelector           `yaml:"selector,omitempty"`
+		Severity             string                    `yaml:"severity,omitempty"`
+		For                  timeseries.Duration       `yaml:"for,omitempty"`
+		KeepFiringFor        timeseries.Duration       `yaml:"keepFiringFor,omitempty"`
+		Templates            *exportTemplates          `yaml:"templates,omitempty"`
+		NotificationCategory model.ApplicationCategory `yaml:"notificationCategory,omitempty"`
+		Enabled              *bool                     `yaml:"enabled,omitempty"`
+	}
+
+	var exported []exportRule
+	for _, r := range rules {
+		er := exportRule{
+			Id:            r.Id,
+			Name:          r.Name,
+			Severity:      r.Severity.String(),
+			For:           r.For,
+			KeepFiringFor: r.KeepFiringFor,
+		}
+		if r.Source.Type != "" {
+			er.Source = &exportSource{
+				Type:       r.Source.Type,
+				Check:      r.Source.Check,
+				LogPattern: r.Source.LogPattern,
+				PromQL:     r.Source.PromQL,
+			}
+		}
+		if r.Selector.Type != "" {
+			er.Selector = &exportSelector{
+				Type:                  r.Selector.Type,
+				Categories:            r.Selector.Categories,
+				ApplicationIdPatterns: r.Selector.ApplicationIdPatterns,
+			}
+		}
+		if r.Templates.Summary != "" || r.Templates.Description != "" {
+			er.Templates = &exportTemplates{
+				Summary:     r.Templates.Summary,
+				Description: r.Templates.Description,
+			}
+		}
+		if r.NotificationCategory != "" {
+			er.NotificationCategory = r.NotificationCategory
+		}
+		if !r.Enabled {
+			enabled := false
+			er.Enabled = &enabled
+		}
+		exported = append(exported, er)
+	}
+
+	wrapper := struct {
+		AlertingRules []exportRule `yaml:"alertingRules"`
+	}{AlertingRules: exported}
+
+	out, err := yaml.Marshal(wrapper)
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+
+	utils.WriteJson(w, map[string]string{"yaml": string(out)})
+}
+
 func (api *Api) Inspection(w http.ResponseWriter, r *http.Request, u *db.User) {
 	vars := mux.Vars(r)
 	projectId := vars["project"]
@@ -1441,7 +1996,6 @@ func (api *Api) Profiling(w http.ResponseWriter, r *http.Request, u *db.User) {
 	}
 	defer ch.Close()
 	q := r.URL.Query()
-	auditor.Audit(world, project, nil, nil)
 	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Profiling(r.Context(), ch, app, q, world)))
 }
 
@@ -1497,7 +2051,6 @@ func (api *Api) Tracing(w http.ResponseWriter, r *http.Request, u *db.User) {
 		return
 	}
 	defer ch.Close()
-	auditor.Audit(world, project, nil, nil)
 	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Tracing(r.Context(), ch, app, q, world)))
 }
 
@@ -1550,7 +2103,6 @@ func (api *Api) Logs(w http.ResponseWriter, r *http.Request, u *db.User) {
 		klog.Warningln(chErr)
 	}
 	defer ch.Close()
-	auditor.Audit(world, project, nil, nil)
 	q := r.URL.Query()
 	res := views.Logs(r.Context(), ch, app, q, world)
 	if chErr != nil {
@@ -1804,6 +2356,26 @@ func (api *Api) getTimeContext(r *http.Request) (from timeseries.Time, to timese
 			if to.Sub(from) > MaxIncidentWindow {
 				from = to.Add(-MaxIncidentWindow)
 				truncated = true
+			}
+		}
+	}
+	alertId := q.Get("alert")
+	if alertId != "" {
+		projectId := db.ProjectId(mux.Vars(r)["project"])
+		if a, err := api.db.GetAlert(projectId, alertId); err != nil {
+			klog.Warningln("failed to get alert:", err)
+		} else {
+			to = now
+			if a.ResolvedAt > 0 {
+				to = a.ResolvedAt
+			}
+			var keepFiringFor timeseries.Duration
+			if rule, err := api.db.GetAlertingRule(projectId, model.AlertingRuleId(a.RuleId)); err == nil && rule != nil {
+				keepFiringFor = rule.KeepFiringFor
+			}
+			from = to.Add(-timeseries.Hour - model.AlertTimeOffset - keepFiringFor)
+			if from.Before(a.OpenedAt.Add(-model.AlertTimeOffset)) {
+				from = a.OpenedAt.Add(-model.AlertTimeOffset)
 			}
 		}
 	}

@@ -49,9 +49,10 @@ func (u CheckUnit) FormatValue(v float32) string {
 }
 
 type CheckConfig struct {
-	Id    CheckId
-	Type  CheckType
-	Title string
+	Id       CheckId
+	Category AuditReportName
+	Type     CheckType
+	Title    string
 
 	DefaultThreshold        float32
 	Unit                    CheckUnit
@@ -72,6 +73,8 @@ var Checks = struct {
 	StorageSpace               CheckConfig
 	StorageIOLoad              CheckConfig
 	NetworkRTT                 CheckConfig
+	NetworkRTTExternal         CheckConfig
+	NetworkRTTOtherClusters    CheckConfig
 	NetworkConnectivity        CheckConfig
 	NetworkTCPConnections      CheckConfig
 	InstanceAvailability       CheckConfig
@@ -103,6 +106,7 @@ var Checks = struct {
 	index: map[CheckId]*CheckConfig{},
 
 	SLOAvailability: CheckConfig{
+		Category:                AuditReportSLO,
 		Type:                    CheckTypeManual,
 		Title:                   "Availability",
 		MessageTemplate:         `the app is serving errors`,
@@ -111,6 +115,7 @@ var Checks = struct {
 		ConditionFormatTemplate: "the successful request percentage < <threshold>",
 	},
 	SLOLatency: CheckConfig{
+		Category:                AuditReportSLO,
 		Type:                    CheckTypeManual,
 		Title:                   "Latency",
 		MessageTemplate:         `the app is performing slowly`,
@@ -119,6 +124,7 @@ var Checks = struct {
 		ConditionFormatTemplate: "the percentage of requests served faster than <bucket> < <threshold>",
 	},
 	CPUNode: CheckConfig{
+		Category:                AuditReportCPU,
 		Type:                    CheckTypeItemBased,
 		Title:                   "Node CPU utilization",
 		MessageTemplate:         `high CPU utilization of {{.Items "node"}}`,
@@ -127,6 +133,7 @@ var Checks = struct {
 		ConditionFormatTemplate: "the CPU usage of a node > <threshold>",
 	},
 	CPUContainer: CheckConfig{
+		Category:                AuditReportCPU,
 		Type:                    CheckTypeItemBased,
 		Title:                   "Container CPU utilization",
 		DefaultThreshold:        80,
@@ -135,13 +142,15 @@ var Checks = struct {
 		ConditionFormatTemplate: "the CPU usage of a container > <threshold> of its CPU limit",
 	},
 	MemoryOOM: CheckConfig{
+		Category:                AuditReportMemory,
 		Type:                    CheckTypeEventBased,
 		Title:                   "Out of Memory",
 		DefaultThreshold:        0,
-		MessageTemplate:         `app containers have been restarted {{.Count "time"}} by the OOM killer`,
+		MessageTemplate:         `application has been restarted {{.Count "time"}} by the OOM killer`,
 		ConditionFormatTemplate: "the number of container terminations due to Out of Memory > <threshold>",
 	},
 	MemoryLeakPercent: CheckConfig{
+		Category:                AuditReportMemory,
 		Type:                    CheckTypeValueBased,
 		Title:                   "Memory leak",
 		DefaultThreshold:        10,
@@ -149,6 +158,7 @@ var Checks = struct {
 		ConditionFormatTemplate: "memory usage is growing by > <threshold> % per hour",
 	},
 	MemoryPressure: CheckConfig{
+		Category:                AuditReportMemory,
 		Type:                    CheckTypeItemBased,
 		Title:                   "Memory pressure",
 		DefaultThreshold:        0.02,
@@ -157,6 +167,7 @@ var Checks = struct {
 		ConditionFormatTemplate: "memory stall time > <threshold> per second",
 	},
 	StorageIOLoad: CheckConfig{
+		Category:                AuditReportStorage,
 		Type:                    CheckTypeItemBased,
 		Title:                   "Disk I/O load",
 		DefaultThreshold:        5,
@@ -165,22 +176,43 @@ var Checks = struct {
 		ConditionFormatTemplate: "the I/O load of a volume > <threshold>",
 	},
 	StorageSpace: CheckConfig{
+		Category:                AuditReportStorage,
 		Type:                    CheckTypeItemBased,
 		Title:                   "Disk space",
 		DefaultThreshold:        80,
 		Unit:                    CheckUnitPercent,
-		MessageTemplate:         `disk space on {{.Items "volume"}} will be exhausted soon`,
+		MessageTemplate:         `{{.ItemsWithToBe "volume"}} over {{.ThresholdPercent}} full, max usage: {{.ValuePercent}}`,
 		ConditionFormatTemplate: "the space usage of a volume > <threshold>",
 	},
 	NetworkRTT: CheckConfig{
+		Category:                AuditReportNetwork,
 		Type:                    CheckTypeItemBased,
-		Title:                   "Network round-trip time (RTT)",
+		Title:                   "Network RTT within the cluster",
 		DefaultThreshold:        0.01,
 		Unit:                    CheckUnitSecond,
-		MessageTemplate:         `high network latency to {{.Items "upstream service"}}`,
-		ConditionFormatTemplate: "the RTT to an upstream service > <threshold>",
+		MessageTemplate:         `high in-cluster network latency: {{.Items "service"}} affected, max RTT: {{.ValueDuration}}`,
+		ConditionFormatTemplate: "RTT between services within the cluster exceeds <threshold>",
+	},
+	NetworkRTTExternal: CheckConfig{
+		Category:                AuditReportNetwork,
+		Type:                    CheckTypeItemBased,
+		Title:                   "Network RTT to external services",
+		DefaultThreshold:        0.2,
+		Unit:                    CheckUnitSecond,
+		MessageTemplate:         `high network latency to external services: {{.Items "service"}} affected, max RTT: {{.ValueDuration}}`,
+		ConditionFormatTemplate: "RTT to an external service exceeds <threshold>",
+	},
+	NetworkRTTOtherClusters: CheckConfig{
+		Category:                AuditReportNetwork,
+		Type:                    CheckTypeItemBased,
+		Title:                   "Network RTT to services in other clusters",
+		DefaultThreshold:        0.1,
+		Unit:                    CheckUnitSecond,
+		MessageTemplate:         `high cross-cluster network latency: {{.Items "service"}} affected, max RTT: {{.ValueDuration}}`,
+		ConditionFormatTemplate: "RTT to a service in another cluster exceeds <threshold>",
 	},
 	NetworkConnectivity: CheckConfig{
+		Category:                AuditReportNetwork,
 		Type:                    CheckTypeItemBased,
 		Title:                   "Network connectivity",
 		DefaultThreshold:        0,
@@ -188,6 +220,7 @@ var Checks = struct {
 		ConditionFormatTemplate: "the number of unavailable upstream services > <threshold>",
 	},
 	NetworkTCPConnections: CheckConfig{
+		Category:                AuditReportNetwork,
 		Type:                    CheckTypeItemBased,
 		Title:                   "TCP connections",
 		DefaultThreshold:        0,
@@ -195,6 +228,7 @@ var Checks = struct {
 		ConditionFormatTemplate: "the number of upstream services to which the app failed to connect > <threshold>",
 	},
 	InstanceAvailability: CheckConfig{
+		Category:                AuditReportInstances,
 		Type:                    CheckTypeManual,
 		Title:                   "Instance availability",
 		DefaultThreshold:        75,
@@ -203,13 +237,15 @@ var Checks = struct {
 		ConditionFormatTemplate: "the number of available instances < <threshold> of the desired",
 	},
 	InstanceRestarts: CheckConfig{
-		Type:                    CheckTypeEventBased,
+		Category:                AuditReportInstances,
+		Type:                    CheckTypeItemBased,
 		Title:                   "Restarts",
-		DefaultThreshold:        0,
-		MessageTemplate:         `app containers have been restarted {{.Count "time"}}`,
+		DefaultThreshold:        1,
+		MessageTemplate:         `application restarted {{.Count "time"}}`,
 		ConditionFormatTemplate: "the number of container restarts > <threshold>",
 	},
 	DeploymentStatus: CheckConfig{
+		Category:                AuditReportDeployments,
 		Type:                    CheckTypeValueBased,
 		Title:                   "Deployment status",
 		DefaultThreshold:        180,
@@ -218,6 +254,7 @@ var Checks = struct {
 		ConditionFormatTemplate: "a rollout is in progress > <threshold>",
 	},
 	RedisAvailability: CheckConfig{
+		Category:                AuditReportRedis,
 		Type:                    CheckTypeItemBased,
 		Title:                   "Redis availability",
 		DefaultThreshold:        0,
@@ -225,6 +262,7 @@ var Checks = struct {
 		ConditionFormatTemplate: "the number of unavailable redis instances > <threshold>",
 	},
 	RedisLatency: CheckConfig{
+		Category:                AuditReportRedis,
 		Type:                    CheckTypeItemBased,
 		Title:                   "Redis latency",
 		DefaultThreshold:        0.005,
@@ -233,6 +271,7 @@ var Checks = struct {
 		ConditionFormatTemplate: "the average command execution time of a redis instance > <threshold>",
 	},
 	MongodbAvailability: CheckConfig{
+		Category:                AuditReportMongodb,
 		Type:                    CheckTypeItemBased,
 		Title:                   "Mongodb availability",
 		DefaultThreshold:        0,
@@ -240,6 +279,7 @@ var Checks = struct {
 		ConditionFormatTemplate: "the number of unavailable mongodb instances > <threshold>",
 	},
 	MongodbReplicationLag: CheckConfig{
+		Category:                AuditReportMongodb,
 		Type:                    CheckTypeItemBased,
 		Title:                   "Mongodb replication lag",
 		DefaultThreshold:        30,
@@ -248,6 +288,7 @@ var Checks = struct {
 		Unit:                    CheckUnitSecond,
 	},
 	MemcachedAvailability: CheckConfig{
+		Category:                AuditReportMemcached,
 		Type:                    CheckTypeItemBased,
 		Title:                   "Memcached availability",
 		DefaultThreshold:        0,
@@ -255,6 +296,7 @@ var Checks = struct {
 		ConditionFormatTemplate: "the number of unavailable memcached instances > <threshold>",
 	},
 	PostgresAvailability: CheckConfig{
+		Category:                AuditReportPostgres,
 		Type:                    CheckTypeItemBased,
 		Title:                   "Postgres availability",
 		DefaultThreshold:        0,
@@ -262,6 +304,7 @@ var Checks = struct {
 		ConditionFormatTemplate: "the number of unavailable postgres instances > <threshold>",
 	},
 	PostgresLatency: CheckConfig{
+		Category:                AuditReportPostgres,
 		Type:                    CheckTypeItemBased,
 		Title:                   "Postgres latency",
 		DefaultThreshold:        0.1,
@@ -270,6 +313,7 @@ var Checks = struct {
 		ConditionFormatTemplate: "the average query execution time of a postgres instance > <threshold>",
 	},
 	PostgresReplicationLag: CheckConfig{
+		Category:                AuditReportPostgres,
 		Type:                    CheckTypeItemBased,
 		Title:                   "Postgres replication lag",
 		DefaultThreshold:        30,
@@ -278,6 +322,7 @@ var Checks = struct {
 		Unit:                    CheckUnitSecond,
 	},
 	PostgresConnections: CheckConfig{
+		Category:                AuditReportPostgres,
 		Type:                    CheckTypeItemBased,
 		Title:                   "Postgres connections",
 		DefaultThreshold:        90,
@@ -286,6 +331,7 @@ var Checks = struct {
 		Unit:                    CheckUnitPercent,
 	},
 	LogErrors: CheckConfig{
+		Category:                AuditReportLogs,
 		Type:                    CheckTypeEventBased,
 		Title:                   "Errors",
 		DefaultThreshold:        0,
@@ -293,6 +339,7 @@ var Checks = struct {
 		ConditionFormatTemplate: "the number of messages with the ERROR and CRITICAL severity levels > <threshold>",
 	},
 	JvmAvailability: CheckConfig{
+		Category:                AuditReportJvm,
 		Type:                    CheckTypeItemBased,
 		Title:                   "JVM availability",
 		DefaultThreshold:        0,
@@ -300,6 +347,7 @@ var Checks = struct {
 		ConditionFormatTemplate: "the number of unavailable JVM instances > <threshold>",
 	},
 	JvmSafepointTime: CheckConfig{
+		Category:                AuditReportJvm,
 		Type:                    CheckTypeItemBased,
 		Title:                   "JVM safepoints",
 		DefaultThreshold:        0.05,
@@ -308,6 +356,7 @@ var Checks = struct {
 		Unit:                    CheckUnitSecond,
 	},
 	DotNetAvailability: CheckConfig{
+		Category:                AuditReportDotNet,
 		Type:                    CheckTypeItemBased,
 		Title:                   ".NET runtime availability",
 		DefaultThreshold:        0,
@@ -315,6 +364,7 @@ var Checks = struct {
 		ConditionFormatTemplate: "the number of unavailable .NET instances > <threshold>",
 	},
 	PythonGILWaitingTime: CheckConfig{
+		Category:                AuditReportPython,
 		Type:                    CheckTypeItemBased,
 		Title:                   "Python GIL (Global Interpreter Lock) waiting time",
 		DefaultThreshold:        0.05,
@@ -323,6 +373,7 @@ var Checks = struct {
 		Unit:                    CheckUnitSecond,
 	},
 	NodejsEventLoopBlockedTime: CheckConfig{
+		Category:                AuditReportNodejs,
 		Type:                    CheckTypeItemBased,
 		Title:                   "Node.js event loop blocked time",
 		DefaultThreshold:        0.7,
@@ -331,6 +382,7 @@ var Checks = struct {
 		Unit:                    CheckUnitSecond,
 	},
 	DnsLatency: CheckConfig{
+		Category:                AuditReportDNS,
 		Type:                    CheckTypeValueBased,
 		Title:                   "DNS latency",
 		DefaultThreshold:        0.1,
@@ -339,6 +391,7 @@ var Checks = struct {
 		ConditionFormatTemplate: "the 95th percentile of DNS response times > <threshold>",
 	},
 	DnsServerErrors: CheckConfig{
+		Category:                AuditReportDNS,
 		Type:                    CheckTypeEventBased,
 		Title:                   "DNS server errors",
 		DefaultThreshold:        0,
@@ -346,6 +399,7 @@ var Checks = struct {
 		ConditionFormatTemplate: "the number of server DNS errors (excluding NXDOMAIN) > <threshold>",
 	},
 	DnsNxdomainErrors: CheckConfig{
+		Category:                AuditReportDNS,
 		Type:                    CheckTypeEventBased,
 		Title:                   "DNS NXDOMAIN errors",
 		DefaultThreshold:        0,
@@ -353,6 +407,7 @@ var Checks = struct {
 		ConditionFormatTemplate: "the number of the NXDOMAIN DNS errors (for previously valid requests) > <threshold>",
 	},
 	MysqlAvailability: CheckConfig{
+		Category:                AuditReportMysql,
 		Type:                    CheckTypeItemBased,
 		Title:                   "Mysql availability",
 		DefaultThreshold:        0,
@@ -360,6 +415,7 @@ var Checks = struct {
 		ConditionFormatTemplate: "the number of unavailable mysql instances > <threshold>",
 	},
 	MysqlReplicationStatus: CheckConfig{
+		Category:                AuditReportMysql,
 		Type:                    CheckTypeItemBased,
 		Title:                   "Mysql replication status",
 		DefaultThreshold:        0,
@@ -368,6 +424,7 @@ var Checks = struct {
 		Unit:                    CheckUnitSecond,
 	},
 	MysqlReplicationLag: CheckConfig{
+		Category:                AuditReportMysql,
 		Type:                    CheckTypeItemBased,
 		Title:                   "Mysql replication lag",
 		DefaultThreshold:        30,
@@ -376,6 +433,7 @@ var Checks = struct {
 		Unit:                    CheckUnitSecond,
 	},
 	MysqlConnections: CheckConfig{
+		Category:                AuditReportMysql,
 		Type:                    CheckTypeItemBased,
 		Title:                   "Mysql connections",
 		DefaultThreshold:        90,
@@ -397,11 +455,16 @@ func init() {
 	}
 }
 
+func GetCheckConfigs() map[CheckId]*CheckConfig {
+	return Checks.index
+}
+
 type CheckContext struct {
-	items *utils.StringSet
-	count int64
-	value float32
-	unit  CheckUnit
+	items     *utils.StringSet
+	count     int64
+	value     float32
+	unit      CheckUnit
+	threshold float32
 }
 
 func (c CheckContext) Items(singular string) string {
@@ -432,6 +495,18 @@ func (c CheckContext) Value() string {
 	return c.unit.FormatValue(c.value)
 }
 
+func (c CheckContext) ValuePercent() string {
+	return fmt.Sprintf("%.0f%%", c.value)
+}
+
+func (c CheckContext) ValueDuration() string {
+	return utils.FormatLatency(c.value)
+}
+
+func (c CheckContext) ThresholdPercent() string {
+	return fmt.Sprintf("%.0f%%", c.threshold)
+}
+
 type Check struct {
 	Id                      CheckId   `json:"id"`
 	Title                   string    `json:"title"`
@@ -440,6 +515,7 @@ type Check struct {
 	Threshold               float32   `json:"threshold"`
 	Unit                    CheckUnit `json:"unit"`
 	ConditionFormatTemplate string    `json:"condition_format_template"`
+	Widgets                 []*Widget `json:"-"`
 
 	typ             CheckType
 	messageTemplate string
@@ -449,6 +525,12 @@ type Check struct {
 	value           float32
 	values          *timeseries.TimeSeries
 	fired           bool
+}
+
+func (ch *Check) AddWidget(w *Widget) {
+	if w != nil {
+		ch.Widgets = append(ch.Widgets, w)
+	}
 }
 
 func (ch *Check) Value() float32 {
@@ -534,11 +616,11 @@ func (ch *Check) Calc() {
 		return
 	}
 	buf := &bytes.Buffer{}
-	if err := t.Execute(buf, CheckContext{items: ch.items, count: ch.count, value: ch.value, unit: ch.Unit}); err != nil {
+	if err := t.Execute(buf, CheckContext{items: ch.items, count: ch.count, value: ch.value, unit: ch.Unit, threshold: ch.Threshold}); err != nil {
 		ch.SetStatus(UNKNOWN, "failed to render message: %s", err)
 		return
 	}
-	ch.SetStatus(WARNING, buf.String())
+	ch.SetStatus(WARNING, "%s", buf.String())
 }
 
 type CheckConfigSource string

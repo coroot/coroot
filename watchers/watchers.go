@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/coroot/coroot/auditor"
 	"github.com/coroot/coroot/cache"
 	"github.com/coroot/coroot/clickhouse"
 	pricing "github.com/coroot/coroot/cloud-pricing"
@@ -16,13 +17,15 @@ import (
 	"k8s.io/klog"
 )
 
-func Start(database *db.DB, mcache *cache.Cache, pricing *pricing.Manager, incidents *Incidents, checkDeployments bool, globalClickHouse *db.IntegrationClickhouse, spaceManagerCfg config.ClickHouseSpaceManager) {
+func Start(database *db.DB, mcache *cache.Cache, pricing *pricing.Manager, incidents *Incidents, checkDeployments bool, globalClickHouse *db.IntegrationClickhouse, globalPrometheus *db.IntegrationPrometheus, spaceManagerCfg config.ClickHouseSpaceManager, logPatternEvaluator LogPatternEvaluator) {
 	var deployments *Deployments
 	if checkDeployments {
 		deployments = NewDeployments(database, pricing)
 	}
 
-	if incidents == nil && deployments == nil {
+	alerts := NewAlerts(database, globalPrometheus, globalClickHouse, logPatternEvaluator)
+
+	if incidents == nil && deployments == nil && alerts == nil {
 		return
 	}
 
@@ -66,7 +69,7 @@ func Start(database *db.DB, mcache *cache.Cache, pricing *pricing.Manager, incid
 				} else {
 					for _, project := range projects {
 						if project.Multicluster() {
-							handleProjectUpdate(database, mcache, pricing, incidents, deployments, project.Id)
+							handleProjectUpdate(database, mcache, pricing, incidents, deployments, alerts, project.Id)
 						}
 					}
 				}
@@ -81,7 +84,7 @@ func Start(database *db.DB, mcache *cache.Cache, pricing *pricing.Manager, incid
 					continue
 				}
 
-				handleProjectUpdate(database, mcache, pricing, incidents, deployments, projectId)
+				handleProjectUpdate(database, mcache, pricing, incidents, deployments, alerts, projectId)
 
 				if time.Since(lastSpaceManagerRun) >= time.Hour {
 					lastSpaceManagerRun = time.Now()
@@ -92,7 +95,7 @@ func Start(database *db.DB, mcache *cache.Cache, pricing *pricing.Manager, incid
 	}()
 }
 
-func handleProjectUpdate(database *db.DB, cache *cache.Cache, pricing *pricing.Manager, incidents *Incidents, deployments *Deployments, projectId db.ProjectId) {
+func handleProjectUpdate(database *db.DB, cache *cache.Cache, pricing *pricing.Manager, incidents *Incidents, deployments *Deployments, alerts *Alerts, projectId db.ProjectId) {
 	start := time.Now()
 	project, err := database.GetProject(projectId)
 	if err != nil {
@@ -171,6 +174,7 @@ func handleProjectUpdate(database *db.DB, cache *cache.Cache, pricing *pricing.M
 		klog.Errorln("failed to load world:", err)
 		return
 	}
+	auditor.Audit(world, project, nil, nil)
 
 	wg := sync.WaitGroup{}
 	if incidents != nil {
@@ -185,6 +189,13 @@ func handleProjectUpdate(database *db.DB, cache *cache.Cache, pricing *pricing.M
 		go func() {
 			defer wg.Done()
 			deployments.Check(project, world)
+		}()
+	}
+	if alerts != nil {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			alerts.Check(project, world, from, to, step)
 		}()
 	}
 	wg.Wait()

@@ -22,6 +22,10 @@ func (a *appAuditor) storage() {
 	ioUtilizationChart := report.GetOrCreateChartGroup("I/O utilization <selector>, %", nil)
 	spaceChart := report.GetOrCreateChartGroup("Disk space <selector>, bytes", nil)
 
+	ioCheck.AddWidget(ioLoadChart.Widget())
+	ioCheck.AddWidget(ioLatencyChart.Widget())
+	spaceCheck.AddWidget(spaceChart.Widget())
+
 	seenVolumes := false
 	isK8s := a.app.IsK8s()
 	for _, i := range a.app.Instances {

@@ -75,7 +75,9 @@ func (r *AuditReport) GetOrCreateChartGroup(title string, doc *DocLink) *ChartGr
 		}
 	}
 	cg := NewChartGroup(r.ctx, title)
-	r.Widgets = append(r.Widgets, &Widget{ChartGroup: cg, DocLink: doc})
+	w := &Widget{ChartGroup: cg, DocLink: doc}
+	cg.widget = w
+	r.Widgets = append(r.Widgets, w)
 	return cg
 }
 
@@ -98,7 +100,9 @@ func (r *AuditReport) GetOrCreateChart(title string, doc *DocLink) *Chart {
 		}
 	}
 	ch := NewChart(r.ctx, title)
-	r.Widgets = append(r.Widgets, &Widget{Chart: ch, DocLink: doc})
+	w := &Widget{Chart: ch, DocLink: doc}
+	ch.widget = w
+	r.Widgets = append(r.Widgets, w)
 	return ch
 }
 
@@ -114,7 +118,9 @@ func (r *AuditReport) GetOrCreateHeatmap(title string) *Heatmap {
 		}
 	}
 	h := NewHeatmap(r.ctx, title)
-	r.Widgets = append(r.Widgets, &Widget{Heatmap: h, Width: "100%"})
+	w := &Widget{Heatmap: h, Width: "100%"}
+	h.widget = w
+	r.Widgets = append(r.Widgets, w)
 	return h
 }
 
@@ -142,7 +148,9 @@ func (r *AuditReport) GetOrCreateTable(header ...string) *Table {
 		}
 	}
 	t := NewTable(header...)
-	r.Widgets = append(r.Widgets, &Widget{Table: t, Width: "100%"})
+	w := &Widget{Table: t, Width: "100%"}
+	t.widget = w
+	r.Widgets = append(r.Widgets, w)
 	return t
 }
 

@@ -32,6 +32,14 @@ func (a *appAuditor) cpu(ncs nodeConsumersByNode) {
 		model.NewDocLink("inspections", "cpu", "cpu-consumers"),
 	)
 
+	containerCpuCheck.AddWidget(usageChart.Widget())
+	containerCpuCheck.AddWidget(delayChart.Widget())
+	containerCpuCheck.AddWidget(throttlingChart.Widget())
+
+	nodeCpuCheck.AddWidget(nodesChart.Widget())
+	nodeCpuCheck.AddWidget(delayChart.Widget())
+	nodeCpuCheck.AddWidget(consumersChart.Widget())
+
 	seenContainers, seenRelatedNodes := false, false
 	relevantNodes := map[string]*model.Node{}
 	limitByContainer := map[string]*timeseries.Aggregate{}

@@ -142,7 +142,7 @@ func main() {
 
 	incidents := watchers.NewIncidents(database, a.IncidentRCA)
 
-	watchers.Start(database, promCache, pricing, incidents, !cfg.DoNotCheckForDeployments, globalClickhouse, cfg.ClickHouseSpaceManager)
+	watchers.Start(database, promCache, pricing, incidents, !cfg.DoNotCheckForDeployments, globalClickhouse, globalPrometheus, cfg.ClickHouseSpaceManager, nil)
 
 	statsCollector := stats.NewCollector(cfg.DisableUsageStatistics, instanceUuid, version, Edition, database, promCache, pricing, globalClickhouse)
 
@@ -183,6 +183,14 @@ func main() {
 	r.HandleFunc("/api/project/{project}/overview/{view}", a.Auth(a.Overview)).Methods(http.MethodGet)
 	r.HandleFunc("/api/project/{project}/incidents", a.Auth(a.Incidents)).Methods(http.MethodGet)
 	r.HandleFunc("/api/project/{project}/incident/{incident}", a.Auth(a.Incident)).Methods(http.MethodGet)
+	r.HandleFunc("/api/project/{project}/alerts", a.Auth(a.Alerts)).Methods(http.MethodGet)
+	r.HandleFunc("/api/project/{project}/alerts/resolve", a.Auth(a.ResolveAlerts)).Methods(http.MethodPost)
+	r.HandleFunc("/api/project/{project}/alerts/suppress", a.Auth(a.SuppressAlerts)).Methods(http.MethodPost)
+	r.HandleFunc("/api/project/{project}/alerts/{alert}", a.Auth(a.Alert)).Methods(http.MethodGet)
+	r.HandleFunc("/api/project/{project}/alerts/reopen", a.Auth(a.ReopenAlerts)).Methods(http.MethodPost)
+	r.HandleFunc("/api/project/{project}/alerting-rules", a.Auth(a.AlertingRules)).Methods(http.MethodGet, http.MethodPost)
+	r.HandleFunc("/api/project/{project}/alerting-rules/export", a.Auth(a.AlertingRulesExport)).Methods(http.MethodGet)
+	r.HandleFunc("/api/project/{project}/alerting-rules/{rule}", a.Auth(a.AlertingRule)).Methods(http.MethodGet, http.MethodPut, http.MethodDelete)
 	r.HandleFunc("/api/project/{project}/dashboards", a.Auth(a.Dashboards)).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/project/{project}/dashboards/{dashboard}", a.Auth(a.Dashboards)).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/project/{project}/panel/data", a.Auth(a.PanelData)).Methods(http.MethodGet)

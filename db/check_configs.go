@@ -38,6 +38,9 @@ func (db *DB) GetCheckConfigs(projectId ProjectId) (model.CheckConfigs, error) {
 			klog.Warningln(err)
 			continue
 		}
+		if id.Namespace == "" && id.Kind == "" && id.Name == "" {
+			id = model.ApplicationIdZero
+		}
 		if !configs.Valid {
 			continue
 		}

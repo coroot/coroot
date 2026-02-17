@@ -9,6 +9,10 @@ import (
 	"github.com/coroot/coroot/utils"
 )
 
+func boolValue(b *bool) bool {
+	return b != nil && *b
+}
+
 type IntegrationType string
 
 const (
@@ -85,6 +89,7 @@ type IntegrationInfo struct {
 	Configured  bool            `json:"configured"`
 	Incidents   bool            `json:"incidents"`
 	Deployments bool            `json:"deployments"`
+	Alerts      bool            `json:"alerts"`
 	Title       string          `json:"title"`
 	Details     string          `json:"details"`
 }
@@ -97,6 +102,7 @@ func (integrations Integrations) GetInfo() []IntegrationInfo {
 		i.Configured = true
 		i.Incidents = cfg.Incidents
 		i.Deployments = cfg.Deployments
+		i.Alerts = boolValue(cfg.Alerts)
 		i.Details = fmt.Sprintf("default channel: #%s", cfg.DefaultChannel)
 	}
 	res = append(res, i)
@@ -106,6 +112,7 @@ func (integrations Integrations) GetInfo() []IntegrationInfo {
 		i.Configured = true
 		i.Incidents = cfg.Incidents
 		i.Deployments = cfg.Deployments
+		i.Alerts = boolValue(cfg.Alerts)
 	}
 	res = append(res, i)
 
@@ -113,6 +120,7 @@ func (integrations Integrations) GetInfo() []IntegrationInfo {
 	if cfg := integrations.Pagerduty; cfg != nil {
 		i.Configured = true
 		i.Incidents = cfg.Incidents
+		i.Alerts = boolValue(cfg.Alerts)
 	}
 	res = append(res, i)
 
@@ -120,6 +128,7 @@ func (integrations Integrations) GetInfo() []IntegrationInfo {
 	if cfg := integrations.Opsgenie; cfg != nil {
 		i.Configured = true
 		i.Incidents = cfg.Incidents
+		i.Alerts = boolValue(cfg.Alerts)
 		region := "US"
 		if cfg.EUInstance {
 			region = "EU"
@@ -133,6 +142,7 @@ func (integrations Integrations) GetInfo() []IntegrationInfo {
 		i.Configured = true
 		i.Incidents = cfg.Incidents
 		i.Deployments = cfg.Deployments
+		i.Alerts = boolValue(cfg.Alerts)
 	}
 	res = append(res, i)
 
@@ -168,6 +178,7 @@ type IntegrationSlack struct {
 	DefaultChannel string `json:"default_channel" yaml:"defaultChannel"`
 	Incidents      bool   `json:"incidents" yaml:"incidents"`
 	Deployments    bool   `json:"deployments" yaml:"deployments"`
+	Alerts         *bool  `json:"alerts,omitempty" yaml:"alerts,omitempty"`
 }
 
 func (i *IntegrationSlack) Validate() error {
@@ -184,6 +195,7 @@ type IntegrationTeams struct {
 	WebhookUrl  string `json:"webhook_url" yaml:"webhookURL"`
 	Incidents   bool   `json:"incidents" yaml:"incidents"`
 	Deployments bool   `json:"deployments" yaml:"deployments"`
+	Alerts      *bool  `json:"alerts,omitempty" yaml:"alerts,omitempty"`
 }
 
 func (i *IntegrationTeams) Validate() error {
@@ -196,6 +208,7 @@ func (i *IntegrationTeams) Validate() error {
 type IntegrationPagerduty struct {
 	IntegrationKey string `json:"integration_key" yaml:"integrationKey"`
 	Incidents      bool   `json:"incidents" yaml:"incidents"`
+	Alerts         *bool  `json:"alerts,omitempty" yaml:"alerts,omitempty"`
 }
 
 func (i *IntegrationPagerduty) Validate() error {
@@ -209,6 +222,7 @@ type IntegrationOpsgenie struct {
 	ApiKey     string `json:"api_key" yaml:"apiKey"`
 	EUInstance bool   `json:"eu_instance" yaml:"euInstance"`
 	Incidents  bool   `json:"incidents" yaml:"incidents"`
+	Alerts     *bool  `json:"alerts,omitempty" yaml:"alerts,omitempty"`
 }
 
 func (i *IntegrationOpsgenie) Validate() error {
@@ -225,8 +239,10 @@ type IntegrationWebhook struct {
 	CustomHeaders      []utils.Header   `json:"custom_headers" yaml:"customHeaders"`
 	Incidents          bool             `json:"incidents" yaml:"incidents"`
 	Deployments        bool             `json:"deployments" yaml:"deployments"`
+	Alerts             *bool            `json:"alerts,omitempty" yaml:"alerts,omitempty"`
 	IncidentTemplate   string           `json:"incident_template" yaml:"incidentTemplate"`
 	DeploymentTemplate string           `json:"deployment_template" yaml:"deploymentTemplate"`
+	AlertTemplate      string           `json:"alert_template" yaml:"alertTemplate"`
 }
 
 func (i *IntegrationWebhook) Validate() error {
@@ -238,6 +254,9 @@ func (i *IntegrationWebhook) Validate() error {
 	}
 	if i.Deployments && i.DeploymentTemplate == "" {
 		return fmt.Errorf("deployment template is required")
+	}
+	if i.Alerts != nil && *i.Alerts && i.AlertTemplate == "" {
+		return fmt.Errorf("alert template is required")
 	}
 	return nil
 }

@@ -41,6 +41,7 @@ For instance, the `projects` parameter (a list of predefined projects) can only 
 | --do-not-check-slo                   | DO_NOT_CHECK_SLO                   | false         | Do not check Service Level Objective (SLO) compliance.                                                                                                                          |
 | --do-not-check-for-deployments       | DO_NOT_CHECK_FOR_DEPLOYMENTS       | false         | Do not check for new deployments.                                                                                                                                               |
 | --do-not-check-for-updates           | DO_NOT_CHECK_FOR_UPDATES           | false         | Do not check for new versions.                                                                                                                                                  |
+| --disable-builtin-alerts             | DISABLE_BUILTIN_ALERTS             | false         | Disable all built-in alerting rules for all projects on startup.                                                                                                                |
 | --auth-anonymous-role                | AUTH_ANONYMOUS_ROLE                |               | Disable authentication and assign one of the following roles to the anonymous user: Admin, Editor, or Viewer.                                                                   |
 | --auth-bootstrap-admin-password      | AUTH_BOOTSTRAP_ADMIN_PASSWORD      |               | Password for the default Admin user.                                                                                                                                            |
 | --license-key                        | LICENSE_KEY                        |               | License key for Coroot Enterprise Edition.                                                                                                                                      |
@@ -132,6 +133,7 @@ auth:
 do_not_check_for_deployments: false # Do not check for new deployments.
 do_not_check_for_updates: false     # Do not check for new versions.
 disable_usage_statistics: false     # Disable anonymous usage statistics.
+disableBuiltinAlerts: false       # Disable all built-in alerting rules for all projects on startup.
 
 license_key: # License key for Coroot Enterprise Edition.
 
@@ -222,6 +224,59 @@ projects: # Create or update projects (configuration file only).
         instancePatterns:
           - app@node1
           - app@node2
+    # Alerting rules: adjust built-in rules or define custom ones.
+    # Rules defined here become read-only in the UI.
+    # For built-in rules, only the fields you specify are overridden; unset fields keep their current values.
+    # For custom rules, all required fields (name, source) must be provided.
+    alertingRules:
+      # Adjust a built-in rule (only override severity and description)
+      - id: storage-space          # Required. Built-in rule ID or a custom ID you choose.
+        severity: critical
+        templates:
+          description: "Disk space critically low"
+      # Disable a built-in rule
+      - id: memory-pressure
+        enabled: false
+      # Custom check-based rule
+      - id: custom-postgres-latency
+        name: "Postgres latency (production)"
+        source:
+          type: check              # One of: check, log_patterns, promql.
+          check:
+            check_id: postgres_latency
+        selector:
+          type: category           # One of: all, category, applications.
+          categories:
+            - production
+        severity: critical         # One of: warning, critical.
+        for: 5m
+        keepFiringFor: 5m
+        templates:
+          description: "Postgres latency is critically high in production."
+        enabled: true
+      # Custom PromQL-based rule
+      - id: custom-uptime
+        name: "Instance uptime"
+        source:
+          type: promql
+          promql:
+            expression: "up == 0"
+        severity: warning
+        templates:
+          summary: "Instance {{.instance}} is down"
+      # Custom log-based rule
+      - id: custom-log-errors
+        name: "Critical log errors"
+        source:
+          type: log_patterns
+          log_pattern:
+            severities:
+              - error
+              - fatal
+            min_count: 5
+            max_alerts_per_app: 10
+            evaluate_with_ai: true
+        severity: critical
     # Project inspection overrides
     inspectionOverrides:
       # applicationId format: <namespace>:<kind>:<name>

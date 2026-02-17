@@ -45,6 +45,11 @@
                                 <v-icon dark>{{ v.icon }}</v-icon>
                             </v-badge>
                         </span>
+                        <span v-else-if="id === 'alerts' && menuCollapsed && alertsCount">
+                            <v-badge :color="alertsMaxSeverity === 'critical' ? 'red' : 'orange'" dot offset-y="6">
+                                <v-icon dark>{{ v.icon }}</v-icon>
+                            </v-badge>
+                        </span>
                         <v-icon v-else dark>{{ v.icon }}</v-icon>
                     </v-list-item-icon>
                     <v-list-item-content>
@@ -52,6 +57,13 @@
                             <v-badge color="red" :content="incidentsCount" offset-y="12" offset-x="-3" class="badge">
                                 {{ v.name }}
                             </v-badge>
+                        </span>
+                        <span v-else-if="id === 'alerts' && alertsCount" class="d-flex align-center">
+                            {{ v.name }}
+                            <span class="alert-pill ml-2">
+                                <span v-if="context.alerts.critical" class="critical">{{ context.alerts.critical }}</span>
+                                <span v-if="context.alerts.warning" class="warning">{{ context.alerts.warning }}</span>
+                            </span>
                         </span>
                         <template v-else>{{ v.name }}</template>
                     </v-list-item-content>
@@ -312,6 +324,20 @@ export default {
                 return acc + current;
             }, 0);
         },
+        alertsCount() {
+            return Object.values(this.context.alerts).reduce((acc, current) => {
+                return acc + current;
+            }, 0);
+        },
+        alertsMaxSeverity() {
+            if (this.context.alerts.critical > 0) {
+                return 'critical';
+            }
+            if (this.context.alerts.warning > 0) {
+                return 'warning';
+            }
+            return null;
+        },
         systemAlertHeight() {
             return this.$vuetify.breakpoint.xs ? 64 : 32;
         },
@@ -328,7 +354,7 @@ export default {
                 if (!prev) {
                     return;
                 }
-                if (curr.query.from !== prev.query.from || curr.query.to !== prev.query.to || curr.query.incident !== prev.query.incident) {
+                if (curr.query.from !== prev.query.from || curr.query.to !== prev.query.to || curr.query.incident !== prev.query.incident || curr.query.alert !== prev.query.alert) {
                     this.$events.emit('refresh');
                 }
             },
@@ -410,5 +436,27 @@ export default {
     height: 16px;
     min-width: 16px;
     padding: 2px 4px;
+}
+.alert-pill {
+    display: inline-flex;
+    height: 16px;
+    border-radius: 8px;
+    overflow: hidden;
+    font-size: 11px;
+    font-weight: 500;
+    color: white;
+}
+.alert-pill > span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    padding: 0 5px;
+}
+.alert-pill > .critical {
+    background-color: #f44336;
+}
+.alert-pill > .warning {
+    background-color: #ffa726;
 }
 </style>
