@@ -2,16 +2,7 @@
     <div>
         <div class="d-flex align-center mb-4">
             <div>
-                <v-text-field
-                    v-model="search"
-                    label="search"
-                    prepend-inner-icon="mdi-magnify"
-                    dense
-                    outlined
-                    hide-details
-                    clearable
-                    class="search"
-                />
+                <v-text-field v-model="search" label="search" prepend-inner-icon="mdi-magnify" dense outlined hide-details clearable class="search" />
             </div>
             <v-spacer />
             <v-menu offset-y max-width="500" :close-on-content-click="false">
@@ -20,9 +11,9 @@
                 </template>
                 <v-card class="pa-3">
                     <div class="body-2">
-                        Inspections are automated checks that Coroot runs against your applications to detect potential issues.
-                        Each inspection has a default threshold that triggers a warning when exceeded.
-                        You can customize thresholds at the project level (applies to all applications) or override them for specific applications.
+                        Inspections are automated checks that Coroot runs against your applications to detect potential issues. Each inspection has a
+                        default threshold that triggers a warning when exceeded. You can customize thresholds at the project level (applies to all
+                        applications) or override them for specific applications.
                     </div>
                 </v-card>
             </v-menu>
@@ -45,7 +36,6 @@
             ]"
             :footer-props="{ itemsPerPageOptions: [10, 20, 50, 100] }"
         >
-
             <template #item.condition="{ item }">
                 <span class="text-no-wrap">{{ formatCondition(item) }}</span>
             </template>
@@ -204,14 +194,16 @@ export default {
                 this.checks = data.checks;
                 const ctx = this.$api.context;
                 const apps = (ctx.search && ctx.search.applications) || [];
-                this.applications = apps.map((a) => {
-                    const id = this.$utils.appId(a.id);
-                    return {
-                        id: a.id,
-                        name: id.name,
-                        ns: id.ns,
-                    };
-                }).sort((a, b) => a.name.localeCompare(b.name));
+                this.applications = apps
+                    .map((a) => {
+                        const id = this.$utils.appId(a.id);
+                        return {
+                            id: a.id,
+                            name: id.name,
+                            ns: id.ns,
+                        };
+                    })
+                    .sort((a, b) => a.name.localeCompare(b.name));
             });
         },
     },

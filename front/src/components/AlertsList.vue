@@ -31,12 +31,28 @@
             />
         </div>
 
-        <div v-if="selectedFiring.length || selectedSuppressible.length || selectedReopenable.length" class="d-flex align-center justify-end mb-3" style="gap: 8px">
-            <v-btn v-if="selectedFiring.length" small outlined @click="resolveSelected" title="Acknowledge the alert; it will reopen if the condition recurs">
+        <div
+            v-if="selectedFiring.length || selectedSuppressible.length || selectedReopenable.length"
+            class="d-flex align-center justify-end mb-3"
+            style="gap: 8px"
+        >
+            <v-btn
+                v-if="selectedFiring.length"
+                small
+                outlined
+                @click="resolveSelected"
+                title="Acknowledge the alert; it will reopen if the condition recurs"
+            >
                 <v-icon small class="mr-1">mdi-check-circle-outline</v-icon>
                 Resolve ({{ selectedFiring.length }})
             </v-btn>
-            <v-btn v-if="selectedSuppressible.length" small outlined @click="suppressSelected" title="Permanently silence the alert; it will not reopen until manually reopened">
+            <v-btn
+                v-if="selectedSuppressible.length"
+                small
+                outlined
+                @click="suppressSelected"
+                title="Permanently silence the alert; it will not reopen until manually reopened"
+            >
                 <v-icon small class="mr-1">mdi-bell-off-outline</v-icon>
                 Suppress ({{ selectedSuppressible.length }})
             </v-btn>
@@ -133,7 +149,10 @@
                         :to="{
                             name: 'overview',
                             params: { view: 'applications', id: item.application_id, report: item.report || undefined },
-                            query: { ...alertContextQuery(item), ...(item.report === 'Logs' ? { query: JSON.stringify({ view: 'patterns', source: 'agent' }) } : {}) },
+                            query: {
+                                ...alertContextQuery(item),
+                                ...(item.report === 'Logs' ? { query: JSON.stringify({ view: 'patterns', source: 'agent' }) } : {}),
+                            },
                         }"
                         :class="{ 'grey--text': item.resolved_at || item.manually_resolved_at || item.suppressed }"
                     >
@@ -153,7 +172,11 @@
             </template>
 
             <template #item.notifications="{ item }">
-                <div class="d-flex flex-wrap" style="gap: 4px" :class="{ 'grey--text': item.resolved_at || item.manually_resolved_at || item.suppressed }">
+                <div
+                    class="d-flex flex-wrap"
+                    style="gap: 4px"
+                    :class="{ 'grey--text': item.resolved_at || item.manually_resolved_at || item.suppressed }"
+                >
                     <span
                         v-for="(n, i) in item.notifications"
                         :key="i"
@@ -175,10 +198,18 @@
                     </template>
 
                     <v-list dense>
-                        <v-list-item v-if="isFiring(item)" @click="resolveSelected([item.id])" title="Acknowledge the alert; it will reopen if the condition recurs">
+                        <v-list-item
+                            v-if="isFiring(item)"
+                            @click="resolveSelected([item.id])"
+                            title="Acknowledge the alert; it will reopen if the condition recurs"
+                        >
                             <v-icon small class="mr-1">mdi-check-circle-outline</v-icon> Resolve
                         </v-list-item>
-                        <v-list-item v-if="!item.suppressed" @click="suppressSelected([item.id])" title="Permanently silence the alert; it will not reopen until manually reopened">
+                        <v-list-item
+                            v-if="!item.suppressed"
+                            @click="suppressSelected([item.id])"
+                            title="Permanently silence the alert; it will not reopen until manually reopened"
+                        >
                             <v-icon small class="mr-1">mdi-bell-off-outline</v-icon> Suppress
                         </v-list-item>
                         <v-list-item v-if="isReopenable(item)" @click="reopenSelected([item.id])" title="Reopen the alert so it can fire again">

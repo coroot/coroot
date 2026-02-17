@@ -187,7 +187,9 @@ export default {
             const search = (this.search || '').trim().toLowerCase();
             let filtered;
             if (search) {
-                filtered = this.incidents.filter((i) => i.short_description.toLowerCase().includes(search) || i.application_id.toLowerCase().includes(search));
+                filtered = this.incidents.filter(
+                    (i) => i.short_description.toLowerCase().includes(search) || i.application_id.toLowerCase().includes(search),
+                );
             } else {
                 filtered = this.incidents.filter((i) => this.filter.has(i.application_id));
             }

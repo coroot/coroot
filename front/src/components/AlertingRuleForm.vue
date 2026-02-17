@@ -181,14 +181,7 @@
                     <template v-if="sourceType === 'promql'">
                         <div class="subtitle-1">Notification category</div>
                         <div class="caption grey--text">Which category's notification settings to use for this rule.</div>
-                        <v-select
-                            v-model="notificationCategory"
-                            :items="categoryOptions"
-                            outlined
-                            dense
-                            hide-details="auto"
-                            class="mb-4"
-                        />
+                        <v-select v-model="notificationCategory" :items="categoryOptions" outlined dense hide-details="auto" class="mb-4" />
                     </template>
 
                     <v-row dense class="mb-4">

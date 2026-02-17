@@ -2,16 +2,7 @@
     <div>
         <div class="d-flex align-center mb-4">
             <div>
-                <v-text-field
-                    v-model="search"
-                    label="search"
-                    prepend-inner-icon="mdi-magnify"
-                    dense
-                    outlined
-                    hide-details
-                    clearable
-                    class="search"
-                />
+                <v-text-field v-model="search" label="search" prepend-inner-icon="mdi-magnify" dense outlined hide-details clearable class="search" />
             </div>
             <v-spacer />
             <v-btn color="primary" small @click="openForm('new')" class="mr-4">
@@ -28,9 +19,8 @@
                 </template>
                 <v-card class="pa-3">
                     <div class="body-2">
-                        Alerting rules define conditions that trigger notifications to your configured channels.
-                        Conditions can be based on inspection results, PromQL expressions, or log patterns.
-                        Each rule specifies the severity level and which applications to monitor.
+                        Alerting rules define conditions that trigger notifications to your configured channels. Conditions can be based on inspection
+                        results, PromQL expressions, or log patterns. Each rule specifies the severity level and which applications to monitor.
                     </div>
                 </v-card>
             </v-menu>
@@ -70,7 +60,14 @@
             </template>
 
             <template #item.select="{ item }">
-                <v-checkbox v-if="!item.readonly" :value="selected.includes(item.id)" @change="toggleSelect(item.id)" hide-details class="mt-0 pt-0" color="primary" />
+                <v-checkbox
+                    v-if="!item.readonly"
+                    :value="selected.includes(item.id)"
+                    @change="toggleSelect(item.id)"
+                    hide-details
+                    class="mt-0 pt-0"
+                    color="primary"
+                />
             </template>
 
             <template #item.name="{ item }">
@@ -96,7 +93,10 @@
                 <span v-if="item.source && item.source.type === 'check'">
                     Inspection:
                     <router-link
-                        :to="{ params: { id: 'inspections' }, query: { ...$utils.contextQuery(), search: getCheckTitle(item.source.check.check_id) } }"
+                        :to="{
+                            params: { id: 'inspections' },
+                            query: { ...$utils.contextQuery(), search: getCheckTitle(item.source.check.check_id) },
+                        }"
                     >
                         {{ getCheckTitle(item.source.check.check_id) }}
                     </router-link>
@@ -123,9 +123,7 @@
                     <v-spacer />
                     <v-btn icon @click="exportDialog = false"><v-icon>mdi-close</v-icon></v-btn>
                 </div>
-                <div class="caption grey--text mb-2">
-                    Paste this snippet into your project configuration file.
-                </div>
+                <div class="caption grey--text mb-2">Paste this snippet into your project configuration file.</div>
                 <div class="code-block">
                     <v-btn icon x-small class="copy-btn" @click="copyExport" :title="copied ? 'Copied' : 'Copy'">
                         <v-icon small>{{ copied ? 'mdi-check' : 'mdi-content-copy' }}</v-icon>
