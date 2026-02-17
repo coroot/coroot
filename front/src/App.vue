@@ -354,7 +354,12 @@ export default {
                 if (!prev) {
                     return;
                 }
-                if (curr.query.from !== prev.query.from || curr.query.to !== prev.query.to || curr.query.incident !== prev.query.incident || curr.query.alert !== prev.query.alert) {
+                if (
+                    curr.query.from !== prev.query.from ||
+                    curr.query.to !== prev.query.to ||
+                    curr.query.incident !== prev.query.incident ||
+                    curr.query.alert !== prev.query.alert
+                ) {
                     this.$events.emit('refresh');
                 }
             },

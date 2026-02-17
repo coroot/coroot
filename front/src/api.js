@@ -275,14 +275,18 @@ export default class Api {
     }
 
     getAlerts(params, cb) {
-        this.get(this.projectPath(`alerts`), {
-            limit: params.limit,
-            offset: params.offset,
-            include_resolved: params.includeResolved ? 'true' : 'false',
-            search: params.search || undefined,
-            sort_by: params.sortBy,
-            sort_desc: params.sortDesc ? 'true' : 'false',
-        }, cb);
+        this.get(
+            this.projectPath(`alerts`),
+            {
+                limit: params.limit,
+                offset: params.offset,
+                include_resolved: params.includeResolved ? 'true' : 'false',
+                search: params.search || undefined,
+                sort_by: params.sortBy,
+                sort_desc: params.sortDesc ? 'true' : 'false',
+            },
+            cb,
+        );
     }
 
     getAlert(id, cb) {
