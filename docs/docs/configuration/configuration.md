@@ -243,7 +243,7 @@ projects: # Create or update projects (configuration file only).
         source:
           type: check              # One of: check, log_patterns, promql.
           check:
-            check_id: postgres_latency
+            checkId: postgres_latency
         selector:
           type: category           # One of: all, category, applications.
           categories:
@@ -269,13 +269,13 @@ projects: # Create or update projects (configuration file only).
         name: "Critical log errors"
         source:
           type: log_patterns
-          log_pattern:
+          logPattern:
             severities:
               - error
               - fatal
-            min_count: 5
-            max_alerts_per_app: 10
-            evaluate_with_ai: true
+            minCount: 5
+            maxAlertsPerApp: 10
+            evaluateWithAi: true
         severity: critical
     # Project inspection overrides
     inspectionOverrides:

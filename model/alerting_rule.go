@@ -17,13 +17,13 @@ const (
 
 type LogPatternSource struct {
 	Severities      []string `json:"severities" yaml:"severities"`
-	MinCount        int      `json:"min_count" yaml:"min_count"`
-	MaxAlertsPerApp int      `json:"max_alerts_per_app" yaml:"max_alerts_per_app"`
-	EvaluateWithAI  bool     `json:"evaluate_with_ai" yaml:"evaluate_with_ai"`
+	MinCount        int      `json:"min_count" yaml:"minCount"`
+	MaxAlertsPerApp int      `json:"max_alerts_per_app" yaml:"maxAlertsPerApp"`
+	EvaluateWithAI  bool     `json:"evaluate_with_ai" yaml:"evaluateWithAi"`
 }
 
 type CheckSource struct {
-	CheckId CheckId `json:"check_id" yaml:"check_id"`
+	CheckId CheckId `json:"check_id" yaml:"checkId"`
 }
 
 type PromQLSource struct {
@@ -33,7 +33,7 @@ type PromQLSource struct {
 type AlertSource struct {
 	Type       AlertSourceType   `json:"type" yaml:"type"`
 	Check      *CheckSource      `json:"check,omitempty" yaml:"check,omitempty"`
-	LogPattern *LogPatternSource `json:"log_pattern,omitempty" yaml:"log_pattern,omitempty"`
+	LogPattern *LogPatternSource `json:"log_pattern,omitempty" yaml:"logPattern,omitempty"`
 	PromQL     *PromQLSource     `json:"promql,omitempty" yaml:"promql,omitempty"`
 }
 
@@ -48,12 +48,12 @@ const (
 type AppSelector struct {
 	Type                  AppSelectorType `json:"type" yaml:"type"`
 	Categories            []string        `json:"categories,omitempty" yaml:"categories,omitempty"`
-	ApplicationIdPatterns []string        `json:"application_id_patterns,omitempty" yaml:"application_id_patterns,omitempty"`
+	ApplicationIdPatterns []string        `json:"application_id_patterns,omitempty" yaml:"applicationIdPatterns,omitempty"`
 }
 
 type AlertTemplates struct {
-	Summary     string `json:"summary" yaml:"summary"`
-	Description string `json:"description" yaml:"description"`
+	Summary     string `json:"summary" yaml:"summary,omitempty"`
+	Description string `json:"description" yaml:"description,omitempty"`
 }
 
 type AlertingRule struct {

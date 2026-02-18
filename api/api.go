@@ -21,6 +21,7 @@ import (
 	"github.com/coroot/coroot/clickhouse"
 	pricing "github.com/coroot/coroot/cloud-pricing"
 	"github.com/coroot/coroot/collector"
+	"github.com/coroot/coroot/config"
 	"github.com/coroot/coroot/constructor"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
@@ -1641,66 +1642,31 @@ func (api *Api) AlertingRulesExport(w http.ResponseWriter, r *http.Request, u *d
 		return
 	}
 
-	type exportSource struct {
-		Type       model.AlertSourceType   `yaml:"type"`
-		Check      *model.CheckSource      `yaml:"check,omitempty"`
-		LogPattern *model.LogPatternSource `yaml:"log_pattern,omitempty"`
-		PromQL     *model.PromQLSource     `yaml:"promql,omitempty"`
-	}
-	type exportSelector struct {
-		Type                  model.AppSelectorType `yaml:"type"`
-		Categories            []string              `yaml:"categories,omitempty"`
-		ApplicationIdPatterns []string              `yaml:"application_id_patterns,omitempty"`
-	}
-	type exportTemplates struct {
-		Summary     string `yaml:"summary,omitempty"`
-		Description string `yaml:"description,omitempty"`
-	}
-	type exportRule struct {
-		Id                   model.AlertingRuleId      `yaml:"id"`
-		Name                 string                    `yaml:"name,omitempty"`
-		Source               *exportSource             `yaml:"source,omitempty"`
-		Selector             *exportSelector           `yaml:"selector,omitempty"`
-		Severity             string                    `yaml:"severity,omitempty"`
-		For                  timeseries.Duration       `yaml:"for,omitempty"`
-		KeepFiringFor        timeseries.Duration       `yaml:"keepFiringFor,omitempty"`
-		Templates            *exportTemplates          `yaml:"templates,omitempty"`
-		NotificationCategory model.ApplicationCategory `yaml:"notificationCategory,omitempty"`
-		Enabled              *bool                     `yaml:"enabled,omitempty"`
-	}
-
-	var exported []exportRule
+	var exported []config.AlertingRule
 	for _, r := range rules {
-		er := exportRule{
-			Id:            r.Id,
-			Name:          r.Name,
-			Severity:      r.Severity.String(),
-			For:           r.For,
-			KeepFiringFor: r.KeepFiringFor,
+		severity := r.Severity.String()
+		er := config.AlertingRule{
+			Id:       string(r.Id),
+			Name:     &r.Name,
+			Severity: &severity,
+		}
+		if r.For > 0 {
+			er.For = &r.For
+		}
+		if r.KeepFiringFor > 0 {
+			er.KeepFiringFor = &r.KeepFiringFor
 		}
 		if r.Source.Type != "" {
-			er.Source = &exportSource{
-				Type:       r.Source.Type,
-				Check:      r.Source.Check,
-				LogPattern: r.Source.LogPattern,
-				PromQL:     r.Source.PromQL,
-			}
+			er.Source = &r.Source
 		}
 		if r.Selector.Type != "" {
-			er.Selector = &exportSelector{
-				Type:                  r.Selector.Type,
-				Categories:            r.Selector.Categories,
-				ApplicationIdPatterns: r.Selector.ApplicationIdPatterns,
-			}
+			er.Selector = &r.Selector
 		}
 		if r.Templates.Summary != "" || r.Templates.Description != "" {
-			er.Templates = &exportTemplates{
-				Summary:     r.Templates.Summary,
-				Description: r.Templates.Description,
-			}
+			er.Templates = &r.Templates
 		}
 		if r.NotificationCategory != "" {
-			er.NotificationCategory = r.NotificationCategory
+			er.NotificationCategory = &r.NotificationCategory
 		}
 		if !r.Enabled {
 			enabled := false
@@ -1709,11 +1675,7 @@ func (api *Api) AlertingRulesExport(w http.ResponseWriter, r *http.Request, u *d
 		exported = append(exported, er)
 	}
 
-	wrapper := struct {
-		AlertingRules []exportRule `yaml:"alertingRules"`
-	}{AlertingRules: exported}
-
-	out, err := yaml.Marshal(wrapper)
+	out, err := yaml.Marshal(exported)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
