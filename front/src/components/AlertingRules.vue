@@ -123,7 +123,7 @@
                     <v-spacer />
                     <v-btn icon @click="exportDialog = false"><v-icon>mdi-close</v-icon></v-btn>
                 </div>
-                <div class="caption grey--text mb-2">Paste this snippet into your project configuration file.</div>
+                <div class="caption grey--text mb-2">Paste under <code>alertingRules:</code> in your project configuration file.</div>
                 <div class="code-block">
                     <v-btn icon x-small class="copy-btn" @click="copyExport" :title="copied ? 'Copied' : 'Copy'">
                         <v-icon small>{{ copied ? 'mdi-check' : 'mdi-content-copy' }}</v-icon>

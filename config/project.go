@@ -87,11 +87,11 @@ func (ar *AlertingRule) Validate() error {
 		switch ar.Source.Type {
 		case model.AlertSourceTypeCheck:
 			if ar.Source.Check == nil || ar.Source.Check.CheckId == "" {
-				return fmt.Errorf("source.check.check_id is required for check source")
+				return fmt.Errorf("source.check.checkId is required for check source")
 			}
 			configs := model.GetCheckConfigs()
 			if _, ok := configs[ar.Source.Check.CheckId]; !ok {
-				return fmt.Errorf("unknown check_id: %s", ar.Source.Check.CheckId)
+				return fmt.Errorf("unknown checkId: %s", ar.Source.Check.CheckId)
 			}
 		case model.AlertSourceTypePromQL:
 			if ar.Source.PromQL == nil || ar.Source.PromQL.Expression == "" {
@@ -99,7 +99,7 @@ func (ar *AlertingRule) Validate() error {
 			}
 		case model.AlertSourceTypeLogPatterns:
 			if ar.Source.LogPattern == nil || len(ar.Source.LogPattern.Severities) == 0 {
-				return fmt.Errorf("source.log_pattern.severities is required for log_patterns source")
+				return fmt.Errorf("source.logPattern.severities is required for log_patterns source")
 			}
 		default:
 			return fmt.Errorf("invalid source type: %s", ar.Source.Type)
