@@ -20,6 +20,7 @@ type ApplicationInstrumentation struct {
 	Type        model.ApplicationType `json:"type"`
 	Host        string                `json:"host"`
 	Port        string                `json:"port"`
+	Sni         string                `json:"sni"`
 	Credentials model.Credentials     `json:"credentials"`
 	Params      map[string]string     `json:"params"`
 	Instance    string                `json:"instance"`
@@ -129,6 +130,7 @@ func (c *Collector) Config(w http.ResponseWriter, r *http.Request) {
 					i := ApplicationInstrumentation{
 						Type:        instrumentation.Type,
 						Host:        ip.String(),
+						Sni:         instance.NodeName(),
 						Port:        instrumentation.Port,
 						Credentials: instrumentation.Credentials,
 						Params:      instrumentation.Params,
