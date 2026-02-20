@@ -165,17 +165,21 @@ projects: # Create or update projects (configuration file only).
         defaultChannel:     # Default channel (required).
         incidents: false    # Notify of incidents (SLO violations).
         deployments: false  # Notify of deployments.
+        alerts: false       # Notify of alerts.
       teams:
         webhookURL:         # Microsoft Teams Webhook URL (required).
         incidents: false    # Notify of incidents (SLO violations).
         deployments: false  # Notify of deployments.
+        alerts: false       # Notify of alerts.
       pagerduty:
         integrationKey:     # PagerDuty Integration Key (required).
         incidents: false    # Notify of incidents (SLO violations).
+        alerts: false       # Notify of alerts.
       opsgenie:
         apiKey:             # Opsgenie API Key (required).
         euInstance: false   # EU instance of Opsgenie.
         incidents: false    # Notify of incidents (SLO violations).
+        alerts: false       # Notify of alerts.
       webhook:
         url:                    # Webhook URL (required).
         tlsSkipVerify: false    # Whether to skip verification of the Webhook server's TLS certificate.
@@ -187,8 +191,10 @@ projects: # Create or update projects (configuration file only).
             value:
         incidents: false        # Notify of incidents (SLO violations).
         deployments: false      # Notify of deployments.
+        alerts: false           # Notify of alerts.
         incidentTemplate: ""    # Incident template (required if `incidents: true`).
         deploymentTemplate: ""  # Deployment template (required if `deployments: true`).
+        alertTemplate: ""       # Alert template (required if `alerts: true`).
     # Project application category settings.
     applicationCategories:
       - name:               # Application category name (required).
@@ -215,6 +221,19 @@ projects: # Create or update projects (configuration file only).
               enabled: true
               channel: general
             teams:
+              enabled: false
+            webhook:
+              enabled: false
+          alerts:             # Notify of alerts.
+            enabled: true
+            slack:
+              enabled: true
+              channel: alerts
+            teams:
+              enabled: false
+            pagerduty:
+              enabled: false
+            opsgenie:
               enabled: false
             webhook:
               enabled: false
