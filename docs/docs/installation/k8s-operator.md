@@ -107,7 +107,9 @@ spec:
 #      name: # Name of the secret to select from.
 #      key:  # Key of the secret to select from (e.g., 'tls.key').
 
-# Coroot stores Traces, Logs, and Profiles in ClickHouse.  
+#  disableBuiltinAlerts: false # Disable all built-in alerting rules on startup.
+
+# Coroot stores Traces, Logs, and Profiles in ClickHouse.
 # Their retention is managed by setting a Time-To-Live (TTL) for the corresponding Clickhouse tables.  
 # The TTLs below are applied during table creation and do not currently affect existing tables.
 #  tracesTTL: 7d
@@ -327,6 +329,7 @@ spec:
 #          defaultChannel:     # Default channel (required).
 #          incidents: false    # Notify of incidents (SLO violations).
 #          deployments: false  # Notify of deployments.
+#          alerts: false       # Notify of alerts.
 #        teams:
 #          webhookURL:        # Microsoft Teams Webhook URL (required).
 #          webhookURLSecret:  # Secret containing the Webhook URL.
@@ -334,12 +337,14 @@ spec:
 #            key:  # Key of the secret to select from.
 #          incidents: false    # Notify of incidents (SLO violations).
 #          deployments: false  # Notify of deployments.
+#          alerts: false       # Notify of alerts.
 #        pagerduty:
 #          integrationKey:        # PagerDuty Integration Key (required).
 #          integrationKeySecret:  # Secret containing the Integration Key.
 #            name: # Name of the secret to select from.
 #            key:  # Key of the secret to select from.
 #          incidents: false    # Notify of incidents (SLO violations).
+#          alerts: false       # Notify of alerts.
 #        opsgenie:
 #          apiKey:        # Opsgenie API Key (required).
 #          apiKeySecret:  # Secret containing the API Key.
@@ -347,6 +352,7 @@ spec:
 #            key:  # Key of the secret to select from.
 #          euInstance: false   # EU instance of Opsgenie.
 #          incidents: false    # Notify of incidents (SLO violations).
+#          alerts: false       # Notify of alerts.
 #        webhook:
 #          url:                    # Webhook URL (required).
 #          tlsSkipVerify: false    # Whether to skip verification of the Webhook server's TLS certificate.
@@ -361,8 +367,10 @@ spec:
 #              value:
 #          incidents: false        # Notify of incidents (SLO violations).
 #          deployments: false      # Notify of deployments.
+#          alerts: false           # Notify of alerts.
 #          incidentTemplate: ""    # Incident template (required if `incidents: true`).
 #          deploymentTemplate: ""  # Deployment template (required if `deployments: true`).
+#          alertTemplate: ""       # Alert template (required if `alerts: true`).
 #      # Project application category settings.
 #      applicationCategories:
 #        - name:               # Application category name (required).
@@ -392,12 +400,79 @@ spec:
 #                enabled: false
 #              webhook:
 #                enabled: false
+#            alerts:             # Notify of alerts.
+#              enabled: true
+#              slack:
+#                enabled: true
+#                channel: alerts
+#              teams:
+#                enabled: false
+#              pagerduty:
+#                enabled: false
+#              opsgenie:
+#                enabled: false
+#              webhook:
+#                enabled: false
 #      # Project custom applications settings.
 #      customApplications:
 #        - name: custom-app
 #          instancePatterns:
 #            - app@node1
 #            - app@node2
+#      # Alerting rules: adjust built-in rules or define custom ones.
+#      # Rules defined here become read-only in the UI (shown with a lock icon).
+#      # For built-in rules, only the fields you specify are overridden; unset fields keep their current values.
+#      # For custom rules, all required fields (name, source) must be provided.
+#      alertingRules:
+#        # Adjust a built-in rule (only override severity and description)
+#        - id: storage-space          # Required. Built-in rule ID or a custom ID you choose.
+#          severity: critical         # One of: warning, critical.
+#          templates:
+#            description: "Disk space critically low"
+#        # Disable a built-in rule
+#        - id: memory-pressure
+#          enabled: false
+#        # Custom check-based rule
+#        - id: custom-postgres-latency
+#          name: "Postgres latency (production)"
+#          source:
+#            type: check              # One of: check, log_patterns, promql.
+#            check:
+#              checkId: postgres_latency
+#          selector:
+#            type: category           # One of: all, category, applications.
+#            categories:
+#              - production
+#          severity: critical
+#          for: 5m                    # How long the condition must be true before firing.
+#          keepFiringFor: 5m          # How long to keep firing after condition clears.
+#          templates:
+#            description: "Postgres latency is critically high in production."
+#          enabled: true
+#        # Custom PromQL-based rule
+#        - id: custom-uptime
+#          name: "Instance uptime"
+#          source:
+#            type: promql
+#            promql:
+#              expression: "up == 0"
+#          severity: warning
+#          templates:
+#            summary: "Instance {{.instance}} is down"
+#          notificationCategory: custom-category # Override the notification category for this rule.
+#        # Custom log-based rule
+#        - id: custom-log-errors
+#          name: "Critical log errors"
+#          source:
+#            type: log_patterns
+#            logPattern:
+#              severities:
+#                - error
+#                - fatal
+#              minCount: 5            # Minimum occurrences before alerting.
+#              maxAlertsPerApp: 10    # Maximum alerts per application for this rule.
+#              evaluateWithAi: true   # Use AI to evaluate log patterns and reduce noise.
+#          severity: critical
 #      # Project inspection overrides.
 #      inspectionOverrides:
 #        # `applicationId` format: <namespace>:<kind>:<name>
