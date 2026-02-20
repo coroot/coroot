@@ -28,6 +28,7 @@ You can configure coroot-node-agent using command-line flags or environment vari
 | `--disable-gpu-monitoring` | `DISABLE_GPU_MONITORING` | `false` | Disable GPU monitoring (NVML) |
 | `--container-allowlist` | `CONTAINER_ALLOWLIST` | – | List of allowed containers (regex patterns) |
 | `--container-denylist` | `CONTAINER_DENYLIST` | – | List of denied containers (regex patterns) |
+| `--skip-systemd-system-services` | `SKIP_SYSTEMD_SYSTEM_SERVICES` | `true` | Skip well-known systemd system services (apt, motd, udev, etc.) |
 | `--exclude-http-requests-by-path` | `EXCLUDE_HTTP_REQUESTS_BY_PATH` | – | Exclude HTTP paths from metrics/traces |
 | `--track-public-network` | `TRACK_PUBLIC_NETWORK` | `0.0.0.0/0` | Public IP networks to track |
 | `--ephemeral-port-range` | `EPHEMERAL_PORT_RANGE` | `32768-60999` | TCP ports to exclude from tracking |
@@ -38,6 +39,7 @@ You can configure coroot-node-agent using command-line flags or environment vari
 | `--instance-life-cycle` | `INSTANCE_LIFE_CYCLE` | – | `instance_life_cycle` label for `node_cloud_info` |
 | `--log-per-second` | `LOG_PER_SECOND` | `10.0` | Rate limit for logs per second |
 | `--log-burst` | `LOG_BURST` | `100` | Max burst for log rate limiting |
+| `--log-patterns-per-container` | `LOG_PATTERNS_PER_CONTAINER` | `256` | Max unique log patterns per container per level |
 | `--max-label-length` | `MAX_LABEL_LENGTH` | `4096` | Max metric label length |
 | `--collector-endpoint` | `COLLECTOR_ENDPOINT` | – | Unified base URL for telemetry export |
 | `--api-key` | `API_KEY` | – | Coroot API key |
