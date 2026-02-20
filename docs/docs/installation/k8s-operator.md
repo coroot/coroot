@@ -23,10 +23,33 @@ Next, install the Coroot Operator:
 helm install -n coroot --create-namespace coroot-operator coroot/coroot-operator
 ```
 
+## Custom image registry
+
+By default, the operator pulls all component images from `ghcr.io/coroot`.
+To use a private or self-hosted registry, configure the operator via Helm values:
+
+```bash
+helm install -n coroot --create-namespace coroot-operator coroot/coroot-operator \
+  --set registry.url=https://registry.example.com/coroot \
+  --set registry.pullSecret=coroot-registry-auth \
+  --set registry.tlsSkipVerify=false
+```
+
+| Parameter | Description |
+|-----------|-------------|
+| `registry.url` | Full registry URL including scheme and path prefix (default: `https://ghcr.io/coroot`). |
+| `registry.pullSecret` | Name of an existing `kubernetes.io/dockerconfigjson` secret. Used for both version discovery and as `imagePullSecret` on all component pods. |
+| `registry.tlsSkipVerify` | Skip TLS certificate verification for registries with self-signed certificates. |
+
+The registry must have the same image layout as the default registry
+(e.g., `<registry>/coroot`, `<registry>/coroot-node-agent`, `<registry>/clickhouse`, etc.).
+
+For a step-by-step example, see the [Using JFrog Artifactory as a Registry for Coroot](/guides/jfrog-artifactory) guide.
+
 ## Coroot CR (Custom Resource)
 
-To deploy Coroot, you need to create a Coroot resource. Below is an example specification of the Coroot custom resource. 
-The operator continuously monitors these resources and adjusts the configuration if necessary. 
+To deploy Coroot, you need to create a Coroot resource. Below is an example specification of the Coroot custom resource.
+The operator continuously monitors these resources and adjusts the configuration if necessary.
 Additionally, the operator checks for new versions of Coroot components and automatically updates them unless you specify particular versions.
 
 ```yaml
