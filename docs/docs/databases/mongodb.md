@@ -30,6 +30,9 @@ coroot.com/mongodb-scrape-credentials-password: "<PASSWORD>"
 coroot.com/mongodb-scrape-credentials-secret-name: "mongodb-secret"
 coroot.com/mongodb-scrape-credentials-secret-username-key: "username"
 coroot.com/mongodb-scrape-credentials-secret-password-key: "password"
+
+# client TLS options: true, false (default: false)
+coroot.com/mongodb-scrape-param-tls: "false"
 ```
 
 Note that Coroot checks only **Pod** annotations, not higher-level Kubernetes objects like Deployments or StatefulSets.
@@ -47,7 +50,6 @@ Then, switch to `Manual Configuration`, complete the form, and click `Save`.
 
 Coroot-cluster-agent updates its configuration every minute and also takes some time to collect metrics. 
 Please wait a few minutes for telemetry to appear.
-
 
 ## Troubleshooting
 
