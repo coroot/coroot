@@ -25,3 +25,4 @@ To configure a **Rest HTTP API** integration in your Opsgenie account:
   <img alt="Coroot Opsgenie Integration" src="/img/docs/opsgenie-integration.png" class="card w-800"/>
 * You can also send a test alert to check the integration
   <img alt="Coroot Opsgenie Test Alert" src="/img/docs/opsgenie-integration-test.png" class="card w-800"/>
+* To overwrite Opsgenie URL, please use the ENV variable OPS_GENIE_API_URL
