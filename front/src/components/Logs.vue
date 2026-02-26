@@ -57,7 +57,7 @@
                     <thead>
                         <tr>
                             <template v-for="col in columns">
-                                <th v-if="col.key !== 'cluster' || $api.context.multicluster" :key="col.key" class="px-2">{{ col.label }}</th>
+                                <th :key="col.key" class="px-2">{{ col.label }}</th>
                             </template>
                         </tr>
                     </thead>
@@ -220,12 +220,7 @@ export default {
 
     computed: {
         cols() {
-            if (this.$api.context.multicluster) {
-                return this.columns;
-            }
-            return this.columns.filter((c) => {
-                return c.key !== 'cluster';
-            });
+            return this.columns;
         },
         queryWithDefaults() {
             return {

@@ -17,13 +17,13 @@ import (
 	"k8s.io/klog"
 )
 
-func Start(database *db.DB, mcache *cache.Cache, pricing *pricing.Manager, incidents *Incidents, checkDeployments bool, globalClickHouse *db.IntegrationClickhouse, globalPrometheus *db.IntegrationPrometheus, spaceManagerCfg config.ClickHouseSpaceManager, logPatternEvaluator LogPatternEvaluator) {
+func Start(database *db.DB, mcache *cache.Cache, pricing *pricing.Manager, incidents *Incidents, checkDeployments bool, globalClickHouse *db.IntegrationClickhouse, globalPrometheus *db.IntegrationPrometheus, spaceManagerCfg config.ClickHouseSpaceManager, logPatternEvaluator LogPatternEvaluator, kubernetesEventEvaluator KubernetesEventEvaluator) {
 	var deployments *Deployments
 	if checkDeployments {
 		deployments = NewDeployments(database, pricing)
 	}
 
-	alerts := NewAlerts(database, globalPrometheus, globalClickHouse, logPatternEvaluator)
+	alerts := NewAlerts(database, globalPrometheus, globalClickHouse, logPatternEvaluator, kubernetesEventEvaluator)
 
 	if incidents == nil && deployments == nil && alerts == nil {
 		return

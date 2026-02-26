@@ -94,7 +94,7 @@ export default {
     methods: {
         quick(interval) {
             // eslint-disable-next-line no-unused-vars
-            const { from, to, incident, ...query } = this.$route.query;
+            const { from, to, incident, alert, ...query } = this.$route.query;
             this.$router.push({ query: { ...query, ...interval.query } }).catch((err) => err);
             this.menu = false;
             this.from = this.$route.query.from || 'now-1h';
@@ -106,7 +106,9 @@ export default {
             this.menu = false;
             const from = isRelative(this.from) ? this.from : new Date(this.from).getTime();
             const to = isRelative(this.to) ? this.to : new Date(this.to).getTime();
-            this.$router.push({ query: { ...this.$route.query, from, to } }).catch((err) => err);
+            // eslint-disable-next-line no-unused-vars
+            const { incident, alert, ...query } = this.$route.query;
+            this.$router.push({ query: { ...query, from, to } }).catch((err) => err);
         },
         change() {
             this.from = this.dates[0] + ' 00:00';

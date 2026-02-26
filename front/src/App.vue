@@ -376,6 +376,8 @@ export default {
             switch (viewId) {
                 case 'incidents':
                     return { ...this.$utils.contextQuery(), incident: undefined };
+                case 'alerts':
+                    return { ...this.$utils.contextQuery(), alert: undefined };
                 case 'logs':
                     return { ...this.$utils.contextQuery(), query: undefined };
                 case 'kubernetes':

@@ -11,7 +11,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/coroot/coroot/ch"
 	"github.com/coroot/coroot/clickhouse"
 	"github.com/coroot/coroot/config"
 	"github.com/coroot/coroot/db"
@@ -425,7 +424,7 @@ func (f *IntegrationFormClickhouse) Update(ctx context.Context, project *db.Proj
 }
 
 func (f *IntegrationFormClickhouse) Test(ctx context.Context, project *db.Project) error {
-	client, err := clickhouse.NewClient(&f.IntegrationClickhouse, ch.ClickHouseInfo{}, project)
+	client, err := clickhouse.NewClient(&f.IntegrationClickhouse, project)
 	if err != nil {
 		return err
 	}

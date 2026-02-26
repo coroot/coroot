@@ -13,10 +13,11 @@ The Alerts page displays a list of both firing and resolved alerts within the se
 
 Coroot evaluates alerting rules on every data collection cycle. Each rule defines a source, a set of matching applications, and a severity level.
 
-There are three types of alert sources:
+There are four types of alert sources:
 
 * **Check-based alerts**: Coroot runs a set of built-in inspections (checks) for every application, such as CPU utilization, instance availability, or database latency. When a check exceeds its threshold, the corresponding alert fires.
 * **Log-based alerts**: Coroot automatically detects new error and fatal log patterns using its log pattern detection engine. When a new pattern appears with enough occurrences, an alert fires. Optionally, patterns can be evaluated by AI to reduce noise.
+* **Kubernetes events-based alerts**: Coroot monitors Kubernetes events (e.g., FailedScheduling, BackOff, Unhealthy) collected by coroot-cluster-agent and fires alerts when Warning events are detected. Events are automatically grouped by application and reason, so multiple pods of the same Deployment produce a single alert rather than an alert storm. Node-level events from the node-controller (e.g., NodeNotReady) are grouped by cluster and reason instead of per-application, because a single node failure typically affects many applications at once and would otherwise cause an alert storm.
 * **PromQL-based alerts**: Custom alerting rules based on PromQL expressions. This allows you to alert on any metric available in your Prometheus-compatible data source.
 
 ### Evaluation flow
@@ -35,7 +36,7 @@ To manage alerting rules, navigate to the **Alerts** page and click **Alerting R
 Each rule has the following settings:
 
 * **Name**: A descriptive name for the rule.
-* **Source**: The alert source type (Check, Log patterns, or PromQL).
+* **Source**: The alert source type (Check, Log patterns, Kubernetes events, or PromQL).
 * **Application selector**: Which applications the rule applies to (all, by category, or specific applications).
 * **Severity**: Warning or Critical.
 * **For**: How long the condition must be true before the alert fires.
@@ -83,6 +84,7 @@ Coroot comes with a set of built-in alerting rules that cover the most common fa
 | Python GIL waiting time | Runtime |
 | Node.js event loop blocked time | Runtime |
 | Log errors | Logs |
+| Kubernetes events | Kubernetes |
 
 Built-in rules can be disabled individually but not deleted. You can also create custom rules to supplement them.
 
@@ -162,6 +164,10 @@ For check-based alerts, the detail view also includes relevant charts and tables
 
 For log-based alerts, the detail view includes a bar chart showing the log pattern's message rate over time and a **Show messages** button that takes you directly to the raw log messages matching the pattern. If AI evaluation is enabled, the detail view also includes an **AI analysis** field with the AI's explanation.
 
+For Kubernetes events-based alerts, the detail view shows the event message, labels (cluster, reason, source component), and a chart showing the event frequency over time. A **Show events** button takes you to the Kubernetes events page filtered to the relevant events.
+
+<img alt="Kubernetes Events Alert Detail" src="/img/docs/alert-detail-k8s-events.png" class="card w-800"/>
+
 For PromQL-based alerts, the detail view includes the PromQL query and a chart showing the query result.
 
 ## Working with alerts
@@ -179,21 +185,21 @@ This is useful for known issues that you have decided to accept, such as a noisy
 
 To re-enable a suppressed alert, click **Reopen** in the alert detail dialog.
 
-## LLM evaluation for log-based alerts
+## LLM evaluation
 
 :::info Enterprise Edition
-LLM evaluation for log-based alerts is available in Coroot Enterprise Edition only.
+LLM evaluation for alerts is available in Coroot Enterprise Edition only.
 :::
 
-Log-based alerts can be noisy — not every new error pattern needs immediate attention.
-When an [AI integration](/alerting/incidents#ai-integration) is configured, Coroot can use an LLM to evaluate new log patterns
+Log-based and Kubernetes events-based alerts can be noisy — not every new error pattern or event needs immediate attention.
+When an [AI integration](/alerting/incidents#ai-integration) is configured, Coroot can use an LLM to evaluate new log patterns and Kubernetes events
 and figure out which ones are real problems and which are just noise.
 
 ### How it works
 
-1. A new log pattern shows up and the alerting rule has **AI evaluation** turned on.
-2. Coroot sends the pattern and a sample message to the configured LLM.
-3. The LLM decides if the pattern looks like a real problem (failed connections, crashes, data corruption, etc.) or noise (expected retries, debug messages logged at the wrong level, benign warnings).
+1. A new log pattern or Kubernetes event group appears and the alerting rule has **AI evaluation** turned on.
+2. Coroot sends the pattern/event details to the configured LLM.
+3. The LLM decides if it looks like a real problem (failed connections, crashes, scheduling failures, etc.) or noise (expected retries, debug messages logged at the wrong level, benign warnings).
 4. If the LLM thinks it's noise, the alert is still created but **automatically suppressed**. The explanation is saved in the alert details so you can see why.
 5. If the LLM thinks it's a real issue, the alert fires normally and notifications go out.
 
@@ -207,8 +213,8 @@ even if the same pattern comes back later.
 
 ### Enabling LLM evaluation
 
-LLM evaluation is controlled per alerting rule. The built-in **Log errors** rule has it enabled by default.
-For custom log-based rules, toggle it in the rule settings.
+LLM evaluation is controlled per alerting rule. The built-in **Log errors** and **Kubernetes events** rules have it enabled by default.
+For custom rules, toggle it in the rule settings.
 
 This requires an AI integration to be configured under **Settings** → **AI**.
 
@@ -231,7 +237,7 @@ Each category has independent notification settings for three event types:
 
 * **Incidents** (SLO violations)
 * **Deployments**
-* **Alerts** (check-based, log-based, and PromQL-based)
+* **Alerts** (check-based, log-based, Kubernetes events-based, and PromQL-based)
 
 For each event type, you can enable or disable individual integrations per category.
 For example, you might send alerts for `production` applications to Slack and PagerDuty,

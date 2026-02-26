@@ -23,12 +23,13 @@ type AlertNotification struct {
 }
 
 type AlertNotificationDetails struct {
-	RuleName   string              `json:"rule_name"`
-	Severity   string              `json:"severity"`
-	Summary    string              `json:"summary"`
-	Details    []model.AlertDetail `json:"details,omitempty"`
-	Duration   string              `json:"duration,omitempty"`
-	ResolvedBy string              `json:"resolved_by,omitempty"`
+	ProjectName string              `json:"project_name,omitempty"`
+	RuleName    string              `json:"rule_name"`
+	Severity    string              `json:"severity"`
+	Summary     string              `json:"summary"`
+	Details     []model.AlertDetail `json:"details,omitempty"`
+	Duration    string              `json:"duration,omitempty"`
+	ResolvedBy  string              `json:"resolved_by,omitempty"`
 }
 
 func (n *AlertNotification) Migrate(m *Migrator) error {

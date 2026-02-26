@@ -5,13 +5,16 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"math"
+	"regexp"
 	"sort"
 	"strings"
 	"text/template"
 	"time"
 
+	"github.com/coroot/coroot/clickhouse"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/notifications"
@@ -32,25 +35,37 @@ type LogPatternEvaluator interface {
 	Enabled() bool
 }
 
-type Alerts struct {
-	db                  *db.DB
-	notifier            *notifications.AlertNotifier
-	pendingAlerts       map[string]timeseries.Time
-	initializedProjects map[string]bool
-	logPatternEvaluator LogPatternEvaluator
-	globalPrometheus    *db.IntegrationPrometheus
-	globalClickHouse    *db.IntegrationClickhouse
+type KubernetesEventEvaluation struct {
+	ShouldAlert bool
+	Explanation string
 }
 
-func NewAlerts(database *db.DB, globalPrometheus *db.IntegrationPrometheus, globalClickHouse *db.IntegrationClickhouse, logPatternEvaluator LogPatternEvaluator) *Alerts {
+type KubernetesEventEvaluator interface {
+	Evaluate(project *db.Project, app *model.Application, event *model.LogEntry) (*KubernetesEventEvaluation, error)
+	Enabled() bool
+}
+
+type Alerts struct {
+	db                       *db.DB
+	notifier                 *notifications.AlertNotifier
+	pendingAlerts            map[string]timeseries.Time
+	initializedProjects      map[string]bool
+	logPatternEvaluator      LogPatternEvaluator
+	kubernetesEventEvaluator KubernetesEventEvaluator
+	globalPrometheus         *db.IntegrationPrometheus
+	globalClickHouse         *db.IntegrationClickhouse
+}
+
+func NewAlerts(database *db.DB, globalPrometheus *db.IntegrationPrometheus, globalClickHouse *db.IntegrationClickhouse, logPatternEvaluator LogPatternEvaluator, kubernetesEventEvaluator KubernetesEventEvaluator) *Alerts {
 	return &Alerts{
-		db:                  database,
-		notifier:            notifications.NewAlertNotifier(database),
-		pendingAlerts:       make(map[string]timeseries.Time),
-		initializedProjects: make(map[string]bool),
-		logPatternEvaluator: logPatternEvaluator,
-		globalPrometheus:    globalPrometheus,
-		globalClickHouse:    globalClickHouse,
+		db:                       database,
+		notifier:                 notifications.NewAlertNotifier(database),
+		pendingAlerts:            make(map[string]timeseries.Time),
+		initializedProjects:      make(map[string]bool),
+		logPatternEvaluator:      logPatternEvaluator,
+		kubernetesEventEvaluator: kubernetesEventEvaluator,
+		globalPrometheus:         globalPrometheus,
+		globalClickHouse:         globalClickHouse,
 	}
 }
 
@@ -103,6 +118,11 @@ func (w *Alerts) Check(project *db.Project, world *model.World, from, to timeser
 					continue
 				}
 				w.evaluatePromQLAlerts(project, rule, from, to, step, now)
+			case model.AlertSourceTypeKubernetesEvents:
+				if rule.Source.KubernetesEvents == nil {
+					continue
+				}
+				w.evaluateKubernetesEventsAlerts(project, rule, world, from, to, now)
 			}
 		}
 		w.resolveNonMatchingAlerts(project, rule, world, now)
@@ -287,6 +307,27 @@ func (w *Alerts) evaluateLogPatternAlerts(project *db.Project, rule *model.Alert
 
 				if blockingAlert := w.findBlockingAlert(string(rule.Id), fingerprint, appId, lp, alertByFingerprint, alertsByApp); blockingAlert != nil {
 					activeFingerprints[blockingAlert.Fingerprint] = true
+					if !blockingAlert.Suppressed && blockingAlert.ManuallyResolvedAt == 0 {
+						blockingAlert.Summary = fmt.Sprintf("new %s in the logs (%d messages in the last %s)", sev.String(), int(math.Round(float64(messageCount))), world.Ctx.To.Sub(world.Ctx.From))
+						var updatedDetails []model.AlertDetail
+						if rule.Templates.Description != "" {
+							updatedDetails = append(updatedDetails, model.AlertDetail{Name: "Description", Value: rule.Templates.Description})
+						}
+						if lp.Sample != "" {
+							updatedDetails = append(updatedDetails, model.AlertDetail{Name: "Sample", Value: lp.Sample, Code: true})
+						}
+						// preserve existing AI analysis
+						for _, d := range blockingAlert.Details {
+							if d.Name == "AI analysis" {
+								updatedDetails = append(updatedDetails, d)
+								break
+							}
+						}
+						blockingAlert.Details = updatedDetails
+						if err := w.db.UpdateAlert(project.Id, blockingAlert); err != nil {
+							klog.Errorln("failed to update log pattern alert:", err)
+						}
+					}
 					continue
 				}
 
@@ -514,6 +555,332 @@ func buildPromQLTemplateData(labels model.Labels, value float32) map[string]any 
 		data[k] = v
 	}
 	return data
+}
+
+func (w *Alerts) evaluateKubernetesEventsAlerts(project *db.Project, rule *model.AlertingRule, world *model.World, from, to timeseries.Time, now timeseries.Time) {
+	src := rule.Source.KubernetesEvents
+
+	minCount := src.MinCount
+	if minCount <= 0 {
+		minCount = 1
+	}
+	maxAlertsPerApp := src.MaxAlertsPerApp
+	if maxAlertsPerApp <= 0 {
+		maxAlertsPerApp = 20
+	}
+
+	chClients := clickhouse.GetClients(w.db, project, w.globalClickHouse)
+	if chClients.Error != nil {
+		klog.Errorf("failed to get clickhouse clients for k8s events rule %s: %v", rule.Id, chClients.Error)
+		return
+	}
+	defer chClients.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	var events []*model.LogEntry
+	for _, chClient := range chClients.Clients {
+		evts, err := chClient.GetKubernetesEvents(ctx, from, to, 10000, clickhouse.LogFilter{Name: "Severity", Op: "!=", Value: model.SeverityInfo.String()})
+		if err != nil {
+			klog.Errorf("failed to get k8s events for rule %s: %v", rule.Id, err)
+			continue
+		}
+		events = append(events, evts...)
+	}
+
+	type eventGroup struct {
+		appId           model.ApplicationId
+		app             *model.Application
+		reason          string
+		objKind         string
+		objNs           string
+		objName         string
+		clusterId       string
+		clusterName     string
+		sourceComponent string
+		nodeLevel       bool
+		events          []*model.LogEntry
+	}
+
+	instanceByName := map[string]*model.Application{}
+	appByComponentId := map[model.ApplicationId]*model.Application{}
+	for _, a := range world.Applications {
+		for _, inst := range a.Instances {
+			if inst.Pod == nil {
+				continue
+			}
+			instanceByName[inst.Name] = a
+			if inst.ClusterComponent != nil {
+				appByComponentId[inst.ClusterComponent.Id] = a
+			}
+		}
+	}
+
+	groups := map[string]*eventGroup{}
+	for _, event := range events {
+		ns := event.LogAttributes["object.namespace"]
+		name := event.LogAttributes["object.name"]
+		kind := event.LogAttributes["object.kind"]
+		reason := event.LogAttributes["event.reason"]
+		sourceComponent := event.LogAttributes["source.component"]
+
+		// Node-level events (e.g., NodeNotReady from node-controller) are grouped
+		// by cluster+reason instead of per-app to avoid alert storms when a node fails.
+		if sourceComponent == "node-controller" {
+			key := event.ClusterId + "|" + reason
+			g := groups[key]
+			if g == nil {
+				g = &eventGroup{reason: reason, clusterId: event.ClusterId, clusterName: event.ClusterName, sourceComponent: sourceComponent, nodeLevel: true}
+				groups[key] = g
+			}
+			g.events = append(g.events, event)
+			continue
+		}
+
+		appId := model.NewApplicationId(event.ClusterId, ns, model.ApplicationKind(kind), name)
+		app := world.GetApplication(appId)
+		if app == nil {
+			app = instanceByName[name]
+		}
+		if app == nil {
+			app = appByComponentId[appId]
+		}
+
+		var groupAppId model.ApplicationId
+		if app != nil {
+			groupAppId = app.Id
+		} else {
+			groupAppId = appId
+		}
+
+		key := groupAppId.String() + "|" + reason
+		g := groups[key]
+		if g == nil {
+			g = &eventGroup{appId: groupAppId, app: app, reason: reason, objKind: kind, objNs: ns, objName: name, clusterId: event.ClusterId, clusterName: event.ClusterName, sourceComponent: sourceComponent}
+			groups[key] = g
+		}
+		g.events = append(g.events, event)
+	}
+
+	latestAlerts, err := w.db.GetLatestAlertsByRule(project.Id, string(rule.Id))
+	if err != nil {
+		klog.Errorln("failed to get latest alerts:", err)
+		return
+	}
+
+	alertByFingerprint := map[string]*model.Alert{}
+	firingCountByApp := map[string]int{}
+	for _, a := range latestAlerts {
+		if alertByFingerprint[a.Fingerprint] != nil {
+			continue
+		}
+		alertByFingerprint[a.Fingerprint] = a
+		appId := a.ApplicationId.String()
+		if a.ManuallyResolvedAt == 0 && !a.Suppressed {
+			firingCountByApp[appId]++
+		}
+	}
+
+	severity := rule.Severity
+	if severity == model.UNKNOWN {
+		severity = model.WARNING
+	}
+
+	activeFingerprints := map[string]bool{}
+
+	for _, g := range groups {
+		if len(g.events) < minCount {
+			continue
+		}
+
+		var fingerprintAppId string
+		if !g.nodeLevel {
+			fingerprintAppId = g.appId.String()
+		}
+		fingerprint := calcFingerprint(string(rule.Id), fingerprintAppId, map[string]string{"reason": g.reason})
+		activeFingerprints[fingerprint] = true
+
+		summary := fmt.Sprintf("%s (%d events in the last %s)", g.reason, len(g.events), to.Sub(from))
+
+		var details []model.AlertDetail
+		if rule.Templates.Description != "" {
+			details = append(details, model.AlertDetail{Name: "Description", Value: rule.Templates.Description})
+		}
+		var labelParts []string
+		if g.clusterName != "" {
+			labelParts = append(labelParts, fmt.Sprintf(`cluster="%s"`, g.clusterName))
+		} else if g.clusterId != "" {
+			labelParts = append(labelParts, fmt.Sprintf(`cluster="%s"`, g.clusterId))
+		}
+		labelParts = append(labelParts, fmt.Sprintf(`reason="%s"`, g.reason))
+		if g.sourceComponent != "" {
+			labelParts = append(labelParts, fmt.Sprintf(`source="%s"`, g.sourceComponent))
+		}
+		var queryFilters []map[string]string
+		if g.clusterName != "" {
+			queryFilters = append(queryFilters, map[string]string{"name": "Cluster", "op": "=", "value": g.clusterName})
+		}
+		queryFilters = append(queryFilters, map[string]string{"name": "event.reason", "op": "=", "value": g.reason})
+
+		if g.nodeLevel {
+			queryFilters = append(queryFilters, map[string]string{"name": "source.component", "op": "=", "value": "node-controller"})
+			objNames := map[string]bool{}
+			for _, e := range g.events {
+				if n := e.LogAttributes["object.name"]; n != "" {
+					objNames[n] = true
+				}
+			}
+			if len(objNames) > 0 {
+				names := make([]string, 0, len(objNames))
+				for n := range objNames {
+					names = append(names, n)
+				}
+				sort.Strings(names)
+				labelParts = append(labelParts, fmt.Sprintf(`affected="%s"`, strings.Join(names, ", ")))
+			}
+		} else if g.app == nil {
+			if g.objKind != "" {
+				labelParts = append(labelParts, fmt.Sprintf(`kind="%s"`, g.objKind))
+				queryFilters = append(queryFilters, map[string]string{"name": "object.kind", "op": "=", "value": g.objKind})
+			}
+			if g.objNs != "" {
+				labelParts = append(labelParts, fmt.Sprintf(`namespace="%s"`, g.objNs))
+				queryFilters = append(queryFilters, map[string]string{"name": "object.namespace", "op": "=", "value": g.objNs})
+			}
+			labelParts = append(labelParts, fmt.Sprintf(`name="%s"`, g.objName))
+			queryFilters = append(queryFilters, map[string]string{"name": "object.name", "op": "=", "value": g.objName})
+		} else {
+			objNames := map[string]bool{}
+			for _, e := range g.events {
+				if n := e.LogAttributes["object.name"]; n != "" {
+					objNames[n] = true
+				}
+			}
+			if len(objNames) == 1 {
+				for n := range objNames {
+					queryFilters = append(queryFilters, map[string]string{"name": "object.name", "op": "=", "value": n})
+				}
+			} else if len(objNames) > 1 {
+				names := make([]string, 0, len(objNames))
+				for n := range objNames {
+					names = append(names, regexp.QuoteMeta(n))
+				}
+				sort.Strings(names)
+				queryFilters = append(queryFilters, map[string]string{"name": "object.name", "op": "~", "value": "^(" + strings.Join(names, "|") + ")$"})
+			}
+		}
+		sort.Strings(labelParts)
+		if g.events[0].Body != "" {
+			details = append(details, model.AlertDetail{Name: "Event message", Value: g.events[0].Body, Code: true})
+		}
+		details = append(details, model.AlertDetail{Name: "Labels", Value: strings.Join(labelParts, "\n"), Code: true})
+		if queryJSON, err := json.Marshal(queryFilters); err == nil {
+			details = append(details, model.AlertDetail{Name: "KubernetesEventsQuery", Value: string(queryJSON)})
+		}
+
+		existingAlert := alertByFingerprint[fingerprint]
+
+		if existingAlert != nil {
+			if existingAlert.Suppressed {
+				continue
+			}
+			// preserve existing AI analysis
+			for _, d := range existingAlert.Details {
+				if d.Name == "AI analysis" {
+					details = append(details, d)
+					break
+				}
+			}
+			existingAlert.Severity = severity
+			existingAlert.Summary = summary
+			existingAlert.Details = details
+			if err := w.db.UpdateAlert(project.Id, existingAlert); err != nil {
+				klog.Errorln("failed to update k8s event alert:", err)
+			}
+			continue
+		}
+
+		if !g.nodeLevel {
+			appIdStr := g.appId.String()
+			if firingCountByApp[appIdStr] >= maxAlertsPerApp {
+				continue
+			}
+		}
+
+		var aiExplanation string
+		var aiSuppressed bool
+		if w.kubernetesEventEvaluator != nil && src.EvaluateWithAI && g.app != nil {
+			eval, err := w.kubernetesEventEvaluator.Evaluate(project, g.app, g.events[0])
+			if err != nil {
+				klog.Errorf("AI evaluation failed for k8s event %s/%s: %v", g.appId.String(), g.reason, err)
+				aiExplanation = fmt.Sprintf("AI evaluation failed: %s", err)
+			} else {
+				aiExplanation = eval.Explanation
+				aiSuppressed = !eval.ShouldAlert
+			}
+		}
+		if aiExplanation != "" {
+			details = append(details, model.AlertDetail{Name: "AI analysis", Value: aiExplanation})
+		}
+
+		var alertAppId model.ApplicationId
+		var alertCategory model.ApplicationCategory
+		if g.app != nil {
+			alertAppId = g.app.Id
+			alertCategory = g.app.Category
+		} else {
+			alertAppId = model.ApplicationIdZero
+			alertCategory = model.ApplicationCategoryApplication
+		}
+
+		var resolvedBy string
+		if aiSuppressed {
+			resolvedBy = "AI"
+		}
+		alert := &model.Alert{
+			Id:                  utils.NanoId(12),
+			Fingerprint:         fingerprint,
+			RuleId:              string(rule.Id),
+			ProjectId:           string(project.Id),
+			ApplicationId:       alertAppId,
+			ApplicationCategory: alertCategory,
+			Severity:            severity,
+			Summary:             summary,
+			Details:             details,
+			Suppressed:          aiSuppressed,
+			ResolvedBy:          resolvedBy,
+		}
+		if err := w.db.CreateAlert(project.Id, alert); err != nil {
+			klog.Errorln("failed to create k8s event alert:", err)
+		} else {
+			if !aiSuppressed {
+				w.notifier.Enqueue(project, g.app, alert, rule, now)
+			}
+			if !g.nodeLevel {
+				firingCountByApp[g.appId.String()]++
+			}
+		}
+	}
+
+	for _, a := range alertByFingerprint {
+		if activeFingerprints[a.Fingerprint] {
+			continue
+		}
+		if a.Suppressed {
+			continue
+		}
+		if rule.KeepFiringFor > 0 && now.Sub(a.UpdatedAt) < rule.KeepFiringFor {
+			continue
+		}
+		a.ResolvedAt = now
+		if err := w.db.ResolveAlert(project.Id, a.Id, now); err != nil {
+			klog.Errorln("failed to resolve k8s event alert:", err)
+		} else if a.ManuallyResolvedAt == 0 {
+			app := world.GetApplication(a.ApplicationId)
+			w.notifier.Enqueue(project, app, a, rule, now)
+		}
+	}
 }
 
 func (w *Alerts) initLogPatternAlerts(project *db.Project, rule *model.AlertingRule, apps []*model.Application, severities map[model.Severity]bool, minCount int, now timeseries.Time) {

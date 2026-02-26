@@ -105,6 +105,8 @@ func (c *Client) GetLogFilters(ctx context.Context, query LogQuery, name string)
 		q = "SELECT DISTINCT multiIf(SeverityNumber=0, 0, intDiv(SeverityNumber, 4)+1)"
 	case "Message":
 		return res, nil
+	case "Cluster":
+		return []string{c.project.Name}, nil
 	default:
 		q = "SELECT DISTINCT arrayJoin([LogAttributes[@attr], ResourceAttributes[@attr]])"
 		args = append(args, clickhouse.Named("attr", name))
@@ -138,10 +140,12 @@ func (c *Client) GetLogFilters(ctx context.Context, query LogQuery, name string)
 	return res, nil
 }
 
-func (c *Client) GetKubernetesEvents(ctx context.Context, from, to timeseries.Time, limit int) ([]*model.LogEntry, error) {
+func (c *Client) GetKubernetesEvents(ctx context.Context, from, to timeseries.Time, limit int, extraFilters ...LogFilter) ([]*model.LogEntry, error) {
+	filters := []LogFilter{{Name: "service.name", Op: "=", Value: "KubernetesEvents"}}
+	filters = append(filters, extraFilters...)
 	q := LogQuery{
 		Ctx:     timeseries.NewContext(from, to, 0),
-		Filters: []LogFilter{{Name: "service.name", Op: "=", Value: "KubernetesEvents"}},
+		Filters: filters,
 		Limit:   limit,
 	}
 	return c.GetLogs(ctx, q)

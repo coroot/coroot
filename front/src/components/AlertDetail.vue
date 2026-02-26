@@ -118,6 +118,7 @@
                                     <Panel :config="promqlPanelConfig(d.value)" style="height: 200px" />
                                 </div>
                             </template>
+                            <template v-else-if="d.name === 'KubernetesEventsQuery'" />
                             <template v-else>
                                 <div :key="'dl-' + i" class="label">{{ d.name }}</div>
                                 <div :key="'dv-' + i" :class="d.code ? 'description log-sample' : 'description'">
@@ -151,6 +152,10 @@
 
                 <v-btn v-if="alert.log_pattern_hash" small color="primary" :to="logMessagesLink" @click.native="close" class="mt-2">
                     Show messages
+                </v-btn>
+
+                <v-btn v-if="kubernetesEventsLink" small color="primary" :to="kubernetesEventsLink" @click.native="close" class="mt-2">
+                    Show events
                 </v-btn>
 
                 <v-alert v-if="error" color="error" icon="mdi-alert-octagon-outline" outlined text class="mt-4">
@@ -272,6 +277,22 @@ export default {
                 params: { view: 'applications', id: this.alert.application_id, report: 'Logs' },
                 query: { ...this.alertContextQuery, query },
             };
+        },
+        kubernetesEventsLink() {
+            if (!this.alert || !this.alert.details) return null;
+            const d = this.alert.details.find((d) => d.name === 'KubernetesEventsQuery');
+            if (!d) return null;
+            try {
+                const filters = JSON.parse(d.value);
+                const query = JSON.stringify({ view: 'messages', filters });
+                return {
+                    name: 'overview',
+                    params: { view: 'kubernetes' },
+                    query: { ...this.alertContextQuery, query },
+                };
+            } catch {
+                return null;
+            }
         },
     },
 

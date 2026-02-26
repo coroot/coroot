@@ -102,6 +102,7 @@
                     </router-link>
                 </span>
                 <span v-else-if="item.source && item.source.type === 'log_patterns'">Log patterns</span>
+                <span v-else-if="item.source && item.source.type === 'kubernetes_events'">Kubernetes events</span>
                 <span v-else-if="item.source && item.source.type === 'promql'">
                     PromQL: <code>{{ truncateExpr(item.source.promql && item.source.promql.expression) }}</code>
                 </span>

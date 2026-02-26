@@ -109,6 +109,52 @@
                         </div>
                     </template>
 
+                    <template v-if="sourceType === 'kubernetes_events'">
+                        <div class="mb-4">
+                            <div class="subtitle-1">Min event count</div>
+                            <div class="caption grey--text">Minimum number of events for a group to trigger an alert.</div>
+                            <v-text-field
+                                v-model.number="k8sEventMinCount"
+                                type="number"
+                                :rules="[validatePositiveInt]"
+                                outlined
+                                dense
+                                hide-details="auto"
+                            />
+                        </div>
+
+                        <div class="mb-4">
+                            <div class="subtitle-1">Max alerts per app</div>
+                            <div class="caption grey--text">Maximum number of concurrent alerts per application.</div>
+                            <v-text-field
+                                v-model.number="k8sEventMaxAlertsPerApp"
+                                type="number"
+                                :rules="[validatePositiveInt]"
+                                outlined
+                                dense
+                                hide-details="auto"
+                            />
+                        </div>
+
+                        <v-checkbox
+                            v-model="k8sEventEvaluateWithAI"
+                            :disabled="$coroot.edition !== 'Enterprise'"
+                            color="primary"
+                            hide-details
+                            class="mt-0 pt-0 mb-1"
+                        >
+                            <template #label>
+                                <span>Evaluate with AI</span>
+                            </template>
+                        </v-checkbox>
+                        <div class="caption grey--text mb-4">
+                            Every Kubernetes event will be analyzed by AI to determine whether it's worth notifying the team.
+                            <template v-if="$coroot.edition !== 'Enterprise'">
+                                Available in <a href="https://coroot.com/editions" target="_blank">Coroot Enterprise</a>.
+                            </template>
+                        </div>
+                    </template>
+
                     <template v-if="sourceType === 'promql'">
                         <div class="subtitle-1">PromQL expression</div>
                         <div class="caption grey--text">
@@ -280,6 +326,9 @@ export default {
             logPatternMinCount: 10,
             logPatternMaxAlertsPerApp: 20,
             logPatternEvaluateWithAI: false,
+            k8sEventMinCount: 1,
+            k8sEventMaxAlertsPerApp: 20,
+            k8sEventEvaluateWithAI: false,
             selectorType: 'all',
             selectorCategories: [],
             selectorPatternsText: '',
@@ -295,6 +344,7 @@ export default {
                 { value: 'check', text: 'Built-in inspection' },
                 { value: 'log_patterns', text: 'Log patterns' },
                 { value: 'promql', text: 'PromQL expression' },
+                { value: 'kubernetes_events', text: 'Kubernetes events' },
             ],
             selectorTypes: [
                 { value: 'all', text: 'All applications' },
@@ -425,6 +475,12 @@ export default {
                     this.logPatternMaxAlertsPerApp = lp.max_alerts_per_app || 20;
                     this.logPatternEvaluateWithAI = lp.evaluate_with_ai !== false;
                 }
+                if (data.source && data.source.kubernetes_events) {
+                    const ke = data.source.kubernetes_events;
+                    this.k8sEventMinCount = ke.min_count || 1;
+                    this.k8sEventMaxAlertsPerApp = ke.max_alerts_per_app || 20;
+                    this.k8sEventEvaluateWithAI = ke.evaluate_with_ai !== false;
+                }
                 if (data.source && data.source.promql) {
                     this.promqlExpression = data.source.promql.expression || '';
                 }
@@ -454,6 +510,14 @@ export default {
                                   min_count: this.logPatternMinCount,
                                   max_alerts_per_app: this.logPatternMaxAlertsPerApp,
                                   evaluate_with_ai: this.logPatternEvaluateWithAI,
+                              }
+                            : null,
+                    kubernetes_events:
+                        this.sourceType === 'kubernetes_events'
+                            ? {
+                                  min_count: this.k8sEventMinCount,
+                                  max_alerts_per_app: this.k8sEventMaxAlertsPerApp,
+                                  evaluate_with_ai: this.k8sEventEvaluateWithAI,
                               }
                             : null,
                     promql: isPromQL ? { expression: this.promqlExpression } : null,

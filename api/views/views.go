@@ -39,8 +39,8 @@ func Incidents(w *model.World, incidents []*model.ApplicationIncident) []inciden
 	return incident.RenderList(w, incidents)
 }
 
-func Alert(w *model.World, a *model.Alert, app *model.Application, rules []*model.AlertingRule, notifications []db.AlertNotification) alert.Alert {
-	return alert.Render(w, a, app, rules, notifications)
+func Alert(w *model.World, a *model.Alert, app *model.Application, rules []*model.AlertingRule, notifications []db.AlertNotification, chs clickhouse.Clients) alert.Alert {
+	return alert.Render(w, a, app, rules, notifications, chs)
 }
 
 func Alerts(w *model.World, result *db.AlertsResult, rules []*model.AlertingRule, notifications map[string][]db.AlertNotification) *alert.AlertsListView {

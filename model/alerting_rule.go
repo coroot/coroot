@@ -10,9 +10,10 @@ type AlertingRuleId string
 type AlertSourceType string
 
 const (
-	AlertSourceTypeCheck       AlertSourceType = "check"
-	AlertSourceTypeLogPatterns AlertSourceType = "log_patterns"
-	AlertSourceTypePromQL      AlertSourceType = "promql"
+	AlertSourceTypeCheck            AlertSourceType = "check"
+	AlertSourceTypeLogPatterns      AlertSourceType = "log_patterns"
+	AlertSourceTypePromQL           AlertSourceType = "promql"
+	AlertSourceTypeKubernetesEvents AlertSourceType = "kubernetes_events"
 )
 
 type LogPatternSource struct {
@@ -30,11 +31,18 @@ type PromQLSource struct {
 	Expression string `json:"expression" yaml:"expression"`
 }
 
+type KubernetesEventsSource struct {
+	MinCount        int  `json:"min_count" yaml:"minCount"`
+	MaxAlertsPerApp int  `json:"max_alerts_per_app" yaml:"maxAlertsPerApp"`
+	EvaluateWithAI  bool `json:"evaluate_with_ai" yaml:"evaluateWithAi"`
+}
+
 type AlertSource struct {
-	Type       AlertSourceType   `json:"type" yaml:"type"`
-	Check      *CheckSource      `json:"check,omitempty" yaml:"check,omitempty"`
-	LogPattern *LogPatternSource `json:"log_pattern,omitempty" yaml:"logPattern,omitempty"`
-	PromQL     *PromQLSource     `json:"promql,omitempty" yaml:"promql,omitempty"`
+	Type             AlertSourceType         `json:"type" yaml:"type"`
+	Check            *CheckSource            `json:"check,omitempty" yaml:"check,omitempty"`
+	LogPattern       *LogPatternSource       `json:"log_pattern,omitempty" yaml:"logPattern,omitempty"`
+	PromQL           *PromQLSource           `json:"promql,omitempty" yaml:"promql,omitempty"`
+	KubernetesEvents *KubernetesEventsSource `json:"kubernetes_events,omitempty" yaml:"kubernetesEvents,omitempty"`
 }
 
 type AppSelectorType string
@@ -684,6 +692,26 @@ func BuiltinAlertingRules() []AlertingRule {
 			Severity:      WARNING,
 			Templates: AlertTemplates{
 				Description: "A new log pattern has been detected. Review the log messages to determine whether this indicates an error, a misconfiguration, or expected behavior. Suppress the alert if this is not a problem.",
+			},
+			Enabled: true,
+			Builtin: true,
+		},
+		{
+			Id:   "kubernetes-events",
+			Name: "Kubernetes events",
+			Source: AlertSource{
+				Type: AlertSourceTypeKubernetesEvents,
+				KubernetesEvents: &KubernetesEventsSource{
+					MinCount:        1,
+					MaxAlertsPerApp: 20,
+					EvaluateWithAI:  true,
+				},
+			},
+			KeepFiringFor: timeseries.Hour,
+			Selector:      AppSelector{Type: AppSelectorTypeAll},
+			Severity:      WARNING,
+			Templates: AlertTemplates{
+				Description: "A Kubernetes event has been detected. Review the event to determine whether it indicates a problem requiring attention.",
 			},
 			Enabled: true,
 			Builtin: true,

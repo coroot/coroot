@@ -50,7 +50,7 @@ func (sm *SpaceManager) runCleanupOnReplica(ctx context.Context, project *db.Pro
 	cfg := sm.clusterCfg
 	cfg.Addr = replicaAddr
 
-	client, err := NewClient(&cfg, ch.ClickHouseInfo{}, project)
+	client, err := NewClient(&cfg, project)
 	if err != nil {
 		return fmt.Errorf("failed to create client for replica %s: %w", replicaAddr, err)
 	}
@@ -218,17 +218,13 @@ func runSpaceManagerOnCluster(ctx context.Context, project *db.Project, managerC
 	if cfg.Protocol == ch.ProtocolCoroot {
 		return nil
 	}
-	client, err := NewClient(cfg, ch.ClickHouseInfo{}, project)
+	client, err := NewClient(cfg, project)
 	if err != nil {
 		return fmt.Errorf("failed to create client: %w", err)
 	}
 	defer client.Close()
 
-	cloud, err := client.IsCloud(ctx)
-	if err != nil {
-		return err
-	}
-	if cloud {
+	if client.Cloud() {
 		klog.Infoln("storage manager is disabled for ClickHouse Cloud")
 		return nil
 	}

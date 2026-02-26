@@ -67,6 +67,9 @@ func (pd *Pagerduty) SendAlert(ctx context.Context, baseUrl string, n *db.AlertN
 		}
 		if n.Details != nil {
 			details := map[string]string{}
+			if n.Details.ProjectName != "" {
+				details["Project"] = n.Details.ProjectName
+			}
 			if n.Details.RuleName != "" {
 				details["Alerting rule"] = n.Details.RuleName
 			}
