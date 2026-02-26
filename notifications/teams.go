@@ -81,6 +81,9 @@ func (t *Teams) SendAlert(ctx context.Context, baseUrl string, n *db.AlertNotifi
 	}
 	text := ""
 	if n.Details != nil {
+		if n.Details.ProjectName != "" {
+			text += fmt.Sprintf("**Project**: %s\n\n", n.Details.ProjectName)
+		}
 		if n.Details.RuleName != "" {
 			text += fmt.Sprintf("**Alerting rule**: %s\n\n", n.Details.RuleName)
 		}

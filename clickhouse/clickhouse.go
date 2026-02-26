@@ -26,12 +26,13 @@ const (
 )
 
 type Client struct {
-	conn    clickhouse.Conn
-	chInfo  ch.ClickHouseInfo
-	project *db.Project
+	conn           clickhouse.Conn
+	useDistributed bool
+	cloud          bool
+	project        *db.Project
 }
 
-func NewClient(config *db.IntegrationClickhouse, chInfo ch.ClickHouseInfo, project *db.Project) (*Client, error) {
+func NewClient(config *db.IntegrationClickhouse, project *db.Project) (*Client, error) {
 	var err error
 	var dialer *ch.Dialer
 
@@ -77,11 +78,54 @@ func NewClient(config *db.IntegrationClickhouse, chInfo ch.ClickHouseInfo, proje
 	if err != nil {
 		return nil, err
 	}
-	return &Client{conn: conn, chInfo: chInfo, project: project}, nil
+	c := &Client{conn: conn, project: project}
+	if err := c.discoverCluster(); err != nil {
+		klog.Warningln("failed to discover ClickHouse cluster info:", err)
+	}
+	return c, nil
+}
+
+func (c *Client) discoverCluster() error {
+	ctx, cancel := context.WithTimeout(context.Background(), dialTimeout)
+	defer cancel()
+
+	var exists uint8
+	if err := c.conn.QueryRow(ctx, "EXISTS system.zookeeper").Scan(&exists); err != nil {
+		return err
+	}
+	if exists != 1 {
+		return nil
+	}
+
+	var modeStr string
+	err := c.conn.QueryRow(ctx, "SELECT value FROM system.settings WHERE name = 'cloud_mode_engine'").Scan(&modeStr)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+	if modeStr != "" {
+		mode, _ := strconv.ParseUint(modeStr, 10, 64)
+		if mode >= 2 {
+			c.cloud = true
+			return nil
+		}
+	}
+
+	var count uint64
+	if err := c.conn.QueryRow(ctx, "SELECT count(DISTINCT cluster) FROM system.clusters").Scan(&count); err != nil {
+		return err
+	}
+	if count > 0 {
+		c.useDistributed = true
+	}
+	return nil
 }
 
 func (c *Client) Project() *db.Project {
 	return c.project
+}
+
+func (c *Client) Cloud() bool {
+	return c.cloud
 }
 
 func (c *Client) Ping(ctx context.Context) error {
@@ -89,12 +133,12 @@ func (c *Client) Ping(ctx context.Context) error {
 }
 
 func (c *Client) Query(ctx context.Context, query string, args ...interface{}) (driver.Rows, error) {
-	query = ch.ReplaceTables(query, c.chInfo.UseDistributed())
+	query = ch.ReplaceTables(query, c.useDistributed)
 	return c.conn.Query(ctx, query, args...)
 }
 
 func (c *Client) QueryRow(ctx context.Context, query string, args ...interface{}) driver.Row {
-	query = ch.ReplaceTables(query, c.chInfo.UseDistributed())
+	query = ch.ReplaceTables(query, c.useDistributed)
 	return c.conn.QueryRow(ctx, query, args...)
 }
 
@@ -107,7 +151,7 @@ func (c *Client) Close() error {
 
 func (c *Client) getClusterTopology(ctx context.Context) ([]ClusterNode, error) {
 	var clusterName string
-	if c.chInfo.Cloud {
+	if c.cloud {
 		clusterName = "default"
 	} else {
 		clusterQuery := `
@@ -258,15 +302,6 @@ func (c *Client) GetDiskInfo(ctx context.Context) ([]DiskInfo, error) {
 	return disks, nil
 }
 
-func (c *Client) IsCloud(ctx context.Context) (bool, error) {
-	var cloudMode bool
-	err := c.conn.QueryRow(ctx, "SELECT toBool(value) FROM system.settings WHERE name = 'cloud_mode';").Scan(&cloudMode)
-	if errors.Is(err, sql.ErrNoRows) {
-		return false, nil
-	}
-	return cloudMode, err
-}
-
 func parseTTLToSeconds(ttlExpr string) uint64 {
 	ttlExpr = strings.TrimSpace(ttlExpr)
 
@@ -361,8 +396,8 @@ type ClusterInfo struct {
 	ServerDisks []ServerDiskInfo `json:"server_disks,omitempty"`
 }
 
-func GetClusterInfo(ctx context.Context, cfg *db.IntegrationClickhouse, info ch.ClickHouseInfo, project *db.Project) (*ClusterInfo, error) {
-	ch, err := NewClient(cfg, info, project)
+func GetClusterInfo(ctx context.Context, cfg *db.IntegrationClickhouse, project *db.Project) (*ClusterInfo, error) {
+	ch, err := NewClient(cfg, project)
 	if err != nil {
 		return nil, err
 	}
@@ -372,11 +407,11 @@ func GetClusterInfo(ctx context.Context, cfg *db.IntegrationClickhouse, info ch.
 		klog.Errorln("failed to get ClickHouse cluster topology:", err)
 		return ci, nil
 	}
-	if ci.TableSizes, err = getClusterTableSizes(ctx, cfg, project, ci.Topology, ch, info); err != nil {
+	if ci.TableSizes, err = getClusterTableSizes(ctx, cfg, project, ci.Topology, ch); err != nil {
 		klog.Errorln("failed to get ClickHouse table sizes:", err)
 		return ci, nil
 	}
-	if ci.ServerDisks, err = getClusterServerDisks(ctx, cfg, project, ci.Topology, info); err != nil {
+	if ci.ServerDisks, err = getClusterServerDisks(ctx, cfg, project, ci.Topology, ch); err != nil {
 		klog.Errorln("failed to get ClickHouse server disks:", err)
 		return ci, nil
 	}
@@ -410,7 +445,7 @@ func executeOnAllServers(ctx context.Context, config *db.IntegrationClickhouse, 
 			clientConfig := config
 			clientConfig.Addr = addr
 
-			client, err := NewClient(clientConfig, ch.ClickHouseInfo{}, project)
+			client, err := NewClient(clientConfig, project)
 			if err != nil {
 				resultsChan <- serverExecResult{addr: addr, err: err}
 				return
@@ -444,8 +479,8 @@ func executeOnAllServers(ctx context.Context, config *db.IntegrationClickhouse, 
 	}
 }
 
-func getClusterTableSizes(ctx context.Context, config *db.IntegrationClickhouse, project *db.Project, topology []ClusterNode, ch *Client, info ch.ClickHouseInfo) ([]TableInfo, error) {
-	if info.Cloud {
+func getClusterTableSizes(ctx context.Context, config *db.IntegrationClickhouse, project *db.Project, topology []ClusterNode, ch *Client) ([]TableInfo, error) {
+	if ch.cloud {
 		allTables, err := ch.GetTableSizes(ctx)
 		if err != nil {
 			return nil, err
@@ -472,8 +507,8 @@ func getClusterTableSizes(ctx context.Context, config *db.IntegrationClickhouse,
 	return aggregateTableStats(allTables), nil
 }
 
-func getClusterServerDisks(ctx context.Context, config *db.IntegrationClickhouse, project *db.Project, topology []ClusterNode, info ch.ClickHouseInfo) ([]ServerDiskInfo, error) {
-	if info.Cloud {
+func getClusterServerDisks(ctx context.Context, config *db.IntegrationClickhouse, project *db.Project, topology []ClusterNode, ch *Client) ([]ServerDiskInfo, error) {
+	if ch.cloud {
 		return nil, nil
 	}
 	results, err := executeOnAllServers(ctx, config, topology, project, func(client *Client) (interface{}, error) {
@@ -568,4 +603,36 @@ func (chs Clients) Close() {
 	for _, c := range chs.Clients {
 		_ = c.Close()
 	}
+}
+
+func GetClients(database *db.DB, project *db.Project, globalClickHouse *db.IntegrationClickhouse) (res Clients) {
+	var memberProjects []*db.Project
+	if project.Multicluster() {
+		projects, err := database.GetProjects()
+		if err != nil {
+			res.Error = err
+			return
+		}
+		for _, mp := range project.Settings.MemberProjects {
+			if p := projects[mp]; p != nil {
+				memberProjects = append(memberProjects, p)
+			}
+		}
+	} else {
+		memberProjects = []*db.Project{project}
+	}
+	for _, p := range memberProjects {
+		cfg := p.ClickHouseConfig(globalClickHouse)
+		if cfg == nil {
+			continue
+		}
+		c, err := NewClient(cfg, p)
+		if err != nil {
+			res.Close()
+			res = Clients{Error: err}
+			return
+		}
+		res.Clients = append(res.Clients, c)
+	}
+	return
 }

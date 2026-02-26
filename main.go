@@ -142,7 +142,7 @@ func main() {
 
 	incidents := watchers.NewIncidents(database, a.IncidentRCA)
 
-	watchers.Start(database, promCache, pricing, incidents, !cfg.DoNotCheckForDeployments, globalClickhouse, globalPrometheus, cfg.ClickHouseSpaceManager, nil)
+	watchers.Start(database, promCache, pricing, incidents, !cfg.DoNotCheckForDeployments, globalClickhouse, globalPrometheus, cfg.ClickHouseSpaceManager, nil, nil)
 
 	statsCollector := stats.NewCollector(cfg.DisableUsageStatistics, instanceUuid, version, Edition, database, promCache, pricing, globalClickhouse)
 

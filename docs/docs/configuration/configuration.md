@@ -260,7 +260,7 @@ projects: # Create or update projects (configuration file only).
       - id: custom-postgres-latency
         name: "Postgres latency (production)"
         source:
-          type: check              # One of: check, log_patterns, promql.
+          type: check              # One of: check, log_patterns, kubernetes_events, promql.
           check:
             checkId: postgres_latency
         selector:
@@ -296,6 +296,20 @@ projects: # Create or update projects (configuration file only).
             maxAlertsPerApp: 10
             evaluateWithAi: true
         severity: critical
+      # Custom Kubernetes events-based rule
+      - id: custom-k8s-events
+        name: "K8s events (production)"
+        source:
+          type: kubernetes_events
+          kubernetesEvents:
+            minCount: 1
+            maxAlertsPerApp: 10
+            evaluateWithAi: true
+        selector:
+          type: category
+          categories:
+            - production
+        severity: warning
     # Project inspection overrides
     inspectionOverrides:
       # applicationId format: <namespace>:<kind>:<name>

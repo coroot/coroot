@@ -134,10 +134,11 @@ func (n *AlertNotifier) enqueue(now timeseries.Time, project *db.Project, alert 
 		Status:        alert.Severity,
 	}
 	details := &db.AlertNotificationDetails{
-		RuleName: rule.Name,
-		Severity: alert.Severity.String(),
-		Summary:  alert.Summary,
-		Details:  filterAlertDetails(alert.Details),
+		ProjectName: project.Name,
+		RuleName:    rule.Name,
+		Severity:    alert.Severity.String(),
+		Summary:     alert.Summary,
+		Details:     filterAlertDetails(alert.Details),
 	}
 	if alert.ResolvedAt > 0 {
 		details.Duration = utils.FormatDurationShort(alert.ResolvedAt.Sub(alert.OpenedAt), 2)
@@ -240,12 +241,13 @@ func EnqueueResolvedAlerts(database *db.DB, project *db.Project, alerts []*model
 
 func enqueueResolvedAlert(database *db.DB, now timeseries.Time, project *db.Project, alert *model.Alert, rule *model.AlertingRule, settings db.ApplicationCategoryAlertNotificationSettings) {
 	details := &db.AlertNotificationDetails{
-		RuleName:   rule.Name,
-		Severity:   alert.Severity.String(),
-		Summary:    alert.Summary,
-		Details:    filterAlertDetails(alert.Details),
-		Duration:   utils.FormatDurationShort(now.Sub(alert.OpenedAt), 2),
-		ResolvedBy: alert.ResolvedBy,
+		ProjectName: project.Name,
+		RuleName:    rule.Name,
+		Severity:    alert.Severity.String(),
+		Summary:     alert.Summary,
+		Details:     filterAlertDetails(alert.Details),
+		Duration:    utils.FormatDurationShort(now.Sub(alert.OpenedAt), 2),
+		ResolvedBy:  alert.ResolvedBy,
 	}
 
 	if slack := settings.Slack; slack != nil && slack.Enabled {

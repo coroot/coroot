@@ -59,6 +59,7 @@ type DeploymentTemplateValues struct {
 ```go
 type AlertTemplateValues struct {
     Status string // OK, WARNING, CRITICAL
+    ProjectName string // project name, e.g. "production"
     Application struct {
         Namespace string
         Kind      string
@@ -180,6 +181,7 @@ A sample of resulting alert message:
 ```json
 {
   "status": "WARNING",
+  "project_name": "production",
   "application": "default:Deployment:app1",
   "rule_name": "Low disk space",
   "severity": "warning",

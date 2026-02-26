@@ -91,6 +91,9 @@ func (og *Opsgenie) SendAlert(ctx context.Context, baseUrl string, n *db.AlertNo
 		req.Priority = alert.P4
 	}
 	if n.Details != nil {
+		if n.Details.ProjectName != "" {
+			req.Description += fmt.Sprintf("Project: %s\n", n.Details.ProjectName)
+		}
 		if n.Details.RuleName != "" {
 			req.Description += fmt.Sprintf("Alerting rule: %s\n", n.Details.RuleName)
 		}

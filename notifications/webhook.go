@@ -38,6 +38,7 @@ type DeploymentTemplateValues struct {
 
 type AlertTemplateValues struct {
 	Status      string              `json:"status"`
+	ProjectName string              `json:"project_name"`
 	Application model.ApplicationId `json:"application"`
 	RuleName    string              `json:"rule_name"`
 	Severity    string              `json:"severity"`
@@ -91,6 +92,7 @@ func (wh *Webhook) SendAlert(ctx context.Context, baseUrl string, n *db.AlertNot
 		URL:         alertUrl(baseUrl, n),
 	}
 	if n.Details != nil {
+		values.ProjectName = n.Details.ProjectName
 		values.RuleName = n.Details.RuleName
 		values.Severity = n.Details.Severity
 		values.Summary = n.Details.Summary

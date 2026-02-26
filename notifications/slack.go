@@ -162,6 +162,9 @@ func (s *Slack) SendAlert(ctx context.Context, baseUrl string, n *db.AlertNotifi
 	}
 	var details []string
 	if n.Details != nil {
+		if n.Details.ProjectName != "" {
+			details = append(details, fmt.Sprintf("*Project*: %s", n.Details.ProjectName))
+		}
 		if n.Details.RuleName != "" {
 			details = append(details, fmt.Sprintf("*Alerting rule*: %s", n.Details.RuleName))
 		}

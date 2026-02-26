@@ -101,6 +101,10 @@ func (ar *AlertingRule) Validate() error {
 			if ar.Source.LogPattern == nil || len(ar.Source.LogPattern.Severities) == 0 {
 				return fmt.Errorf("source.logPattern.severities is required for log_patterns source")
 			}
+		case model.AlertSourceTypeKubernetesEvents:
+			if ar.Source.KubernetesEvents == nil {
+				return fmt.Errorf("source.kubernetesEvents is required for kubernetes_events source")
+			}
 		default:
 			return fmt.Errorf("invalid source type: %s", ar.Source.Type)
 		}

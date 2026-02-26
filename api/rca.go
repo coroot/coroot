@@ -129,6 +129,7 @@ func (api *Api) RCA(w http.ResponseWriter, r *http.Request, u *db.User) {
 		klog.Errorln(err)
 	}
 	if ch != nil {
+		defer ch.Close()
 		rcaRequest.KubernetesEvents, err = ch.GetKubernetesEvents(r.Context(), from, to, 1000)
 		if err != nil {
 			klog.Errorln(err)
@@ -239,6 +240,7 @@ func (api *Api) IncidentRCA(ctx context.Context, project *db.Project, world *mod
 		klog.Errorln(err)
 	}
 	if ch != nil {
+		defer ch.Close()
 		rcaRequest.KubernetesEvents, err = ch.GetKubernetesEvents(ctx, rcaRequest.Ctx.From, rcaRequest.Ctx.To, 1000)
 		if err != nil {
 			klog.Errorln(err)

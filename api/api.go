@@ -916,10 +916,8 @@ func (api *Api) Integration(w http.ResponseWriter, r *http.Request, u *db.User) 
 			cfg := project.ClickHouseConfig(api.globalClickHouse)
 			var ci *clickhouse.ClusterInfo
 			if cfg != nil && cfg.Protocol != ch.ProtocolCoroot {
-				cInfo, err := api.collector.GetClickhouseClusterInfo(project)
-				if err != nil {
-					klog.Errorln(err)
-				} else if ci, err = clickhouse.GetClusterInfo(r.Context(), cfg, cInfo, project); err != nil {
+				var err error
+				if ci, err = clickhouse.GetClusterInfo(r.Context(), cfg, project); err != nil {
 					klog.Errorln(err)
 				}
 			}
@@ -1299,7 +1297,9 @@ func (api *Api) Alert(w http.ResponseWriter, r *http.Request, u *db.User) {
 		}
 		auditor.Audit(world, project, app, nil)
 	}
-	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Alert(world, a, app, rules, notifications[alertId])))
+	chs := api.GetClickhouseClients(project)
+	defer chs.Close()
+	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Alert(world, a, app, rules, notifications[alertId], chs)))
 }
 
 func (api *Api) ResolveAlerts(w http.ResponseWriter, r *http.Request, u *db.User) {
@@ -2368,59 +2368,29 @@ func maxDuration(d1, d2 timeseries.Duration) timeseries.Duration {
 	return d2
 }
 
-func (api *Api) GetClickhouseClients(project *db.Project) (res clickhouse.Clients) {
-	if project.Multicluster() {
-		var projects map[string]*db.Project
-		if projects, res.Error = api.db.GetProjects(); res.Error != nil {
-			return
-		}
-		for _, mp := range project.Settings.MemberProjects {
-			p, ok := projects[mp]
-			if !ok {
-				res.Error = fmt.Errorf("project doesn't exist: %s", mp)
-				return
-			}
-			var ch *clickhouse.Client
-			if ch, res.Error = api.GetClickhouseClient(p, ""); res.Error != nil {
-				return
-			}
-			if ch != nil {
-				res.Clients = append(res.Clients, ch)
-			}
-		}
-	} else {
-		var ch *clickhouse.Client
-		if ch, res.Error = api.GetClickhouseClient(project, ""); res.Error != nil {
-			return
-		}
-		if ch != nil {
-			res.Clients = append(res.Clients, ch)
-		}
-	}
-	return
+func (api *Api) GetClickhouseClients(project *db.Project) clickhouse.Clients {
+	return clickhouse.GetClients(api.db, project, api.globalClickHouse)
 }
 
 func (api *Api) GetClickhouseClient(project *db.Project, memberProjectId string) (*clickhouse.Client, error) {
-	var err error
 	p := project
 	if project.Multicluster() {
 		if memberProjectId == "" {
 			return nil, fmt.Errorf("invalid member project id")
 		}
+		var err error
 		if p, err = api.db.GetProject(db.ProjectId(memberProjectId)); err != nil {
 			return nil, err
 		}
 	}
-
-	cfg := p.ClickHouseConfig(api.globalClickHouse)
-	if cfg == nil {
+	chs := api.GetClickhouseClients(p)
+	if chs.Error != nil {
+		return nil, chs.Error
+	}
+	if len(chs.Clients) == 0 {
 		return nil, nil
 	}
-	clusterInfo, err := api.collector.GetClickhouseClusterInfo(p)
-	if err != nil {
-		return nil, err
-	}
-	return clickhouse.NewClient(cfg, clusterInfo, p)
+	return chs.Clients[0], nil
 }
 
 func GetApplicationId(r *http.Request) (model.ApplicationId, error) {
