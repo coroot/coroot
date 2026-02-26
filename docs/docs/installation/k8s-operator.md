@@ -432,11 +432,18 @@ spec:
 #        # Disable a built-in rule
 #        - id: memory-pressure
 #          enabled: false
+#        # Adjust the built-in Kubernetes events rule
+#        - id: kubernetes-events
+#          source:
+#            type: kubernetes_events
+#            kubernetesEvents:
+#              minCount: 3              # Require at least 3 occurrences before alerting.
+#              evaluateWithAi: false    # Disable AI evaluation.
 #        # Custom check-based rule
 #        - id: custom-postgres-latency
 #          name: "Postgres latency (production)"
 #          source:
-#            type: check              # One of: check, log_patterns, promql.
+#            type: check              # One of: check, log_patterns, kubernetes_events, promql.
 #            check:
 #              checkId: postgres_latency
 #          selector:
@@ -473,6 +480,16 @@ spec:
 #              maxAlertsPerApp: 10    # Maximum alerts per application for this rule.
 #              evaluateWithAi: true   # Use AI to evaluate log patterns and reduce noise.
 #          severity: critical
+#        # Custom Kubernetes events-based rule
+#        - id: custom-k8s-events
+#          name: "K8s scheduling failures"
+#          source:
+#            type: kubernetes_events
+#            kubernetesEvents:
+#              minCount: 3              # Minimum occurrences before alerting.
+#              maxAlertsPerApp: 10      # Maximum alerts per application for this rule.
+#              evaluateWithAi: true     # Use AI to evaluate events and reduce noise.
+#          severity: warning
 #      # Project inspection overrides.
 #      inspectionOverrides:
 #        # `applicationId` format: <namespace>:<kind>:<name>

@@ -10,8 +10,8 @@ AI-powered Root Cause Analysis is available only in Coroot Enterprise (from $1 p
 
 Coroot Enterprise Edition supports integration with multiple AI model providers:
 
-* Anthropic (Claude 3.7 Sonnet) – recommended, as it delivered the best results based on our tests
-* OpenAI (GPT-4o)
+* Anthropic (Claude Opus 4.6) – recommended, as it delivered the best results based on our tests
+* OpenAI (GPT-5.2)
 * Any OpenAI-compatible API, such as DeepSeek or Google Gemini
 
 To set up an integration, go to **Project Settings** → **AI**.
