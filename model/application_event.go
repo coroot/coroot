@@ -13,6 +13,7 @@ const (
 	ApplicationEventTypeRollout
 	ApplicationEventTypeInstanceDown
 	ApplicationEventTypeInstanceUp
+	ApplicationEventTypeDbChange
 )
 
 type ApplicationEvent struct {
@@ -20,6 +21,7 @@ type ApplicationEvent struct {
 	End     timeseries.Time
 	Type    ApplicationEventType
 	Details string
+	Link    *RouterLink
 }
 
 func (e *ApplicationEvent) String() string {

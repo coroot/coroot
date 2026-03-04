@@ -11,9 +11,7 @@
             </div>
 
             <div class="font-weight-medium my-3">Message</div>
-            <div class="message" :class="{ multiline: value.multiline }">
-                {{ value.message }}
-            </div>
+            <div class="message" :class="{ multiline: value.multiline }">{{ value.message }}</div>
 
             <div class="font-weight-medium mt-4 mb-2">Attributes</div>
             <v-simple-table dense class="attributes">

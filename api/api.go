@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"slices"
@@ -1082,6 +1083,8 @@ func (api *Api) Application(w http.ResponseWriter, r *http.Request, u *db.User) 
 		http.Error(w, "You are not allowed to view this application.", http.StatusForbidden)
 		return
 	}
+
+	loadDbChangeEvents(r.Context(), api, project, app, world)
 
 	auditor.Audit(world, project, app, nil)
 
@@ -2391,6 +2394,91 @@ func (api *Api) GetClickhouseClient(project *db.Project, memberProjectId string)
 		return nil, nil
 	}
 	return chs.Clients[0], nil
+}
+
+func loadDbChangeEvents(ctx context.Context, api *Api, project *db.Project, app *model.Application, world *model.World) {
+	if !app.IsDatabase() {
+		return
+	}
+
+	ch, err := api.GetClickhouseClient(project, app.Id.ClusterId)
+	if err != nil {
+		klog.Warningln(err)
+		return
+	}
+	if ch == nil {
+		return
+	}
+	defer ch.Close()
+
+	filters := []clickhouse.LogFilter{
+		{Name: "service.name", Op: "=", Value: "DatabaseChanges"},
+	}
+	for _, instance := range app.Instances {
+		for listen := range instance.TcpListens {
+			if listen.Port == "0" {
+				continue
+			}
+			filters = append(filters, clickhouse.LogFilter{Name: "db.target", Op: "=", Value: net.JoinHostPort(listen.IP, listen.Port)})
+		}
+	}
+	if len(filters) < 2 {
+		return
+	}
+
+	q := clickhouse.LogQuery{
+		Ctx:      timeseries.NewContext(world.Ctx.From, world.Ctx.To, 0),
+		Services: []string{"DatabaseChanges"},
+		Filters:  filters,
+		Limit:    1000,
+	}
+
+	entries, err := ch.GetLogs(ctx, q)
+	if err != nil {
+		klog.Warningln(err)
+		return
+	}
+
+	logsQuery, _ := json.Marshal(map[string]any{
+		"view":    "messages",
+		"filters": filters,
+	})
+	link := model.NewRouterLink("view", "overview").
+		SetParam("view", "logs").
+		SetArg("query", string(logsQuery))
+
+	type eventKey struct {
+		ts      timeseries.Time
+		details string
+	}
+	seen := map[eventKey]bool{}
+	for _, e := range entries {
+		ts := timeseries.Time(e.Timestamp.Unix()).Truncate(3 * world.Ctx.Step)
+		object := e.LogAttributes["db_change.object"]
+		dbName := e.LogAttributes["db.name"]
+		schemaName := e.LogAttributes["db_change.schema"]
+		var details string
+		switch {
+		case dbName != "" && schemaName != "":
+			details = dbName + "." + schemaName + "." + object
+		case dbName != "":
+			details = dbName + "." + object
+		default:
+			details = object
+		}
+		k := eventKey{ts: ts, details: details}
+		if seen[k] {
+			continue
+		}
+		seen[k] = true
+		app.Events = append(app.Events, &model.ApplicationEvent{
+			Start:   ts,
+			End:     ts,
+			Type:    model.ApplicationEventTypeDbChange,
+			Details: details,
+			Link:    link,
+		})
+	}
 }
 
 func GetApplicationId(r *http.Request) (model.ApplicationId, error) {
