@@ -14,6 +14,7 @@ type Annotation struct {
 	X1   timeseries.Time `json:"x1"`
 	X2   timeseries.Time `json:"x2"`
 	Icon string          `json:"icon"`
+	Link *RouterLink     `json:"link,omitempty"`
 }
 
 type SeriesData interface {
@@ -442,6 +443,7 @@ func EventsToAnnotations(events []*ApplicationEvent, ctx timeseries.Context) []A
 			return a.events[i].Type < a.events[j].Type
 		})
 		icon := ""
+		var link *RouterLink
 		var msgs []string
 		for _, e := range a.events {
 			i := ""
@@ -458,9 +460,15 @@ func EventsToAnnotations(events []*ApplicationEvent, ctx timeseries.Context) []A
 			case ApplicationEventTypeInstanceDown:
 				msgs = append(msgs, e.Details+" is down")
 				i = "mdi-alert-octagon-outline"
+			case ApplicationEventTypeDbChange:
+				msgs = append(msgs, e.Details+" changed")
+				i = "mdi-database-cog-outline"
 			}
 			if icon == "" {
 				icon = i
+			}
+			if link == nil {
+				link = e.Link
 			}
 		}
 		res = append(res, Annotation{
@@ -468,6 +476,7 @@ func EventsToAnnotations(events []*ApplicationEvent, ctx timeseries.Context) []A
 			X1:   a.start,
 			X2:   a.end,
 			Icon: icon,
+			Link: link,
 		})
 	}
 	return res
