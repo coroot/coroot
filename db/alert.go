@@ -149,7 +149,7 @@ func (db *DB) CreateAlertingRule(projectId ProjectId, r *model.AlertingRule) err
 
 	_, err := db.db.Exec(
 		"INSERT INTO alerting_rule (id, project_id, config, enabled, builtin, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7)",
-		r.Id, projectId, string(config), r.Enabled, r.Builtin, r.CreatedAt, r.UpdatedAt)
+		r.Id, projectId, string(config), boolToInt(r.Enabled), boolToInt(r.Builtin), r.CreatedAt, r.UpdatedAt)
 	return err
 }
 
@@ -169,7 +169,7 @@ func (db *DB) UpdateAlertingRule(projectId ProjectId, r *model.AlertingRule) err
 
 	_, err := db.db.Exec(
 		"UPDATE alerting_rule SET config = $1, enabled = $2, updated_at = $3 WHERE project_id = $4 AND id = $5",
-		string(config), r.Enabled, r.UpdatedAt, projectId, r.Id)
+		string(config), boolToInt(r.Enabled), r.UpdatedAt, projectId, r.Id)
 	return err
 }
 

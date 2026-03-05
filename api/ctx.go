@@ -73,6 +73,9 @@ type LicenseManager interface {
 }
 
 func (api *Api) WithContext(p *db.Project, cacheStatus *cache.Status, w *model.World, data any) DataWithContext {
+	if p == nil {
+		return DataWithContext{}
+	}
 	alerts, _ := api.db.GetFiringAlertCountsBySeverity(p.Id)
 	if alerts == nil {
 		alerts = map[string]int{}

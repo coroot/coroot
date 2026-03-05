@@ -240,3 +240,10 @@ func unmarshal[T any](s string, v **T) error {
 	*v = &vv
 	return json.Unmarshal([]byte(s), &vv)
 }
+
+func boolToInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}
