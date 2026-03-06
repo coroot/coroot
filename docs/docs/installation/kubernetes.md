@@ -8,7 +8,7 @@ import TabItem from '@theme/TabItem';
 # Kubernetes
 
 <Tabs queryString="edition">
-  <TabItem value="ce" label="Community Edition (operator)" default>
+  <TabItem value="ce" label="Community Edition" default>
 
 Add the Coroot helm chart repo:
 
@@ -29,8 +29,6 @@ Install the Coroot Community Edition. This chart creates a minimal [Coroot Custo
 helm install -n coroot coroot coroot/coroot-ce \
   --set "clickhouse.shards=2,clickhouse.replicas=2"
 ```
-
-The helm chart 
 
 Forward the Coroot port to your machine:
 
@@ -54,7 +52,7 @@ helm uninstall coroot-operator -n coroot
 ```
   </TabItem>
 
-  <TabItem value="ee" label="Enterprise Edition (operator)">
+  <TabItem value="ee" label="Enterprise Edition">
 
 :::info
 Coroot Enterprise Edition is a paid subscription (from $1 per CPU core/month) that offers extra features and priority support.
@@ -102,53 +100,6 @@ helm uninstall coroot -n coroot
 helm uninstall coroot-operator -n coroot
 ```
   </TabItem>
-
-<TabItem value="ce-helm" label="Community Edition (Helm, deprecated)">
-
-:::warning
-Installing Coroot via the Helm chart is deprecated. Please use the Coroot Operator instead.
-:::
-
-Add the Coroot helm chart repo:
-
-```
-helm repo add coroot https://coroot.github.io/helm-charts
-helm repo update coroot
-```
-
-Next, install the chart that includes:
-
-```
-helm install --namespace coroot --create-namespace coroot coroot/coroot
-```
-
-Forward the Coroot port to your machine:
-
-```
-kubectl port-forward -n coroot service/coroot 8080:8080
-```
-
-Then, you can access Coroot at http://localhost:8080
-
-**Upgrade**
-
-To upgrade Coroot to the latest version:
-
-```
-helm repo update coroot
-helm upgrade coroot --namespace coroot coroot/coroot
-```
-
-**Uninstall**
-
-To uninstall Coroot run the following command:
-
-```
-helm uninstall coroot -n coroot
-```
-  </TabItem>
-
-
 
 </Tabs>
 
