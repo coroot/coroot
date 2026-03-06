@@ -250,6 +250,19 @@ spec:
 #      pullPolicy:     # The image pull policy (e.g., Always, IfNotPresent, Never).
 #      pullSecrets: [] # The pull secrets for pulling the image from a private registry.
 #    logLevel: warning # Log level (fatal, critical, error, warning, notice, information, debug, trace, test, or none).
+#    s3: # S3 storage configuration (optional). Enables ClickHouse to use S3 for data storage.
+#      endpoint: # S3 endpoint URL (e.g., https://s3.us-east-1.amazonaws.com/my-bucket/clickhouse/).
+#      region:   # S3 region (optional).
+#      credentials: # S3 credentials (optional).
+#        accessKeyId: # Secret reference for the access key ID.
+#          name: # Name of the secret to select from.
+#          key:  # Key of the secret to select from.
+#        secretAccessKey: # Secret reference for the secret access key.
+#          name: # Name of the secret to select from.
+#          key:  # Key of the secret to select from.
+#      cacheSize: 10Gi # Local cache size for S3 reads. Must be less than clickhouse storage size.
+#      mode: tiered # Storage mode: "tiered" (local disk for recent data, S3 for cold) or "s3only" (all data on S3, local disk for cache only).
+#      moveFactor: "0.1" # Fraction of local disk free space that triggers moving data to S3 (tiered mode only).
 #    keeper: # Configuration for ClickHouse Keeper.
 #      replicas: 3 # Use only during initial setup, as changing the replica count for a running Keeper may cause it to fail.
 #      nodeSelector: # Restricts scheduling to nodes matching the specified labels.
