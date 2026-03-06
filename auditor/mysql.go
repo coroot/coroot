@@ -27,7 +27,7 @@ func (a *appAuditor) mysql() {
 	replicationLagCheck := report.CreateCheck(model.Checks.MysqlReplicationLag)
 	connectionsCheck := report.CreateCheck(model.Checks.MysqlConnections)
 
-	table := report.GetOrCreateTable("Instance", "Status", "Queries", "Latency", "Replication status", "Replication lag", "Version")
+	table := report.GetOrCreateTable("Instance", "Status", "Queries", "Latency", "Replication status", "Replication lag", "DB Size", "Version")
 	qpsChart := report.GetOrCreateChartGroup("Queries <selector>, per second", nil)
 	latencyChart := report.GetOrCreateChart("Average latency, seconds", nil)
 	queriesByTotalTime := report.GetOrCreateChartGroup("Queries by total time <selector>, query seconds/second", nil)
@@ -38,6 +38,8 @@ func (a *appAuditor) mysql() {
 	connectionsChart := report.GetOrCreateChartGroup("Connections <selector>", nil)
 	newConnectionsChart := report.GetOrCreateChart("New connections, per second", nil)
 	replicationLagChart := report.GetOrCreateChart("Replication lag, seconds", nil)
+	dbSizeChart := report.GetOrCreateChartGroup("Database size <selector>, bytes", nil)
+	tableSizeChart := report.GetOrCreateChartGroup("Top tables by size <selector>, bytes", nil)
 
 	availabilityCheck.AddWidget(table.Widget())
 
@@ -164,6 +166,7 @@ func (a *appAuditor) mysql() {
 				latencyCell,
 				replStatusCell,
 				lagCell,
+				dbSizeCell(i.Mysql.DatabaseSize),
 				model.NewTableCell(i.Mysql.Version.Value()))
 		}
 		if queriesByTotalTime != nil {
@@ -188,6 +191,20 @@ func (a *appAuditor) mysql() {
 			tablesByIOTime.GetOrCreateChart("total: "+i.Name).Stacked().Sorted().AddMany(totalTime, 5, timeseries.Max)
 			tablesByIOTime.GetOrCreateChart("write: "+i.Name).Stacked().Sorted().AddMany(writeTime, 5, timeseries.Max)
 			tablesByIOTime.GetOrCreateChart("read: "+i.Name).Stacked().Sorted().AddMany(readTime, 5, timeseries.Max)
+		}
+		if dbSizeChart != nil {
+			dbSize := map[string]model.SeriesData{}
+			for db, ts := range i.Mysql.DatabaseSize {
+				dbSize[db] = ts
+			}
+			dbSizeChart.GetOrCreateChart(i.Name).Stacked().Sorted().AddMany(dbSize, 20, timeseries.Max)
+		}
+		if tableSizeChart != nil {
+			tableSize := map[string]model.SeriesData{}
+			for k, ts := range i.Mysql.TableSize {
+				tableSize[k.String()] = ts
+			}
+			tableSizeChart.GetOrCreateChart(i.Name).Sorted().AddMany(tableSize, 20, timeseries.Max)
 		}
 		if trafficChart != nil {
 			trafficChart.GetOrCreateChart("outbound").AddSeries(i.Name, i.Mysql.BytesSent).Feature()

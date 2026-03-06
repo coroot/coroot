@@ -14,11 +14,16 @@ type Mongodb struct {
 	State       LabelLastValue
 	Version     LabelLastValue
 	LastApplied *timeseries.TimeSeries
+
+	DatabaseSize   map[string]*timeseries.TimeSeries
+	CollectionSize map[DbTableKey]*timeseries.TimeSeries
 }
 
 func NewMongodb(internalExporter bool) *Mongodb {
 	return &Mongodb{
 		InternalExporter: internalExporter,
+		DatabaseSize:     map[string]*timeseries.TimeSeries{},
+		CollectionSize:   map[DbTableKey]*timeseries.TimeSeries{},
 	}
 }
 

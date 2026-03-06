@@ -30,15 +30,6 @@ type MysqlReplicationStatus struct {
 	Status    *timeseries.TimeSeries
 }
 
-type MysqlTable struct {
-	Schema string
-	Table  string
-}
-
-func (k MysqlTable) String() string {
-	return fmt.Sprintf("%s:%s", k.Schema, k.Table)
-}
-
 type MysqlTableIOStats struct {
 	ReadTimePerSecond  *timeseries.TimeSeries
 	WriteTimePerSecond *timeseries.TimeSeries
@@ -70,14 +61,19 @@ type Mysql struct {
 	Queries     *timeseries.TimeSeries
 	SlowQueries *timeseries.TimeSeries
 
-	TablesIOTime map[MysqlTable]*MysqlTableIOStats
+	TablesIOTime map[DbTableKey]*MysqlTableIOStats
+
+	DatabaseSize map[string]*timeseries.TimeSeries
+	TableSize    map[DbTableKey]*timeseries.TimeSeries
 }
 
 func NewMysql(internalExporter bool) *Mysql {
 	return &Mysql{
 		InternalExporter: internalExporter,
 		PerQuery:         map[MysqlQueryKey]*MysqlQueryStat{},
-		TablesIOTime:     map[MysqlTable]*MysqlTableIOStats{},
+		TablesIOTime:     map[DbTableKey]*MysqlTableIOStats{},
+		DatabaseSize:     map[string]*timeseries.TimeSeries{},
+		TableSize:        map[DbTableKey]*timeseries.TimeSeries{},
 	}
 }
 

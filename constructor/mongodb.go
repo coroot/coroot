@@ -36,5 +36,11 @@ func mongodb(instance *model.Instance, queryName string, m *model.MetricValues) 
 		instance.UpdateClusterRole(role, m.Values)
 	case "mongo_rs_last_applied_timestamp_ms":
 		instance.Mongodb.LastApplied = merge(instance.Mongodb.LastApplied, m.Values, timeseries.Any)
+	case "mongo_database_size_bytes":
+		db := m.Labels["db"]
+		instance.Mongodb.DatabaseSize[db] = merge(instance.Mongodb.DatabaseSize[db], m.Values, timeseries.Any)
+	case "mongo_collection_size_bytes":
+		key := model.DbTableKey{Db: m.Labels["db"], Table: m.Labels["collection"]}
+		instance.Mongodb.CollectionSize[key] = merge(instance.Mongodb.CollectionSize[key], m.Values, timeseries.Any)
 	}
 }

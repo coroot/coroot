@@ -43,7 +43,7 @@ func (a *appAuditor) postgres() {
 
 	latencyChartTitle := "Postgres average query latency <selector>, seconds"
 	replicationLagChartTitle := "Replication lag, bytes"
-	tableColumns := []string{"Instance", "Role", "Status", "Queries", "Latency", "Replication lag"}
+	tableColumns := []string{"Instance", "Role", "Status", "Queries", "Latency", "Replication lag", "DB Size"}
 
 	latencyChartGroup := report.GetOrCreateChartGroup(latencyChartTitle, nil)
 	replicationLagChart := report.GetOrCreateChart(replicationLagChartTitle, nil)
@@ -89,6 +89,24 @@ func (a *appAuditor) postgres() {
 		lag := pgReplicationLag(primaryLsnTs, i.Postgres.WalReplayLsn)
 		report.GetOrCreateChart(replicationLagChartTitle, nil).AddSeries(i.Name, lag)
 
+		dbSizeChart := report.GetOrCreateChartGroup("Database size <selector>, bytes", nil)
+		tableSizeChart := report.GetOrCreateChartGroup("Top tables by size <selector>, bytes", nil)
+
+		if dbSizeChart != nil {
+			dbSize := map[string]model.SeriesData{}
+			for db, ts := range i.Postgres.DatabaseSize {
+				dbSize[db] = ts
+			}
+			dbSizeChart.GetOrCreateChart(i.Name).Stacked().Sorted().AddMany(dbSize, 20, timeseries.Max)
+		}
+		if tableSizeChart != nil {
+			tableSize := map[string]model.SeriesData{}
+			for k, ts := range i.Postgres.TableSize {
+				tableSize[k.String()] = ts
+			}
+			tableSizeChart.GetOrCreateChart(i.Name).Sorted().AddMany(tableSize, 20, timeseries.Max)
+		}
+
 		if i.IsObsolete() {
 			continue
 		}
@@ -115,6 +133,7 @@ func (a *appAuditor) postgres() {
 			}
 		}
 		lagCell := checkReplicationLag(i.Name, primaryLsnTs, lag, role, replicationCheck)
+		sizeCell := dbSizeCell(i.Postgres.DatabaseSize)
 		report.
 			GetOrCreateTable(tableColumns...).
 			AddRow(
@@ -124,6 +143,7 @@ func (a *appAuditor) postgres() {
 				model.NewTableCell(utils.FormatFloat(qps.Last())).SetUnit("/s"),
 				model.NewTableCell(utils.FormatFloat(i.Postgres.Avg.Last()*1000)).SetUnit("ms"),
 				lagCell,
+				sizeCell,
 			)
 	}
 }
@@ -284,4 +304,19 @@ func sumQueries(byDB map[string]*timeseries.TimeSeries) *timeseries.TimeSeries {
 		total.Add(qps)
 	}
 	return total.Get()
+}
+
+func dbSizeCell(databaseSize map[string]*timeseries.TimeSeries) *model.TableCell {
+	cell := model.NewTableCell()
+	var total float32
+	for _, ts := range databaseSize {
+		if v := ts.Last(); !timeseries.IsNaN(v) {
+			total += v
+		}
+	}
+	if total > 0 {
+		v, u := utils.FormatBytes(total)
+		cell.SetValue(v).SetUnit(u)
+	}
+	return cell
 }
