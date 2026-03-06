@@ -229,6 +229,17 @@ func runSpaceManagerOnCluster(ctx context.Context, project *db.Project, managerC
 		return nil
 	}
 
+	disks, err := client.GetDiskInfo(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get disk info: %w", err)
+	}
+	for _, disk := range disks {
+		if disk.Type == "ObjectStorage" {
+			klog.Infoln("storage manager is disabled for ClickHouse on S3")
+			return nil
+		}
+	}
+
 	spaceManager := &SpaceManager{
 		clusterCfg: *cfg,
 		client:     client,
