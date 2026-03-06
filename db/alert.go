@@ -391,7 +391,7 @@ func (db *DB) CreateAlert(projectId ProjectId, a *model.Alert) error {
 	detailsJSON, _ := json.Marshal(a.Details)
 	_, err := db.db.Exec(
 		"INSERT INTO alert (id, fingerprint, rule_id, project_id, application_id, application_category, severity, summary, details, opened_at, resolved_at, updated_at, suppressed, resolved_by, report, pattern_words, manually_resolved_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)",
-		a.Id, a.Fingerprint, a.RuleId, projectId, a.ApplicationId.String(), a.ApplicationCategory, a.Severity.String(), a.Summary, string(detailsJSON), a.OpenedAt, a.ResolvedAt, a.UpdatedAt, a.Suppressed, a.ResolvedBy, a.Report, a.PatternWords, a.ManuallyResolvedAt)
+		a.Id, a.Fingerprint, a.RuleId, projectId, a.ApplicationId.String(), a.ApplicationCategory, a.Severity.String(), a.Summary, string(detailsJSON), a.OpenedAt, a.ResolvedAt, a.UpdatedAt, boolToInt(a.Suppressed), a.ResolvedBy, a.Report, a.PatternWords, a.ManuallyResolvedAt)
 	return err
 }
 
