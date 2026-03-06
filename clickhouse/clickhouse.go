@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"math"
 	"net"
 	"regexp"
 	"sort"
@@ -292,6 +293,12 @@ func (c *Client) GetDiskInfo(ctx context.Context) ([]DiskInfo, error) {
 			&disk.Type,
 		); err != nil {
 			return nil, err
+		}
+		if disk.FreeSpace == math.MaxUint64 {
+			disk.FreeSpace = 0
+		}
+		if disk.TotalSpace == math.MaxUint64 {
+			disk.TotalSpace = 0
 		}
 		disks = append(disks, disk)
 	}
