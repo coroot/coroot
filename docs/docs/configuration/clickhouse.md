@@ -48,6 +48,81 @@ In this mode, Coroot automatically creates a dedicated database for each project
 Telemetry data pushed by Coroot agents (coroot-node-agent and coroot-cluster-agent) are stored in their respective project databases, 
 ensuring isolation and efficient querying for individual projects.
 
+## S3 Storage
+
+ClickHouse can be configured to use S3-compatible object storage for data, keeping recent data on fast local disks and automatically moving older data to S3 as local disk fills up.
+
+### Configuration
+
+To enable S3 storage, add the `s3` section to the ClickHouse configuration in your Coroot [Custom Resource](/installation/k8s-operator):
+
+```yaml
+clickhouse:
+  shards: 1
+  replicas: 2
+  storage:
+    size: 50Gi
+  s3:
+    endpoint: https://s3.us-east-1.amazonaws.com/my-bucket/clickhouse/
+    region: us-east-1
+    credentials:
+      accessKeyId:
+        name: clickhouse-s3-creds
+        key: access_key_id
+      secretAccessKey:
+        name: clickhouse-s3-creds
+        key: secret_access_key
+    cacheSize: 10Gi
+    mode: tiered
+    moveFactor: "0.1"
+```
+
+Create the credentials secret:
+```bash
+kubectl create secret generic clickhouse-s3-creds \
+  --from-literal=access_key_id=YOUR_ACCESS_KEY \
+  --from-literal=secret_access_key=YOUR_SECRET_KEY \
+  -n coroot
+```
+
+### Storage Modes
+
+| Mode | Description |
+|------|-------------|
+| `tiered` (default) | Recent data stays on local disk. When local disk usage exceeds the `moveFactor` threshold, oldest data is automatically moved to S3. |
+| `s3only` | All data is stored on S3. Local disk is used only for caching reads. |
+
+### Parameters
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `endpoint` | — | S3 endpoint URL. A trailing `/` is added automatically if missing. |
+| `region` | — | S3 region (optional). |
+| `credentials` | — | S3 credentials (optional — omit for IAM/IRSA/workload identity). |
+| `cacheSize` | `10Gi` | Local disk space used for caching S3 reads. Must be less than `storage.size`. |
+| `mode` | `tiered` | Storage mode: `tiered` or `s3only`. |
+| `moveFactor` | `0.1` | In tiered mode, data is moved to S3 when free space on local disk drops below this fraction of total disk size. |
+
+### How It Works
+
+Each ClickHouse shard and replica gets a unique S3 path prefix (`{shard}/{replica}/`) to isolate data.
+A local cache layer sits on top of S3 to reduce read latency and API costs.
+
+In **tiered mode**, ClickHouse automatically moves the oldest data parts from local disk to S3 when local disk pressure is detected.
+No TTL changes are needed — ClickHouse manages the data movement transparently.
+
+In **s3only mode**, all data is written directly to S3 with local caching. This minimizes local storage requirements.
+
+:::info
+The Space Manager is automatically disabled when S3 storage is configured, since ClickHouse manages disk pressure by moving data to S3 instead of deleting it.
+:::
+
+### S3-Compatible Storage
+
+Any S3-compatible storage (MinIO, Ceph, etc.) can be used — just set the `endpoint` to your storage URL.
+
+For a step-by-step setup, see the [Using S3 Storage with ClickHouse](/guides/clickhouse-s3) guide.
+
 ## Space Manager
 
 The space manager automatically frees up disk space when your ClickHouse storage gets too full. It deletes old data to prevent your disks from running out of space.
