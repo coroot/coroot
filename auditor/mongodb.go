@@ -25,11 +25,12 @@ func (a *appAuditor) mongodb() {
 	availabilityCheck := report.CreateCheck(model.Checks.MongodbAvailability)
 	replicationLagCheck := report.CreateCheck(model.Checks.MongodbReplicationLag)
 
-	table := report.GetOrCreateTable("Instance", "Status", "ReplicaSet", "State", "Queries", "Latency", "Replication lag", "Version")
+	table := report.GetOrCreateTable("Instance", "Status", "ReplicaSet", "State", "Queries", "Latency", "Replication lag", "DB Size", "Version")
 	qpsChart := report.GetOrCreateChart("Queries, per second", nil)
 	latencyChart := report.GetOrCreateChart("Average latency, seconds", nil)
 	replicationLagChart := report.GetOrCreateChart("Replication lag, seconds", nil)
-
+	dbSizeChart := report.GetOrCreateChartGroup("Database size <selector>, bytes", nil)
+	collectionSizeChart := report.GetOrCreateChartGroup("Top collections by size <selector>, bytes", nil)
 	availabilityCheck.AddWidget(table.Widget())
 	replicationLagCheck.AddWidget(replicationLagChart.Widget())
 
@@ -73,6 +74,21 @@ func (a *appAuditor) mongodb() {
 			if replicationLagChart != nil {
 				replicationLagChart.AddSeries(i.Name, lag)
 			}
+		}
+
+		if dbSizeChart != nil {
+			dbSize := map[string]model.SeriesData{}
+			for db, ts := range i.Mongodb.DatabaseSize {
+				dbSize[db] = ts
+			}
+			dbSizeChart.GetOrCreateChart(i.Name).Stacked().Sorted().AddMany(dbSize, 20, timeseries.Max)
+		}
+		if collectionSizeChart != nil {
+			collSize := map[string]model.SeriesData{}
+			for k, ts := range i.Mongodb.CollectionSize {
+				collSize[k.String()] = ts
+			}
+			collectionSizeChart.GetOrCreateChart(i.Name).Sorted().AddMany(collSize, 20, timeseries.Max)
 		}
 
 		if table != nil {
@@ -119,6 +135,7 @@ func (a *appAuditor) mongodb() {
 				model.NewTableCell(utils.FormatFloat(totalQps.Last())).SetUnit("/s"),
 				latencyCell,
 				lagCell,
+				dbSizeCell(i.Mongodb.DatabaseSize),
 				model.NewTableCell(i.Mongodb.Version.Value()))
 		}
 	}

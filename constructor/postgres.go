@@ -90,5 +90,11 @@ func postgres(instance *model.Instance, queryName string, m *model.MetricValues)
 		pg.WalReceiveLsn = merge(pg.WalReceiveLsn, values, timeseries.Any)
 	case "pg_wal_reply_lsn":
 		pg.WalReplayLsn = merge(pg.WalReplayLsn, values, timeseries.Any)
+	case "pg_database_size_bytes":
+		db := ls["db"]
+		pg.DatabaseSize[db] = merge(pg.DatabaseSize[db], values, timeseries.Any)
+	case "pg_table_size_bytes":
+		key := model.DbTableKey{Db: ls["db"], Table: ls["table"]}
+		pg.TableSize[key] = merge(pg.TableSize[key], values, timeseries.Any)
 	}
 }

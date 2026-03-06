@@ -39,6 +39,15 @@ type QueryStat struct {
 	IoTime    *timeseries.TimeSeries
 }
 
+type DbTableKey struct {
+	Db    string
+	Table string
+}
+
+func (k DbTableKey) String() string {
+	return fmt.Sprintf("%s.%s", k.Db, k.Table)
+}
+
 type Postgres struct {
 	InternalExporter bool
 
@@ -65,6 +74,9 @@ type Postgres struct {
 	WalCurrentLsn *timeseries.TimeSeries
 	WalReceiveLsn *timeseries.TimeSeries
 	WalReplayLsn  *timeseries.TimeSeries
+
+	DatabaseSize map[string]*timeseries.TimeSeries
+	TableSize    map[DbTableKey]*timeseries.TimeSeries
 }
 
 func NewPostgres(internalExporter bool) *Postgres {
@@ -75,6 +87,8 @@ func NewPostgres(internalExporter bool) *Postgres {
 		Settings:                      map[string]PgSetting{},
 		PerQuery:                      map[QueryKey]*QueryStat{},
 		QueriesByDB:                   map[string]*timeseries.TimeSeries{},
+		DatabaseSize:                  map[string]*timeseries.TimeSeries{},
+		TableSize:                     map[DbTableKey]*timeseries.TimeSeries{},
 	}
 }
 

@@ -72,7 +72,7 @@ func mysql(instance *model.Instance, queryName string, m *model.MetricValues) {
 	case "mysql_slow_queries_total":
 		instance.Mysql.SlowQueries = merge(instance.Mysql.SlowQueries, m.Values, timeseries.Any)
 	case "mysql_top_table_io_wait_time_per_second":
-		key := model.MysqlTable{Schema: m.Labels["schema"], Table: m.Labels["table"]}
+		key := model.DbTableKey{Db: m.Labels["schema"], Table: m.Labels["table"]}
 		s := instance.Mysql.TablesIOTime[key]
 		if s == nil {
 			s = &model.MysqlTableIOStats{}
@@ -84,5 +84,11 @@ func mysql(instance *model.Instance, queryName string, m *model.MetricValues) {
 		case "write":
 			s.WriteTimePerSecond = merge(s.WriteTimePerSecond, m.Values, timeseries.Any)
 		}
+	case "mysql_database_size_bytes":
+		db := m.Labels["db"]
+		instance.Mysql.DatabaseSize[db] = merge(instance.Mysql.DatabaseSize[db], m.Values, timeseries.Any)
+	case "mysql_table_size_bytes":
+		key := model.DbTableKey{Db: m.Labels["db"], Table: m.Labels["table"]}
+		instance.Mysql.TableSize[key] = merge(instance.Mysql.TableSize[key], m.Values, timeseries.Any)
 	}
 }

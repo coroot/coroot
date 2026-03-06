@@ -319,6 +319,8 @@ var QUERIES = []Query{
 	qDB("pg_wal_current_lsn", `pg_wal_current_lsn`),
 	qDB("pg_wal_receive_lsn", `pg_wal_receive_lsn`),
 	qDB("pg_wal_reply_lsn", `pg_wal_reply_lsn`),
+	qDB("pg_database_size_bytes", `pg_database_size_bytes`, "db"),
+	qDB("pg_table_size_bytes", `pg_table_size_bytes`, "db", "table"),
 
 	qDB("mysql_up", `mysql_up`),
 	qDB("mysql_scrape_error", `mysql_scrape_error`, "error", "warning"),
@@ -338,6 +340,8 @@ var QUERIES = []Query{
 	qDB("mysql_queries_total", `rate(mysql_queries_total[$RANGE])`),
 	qDB("mysql_slow_queries_total", `rate(mysql_slow_queries_total[$RANGE])`),
 	qDB("mysql_top_table_io_wait_time_per_second", `mysql_top_table_io_wait_time_per_second`, "schema", "table", "operation"),
+	qDB("mysql_database_size_bytes", `mysql_database_size_bytes`, "db"),
+	qDB("mysql_table_size_bytes", `mysql_table_size_bytes`, "db", "table"),
 
 	qDB("redis_up", `redis_up`),
 	qDB("redis_scrape_error", `redis_exporter_last_scrape_error`, "err"),
@@ -350,6 +354,8 @@ var QUERIES = []Query{
 	qDB("mongo_info", `mongo_info`, "server_version"),
 	qDB("mongo_rs_status", `mongo_rs_status`, "rs", "role"),
 	qDB("mongo_rs_last_applied_timestamp_ms", `timestamp(mongo_rs_last_applied_timestamp_ms) - mongo_rs_last_applied_timestamp_ms/1000`),
+	qDB("mongo_database_size_bytes", `mongo_database_size_bytes`, "db"),
+	qDB("mongo_collection_size_bytes", `mongo_collection_size_bytes`, "db", "collection"),
 
 	qDB("memcached_up", `memcached_up`),
 	qDB("memcached_version", `memcached_version`, "version"),
