@@ -89,7 +89,7 @@ spec:
 #    grpcNodePort:  # gRPC nodePort (if type is NodePort).
 #    annotations: # Annotations for Service.
 #  ingress: # Ingress configuration for Coroot.
-#    className: Ingress class name (e.g., nginx, traefik; if not set the default IngressClass will be used).
+#    className: # Ingress class name (e.g., nginx, traefik; if not set the default IngressClass will be used).
 #    host: # Domain name for Coroot (e.g., coroot.company.com).
 #    path: # Path prefix for Coroot (e.g., /coroot).
 #    annotations: # Annotations for Ingress.
@@ -243,7 +243,6 @@ spec:
 #    nodeSelector: # Restricts scheduling to nodes matching the specified labels.
 #    affinity: # Affinity rules for ClickHouse pods.
 #    tolerations: # Tolerations for ClickHouse pods.
-#    resources: # Resource requests and limits for ClickHouse pods.
 #    podAnnotations: # Annotations for Clickhouse pods.
 #    image: # If unspecified, the operator will install Clickhouse from Coroot's public registry.
 #      name:           # Specifies the full image reference (e.g., <private-registry>/clickhouse-server:<version>)
@@ -271,6 +270,7 @@ spec:
 #      storage:
 #        size: 10Gi # Volume size for keeper storage.
 #        className: "" # If not set, the default storage class will be used.
+#        reclaimPolicy: Delete # Options: Retain (keeps PVC) or Delete (removes PVC on Coroot CR deletion).
 #        annotations: # Annotations for PersistentVolumeClaim (PVC).
 #      resources: # Resource requests and limits for keeper pods.
 #      podAnnotations: # Annotations for keeper pods.
@@ -452,7 +452,7 @@ spec:
 #            kubernetesEvents:
 #              minCount: 3              # Require at least 3 occurrences before alerting.
 #              evaluateWithAi: false    # Disable AI evaluation.
-#        # Custom check-based rule
+#        # Custom check-based rule scoped to a category
 #        - id: custom-postgres-latency
 #          name: "Postgres latency (production)"
 #          source:
@@ -468,6 +468,24 @@ spec:
 #          keepFiringFor: 5m          # How long to keep firing after condition clears.
 #          templates:
 #            description: "Postgres latency is critically high in production."
+#          enabled: true
+#        # Custom check-based rule scoped to specific applications
+#        - id: custom-cart-latency
+#          name: "Cart service latency"
+#          source:
+#            type: check
+#            check:
+#              checkId: http_latency
+#          selector:
+#            type: applications       # One of: all, category, applications.
+#            applicationIdPatterns:
+#              - otel-demo:Deployment:cart      # exact match: <namespace>:<kind>:<name>
+#              - payments:*:*                   # all applications in namespace
+#              - "*:StatefulSet:*"              # all StatefulSets across all namespaces
+#          severity: critical
+#          for: 5m
+#          templates:
+#            description: "Latency is critically high."
 #          enabled: true
 #        # Custom PromQL-based rule
 #        - id: custom-uptime
