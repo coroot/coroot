@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net"
 	"net/http"
 	"net/url"
 	"slices"
@@ -2411,19 +2410,16 @@ func loadDbChangeEvents(ctx context.Context, api *Api, project *db.Project, app 
 	}
 	defer ch.Close()
 
+	targets := app.ListenTargets()
+	if len(targets) == 0 {
+		return
+	}
+
 	filters := []clickhouse.LogFilter{
 		{Name: "service.name", Op: "=", Value: "DatabaseChanges"},
 	}
-	for _, instance := range app.Instances {
-		for listen := range instance.TcpListens {
-			if listen.Port == "0" {
-				continue
-			}
-			filters = append(filters, clickhouse.LogFilter{Name: "db.target", Op: "=", Value: net.JoinHostPort(listen.IP, listen.Port)})
-		}
-	}
-	if len(filters) < 2 {
-		return
+	for _, target := range targets {
+		filters = append(filters, clickhouse.LogFilter{Name: "db.target", Op: "=", Value: target})
 	}
 
 	q := clickhouse.LogQuery{
@@ -2447,38 +2443,7 @@ func loadDbChangeEvents(ctx context.Context, api *Api, project *db.Project, app 
 		SetParam("view", "logs").
 		SetArg("query", string(logsQuery))
 
-	type eventKey struct {
-		ts      timeseries.Time
-		details string
-	}
-	seen := map[eventKey]bool{}
-	for _, e := range entries {
-		ts := timeseries.Time(e.Timestamp.Unix()).Truncate(3 * world.Ctx.Step)
-		object := e.LogAttributes["db_change.object"]
-		dbName := e.LogAttributes["db.name"]
-		schemaName := e.LogAttributes["db_change.schema"]
-		var details string
-		switch {
-		case dbName != "" && schemaName != "":
-			details = dbName + "." + schemaName + "." + object
-		case dbName != "":
-			details = dbName + "." + object
-		default:
-			details = object
-		}
-		k := eventKey{ts: ts, details: details}
-		if seen[k] {
-			continue
-		}
-		seen[k] = true
-		app.Events = append(app.Events, &model.ApplicationEvent{
-			Start:   ts,
-			End:     ts,
-			Type:    model.ApplicationEventTypeDbChange,
-			Details: details,
-			Link:    link,
-		})
-	}
+	app.SetDbChangeEvents(entries, world.Ctx.Step, link)
 }
 
 func GetApplicationId(r *http.Request) (model.ApplicationId, error) {
