@@ -113,6 +113,19 @@
                     </tr>
                 </template>
 
+                <tr v-if="enabled">
+                    <td class="font-weight-medium text-no-wrap">Force SSO</td>
+                    <td>
+                        <v-checkbox
+                            v-model="force_sso"
+                            :disabled="disabled || readonly"
+                            hide-details
+                            dense
+                            class="mt-0"
+                            label="Disable password login and only allow SSO"
+                        />
+                    </td>
+                </tr>
                 <tr>
                     <td class="font-weight-medium text-no-wrap">Default role:</td>
                     <td>
@@ -170,6 +183,7 @@ export default {
             error: '',
             status: undefined,
             enabled: false,
+            force_sso: false,
             sso_provider: 'saml',
             default_role: '',
             provider: '',
@@ -202,6 +216,7 @@ export default {
                 }
                 this.readonly = data.readonly;
                 this.enabled = data.enabled;
+                this.force_sso = data.force_sso || false;
                 this.sso_provider = data.sso_provider || 'saml';
                 this.default_role = data.default_role;
                 this.provider = data.provider;
@@ -227,6 +242,7 @@ export default {
                 action,
                 provider: this.sso_provider,
                 default_role: this.default_role,
+                force_sso: this.force_sso,
             };
 
             if (this.sso_provider === 'saml' && metadata) {
