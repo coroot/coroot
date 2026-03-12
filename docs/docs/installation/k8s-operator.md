@@ -551,6 +551,7 @@ spec:
 # Define either `saml` or `oidc` section to enable SSO.
 #  sso:
 #    enabled: true
+#    forceSSO: false # Disable password login and only allow SSO authentication.
 #    defaultRole: Viewer # Default role for authenticated users (Admin, Editor, Viewer, or a custom role).
 #    # SAML configuration (define this section to use SAML SSO).
 #    saml:
