@@ -6,18 +6,18 @@
 
         <h2 class="text-h4 my-5 text-center">Welcome to Coroot</h2>
 
-        <v-btn v-if="sso_enabled && !set_admin_password" block large color="primary" class="mb-4" :href="ssoLoginUrl">
+        <v-btn v-if="sso_enabled && (sso_forced || !set_admin_password)" block large color="primary" class="mb-4" :href="ssoLoginUrl">
             <v-icon left>mdi-shield-key-outline</v-icon>
             Login with SSO
         </v-btn>
 
-        <div v-if="sso_enabled && !set_admin_password" class="text-center my-4">
+        <div v-if="sso_enabled && !sso_forced && !set_admin_password" class="text-center my-4">
             <v-divider class="d-inline-block" style="width: 40%; vertical-align: middle" />
             <span class="grey--text mx-3">or</span>
             <v-divider class="d-inline-block" style="width: 40%; vertical-align: middle" />
         </div>
 
-        <v-form v-model="valid" @submit.prevent="post" ref="form">
+        <v-form v-if="!sso_forced" v-model="valid" @submit.prevent="post" ref="form">
             <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
                 {{ error }}
             </v-alert>
@@ -56,7 +56,8 @@
             </v-btn>
         </v-form>
 
-        <div v-if="!set_admin_password" class="caption grey--text text-center mt-10">
+        <div v-if="sso_forced" class="caption grey--text text-center mt-10">Password login is disabled. Please use SSO to sign in.</div>
+        <div v-if="!sso_forced && !set_admin_password" class="caption grey--text text-center mt-10">
             Contact your Coroot administrator if you forgot your email or password.
         </div>
     </div>
@@ -76,6 +77,7 @@ export default {
             message: '',
             loading: false,
             sso_enabled: false,
+            sso_forced: false,
         };
     },
 
@@ -111,14 +113,17 @@ export default {
         checkSSOStatus() {
             if (this.$coroot.edition !== 'Enterprise') {
                 this.sso_enabled = false;
+                this.sso_forced = false;
                 return;
             }
             this.$api.ssoStatus((data, error) => {
                 if (error) {
                     this.sso_enabled = false;
+                    this.sso_forced = false;
                     return;
                 }
                 this.sso_enabled = data.enabled;
+                this.sso_forced = data.force_sso || false;
             });
         },
         post() {

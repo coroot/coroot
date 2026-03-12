@@ -176,7 +176,33 @@ Coroot expects to receive the **email**, **given_name**, and **family_name** cla
 Most OIDC providers include these claims by default when the `openid`, `profile`, and `email` scopes are requested.
 :::
 
+### Force SSO
+
+You can enforce SSO-only authentication by enabling the **Force SSO** option. When enabled:
+* The login page will only show the "Login with SSO" button — the email/password form is hidden.
+* Password-based login via the API is rejected.
+* The initial admin password setup prompt is skipped.
+
+This can be configured through the UI (on the SSO settings page) or via the config file:
+
+```yaml
+sso:
+  enabled: true
+  forceSSO: true
+  provider: oidc
+  oidc:
+    issuerURL: "https://accounts.google.com"
+    clientID: "your-client-id"
+    clientSecret: "your-client-secret"
+  defaultRole: Viewer
+```
+
+:::warning
+Coroot will refuse to start if `forceSSO` is set to `true` but SSO is not properly configured.
+:::
+
 ### Troubleshooting
 
 Use http://&lt;COROOT_ADDRESS&gt;/login page and the **admin** user credentials to log in to your Coroot instance if you encounter any issues with SSO.
+If Force SSO is enabled, you must first disable it in the config file and restart Coroot to be able to log in with email and password.
 
