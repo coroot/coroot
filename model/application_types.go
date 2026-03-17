@@ -33,6 +33,8 @@ const (
 	ApplicationTypePython          ApplicationType = "python"
 	ApplicationTypeRuby            ApplicationType = "ruby"
 	ApplicationTypeEnvoy           ApplicationType = "envoy"
+	ApplicationTypeNginx           ApplicationType = "nginx"
+	ApplicationTypeVault           ApplicationType = "vault"
 	ApplicationTypePrometheus      ApplicationType = "prometheus"
 	ApplicationTypeVictoriaMetrics ApplicationType = "victoria-metrics"
 	ApplicationTypeVictoriaLogs    ApplicationType = "victoria-logs"
@@ -94,7 +96,7 @@ func (at ApplicationType) Weight() int {
 		return 2
 	case at.IsLanguage():
 		return 4
-	case at == ApplicationTypeEnvoy: // when using service meshes, Envoy is deployed as a sidecar to each container
+	case at == ApplicationTypeEnvoy || at == ApplicationTypeNginx || at == ApplicationTypeVault: // sidecars: envoy for service meshes, nginx for php-fpm, vault for secret injection
 		return 5
 	}
 	return 3
