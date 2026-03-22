@@ -76,7 +76,7 @@ func renderApplications(w *model.World) []*ApplicationStatus {
 						failed := sli.FailedRequests.Reduce(timeseries.NanSum)
 						total := sli.TotalRequests.Reduce(timeseries.NanSum)
 						if total > 0 && failed > 0 {
-							a.Errors.Value = formatPercent(failed * 100 / total)
+							a.Errors.Value = formatErrorRate(failed * 100 / total)
 						}
 						break
 					}
@@ -132,7 +132,7 @@ func renderApplications(w *model.World) []*ApplicationStatus {
 				case model.Checks.StorageSpace.Id:
 					a.DiskUsage.Status = ch.Status
 					if ch.Value() > 0 {
-						a.DiskUsage.Value = formatPercent(ch.Value())
+						a.DiskUsage.Value = formatDiskPercent(ch.Value())
 					}
 				case model.Checks.NetworkRTT.Id:
 					if ch.Status != model.UNKNOWN {
@@ -294,9 +294,19 @@ func quantile(histogram []model.HistogramBucket, q float32) float32 {
 	return 0
 }
 
-func formatPercent(v float32) string {
-	if v < 1 {
-		return "<1%"
+func formatErrorRate(v float32) string {
+	if v <= 0 {
+		return "0%"
+	}
+	if v < 0.01 {
+		return "<0.01%"
+	}
+	return fmt.Sprintf("%.2f%%", v)
+}
+
+func formatDiskPercent(v float32) string {
+	if v <= 0 {
+		return "0%"
 	}
 	return fmt.Sprintf("%.0f%%", v)
 }
