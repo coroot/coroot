@@ -128,7 +128,27 @@ func (w *Incidents) Check(project *db.Project, world *model.World) {
 			w.notifier.Enqueue(project, app, incident, now)
 		}
 	}
+	w.resolveIncidentsForMissingApps(project, world, now)
+
 	klog.Infof("%s: checked %d apps in %s", project.Id, apps, time.Since(start).Truncate(time.Millisecond))
+}
+
+func (w *Incidents) resolveIncidentsForMissingApps(project *db.Project, world *model.World, now timeseries.Time) {
+	incidents, err := w.db.GetOpenIncidents(project.Id)
+	if err != nil {
+		klog.Errorln("failed to get open incidents:", err)
+		return
+	}
+	for _, incident := range incidents {
+		if world.GetApplication(incident.ApplicationId) != nil {
+			continue
+		}
+		incident.ResolvedAt = now
+		incident.Severity = model.OK
+		if err := w.db.ResolveIncident(project.Id, incident); err != nil {
+			klog.Errorln("failed to resolve incident for missing app:", err)
+		}
+	}
 }
 
 type sumFromFunc func(from timeseries.Time) float32

@@ -145,26 +145,11 @@ func (db *DB) GetLatestIncidents(projectId ProjectId, limit int) ([]*model.Appli
 	}()
 	var res []*model.ApplicationIncident
 	for rows.Next() {
-		var i model.ApplicationIncident
-		var d, rca sql.NullString
-		if err := rows.Scan(&i.ApplicationId, &i.Key, &i.OpenedAt, &i.ResolvedAt, &i.Severity, &d, &rca); err != nil {
+		i, err := scanIncident(rows, projectId)
+		if err != nil {
 			return nil, err
 		}
-		if i.ApplicationId.ClusterId == "" {
-			i.ApplicationId.ClusterId = string(projectId)
-		}
-		if d.String != "" {
-			if err = json.Unmarshal([]byte(d.String), &i.Details); err != nil {
-				return nil, err
-			}
-		}
-		if rca.String != "" {
-			i.RCA = &model.RCA{}
-			if err = json.Unmarshal([]byte(rca.String), i.RCA); err != nil {
-				return nil, err
-			}
-		}
-		res = append(res, &i)
+		res = append(res, i)
 	}
 	return res, err
 }
@@ -181,28 +166,57 @@ func (db *DB) GetApplicationIncidents(projectId ProjectId, from, to timeseries.T
 	}()
 	res := map[model.ApplicationId][]*model.ApplicationIncident{}
 	for rows.Next() {
-		var i model.ApplicationIncident
-		var d, rca sql.NullString
-		if err := rows.Scan(&i.ApplicationId, &i.Key, &i.OpenedAt, &i.ResolvedAt, &i.Severity, &d, &rca); err != nil {
+		i, err := scanIncident(rows, projectId)
+		if err != nil {
 			return nil, err
 		}
-		if i.ApplicationId.ClusterId == "" {
-			i.ApplicationId.ClusterId = string(projectId)
-		}
-		if d.String != "" {
-			if err = json.Unmarshal([]byte(d.String), &i.Details); err != nil {
-				return nil, err
-			}
-		}
-		if rca.String != "" {
-			i.RCA = &model.RCA{}
-			if err = json.Unmarshal([]byte(rca.String), i.RCA); err != nil {
-				return nil, err
-			}
-		}
-		res[i.ApplicationId] = append(res[i.ApplicationId], &i)
+		res[i.ApplicationId] = append(res[i.ApplicationId], i)
 	}
 	return res, err
+}
+
+func scanIncident(rows *sql.Rows, projectId ProjectId) (*model.ApplicationIncident, error) {
+	var i model.ApplicationIncident
+	var d, rca sql.NullString
+	if err := rows.Scan(&i.ApplicationId, &i.Key, &i.OpenedAt, &i.ResolvedAt, &i.Severity, &d, &rca); err != nil {
+		return nil, err
+	}
+	if i.ApplicationId.ClusterId == "" {
+		i.ApplicationId.ClusterId = string(projectId)
+	}
+	if d.String != "" {
+		if err := json.Unmarshal([]byte(d.String), &i.Details); err != nil {
+			return nil, err
+		}
+	}
+	if rca.String != "" {
+		i.RCA = &model.RCA{}
+		if err := json.Unmarshal([]byte(rca.String), i.RCA); err != nil {
+			return nil, err
+		}
+	}
+	return &i, nil
+}
+
+func (db *DB) GetOpenIncidents(projectId ProjectId) ([]*model.ApplicationIncident, error) {
+	rows, err := db.db.Query(
+		"SELECT application_id, key, opened_at, resolved_at, severity, details, rca FROM incident WHERE project_id = $1 AND resolved_at = 0",
+		projectId)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		_ = rows.Close()
+	}()
+	var res []*model.ApplicationIncident
+	for rows.Next() {
+		i, err := scanIncident(rows, projectId)
+		if err != nil {
+			return nil, err
+		}
+		res = append(res, i)
+	}
+	return res, nil
 }
 
 func (db *DB) GetLastOpenIncident(projectId ProjectId, appId model.ApplicationId) (*model.ApplicationIncident, error) {
