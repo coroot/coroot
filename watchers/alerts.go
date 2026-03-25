@@ -978,7 +978,7 @@ func (w *Alerts) resolveNonMatchingAlerts(project *db.Project, rule *model.Alert
 		return
 	}
 	for _, a := range alerts {
-		if rule.Enabled && rule.MatchesAlert(a) {
+		if rule.Enabled && rule.MatchesAlert(a) && (a.ApplicationId.IsZero() || world.GetApplication(a.ApplicationId) != nil) {
 			continue
 		}
 		a.ResolvedAt = now
