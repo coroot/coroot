@@ -75,6 +75,8 @@
 <script>
 const DISMISS_KEY = 'cloud-promo-dismissed';
 const REMIND_LATER_KEY = 'cloud-promo-remind-later';
+const FIRST_SEEN_KEY = 'cloud-promo-first-seen';
+const SHOW_DELAY_MS = 30 * 60 * 1000; // 30 minutes
 
 export default {
     data() {
@@ -113,6 +115,15 @@ export default {
 
             const permanentDismiss = this.$storage.local(DISMISS_KEY);
             if (permanentDismiss) {
+                return false;
+            }
+
+            let firstSeen = this.$storage.local(FIRST_SEEN_KEY);
+            if (!firstSeen) {
+                this.$storage.local(FIRST_SEEN_KEY, new Date().getTime().toString());
+                return false;
+            }
+            if (new Date().getTime() - parseInt(firstSeen) < SHOW_DELAY_MS) {
                 return false;
             }
 
