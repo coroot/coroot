@@ -16,9 +16,11 @@ import (
 )
 
 type Config struct {
-	ListenAddress string `yaml:"listen_address"`
-	UrlBasePath   string `yaml:"url_base_path"`
-	DataDir       string `yaml:"data_dir"`
+	ListenAddress      string `yaml:"listen_address"`
+	HTTPSListenAddress string `yaml:"https_listen_address"`
+	HTTPDisabled       bool   `yaml:"http_disabled"`
+	UrlBasePath        string `yaml:"url_base_path"`
+	DataDir            string `yaml:"data_dir"`
 
 	GRPC GRPC `yaml:"grpc"`
 	TLS  *TLS `yaml:"tls"`
@@ -273,6 +275,14 @@ func (cfg *Config) Validate() error {
 	cfg.UrlBasePath, err = url.JoinPath("/", cfg.UrlBasePath, "/")
 	if err != nil {
 		return fmt.Errorf("invalid url_base_path: %s", cfg.UrlBasePath)
+	}
+
+	if cfg.HTTPDisabled && cfg.HTTPSListenAddress == "" {
+		return fmt.Errorf("at least one of HTTP or HTTPS listener must be enabled")
+	}
+
+	if cfg.HTTPSListenAddress != "" && cfg.TLS == nil {
+		return fmt.Errorf("TLS certificate and key are required for HTTPS")
 	}
 
 	if cfg.TLS != nil {

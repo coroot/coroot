@@ -9,6 +9,8 @@ import (
 var (
 	configFile                                  = kingpin.Flag("config", "Configuration file").Envar("CONFIG").String()
 	listen                                      = kingpin.Flag("listen", "Listen address - ip:port or :port").Envar("LISTEN").String()
+	httpsListen                                 = kingpin.Flag("https-listen", "HTTPS listen address - ip:port or :port").Envar("HTTPS_LISTEN").String()
+	httpDisabled                                = kingpin.Flag("http-disabled", "Disable HTTP server").Envar("HTTP_DISABLED").Bool()
 	grpcDisabled                                = kingpin.Flag("grpc-disabled", "Disable gRPC server").Envar("GRPC_DISABLED").Bool()
 	grpcListen                                  = kingpin.Flag("grpc-listen", "gRPC listen address - ip:port or :port").Envar("GRPC_LISTEN").String()
 	tlsCertFile                                 = kingpin.Flag("tls-cert-file", "Path to the TLS certificate file").Envar("TLS_CERT_FILE").String()
@@ -64,6 +66,12 @@ var (
 func (cfg *Config) ApplyFlags() {
 	if *listen != "" {
 		cfg.ListenAddress = *listen
+	}
+	if *httpsListen != "" {
+		cfg.HTTPSListenAddress = *httpsListen
+	}
+	if *httpDisabled {
+		cfg.HTTPDisabled = *httpDisabled
 	}
 	cfg.GRPC.Disabled = cfg.GRPC.Disabled || *grpcDisabled
 	if *grpcListen != "" {

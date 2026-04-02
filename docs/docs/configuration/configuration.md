@@ -23,6 +23,8 @@ For instance, the `projects` parameter (a list of predefined projects) can only 
 |--------------------------------------|------------------------------------|---------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | --config                             | CONFIG                             | 0.0.0.0:8080  | Configuration file.                                                                                                                                                             |
 | --listen                             | LISTEN                             | 0.0.0.0:8080  | Listen address in the format `ip:port` or `:port`.                                                                                                                              |
+| --https-listen                       | HTTPS_LISTEN                       |               | HTTPS listen address in the format `ip:port` or `:port`.                                                                                                                         |
+| --http-disabled                      | HTTP_DISABLED                      | false         | Disable plain HTTP server.                                                                                                                                                      |
 | --grpc-disabled                      | GRPC_DISABLED                      | false         | Disable gRPC server.                                                                                                                                                            |
 | --grpc-listen                        | GRPC_LISTEN                        | :4317         | gRPC listen address - ip:port or :port.                                                                                                                                         |
 | --tls-cert-file                      | TLS_CERT_FILE                      |               | Path to the TLS certificate file.                                                                                                                                               |
@@ -69,6 +71,8 @@ Use the `--config` flag to specify the configuration file to load. The file must
 
 ```yaml
 listen_address: 0.0.0.0:8080 # Listen address in the format `ip:port` or `:port`. 
+https_listen_address:        # HTTPS listen address in the format `ip:port` or `:port`.
+http_disabled: false         # Disable plain HTTP server (default: false).
 url_base_path: /             # Base URL to run Coroot at a sub-path, e.g., `/coroot/`.
 data_dir: /data              # Path to the data directory. 
 
