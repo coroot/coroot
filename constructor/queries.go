@@ -67,6 +67,12 @@ type Query struct {
 	Labels *utils.StringSet
 
 	InstanceToInstance bool
+	FillFunc           timeseries.FillFunc
+}
+
+func (q Query) WithFillFunc(f timeseries.FillFunc) Query {
+	q.FillFunc = f
+	return q
 }
 
 func Q(name, query string, labels ...string) Query {
@@ -364,11 +370,16 @@ var QUERIES = []Query{
 	qDB("memcached_commands_total", `rate(memcached_commands_total[$RANGE])`, "command", "status"),
 
 	qJVM("container_jvm_info", `container_jvm_info`, "java_version"),
-	qJVM("container_jvm_heap_size_bytes", `container_jvm_heap_size_bytes`),
 	qJVM("container_jvm_heap_used_bytes", `container_jvm_heap_used_bytes`),
 	qJVM("container_jvm_gc_time_seconds", `rate(container_jvm_gc_time_seconds[$RANGE])`, "gc"),
 	qJVM("container_jvm_safepoint_time_seconds", `rate(container_jvm_safepoint_time_seconds[$RANGE])`),
 	qJVM("container_jvm_safepoint_sync_time_seconds", `rate(container_jvm_safepoint_sync_time_seconds[$RANGE])`),
+	qJVM("container_jvm_heap_max_size_bytes", `container_jvm_heap_max_size_bytes`),
+	qJVM("container_jvm_alloc_bytes_total", `rate(container_jvm_alloc_bytes_total[$RANGE])`).WithFillFunc(timeseries.FillAvg),
+	qJVM("container_jvm_alloc_objects_total", `rate(container_jvm_alloc_objects_total[$RANGE])`).WithFillFunc(timeseries.FillAvg),
+	qJVM("container_jvm_lock_contentions_total", `rate(container_jvm_lock_contentions_total[$RANGE])`).WithFillFunc(timeseries.FillAvg),
+	qJVM("container_jvm_lock_time_seconds_total", `rate(container_jvm_lock_time_seconds_total[$RANGE])`).WithFillFunc(timeseries.FillAvg),
+	qJVM("container_jvm_profiling_status", `container_jvm_profiling_status`),
 
 	qDotNet("container_dotnet_info", `container_dotnet_info`, "runtime_version"),
 	qDotNet("container_dotnet_memory_allocated_bytes_total", `rate(container_dotnet_memory_allocated_bytes_total[$RANGE])`),

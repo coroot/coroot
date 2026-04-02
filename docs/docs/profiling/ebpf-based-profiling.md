@@ -22,6 +22,9 @@ Coroot supports this automatically, but the JVM must be started with the followi
 When this flag is set, Coroot’s agent will detect it and periodically invoke the JVM to dump the perf map file (once per minute). 
 This works seamlessly with containerized applications.
 
+For richer Java profiling (CPU without `PreserveFramePointer`, memory allocations, and lock contention),
+see [Java profiling with async-profiler](/profiling/java-profiling).
+
 ## Node.js
 
 Node.js also supports generating perf map files. To enable it, start the Node.js process with the following options:

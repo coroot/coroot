@@ -33,9 +33,6 @@ func (c *Constructor) loadJVM(metrics map[string][]*model.MetricValues, containe
 	load("container_jvm_info", func(jvm *model.Jvm, metric *model.MetricValues) {
 		jvm.JavaVersion.Update(metric.Values, metric.Labels["java_version"])
 	})
-	load("container_jvm_heap_size_bytes", func(jvm *model.Jvm, metric *model.MetricValues) {
-		jvm.HeapSize = merge(jvm.HeapSize, metric.Values, timeseries.Any)
-	})
 	load("container_jvm_heap_used_bytes", func(jvm *model.Jvm, metric *model.MetricValues) {
 		jvm.HeapUsed = merge(jvm.HeapUsed, metric.Values, timeseries.Any)
 	})
@@ -48,6 +45,26 @@ func (c *Constructor) loadJVM(metrics map[string][]*model.MetricValues, containe
 	})
 	load("container_jvm_safepoint_sync_time_seconds", func(jvm *model.Jvm, metric *model.MetricValues) {
 		jvm.SafepointSyncTime = merge(jvm.SafepointSyncTime, metric.Values, timeseries.Any)
+	})
+	load("container_jvm_heap_max_size_bytes", func(jvm *model.Jvm, metric *model.MetricValues) {
+		jvm.HeapMaxSize = merge(jvm.HeapMaxSize, metric.Values, timeseries.Any)
+	})
+	load("container_jvm_alloc_bytes_total", func(jvm *model.Jvm, metric *model.MetricValues) {
+		jvm.AllocBytes = merge(jvm.AllocBytes, metric.Values, timeseries.Any)
+	})
+	load("container_jvm_alloc_objects_total", func(jvm *model.Jvm, metric *model.MetricValues) {
+		jvm.AllocObjects = merge(jvm.AllocObjects, metric.Values, timeseries.Any)
+	})
+	load("container_jvm_lock_contentions_total", func(jvm *model.Jvm, metric *model.MetricValues) {
+		jvm.LockContentions = merge(jvm.LockContentions, metric.Values, timeseries.Any)
+	})
+	load("container_jvm_lock_time_seconds_total", func(jvm *model.Jvm, metric *model.MetricValues) {
+		jvm.LockTime = merge(jvm.LockTime, metric.Values, timeseries.Any)
+	})
+	load("container_jvm_profiling_status", func(jvm *model.Jvm, metric *model.MetricValues) {
+		if metric.Values.Last() > 0 {
+			jvm.ProfilingEnabled = true
+		}
 	})
 }
 

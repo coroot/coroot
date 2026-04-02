@@ -375,6 +375,46 @@ Each JVM metric has the `jvm` label which refers to the main class or path to th
 * **Source**: `hsperfdata`
 * **Labels**: `jvm`
 
+### container_jvm_heap_max_size_bytes
+* **Description**: Maximum heap size in bytes (`-Xmx`)
+* **Type**: Gauge
+* **Source**: `hsperfdata` (`sun.gc.generation.*.space.*.maxCapacity`)
+* **Labels**: `jvm`
+
+### container_jvm_profiling_status
+* **Description**: Whether async-profiler is enabled for this JVM (1 = enabled, 0 = disabled)
+* **Type**: Gauge
+* **Source**: agent configuration
+* **Labels**: `jvm`
+
+### container_jvm_alloc_bytes_total
+* **Description**: Total bytes allocated, observed by async-profiler
+* **Type**: Counter
+* **Source**: async-profiler (TLAB allocation events)
+* **Labels**: `jvm`
+* **Requires**: `--enable-java-async-profiler`
+
+### container_jvm_alloc_objects_total
+* **Description**: Total objects allocated, observed by async-profiler
+* **Type**: Counter
+* **Source**: async-profiler (TLAB allocation events)
+* **Labels**: `jvm`
+* **Requires**: `--enable-java-async-profiler`
+
+### container_jvm_lock_contentions_total
+* **Description**: Total number of lock contentions (monitor enter events)
+* **Type**: Counter
+* **Source**: async-profiler (Java monitor enter events)
+* **Labels**: `jvm`
+* **Requires**: `--enable-java-async-profiler`
+
+### container_jvm_lock_time_seconds_total
+* **Description**: Total time spent waiting for locks
+* **Type**: Counter
+* **Source**: async-profiler (Java monitor enter events)
+* **Labels**: `jvm`
+* **Requires**: `--enable-java-async-profiler`
+
 ## Node.js runtime
 
 ### container_nodejs_event_loop_blocked_time_seconds_total
