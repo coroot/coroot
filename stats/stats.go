@@ -55,6 +55,7 @@ type Stats struct {
 		Tracing                   bool                                 `json:"tracing"`
 		Logs                      bool                                 `json:"logs"`
 		Profiles                  bool                                 `json:"profiles"`
+		JavaAsyncProfiler         bool                                 `json:"java_async_profiler"`
 	} `json:"integration"`
 	Stack struct {
 		Clouds               *utils.StringSet `json:"clouds"`
@@ -478,6 +479,14 @@ func (c *Collector) collect() Stats {
 					stats.Stack.Services.Add(string(t))
 				}
 				stats.Stack.InstrumentedServices.Add(string(i.InstrumentedType()))
+				if !stats.Integration.JavaAsyncProfiler {
+					for _, j := range i.Jvms {
+						if j.ProfilingEnabled {
+							stats.Integration.JavaAsyncProfiler = true
+							break
+						}
+					}
+				}
 			}
 			for _, ds := range model.CalcApplicationDeploymentStatuses(a, w.CheckConfigs, now) {
 				if now.Sub(ds.Deployment.StartedAt) > timeseries.Hour {

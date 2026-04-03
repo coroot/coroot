@@ -17,6 +17,19 @@
                 <Check v-for="check in r.checks" :key="check.id" :appId="id" :check="check" class="mb-2" />
             </v-card>
 
+            <v-alert
+                v-if="r && r.configuration_hint && !hintDismissed[r.name]"
+                color="green"
+                icon="mdi-information-outline"
+                outlined
+                dismissible
+                class="my-4"
+                @input="dismissHint(r.name)"
+            >
+                {{ r.configuration_hint.message }}
+                <a v-if="r.configuration_hint.read_more_link" :href="r.configuration_hint.read_more_link" target="_blank" class="ml-1">Read more</a>
+            </v-alert>
+
             <Dashboard v-if="r" :name="r.name" :widgets="r.widgets" />
         </div>
         <NoData v-else-if="!loading && !error" />
@@ -46,6 +59,7 @@ export default {
             loading: false,
             error: '',
             r: null,
+            hintDismissed: {},
         };
     },
 
@@ -81,8 +95,21 @@ export default {
                     return;
                 }
                 this.app = data;
+                this.loadDismissedHints();
                 this.showReport();
             });
+        },
+        dismissHint(reportName) {
+            this.$set(this.hintDismissed, reportName, true);
+            localStorage.setItem('hint-dismissed:' + this.id + ':' + reportName, '1');
+        },
+        loadDismissedHints() {
+            if (!this.app || !this.app.reports) return;
+            for (const r of this.app.reports) {
+                if (localStorage.getItem('hint-dismissed:' + this.id + ':' + r.name)) {
+                    this.$set(this.hintDismissed, r.name, true);
+                }
+            }
         },
         showReport() {
             if (!this.app || !this.app.reports || !this.app.reports.length) {

@@ -27,6 +27,7 @@ You can configure coroot-node-agent using command-line flags or environment vari
 | `--disable-l7-tracing` | `DISABLE_L7_TRACING` | `false` | Disable application-layer (L7) tracing |
 | `--disable-gpu-monitoring` | `DISABLE_GPU_MONITORING` | `false` | Disable GPU monitoring (NVML) |
 | `--enable-java-tls` | `ENABLE_JAVA_TLS` | `false` | Enable Java TLS instrumentation via dynamic agent loading |
+| `--enable-java-async-profiler` | `ENABLE_JAVA_ASYNC_PROFILER` | `false` | Enable Java profiling via async-profiler (CPU, memory allocations, lock contention) |
 | `--container-allowlist` | `CONTAINER_ALLOWLIST` | – | List of allowed containers (regex patterns) |
 | `--container-denylist` | `CONTAINER_DENYLIST` | – | List of denied containers (regex patterns) |
 | `--skip-systemd-system-services` | `SKIP_SYSTEMD_SYSTEM_SERVICES` | `true` | Skip well-known systemd system services (apt, motd, udev, etc.) |

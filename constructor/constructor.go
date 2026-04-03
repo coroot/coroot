@@ -208,12 +208,12 @@ func (c *Constructor) queryCache(ctx context.Context, cache Cache, project *db.P
 	from = from.Truncate(step)
 	to = to.Truncate(step)
 	queries := map[string]cacheQuery{}
-	addQuery := func(name, statsName, query string, sli bool) {
+	addQuery := func(name, statsName, query string, sli bool, fillFunc timeseries.FillFunc) {
 		if sli && loadRawSLIs {
 			queries[name+"_raw"] = cacheQuery{query: query, from: rawFrom, to: rawTo, step: rawStep, statsName: statsName + "_raw"}
 		}
 		if !sli {
-			queries[name] = cacheQuery{query: query, from: from, to: to, step: step, statsName: statsName}
+			queries[name] = cacheQuery{query: query, from: from, to: to, step: step, statsName: statsName, fillFunc: fillFunc}
 		}
 	}
 
@@ -232,7 +232,7 @@ func (c *Constructor) queryCache(ctx context.Context, cache Cache, project *db.P
 			}
 			continue
 		}
-		addQuery(q.Name, q.Name, q.Query, false)
+		addQuery(q.Name, q.Name, q.Query, false, q.FillFunc)
 		if q.Name == "container_memory_rss" || q.Name == "fargate_container_memory_rss" {
 			name := q.Name + "_for_trend"
 			queries[name] = cacheQuery{
@@ -248,19 +248,19 @@ func (c *Constructor) queryCache(ctx context.Context, cache Cache, project *db.P
 		for _, query := range qConnectionAggregations {
 			queries[query] = cacheQuery{query: query, from: from, to: to, step: step, statsName: query}
 		}
-		addQuery(qRecordingRuleApplicationL7Requests, qRecordingRuleApplicationL7Requests, qRecordingRuleApplicationL7Requests, true)
-		addQuery(qRecordingRuleApplicationL7Histogram, qRecordingRuleApplicationL7Histogram, qRecordingRuleApplicationL7Histogram, true)
+		addQuery(qRecordingRuleApplicationL7Requests, qRecordingRuleApplicationL7Requests, qRecordingRuleApplicationL7Requests, true, nil)
+		addQuery(qRecordingRuleApplicationL7Histogram, qRecordingRuleApplicationL7Histogram, qRecordingRuleApplicationL7Histogram, true, nil)
 	}
 	for appId := range checkConfigs {
 		qName := fmt.Sprintf("%s/%s/", qApplicationCustomSLI, appId)
 		availabilityCfg, _ := checkConfigs.GetAvailability(appId)
 		if availabilityCfg.Custom {
-			addQuery(qName+"total_requests", qApplicationCustomSLI, availabilityCfg.Total(), true)
-			addQuery(qName+"failed_requests", qApplicationCustomSLI, availabilityCfg.Failed(), true)
+			addQuery(qName+"total_requests", qApplicationCustomSLI, availabilityCfg.Total(), true, nil)
+			addQuery(qName+"failed_requests", qApplicationCustomSLI, availabilityCfg.Failed(), true, nil)
 		}
 		latencyCfg, _ := checkConfigs.GetLatency(appId, project.CalcApplicationCategory(appId))
 		if latencyCfg.Custom {
-			addQuery(qName+"requests_histogram", qApplicationCustomSLI, latencyCfg.Histogram(), true)
+			addQuery(qName+"requests_histogram", qApplicationCustomSLI, latencyCfg.Histogram(), true, nil)
 		}
 	}
 

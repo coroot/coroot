@@ -253,6 +253,60 @@ func FillSum(ts *TimeSeries, from Time, step Duration, data []float32) bool {
 	return changed
 }
 
+func FillAvg(ts *TimeSeries, from Time, step Duration, data []float32) bool {
+	changed := false
+	maxIndex := len(ts.data) - 1
+	tSrc, iSrc := from, 0
+	if ts.from.Sub(tSrc) >= ts.step {
+		tSrc = tSrc.Add(ts.from.Sub(tSrc.Truncate(ts.step)).Truncate(ts.step))
+		if tSrc > ts.from {
+			tSrc = tSrc.Add(-ts.step)
+		}
+		iSrc = int((tSrc - from) / Time(step))
+	}
+	tDst, iDst := ts.from, 0
+	if tSrc > tDst {
+		tDst = tSrc.Truncate(ts.step)
+		if tDst < tSrc {
+			tDst = tDst.Add(ts.step)
+		}
+		iDst = int((tDst - ts.from) / Time(ts.step))
+	}
+	vv := float32(0)
+	cc := float32(0)
+	if !IsNaN(ts.data[iDst]) {
+		vv = ts.data[iDst]
+		cc = 1
+	}
+	for _, v := range data[iSrc:] {
+		if tSrc > tDst {
+			if cc > 0 {
+				ts.data[iDst] = vv / cc
+			}
+			vv = 0
+			cc = 0
+			iDst++
+			if iDst > maxIndex {
+				break
+			}
+			tDst += Time(ts.step)
+		}
+		if !IsNaN(v) {
+			vv += v
+			cc++
+			changed = true
+		}
+		tSrc += Time(step)
+	}
+	if iDst <= maxIndex {
+		if cc > 0 {
+			ts.data[iDst] = vv / cc
+		}
+	}
+	ts.last = ts.data[maxIndex]
+	return changed
+}
+
 func (ts *TimeSeries) Iter() *Iterator {
 	if ts.IsEmpty() {
 		return &Iterator{data: nil}

@@ -18,11 +18,21 @@ func (a *appAuditor) jvm() {
 	heapChart := report.GetOrCreateChartGroup("Heap size <selector>, bytes", nil)
 	gcChart := report.GetOrCreateChartGroup("GC time <selector>, seconds/second", nil)
 	safepointChart := report.GetOrCreateChart("Safepoint time, seconds/second", nil)
+	allocChart := report.GetOrCreateChartGroup("Allocation rate <selector>", nil)
+	lockChart := report.GetOrCreateChartGroup("Lock contention <selector>", nil)
 
 	availabilityCheck.AddWidget(table.Widget())
 
 	safepointCheck.AddWidget(safepointChart.Widget())
 	safepointCheck.AddWidget(gcChart.Widget())
+
+	profileLink := func(category model.ProfileCategory) *model.RouterLink {
+		return model.NewRouterLink("profile", "overview").
+			SetParam("view", "applications").
+			SetParam("id", a.app.Id).
+			SetParam("report", model.AuditReportProfiling).
+			SetArg("query", string(category))
+	}
 
 	for _, i := range a.app.Instances {
 		obsolete := i.IsObsolete()
@@ -44,7 +54,7 @@ func (a *appAuditor) jvm() {
 				heapChart.GetOrCreateChart("overview").Feature().AddSeries(fullName, j.HeapUsed)
 				heapChart.GetOrCreateChart(fullName).Stacked().
 					AddSeries("used", j.HeapUsed, "blue").
-					SetThreshold("total", j.HeapSize)
+					SetThreshold("total", j.HeapMaxSize)
 			}
 			if gcChart != nil {
 				for gc, ts := range j.GcTime {
@@ -53,6 +63,14 @@ func (a *appAuditor) jvm() {
 			}
 			if safepointChart != nil {
 				safepointChart.AddSeries(fullName, j.SafepointTime)
+			}
+			if allocChart != nil {
+				allocChart.GetOrCreateChart("bytes/second").AddSeries(fullName, j.AllocBytes).Feature()
+				allocChart.GetOrCreateChart("objects/second").AddSeries(fullName, j.AllocObjects)
+			}
+			if lockChart != nil {
+				lockChart.GetOrCreateChart("contentions/second").AddSeries(fullName, j.LockContentions)
+				lockChart.GetOrCreateChart("delay, seconds/second").AddSeries(fullName, j.LockTime).Feature()
 			}
 
 			if !obsolete && !succeeded && table != nil {
@@ -64,6 +82,36 @@ func (a *appAuditor) jvm() {
 				version := model.NewTableCell(j.JavaVersion.Value())
 				table.AddRow(name, status, version)
 			}
+		}
+	}
+
+	if allocChart != nil {
+		for _, ch := range allocChart.Charts {
+			ch.DrillDownLink = profileLink(model.ProfileCategoryMemory)
+		}
+	}
+	if lockChart != nil {
+		for _, ch := range lockChart.Charts {
+			ch.DrillDownLink = profileLink(model.ProfileCategoryLock)
+		}
+	}
+
+	profilingEnabled := false
+	for _, i := range a.app.Instances {
+		for _, j := range i.Jvms {
+			if j.ProfilingEnabled {
+				profilingEnabled = true
+				break
+			}
+		}
+		if profilingEnabled {
+			break
+		}
+	}
+	if !profilingEnabled {
+		report.ConfigurationHint = &model.ConfigurationHint{
+			Message:      "Enable async-profiler to get Java CPU, memory allocation, and lock contention profiles and metrics.",
+			ReadMoreLink: "https://docs.coroot.com/profiling/java-profiling",
 		}
 	}
 }
