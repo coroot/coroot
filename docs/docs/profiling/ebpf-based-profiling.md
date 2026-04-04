@@ -23,7 +23,7 @@ When this flag is set, Coroot’s agent will detect it and periodically invoke t
 This works seamlessly with containerized applications.
 
 For richer Java profiling (CPU without `PreserveFramePointer`, memory allocations, and lock contention),
-see [Java profiling with async-profiler](/profiling/java-profiling).
+see [Java profiling with async-profiler](/profiling/java-profiling.md).
 
 ## Node.js
 
