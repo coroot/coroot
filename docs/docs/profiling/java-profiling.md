@@ -44,7 +44,8 @@ kind: Coroot
 spec:
   nodeAgent:
     env:
-      ENABLE_JAVA_ASYNC_PROFILER: "true"
+      - name: ENABLE_JAVA_ASYNC_PROFILER
+        value: "true"
 ```
 
 ## Metrics
