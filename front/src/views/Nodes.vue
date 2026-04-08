@@ -30,6 +30,11 @@
                 <span class="truncated grey--text" style="max-width: 20ch">{{ item.cluster_name }}</span>
             </template>
 
+            <template #item.os="{ item }">
+                <AppIcon :icon="item.os" style="vertical-align: middle" />
+                <span v-if="item.kernel_version" class="caption grey--text ml-1">{{ item.kernel_version }}</span>
+            </template>
+
             <template #item.status="{ item }">
                 <Led :status="item.status.status" />
                 {{ item.status.message }}
@@ -114,9 +119,10 @@
 import Views from '@/views/Views.vue';
 import AgentInstallation from '@/views/AgentInstallation.vue';
 import Led from '@/components/Led.vue';
+import AppIcon from '@/components/AppIcon.vue';
 
 export default {
-    components: { Led, Views, AgentInstallation },
+    components: { Led, Views, AgentInstallation, AppIcon },
 
     data() {
         return {
@@ -139,6 +145,7 @@ export default {
                 { value: 'memory_percent', text: 'Memory', align: 'left' },
                 { value: 'gpus', text: 'GPU', align: 'left' },
                 { value: 'total_network_bandwidth', text: 'Network', align: 'left' },
+                { value: 'os', text: 'OS', align: 'left' },
                 { value: 'cluster', text: 'Cluster', align: 'left' },
             ];
             if (!this.$api.context.multicluster) {

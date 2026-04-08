@@ -154,7 +154,7 @@ var Checks = struct {
 		Type:                    CheckTypeValueBased,
 		Title:                   "Memory leak",
 		DefaultThreshold:        10,
-		MessageTemplate:         `memory usage is growing by {{.Value}} %% per hour`,
+		MessageTemplate:         `memory usage is growing by {{.Value}}% per hour`,
 		ConditionFormatTemplate: "memory usage is growing by > <threshold> % per hour",
 	},
 	MemoryPressure: CheckConfig{

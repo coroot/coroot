@@ -11,6 +11,13 @@ const (
 	CloudProviderAzure = "azure"
 )
 
+type OSType string
+
+const (
+	OSLinux   OSType = "linux"
+	OSWindows OSType = "windows"
+)
+
 type DiskStats struct {
 	IOUtilizationPercent *timeseries.TimeSeries
 	ReadOps              *timeseries.TimeSeries
@@ -137,6 +144,21 @@ func (n *Node) GetName() string {
 	return n.K8sName.Value()
 }
 
+func (n *Node) GetOS() OSType {
+	if strings.HasPrefix(strings.ToLower(n.KernelVersion.Value()), "windows") {
+		return OSWindows
+	}
+	return OSLinux
+}
+
+func (n *Node) GetKernelVersion() string {
+	kv := n.KernelVersion.Value()
+	if strings.HasPrefix(strings.ToLower(kv), "windows") {
+		kv = strings.TrimSpace(kv[len("windows"):])
+	}
+	return kv
+}
+
 func (n *Node) IsAgentInstalled() bool {
 	return n != nil && n.Name.Value() != ""
 }
@@ -170,8 +192,9 @@ func (n *Node) Status() Status {
 }
 
 type GPU struct {
-	UUID string
-	Name LabelLastValue
+	UUID          string
+	Name          LabelLastValue
+	DriverVersion LabelLastValue
 
 	TotalMemory *timeseries.TimeSeries
 	UsedMemory  *timeseries.TimeSeries

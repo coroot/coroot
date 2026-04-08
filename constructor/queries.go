@@ -153,7 +153,7 @@ var QUERIES = []Query{
 	Q("node_net_ip", `node_net_interface_ip`, "interface", "ip"),
 	Q("node_net_rx_bytes", `rate(node_net_received_bytes_total[$RANGE])`, "interface"),
 	Q("node_net_tx_bytes", `rate(node_net_transmitted_bytes_total[$RANGE])`, "interface"),
-	Q("node_gpu_info", `node_gpu_info`, "gpu_uuid", "name"),
+	Q("node_gpu_info", `node_gpu_info`, "gpu_uuid", "name", "driver_version"),
 	Q("node_gpu_memory_total_bytes", `node_resources_gpu_memory_total_bytes`, "gpu_uuid"),
 	Q("node_gpu_memory_used_bytes", `node_resources_gpu_memory_used_bytes`, "gpu_uuid"),
 	Q("node_gpu_memory_utilization_percent_avg", `node_resources_gpu_memory_utilization_percent_avg`, "gpu_uuid"),

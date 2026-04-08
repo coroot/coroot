@@ -191,6 +191,7 @@ func nodeGPU(node *model.Node, queryName string, m *model.MetricValues) {
 	switch queryName {
 	case "node_gpu_info":
 		gpu.Name.Update(m.Values, m.Labels["name"])
+		gpu.DriverVersion.Update(m.Values, m.Labels["driver_version"])
 	case "node_gpu_memory_total_bytes":
 		gpu.TotalMemory = merge(gpu.TotalMemory, m.Values, timeseries.Any)
 	case "node_gpu_memory_used_bytes":

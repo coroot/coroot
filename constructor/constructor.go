@@ -393,11 +393,11 @@ func enrichInstances(w *model.World, metrics map[string][]*model.MetricValues, r
 
 	instancesByListenAddr := map[string]*model.Instance{}
 	for l, i := range instancesByListen {
-		addr := net.JoinHostPort(l.IP, l.Port)
-		if instancesByListenAddr[addr] != nil {
+		if ip := net.ParseIP(l.IP); ip == nil {
 			continue
 		}
-		if ip := net.ParseIP(l.IP); ip == nil || ip.IsLoopback() {
+		addr := net.JoinHostPort(l.IP, l.Port)
+		if instancesByListenAddr[addr] != nil {
 			continue
 		}
 		l.Proxied = true
