@@ -18,6 +18,41 @@ func AuditNode(w *model.World, node *model.Node) *model.AuditReport {
 
 	report.Status = model.OK
 
+	var infoHeader []string
+	var infoRow []*model.TableCell
+	if kv := node.GetKernelVersion(); kv != "" {
+		infoHeader = append(infoHeader, "OS")
+		infoRow = append(infoRow, model.NewTableCell(kv).SetTechIcon(string(node.GetOS())))
+	}
+	if cp := node.CloudProvider.Value(); cp != "" {
+		infoHeader = append(infoHeader, "Cloud")
+		infoRow = append(infoRow, model.NewTableCell(cp))
+	}
+	if r := node.Region.Value(); r != "" {
+		infoHeader = append(infoHeader, "Region")
+		infoRow = append(infoRow, model.NewTableCell(r))
+	}
+	if az := node.AvailabilityZone.Value(); az != "" {
+		infoHeader = append(infoHeader, "AZ")
+		infoRow = append(infoRow, model.NewTableCell(az))
+	}
+	if it := node.InstanceType.Value(); it != "" {
+		infoHeader = append(infoHeader, "Instance Type")
+		infoRow = append(infoRow, model.NewTableCell(it))
+	}
+	{
+		infoHeader = append(infoHeader, "Coroot Agent")
+		av := node.AgentVersion.Value()
+		if av == "" {
+			av = "unknown"
+		}
+		infoRow = append(infoRow, model.NewTableCell(av))
+	}
+	if len(infoRow) > 0 {
+		info := report.GetOrCreateTable(infoHeader...)
+		info.AddRow(infoRow...)
+	}
+
 	report.AddWidget(&model.Widget{GroupHeader: "CPU", Width: "100%"})
 	cpuByModeChart(
 		report.GetOrCreateChart("CPU usage, %", model.NewDocLink("inspections", "cpu", "node-cpu-usage")),
@@ -163,12 +198,12 @@ func AuditNode(w *model.World, node *model.Node) *model.AuditReport {
 	}
 
 	for _, gpu := range node.GPUs {
-		gpus := report.GetOrCreateTable("GPU UUID", "Name", "vRAM")
+		gpus := report.GetOrCreateTable("GPU UUID", "Name", "Driver", "vRAM")
 		mem := model.NewTableCell()
 		if last := gpu.TotalMemory.Last(); last > 0 {
 			mem.SetValue(humanize.Bytes(uint64(last)))
 		}
-		gpus.AddRow(model.NewTableCell(gpu.UUID), model.NewTableCell(gpu.Name.Value()), mem)
+		gpus.AddRow(model.NewTableCell(gpu.UUID), model.NewTableCell(gpu.Name.Value()), model.NewTableCell(gpu.DriverVersion.Value()), mem)
 		report.
 			GetOrCreateChartGroup("GPU utilization <selector>, %", nil).
 			GetOrCreateChart("average").

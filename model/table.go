@@ -81,6 +81,7 @@ type Bandwidth struct {
 
 type TableCell struct {
 	Icon       *Icon                  `json:"icon"`
+	TechIcon   string                 `json:"tech_icon,omitempty"`
 	Value      string                 `json:"value"`
 	ShortValue string                 `json:"short_value"`
 	Values     []string               `json:"values"`
@@ -145,6 +146,14 @@ func (c *TableCell) SetIcon(name, color string) *TableCell {
 		return nil
 	}
 	c.Icon = &Icon{Name: name, Color: color}
+	return c
+}
+
+func (c *TableCell) SetTechIcon(name string) *TableCell {
+	if c == nil {
+		return nil
+	}
+	c.TechIcon = name
 	return c
 }
 

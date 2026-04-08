@@ -23,6 +23,8 @@ type Node struct {
 	ClusterName           string            `json:"cluster_name"`
 	Status                model.Indicator   `json:"status"`
 	UptimeMs              int64             `json:"uptime_ms"`
+	OS                    string            `json:"os"`
+	KernelVersion         string            `json:"kernel_version"`
 	AvailabilityZone      string            `json:"availability_zone"`
 	CloudProvider         string            `json:"cloud_provider"`
 	InstanceType          string            `json:"instance_type"`
@@ -48,6 +50,8 @@ func renderNodes(w *model.World, project *db.Project) []Node {
 			ClusterId:     n.ClusterId,
 			ClusterName:   w.ClusterName(n.ClusterId),
 			Status:        model.Indicator{Status: model.OK, Message: "up"},
+			OS:            string(n.GetOS()),
+			KernelVersion: n.GetKernelVersion(),
 			InstanceType:  n.InstanceType.Value(),
 			Compute:       compute(n),
 			GPUs:          len(n.GPUs),

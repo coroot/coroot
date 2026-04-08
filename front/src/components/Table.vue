@@ -64,8 +64,9 @@
                     </div>
 
                     <div v-else>
-                        <div class="d-flex">
+                        <div class="d-flex align-center">
                             <v-icon v-if="c.icon" :color="c.icon.color" small class="mr-1">{{ c.icon.name }}</v-icon>
+                            <AppIcon v-if="c.tech_icon" :icon="c.tech_icon" class="mr-1" />
                             <Led v-if="c.status && c.value" :status="c.status" />
                             <router-link
                                 v-if="c.value && c.link"
@@ -96,6 +97,7 @@
 
 <script>
 import Led from './Led';
+import AppIcon from './AppIcon';
 
 export default {
     props: {
@@ -103,7 +105,7 @@ export default {
         rows: Array,
     },
 
-    components: { Led },
+    components: { Led, AppIcon },
 
     computed: {
         smallScreen() {
