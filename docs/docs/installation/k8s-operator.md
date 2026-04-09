@@ -378,6 +378,9 @@ spec:
 #          customHeaders:          # Custom headers to include in requests.
 #            - key:
 #              value:
+#          customFields:           # Static key-value pairs included as top-level fields in template data.
+#            environment: production
+#            team: platform
 #          incidents: false        # Notify of incidents (SLO violations).
 #          deployments: false      # Notify of deployments.
 #          alerts: false           # Notify of alerts.
