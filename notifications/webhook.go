@@ -53,6 +53,21 @@ func NewWebhook(cfg *db.IntegrationWebhook) *Webhook {
 	return &Webhook{cfg: cfg}
 }
 
+func mergeCustomFields(values any, customFields map[string]string) (map[string]any, error) {
+	data, err := json.Marshal(values)
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[string]any)
+	for k, v := range customFields {
+		result[k] = v
+	}
+	if err := json.Unmarshal(data, &result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
 func (wh *Webhook) SendIncident(ctx context.Context, baseUrl string, n *db.IncidentNotification) error {
 	tmpl, err := template.New("incidentTemplate").Funcs(templateFunctions).Parse(wh.cfg.IncidentTemplate)
 	if err != nil {
@@ -68,7 +83,11 @@ func (wh *Webhook) SendIncident(ctx context.Context, baseUrl string, n *db.Incid
 	if n.Details != nil {
 		values.Reports = n.Details.Reports
 	}
-	err = tmpl.Execute(&data, values)
+	templateData, err := mergeCustomFields(values, wh.cfg.CustomFields)
+	if err != nil {
+		return err
+	}
+	err = tmpl.Execute(&data, templateData)
 	if err != nil {
 		return fmt.Errorf("invalid incident template: %s", err)
 	}
@@ -100,7 +119,11 @@ func (wh *Webhook) SendAlert(ctx context.Context, baseUrl string, n *db.AlertNot
 		values.Duration = n.Details.Duration
 		values.ResolvedBy = n.Details.ResolvedBy
 	}
-	err = tmpl.Execute(&data, values)
+	templateData, err := mergeCustomFields(values, wh.cfg.CustomFields)
+	if err != nil {
+		return err
+	}
+	err = tmpl.Execute(&data, templateData)
 	if err != nil {
 		return fmt.Errorf("invalid alert template: %s", err)
 	}
@@ -133,13 +156,17 @@ func (wh *Webhook) SendDeployment(ctx context.Context, project *db.Project, ds m
 	}
 
 	var data bytes.Buffer
-	err = tmpl.Execute(&data, DeploymentTemplateValues{
+	templateData, err := mergeCustomFields(DeploymentTemplateValues{
 		Application: ds.Deployment.ApplicationId,
 		Status:      status,
 		Version:     ds.Deployment.Version(),
 		Summary:     summary,
 		URL:         deploymentUrl(project.Settings.Integrations.BaseUrl, project.Id, ds.Deployment),
-	})
+	}, wh.cfg.CustomFields)
+	if err != nil {
+		return err
+	}
+	err = tmpl.Execute(&data, templateData)
 	if err != nil {
 		return fmt.Errorf("invalid deployment template: %s", err)
 	}

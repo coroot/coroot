@@ -24,6 +24,24 @@
             <v-btn color="primary" small @click="form.custom_headers.push({ key: '', value: '' })">Add header</v-btn>
         </template>
 
+        <div class="subtitle-1 mt-5">Custom fields</div>
+        <div class="caption mb-2">Static key-value pairs included in template data</div>
+        <div v-for="(entry, i) in customFieldsList" :key="i" class="d-flex mb-2 align-center" style="gap: 8px">
+            <v-text-field outlined dense v-model="entry.key" label="key" hide-details single-line @input="syncCustomFields" />
+            <v-text-field outlined dense v-model="entry.value" label="value" hide-details single-line @input="syncCustomFields" />
+            <v-btn
+                @click="
+                    customFieldsList.splice(i, 1);
+                    syncCustomFields();
+                "
+                icon
+                small
+            >
+                <v-icon small>mdi-trash-can-outline</v-icon>
+            </v-btn>
+        </div>
+        <v-btn color="primary" small @click="customFieldsList.push({ key: '', value: '' })">Add field</v-btn>
+
         <div class="subtitle-1 mt-5">Notify of</div>
         <v-checkbox v-model="form.incidents" label="Incidents" dense hide-details />
         <v-checkbox v-model="form.deployments" label="Deployments" dense hide-details />
@@ -48,10 +66,30 @@ export default {
     },
 
     data() {
+        const customFieldsList = [];
+        if (this.form.custom_fields) {
+            for (const [key, value] of Object.entries(this.form.custom_fields)) {
+                customFieldsList.push({ key, value });
+            }
+        }
         return {
             basic_auth: !!this.form.basic_auth,
             custom_headers: !!this.form.custom_headers,
+            customFieldsList,
         };
+    },
+
+    methods: {
+        syncCustomFields() {
+            const fields = {};
+            for (const entry of this.customFieldsList) {
+                if (entry.key) {
+                    fields[entry.key] = entry.value;
+                }
+            }
+            // eslint-disable-next-line vue/no-mutating-props
+            this.form.custom_fields = fields;
+        },
     },
 
     watch: {
@@ -63,6 +101,12 @@ export default {
             if (!this.form.custom_headers) {
                 // eslint-disable-next-line vue/no-mutating-props
                 this.form.custom_headers = [];
+            }
+            this.customFieldsList = [];
+            if (this.form.custom_fields) {
+                for (const [key, value] of Object.entries(this.form.custom_fields)) {
+                    this.customFieldsList.push({ key, value });
+                }
             }
         },
     },
