@@ -17,6 +17,7 @@ To configure a Webhook integration:
 * Paste a Webhook URL to the form
   <img alt="Coroot Webhook integration" src="/img/docs/webhook-integration.png" class="card w-800"/>
 * Configure HTTP basic authentication and headers if required.
+* Add custom fields if you need static key-value pairs included in every notification (see [Custom fields](#custom-fields) below).
 * Define templates for incidents, deployments, and alerts.
 * Send a test alert to check the integration.
 
@@ -78,6 +79,17 @@ type AlertTemplateValues struct {
 }
 ```
 
+## Custom fields
+
+Custom fields are static key-value pairs that you can configure in the webhook integration settings.
+Once defined, they are merged into the root of every notification's template data (incidents, deployments, and alerts)
+and are accessible both in templates and in `{{ json . }}` output.
+
+For example, if you add a custom field `environment` = `production`, you can reference it in templates as `{{ .environment }}`.
+When using `{{ json . }}`, it will appear as a top-level key in the resulting JSON.
+
+If a custom field has the same name as a built-in field (e.g. `status`), the built-in field takes precedence.
+
 ## Examples
 
 <Tabs queryString="example">
@@ -138,10 +150,12 @@ If the system you aim to integrate accepts JSON-formatted messages, you can empl
 
 This template will encode the incident, deployment, and alert data structures into valid JSON messages with the specified schema.
 
-A sample of resulting incident message:
+A sample of resulting incident message (assuming custom fields `environment` = `production` and `team` = `platform` are configured):
 
 ```json
 {
+  "environment": "production",
+  "team": "platform",
   "status": "WARNING",
   "application": "default:Deployment:app1",
   "reports": [
@@ -164,6 +178,8 @@ A sample of resulting deployment message:
 
 ```json
 {
+  "environment": "production",
+  "team": "platform",
   "status": "Deployed",
   "application": "default:Deployment:app1",
   "version": "123ab456: app:v1.8.2",
@@ -180,6 +196,8 @@ A sample of resulting alert message:
 
 ```json
 {
+  "environment": "production",
+  "team": "platform",
   "status": "WARNING",
   "project_name": "production",
   "application": "default:Deployment:app1",

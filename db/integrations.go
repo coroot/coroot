@@ -233,16 +233,17 @@ func (i *IntegrationOpsgenie) Validate() error {
 }
 
 type IntegrationWebhook struct {
-	Url                string           `json:"url" yaml:"url"`
-	TlsSkipVerify      bool             `json:"tls_skip_verify" yaml:"tlsSkipVerify"`
-	BasicAuth          *utils.BasicAuth `json:"basic_auth" yaml:"basicAuth"`
-	CustomHeaders      []utils.Header   `json:"custom_headers" yaml:"customHeaders"`
-	Incidents          bool             `json:"incidents" yaml:"incidents"`
-	Deployments        bool             `json:"deployments" yaml:"deployments"`
-	Alerts             *bool            `json:"alerts,omitempty" yaml:"alerts,omitempty"`
-	IncidentTemplate   string           `json:"incident_template" yaml:"incidentTemplate"`
-	DeploymentTemplate string           `json:"deployment_template" yaml:"deploymentTemplate"`
-	AlertTemplate      string           `json:"alert_template" yaml:"alertTemplate"`
+	Url                string            `json:"url" yaml:"url"`
+	TlsSkipVerify      bool              `json:"tls_skip_verify" yaml:"tlsSkipVerify"`
+	BasicAuth          *utils.BasicAuth  `json:"basic_auth" yaml:"basicAuth"`
+	CustomHeaders      []utils.Header    `json:"custom_headers" yaml:"customHeaders"`
+	CustomFields       map[string]string `json:"custom_fields" yaml:"customFields"`
+	Incidents          bool              `json:"incidents" yaml:"incidents"`
+	Deployments        bool              `json:"deployments" yaml:"deployments"`
+	Alerts             *bool             `json:"alerts,omitempty" yaml:"alerts,omitempty"`
+	IncidentTemplate   string            `json:"incident_template" yaml:"incidentTemplate"`
+	DeploymentTemplate string            `json:"deployment_template" yaml:"deploymentTemplate"`
+	AlertTemplate      string            `json:"alert_template" yaml:"alertTemplate"`
 }
 
 func (i *IntegrationWebhook) Validate() error {
