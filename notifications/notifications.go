@@ -87,10 +87,15 @@ func incidentDetails(app *model.Application, incident *model.ApplicationIncident
 		//}
 		//}
 	}
-	if len(reports) == 0 {
+	if len(reports) == 0 && incident.RCA == nil {
 		return nil
 	}
-	return &db.IncidentNotificationDetails{Reports: reports}
+	details := &db.IncidentNotificationDetails{Reports: reports}
+	if rca := incident.RCA; rca != nil && rca.Status == "OK" {
+		details.RCASummary = rca.ShortSummary
+		details.RCARemediations = rca.ImmediateFixes
+	}
+	return details
 }
 
 func incidentUrl(baseUrl string, n *db.IncidentNotification) string {

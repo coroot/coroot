@@ -119,6 +119,14 @@ func FormatLinkStats(requests, latency, bytesSent, bytesReceived float32, issue 
 	return res
 }
 
+func Truncate(s string, maxLen int) string {
+	runes := []rune(s)
+	if len(runes) <= maxLen {
+		return s
+	}
+	return string(runes[:maxLen]) + "…"
+}
+
 func Capitalize(s string) string {
 	if len(s) == 0 {
 		return ""

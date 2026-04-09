@@ -8,6 +8,7 @@ import (
 	"github.com/PagerDuty/go-pagerduty"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
+	"github.com/coroot/coroot/utils"
 )
 
 type Pagerduty struct {
@@ -35,12 +36,20 @@ func (pd *Pagerduty) SendIncident(ctx context.Context, baseUrl string, n *db.Inc
 			Severity:  n.Status.String(),
 			Timestamp: n.Timestamp.ToStandard().String(),
 		}
-		if n.Details != nil && len(n.Details.Reports) > 0 {
+		if n.Details != nil {
 			details := map[string]string{}
 			for _, r := range n.Details.Reports {
 				details[fmt.Sprintf("%s / %s", r.Name, r.Check)] = r.Message
 			}
-			e.Payload.Details = details
+			if n.Details.RCASummary != "" {
+				details["Root Cause"] = n.Details.RCASummary
+			}
+			if n.Details.RCARemediations != "" {
+				details["Remediations"] = utils.Truncate(n.Details.RCARemediations, 2000)
+			}
+			if len(details) > 0 {
+				e.Payload.Details = details
+			}
 		}
 	}
 	_, err := pagerduty.ManageEventWithContext(ctx, e)

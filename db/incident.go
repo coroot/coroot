@@ -98,7 +98,9 @@ func (d *IncidentNotificationDestination) Scan(src any) error {
 }
 
 type IncidentNotificationDetails struct {
-	Reports []IncidentNotificationDetailsReport `json:"reports"`
+	Reports         []IncidentNotificationDetailsReport `json:"reports"`
+	RCASummary      string                              `json:"rca_summary,omitempty"`
+	RCARemediations string                              `json:"rca_remediations,omitempty"`
 }
 
 type IncidentNotificationDetailsReport struct {

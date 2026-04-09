@@ -8,6 +8,7 @@ import (
 
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
+	"github.com/coroot/coroot/utils"
 	"github.com/opsgenie/opsgenie-go-sdk-v2/alert"
 	"github.com/opsgenie/opsgenie-go-sdk-v2/client"
 	"github.com/sirupsen/logrus"
@@ -55,9 +56,15 @@ func (og *Opsgenie) SendIncident(ctx context.Context, baseUrl string, n *db.Inci
 	case model.INFO:
 		req.Priority = alert.P4
 	}
-	if n.Details != nil && len(n.Details.Reports) > 0 {
+	if n.Details != nil {
 		for _, r := range n.Details.Reports {
 			req.Description += fmt.Sprintf("• %s / %s: %s\n", r.Name, r.Check, r.Message)
+		}
+		if n.Details.RCASummary != "" {
+			req.Description += fmt.Sprintf("\nRoot Cause: %s\n", n.Details.RCASummary)
+			if n.Details.RCARemediations != "" {
+				req.Description += fmt.Sprintf("\nRemediations: %s\n", utils.Truncate(n.Details.RCARemediations, 2000))
+			}
 		}
 	}
 	req.Description += fmt.Sprintf("\n%s", incidentUrl(baseUrl, n))
