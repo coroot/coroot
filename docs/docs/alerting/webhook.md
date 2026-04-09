@@ -39,7 +39,9 @@ type IncidentTemplateValues struct {
         Check   string // Availability, Latency, Memory leak, ...
         Message string // "error budget burn rate is 26x within 1 hour", "app containers have been restarted 11 times by the OOM killer", ...
     }
-    URL string // backlink to the incident page
+    URL             string // backlink to the incident page
+    RCASummary      string // AI-generated short summary of the root cause (empty if RCA is not available)
+    RCARemediations string // AI-generated remediation hints in Markdown (empty if RCA is not available)
 }
 ```
 
@@ -170,9 +172,15 @@ A sample of resulting incident message (assuming custom fields `environment` = `
       "message": "high network latency to 2 upstream services"
     }
   ],
-  "url": "http://127.0.0.1:8080/p/x0xwl4jz/app/default:Deployment:app1?incident=123ab456"
+  "url": "http://127.0.0.1:8080/p/x0xwl4jz/app/default:Deployment:app1?incident=123ab456",
+  "rca_summary": "Dropped index on postgres-products caused CPU saturation on node2, degrading product-catalog latency",
+  "rca_remediations": "Recreate the dropped trigram index on the products table in postgres-products:\n```sql\nCREATE INDEX idx_products_name_trgm ON public.products USING gin (name gin_trgm_ops);\n```\nIf the pg_trgm extension is not already enabled:\n```sql\nCREATE EXTENSION IF NOT EXISTS pg_trgm;\n```\nThen revert the ArgoCD commit (52ebd518) that removed the index to prevent it from being dropped again on the next sync."
 }
 ```
+
+:::note
+The `rca_summary` and `rca_remediations` fields are only present when AI Root Cause Analysis is available (Coroot Enterprise or Coroot Cloud integration).
+:::
 
 A sample of resulting deployment message:
 

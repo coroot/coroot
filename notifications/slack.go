@@ -8,6 +8,7 @@ import (
 
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
+	"github.com/coroot/coroot/utils"
 	"github.com/slack-go/slack"
 )
 
@@ -51,6 +52,13 @@ func (s *Slack) SendIncident(ctx context.Context, baseUrl string, n *db.Incident
 	}
 	if len(details) > 0 {
 		blocks = append(blocks, s.section(s.text(strings.Join(details, "\n"))))
+	}
+	if n.Details != nil && n.Details.RCASummary != "" {
+		rca := fmt.Sprintf("*Root Cause*: %s", n.Details.RCASummary)
+		if n.Details.RCARemediations != "" {
+			rca += fmt.Sprintf("\n*Remediations*: %s", utils.Truncate(n.Details.RCARemediations, 2000))
+		}
+		blocks = append(blocks, s.section(s.text(rca)))
 	}
 	body := s.body(n.Status.Color(), snippet, blocks...)
 	opts := []slack.MsgOption{body, slack.MsgOptionDisableLinkUnfurl()}

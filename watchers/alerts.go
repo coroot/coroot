@@ -27,14 +27,6 @@ import (
 
 const alertDetailValueMaxLen = 1000
 
-func truncateValue(s string) string {
-	runes := []rune(s)
-	if len(runes) <= alertDetailValueMaxLen {
-		return s
-	}
-	return string(runes[:alertDetailValueMaxLen]) + "…"
-}
-
 type LogPatternEvaluation struct {
 	ShouldAlert bool
 	Explanation string
@@ -324,7 +316,7 @@ func (w *Alerts) evaluateLogPatternAlerts(project *db.Project, rule *model.Alert
 							updatedDetails = append(updatedDetails, model.AlertDetail{Name: "Description", Value: rule.Templates.Description})
 						}
 						if lp.Sample != "" {
-							updatedDetails = append(updatedDetails, model.AlertDetail{Name: "Sample", Value: truncateValue(lp.Sample), Code: true})
+							updatedDetails = append(updatedDetails, model.AlertDetail{Name: "Sample", Value: utils.Truncate(lp.Sample, alertDetailValueMaxLen), Code: true})
 						}
 						// preserve existing AI analysis
 						for _, d := range blockingAlert.Details {
@@ -365,7 +357,7 @@ func (w *Alerts) evaluateLogPatternAlerts(project *db.Project, rule *model.Alert
 					logDetails = append(logDetails, model.AlertDetail{Name: "Description", Value: rule.Templates.Description})
 				}
 				if lp.Sample != "" {
-					logDetails = append(logDetails, model.AlertDetail{Name: "Sample", Value: truncateValue(lp.Sample), Code: true})
+					logDetails = append(logDetails, model.AlertDetail{Name: "Sample", Value: utils.Truncate(lp.Sample, alertDetailValueMaxLen), Code: true})
 				}
 				if aiExplanation != "" {
 					logDetails = append(logDetails, model.AlertDetail{Name: "AI analysis", Value: aiExplanation})
@@ -486,7 +478,7 @@ func (w *Alerts) evaluatePromQLAlerts(project *db.Project, rule *model.AlertingR
 				parts = append(parts, fmt.Sprintf(`%s="%s"`, k, v))
 			}
 			sort.Strings(parts)
-			details = append(details, model.AlertDetail{Name: "Labels", Value: truncateValue(strings.Join(parts, "\n")), Code: true})
+			details = append(details, model.AlertDetail{Name: "Labels", Value: utils.Truncate(strings.Join(parts, "\n"), alertDetailValueMaxLen), Code: true})
 			if q, err := prom.AddExtraSelector(rule.Source.PromQL.Expression, "{"+strings.Join(parts, ",")+"}"); err == nil {
 				scopedQuery = q
 			}
@@ -782,7 +774,7 @@ func (w *Alerts) evaluateKubernetesEventsAlerts(project *db.Project, rule *model
 		}
 		sort.Strings(labelParts)
 		if g.events[0].Body != "" {
-			details = append(details, model.AlertDetail{Name: "Event message", Value: truncateValue(g.events[0].Body), Code: true})
+			details = append(details, model.AlertDetail{Name: "Event message", Value: utils.Truncate(g.events[0].Body, alertDetailValueMaxLen), Code: true})
 		}
 		details = append(details, model.AlertDetail{Name: "Labels", Value: strings.Join(labelParts, "\n"), Code: true})
 		if queryJSON, err := json.Marshal(queryFilters); err == nil {
@@ -918,7 +910,7 @@ func (w *Alerts) initLogPatternAlerts(project *db.Project, rule *model.AlertingR
 					initDetails = append(initDetails, model.AlertDetail{Name: "Description", Value: rule.Templates.Description})
 				}
 				if lp.Sample != "" {
-					initDetails = append(initDetails, model.AlertDetail{Name: "Sample", Value: truncateValue(lp.Sample), Code: true})
+					initDetails = append(initDetails, model.AlertDetail{Name: "Sample", Value: utils.Truncate(lp.Sample, alertDetailValueMaxLen), Code: true})
 				}
 				alert := &model.Alert{
 					Id:                  utils.NanoId(12),

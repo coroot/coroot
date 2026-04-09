@@ -9,6 +9,7 @@ import (
 	"github.com/atc0005/go-teams-notify/v2/adaptivecard"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
+	"github.com/coroot/coroot/utils"
 )
 
 type Teams struct {
@@ -36,6 +37,12 @@ func (t *Teams) SendIncident(ctx context.Context, baseUrl string, n *db.Incident
 	if n.Details != nil {
 		for _, r := range n.Details.Reports {
 			text += fmt.Sprintf("* **%s** / %s: %s\n", r.Name, r.Check, r.Message)
+		}
+		if n.Details.RCASummary != "" {
+			text += fmt.Sprintf("\n**Root Cause**: %s\n", n.Details.RCASummary)
+			if n.Details.RCARemediations != "" {
+				text += fmt.Sprintf("\n**Remediations**: %s\n", utils.Truncate(n.Details.RCARemediations, 2000))
+			}
 		}
 	}
 	if text == "" {

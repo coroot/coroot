@@ -22,10 +22,12 @@ type Webhook struct {
 }
 
 type IncidentTemplateValues struct {
-	Status      string                                 `json:"status"`
-	Application model.ApplicationId                    `json:"application"`
-	Reports     []db.IncidentNotificationDetailsReport `json:"reports"`
-	URL         string                                 `json:"url"`
+	Status          string                                 `json:"status"`
+	Application     model.ApplicationId                    `json:"application"`
+	Reports         []db.IncidentNotificationDetailsReport `json:"reports"`
+	URL             string                                 `json:"url"`
+	RCASummary      string                                 `json:"rca_summary,omitempty"`
+	RCARemediations string                                 `json:"rca_remediations,omitempty"`
 }
 
 type DeploymentTemplateValues struct {
@@ -82,6 +84,8 @@ func (wh *Webhook) SendIncident(ctx context.Context, baseUrl string, n *db.Incid
 	}
 	if n.Details != nil {
 		values.Reports = n.Details.Reports
+		values.RCASummary = n.Details.RCASummary
+		values.RCARemediations = n.Details.RCARemediations
 	}
 	templateData, err := mergeCustomFields(values, wh.cfg.CustomFields)
 	if err != nil {
