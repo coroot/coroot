@@ -87,10 +87,14 @@ Custom fields are static key-value pairs that you can configure in the webhook i
 Once defined, they are merged into the root of every notification's template data (incidents, deployments, and alerts)
 and are accessible both in templates and in `{{ json . }}` output.
 
-For example, if you add a custom field `environment` = `production`, you can reference it in templates as `{{ .environment }}`.
+For example, if you add a custom field `environment` = `production`, you can reference it in templates as `{{ .Environment }}`.
 When using `{{ json . }}`, it will appear as a top-level key in the resulting JSON.
 
 If a custom field has the same name as a built-in field (e.g. `status`), the built-in field takes precedence.
+
+:::note
+Custom field names are capitalized in templates (e.g., a field named `environment` is accessed as `{{ .Environment }}`), consistent with built-in fields like `{{ .Status }}` and `{{ .Application.Name }}`.
+:::
 
 ## Examples
 
