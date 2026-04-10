@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"reflect"
 	"strings"
 	"text/template"
 
@@ -55,19 +56,51 @@ func NewWebhook(cfg *db.IntegrationWebhook) *Webhook {
 	return &Webhook{cfg: cfg}
 }
 
-func mergeCustomFields(values any, customFields map[string]string) (map[string]any, error) {
-	data, err := json.Marshal(values)
-	if err != nil {
-		return nil, err
+func mergeCustomFields(values any, customFields map[string]string) any {
+	if len(customFields) == 0 {
+		return values
 	}
-	result := make(map[string]any)
-	for k, v := range customFields {
-		result[k] = v
+	v := reflect.ValueOf(values)
+	t := v.Type()
+
+	existingFields := make(map[string]bool)
+	var fields []reflect.StructField
+	for i := 0; i < t.NumField(); i++ {
+		f := t.Field(i)
+		fields = append(fields, reflect.StructField{
+			Name: f.Name,
+			Type: f.Type,
+			Tag:  f.Tag,
+		})
+		existingFields[f.Name] = true
 	}
-	if err := json.Unmarshal(data, &result); err != nil {
-		return nil, err
+
+	var customKeys []string
+	for k := range customFields {
+		if k == "" {
+			continue
+		}
+		exported := strings.ToUpper(k[:1]) + k[1:]
+		if existingFields[exported] {
+			continue
+		}
+		customKeys = append(customKeys, k)
+		fields = append(fields, reflect.StructField{
+			Name: exported,
+			Type: reflect.TypeOf(""),
+			Tag:  reflect.StructTag(`json:"` + k + `"`),
+		})
 	}
-	return result, nil
+
+	newType := reflect.StructOf(fields)
+	newValue := reflect.New(newType).Elem()
+	for i := 0; i < t.NumField(); i++ {
+		newValue.Field(i).Set(v.Field(i))
+	}
+	for i, k := range customKeys {
+		newValue.Field(t.NumField() + i).SetString(customFields[k])
+	}
+	return newValue.Interface()
 }
 
 func (wh *Webhook) SendIncident(ctx context.Context, baseUrl string, n *db.IncidentNotification) error {
@@ -87,11 +120,7 @@ func (wh *Webhook) SendIncident(ctx context.Context, baseUrl string, n *db.Incid
 		values.RCASummary = n.Details.RCASummary
 		values.RCARemediations = n.Details.RCARemediations
 	}
-	templateData, err := mergeCustomFields(values, wh.cfg.CustomFields)
-	if err != nil {
-		return err
-	}
-	err = tmpl.Execute(&data, templateData)
+	err = tmpl.Execute(&data, mergeCustomFields(values, wh.cfg.CustomFields))
 	if err != nil {
 		return fmt.Errorf("invalid incident template: %s", err)
 	}
@@ -123,11 +152,7 @@ func (wh *Webhook) SendAlert(ctx context.Context, baseUrl string, n *db.AlertNot
 		values.Duration = n.Details.Duration
 		values.ResolvedBy = n.Details.ResolvedBy
 	}
-	templateData, err := mergeCustomFields(values, wh.cfg.CustomFields)
-	if err != nil {
-		return err
-	}
-	err = tmpl.Execute(&data, templateData)
+	err = tmpl.Execute(&data, mergeCustomFields(values, wh.cfg.CustomFields))
 	if err != nil {
 		return fmt.Errorf("invalid alert template: %s", err)
 	}
@@ -160,17 +185,13 @@ func (wh *Webhook) SendDeployment(ctx context.Context, project *db.Project, ds m
 	}
 
 	var data bytes.Buffer
-	templateData, err := mergeCustomFields(DeploymentTemplateValues{
+	err = tmpl.Execute(&data, mergeCustomFields(DeploymentTemplateValues{
 		Application: ds.Deployment.ApplicationId,
 		Status:      status,
 		Version:     ds.Deployment.Version(),
 		Summary:     summary,
 		URL:         deploymentUrl(project.Settings.Integrations.BaseUrl, project.Id, ds.Deployment),
-	}, wh.cfg.CustomFields)
-	if err != nil {
-		return err
-	}
-	err = tmpl.Execute(&data, templateData)
+	}, wh.cfg.CustomFields))
 	if err != nil {
 		return fmt.Errorf("invalid deployment template: %s", err)
 	}
