@@ -242,13 +242,17 @@ func (api *Api) Project(w http.ResponseWriter, r *http.Request, u *db.User) {
 
 	switch r.Method {
 	case http.MethodGet:
+		type AvailableProject struct {
+			Id   string `json:"id"`
+			Name string `json:"name"`
+		}
 		type ProjectSettings struct {
 			Readonly          bool                `json:"readonly"`
 			Name              string              `json:"name"`
 			ApiKeys           any                 `json:"api_keys"`
 			RefreshInterval   timeseries.Duration `json:"refresh_interval"`
 			MemberProjects    []string            `json:"member_projects,omitempty"`
-			AvailableProjects []string            `json:"available_projects,omitempty"`
+			AvailableProjects []AvailableProject  `json:"available_projects,omitempty"`
 		}
 		projects, err := api.db.GetProjects()
 		if err != nil {
@@ -259,7 +263,7 @@ func (api *Api) Project(w http.ResponseWriter, r *http.Request, u *db.User) {
 		res := ProjectSettings{}
 		for _, p := range projects {
 			if p.Id != db.ProjectId(projectId) && !p.Multicluster() {
-				res.AvailableProjects = append(res.AvailableProjects, p.Name)
+				res.AvailableProjects = append(res.AvailableProjects, AvailableProject{Id: string(p.Id), Name: p.Name})
 			}
 		}
 		if projectId != "" {
