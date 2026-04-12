@@ -35,6 +35,8 @@
 
                     <v-autocomplete
                         :items="availableProjects"
+                        item-text="name"
+                        item-value="id"
                         v-model="form.member_projects"
                         color="primary"
                         multiple
