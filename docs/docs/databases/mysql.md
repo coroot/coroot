@@ -13,7 +13,7 @@ To bridge this gap, Coroot also collects statistics from the MySQL Performance S
 
 This integration requires a database user with the following permissions:
 
-```mysql
+```sql
 CREATE USER 'coroot'@'%' IDENTIFIED BY '<PASSWORD>';
 GRANT SELECT, PROCESS, REPLICATION CLIENT ON *.* TO 'coroot'@'%';
 ```
@@ -22,7 +22,7 @@ GRANT SELECT, PROCESS, REPLICATION CLIENT ON *.* TO 'coroot'@'%';
 
 If you don't need schema and size tracking for user databases, you can use narrower grants:
 
-```mysql
+```sql
 CREATE USER 'coroot'@'%' IDENTIFIED BY '<PASSWORD>';
 GRANT PROCESS, REPLICATION CLIENT ON *.* TO 'coroot'@'%';
 GRANT SELECT ON performance_schema.* TO 'coroot'@'%';
