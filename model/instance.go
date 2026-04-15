@@ -40,6 +40,7 @@ type Instance struct {
 	DotNet map[string]*DotNet
 	Python *Python
 	Nodejs *Nodejs
+	Go     *GoRuntime
 
 	Volumes []*Volume
 

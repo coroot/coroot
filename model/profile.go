@@ -31,6 +31,11 @@ const (
 	ProfileTypeGoMutexContentions ProfileType = "go:mutex_contentions:count"
 	ProfileTypeGoMutexDelay       ProfileType = "go:mutex_delay:nanoseconds"
 
+	ProfileTypeGoRuntimeHeapAllocObjects ProfileType = "go_runtime:heap_alloc_objects:count"
+	ProfileTypeGoRuntimeHeapAllocSpace   ProfileType = "go_runtime:heap_alloc_space:bytes"
+	ProfileTypeGoRuntimeHeapInuseObjects ProfileType = "go_runtime:heap_inuse_objects:count"
+	ProfileTypeGoRuntimeHeapInuseSpace   ProfileType = "go_runtime:heap_inuse_space:bytes"
+
 	ProfileTypeJavaHeapAllocObjects ProfileType = "java:heap_alloc_objects:count"
 	ProfileTypeJavaHeapAllocSpace   ProfileType = "java:heap_alloc_space:bytes"
 	ProfileTypeJavaCPU              ProfileType = "java:cpu:nanoseconds"
@@ -113,6 +118,32 @@ var (
 		ProfileTypeGoMutexDelay: {
 			Name:        "Golang (mutex_delay)",
 			Aggregation: ProfileAggregationSum,
+		},
+		ProfileTypeGoRuntimeHeapAllocObjects: {
+			Category:    ProfileCategoryMemory,
+			Name:        "Go Memory (alloc_objects)",
+			Aggregation: ProfileAggregationSum,
+			NodeAgent:   true,
+		},
+		ProfileTypeGoRuntimeHeapAllocSpace: {
+			Category:    ProfileCategoryMemory,
+			Name:        "Go Memory (alloc_space)",
+			Aggregation: ProfileAggregationSum,
+			NodeAgent:   true,
+			Featured:    true,
+		},
+		ProfileTypeGoRuntimeHeapInuseObjects: {
+			Category:    ProfileCategoryMemory,
+			Name:        "Go Memory (inuse_objects)",
+			Aggregation: ProfileAggregationAvg,
+			NodeAgent:   true,
+		},
+		ProfileTypeGoRuntimeHeapInuseSpace: {
+			Category:    ProfileCategoryMemory,
+			Name:        "Go Memory (inuse_space)",
+			Aggregation: ProfileAggregationAvg,
+			NodeAgent:   true,
+			Featured:    true,
 		},
 		ProfileTypeJavaHeapAllocObjects: {
 			Category:    ProfileCategoryMemory,

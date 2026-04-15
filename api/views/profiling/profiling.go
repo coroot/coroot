@@ -200,6 +200,12 @@ func getChart(app *model.Application, typ model.ProfileType, ctx timeseries.Cont
 		case model.ProfileTypeJavaHeapAllocSpace:
 			return getJvmChart(app, ctx, instance, "Allocation rate by instance, bytes/second",
 				func(jvm *model.Jvm) *timeseries.TimeSeries { return jvm.AllocBytes })
+		case model.ProfileTypeGoRuntimeHeapAllocObjects:
+			return getGoRuntimeChart(app, ctx, instance, "Allocation rate by instance, objects/second",
+				func(g *model.GoRuntime) *timeseries.TimeSeries { return g.AllocObjects })
+		case model.ProfileTypeGoRuntimeHeapAllocSpace:
+			return getGoRuntimeChart(app, ctx, instance, "Allocation rate by instance, bytes/second",
+				func(g *model.GoRuntime) *timeseries.TimeSeries { return g.AllocBytes })
 		}
 		chart = model.NewChart(ctx, "Memory (RSS) usage by instance, bytes")
 		containerToSeriesF = func(c *model.Container) *timeseries.TimeSeries { return c.MemoryRss }
@@ -224,6 +230,25 @@ func getChart(app *model.Application, typ model.ProfileType, ctx timeseries.Cont
 		}
 		if instance == "" || i.Name == instance {
 			chart.AddSeries(i.Name, agg)
+		}
+	}
+	events := model.EventsToAnnotations(app.Events, ctx)
+	incidents := model.IncidentsToAnnotations(app.Incidents, ctx)
+	return chart.AddAnnotation(events...).AddAnnotation(incidents...), containers
+}
+
+func getGoRuntimeChart(app *model.Application, ctx timeseries.Context, instance string, title string, seriesF func(g *model.GoRuntime) *timeseries.TimeSeries) (*model.Chart, map[string][]string) {
+	chart := model.NewChart(ctx, title)
+	containers := map[string][]string{}
+	for _, i := range app.Instances {
+		if i.Go == nil {
+			continue
+		}
+		for _, c := range i.Containers {
+			containers[i.Name] = append(containers[i.Name], c.Id)
+		}
+		if s := seriesF(i.Go); s != nil && (instance == "" || i.Name == instance) {
+			chart.AddSeries(i.Name, s)
 		}
 	}
 	events := model.EventsToAnnotations(app.Events, ctx)

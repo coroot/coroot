@@ -381,6 +381,9 @@ var QUERIES = []Query{
 	qJVM("container_jvm_lock_time_seconds_total", `rate(container_jvm_lock_time_seconds_total[$RANGE])`).WithFillFunc(timeseries.FillAvg),
 	qJVM("container_jvm_profiling_status", `container_jvm_profiling_status`),
 
+	Q("container_go_alloc_bytes_total", `rate(container_go_alloc_bytes_total[$RANGE])`).WithFillFunc(timeseries.FillAvg),
+	Q("container_go_alloc_objects_total", `rate(container_go_alloc_objects_total[$RANGE])`).WithFillFunc(timeseries.FillAvg),
+
 	qDotNet("container_dotnet_info", `container_dotnet_info`, "runtime_version"),
 	qDotNet("container_dotnet_memory_allocated_bytes_total", `rate(container_dotnet_memory_allocated_bytes_total[$RANGE])`),
 	qDotNet("container_dotnet_exceptions_total", `rate(container_dotnet_exceptions_total[$RANGE])`),

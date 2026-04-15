@@ -33,13 +33,14 @@ Coroot's profiling stack consists of several components:
 When you use Helm to install Coroot, all these components are automatically installed and seamlessly integrated with each other.
 
 The eBPF-based approach can only gather CPU profiles.
-To collect other profile types, such as memory or lock contention, user-space profilers need to be integrated.
+To collect other profile types, such as memory or lock contention, language-specific profilers are used.
 
 ## Language-specific profiling
 
-* **[Go profiling](/profiling/go-profiling)** — `coroot-cluster-agent` automatically discovers and scrapes pprof endpoints
-  from annotated Go pods. Supports CPU, memory, blocking, and mutex profiles.
-* **[Java profiling](/profiling/java-profiling)** — `coroot-node-agent` dynamically loads async-profiler into HotSpot JVMs.
+* **[Go profiling](/profiling/go-profiling)**: `coroot-node-agent` automatically collects heap profiles from all Go
+  processes by reading runtime memory profiling data directly from process memory. No application changes needed.
+  For additional profile types (CPU, blocking, mutex), `coroot-cluster-agent` can scrape pprof endpoints from annotated pods.
+* **[Java profiling](/profiling/java-profiling)**: `coroot-node-agent` dynamically loads async-profiler into HotSpot JVMs.
   No application changes needed. Supports CPU, memory allocation, and lock contention profiles.
 
 ## Using profiles
