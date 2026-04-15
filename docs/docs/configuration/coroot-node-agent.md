@@ -28,6 +28,7 @@ You can configure coroot-node-agent using command-line flags or environment vari
 | `--disable-gpu-monitoring` | `DISABLE_GPU_MONITORING` | `false` | Disable GPU monitoring (NVML) |
 | `--enable-java-tls` | `ENABLE_JAVA_TLS` | `false` | Enable Java TLS instrumentation via dynamic agent loading |
 | `--enable-java-async-profiler` | `ENABLE_JAVA_ASYNC_PROFILER` | `false` | Enable Java profiling via async-profiler (CPU, memory allocations, lock contention) |
+| `--go-heap-profiler` | `GO_HEAP_PROFILER` | `enabled` | Go heap profiling mode: `disabled`, `enabled` (passive), or `force` (enable profiling in all Go apps) |
 | `--container-allowlist` | `CONTAINER_ALLOWLIST` | – | List of allowed containers (regex patterns) |
 | `--container-denylist` | `CONTAINER_DENYLIST` | – | List of denied containers (regex patterns) |
 | `--skip-systemd-system-services` | `SKIP_SYSTEMD_SYSTEM_SERVICES` | `true` | Skip well-known systemd system services (apt, motd, udev, etc.) |

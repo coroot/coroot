@@ -415,6 +415,18 @@ Each JVM metric has the `jvm` label which refers to the main class or path to th
 * **Labels**: `jvm`
 * **Requires**: `--enable-java-async-profiler`
 
+## Go runtime
+
+### container_go_alloc_bytes_total
+* **Description**: Total bytes allocated by a Go application
+* **Type**: Counter
+* **Source**: Go runtime memory profiling data (`runtime.mbuckets`)
+
+### container_go_alloc_objects_total
+* **Description**: Total objects allocated by a Go application
+* **Type**: Counter
+* **Source**: Go runtime memory profiling data (`runtime.mbuckets`)
+
 ## Node.js runtime
 
 ### container_nodejs_event_loop_blocked_time_seconds_total
