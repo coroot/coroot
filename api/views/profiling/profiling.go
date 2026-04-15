@@ -16,13 +16,14 @@ import (
 )
 
 type View struct {
-	Status    model.Status   `json:"status"`
-	Message   string         `json:"message"`
-	Services  []Service      `json:"services"`
-	Profiles  []Meta         `json:"profiles"`
-	Profile   *model.Profile `json:"profile"`
-	Chart     *model.Chart   `json:"chart"`
-	Instances []string       `json:"instances"`
+	Status     model.Status        `json:"status"`
+	Message    string              `json:"message"`
+	Services   []Service           `json:"services"`
+	Profiles   []Meta              `json:"profiles"`
+	Profile    *model.Profile      `json:"profile"`
+	Chart      *model.Chart        `json:"chart"`
+	Instances  []string            `json:"instances"`
+	Containers map[string][]string `json:"containers,omitempty"`
 }
 
 type Service struct {
@@ -36,11 +37,12 @@ type Meta struct {
 }
 
 type Query struct {
-	Type     model.ProfileType `json:"type"`
-	From     timeseries.Time   `json:"from"`
-	To       timeseries.Time   `json:"to"`
-	Mode     string            `json:"mode"`
-	Instance string            `json:"instance"`
+	Type      model.ProfileType `json:"type"`
+	From      timeseries.Time   `json:"from"`
+	To        timeseries.Time   `json:"to"`
+	Mode      string            `json:"mode"`
+	Instance  string            `json:"instance"`
+	Container string            `json:"container"`
 }
 
 func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, query url.Values, w *model.World) *View {
@@ -148,6 +150,7 @@ func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, 
 	v.Chart = chart
 	v.Instances = maps.Keys(containers)
 	sort.Strings(v.Instances)
+	v.Containers = containers
 	v.Profile = &model.Profile{Type: q.Type, Diff: q.Mode == "diff"}
 	pq := clickhouse.ProfileQuery{
 		Type:     q.Type,
@@ -156,7 +159,10 @@ func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, 
 		Diff:     v.Profile.Diff,
 		Services: maps.Keys(services),
 	}
-	if q.Instance != "" {
+	if q.Container != "" {
+		// Filter by specific container ID
+		pq.Containers = []string{q.Container}
+	} else if q.Instance != "" {
 		if model.Profiles[q.Type].NodeAgent {
 			pq.Containers = containers[q.Instance]
 		} else {
