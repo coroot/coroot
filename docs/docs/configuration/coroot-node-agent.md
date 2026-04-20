@@ -52,6 +52,7 @@ You can configure coroot-node-agent using command-line flags or environment vari
 | `--logs-endpoint` | `LOGS_ENDPOINT` | – | Custom URL for logs export |
 | `--profiles-endpoint` | `PROFILES_ENDPOINT` | – | Custom URL for profiles export |
 | `--insecure-skip-verify` | `INSECURE_SKIP_VERIFY` | `false` | Skip TLS certificate verification |
+| `--ca-file` | `CA_FILE` | – | Path to the custom CA certificate file |
 | `--scrape-interval` | `SCRAPE_INTERVAL` | `15s` | How often to collect internal metrics |
 | `--wal-dir` | `WAL_DIR` | `/tmp/coroot-node-agent` | Directory for WAL storage |
 | `--max-spool-size` | `MAX_SPOOL_SIZE` | `500MB` | Max size for on-disk spool |

@@ -25,6 +25,7 @@ You can configure coroot-cluster-agent using command-line flags or environment v
 | `--profiles-scrape-timeout` | `PROFILES_SCRAPE_TIMEOUT` | `10s` | Timeout for profiling scrape requests |
 | `--kube-state-metrics-listen-address` | `KUBE_STATE_METRICS_LISTEN_ADDRESS` | `127.0.0.1:10303` | Listen address for the kube-state-metrics endpoint |
 | `--insecure-skip-verify` | `INSECURE_SKIP_VERIFY` | `false` | Skip TLS certificate verification |
+| `--ca-file` | `CA_FILE` | – | Path to the custom CA certificate file |
 | `--collect-kubernetes-events` | `COLLECT_KUBERNETES_EVENTS` | `true` | Collect and forward Kubernetes events |
 | `--track-database-changes` | `TRACK_DATABASE_CHANGES` | `true` | Track schema and settings changes in databases |
 | `--track-database-sizes` | `TRACK_DATABASE_SIZES` | `true` | Collect per-database and per-table size metrics |
