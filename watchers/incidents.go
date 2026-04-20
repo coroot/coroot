@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/coroot/coroot/auditor"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/notifications"
@@ -27,8 +26,6 @@ func NewIncidents(db *db.DB, rca IncidentRCA) *Incidents {
 
 func (w *Incidents) Check(project *db.Project, world *model.World) {
 	start := time.Now()
-
-	auditor.Audit(world, project, nil, nil)
 
 	var apps int
 
