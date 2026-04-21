@@ -6,6 +6,7 @@ type Widget struct {
 	Table         *Table         `json:"table,omitempty"`
 	DependencyMap *DependencyMap `json:"dependency_map,omitempty"`
 	Heatmap       *Heatmap       `json:"heatmap,omitempty"`
+	FlameGraph    *FlameGraph    `json:"flamegraph,omitempty"`
 
 	Logs      *Logs      `json:"logs,omitempty"`
 	Profiling *Profiling `json:"profiling,omitempty"`
@@ -85,6 +86,13 @@ type Logs struct {
 
 type Profiling struct {
 	ApplicationId ApplicationId `json:"application_id"`
+}
+
+type FlameGraph struct {
+	Title string          `json:"title"`
+	Type  ProfileType     `json:"type"`
+	Root  *FlameGraphNode `json:"root"`
+	Diff  bool            `json:"diff"`
 }
 
 type Tracing struct {

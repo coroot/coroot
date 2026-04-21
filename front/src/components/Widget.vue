@@ -12,6 +12,17 @@
         <DependencyMap v-if="w.dependency_map" :nodes="w.dependency_map.nodes" :links="w.dependency_map.links" />
         <Table v-if="w.table" :header="w.table.header" :rows="w.table.rows" />
         <Heatmap v-if="w.heatmap" :heatmap="w.heatmap" :selection="heatmapSelection" @select="heatmapDrillDown" />
+        <div v-if="w.flamegraph">
+            <div style="font-size: 14px" v-html="w.flamegraph.title"></div>
+            <FlameGraphNode
+                :node="w.flamegraph.root"
+                :parent="w.flamegraph.root"
+                :root="w.flamegraph.root"
+                :diff="fgDiff"
+                :unit="fgUnit"
+                :limit="0.5"
+            />
+        </div>
         <AppLogs v-if="w.logs" :appId="w.logs.application_id" :check="w.logs.check" />
         <Profiling v-if="w.profiling" :appId="w.profiling.application_id" />
         <AppTraces v-if="w.tracing" :appId="w.tracing.application_id" />
@@ -25,6 +36,7 @@ import ChartGroup from './ChartGroup';
 import DependencyMap from './DependencyMap';
 import Table from './Table';
 import Heatmap from './Heatmap';
+import FlameGraphNode from './FlameGraphNode.vue';
 import AppLogs from '../views/AppLogs.vue';
 import Profiling from '../views/Profiling';
 import AppTraces from '../views/AppTraces.vue';
@@ -34,7 +46,7 @@ export default {
         w: Object,
     },
 
-    components: { Chart, ChartGroup, DependencyMap, Table, Heatmap, AppLogs, Profiling, AppTraces },
+    components: { Chart, ChartGroup, DependencyMap, Table, Heatmap, FlameGraphNode, AppLogs, Profiling, AppTraces },
 
     computed: {
         heatmapSelection() {
@@ -47,6 +59,23 @@ export default {
                 return null;
             }
             return `https://docs.coroot.com/${l.group}/${l.item}${l.hash ? '#' + l.hash : ''}`;
+        },
+        fgUnit() {
+            const fg = this.w.flamegraph;
+            return fg ? fg.type.split(':')[2] || '' : '';
+        },
+        fgDiff() {
+            const fg = this.w.flamegraph;
+            if (!fg || !fg.diff || !fg.root) {
+                return 0;
+            }
+            const md = (root, node) => {
+                const base = (node.total - node.comp) / (root.total - root.comp);
+                const comp = node.comp / root.comp;
+                const d = Math.abs(comp - base);
+                return Math.max(d, ...(node.children || []).map((ch) => md(root, ch)));
+            };
+            return Math.max(5, md(fg.root, fg.root) * 100);
         },
     },
 

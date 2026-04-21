@@ -1,7 +1,7 @@
 <template>
     <div>
         <v-row style="margin: -4px">
-            <v-col cols="12" sm="6" style="padding: 4px">
+            <v-col v-if="instances && instances.length" cols="12" sm="6" style="padding: 4px">
                 <v-select
                     v-model="instanceInternal"
                     :items="instances"
