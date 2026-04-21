@@ -71,7 +71,7 @@ export default {
         node: Object,
         parent: Object,
         root: Object,
-        zoom: Boolean,
+        zoom: { default: undefined },
         search: String,
         diff: Number,
         unit: String,
