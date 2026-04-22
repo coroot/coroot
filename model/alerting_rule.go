@@ -168,6 +168,23 @@ func BuiltinAlertingRules() []AlertingRule {
 			Builtin: true,
 		},
 		{
+			Id:   "memory-leak",
+			Name: "Memory leak",
+			Source: AlertSource{
+				Type:  AlertSourceTypeCheck,
+				Check: &CheckSource{CheckId: Checks.MemoryLeakPercent.Id},
+			},
+			Selector:      AppSelector{Type: AppSelectorTypeAll},
+			Severity:      WARNING,
+			For:           15 * timeseries.Minute,
+			KeepFiringFor: 15 * timeseries.Minute,
+			Templates: AlertTemplates{
+				Description: "Memory usage is growing steadily, likely indicating a memory leak. Without intervention, the container will eventually be OOM-killed.",
+			},
+			Enabled: true,
+			Builtin: true,
+		},
+		{
 			Id:   "cpu-limit",
 			Name: "Container CPU utilization",
 			Source: AlertSource{

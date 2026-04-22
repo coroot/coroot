@@ -235,16 +235,6 @@ func (c *Constructor) queryCache(ctx context.Context, cache Cache, project *db.P
 			continue
 		}
 		addQuery(q.Name, q.Name, q.Query, false, q.FillFunc)
-		if q.Name == "container_memory_rss" || q.Name == "fargate_container_memory_rss" {
-			name := q.Name + "_for_trend"
-			queries[name] = cacheQuery{
-				query:     q.Query,
-				from:      to.Add(-timeseries.Hour * 4).Truncate(rawStep),
-				to:        to.Truncate(rawStep),
-				step:      rawStep,
-				statsName: name,
-			}
-		}
 	}
 	if !c.options[OptionLoadInstanceToInstanceConnections] {
 		for _, query := range qConnectionAggregations {

@@ -54,6 +54,7 @@ Coroot comes with a set of built-in alerting rules that cover the most common fa
 | Storage I/O load | Storage |
 | Out of memory kills | Memory |
 | Memory pressure | Memory |
+| Memory leak | Memory |
 | Container CPU utilization | CPU |
 | Instance availability | Instances |
 | Instance restarts | Instances |
