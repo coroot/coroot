@@ -519,7 +519,11 @@ var RecordingRules = map[string]func(db *db.DB, p *db.Project, w *model.World) [
 					}
 					for proto, byStatus := range u.RequestsCount {
 						for status, ts := range byStatus {
-							k := key{dest: dest, status: status, protocol: proto}
+							bucket := "ok"
+							if model.IsRequestStatusFailed(status) {
+								bucket = "failed"
+							}
+							k := key{dest: dest, status: bucket, protocol: proto}
 							agg := byProtoStatus[k]
 							if agg == nil {
 								agg = timeseries.NewAggregate(timeseries.NanSum)
