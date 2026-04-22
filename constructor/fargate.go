@@ -87,8 +87,6 @@ func loadFargateContainers(w *model.World, metrics map[string][]*model.MetricVal
 				container.ThrottledTime = merge(container.ThrottledTime, m.Values, timeseries.Any)
 			case "fargate_container_memory_rss":
 				container.MemoryRss = merge(container.MemoryRss, m.Values, timeseries.Any)
-			case "fargate_container_memory_rss_for_trend":
-				container.MemoryRssForTrend = merge(container.MemoryRssForTrend, m.Values, timeseries.Any)
 			case "fargate_container_memory_cache":
 				container.MemoryCache = merge(container.MemoryCache, m.Values, timeseries.Any)
 			case "fargate_container_spec_memory_limit_bytes":

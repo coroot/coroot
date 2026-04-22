@@ -201,9 +201,6 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]*model
 	loadContainer("container_memory_rss", func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
 		container.MemoryRss = merge(container.MemoryRss, metric.Values, timeseries.Any)
 	})
-	loadContainer("container_memory_rss_for_trend", func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
-		container.MemoryRssForTrend = merge(container.MemoryRssForTrend, metric.Values, timeseries.Any)
-	})
 	loadContainer("container_memory_cache", func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
 		container.MemoryCache = merge(container.MemoryCache, metric.Values, timeseries.Any)
 	})

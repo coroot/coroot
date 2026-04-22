@@ -33,10 +33,14 @@ Coroot utilizes the `container_oom_kills_total` metric to identify which contain
 
 Memory leaks typically occur when a program allocates memory dynamically during its execution but forgets to release it when it's no longer needed.
 
-Coroot calculates linear regression using the `container_resources_memory_rss_bytes` metric
-to determine if a container's memory consumption is increasing over time.
+Coroot analyzes the `container_resources_memory_rss_bytes` metric per container to decide whether memory consumption is trending upward. The detection is deliberately conservative so it stays quiet on noisy, healthy applications:
 
-The default threshold for detecting a significant increase in memory consumption is set at 10% per hour.
+* The RSS series is split at sharp downward steps (>50% drops) — those are process restarts (OOM-kill, crash, rollout). The longest run between restarts is analyzed, so a container that keeps being restarted doesn't hide an ongoing leak.
+* A linear regression is fit over the analyzed run. The slope has to be positive, and the last ~25% of the run (or last 15 minutes, whichever is longer) must still be climbing at a comparable rate. This filters out one-time step-ups — e.g. an application that ramps up at startup and then plateaus.
+* The predicted per-hour growth must be at least 5% of the container's memory limit (or 50 MB if no limit is set). This avoids misleading percentages when RSS is small (e.g. a container running at a few MB with tiny fluctuations reading as a high percentage leak).
+* The longest post-restart run must cover at least one third of the inspection window — containers that thrash don't get flagged as leaks.
+
+The default threshold for the reported per-hour growth rate is **10%**.
 
 ## Dashboard
 
