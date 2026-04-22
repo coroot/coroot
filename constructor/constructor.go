@@ -153,6 +153,7 @@ func (c *Constructor) loadProjectWorld(ctx context.Context, cache Cache, project
 	prof.stage("load_containers", func() { c.loadContainers(w, metrics, pjs, nodes, containers, servicesByClusterIP, ip2fqdn, project) })
 	prof.stage("load_app_to_app_connections", func() { c.loadAppToAppConnections(w, metrics, fqdn2ip, project) })
 	prof.stage("load_application_traffic", func() { c.loadApplicationTraffic(w, metrics, project) })
+	prof.stage("load_application_dns", func() { c.loadApplicationDNS(w, metrics, project) })
 	prof.stage("load_jvm", func() { c.loadJVM(metrics, containers) })
 	prof.stage("load_go_runtime", func() { c.loadGoRuntime(metrics, containers) })
 	prof.stage("load_dotnet", func() { c.loadDotNet(metrics, containers) })
