@@ -22,7 +22,8 @@ type serviceId struct {
 }
 
 func (c *Constructor) loadKubernetesMetadata(w *model.World, metrics map[string][]*model.MetricValues, servicesByClusterIP map[string]*model.Service, project *db.Project) {
-	pods := c.podInfo(w, metrics["kube_pod_info"], project)
+	jobOwners := c.getJobOwners(metrics["kube_job_owner"], project.ClusterId())
+	pods := c.podInfo(w, metrics["kube_pod_info"], jobOwners, project)
 	podLabels(metrics["kube_pod_labels"], pods)
 	podAnnotations(metrics["kube_pod_annotations"], pods)
 
@@ -144,7 +145,25 @@ func (c *Constructor) loadApplications(w *model.World, metrics map[string][]*mod
 	}
 }
 
-func (c *Constructor) podInfo(w *model.World, metrics []*model.MetricValues, project *db.Project) map[string]*model.Instance {
+func (c *Constructor) getJobOwners(metrics []*model.MetricValues, clusterId string) map[podId]model.ApplicationId {
+	owners := make(map[podId]model.ApplicationId, len(metrics))
+	for _, m := range metrics {
+		if m.Labels["owner_is_controller"] == "false" {
+			continue
+		}
+		kind := model.ApplicationKind(m.Labels["owner_kind"])
+		name := m.Labels["owner_name"]
+		jobName := m.Labels["job_name"]
+		ns := m.Labels["namespace"]
+		if jobName == "" || name == "" || kind == "" || kind == "<none>" {
+			continue
+		}
+		owners[podId{name: jobName, ns: ns}] = c.newApplicationId(clusterId, ns, kind, name)
+	}
+	return owners
+}
+
+func (c *Constructor) podInfo(w *model.World, metrics []*model.MetricValues, jobOwners map[podId]model.ApplicationId, project *db.Project) map[string]*model.Instance {
 	pods := map[string]*model.Instance{}
 	podOwners := map[podId]model.ApplicationId{}
 	var podsOwnedByPods []*model.Instance
@@ -174,6 +193,12 @@ func (c *Constructor) podInfo(w *model.World, metrics []*model.MetricValues, pro
 			appId = c.newApplicationId(project.ClusterId(), ns, model.ApplicationKindStaticPods, strings.TrimSuffix(pod, "-"+nodeName))
 		case ownerKind == model.ApplicationKindSparkApplication || ownerKind == model.ApplicationKindArgoWorkflow:
 			appId = c.newApplicationId(project.ClusterId(), ns, ownerKind, jobSuffixRe.ReplaceAllString(ownerName, ""))
+		case ownerKind == model.ApplicationKindJob:
+			if id, ok := jobOwners[podId{name: ownerName, ns: ns}]; ok {
+				appId = id
+			} else {
+				appId = c.newApplicationId(project.ClusterId(), ns, ownerKind, ownerName)
+			}
 		case ownerName != "":
 			appId = c.newApplicationId(project.ClusterId(), ns, ownerKind, ownerName)
 		default:
