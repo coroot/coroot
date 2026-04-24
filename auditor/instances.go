@@ -26,6 +26,7 @@ func (a *appAuditor) instances() {
 
 	up := timeseries.NewAggregate(timeseries.NanSum)
 	var availableInstances, unavailableInstances int
+	periodicJob := a.app.PeriodicJob()
 
 	for _, i := range a.app.Instances {
 		if instancesChart != nil {
@@ -128,9 +129,11 @@ func (a *appAuditor) instances() {
 			if r := c.Restarts.Reduce(timeseries.NanSum); !timeseries.IsNaN(r) {
 				restarts := int64(r)
 				instanceRestartsTotal += restarts
-				restartsCheck.Inc(restarts)
-				if restarts > int64(restartsCheck.Threshold) {
-					restartsCheck.AddItem("%s/%s", i.Name, c.Name)
+				if !periodicJob {
+					restartsCheck.Inc(restarts)
+					if restarts > int64(restartsCheck.Threshold) {
+						restartsCheck.AddItem("%s/%s", i.Name, c.Name)
+					}
 				}
 			}
 		}
@@ -164,10 +167,9 @@ func (a *appAuditor) instances() {
 	if a.app.Id.Kind == model.ApplicationKindUnknown {
 		desired = float32(len(a.app.Instances))
 	}
-	if a.app.PeriodicJob() {
+	if periodicJob {
 		availabilityCheck.SetStatus(model.OK, "not checked for periodic jobs")
 		restartsCheck.SetStatus(model.OK, "not checked for periodic jobs")
-		restartsCheck.ResetCounter()
 	} else if desired > 0 {
 		availabilityCheck.SetDesired(int64(desired))
 		available := float32(availabilityCheck.Count())

@@ -193,6 +193,7 @@ var QUERIES = []Query{
 	Q("kube_statefulset_annotations", `kube_statefulset_annotations`, append(applicationAnnotations, "namespace", "statefulset")...),
 	Q("kube_daemonset_annotations", `kube_daemonset_annotations`, append(applicationAnnotations, "namespace", "daemonset")...),
 	Q("kube_cronjob_annotations", `kube_cronjob_annotations`, append(applicationAnnotations, "namespace", "cronjob")...),
+	Q("kube_job_owner", `kube_job_owner`, "namespace", "job_name", "owner_kind", "owner_name", "owner_is_controller"),
 
 	qPod("kube_pod_info", `kube_pod_info`, "namespace", "pod", "created_by_name", "created_by_kind", "node", "pod_ip", "host_ip"),
 	qPod("kube_pod_annotations", `kube_pod_annotations`, applicationAnnotations...),
