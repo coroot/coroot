@@ -294,7 +294,7 @@ Each container metric has the `container_id` label. This is a compound identifie
 * **Labels**: `destination`, `actual_destination`, `le`
 
 ### container_dns_requests_total
-* **Description**: Total number of outbound DNS requests
+* **Description**: Total number of outbound DNS requests. To bound metric cardinality, the number of distinct `domain` label values per container is capped (see `--max-fqdns-per-container`); requests for FQDNs beyond the cap are bucketed under `domain="~other"`.
 * **Type**: Counter
 * **Source**: eBPF
 * **Labels**: `domain`, `request_type`, `status`
