@@ -46,7 +46,7 @@ FROM @@table_profiling_stacks@@
 WHERE
     ServiceName IN (@services) AND
     LastSeen > @from AND
-    Hash IN (SELECT hash FROM samples)
+    Hash GLOBAL IN (SELECT hash FROM samples)
 GROUP BY Hash
 `
 	qProfiles = `
