@@ -23,6 +23,7 @@ const (
 	ScopeProjectInstrumentations      Scope = "project.instrumentations"
 	ScopeProjectTraces                Scope = "project.traces"
 	ScopeProjectLogs                  Scope = "project.logs"
+	ScopeProjectMetrics               Scope = "project.metrics"
 	ScopeProjectCosts                 Scope = "project.costs"
 	ScopeProjectAnomalies             Scope = "project.anomalies"
 	ScopeProjectRisks                 Scope = "project.risks"

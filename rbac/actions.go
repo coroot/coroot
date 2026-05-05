@@ -123,6 +123,10 @@ func (as ProjectActionSet) Logs() ProjectViewAction {
 	return ProjectViewAction{project: &as, scope: ScopeProjectLogs}
 }
 
+func (as ProjectActionSet) Metrics() ProjectViewAction {
+	return ProjectViewAction{project: &as, scope: ScopeProjectMetrics}
+}
+
 func (as ProjectActionSet) Costs() ProjectViewAction {
 	return ProjectViewAction{project: &as, scope: ScopeProjectCosts}
 }

@@ -18,7 +18,8 @@ import (
 func (api *Api) RCA(w http.ResponseWriter, r *http.Request, u *db.User) {
 	rca := &model.RCA{}
 	projectId := db.ProjectId(mux.Vars(r)["project"])
-	from, to, incident, _ := api.getTimeContext(r)
+	q := r.URL.Query()
+	from, to, incident, _ := api.getTimeContext(projectId, q.Get("from"), q.Get("to"), q.Get("incident"), q.Get("alert"))
 
 	defer func() {
 		if incident != nil {

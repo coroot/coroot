@@ -37,7 +37,7 @@ type Node struct {
 	NetworkBandwidth      *NetworkBandWidth `json:"network_bandwidth"`
 }
 
-func renderNodes(w *model.World, project *db.Project) []Node {
+func RenderNodes(w *model.World, project *db.Project) []Node {
 	nodes := make([]Node, 0, len(w.Nodes))
 	for _, n := range w.Nodes {
 		name := n.GetName()

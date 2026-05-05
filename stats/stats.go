@@ -82,6 +82,7 @@ type Stats struct {
 		UsersByRole       map[string]int             `json:"users_by_role"`
 		PageViews         map[string]int             `json:"page_views"`
 		ApiCalls          map[string]int             `json:"api_calls"`
+		McpCalls          map[string]int             `json:"mcp_calls"`
 		SentNotifications map[db.IntegrationType]int `json:"sent_notifications"`
 	} `json:"ux"`
 	Performance struct {
@@ -158,6 +159,7 @@ type Collector struct {
 	usersByTheme      map[string]*utils.StringSet
 	pageViews         map[string]int
 	apiCalls          map[string]int
+	mcpCalls          map[string]int
 	lock              sync.Mutex
 
 	heapProfiler *godeltaprof.HeapProfiler
@@ -182,6 +184,7 @@ func NewCollector(disabled bool, instanceUuid, version string, edition string, d
 		usersByTheme:      map[string]*utils.StringSet{},
 		pageViews:         map[string]int{},
 		apiCalls:          map[string]int{},
+		mcpCalls:          map[string]int{},
 
 		heapProfiler: godeltaprof.NewHeapProfiler(),
 
@@ -238,8 +241,17 @@ func (c *Collector) MiddleWare(next http.Handler) http.Handler {
 	})
 }
 
+func (c *Collector) RegisterMCPCall(tool string) {
+	if c == nil {
+		return
+	}
+	c.lock.Lock()
+	c.mcpCalls[tool]++
+	c.lock.Unlock()
+}
+
 func (c *Collector) RegisterRequest(r *http.Request) {
-	if c == nil || c.disabled {
+	if c == nil {
 		return
 	}
 	var e Event
@@ -318,6 +330,8 @@ func (c *Collector) collect() Stats {
 
 	stats.UX.ApiCalls = c.apiCalls
 	c.apiCalls = map[string]int{}
+	stats.UX.McpCalls = c.mcpCalls
+	c.mcpCalls = map[string]int{}
 
 	for size, us := range c.usersByScreenSize {
 		stats.UX.UsersByScreenSize[size] = us.Len()

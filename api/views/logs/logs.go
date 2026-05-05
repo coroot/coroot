@@ -9,7 +9,6 @@ import (
 	"slices"
 	"sort"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/coroot/coroot/clickhouse"
@@ -102,31 +101,16 @@ func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, 
 
 	v.View = cmp.Or(q.View, viewMessages)
 
-	services, err := ch.GetServicesFromLogs(ctx, w.Ctx.From)
+	otelServices, agentLogsFound, err := ch.GetLogSources(ctx, w.Ctx.From)
 	if err != nil {
 		klog.Errorln(err)
 		v.Status = model.WARNING
 		v.Message = fmt.Sprintf("Clickhouse error: %s", err)
 		return v
 	}
+	otelService := app.OtelLogService(otelServices, w)
 
-	var logsFromAgentFound bool
-	var otelServices []string
-	for _, s := range services {
-		if strings.HasPrefix(s, "/") {
-			logsFromAgentFound = true
-		} else {
-			otelServices = append(otelServices, s)
-		}
-	}
-	otelService := ""
-	if app.Settings != nil && app.Settings.Logs != nil {
-		otelService = app.Settings.Logs.Service
-	} else {
-		otelService = model.GuessService(otelServices, w, app)
-	}
-
-	if logsFromAgentFound {
+	if agentLogsFound {
 		v.Sources = append(v.Sources, model.LogSourceAgent)
 	}
 
@@ -182,15 +166,12 @@ func renderEntries(ctx context.Context, v *View, ch *clickhouse.Client, app *mod
 		Filters: q.Filters,
 		Limit:   q.Limit,
 	}
-	switch v.Source {
-	case model.LogSourceOtel:
-		lq.Services = []string{otelService}
-	case model.LogSourceAgent:
-		lq.Services = getServices(app)
+	lq.Services = app.LogQueryServices(v.Source, otelService)
+	if v.Source == model.LogSourceAgent {
 		hashes := utils.NewStringSet()
 		for _, f := range q.Filters {
 			if f.Name == "pattern.hash" {
-				hashes.Add(getSimilarHashes(app, f.Value)...)
+				hashes.Add(app.SimilarLogPatternHashes(f.Value)...)
 			}
 		}
 		for _, hash := range hashes.Items() {
@@ -235,18 +216,8 @@ func renderEntries(ctx context.Context, v *View, ch *clickhouse.Client, app *mod
 			Severity:   e.Severity.String(),
 			Color:      e.Severity.Color(),
 			Message:    e.Body,
-			Attributes: map[string]string{},
+			Attributes: e.AllAttributes(),
 			TraceId:    e.TraceId,
-		}
-		for name, value := range e.LogAttributes {
-			if name != "" && value != "" {
-				entry.Attributes[name] = value
-			}
-		}
-		for name, value := range e.ResourceAttributes {
-			if name != "" && value != "" {
-				entry.Attributes[name] = value
-			}
 		}
 		v.Entries = append(v.Entries, entry)
 		maxTs = max(maxTs, e.Timestamp.UnixNano())
@@ -291,28 +262,4 @@ func renderPatterns(v *View, app *model.Application, ctx timeseries.Context) {
 			v.Chart.AddSeries(severity.String(), ts.Get(), severity.Color())
 		}
 	}
-}
-
-func getServices(app *model.Application) []string {
-	res := utils.NewStringSet()
-	for _, i := range app.Instances {
-		for _, c := range i.Containers {
-			res.Add(model.ContainerIdToServiceName(c.Id))
-		}
-	}
-	return res.Items()
-}
-
-func getSimilarHashes(app *model.Application, hash string) []string {
-	res := utils.NewStringSet()
-	for _, msgs := range app.LogMessages {
-		for _, pattern := range msgs.Patterns {
-			if similar := pattern.SimilarPatternHashes; similar != nil {
-				if similar.Has(hash) {
-					res.Add(similar.Items()...)
-				}
-			}
-		}
-	}
-	return res.Items()
 }

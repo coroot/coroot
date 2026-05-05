@@ -79,7 +79,7 @@ type Filter struct {
 	Value string `json:"value"`
 }
 
-func renderTraces(ctx context.Context, chs clickhouse.Clients, w *model.World, query string) *Traces {
+func RenderTraces(ctx context.Context, chs clickhouse.Clients, w *model.World, query string) *Traces {
 	res := &Traces{}
 
 	if chs.Error != nil {

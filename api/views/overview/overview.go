@@ -37,11 +37,11 @@ func Render(ctx context.Context, chs clickhouse.Clients, project *db.Project, w 
 	case "map":
 		v.Map = renderServiceMap(w)
 	case "nodes":
-		v.Nodes = renderNodes(w, project)
+		v.Nodes = RenderNodes(w, project)
 	case "deployments":
 		v.Deployments = renderDeployments(w)
 	case "traces":
-		v.Traces = renderTraces(ctx, chs, w, query)
+		v.Traces = RenderTraces(ctx, chs, w, query)
 	case "logs":
 		v.Logs = renderLogs(ctx, chs, w, query)
 	case "costs":

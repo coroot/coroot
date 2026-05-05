@@ -186,22 +186,12 @@ func (v *Logs) renderEntries(entries []*model.LogEntry, w *model.World, limit in
 			Severity:    e.Severity.String(),
 			Color:       e.Severity.Color(),
 			Message:     e.Body,
-			Attributes:  map[string]string{},
+			Attributes:  e.AllAttributes(),
 			TraceId:     e.TraceId,
 			Cluster:     e.ClusterName,
 		}
 		if app := apps[key{service: e.ServiceName, clusterId: e.ClusterId}]; app != nil {
 			entry.Application = app.Id.String()
-		}
-		for name, value := range e.LogAttributes {
-			if name != "" && value != "" {
-				entry.Attributes[name] = value
-			}
-		}
-		for name, value := range e.ResourceAttributes {
-			if name != "" && value != "" {
-				entry.Attributes[name] = value
-			}
 		}
 		entry.Attributes["Cluster"] = e.ClusterName
 		v.Entries = append(v.Entries, entry)
