@@ -276,6 +276,30 @@ func (q LogQuery) filters(attr *string) ([]string, []any) {
 				*f = append(*f, fmt.Sprintf(expr, v))
 				args = append(args, clickhouse.Named(v, a.Value))
 			}
+		case "service.name":
+			for j, a := range attrs {
+				var f *[]string
+				var expr string
+				switch a.Op {
+				case "=":
+					expr = "ServiceName = @%[1]s"
+					f = &ors
+				case "!=":
+					expr = "ServiceName != @%[1]s"
+					f = &ands
+				case "~":
+					expr = "match(ServiceName, @%[1]s)"
+					f = &ors
+				case "!~":
+					expr = "NOT match(ServiceName, @%[1]s)"
+					f = &ands
+				default:
+					continue
+				}
+				v := fmt.Sprintf("service_name_%d_%d", i, j)
+				*f = append(*f, fmt.Sprintf(expr, v))
+				args = append(args, clickhouse.Named(v, a.Value))
+			}
 		default:
 			for j, a := range attrs {
 				var f *[]string
