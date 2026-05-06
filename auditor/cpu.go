@@ -105,7 +105,7 @@ func (a *appAuditor) cpu(ncs nodeConsumersByNode) {
 
 			if i.Node.CpuUsagePercent.Last() > nodeCpuCheck.Threshold {
 				consumersChart.GetOrCreateChart(nodeName).Feature()
-				nodeCpuCheck.AddItem(i.NodeName())
+				nodeCpuCheck.AddItem("%s", i.NodeName())
 			}
 		}
 	}

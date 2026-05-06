@@ -69,7 +69,7 @@ func (a *appAuditor) postgres() {
 			Feature().
 			AddSeries(i.Name, i.Postgres.Avg)
 		if i.Postgres.Avg.Last() > latencyCheck.Threshold {
-			latencyCheck.AddItem(i.Name)
+			latencyCheck.AddItem("%s", i.Name)
 		}
 		report.
 			GetOrCreateChartInGroup(latencyChartTitle, i.Name, nil).
@@ -121,7 +121,7 @@ func (a *appAuditor) postgres() {
 		}
 		status := model.NewTableCell().SetStatus(model.OK, "up")
 		if !i.Postgres.IsUp() {
-			availabilityCheck.AddItem(i.Name)
+			availabilityCheck.AddItem("%s", i.Name)
 			if v := i.Postgres.Error.Value(); v != "" {
 				status.SetStatus(model.WARNING, v)
 			} else {
@@ -181,7 +181,7 @@ func checkReplicationLag(instanceName string, primaryLsn, lag *timeseries.TimeSe
 		greaterThanWorldWindow = ">"
 	}
 	if lagTime > timeseries.Duration(check.Threshold) {
-		check.AddItem(instanceName)
+		check.AddItem("%s", instanceName)
 	}
 	res.Value, res.Unit = utils.FormatBytes(last)
 	if lagTime > 0 {
@@ -232,7 +232,7 @@ func pgConnections(report *model.AuditReport, instance *model.Instance, connecti
 	}
 	if max := instance.Postgres.Settings["max_connections"].Samples.Last(); max > 0 && total > 0 {
 		if total/max*100 > connectionsCheck.Threshold {
-			connectionsCheck.AddItem(instance.Name)
+			connectionsCheck.AddItem("%s", instance.Name)
 		}
 	}
 

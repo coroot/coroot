@@ -39,7 +39,7 @@ func (a *appAuditor) memcached() {
 		obsolete := i.IsObsolete()
 
 		if !obsolete && !i.Memcached.IsUp() {
-			availabilityCheck.AddItem(i.Name)
+			availabilityCheck.AddItem("%s", i.Name)
 		}
 
 		if !obsolete && table != nil {

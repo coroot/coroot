@@ -53,14 +53,14 @@ func (a *appAuditor) network() {
 				rttCheck.SetValue(last)
 			}
 			if last > rttCheck.Threshold {
-				rttCheck.AddItem(u.RemoteApplication.Id.String())
+				rttCheck.AddItem("%s", u.RemoteApplication.Id.String())
 			}
 		}
 		if u.HasConnectivityIssues() {
-			connectivityCheck.AddItem(u.RemoteApplication.Id.String())
+			connectivityCheck.AddItem("%s", u.RemoteApplication.Id.String())
 		}
 		if u.HasFailedConnectionAttempts() {
-			connectionsCheck.AddItem(u.RemoteApplication.Id.String())
+			connectionsCheck.AddItem("%s", u.RemoteApplication.Id.String())
 		}
 		legend := "→" + u.RemoteApplication.Id.Name
 		if rttChart != nil {

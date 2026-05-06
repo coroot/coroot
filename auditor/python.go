@@ -18,7 +18,7 @@ func (a *appAuditor) python() {
 			continue
 		}
 		if i.Python.GILWaitTime.Last() > gilCheck.Threshold {
-			gilCheck.AddItem(i.Name)
+			gilCheck.AddItem("%s", i.Name)
 		}
 		if gilChart != nil {
 			gilChart.AddSeries(i.Name, i.Python.GILWaitTime)

@@ -79,7 +79,7 @@ func (c *HttpClient) QueryRange(ctx context.Context, query string, filterLabels 
 		}
 		_ = json.Unmarshal(d, &j)
 		if j.Error != "" {
-			return nil, fmt.Errorf(j.Error)
+			return nil, fmt.Errorf("%s", j.Error)
 		}
 		return nil, errors.New(resp.Status)
 	}

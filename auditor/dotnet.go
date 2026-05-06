@@ -60,7 +60,7 @@ func (a *appAuditor) dotnet() {
 			fullName := name + "@" + i.Name
 
 			if !obsolete && !runtime.IsUp() {
-				availabilityCheck.AddItem(fullName)
+				availabilityCheck.AddItem("%s", fullName)
 			}
 			if heapChart != nil {
 				chart := heapChart.GetOrCreateChart(fullName).Stacked()

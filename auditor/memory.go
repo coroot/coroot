@@ -70,7 +70,7 @@ func (a *appAuditor) memory(ncs nodeConsumersByNode) {
 			pressureSome.Add(c.MemoryPressureSome)
 			pressureFull.Add(c.MemoryPressureFull)
 			if v := c.MemoryPressureSome.Last(); v > pressureCheck.Threshold {
-				pressureCheck.AddItem(i.Name)
+				pressureCheck.AddItem("%s", i.Name)
 			}
 		}
 		if pressureChart != nil {
