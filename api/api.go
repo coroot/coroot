@@ -28,6 +28,7 @@ import (
 	"github.com/coroot/coroot/notifications"
 	"github.com/coroot/coroot/prom"
 	"github.com/coroot/coroot/rbac"
+	"github.com/coroot/coroot/stats"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 	"github.com/gorilla/mux"
@@ -43,9 +44,11 @@ const (
 type LoadWorldF func(ctx context.Context, project *db.Project, from, to timeseries.Time) (*model.World, error)
 
 type Api struct {
+	cfg              *config.Config
 	cache            *cache.Cache
 	db               *db.DB
 	collector        *collector.Collector
+	stats            *stats.Collector
 	pricing          *pricing.Manager
 	roles            rbac.RoleManager
 	globalClickHouse *db.IntegrationClickhouse
@@ -61,14 +64,16 @@ type Api struct {
 	loadWorld LoadWorldF
 }
 
-func NewApi(cache *cache.Cache, db *db.DB, collector *collector.Collector, pricing *pricing.Manager, roles rbac.RoleManager, licenseMgr LicenseManager,
+func NewApi(cfg *config.Config, cache *cache.Cache, db *db.DB, collector *collector.Collector, stats *stats.Collector, pricing *pricing.Manager, roles rbac.RoleManager, licenseMgr LicenseManager,
 	globalClickHouse *db.IntegrationClickhouse, globalPrometheus *db.IntegrationPrometheus,
 	deploymentUuid, instanceUuid string, loadWorld LoadWorldF) *Api {
 
 	return &Api{
+		cfg:              cfg,
 		cache:            cache,
 		db:               db,
 		collector:        collector,
+		stats:            stats,
 		pricing:          pricing,
 		roles:            roles,
 		globalClickHouse: globalClickHouse,
@@ -586,7 +591,8 @@ func (api *Api) PanelData(w http.ResponseWriter, r *http.Request, u *db.User) {
 		}
 	}
 
-	from, to, _, _ := api.getTimeContext(r)
+	q := r.URL.Query()
+	from, to, _, _ := api.getTimeContext(db.ProjectId(mux.Vars(r)["project"]), q.Get("from"), q.Get("to"), q.Get("incident"), q.Get("alert"))
 	step := increaseStepForBigDurations(from, to, maxRefreshInterval)
 	data, err := views.Dashboards.PanelData(r.Context(), promClients, config, from, to, step)
 	if err != nil {
@@ -1321,51 +1327,55 @@ func (api *Api) ResolveAlerts(w http.ResponseWriter, r *http.Request, u *db.User
 		return
 	}
 
-	// Get alerts before resolving to use for notifications
-	var alertsToNotify []*model.Alert
-	for _, id := range req.Ids {
-		alert, err := api.db.GetAlert(db.ProjectId(projectId), id)
-		if err != nil {
-			continue
-		}
-		if alert.ResolvedAt == 0 {
-			alertsToNotify = append(alertsToNotify, alert)
-		}
-	}
-
 	resolvedBy := u.Name
 	if resolvedBy == "" {
 		resolvedBy = u.Email
 	}
 
-	if err := api.db.ResolveAlerts(db.ProjectId(projectId), req.Ids, resolvedBy); err != nil {
+	project, err := api.db.GetProject(db.ProjectId(projectId))
+	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
+	if _, err := api.resolveAlerts(project, req.Ids, resolvedBy); err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
 
-	// Send notifications for manually resolved alerts
-	if len(alertsToNotify) > 0 {
-		project, err := api.db.GetProject(db.ProjectId(projectId))
+func (api *Api) resolveAlerts(project *db.Project, ids []string, resolvedBy string) (int, error) {
+	var toNotify []*model.Alert
+	for _, id := range ids {
+		a, err := api.db.GetAlert(project.Id, id)
 		if err != nil {
-			klog.Errorln("failed to get project for notifications:", err)
-		} else {
-			rulesMap := make(map[string]*model.AlertingRule)
-			for _, alert := range alertsToNotify {
-				alert.ResolvedBy = resolvedBy
-				rule := rulesMap[alert.RuleId]
-				if rule == nil {
-					rule, _ = api.db.GetAlertingRule(db.ProjectId(projectId), model.AlertingRuleId(alert.RuleId))
-					rulesMap[alert.RuleId] = rule
-				}
-				if rule != nil {
-					notifications.EnqueueResolvedAlerts(api.db, project, []*model.Alert{alert}, rule)
-				}
-			}
+			continue
+		}
+		if a.ResolvedAt == 0 {
+			toNotify = append(toNotify, a)
 		}
 	}
-
-	w.WriteHeader(http.StatusNoContent)
+	if err := api.db.ResolveAlerts(project.Id, ids, resolvedBy); err != nil {
+		return 0, err
+	}
+	if len(toNotify) == 0 {
+		return 0, nil
+	}
+	rulesMap := map[string]*model.AlertingRule{}
+	for _, a := range toNotify {
+		a.ResolvedBy = resolvedBy
+		rule := rulesMap[a.RuleId]
+		if rule == nil {
+			rule, _ = api.db.GetAlertingRule(project.Id, model.AlertingRuleId(a.RuleId))
+			rulesMap[a.RuleId] = rule
+		}
+		if rule != nil {
+			notifications.EnqueueResolvedAlerts(api.db, project, []*model.Alert{a}, rule)
+		}
+	}
+	return len(toNotify), nil
 }
 
 func (api *Api) SuppressAlerts(w http.ResponseWriter, r *http.Request, u *db.User) {
@@ -2286,7 +2296,8 @@ func (api *Api) LoadWorldByRequest(r *http.Request) (*model.World, *db.Project, 
 		return nil, nil, nil, err
 	}
 
-	from, to, _, truncated := api.getTimeContext(r)
+	q := r.URL.Query()
+	from, to, _, truncated := api.getTimeContext(projectId, q.Get("from"), q.Get("to"), q.Get("incident"), q.Get("alert"))
 	world, cacheStatus, err := api.LoadWorld(r.Context(), project, from, to)
 	if world == nil {
 		step := increaseStepForBigDurations(from, to, 15*timeseries.Second)
@@ -2296,17 +2307,14 @@ func (api *Api) LoadWorldByRequest(r *http.Request) (*model.World, *db.Project, 
 	return world, project, cacheStatus, err
 }
 
-func (api *Api) getTimeContext(r *http.Request) (from timeseries.Time, to timeseries.Time, incident *model.ApplicationIncident, truncated bool) {
+func (api *Api) getTimeContext(projectId db.ProjectId, fromStr, toStr, incidentKey, alertId string) (from timeseries.Time, to timeseries.Time, incident *model.ApplicationIncident, truncated bool) {
 	now := timeseries.Now()
-	q := r.URL.Query()
-	from = utils.ParseTime(now, q.Get("from"), now.Add(-timeseries.Hour))
-	to = utils.ParseTime(now, q.Get("to"), now)
+	from = utils.ParseTime(now, fromStr, now.Add(-timeseries.Hour))
+	to = utils.ParseTime(now, toStr, now)
 	if from >= to {
 		from = to.Add(-timeseries.Hour)
 	}
-	incidentKey := q.Get("incident")
 	if incidentKey != "" {
-		projectId := db.ProjectId(mux.Vars(r)["project"])
 		var err error
 		if incident, err = api.db.GetIncidentByKey(projectId, incidentKey); err != nil {
 			klog.Warningln("failed to get incident:", err)
@@ -2323,9 +2331,7 @@ func (api *Api) getTimeContext(r *http.Request) (from timeseries.Time, to timese
 			}
 		}
 	}
-	alertId := q.Get("alert")
 	if alertId != "" {
-		projectId := db.ProjectId(mux.Vars(r)["project"])
 		if a, err := api.db.GetAlert(projectId, alertId); err != nil {
 			klog.Warningln("failed to get alert:", err)
 		} else {

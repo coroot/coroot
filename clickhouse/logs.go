@@ -34,6 +34,21 @@ func (c *Client) GetServicesFromLogs(ctx context.Context, from timeseries.Time) 
 	return res, nil
 }
 
+func (c *Client) GetLogSources(ctx context.Context, from timeseries.Time) (otelServices []string, agentLogsFound bool, err error) {
+	services, err := c.GetServicesFromLogs(ctx, from)
+	if err != nil {
+		return nil, false, err
+	}
+	for _, s := range services {
+		if strings.HasPrefix(s, "/") {
+			agentLogsFound = true
+		} else {
+			otelServices = append(otelServices, s)
+		}
+	}
+	return otelServices, agentLogsFound, nil
+}
+
 func (c *Client) GetLogsHistogram(ctx context.Context, query LogQuery) ([]model.LogHistogramBucket, error) {
 	where, args := query.filters(nil)
 	q := fmt.Sprintf("SELECT multiIf(SeverityNumber=0, 0, intDiv(SeverityNumber, 4)+1), toStartOfInterval(Timestamp, INTERVAL %d second), count(1)", query.Ctx.Step)

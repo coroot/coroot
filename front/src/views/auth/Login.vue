@@ -139,7 +139,12 @@ export default {
                     this.error = error;
                     return;
                 }
-                this.$router.push(this.$route.query.next || { name: 'index' });
+                const next = this.$route.query.next;
+                if (next && next.startsWith((this.$coroot.base_path || '/') + 'oauth/')) {
+                    window.location.href = next;
+                    return;
+                }
+                this.$router.push(next || { name: 'index' });
             });
         },
     },

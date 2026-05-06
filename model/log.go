@@ -30,15 +30,30 @@ type LogPattern struct {
 }
 
 type LogEntry struct {
-	ServiceName        string
-	Timestamp          time.Time
-	Severity           Severity
-	Body               string
-	TraceId            string
-	LogAttributes      map[string]string
-	ResourceAttributes map[string]string
-	ClusterId          string
-	ClusterName        string
+	ServiceName        string            `json:"service_name"`
+	Timestamp          time.Time         `json:"timestamp"`
+	Severity           Severity          `json:"severity"`
+	Body               string            `json:"body"`
+	TraceId            string            `json:"trace_id,omitempty"`
+	LogAttributes      map[string]string `json:"log_attributes,omitempty"`
+	ResourceAttributes map[string]string `json:"resource_attributes,omitempty"`
+	ClusterId          string            `json:"cluster_id,omitempty"`
+	ClusterName        string            `json:"cluster_name,omitempty"`
+}
+
+func (e *LogEntry) AllAttributes() map[string]string {
+	out := make(map[string]string, len(e.LogAttributes)+len(e.ResourceAttributes))
+	for k, v := range e.LogAttributes {
+		if k != "" && v != "" {
+			out[k] = v
+		}
+	}
+	for k, v := range e.ResourceAttributes {
+		if k != "" && v != "" {
+			out[k] = v
+		}
+	}
+	return out
 }
 
 type LogHistogramBucket struct {

@@ -75,6 +75,49 @@ func (app *Application) SLOStatus() Status {
 	return UNKNOWN
 }
 
+func (app *Application) OtelLogService(candidates []string, w *World) string {
+	if app.Settings != nil && app.Settings.Logs != nil {
+		return app.Settings.Logs.Service
+	}
+	return GuessService(candidates, w, app)
+}
+
+func (app *Application) LogQueryServices(source LogSource, otelService string) []string {
+	switch source {
+	case LogSourceOtel:
+		if otelService != "" {
+			return []string{otelService}
+		}
+	case LogSourceAgent:
+		return app.LogServices()
+	}
+	return nil
+}
+
+func (app *Application) LogServices() []string {
+	res := utils.NewStringSet()
+	for _, i := range app.Instances {
+		for _, c := range i.Containers {
+			res.Add(ContainerIdToServiceName(c.Id))
+		}
+	}
+	return res.Items()
+}
+
+func (app *Application) SimilarLogPatternHashes(hash string) []string {
+	res := utils.NewStringSet(hash)
+	for _, msgs := range app.LogMessages {
+		for _, pattern := range msgs.Patterns {
+			if similar := pattern.SimilarPatternHashes; similar != nil {
+				if similar.Has(hash) {
+					res.Add(similar.Items()...)
+				}
+			}
+		}
+	}
+	return res.Items()
+}
+
 func (app *Application) GetInstance(name, node string) *Instance {
 	for _, i := range app.instancesByName[name] {
 		switch app.Id.Kind {

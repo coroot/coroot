@@ -134,7 +134,9 @@ func main() {
 		klog.Exitln(err)
 	}
 
-	a := api.NewApi(promCache, database, coll, pricing, rbac.NewStaticRoleManager(), nil, globalClickhouse, globalPrometheus, deploymentUuid, instanceUuid, nil)
+	statsCollector := stats.NewCollector(cfg.DisableUsageStatistics, instanceUuid, version, Edition, database, promCache, pricing, globalClickhouse)
+
+	a := api.NewApi(cfg, promCache, database, coll, statsCollector, pricing, rbac.NewStaticRoleManager(), nil, globalClickhouse, globalPrometheus, deploymentUuid, instanceUuid, nil)
 	err = a.AuthInit(cfg.Auth.AnonymousRole, cfg.Auth.BootstrapAdminPassword)
 	if err != nil {
 		klog.Exitln(err)
@@ -143,8 +145,6 @@ func main() {
 	incidents := watchers.NewIncidents(database, a.IncidentRCA)
 
 	watchers.Start(database, promCache, pricing, incidents, !cfg.DoNotCheckForDeployments, globalClickhouse, globalPrometheus, cfg.ClickHouseSpaceManager, nil, nil)
-
-	statsCollector := stats.NewCollector(cfg.DisableUsageStatistics, instanceUuid, version, Edition, database, promCache, pricing, globalClickhouse)
 
 	router := mux.NewRouter()
 	router.Use(statsCollector.MiddleWare)
@@ -210,6 +210,14 @@ func main() {
 	r.HandleFunc("/api/project/{project}/app/{app}/risks", a.Auth(a.Risks)).Methods(http.MethodPost)
 	r.HandleFunc("/api/project/{project}/node/{node}", a.Auth(a.Node)).Methods(http.MethodGet)
 	r.PathPrefix("/api/project/{project}/prom/api/v1/{rest:.+}").HandlerFunc(a.Auth(a.Prom))
+
+	r.HandleFunc("/.well-known/oauth-protected-resource", a.MCPOAuthProtectedResource).Methods(http.MethodGet)
+	r.HandleFunc("/.well-known/oauth-authorization-server", a.MCPOAuthAuthorizationServer).Methods(http.MethodGet)
+	r.HandleFunc("/oauth/register", a.MCPOAuthRegister).Methods(http.MethodPost)
+	r.HandleFunc("/oauth/authorize", a.MCPOAuthAuthorize).Methods(http.MethodGet, http.MethodPost)
+	r.HandleFunc("/oauth/token", a.MCPOAuthToken).Methods(http.MethodPost)
+	r.HandleFunc("/oauth/revoke", a.MCPOAuthRevoke).Methods(http.MethodPost)
+	r.PathPrefix("/mcp").Handler(a.SetupMCP(api.MCPInstructions).HTTPHandler())
 
 	r.HandleFunc("/api/v1/query_range", a.ApiKeyAuth(a.PrometheusQueryRange))
 	r.HandleFunc("/api/v1/series", a.ApiKeyAuth(a.PrometheusSeries))
