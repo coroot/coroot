@@ -223,7 +223,7 @@ func (mgr *Manager) updateModel() error {
 		return nil
 	}
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf(resp.Status)
+		return fmt.Errorf("%s", resp.Status)
 	}
 	defer resp.Body.Close()
 	tmp, err := os.CreateTemp(mgr.dataDir, dumpFileName)

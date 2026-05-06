@@ -19,7 +19,7 @@ func (a *appAuditor) logs() {
 		sum.Add(msgs.Messages)
 		for hash, pattern := range msgs.Patterns {
 			if pattern.Messages.Reduce(timeseries.NanSum) > 0 {
-				check.AddItem(hash)
+				check.AddItem("%s", hash)
 			}
 		}
 	}

@@ -42,7 +42,7 @@ func (a *appAuditor) mongodb() {
 		}
 		obsolete := i.IsObsolete()
 		if !obsolete && !i.Mongodb.IsUp() {
-			availabilityCheck.AddItem(i.Name)
+			availabilityCheck.AddItem("%s", i.Name)
 		}
 
 		if obsolete {
@@ -68,7 +68,7 @@ func (a *appAuditor) mongodb() {
 			if lagTime := lag.Last(); !timeseries.IsNaN(lagTime) {
 				lagCell.SetValue(utils.FormatFloat(lagTime)).SetUnit("s")
 				if timeseries.Duration(lagTime) > timeseries.Duration(replicationLagCheck.Threshold) {
-					replicationLagCheck.AddItem(i.Name)
+					replicationLagCheck.AddItem("%s", i.Name)
 				}
 			}
 			if replicationLagChart != nil {

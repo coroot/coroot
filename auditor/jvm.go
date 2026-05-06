@@ -44,10 +44,10 @@ func (a *appAuditor) jvm() {
 			fullName := name + "@" + i.Name
 
 			if !obsolete && !succeeded && !j.IsUp() {
-				availabilityCheck.AddItem(fullName)
+				availabilityCheck.AddItem("%s", fullName)
 			}
 			if !obsolete && j.SafepointTime.Last() > safepointCheck.Threshold {
-				safepointCheck.AddItem(i.Name)
+				safepointCheck.AddItem("%s", i.Name)
 			}
 
 			if heapChart != nil {

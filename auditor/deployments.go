@@ -54,7 +54,7 @@ func (a *appAuditor) deployments() {
 				Time:    ds.Deployment.StartedAt,
 			})
 		case model.ApplicationDeploymentStateInProgress, model.ApplicationDeploymentStateCancelled:
-			summary.SetStub(ds.Message)
+			summary.SetStub("%s", ds.Message)
 		}
 
 		table.AddRow(version, deployed, summary).SetId(ds.Deployment.Id())

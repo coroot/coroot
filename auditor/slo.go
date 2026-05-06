@@ -36,7 +36,7 @@ func availability(w *model.World, app *model.Application, report *model.AuditRep
 	if last := lastIncident(app); last != nil && (!last.Resolved() || last.ResolvedAt.After(w.Ctx.To)) {
 		for _, br := range last.Details.AvailabilityBurnRates {
 			if br.Severity > model.OK {
-				check.SetStatus(br.Severity, br.FormatSLOStatus())
+				check.SetStatus(br.Severity, "%s", br.FormatSLOStatus())
 				break
 			}
 		}
@@ -60,7 +60,7 @@ func latency(w *model.World, app *model.Application, report *model.AuditReport) 
 	if last := lastIncident(app); last != nil && (!last.Resolved() || last.ResolvedAt.After(w.Ctx.To)) {
 		for _, br := range last.Details.LatencyBurnRates {
 			if br.Severity > model.OK {
-				check.SetStatus(br.Severity, br.FormatSLOStatus())
+				check.SetStatus(br.Severity, "%s", br.FormatSLOStatus())
 				break
 			}
 		}

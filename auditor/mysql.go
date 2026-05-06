@@ -54,7 +54,7 @@ func (a *appAuditor) mysql() {
 		}
 		obsolete := i.IsObsolete()
 		if !obsolete && !i.Mysql.IsUp() {
-			availabilityCheck.AddItem(i.Name)
+			availabilityCheck.AddItem("%s", i.Name)
 		}
 
 		if obsolete {
@@ -66,7 +66,7 @@ func (a *appAuditor) mysql() {
 			if lagTime := i.Mysql.ReplicationLagSeconds.Last(); !timeseries.IsNaN(lagTime) {
 				lagCell.SetValue(utils.FormatFloat(lagTime)).SetUnit("s")
 				if timeseries.Duration(lagTime) > timeseries.Duration(replicationLagCheck.Threshold) {
-					replicationLagCheck.AddItem(i.Name)
+					replicationLagCheck.AddItem("%s", i.Name)
 				}
 			}
 			if replicationLagChart != nil {
@@ -77,7 +77,7 @@ func (a *appAuditor) mysql() {
 		maxConns := i.Mysql.ConnectionsMax.Last()
 		if !timeseries.IsNaN(currConns) && !timeseries.IsNaN(maxConns) {
 			if currConns/maxConns*100 > connectionsCheck.Threshold {
-				connectionsCheck.AddItem(i.Name)
+				connectionsCheck.AddItem("%s", i.Name)
 			}
 		}
 		if connectionsChart != nil {
@@ -102,7 +102,7 @@ func (a *appAuditor) mysql() {
 		if i.Mysql.ReplicationIOStatus != nil {
 			status := i.Mysql.ReplicationIOStatus.Status.Last()
 			if status < 1 {
-				replicationStatusCheck.AddItem(i.Name)
+				replicationStatusCheck.AddItem("%s", i.Name)
 				msg := i.Mysql.ReplicationIOStatus.LastError.Value()
 				if msg == "" {
 					msg = i.Mysql.ReplicationIOStatus.LastState.Value()
@@ -117,7 +117,7 @@ func (a *appAuditor) mysql() {
 		if replStatusCell.Status != nil && *replStatusCell.Status < model.WARNING && i.Mysql.ReplicationSQLStatus != nil {
 			status := i.Mysql.ReplicationSQLStatus.Status.Last()
 			if status < 1 {
-				replicationStatusCheck.AddItem(i.Name)
+				replicationStatusCheck.AddItem("%s", i.Name)
 				msg := i.Mysql.ReplicationSQLStatus.LastError.Value()
 				if msg == "" {
 					msg = i.Mysql.ReplicationSQLStatus.LastState.Value()

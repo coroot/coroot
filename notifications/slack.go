@@ -48,17 +48,17 @@ func (s *Slack) SendIncident(ctx context.Context, baseUrl string, n *db.Incident
 		}
 	}
 	blocks := []slack.Block{
-		s.section(s.text(header)),
+		s.section(s.text("%s", header)),
 	}
 	if len(details) > 0 {
-		blocks = append(blocks, s.section(s.text(strings.Join(details, "\n"))))
+		blocks = append(blocks, s.section(s.text("%s", strings.Join(details, "\n"))))
 	}
 	if n.Details != nil && n.Details.RCASummary != "" {
 		rca := fmt.Sprintf("*Root Cause*: %s", n.Details.RCASummary)
 		if n.Details.RCARemediations != "" {
 			rca += fmt.Sprintf("\n*Remediations*: %s", utils.Truncate(n.Details.RCARemediations, 2000))
 		}
-		blocks = append(blocks, s.section(s.text(rca)))
+		blocks = append(blocks, s.section(s.text("%s", rca)))
 	}
 	body := s.body(n.Status.Color(), snippet, blocks...)
 	opts := []slack.MsgOption{body, slack.MsgOptionDisableLinkUnfurl()}
@@ -129,7 +129,7 @@ func (s *Slack) SendDeployment(ctx context.Context, project *db.Project, ds mode
 		status = "Summary"
 	}
 	snippet += ": " + status
-	reply := s.body(ds.Status.Color(), snippet, s.section(s.text(ds.Message)))
+	reply := s.body(ds.Status.Color(), snippet, s.section(s.text("%s", ds.Message)))
 	if summary != nil {
 		reply = slack.MsgOptionBlocks(summary)
 	}
@@ -185,10 +185,10 @@ func (s *Slack) SendAlert(ctx context.Context, baseUrl string, n *db.AlertNotifi
 		}
 	}
 	blocks := []slack.Block{
-		s.section(s.text(header)),
+		s.section(s.text("%s", header)),
 	}
 	if len(details) > 0 {
-		blocks = append(blocks, s.section(s.text(strings.Join(details, "\n"))))
+		blocks = append(blocks, s.section(s.text("%s", strings.Join(details, "\n"))))
 	}
 	body := s.body(n.Status.Color(), snippet, blocks...)
 	opts := []slack.MsgOption{body, slack.MsgOptionDisableLinkUnfurl()}
