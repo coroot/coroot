@@ -115,6 +115,8 @@ Each container metric has the `container_id` label. This is a compound identifie
 
 ## GPU
 
+When `nsys` is available and Nsight Systems reports supported GPU metrics, node-agent automatically uses Nsight Systems GPU Metrics for node-level GPU utilization and DRAM bandwidth utilization. If Nsight Systems is unavailable, node-agent falls back to NVML sampling.
+
 ### container_resources_gpu_usage_percent
 * **Description**: Percent of GPU compute resources used by the container
 * **Type**: Gauge
@@ -673,21 +675,25 @@ E.g., if the derivative of this metric for a minute interval is 60s, this means 
 ### node_resources_gpu_memory_utilization_percent_avg
 * **Description**: Average GPU memory utilization (percentage) over the collection interval
 * **Type**: Gauge
+* **Source**: NVIDIA Nsight Systems GPU Metrics (DRAM read/write bandwidth) when available; otherwise NVIDIA Management Library (NVML)
 * **Labels**: gpu_uuid
 
 ### node_resources_gpu_memory_utilization_percent_peak
 * **Description**: Peak GPU memory utilization (percentage) over the collection interval
 * **Type**: Gauge
+* **Source**: NVIDIA Nsight Systems GPU Metrics (DRAM read/write bandwidth) when available; otherwise NVIDIA Management Library (NVML)
 * **Labels**: gpu_uuid
 
 ### node_resources_gpu_utilization_percent_avg
 * **Description**: Average GPU core utilization (percentage) over the collection interval
 * **Type**: Gauge
+* **Source**: NVIDIA Nsight Systems GPU Metrics (GR Active) when available; otherwise NVIDIA Management Library (NVML)
 * **Labels**: gpu_uuid
 
 ### node_resources_gpu_utilization_percent_peak
 * **Description**: Peak GPU core utilization (percentage) over the collection interval
 * **Type**: Gauge
+* **Source**: NVIDIA Nsight Systems GPU Metrics (GR Active) when available; otherwise NVIDIA Management Library (NVML)
 * **Labels**: gpu_uuid
 
 ### node_resources_gpu_temperature_celsius

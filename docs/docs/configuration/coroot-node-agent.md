@@ -25,7 +25,7 @@ You can configure coroot-node-agent using command-line flags or environment vari
 | `--disable-log-parsing` | `DISABLE_LOG_PARSING` | `false` | Disable container log parsing |
 | `--disable-pinger` | `DISABLE_PINGER` | `false` | Disable ICMP ping to upstreams |
 | `--disable-l7-tracing` | `DISABLE_L7_TRACING` | `false` | Disable application-layer (L7) tracing |
-| `--disable-gpu-monitoring` | `DISABLE_GPU_MONITORING` | `false` | Disable GPU monitoring (NVML) |
+| `--disable-gpu-monitoring` | `DISABLE_GPU_MONITORING` | `false` | Disable GPU monitoring (NVML and Nsight Systems GPU metrics) |
 | `--enable-java-tls` | `ENABLE_JAVA_TLS` | `false` | Enable Java TLS instrumentation via dynamic agent loading |
 | `--enable-java-async-profiler` | `ENABLE_JAVA_ASYNC_PROFILER` | `false` | Enable Java profiling via async-profiler (CPU, memory allocations, lock contention) |
 | `--go-heap-profiler` | `GO_HEAP_PROFILER` | `enabled` | Go heap profiling mode: `disabled`, `enabled` (passive), or `force` (enable profiling in all Go apps) |
