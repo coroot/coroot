@@ -6,18 +6,18 @@ sidebar_position: 4
 
 ## Configure Slack
 
-If you want to receive alerts to your Slack channel, you’ll need to create a Slack App and make it available to Coroot.
+If you want to receive alerts in Slack, you’ll need to create a Slack App and make it available to Coroot.
 
-To configure a slack integration go to the **Project Settings**  → **Integrations**.
+In Coroot, open **Settings** → **Notifications**, then click **Configure** next to **Slack**.
 
-Click on **Create Slack app**. Coroot will open a new browser tab and send you over to the Slack website to create the Slack app. Select your Slack workspace.
+Click **Create Slack app**. Coroot will open a new browser tab and send you over to the Slack website to create the Slack app. Select your Slack workspace.
 
 When you click on Create Slack app, Coroot will pass along the app manifest, which Slack will use to set up your app.
 
 :::info
 You may get a warning that says: **This app is created from a 3rd party manifest**. 
-This warning is expected (Coroot is the third party here). You can click on Configure to see the app manifest Coroot sent along in the URL. 
-The manifest just take cares of some settings for your app and helps speed things along.
+This warning is expected (Coroot is the third party here). You can click **Configure** to see the app manifest Coroot sent along in the URL.
+The manifest configures the required app settings and helps speed things along.
 :::
 
 On the Slack site for your newly created app, in the **Settings** > **Basic Information** tab, under **Install your app**, click on **Install to workspace**.
@@ -36,8 +36,8 @@ Then go to **OAuth and Permissions** and copy the **Bot User OAuth Token**.
 
 ## Configure Coroot
 
-* Go to the **Project settings**  → **Integrations**
-* Create a Slack integration
+* Go to **Settings** → **Notifications**
+* Click **Configure** next to **Slack**
 * Paste the token to the form
   <img alt="Coroot Slack Integration" src="/img/docs/slack-integration.png" class="card w-800"/>
 * Coroot can send alerts into any public channel in your Slack workspace.
