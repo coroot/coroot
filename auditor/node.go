@@ -212,6 +212,18 @@ func AuditNode(w *model.World, node *model.Node) *model.AuditReport {
 			GetOrCreateChartGroup("GPU utilization <selector>, %", nil).
 			GetOrCreateChart("peak").
 			AddSeries(gpu.UUID, gpu.UsagePeak)
+		if !gpu.ComputeOccupancyAverage.IsEmpty() {
+			report.
+				GetOrCreateChartGroup("GPU compute occupancy <selector>, %", nil).
+				GetOrCreateChart("average").
+				AddSeries(gpu.UUID, gpu.ComputeOccupancyAverage).Feature()
+		}
+		if !gpu.ComputeOccupancyPeak.IsEmpty() {
+			report.
+				GetOrCreateChartGroup("GPU compute occupancy <selector>, %", nil).
+				GetOrCreateChart("peak").
+				AddSeries(gpu.UUID, gpu.ComputeOccupancyPeak)
+		}
 		report.
 			GetOrCreateChartGroup("GPU Memory utilization <selector>, %", nil).
 			GetOrCreateChart("average").

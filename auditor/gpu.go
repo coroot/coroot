@@ -80,6 +80,18 @@ func (a *appAuditor) gpu() {
 			GetOrCreateChartGroup("GPU utilization <selector>, %", nil).
 			GetOrCreateChart("peak").
 			AddSeries(uuid, gi.gpu.UsagePeak)
+		if !gi.gpu.ComputeOccupancyAverage.IsEmpty() {
+			report.
+				GetOrCreateChartGroup("GPU compute occupancy <selector>, %", nil).
+				GetOrCreateChart("average").
+				AddSeries(uuid, gi.gpu.ComputeOccupancyAverage).Feature()
+		}
+		if !gi.gpu.ComputeOccupancyPeak.IsEmpty() {
+			report.
+				GetOrCreateChartGroup("GPU compute occupancy <selector>, %", nil).
+				GetOrCreateChart("peak").
+				AddSeries(uuid, gi.gpu.ComputeOccupancyPeak)
+		}
 		report.
 			GetOrCreateChartGroup("GPU Memory utilization <selector>, %", nil).
 			GetOrCreateChart("average").

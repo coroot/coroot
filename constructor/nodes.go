@@ -208,5 +208,9 @@ func nodeGPU(node *model.Node, queryName string, m *model.MetricValues) {
 		gpu.UsageAverage = merge(gpu.UsageAverage, m.Values, timeseries.Any)
 	case "node_gpu_utilization_percent_peak":
 		gpu.UsagePeak = merge(gpu.UsagePeak, m.Values, timeseries.Any)
+	case "node_gpu_compute_occupancy_percent_avg":
+		gpu.ComputeOccupancyAverage = merge(gpu.ComputeOccupancyAverage, m.Values, timeseries.Any)
+	case "node_gpu_compute_occupancy_percent_peak":
+		gpu.ComputeOccupancyPeak = merge(gpu.ComputeOccupancyPeak, m.Values, timeseries.Any)
 	}
 }

@@ -205,6 +205,9 @@ type GPU struct {
 	UsageAverage *timeseries.TimeSeries
 	UsagePeak    *timeseries.TimeSeries
 
+	ComputeOccupancyAverage *timeseries.TimeSeries
+	ComputeOccupancyPeak    *timeseries.TimeSeries
+
 	Temperature *timeseries.TimeSeries
 	PowerWatts  *timeseries.TimeSeries
 

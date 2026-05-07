@@ -54,7 +54,29 @@
             </template>
 
             <template #item.gpus="{ item }">
-                <span v-if="item.gpus">{{ item.gpus }}</span>
+                <div v-if="item.gpus" class="gpu-cell">
+                    <template v-if="item.gpu_stats && item.gpu_stats.length">
+                        <div v-for="gpu in item.gpu_stats" :key="gpu.uuid" class="gpu-row">
+                            <div class="d-flex align-center">
+                                <span class="truncated gpu-name">{{ gpu.name || gpu.uuid }}</span>
+                                <span v-if="gpuMemory(gpu)" class="caption grey--text ml-1 text-no-wrap">{{ gpuMemory(gpu) }}</span>
+                            </div>
+                            <div v-for="metric in gpuMetricRows(gpu)" :key="metric.label" class="gpu-meter">
+                                <span class="gpu-meter-label">{{ metric.label }}</span>
+                                <v-progress-linear
+                                    :background-color="metric.backgroundColor"
+                                    height="14"
+                                    :color="metric.color"
+                                    :value="clampPercent(metricValue(metric))"
+                                >
+                                    <span style="font-size: 11px">{{ formatPercent(metricValue(metric)) }}</span>
+                                </v-progress-linear>
+                                <span v-if="hasMetric(metric.peak)" class="caption grey--text gpu-peak">pk {{ formatPercent(metric.peak) }}</span>
+                            </div>
+                        </div>
+                    </template>
+                    <span v-else>{{ gpuCountText(item.gpus) }}</span>
+                </div>
                 <span v-else>-</span>
             </template>
 
@@ -181,6 +203,61 @@ export default {
                 this.nodes = data.nodes;
             });
         },
+        hasMetric(value) {
+            return value !== null && value !== undefined;
+        },
+        metricValue(metric) {
+            return this.hasMetric(metric.avg) ? metric.avg : metric.peak;
+        },
+        clampPercent(value) {
+            if (!this.hasMetric(value)) {
+                return 0;
+            }
+            return Math.max(0, Math.min(100, value));
+        },
+        formatPercent(value) {
+            if (!this.hasMetric(value)) {
+                return '-';
+            }
+            return this.$format.percent(value) + '%';
+        },
+        gpuCountText(count) {
+            return count === 1 ? '1 GPU' : `${count} GPUs`;
+        },
+        gpuMemory(gpu) {
+            if (this.hasMetric(gpu.used_memory_bytes) && this.hasMetric(gpu.total_memory_bytes)) {
+                return `${this.$format.formatBytes(gpu.used_memory_bytes)} / ${this.$format.formatBytes(gpu.total_memory_bytes)}`;
+            }
+            if (this.hasMetric(gpu.total_memory_bytes)) {
+                return this.$format.formatBytes(gpu.total_memory_bytes);
+            }
+            return '';
+        },
+        gpuMetricRows(gpu) {
+            return [
+                {
+                    label: 'GPU',
+                    avg: gpu.usage_average_percent,
+                    peak: gpu.usage_peak_percent,
+                    color: 'green lighten-1',
+                    backgroundColor: 'green lighten-4',
+                },
+                {
+                    label: 'Mem',
+                    avg: gpu.memory_usage_average_percent,
+                    peak: gpu.memory_usage_peak_percent,
+                    color: 'purple lighten-1',
+                    backgroundColor: 'purple lighten-4',
+                },
+                {
+                    label: 'SM',
+                    avg: gpu.compute_occupancy_average_percent,
+                    peak: gpu.compute_occupancy_peak_percent,
+                    color: 'orange lighten-1',
+                    backgroundColor: 'orange lighten-4',
+                },
+            ].filter((metric) => this.hasMetric(metric.avg) || this.hasMetric(metric.peak));
+        },
     },
 };
 </script>
@@ -209,5 +286,32 @@ export default {
     text-overflow: ellipsis;
     display: inline-block;
     vertical-align: bottom;
+}
+.gpu-cell {
+    min-width: 220px;
+}
+.gpu-row + .gpu-row {
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+    margin-top: 4px;
+    padding-top: 4px;
+}
+.gpu-name {
+    max-width: 20ch;
+}
+.gpu-meter {
+    align-items: center;
+    display: grid;
+    gap: 4px;
+    grid-template-columns: 28px minmax(72px, 1fr) 44px;
+    height: 16px;
+}
+.gpu-meter-label {
+    color: rgba(0, 0, 0, 0.6);
+    font-size: 11px;
+    line-height: 1;
+}
+.gpu-peak {
+    font-size: 11px !important;
+    white-space: nowrap;
 }
 </style>

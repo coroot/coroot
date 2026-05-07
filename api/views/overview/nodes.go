@@ -2,6 +2,7 @@ package overview
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -15,6 +16,22 @@ import (
 type NetworkBandWidth struct {
 	Rx int `json:"rx"`
 	Tx int `json:"tx"`
+}
+
+type GPU struct {
+	UUID                           string   `json:"uuid"`
+	Name                           string   `json:"name"`
+	DriverVersion                  string   `json:"driver_version"`
+	TotalMemoryBytes               *int64   `json:"total_memory_bytes,omitempty"`
+	UsedMemoryBytes                *int64   `json:"used_memory_bytes,omitempty"`
+	UsageAveragePercent            *float32 `json:"usage_average_percent,omitempty"`
+	UsagePeakPercent               *float32 `json:"usage_peak_percent,omitempty"`
+	MemoryUsageAveragePercent      *float32 `json:"memory_usage_average_percent,omitempty"`
+	MemoryUsagePeakPercent         *float32 `json:"memory_usage_peak_percent,omitempty"`
+	ComputeOccupancyAveragePercent *float32 `json:"compute_occupancy_average_percent,omitempty"`
+	ComputeOccupancyPeakPercent    *float32 `json:"compute_occupancy_peak_percent,omitempty"`
+	TemperatureCelsius             *float32 `json:"temperature_celsius,omitempty"`
+	PowerWatts                     *float32 `json:"power_watts,omitempty"`
 }
 
 type Node struct {
@@ -33,6 +50,7 @@ type Node struct {
 	CPUPercent            int               `json:"cpu_percent"`
 	MemoryPercent         int               `json:"memory_percent"`
 	GPUs                  int               `json:"gpus"`
+	GPUStats              []GPU             `json:"gpu_stats,omitempty"`
 	TotalNetworkBandWidth int               `json:"total_network_band_width"`
 	NetworkBandwidth      *NetworkBandWidth `json:"network_bandwidth"`
 }
@@ -55,6 +73,7 @@ func RenderNodes(w *model.World, project *db.Project) []Node {
 			InstanceType:  n.InstanceType.Value(),
 			Compute:       compute(n),
 			GPUs:          len(n.GPUs),
+			GPUStats:      renderGPUs(n),
 			CloudProvider: strings.ToLower(n.CloudProvider.Value()),
 		}
 		switch {
@@ -110,6 +129,54 @@ func RenderNodes(w *model.World, project *db.Project) []Node {
 		nodes = append(nodes, node)
 	}
 	return nodes
+}
+
+func renderGPUs(n *model.Node) []GPU {
+	if len(n.GPUs) == 0 {
+		return nil
+	}
+	res := make([]GPU, 0, len(n.GPUs))
+	for _, gpu := range n.GPUs {
+		res = append(res, GPU{
+			UUID:                           gpu.UUID,
+			Name:                           gpu.Name.Value(),
+			DriverVersion:                  gpu.DriverVersion.Value(),
+			TotalMemoryBytes:               lastInt64(gpu.TotalMemory),
+			UsedMemoryBytes:                lastInt64(gpu.UsedMemory),
+			UsageAveragePercent:            lastFloat32(gpu.UsageAverage),
+			UsagePeakPercent:               lastFloat32(gpu.UsagePeak),
+			MemoryUsageAveragePercent:      lastFloat32(gpu.MemoryUsageAverage),
+			MemoryUsagePeakPercent:         lastFloat32(gpu.MemoryUsagePeak),
+			ComputeOccupancyAveragePercent: lastFloat32(gpu.ComputeOccupancyAverage),
+			ComputeOccupancyPeakPercent:    lastFloat32(gpu.ComputeOccupancyPeak),
+			TemperatureCelsius:             lastFloat32(gpu.Temperature),
+			PowerWatts:                     lastFloat32(gpu.PowerWatts),
+		})
+	}
+	sort.Slice(res, func(i, j int) bool {
+		if res[i].Name != res[j].Name {
+			return res[i].Name < res[j].Name
+		}
+		return res[i].UUID < res[j].UUID
+	})
+	return res
+}
+
+func lastFloat32(ts *timeseries.TimeSeries) *float32 {
+	v := ts.Last()
+	if timeseries.IsNaN(v) {
+		return nil
+	}
+	return &v
+}
+
+func lastInt64(ts *timeseries.TimeSeries) *int64 {
+	v := ts.Last()
+	if timeseries.IsNaN(v) {
+		return nil
+	}
+	res := int64(v)
+	return &res
 }
 
 func compute(n *model.Node) string {

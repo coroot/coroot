@@ -164,6 +164,8 @@ var QUERIES = []Query{
 	Q("node_gpu_memory_utilization_percent_peak", `node_resources_gpu_memory_utilization_percent_peak`, "gpu_uuid"),
 	Q("node_gpu_utilization_percent_avg", `node_resources_gpu_utilization_percent_avg`, "gpu_uuid"),
 	Q("node_gpu_utilization_percent_peak", `node_resources_gpu_utilization_percent_peak`, "gpu_uuid"),
+	Q("node_gpu_compute_occupancy_percent_avg", `node_resources_gpu_compute_occupancy_percent_avg`, "gpu_uuid"),
+	Q("node_gpu_compute_occupancy_percent_peak", `node_resources_gpu_compute_occupancy_percent_peak`, "gpu_uuid"),
 	Q("node_gpu_temperature_celsius", `node_resources_gpu_temperature_celsius`, "gpu_uuid"),
 	Q("node_gpu_power_usage_watts", `node_resources_gpu_power_usage_watts`, "gpu_uuid"),
 
