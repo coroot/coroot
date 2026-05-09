@@ -44,6 +44,19 @@
                         <span :title="item.text">{{ item.name }}</span>
                     </v-chip>
                 </template>
+                <template #prepend-item>
+                    <v-list-item ripple @click="toggleAllNamespaces">
+                        <v-list-item-action>
+                            <v-icon :color="selectedNamespaces.length > 0 ? 'primary' : ''">
+                                {{ selectAllIcon }}
+                            </v-icon>
+                        </v-list-item-action>
+                        <v-list-item-content>
+                            <v-list-item-title>Select All</v-list-item-title>
+                        </v-list-item-content>
+                    </v-list-item>
+                    <v-divider class="mt-2" />
+                </template>
             </v-autocomplete>
         </div>
 
@@ -158,6 +171,17 @@ export default {
         namespacesDisabled() {
             return !!this.search;
         },
+        allNamespacesSelected() {
+            return this.namespaces.length > 0 && this.selectedNamespaces.length === this.namespaces.length;
+        },
+        someNamespacesSelected() {
+            return this.selectedNamespaces.length > 0 && !this.allNamespacesSelected;
+        },
+        selectAllIcon() {
+            if (this.allNamespacesSelected) return 'mdi-checkbox-marked';
+            if (this.someNamespacesSelected) return 'mdi-minus-box';
+            return 'mdi-checkbox-blank-outline';
+        },
         filter() {
             const selectedCategories = new Set(this.selectedCategories);
             const selectedNamespaces = new Set(this.selectedNamespaces);
@@ -217,6 +241,13 @@ export default {
             const i = this.selectedNamespaces.indexOf(ns);
             if (i >= 0) {
                 this.selectedNamespaces.splice(i, 1);
+            }
+        },
+        toggleAllNamespaces() {
+            if (this.allNamespacesSelected) {
+                this.selectedNamespaces = [];
+            } else {
+                this.selectedNamespaces = this.namespaces.map((ns) => ns.value);
             }
         },
         load() {
