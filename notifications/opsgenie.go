@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	"github.com/coroot/coroot/db"
@@ -28,6 +29,11 @@ func NewOpsgenie(apiKey string, euInstance bool) *Opsgenie {
 	if euInstance {
 		cfg.OpsGenieAPIURL = client.API_URL_EU
 	}
+
+	if envURL := os.Getenv("OPS_GENIE_API_URL"); envURL != "" {
+		cfg.OpsGenieAPIURL = client.ApiUrl(envURL)
+	}
+
 	c, _ := alert.NewClient(cfg)
 	return &Opsgenie{client: c}
 }
