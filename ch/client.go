@@ -298,8 +298,9 @@ CREATE TABLE IF NOT EXISTS otel_traces_trace_id_ts @on_cluster (
      INDEX idx_trace_id TraceId TYPE bloom_filter(0.01) GRANULARITY 1
 ) ENGINE @merge_tree
 TTL toDateTime(Start) + toIntervalSecond(@ttl_traces)
+PARTITION BY toDate(Start)
 ORDER BY (TraceId, toUnixTimestamp(Start))
-SETTINGS index_granularity=8192`,
+SETTINGS index_granularity=8192, ttl_only_drop_parts = 1`,
 
 		`
 CREATE MATERIALIZED VIEW IF NOT EXISTS otel_traces_trace_id_ts_mv @on_cluster TO otel_traces_trace_id_ts AS
