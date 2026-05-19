@@ -19,3 +19,11 @@ func TestApplicationId(t *testing.T) {
 	id, _ = NewApplicationIdFromString("external:ExternalService:external:30001", "fallback")
 	assert.Equal(t, ApplicationId{ClusterId: "external", Kind: ApplicationKindExternalService, Name: "external:30001", Namespace: "external"}, id)
 }
+
+func TestNewApplicationIdReplicaSet(t *testing.T) {
+	id := NewApplicationId("cluster", "default", ApplicationKindReplicaSet, "catalog-6799fc88d8")
+	assert.Equal(t, ApplicationId{ClusterId: "cluster", Kind: ApplicationKindDeployment, Name: "catalog", Namespace: "default"}, id)
+
+	id = NewApplicationId("cluster", "default", ApplicationKindReplicaSet, "catalog-blue")
+	assert.Equal(t, ApplicationId{ClusterId: "cluster", Kind: ApplicationKindReplicaSet, Name: "catalog-blue", Namespace: "default"}, id)
+}

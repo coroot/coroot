@@ -14,7 +14,7 @@ const (
 
 var (
 	ApplicationIdZero = ApplicationId{}
-	hexPattern        = regexp.MustCompile(`[\da-f]+`)
+	hexPattern        = regexp.MustCompile(`^[\da-f]+$`)
 )
 
 type ApplicationId struct {
