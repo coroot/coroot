@@ -33,6 +33,8 @@ const (
 	qRecordingRuleApplicationL7Latency          = "rr_connection_l7_latency"
 	qRecordingRuleApplicationTraffic            = "rr_application_traffic"
 	qRecordingRuleApplicationL7Histogram        = "rr_application_l7_histogram"
+	qRecordingRuleApplicationL7InboundRequests  = "rr_application_l7_inbound_requests"
+	qRecordingRuleApplicationL7InboundHistogram = "rr_application_l7_inbound_histogram"
 	qRecordingRuleApplicationCategories         = "rr_application_categories"
 	qRecordingRuleApplicationSLO                = "rr_application_slo"
 	qRecordingRuleApplicationExternalEndpoint   = "rr_connection_external_endpoints"
@@ -129,6 +131,14 @@ func l7Latency(metric string) string {
 
 func l7Histogram(metric string) string {
 	return fmt.Sprintf(`sum by(app_id, destination, actual_destination, le) (rate(%s{app_id!=""}[$RANGE])) or rate(%s{app_id=""}[$RANGE])`, metric, metric)
+}
+
+func l7InboundReq(metric string) string {
+	return fmt.Sprintf(`sum by(app_id, status) (rate(%s{app_id!=""}[$RANGE])) or rate(%s{app_id=""}[$RANGE])`, metric, metric)
+}
+
+func l7InboundHistogram(metric string) string {
+	return fmt.Sprintf(`sum by(app_id, le) (rate(%s{app_id!=""}[$RANGE])) or rate(%s{app_id=""}[$RANGE])`, metric, metric)
 }
 
 var QUERIES = []Query{
@@ -287,6 +297,29 @@ var QUERIES = []Query{
 	qItoI("container_foundationdb_requests_histogram", l7Histogram("container_foundationdb_requests_duration_seconds_total_bucket"), "le"),
 	qItoI("container_rabbitmq_messages", l7ReqWithMethod("container_rabbitmq_messages_total"), "status", "method"),
 	qItoI("container_nats_messages", l7ReqWithMethod("container_nats_messages_total"), "status", "method"),
+
+	qItoI("container_http_inbound_requests_count", l7InboundReq("container_http_inbound_requests_total"), "status"),
+	qItoI("container_http_inbound_requests_histogram", l7InboundHistogram("container_http_inbound_requests_duration_seconds_total_bucket"), "le"),
+	qItoI("container_postgres_inbound_queries_count", l7InboundReq("container_postgres_inbound_queries_total"), "status"),
+	qItoI("container_postgres_inbound_queries_histogram", l7InboundHistogram("container_postgres_inbound_queries_duration_seconds_total_bucket"), "le"),
+	qItoI("container_redis_inbound_queries_count", l7InboundReq("container_redis_inbound_queries_total"), "status"),
+	qItoI("container_redis_inbound_queries_histogram", l7InboundHistogram("container_redis_inbound_queries_duration_seconds_total_bucket"), "le"),
+	qItoI("container_memcached_inbound_queries_count", l7InboundReq("container_memcached_inbound_queries_total"), "status"),
+	qItoI("container_memcached_inbound_queries_histogram", l7InboundHistogram("container_memcached_inbound_queries_duration_seconds_total_bucket"), "le"),
+	qItoI("container_mysql_inbound_queries_count", l7InboundReq("container_mysql_inbound_queries_total"), "status"),
+	qItoI("container_mysql_inbound_queries_histogram", l7InboundHistogram("container_mysql_inbound_queries_duration_seconds_total_bucket"), "le"),
+	qItoI("container_mongo_inbound_queries_count", l7InboundReq("container_mongo_inbound_queries_total"), "status"),
+	qItoI("container_mongo_inbound_queries_histogram", l7InboundHistogram("container_mongo_inbound_queries_duration_seconds_total_bucket"), "le"),
+	qItoI("container_kafka_inbound_requests_count", l7InboundReq("container_kafka_inbound_requests_total"), "status"),
+	qItoI("container_kafka_inbound_requests_histogram", l7InboundHistogram("container_kafka_inbound_requests_duration_seconds_total_bucket"), "le"),
+	qItoI("container_cassandra_inbound_queries_count", l7InboundReq("container_cassandra_inbound_queries_total"), "status"),
+	qItoI("container_cassandra_inbound_queries_histogram", l7InboundHistogram("container_cassandra_inbound_queries_duration_seconds_total_bucket"), "le"),
+	qItoI("container_clickhouse_inbound_queries_count", l7InboundReq("container_clickhouse_inbound_queries_total"), "status"),
+	qItoI("container_clickhouse_inbound_queries_histogram", l7InboundHistogram("container_clickhouse_inbound_queries_duration_seconds_total_bucket"), "le"),
+	qItoI("container_zookeeper_inbound_requests_count", l7InboundReq("container_zookeeper_inbound_requests_total"), "status"),
+	qItoI("container_zookeeper_inbound_requests_histogram", l7InboundHistogram("container_zookeeper_inbound_requests_duration_seconds_total_bucket"), "le"),
+	qItoI("container_foundationdb_inbound_requests_count", l7InboundReq("container_foundationdb_inbound_requests_total"), "status"),
+	qItoI("container_foundationdb_inbound_requests_histogram", l7InboundHistogram("container_foundationdb_inbound_requests_duration_seconds_total_bucket"), "le"),
 
 	Q("l7_requests_by_dest", "sum by(actual_destination, status) (rate(container_mongo_queries_total[$RANGE]) or rate(container_mysql_queries_total[$RANGE]))", "status"),
 	Q("l7_total_latency_by_dest", "sum by(actual_destination) (rate(container_mongo_queries_duration_seconds_total_sum[$RANGE]) or rate(container_mysql_queries_duration_seconds_total_sum[$RANGE]))"),
@@ -622,6 +655,53 @@ var RecordingRules = map[string]func(db *db.DB, p *db.Project, w *model.World) [
 			ts := agg.Get()
 			if !ts.IsEmpty() {
 				ls := model.Labels{"app": k.dest.Id.String(), "le": fmt.Sprintf("%f", k.le)}
+				res = append(res, &model.MetricValues{Labels: ls, LabelsHash: promModel.LabelsToSignature(ls), Values: ts})
+			}
+		}
+		return res
+	},
+
+	qRecordingRuleApplicationL7InboundRequests: func(db *db.DB, p *db.Project, w *model.World) []*model.MetricValues {
+		var res []*model.MetricValues
+		for _, app := range w.Applications {
+			appId := app.Id.String()
+			byBucket := map[string]*timeseries.Aggregate{}
+			for status, ts := range app.InboundRequestsCount {
+				if ts.IsEmpty() {
+					continue
+				}
+				bucket := "ok"
+				if model.IsRequestStatusFailed(status) {
+					bucket = "failed"
+				}
+				agg := byBucket[bucket]
+				if agg == nil {
+					agg = timeseries.NewAggregate(timeseries.NanSum)
+					byBucket[bucket] = agg
+				}
+				agg.Add(ts)
+			}
+			for bucket, agg := range byBucket {
+				ts := agg.Get()
+				if ts.IsEmpty() {
+					continue
+				}
+				ls := model.Labels{"app": appId, "status": bucket}
+				res = append(res, &model.MetricValues{Labels: ls, LabelsHash: promModel.LabelsToSignature(ls), Values: ts})
+			}
+		}
+		return res
+	},
+
+	qRecordingRuleApplicationL7InboundHistogram: func(db *db.DB, p *db.Project, w *model.World) []*model.MetricValues {
+		var res []*model.MetricValues
+		for _, app := range w.Applications {
+			appId := app.Id.String()
+			for le, ts := range app.InboundRequestsHistogram {
+				if ts.IsEmpty() {
+					continue
+				}
+				ls := model.Labels{"app": appId, "le": fmt.Sprintf("%f", le)}
 				res = append(res, &model.MetricValues{Labels: ls, LabelsHash: promModel.LabelsToSignature(ls), Values: ts})
 			}
 		}

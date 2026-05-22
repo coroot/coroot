@@ -294,7 +294,6 @@ func RenderTraces(ctx context.Context, chs clickhouse.Clients, w *model.World, q
 		if len(overallSpanStats) > 0 {
 			res.Summary = &model.TraceSpanSummary{}
 			duration := sq.TsTo.Sub(sq.TsFrom)
-			klog.Infoln(duration)
 			quantiles := []float32{0.5, 0.95, 0.99}
 			for _, v := range overallSpanStats {
 				v.DurationQuantiles = getQuantiles(v.Histogram, quantiles)

@@ -420,6 +420,48 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]*model
 	loadL7RequestsHistogram("container_zookeeper_requests_histogram", model.ProtocolZookeeper)
 	loadL7RequestsHistogram("container_foundationdb_requests_histogram", model.ProtocolFoundationdb)
 
+	loadL7InboundRequestsCount := func(queryName string) {
+		loadContainer(queryName, func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
+			app := instance.Owner
+			status := metric.Labels["status"]
+			app.InboundRequestsCount[status] = merge(app.InboundRequestsCount[status], metric.Values, timeseries.NanSum)
+		})
+	}
+	loadL7InboundRequestsCount("container_http_inbound_requests_count")
+	loadL7InboundRequestsCount("container_postgres_inbound_queries_count")
+	loadL7InboundRequestsCount("container_mysql_inbound_queries_count")
+	loadL7InboundRequestsCount("container_mongo_inbound_queries_count")
+	loadL7InboundRequestsCount("container_redis_inbound_queries_count")
+	loadL7InboundRequestsCount("container_memcached_inbound_queries_count")
+	loadL7InboundRequestsCount("container_kafka_inbound_requests_count")
+	loadL7InboundRequestsCount("container_cassandra_inbound_queries_count")
+	loadL7InboundRequestsCount("container_clickhouse_inbound_queries_count")
+	loadL7InboundRequestsCount("container_zookeeper_inbound_requests_count")
+	loadL7InboundRequestsCount("container_foundationdb_inbound_requests_count")
+
+	loadL7InboundRequestsHistogram := func(queryName string) {
+		loadContainer(queryName, func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
+			le, err := strconv.ParseFloat(metric.Labels["le"], 32)
+			if err != nil {
+				klog.Warningln(err)
+				return
+			}
+			app := instance.Owner
+			app.InboundRequestsHistogram[float32(le)] = merge(app.InboundRequestsHistogram[float32(le)], metric.Values, timeseries.NanSum)
+		})
+	}
+	loadL7InboundRequestsHistogram("container_http_inbound_requests_histogram")
+	loadL7InboundRequestsHistogram("container_postgres_inbound_queries_histogram")
+	loadL7InboundRequestsHistogram("container_mysql_inbound_queries_histogram")
+	loadL7InboundRequestsHistogram("container_mongo_inbound_queries_histogram")
+	loadL7InboundRequestsHistogram("container_redis_inbound_queries_histogram")
+	loadL7InboundRequestsHistogram("container_memcached_inbound_queries_histogram")
+	loadL7InboundRequestsHistogram("container_kafka_inbound_requests_histogram")
+	loadL7InboundRequestsHistogram("container_cassandra_inbound_queries_histogram")
+	loadL7InboundRequestsHistogram("container_clickhouse_inbound_queries_histogram")
+	loadL7InboundRequestsHistogram("container_zookeeper_inbound_requests_histogram")
+	loadL7InboundRequestsHistogram("container_foundationdb_inbound_requests_histogram")
+
 	loadInstanceByDest := func(queryName string, f func(instance *model.Instance, m *model.MetricValues)) {
 		ms := metrics[queryName]
 		for _, m := range ms {

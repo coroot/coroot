@@ -335,6 +335,166 @@ Each container metric has the `container_id` label. This is a compound identifie
 * **Source**: eBPF DNS request tracking
 * **Labels**: `ip`, `fqdn`
 
+## Inbound application layer protocol metrics
+
+These metrics count requests *received* by the container, decoded on the server side from the same eBPF tracepoints used for outbound metrics. Unlike outbound metrics they carry no `destination` / `actual_destination` labels — the container itself is the destination. Use these when you want a single source of truth for an app's request rate / latency that doesn't depend on every caller running the agent (e.g. external clients, TLS proxies, or services without our instrumentation).
+
+### container_http_inbound_requests_total
+* **Description**: Total number of inbound HTTP requests
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `status`
+
+### container_http_inbound_requests_duration_seconds_total
+* **Description**: Histogram of the response time for each inbound HTTP request
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `le`
+
+### container_postgres_inbound_queries_total
+* **Description**: Total number of inbound Postgres queries
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `status`
+
+### container_postgres_inbound_queries_duration_seconds_total
+* **Description**: Histogram of the execution time for each inbound Postgres query
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `le`
+
+### container_redis_inbound_queries_total
+* **Description**: Total number of inbound Redis queries
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `status`
+
+### container_redis_inbound_queries_duration_seconds_total
+* **Description**: Histogram of the execution time for each inbound Redis query
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `le`
+
+### container_memcached_inbound_queries_total
+* **Description**: Total number of inbound Memcached queries
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `status`
+
+### container_memcached_inbound_queries_duration_seconds_total
+* **Description**: Histogram of the execution time for each inbound Memcached query
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `le`
+
+### container_mysql_inbound_queries_total
+* **Description**: Total number of inbound MySQL queries
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `status`
+
+### container_mysql_inbound_queries_duration_seconds_total
+* **Description**: Histogram of the execution time for each inbound MySQL query
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `le`
+
+### container_mongo_inbound_queries_total
+* **Description**: Total number of inbound Mongo queries
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `status`
+
+### container_mongo_inbound_queries_duration_seconds_total
+* **Description**: Histogram of the execution time for each inbound Mongo query
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `le`
+
+### container_kafka_inbound_requests_total
+* **Description**: Total number of inbound Kafka requests
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `status`
+
+### container_kafka_inbound_requests_duration_seconds_total
+* **Description**: Histogram of the response time for each inbound Kafka request
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `le`
+
+### container_cassandra_inbound_queries_total
+* **Description**: Total number of inbound Cassandra queries
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `status`
+
+### container_cassandra_inbound_queries_duration_seconds_total
+* **Description**: Histogram of the execution time for each inbound Cassandra query
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `le`
+
+### container_dubbo_inbound_requests_total
+* **Description**: Total number of inbound DUBBO requests
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `status`
+
+### container_dubbo_inbound_requests_duration_seconds_total
+* **Description**: Histogram of the response time for each inbound DUBBO request
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `le`
+
+### container_dns_inbound_requests_total
+* **Description**: Total number of inbound DNS requests
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `status`
+
+### container_dns_inbound_requests_duration_seconds_total
+* **Description**: Histogram of the response time for each inbound DNS request
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `le`
+
+### container_clickhouse_inbound_queries_total
+* **Description**: Total number of inbound ClickHouse queries
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `status`
+
+### container_clickhouse_inbound_queries_duration_seconds_total
+* **Description**: Histogram of the execution time for each inbound ClickHouse query
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `le`
+
+### container_zookeeper_inbound_requests_total
+* **Description**: Total number of inbound ZooKeeper requests
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `status`
+
+### container_zookeeper_inbound_requests_duration_seconds_total
+* **Description**: Histogram of the response time for each inbound ZooKeeper request
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `le`
+
+### container_foundationdb_inbound_requests_total
+* **Description**: Total number of inbound FoundationDB requests
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `status`
+
+### container_foundationdb_inbound_requests_duration_seconds_total
+* **Description**: Histogram of the execution time for each inbound FoundationDB request
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `le`
+
 ## JVM
 
 Each JVM metric has the `jvm` label which refers to the main class or path to the `.jar` file.
