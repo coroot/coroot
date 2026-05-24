@@ -26,4 +26,21 @@ func TestNewApplicationIdReplicaSet(t *testing.T) {
 
 	id = NewApplicationId("cluster", "default", ApplicationKindReplicaSet, "catalog-blue")
 	assert.Equal(t, ApplicationId{ClusterId: "cluster", Kind: ApplicationKindReplicaSet, Name: "catalog-blue", Namespace: "default"}, id)
+
+	id = NewApplicationId("cluster", "default", ApplicationKindReplicaSet, "catalog-a")
+	assert.Equal(t, ApplicationId{ClusterId: "cluster", Kind: ApplicationKindReplicaSet, Name: "catalog-a", Namespace: "default"}, id)
+
+	id = NewApplicationId("cluster", "default", ApplicationKindReplicaSet, "abcdef1234")
+	assert.Equal(t, ApplicationId{ClusterId: "cluster", Kind: ApplicationKindReplicaSet, Name: "abcdef1234", Namespace: "default"}, id)
+}
+
+func TestNewApplicationIdJob(t *testing.T) {
+	id := NewApplicationId("cluster", "default", ApplicationKindJob, "backup-1716480000")
+	assert.Equal(t, ApplicationId{ClusterId: "cluster", Kind: ApplicationKindCronJob, Name: "backup", Namespace: "default"}, id)
+
+	id = NewApplicationId("cluster", "default", ApplicationKindJob, "db-migration-1")
+	assert.Equal(t, ApplicationId{ClusterId: "cluster", Kind: ApplicationKindJob, Name: "db-migration-1", Namespace: "default"}, id)
+
+	id = NewApplicationId("cluster", "default", ApplicationKindJob, "1716480000")
+	assert.Equal(t, ApplicationId{ClusterId: "cluster", Kind: ApplicationKindJob, Name: "1716480000", Namespace: "default"}, id)
 }

@@ -14,7 +14,7 @@ const (
 
 var (
 	ApplicationIdZero = ApplicationId{}
-	hexPattern        = regexp.MustCompile(`^[\da-f]+$`)
+	replicaSetHash    = regexp.MustCompile(`^[\da-f]{10}$`)
 )
 
 type ApplicationId struct {
@@ -28,15 +28,18 @@ func NewApplicationId(clusterId, ns string, kind ApplicationKind, name string) A
 	switch kind {
 	case ApplicationKindReplicaSet:
 		parts := strings.Split(name, "-")
-		if hexPattern.MatchString(parts[len(parts)-1]) {
+		if len(parts) > 1 && replicaSetHash.MatchString(parts[len(parts)-1]) {
 			kind = ApplicationKindDeployment
 			name = strings.Join(parts[:len(parts)-1], "-")
 		}
 	case ApplicationKindJob:
 		parts := strings.Split(name, "-")
-		if _, err := strconv.ParseUint(parts[len(parts)-1], 10, 64); err == nil {
-			kind = ApplicationKindCronJob
-			name = strings.Join(parts[:len(parts)-1], "-")
+		suffix := parts[len(parts)-1]
+		if len(parts) > 1 && len(suffix) >= 10 {
+			if _, err := strconv.ParseUint(suffix, 10, 64); err == nil {
+				kind = ApplicationKindCronJob
+				name = strings.Join(parts[:len(parts)-1], "-")
+			}
 		}
 	case "", "<none>":
 		kind = ApplicationKindPod
