@@ -80,7 +80,7 @@ Each container metric has the `container_id` label. This is a compound identifie
 * **Labels**: kind
 
 ### container_resources_disk_size_bytes
-* **Description**: Total capacity of the volume
+* **Description**: Total capacity of the volume. Stale mounts left by removed containers are pruned to prevent duplicate series.
 * **Type**: Gauge
 * **Source**: [statfs()](https://man7.org/linux/man-pages/man2/statfs.2.html)
 * **Labels**:
@@ -89,7 +89,7 @@ Each container metric has the `container_id` label. This is a compound identifie
    * **volume** - [Persistent Volume](https://kubernetes.io/docs/concepts/storage/persistent-volumes/) (Kubernetes only)
   
 ### container_resources_disk_used_bytes
-* **Description**: Used capacity of the volume.
+* **Description**: Used capacity of the volume. Stale mounts left by removed containers are pruned to prevent duplicate series.
 * **Type**: Gauge
 * **Source**: [statfs()](https://man7.org/linux/man-pages/man2/statfs.2.html)
 * **Labels**: mount_point, device, volume
@@ -185,6 +185,18 @@ Each container metric has the `container_id` label. This is a compound identifie
 * **Source**: eBPF
 * **Labels**: `destination`, `actual_destination`, `le`
 
+### container_http_inbound_requests_total
+* **Description**: Total number of inbound HTTP requests served by the container
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `status`
+
+### container_http_inbound_requests_duration_seconds_total
+* **Description**: Histogram of the response time for each inbound HTTP request served by the container
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `le`
+
 ### container_postgres_queries_total
 * **Description**: Total number of outbound Postgres queries made by the container
 * **Type**: Counter
@@ -196,6 +208,18 @@ Each container metric has the `container_id` label. This is a compound identifie
 * **Type**: Counter
 * **Source**: eBPF
 * **Labels**: `destination`, `actual_destination`, `le`
+
+### container_postgres_inbound_queries_total
+* **Description**: Total number of inbound Postgres queries served by the container
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `status`
+
+### container_postgres_inbound_queries_duration_seconds_total
+* **Description**: Histogram of the execution time for each inbound Postgres query served by the container
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `le`
 
 ### container_redis_queries_total
 * **Description**: Total number of outbound Redis queries made by the container
@@ -209,6 +233,18 @@ Each container metric has the `container_id` label. This is a compound identifie
 * **Source**: eBPF
 * **Labels**: `destination`, `actual_destination`, `le`
 
+### container_redis_inbound_queries_total
+* **Description**: Total number of inbound Redis queries served by the container
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `status`
+
+### container_redis_inbound_queries_duration_seconds_total
+* **Description**: Histogram of the execution time for each inbound Redis query served by the container
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `le`
+
 ### container_memcached_queries_total
 * **Description**:  Total number of outbound Memcached queries made by the container
 * **Type**: Counter
@@ -220,6 +256,18 @@ Each container metric has the `container_id` label. This is a compound identifie
 * **Type**: Counter
 * **Source**: eBPF
 * **Labels**: `destination`, `actual_destination`, `le`
+
+### container_memcached_inbound_queries_total
+* **Description**: Total number of inbound Memcached queries served by the container
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `status`
+
+### container_memcached_inbound_queries_duration_seconds_total
+* **Description**: Histogram of the execution time for each inbound Memcached query served by the container
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `le`
 
 ### container_mysql_queries_total
 * **Description**: Total number of outbound Mysql queries made by the container
@@ -233,6 +281,18 @@ Each container metric has the `container_id` label. This is a compound identifie
 * **Source**: eBPF
 * **Labels**: `destination`, `actual_destination`, `le`
 
+### container_mysql_inbound_queries_total
+* **Description**: Total number of inbound Mysql queries served by the container
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `status`
+
+### container_mysql_inbound_queries_duration_seconds_total
+* **Description**: Histogram of the execution time for each inbound Mysql query served by the container
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `le`
+
 ### container_mongo_queries_total
 * **Description**: Total number of outbound Mongo queries made by the container
 * **Type**: Counter
@@ -244,6 +304,18 @@ Each container metric has the `container_id` label. This is a compound identifie
 * **Type**: Counter
 * **Source**: eBPF
 * **Labels**: `destination`, `actual_destination`, `le`
+
+### container_mongo_inbound_queries_total
+* **Description**: Total number of inbound Mongo queries served by the container
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `status`
+
+### container_mongo_inbound_queries_duration_seconds_total
+* **Description**: Histogram of the execution time for each inbound Mongo query served by the container
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `le`
 
 ### container_kafka_requests_total
 * **Description**: Total number of outbound Kafka requests made by the container
@@ -257,6 +329,18 @@ Each container metric has the `container_id` label. This is a compound identifie
 * **Source**: eBPF
 * **Labels**: `destination`, `actual_destination`, `le`
 
+### container_kafka_inbound_requests_total
+* **Description**: Total number of inbound Kafka requests served by the container
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `status`
+
+### container_kafka_inbound_requests_duration_seconds_total
+* **Description**: Histogram of the execution time for each inbound Kafka request served by the container
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `le`
+
 ### container_cassandra_queries_total
 * **Description**:  Total number of outbound Cassandra queries made by the container
 * **Type**: Counter
@@ -268,6 +352,18 @@ Each container metric has the `container_id` label. This is a compound identifie
 * **Type**: Counter
 * **Source**: eBPF
 * **Labels**: `destination`, `actual_destination`, `le`
+
+### container_cassandra_inbound_queries_total
+* **Description**: Total number of inbound Cassandra requests served by the container
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `status`
+
+### container_cassandra_inbound_queries_duration_seconds_total
+* **Description**: Histogram of the execution time for each inbound Cassandra request served by the container
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `le`
 
 ### container_rabbitmq_messages_total
 * **Description**: Total number of Rabbitmq messages produced or consumed by the container
@@ -293,6 +389,18 @@ Each container metric has the `container_id` label. This is a compound identifie
 * **Source**: eBPF
 * **Labels**: `destination`, `actual_destination`, `le`
 
+### container_dubbo_inbound_requests_total
+* **Description**: Total number of inbound DUBBO requests served by the container
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `status`
+
+### container_dubbo_inbound_requests_duration_seconds_total
+* **Description**: Histogram of the response time for each inbound DUBBO request served by the container
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `le`
+
 ### container_dns_requests_total
 * **Description**: Total number of outbound DNS requests. To bound metric cardinality, the number of distinct `domain` label values per container is capped (see `--max-fqdns-per-container`); requests for FQDNs beyond the cap are bucketed under `domain="~other"`.
 * **Type**: Counter
@@ -301,6 +409,18 @@ Each container metric has the `container_id` label. This is a compound identifie
 
 ### container_dns_requests_duration_seconds_total
 * **Description**: Histogram of the response time for each outbound DNS request
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `le`
+
+### container_dns_inbound_requests_total
+* **Description**: Total number of inbound DNS requests served by the container
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `status`
+
+### container_dns_inbound_requests_duration_seconds_total
+* **Description**: Histogram of the response time for each inbound DNS request served by the container
 * **Type**: Counter
 * **Source**: eBPF
 * **Labels**: `le`
@@ -317,6 +437,18 @@ Each container metric has the `container_id` label. This is a compound identifie
 * **Source**: eBPF
 * **Labels**: `destination`, `actual_destination`, `le`
 
+### container_clickhouse_inbound_queries_total
+* **Description**: Total number of inbound ClickHouse queries served by the container
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `status`
+
+### container_clickhouse_inbound_queries_duration_seconds_total
+* **Description**: Histogram of the execution time for each inbound ClickHouse query served by the container
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `le`
+
 ### container_zookeeper_requests_total
 * **Description**: Total number of outbound ZooKeeper requests
 * **Type**: Counter
@@ -328,6 +460,42 @@ Each container metric has the `container_id` label. This is a compound identifie
 * **Type**: Counter
 * **Source**: eBPF
 * **Labels**: `destination`, `actual_destination`, `le`
+
+### container_zookeeper_inbound_requests_total
+* **Description**: Total number of inbound ZooKeeper requests served by the container
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `status`
+
+### container_zookeeper_inbound_requests_duration_seconds_total
+* **Description**: Histogram of the response time for each inbound ZooKeeper request served by the container
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `le`
+
+### container_foundationdb_requests_total
+* **Description**: Total number of outbound FoundationDB requests
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `destination`, `actual_destination`, `status`
+
+### container_foundationdb_requests_duration_seconds_total
+* **Description**: Histogram of the execution time for each outbound FoundationDB request
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `destination`, `actual_destination`, `le`
+
+### container_foundationdb_inbound_requests_total
+* **Description**: Total number of inbound FoundationDB requests served by the container
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `status`
+
+### container_foundationdb_inbound_requests_duration_seconds_total
+* **Description**: Histogram of the execution time for each inbound FoundationDB request served by the container
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `le`
 
 ### ip_to_fqdn
 * **Description**: Mapping IP addresses to FQDNs based on DNS requests initiated by containers
@@ -393,6 +561,7 @@ Each JVM metric has the `jvm` label which refers to the main class or path to th
 * **Source**: async-profiler (TLAB allocation events)
 * **Labels**: `jvm`
 * **Requires**: `--enable-java-async-profiler`
+* **Startup delay**: `--java-async-profiler-delay` (default 30s) after JVM process is detected
 
 ### container_jvm_alloc_objects_total
 * **Description**: Total objects allocated, observed by async-profiler
@@ -400,6 +569,7 @@ Each JVM metric has the `jvm` label which refers to the main class or path to th
 * **Source**: async-profiler (TLAB allocation events)
 * **Labels**: `jvm`
 * **Requires**: `--enable-java-async-profiler`
+* **Startup delay**: `--java-async-profiler-delay` (default 30s) after JVM process is detected
 
 ### container_jvm_lock_contentions_total
 * **Description**: Total number of lock contentions (monitor enter events)
@@ -407,6 +577,7 @@ Each JVM metric has the `jvm` label which refers to the main class or path to th
 * **Source**: async-profiler (Java monitor enter events)
 * **Labels**: `jvm`
 * **Requires**: `--enable-java-async-profiler`
+* **Startup delay**: `--java-async-profiler-delay` (default 30s) after JVM process is detected
 
 ### container_jvm_lock_time_seconds_total
 * **Description**: Total time spent waiting for locks
@@ -414,16 +585,17 @@ Each JVM metric has the `jvm` label which refers to the main class or path to th
 * **Source**: async-profiler (Java monitor enter events)
 * **Labels**: `jvm`
 * **Requires**: `--enable-java-async-profiler`
+* **Startup delay**: `--java-async-profiler-delay` (default 30s) after JVM process is detected
 
 ## Go runtime
 
 ### container_go_alloc_bytes_total
-* **Description**: Total bytes allocated by a Go application
+* **Description**: Total bytes allocated by a Go application. Collection is controlled by the `--go-heap-profiler` flag: `disabled` — metric is not exposed; `enabled` (default) — metric is exposed only for Go applications that have heap profiling enabled themselves (non-zero `runtime.MemProfileRate`); `force` — the agent enables heap profiling in every detected Go application.
 * **Type**: Counter
 * **Source**: Go runtime memory profiling data (`runtime.mbuckets`)
 
 ### container_go_alloc_objects_total
-* **Description**: Total objects allocated by a Go application
+* **Description**: Total objects allocated by a Go application. Collection is controlled by the `--go-heap-profiler` flag: `disabled` — metric is not exposed; `enabled` (default) — metric is exposed only for Go applications that have heap profiling enabled themselves (non-zero `runtime.MemProfileRate`); `force` — the agent enables heap profiling in every detected Go application.
 * **Type**: Counter
 * **Source**: Go runtime memory profiling data (`runtime.mbuckets`)
 
@@ -433,6 +605,7 @@ Each JVM metric has the `jvm` label which refers to the main class or path to th
 * **Description**: Total time the Node.js event loop spent blocked
 * **Type**: Counter
 * **Source**: eBPF uprobes
+* **Startup delay**: `--instrumentation-delay` (default 30s) after the process is started
 
 ## Python runtime
 
@@ -440,6 +613,7 @@ Each JVM metric has the `jvm` label which refers to the main class or path to th
 * **Description**: Time spent waiting acquiring GIL in seconds
 * **Type**: Counter
 * **Source**: eBPF uprobes
+* **Startup delay**: `--instrumentation-delay` (default 30s) after the process is started
 
 ## .NET runtime
 
@@ -508,7 +682,7 @@ Each .NET runtime metric has the `application` label, which allows distinguishin
 ## Other
 
 ### container_info
-* **Description**: Meta information about the container
+* **Description**: Meta information about the container. No metrics are reported for containers younger than `--min-container-age` (default 30s); this suppresses high-cardinality series from short-lived job/cronjob pods.
 * **Type**: Gauge
 * **Source**: dockerd, containerd
 * **Labels**: `image`
