@@ -27,6 +27,7 @@ func (i *Incident) Migrate(m *Migrator) error {
 		PRIMARY KEY (project_id, application_id, opened_at)
 	);
 	CREATE UNIQUE INDEX IF NOT EXISTS incident_key ON incident (project_id, key);
+	CREATE INDEX IF NOT EXISTS incident_project_id_resolved_opened ON incident (project_id, (resolved_at = 0), opened_at);
 `)
 	if err != nil {
 		return err
@@ -37,7 +38,20 @@ func (i *Incident) Migrate(m *Migrator) error {
 	if err = m.AddColumnIfNotExists("incident", "rca", "text"); err != nil {
 		return err
 	}
+	if err = m.AddColumnIfNotExists("incident", "rca_status", "text"); err != nil {
+		return err
+	}
+	if err = m.AddColumnIfNotExists("incident", "rca_summary", "text"); err != nil {
+		return err
+	}
 	return nil
+}
+
+func effectiveRCAStatus(status, rootCause string) string {
+	if status == "" && rootCause != "" {
+		return "OK"
+	}
+	return status
 }
 
 type IncidentNotification struct {
@@ -135,30 +149,126 @@ func (db *DB) GetIncidentByKey(projectId ProjectId, key string) (*model.Applicat
 	return i, err
 }
 
-func (db *DB) GetLatestIncidents(projectId ProjectId, limit int) ([]*model.ApplicationIncident, error) {
+func (db *DB) GetLatestIncidentsBrief(projectId ProjectId, limit int) ([]*model.ApplicationIncident, error) {
 	rows, err := db.db.Query(
-		"SELECT application_id, key, opened_at, resolved_at, severity, details, rca FROM incident WHERE project_id = $1 ORDER BY (resolved_at = 0) DESC, opened_at DESC LIMIT $2",
+		"SELECT application_id, key, opened_at, resolved_at, severity, details FROM incident WHERE project_id = $1 ORDER BY (resolved_at = 0) DESC, opened_at DESC LIMIT $2",
 		projectId, limit)
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		_ = rows.Close()
-	}()
+	defer rows.Close()
+
 	var res []*model.ApplicationIncident
 	for rows.Next() {
-		i, err := scanIncident(rows, projectId)
+		var i model.ApplicationIncident
+		var d sql.NullString
+		if err := rows.Scan(&i.ApplicationId, &i.Key, &i.OpenedAt, &i.ResolvedAt, &i.Severity, &d); err != nil {
+			return nil, err
+		}
+		if i.ApplicationId.ClusterId == "" {
+			i.ApplicationId.ClusterId = string(projectId)
+		}
+		if d.String != "" {
+			if err := json.Unmarshal([]byte(d.String), &i.Details); err != nil {
+				return nil, err
+			}
+		}
+		res = append(res, &i)
+	}
+	return res, rows.Err()
+}
+
+func (db *DB) GetIncidentsForList(projectId ProjectId, limit int) ([]*model.ApplicationIncident, error) {
+	rows, err := db.db.Query(
+		"SELECT application_id, key, opened_at, resolved_at, severity, details, rca_status, rca_summary FROM incident WHERE project_id = $1 ORDER BY (resolved_at = 0) DESC, opened_at DESC LIMIT $2",
+		projectId, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var res []*model.ApplicationIncident
+	// NULL rca columns mean the incident was created before they existed; newer ones
+	// are written on creation/RCA update, so only these legacy rows need the fallback.
+	var missing []string
+	for rows.Next() {
+		var i model.ApplicationIncident
+		var d, status, summary sql.NullString
+		if err := rows.Scan(&i.ApplicationId, &i.Key, &i.OpenedAt, &i.ResolvedAt, &i.Severity, &d, &status, &summary); err != nil {
+			return nil, err
+		}
+		if i.ApplicationId.ClusterId == "" {
+			i.ApplicationId.ClusterId = string(projectId)
+		}
+		if d.String != "" {
+			if err := json.Unmarshal([]byte(d.String), &i.Details); err != nil {
+				return nil, err
+			}
+		}
+		if status.Valid || summary.Valid {
+			if status.String != "" || summary.String != "" {
+				i.RCA = &model.RCA{Status: status.String, ShortSummary: summary.String}
+			}
+		} else {
+			missing = append(missing, i.Key)
+		}
+		res = append(res, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	if len(missing) > 0 {
+		rcaByKey, err := db.getIncidentRCAByKeys(projectId, missing)
 		if err != nil {
 			return nil, err
 		}
-		res = append(res, i)
+		for _, i := range res {
+			if rca := rcaByKey[i.Key]; rca != nil {
+				i.RCA = &model.RCA{Status: effectiveRCAStatus(rca.Status, rca.RootCause), ShortSummary: rca.ShortSummary}
+			}
+		}
 	}
-	return res, err
+	return res, nil
+}
+
+func (db *DB) getIncidentRCAByKeys(projectId ProjectId, keys []string) (map[string]*model.RCA, error) {
+	args := make([]any, 0, len(keys)+1)
+	args = append(args, projectId)
+	placeholders := make([]string, len(keys))
+	for i, k := range keys {
+		placeholders[i] = fmt.Sprintf("$%d", i+2)
+		args = append(args, k)
+	}
+	rows, err := db.db.Query(
+		fmt.Sprintf("SELECT key, rca FROM incident WHERE project_id = $1 AND key IN (%s)", strings.Join(placeholders, ", ")),
+		args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	res := make(map[string]*model.RCA, len(keys))
+	for rows.Next() {
+		var key string
+		var rca sql.NullString
+		if err := rows.Scan(&key, &rca); err != nil {
+			return nil, err
+		}
+		if rca.String == "" {
+			continue
+		}
+		var r model.RCA
+		if err := json.Unmarshal([]byte(rca.String), &r); err != nil {
+			klog.Warningln("failed to parse rca for incident", key, ":", err)
+			continue
+		}
+		res[key] = &r
+	}
+	return res, rows.Err()
 }
 
 func (db *DB) GetApplicationIncidents(projectId ProjectId, from, to timeseries.Time) (map[model.ApplicationId][]*model.ApplicationIncident, error) {
 	rows, err := db.db.Query(
-		"SELECT application_id, key, opened_at, resolved_at, severity, details, rca FROM incident WHERE project_id = $1 AND opened_at <= $2 AND (resolved_at = 0 OR resolved_at >= $3) ORDER BY opened_at ASC",
+		"SELECT application_id, key, opened_at, resolved_at, severity, details FROM incident WHERE project_id = $1 AND opened_at <= $2 AND (resolved_at = 0 OR resolved_at >= $3) ORDER BY opened_at ASC",
 		projectId, to, from)
 	if err != nil {
 		return nil, err
@@ -168,13 +278,22 @@ func (db *DB) GetApplicationIncidents(projectId ProjectId, from, to timeseries.T
 	}()
 	res := map[model.ApplicationId][]*model.ApplicationIncident{}
 	for rows.Next() {
-		i, err := scanIncident(rows, projectId)
-		if err != nil {
+		var i model.ApplicationIncident
+		var d sql.NullString
+		if err := rows.Scan(&i.ApplicationId, &i.Key, &i.OpenedAt, &i.ResolvedAt, &i.Severity, &d); err != nil {
 			return nil, err
 		}
-		res[i.ApplicationId] = append(res[i.ApplicationId], i)
+		if i.ApplicationId.ClusterId == "" {
+			i.ApplicationId.ClusterId = string(projectId)
+		}
+		if d.String != "" {
+			if err := json.Unmarshal([]byte(d.String), &i.Details); err != nil {
+				return nil, err
+			}
+		}
+		res[i.ApplicationId] = append(res[i.ApplicationId], &i)
 	}
-	return res, err
+	return res, rows.Err()
 }
 
 func scanIncident(rows *sql.Rows, projectId ProjectId) (*model.ApplicationIncident, error) {
@@ -257,7 +376,7 @@ func (db *DB) CreateIncident(projectId ProjectId, appId model.ApplicationId, i *
 
 	d, _ := json.Marshal(i.Details)
 	_, err := db.db.Exec(
-		"INSERT INTO incident (project_id, application_id, key, opened_at, severity, details) VALUES ($1, $2, $3, $4, $5, $6)",
+		"INSERT INTO incident (project_id, application_id, key, opened_at, severity, details, rca_status, rca_summary) VALUES ($1, $2, $3, $4, $5, $6, '', '')",
 		projectId, appIdStr, i.Key, i.OpenedAt, i.Severity, string(d))
 	return err
 }
@@ -275,7 +394,9 @@ func (db *DB) UpdateIncidentRCA(projectId ProjectId, i *model.ApplicationInciden
 	if err != nil {
 		return err
 	}
-	_, err = db.db.Exec("UPDATE incident SET rca = $1 WHERE project_id = $2 AND key = $3", string(d), projectId, i.Key)
+	_, err = db.db.Exec(
+		"UPDATE incident SET rca = $1, rca_status = $2, rca_summary = $3 WHERE project_id = $4 AND key = $5",
+		string(d), effectiveRCAStatus(rca.Status, rca.RootCause), rca.ShortSummary, projectId, i.Key)
 	return err
 }
 

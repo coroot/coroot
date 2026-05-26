@@ -1026,7 +1026,7 @@ func (h *MCPHandler) fetchIncidents(projectId db.ProjectId, hours int, state str
 	if state != "any" {
 		fetch = limit * 4
 	}
-	return h.Api.db.GetLatestIncidents(projectId, fetch)
+	return h.Api.db.GetLatestIncidentsBrief(projectId, fetch)
 }
 
 func (h *MCPHandler) toolResolveAlerts(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {

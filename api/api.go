@@ -1123,7 +1123,7 @@ func (api *Api) Incidents(w http.ResponseWriter, r *http.Request, u *db.User) {
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
-	incidents, err := api.db.GetLatestIncidents(project.Id, limit)
+	incidents, err := api.db.GetIncidentsForList(project.Id, limit)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
