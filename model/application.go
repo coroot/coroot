@@ -48,6 +48,9 @@ type Application struct {
 	DNSRequests          map[DNSRequest]map[string]*timeseries.TimeSeries
 	DNSRequestsHistogram map[float32]*timeseries.TimeSeries
 
+	InboundRequestsCount     map[string]*timeseries.TimeSeries
+	InboundRequestsHistogram map[float32]*timeseries.TimeSeries
+
 	PeriodicSystemdJob bool
 }
 
@@ -62,6 +65,9 @@ func NewApplication(id ApplicationId) *Application {
 
 		DNSRequests:          map[DNSRequest]map[string]*timeseries.TimeSeries{},
 		DNSRequestsHistogram: map[float32]*timeseries.TimeSeries{},
+
+		InboundRequestsCount:     map[string]*timeseries.TimeSeries{},
+		InboundRequestsHistogram: map[float32]*timeseries.TimeSeries{},
 	}
 	return app
 }

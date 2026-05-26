@@ -12,6 +12,8 @@ import (
 )
 
 func (c *Constructor) loadSLIs(w *model.World, metrics map[string][]*model.MetricValues, project *db.Project) {
+	inboundAvailabilityRaw := inboundAvailability(w, metrics[qRecordingRuleApplicationL7InboundRequests+"_raw"], project)
+	inboundLatencyRaw := inboundLatency(w, metrics[qRecordingRuleApplicationL7InboundHistogram+"_raw"], project)
 	builtinAvailabilityRaw := builtinAvailability(w, metrics[qRecordingRuleApplicationL7Requests+"_raw"], project)
 	builtinLatencyRaw := builtinLatency(w, metrics[qRecordingRuleApplicationL7Histogram+"_raw"], project)
 
@@ -29,7 +31,10 @@ func (c *Constructor) loadSLIs(w *model.World, metrics map[string][]*model.Metri
 				FailedRequests: aggregateSLI(w.Ctx, raw.failed), FailedRequestsRaw: raw.failed,
 			})
 		} else {
-			raw := builtinAvailabilityRaw[app.Id]
+			raw, ok := inboundAvailabilityRaw[app.Id]
+			if !ok || raw.total.IsEmpty() {
+				raw = builtinAvailabilityRaw[app.Id]
+			}
 			if !raw.total.IsEmpty() {
 				app.AvailabilitySLIs = append(app.AvailabilitySLIs, &model.AvailabilitySLI{
 					Config:        availabilityCfg,
@@ -47,7 +52,10 @@ func (c *Constructor) loadSLIs(w *model.World, metrics map[string][]*model.Metri
 				Histogram: aggregateHistogram(w.Ctx, raw), HistogramRaw: raw,
 			})
 		} else {
-			raw := builtinLatencyRaw[app.Id]
+			raw := inboundLatencyRaw[app.Id]
+			if len(raw) == 0 {
+				raw = builtinLatencyRaw[app.Id]
+			}
 			if len(raw) > 0 {
 				app.LatencySLIs = append(app.LatencySLIs, &model.LatencySLI{
 					Config:    latencyCfg,
@@ -56,6 +64,70 @@ func (c *Constructor) loadSLIs(w *model.World, metrics map[string][]*model.Metri
 			}
 		}
 	}
+}
+
+func inboundAvailability(w *model.World, values []*model.MetricValues, project *db.Project) map[model.ApplicationId]availabilitySlis {
+	if len(values) == 0 {
+		return nil
+	}
+	byApp := map[model.ApplicationId]map[string]*timeseries.TimeSeries{}
+	for _, mv := range values {
+		appId, err := model.NewApplicationIdFromString(mv.Labels["app"], project.ClusterId())
+		if err != nil {
+			klog.Warningln(err)
+			continue
+		}
+		if w.GetApplication(appId) == nil {
+			continue
+		}
+		status := mv.Labels["status"]
+		if byApp[appId] == nil {
+			byApp[appId] = map[string]*timeseries.TimeSeries{}
+		}
+		byApp[appId][status] = merge(byApp[appId][status], mv.Values, timeseries.NanSum)
+	}
+	res := map[model.ApplicationId]availabilitySlis{}
+	for appId, byStatus := range byApp {
+		total := timeseries.NewAggregate(timeseries.NanSum)
+		failed := timeseries.NewAggregate(timeseries.NanSum)
+		for status, ts := range byStatus {
+			total.Add(ts)
+			if model.IsRequestStatusFailed(status) {
+				failed.Add(ts)
+			}
+		}
+		res[appId] = availabilitySlis{total: total.Get(), failed: failed.Get()}
+	}
+	return res
+}
+
+func inboundLatency(w *model.World, values []*model.MetricValues, project *db.Project) map[model.ApplicationId][]model.HistogramBucket {
+	if len(values) == 0 {
+		return nil
+	}
+	byApp := map[model.ApplicationId]map[string]*timeseries.TimeSeries{}
+	for _, mv := range values {
+		appId, err := model.NewApplicationIdFromString(mv.Labels["app"], project.ClusterId())
+		if err != nil {
+			klog.Warningln(err)
+			continue
+		}
+		if w.GetApplication(appId) == nil {
+			continue
+		}
+		buckets := byApp[appId]
+		if buckets == nil {
+			buckets = map[string]*timeseries.TimeSeries{}
+			byApp[appId] = buckets
+		}
+		leStr := mv.Labels["le"]
+		buckets[leStr] = merge(buckets[leStr], mv.Values, timeseries.NanSum)
+	}
+	res := map[model.ApplicationId][]model.HistogramBucket{}
+	for appId, buckets := range byApp {
+		res[appId] = histogramBuckets(buckets)
+	}
+	return res
 }
 
 func loadCustomSLIs(metrics map[string][]*model.MetricValues,
