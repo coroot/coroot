@@ -47,7 +47,7 @@
                     project.
                     </p>
                     <div class="subtitle-1">Description</div>
-                    <v-text-field v-model="form.description" outlined dense :disabled="form.action === 'delete'"></v-text-field>
+                    <v-text-field ref="descriptionField" v-model="form.description" outlined dense autofocus :readonly="form.action === 'delete'"></v-text-field>
                     <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
                         {{ error }}
                     </v-alert>
