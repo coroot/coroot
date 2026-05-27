@@ -186,7 +186,7 @@ func (c *Client) GetTracesViolatingSLOs(ctx context.Context, from, to timeseries
 
 	if len(app.LatencySLIs) > 0 && app.LatencySLIs[0].Config.ObjectivePercentage > 0 {
 		sq.Errors = false
-		sq.DurFrom = time.Duration(app.LatencySLIs[0].Config.ObjectiveBucket) * time.Second
+		sq.DurFrom = time.Duration(float64(app.LatencySLIs[0].Config.ObjectiveBucket) * float64(time.Second))
 		if slowTrace, err = c.getTrace(ctx, sq); err != nil {
 			return nil, nil, err
 		}
