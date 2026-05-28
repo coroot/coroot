@@ -34,30 +34,39 @@
                 <v-progress-linear indeterminate />
             </v-card>
             <v-card v-else class="pa-4">
-                <div class="d-flex align-center font-weight-bold mb-4">
-                    <div v-if="form.action === 'generate'">Generate API key</div>
-                    <div v-else-if="form.action === 'delete'">Delete API key</div>
-                    <div v-else>Edit API key</div>
-                    <v-spacer />
-                    <v-btn icon @click="dialog = false"><v-icon>mdi-close</v-icon></v-btn>
-                </div>
-                <p v-if="form.action === 'delete'">
-                    Deleting the API key can result in some agents or applications using it no longer being able to write telemetry data to this
-                    project.
-                </p>
-                <div class="subtitle-1">Description</div>
-                <v-text-field v-model="form.description" outlined dense :disabled="form.action === 'delete'"></v-text-field>
-                <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
-                    {{ error }}
-                </v-alert>
-                <div class="d-flex align-center">
-                    <v-spacer />
-                    <v-btn v-if="form.action === 'generate'" color="primary" :disabled="!form.description" :loading="loading" @click="post">
-                        Generate
-                    </v-btn>
-                    <v-btn v-else-if="form.action === 'delete'" color="error" :loading="loading" @click="post"> Delete </v-btn>
-                    <v-btn v-else color="primary" :disabled="!form.description" :loading="loading" @click="post"> Save </v-btn>
-                </div>
+                <v-form @submit.prevent="post">
+                    <div class="d-flex align-center font-weight-bold mb-4">
+                        <div v-if="form.action === 'generate'">Generate API key</div>
+                        <div v-else-if="form.action === 'delete'">Delete API key</div>
+                        <div v-else>Edit API key</div>
+                        <v-spacer />
+                        <v-btn icon @click="dialog = false"><v-icon>mdi-close</v-icon></v-btn>
+                    </div>
+                    <p v-if="form.action === 'delete'">
+                        Deleting the API key can result in some agents or applications using it no longer being able to write telemetry data to this
+                        project.
+                    </p>
+                    <div class="subtitle-1">Description</div>
+                    <v-text-field
+                        ref="descriptionField"
+                        v-model="form.description"
+                        outlined
+                        dense
+                        autofocus
+                        :readonly="form.action === 'delete'"
+                    ></v-text-field>
+                    <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text>
+                        {{ error }}
+                    </v-alert>
+                    <div class="d-flex align-center">
+                        <v-spacer />
+                        <v-btn v-if="form.action === 'generate'" type="submit" color="primary" :disabled="!form.description" :loading="loading">
+                            Generate
+                        </v-btn>
+                        <v-btn v-else-if="form.action === 'delete'" type="submit" color="error" :loading="loading" autofocus> Delete </v-btn>
+                        <v-btn v-else type="submit" color="primary" :disabled="!form.description" :loading="loading"> Save </v-btn>
+                    </div>
+                </v-form>
             </v-card>
         </v-dialog>
     </div>
