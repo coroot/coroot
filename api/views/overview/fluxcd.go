@@ -20,8 +20,10 @@ type FluxCDResource struct {
 	Namespace             string                `json:"namespace"`
 	Status                string                `json:"status"`
 	Reason                string                `json:"reason"`
+	Level                 model.Status          `json:"level"`
 	Suspended             bool                  `json:"suspended"`
 	URL                   string                `json:"url,omitempty"`
+	Path                  string                `json:"path,omitempty"`
 	Interval              string                `json:"interval,omitempty"`
 	Chart                 string                `json:"chart,omitempty"`
 	Version               string                `json:"version,omitempty"`
@@ -33,6 +35,40 @@ type FluxCDResource struct {
 	LastAttemptedRevision string                `json:"last_attempted_revision"`
 }
 
+func fluxStatus(ready *model.FluxStatus, suspended bool) (status string, level model.Status) {
+	status = getFluxResourceStatus(ready, suspended)
+	switch status {
+	case "Ready":
+		level = model.OK
+	case "Failed":
+		level = model.WARNING
+	default:
+		level = model.UNKNOWN
+	}
+	return
+}
+
+func CountFluxIssues(w *model.World) (issues int) {
+	if w == nil || w.Flux == nil {
+		return
+	}
+	count := func(ready model.FluxStatus, suspended bool) {
+		if _, level := fluxStatus(&ready, suspended); level == model.WARNING {
+			issues++
+		}
+	}
+	for _, r := range w.Flux.HelmReleases {
+		count(r.Ready, r.Suspended)
+	}
+	for _, r := range w.Flux.Kustomizations {
+		count(r.Ready, r.Suspended)
+	}
+	for _, r := range w.Flux.ResourceSets {
+		count(r.Ready, false)
+	}
+	return
+}
+
 func renderFluxCD(w *model.World) []*FluxCDResource {
 	if w == nil || w.Flux == nil {
 		return []*FluxCDResource{}
@@ -41,13 +77,15 @@ func renderFluxCD(w *model.World) []*FluxCDResource {
 	var resources []*FluxCDResource
 
 	for id, repo := range flux.Repositories {
+		status, level := fluxStatus(&repo.Ready, repo.Suspended)
 		resources = append(resources, &FluxCDResource{
 			ID:        id,
 			Cluster:   w.ClusterName(id.ClusterId),
 			Type:      string(id.Kind),
 			Name:      id.Name,
 			Namespace: id.Namespace,
-			Status:    getFluxResourceStatus(&repo.Ready, repo.Suspended),
+			Status:    status,
+			Level:     level,
 			Reason:    repo.Ready.Reason.Value(),
 			Suspended: repo.Suspended,
 			URL:       repo.Url.Value(),
@@ -56,13 +94,15 @@ func renderFluxCD(w *model.World) []*FluxCDResource {
 	}
 
 	for id, chart := range flux.HelmCharts {
+		status, level := fluxStatus(&chart.Ready, chart.Suspended)
 		resources = append(resources, &FluxCDResource{
 			ID:           id,
 			Cluster:      w.ClusterName(id.ClusterId),
 			Type:         string(id.Kind),
 			Name:         id.Name,
 			Namespace:    id.Namespace,
-			Status:       getFluxResourceStatus(&chart.Ready, chart.Suspended),
+			Status:       status,
+			Level:        level,
 			Reason:       chart.Ready.Reason.Value(),
 			Suspended:    chart.Suspended,
 			Chart:        chart.Chart,
@@ -73,13 +113,15 @@ func renderFluxCD(w *model.World) []*FluxCDResource {
 	}
 
 	for id, release := range flux.HelmReleases {
+		status, level := fluxStatus(&release.Ready, release.Suspended)
 		resources = append(resources, &FluxCDResource{
 			ID:              id,
 			Cluster:         w.ClusterName(id.ClusterId),
 			Type:            string(id.Kind),
 			Name:            id.Name,
 			Namespace:       id.Namespace,
-			Status:          getFluxResourceStatus(&release.Ready, release.Suspended),
+			Status:          status,
+			Level:           level,
 			Reason:          release.Ready.Reason.Value(),
 			Suspended:       release.Suspended,
 			Chart:           release.Chart,
@@ -95,15 +137,18 @@ func renderFluxCD(w *model.World) []*FluxCDResource {
 		sort.Slice(dependencies, func(i, j int) bool {
 			return dependencies[i].String() < dependencies[j].String()
 		})
+		status, level := fluxStatus(&kustomization.Ready, kustomization.Suspended)
 		resources = append(resources, &FluxCDResource{
 			ID:                    id,
 			Cluster:               w.ClusterName(id.ClusterId),
 			Type:                  string(id.Kind),
 			Name:                  id.Name,
 			Namespace:             id.Namespace,
-			Status:                getFluxResourceStatus(&kustomization.Ready, kustomization.Suspended),
+			Status:                status,
+			Level:                 level,
 			Reason:                kustomization.Ready.Reason.Value(),
 			Suspended:             kustomization.Suspended,
+			Path:                  kustomization.Path,
 			Interval:              kustomization.Interval,
 			TargetNamespace:       kustomization.TargetNamespace,
 			RepositoryId:          kustomization.RepositoryId,
@@ -119,13 +164,15 @@ func renderFluxCD(w *model.World) []*FluxCDResource {
 		sort.Slice(dependencies, func(i, j int) bool {
 			return dependencies[i].String() < dependencies[j].String()
 		})
+		status, level := fluxStatus(&resourceSet.Ready, false)
 		resources = append(resources, &FluxCDResource{
 			ID:                  id,
 			Cluster:             w.ClusterName(id.ClusterId),
 			Type:                string(id.Kind),
 			Name:                id.Name,
 			Namespace:           id.Namespace,
-			Status:              getFluxResourceStatus(&resourceSet.Ready, false),
+			Status:              status,
+			Level:               level,
 			Reason:              resourceSet.Ready.Reason.Value(),
 			Suspended:           false,
 			Dependencies:        dependencies,

@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 
+	"github.com/coroot/coroot/api/views/overview"
 	"github.com/coroot/coroot/cache"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
@@ -19,10 +20,15 @@ type Context struct {
 	Search         Search                            `json:"search"`
 	Incidents      map[model.ApplicationCategory]int `json:"incidents"`
 	Alerts         map[string]int                    `json:"alerts"`
-	Fluxcd         bool                              `json:"fluxcd"`
+	Fluxcd         *GitOpsStatus                     `json:"fluxcd"`
+	Argocd         *GitOpsStatus                     `json:"argocd"`
 	License        *License                          `json:"license,omitempty"`
 	Multicluster   bool                              `json:"multicluster"`
 	MemberProjects []string                          `json:"member_projects,omitempty"`
+}
+
+type GitOpsStatus struct {
+	Issues int `json:"issues"`
 }
 
 type Status struct {
@@ -86,7 +92,8 @@ func (api *Api) WithContext(p *db.Project, cacheStatus *cache.Status, w *model.W
 			Search:         renderSearch(w),
 			Incidents:      renderIncidents(w),
 			Alerts:         alerts,
-			Fluxcd:         w != nil && w.Flux != nil,
+			Fluxcd:         gitOpsStatus(w, w != nil && w.Flux != nil, overview.CountFluxIssues),
+			Argocd:         gitOpsStatus(w, w != nil && w.ArgoCD != nil, overview.CountArgoCDIssues),
 			Multicluster:   p.Multicluster(),
 			MemberProjects: p.Settings.MemberProjects,
 		},
@@ -117,6 +124,13 @@ func renderIncidents(w *model.World) map[model.ApplicationCategory]int {
 		}
 	}
 	return res
+}
+
+func gitOpsStatus(w *model.World, present bool, count func(*model.World) int) *GitOpsStatus {
+	if !present {
+		return nil
+	}
+	return &GitOpsStatus{Issues: count(w)}
 }
 
 func renderStatus(p *db.Project, cacheStatus *cache.Status, w *model.World, globalPrometheus *db.IntegrationPrometheus) Status {

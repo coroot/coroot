@@ -144,6 +144,7 @@ func (c *Constructor) loadProjectWorld(ctx context.Context, cache Cache, project
 	prof.stage("load_fargate_nodes", func() { c.loadFargateNodes(metrics, nodes) })
 	prof.stage("load_k8s_metadata", func() { c.loadKubernetesMetadata(w, metrics, servicesByClusterIP, project) })
 	prof.stage("load_flux_resources", func() { loadFluxResources(w, metrics, project) })
+	prof.stage("load_argocd_resources", func() { loadArgoCDResources(w, metrics, project) })
 	prof.stage("load_aws_status", func() { loadAWSStatus(w, metrics) })
 	prof.stage("load_rds_metadata", func() { c.loadRdsMetadata(w, metrics, pjs, rdsInstancesById, project) })
 	prof.stage("load_elasticache_metadata", func() { c.loadElasticacheMetadata(w, metrics, pjs, ecInstancesById, project) })

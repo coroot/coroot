@@ -13,6 +13,7 @@ Using the credentials provided by Coroot or via Kubernetes annotations, the agen
  * When `--track-database-changes` is enabled, the agent tracks schema and configuration changes in databases. Change events are sent to Coroot as OpenTelemetry log records under the `DatabaseChanges` service name.
  * The agent can be integrated with AWS to discover RDS and ElastiCache clusters and collect their telemetry data.
  * The agent discovers and scrapes [custom metrics](/metrics/custom-metrics) from annotated pods.
+ * The agent monitors GitOps tooling by reading [FluxCD](#fluxcd) and [ArgoCD](#argocd) custom resources through its embedded kube-state-metrics and exposing their state as metrics.
 
 ## Postgres
 
@@ -367,3 +368,152 @@ The agent collects database and collection size metrics. For collection sizes, o
 * **Type**: Gauge
 * **Source**: Computed from consecutive `collStats` measurements
 * **Labels**: db, collection
+
+## FluxCD
+
+The agent's embedded kube-state-metrics reads [FluxCD](https://fluxcd.io/) custom resources (`source.toolkit.fluxcd.io`, `kustomize.toolkit.fluxcd.io`, `helm.toolkit.fluxcd.io`, `fluxcd.controlplane.io`) and exposes their state. This requires the agent's service account to have `get`/`list`/`watch` access to those API groups, which the [Coroot Operator](/installation/k8s-operator) grants automatically.
+
+Every metric below also carries `uid`, `name`, and `namespace` labels identifying the source custom resource. The `*_info` metrics are info-style: their value is always `1` and the useful data is carried in labels. The `*_status` metrics expose [Kubernetes status conditions](https://kubernetes.io/docs/reference/using-api/api-concepts/#resource-versions): one series per condition, with the value `1` when the condition holds (`status: "True"`) and `0` otherwise (`"False"`/`"Unknown"`).
+
+### fluxcd_git_repository_info / fluxcd_oci_repository_info / fluxcd_helm_repository_info
+* **Description**: Information about a `GitRepository` / `OCIRepository` / `HelmRepository` source
+* **Type**: Info
+* **Source**: the source `spec`
+* **Labels**: url, interval, suspended
+
+### fluxcd_git_repository_status / fluxcd_oci_repository_status / fluxcd_helm_repository_status
+* **Description**: Status conditions of a `GitRepository` / `OCIRepository` / `HelmRepository` source
+* **Type**: Gauge
+* **Source**: `status.conditions[]`
+* **Labels**: type (condition type, e.g. `Ready`), reason
+
+### fluxcd_helm_release_info
+* **Description**: Information about a `HelmRelease`
+* **Type**: Info
+* **Source**: the HelmRelease `spec`
+* **Labels**: suspended, interval, target_namespace, source_kind, source_name, source_namespace, chart, version, chart_ref_kind, chart_ref_name, chart_ref_namespace
+
+### fluxcd_helm_release_status
+* **Description**: Status conditions of a `HelmRelease`
+* **Type**: Gauge
+* **Source**: `status.conditions[]`
+* **Labels**: type, reason
+
+### fluxcd_helm_chart_info
+* **Description**: Information about a `HelmChart`
+* **Type**: Info
+* **Source**: the HelmChart `spec`
+* **Labels**: chart, version, source_kind, source_name, source_namespace, interval, suspended
+
+### fluxcd_helm_chart_status
+* **Description**: Status conditions of a `HelmChart`
+* **Type**: Gauge
+* **Source**: `status.conditions[]`
+* **Labels**: type, reason
+
+### fluxcd_kustomization_info
+* **Description**: Information about a `Kustomization`
+* **Type**: Info
+* **Source**: the Kustomization `spec` and `status`
+* **Labels**: suspended, interval, path, source_kind, source_name, source_namespace, target_namespace, last_applied_revision, last_attempted_revision
+
+### fluxcd_kustomization_status
+* **Description**: Status conditions of a `Kustomization`
+* **Type**: Gauge
+* **Source**: `status.conditions[]`
+* **Labels**: type, reason
+
+### fluxcd_kustomization_inventory_entry_info
+* **Description**: A resource managed by a `Kustomization` (one series per inventory entry)
+* **Type**: Info
+* **Source**: `status.inventory.entries[]`
+* **Labels**: entry_id
+
+### fluxcd_kustomization_dependency_info
+* **Description**: A dependency declared by a `Kustomization` (one series per `dependsOn` entry)
+* **Type**: Info
+* **Source**: `spec.dependsOn[]`
+* **Labels**: depends_on_name, depends_on_namespace
+
+### fluxcd_resourceset_info
+* **Description**: Information about a `ResourceSet`
+* **Type**: Info
+* **Source**: the ResourceSet `status`
+* **Labels**: last_applied_revision
+
+### fluxcd_resourceset_status
+* **Description**: Status conditions of a `ResourceSet`
+* **Type**: Gauge
+* **Source**: `status.conditions[]`
+* **Labels**: type, reason
+
+### fluxcd_resourceset_inventory_entry_info
+* **Description**: A resource managed by a `ResourceSet` (one series per inventory entry)
+* **Type**: Info
+* **Source**: `status.inventory.entries[]`
+* **Labels**: entry_id
+
+### fluxcd_resourceset_dependency_info
+* **Description**: A dependency declared by a `ResourceSet` (one series per `dependsOn` entry)
+* **Type**: Info
+* **Source**: `spec.dependsOn[]`
+* **Labels**: depends_on_kind, depends_on_name, depends_on_namespace
+
+## ArgoCD
+
+The agent's embedded kube-state-metrics reads [ArgoCD](https://argo-cd.readthedocs.io/) `Application` resources (`argoproj.io/v1alpha1`) and exposes their sync, health, and operation state. This requires the agent's service account to have `get`/`list`/`watch` access to the `argoproj.io` API group, which the [Coroot Operator](/installation/k8s-operator) grants automatically.
+
+Every metric below also carries `uid`, `name`, and `namespace` labels identifying the `Application`. All of these are info-style metrics: their value is always `1` and the meaningful state is carried in labels (such as `sync_status`), so a status that ArgoCD doesn't currently report simply has no series.
+
+### argocd_application_info
+* **Description**: Information about an `Application`
+* **Type**: Info
+* **Source**: the Application `spec` and `status`
+* **Labels**: project, source_type, repo, path, chart, target_revision, dest_server, dest_name, dest_namespace, revision
+
+### argocd_application_sync_status
+* **Description**: Sync status of an `Application`
+* **Type**: Info
+* **Source**: `status.sync.status`
+* **Labels**: sync_status (e.g. `Synced`, `OutOfSync`, `Unknown`)
+
+### argocd_application_health_status
+* **Description**: Health status of an `Application`
+* **Type**: Info
+* **Source**: `status.health.status`
+* **Labels**: health_status (e.g. `Healthy`, `Progressing`, `Degraded`, `Suspended`, `Missing`, `Unknown`)
+
+### argocd_application_operation_status
+* **Description**: Phase of the most recent sync operation
+* **Type**: Info
+* **Source**: `status.operationState.phase`
+* **Labels**: operation_phase (e.g. `Running`, `Succeeded`, `Failed`, `Error`, `Terminating`)
+
+### argocd_application_operation_finished_timestamp_seconds
+* **Description**: When the most recent sync operation finished, as a Unix timestamp
+* **Type**: Gauge
+* **Source**: `status.operationState.finishedAt`
+
+### argocd_application_resource_info
+* **Description**: A resource managed by an `Application` (one series per resource)
+* **Type**: Info
+* **Source**: `status.resources[]`
+* **Labels**: resource_group, resource_kind, resource_namespace, resource_name
+
+### argocd_application_resource_sync_status
+* **Description**: Sync status of a managed resource
+* **Type**: Info
+* **Source**: `status.resources[].status`
+* **Labels**: resource_group, resource_kind, resource_namespace, resource_name, sync_status
+
+### argocd_application_resource_health_status
+* **Description**: Health status of a managed resource
+* **Type**: Info
+* **Source**: `status.resources[].health.status`
+* **Labels**: resource_group, resource_kind, resource_namespace, resource_name, health_status
+
+### argocd_application_resource_status
+* **Description**: Result for a resource from the most recent sync operation
+* **Type**: Info
+* **Source**: `status.operationState.syncResult.resources[]`
+* **Labels**: resource_group, resource_kind, resource_namespace, resource_name, status (e.g. `Synced`, `Pruned`, `SyncFailed`)

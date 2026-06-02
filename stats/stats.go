@@ -56,6 +56,8 @@ type Stats struct {
 		Logs                      bool                                 `json:"logs"`
 		Profiles                  bool                                 `json:"profiles"`
 		JavaAsyncProfiler         bool                                 `json:"java_async_profiler"`
+		FluxCD                    bool                                 `json:"fluxcd"`
+		ArgoCD                    bool                                 `json:"argocd"`
 	} `json:"integration"`
 	Stack struct {
 		Clouds               *utils.StringSet `json:"clouds"`
@@ -66,6 +68,7 @@ type Stats struct {
 		Projects            int                                 `json:"projects"`
 		Nodes               int                                 `json:"nodes"`
 		CPUCores            int                                 `json:"cpu_cores"`
+		GPUs                int                                 `json:"gpus"`
 		Applications        int                                 `json:"applications"`
 		ApplicationsByKind  map[model.ApplicationKind]*AppStats `json:"applications_by_kind"`
 		Instances           int                                 `json:"instances"`
@@ -461,11 +464,19 @@ func (c *Collector) collect() Stats {
 			stats.Integration.KubeStateMetrics = &installed
 		}
 
+		if w.Flux != nil {
+			stats.Integration.FluxCD = true
+		}
+		if w.ArgoCD != nil {
+			stats.Integration.ArgoCD = true
+		}
+
 		stats.Infra.Nodes += len(w.Nodes)
 		for _, n := range w.Nodes {
 			if cores := n.CpuCapacity.Last(); cores > 0 {
 				stats.Infra.CPUCores += int(cores)
 			}
+			stats.Infra.GPUs += len(n.GPUs)
 			stats.Integration.NodeAgentVersions.Add(n.AgentVersion.Value())
 			stats.Infra.KernelVersions.Add(n.KernelVersion.Value())
 			stats.Stack.Clouds.Add(strings.ToLower(n.CloudProvider.Value()))

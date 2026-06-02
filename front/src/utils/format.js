@@ -5,6 +5,16 @@ export const MINUTE = SECOND * 60;
 export const HOUR = MINUTE * 60;
 export const DAY = HOUR * 24;
 
+export function repo(url) {
+    if (!url) return '';
+    return url
+        .replace(/^[a-z][a-z0-9+.-]*:\/\//i, '')
+        .replace(/\.git$/, '')
+        .replace(/\/$/, '')
+        .replace(/^github\.com\//, '')
+        .replace(/^gitlab\.com\//, '');
+}
+
 export function duration(ms, precision) {
     let milliseconds = ms;
     const days = Math.floor(milliseconds / DAY);

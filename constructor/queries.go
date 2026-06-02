@@ -454,6 +454,16 @@ var QUERIES = []Query{
 	qPod("fluxcd_resourceset_status", `fluxcd_resourceset_status`, "name", "namespace", "type", "reason"),
 	qPod("fluxcd_resourceset_dependency_info", `fluxcd_resourceset_dependency_info`, "name", "namespace", "depends_on_name", "depends_on_namespace", "depends_on_kind"),
 	qPod("fluxcd_resourceset_inventory_entry_info", `fluxcd_resourceset_inventory_entry_info`, "name", "namespace", "entry_id"),
+
+	qPod("argocd_application_info", `argocd_application_info`, "name", "namespace", "project", "source_type", "repo", "path", "chart", "dest_server", "dest_name", "dest_namespace"),
+	qPod("argocd_application_sync_status", `argocd_application_sync_status`, "name", "namespace", "sync_status"),
+	qPod("argocd_application_health_status", `argocd_application_health_status`, "name", "namespace", "health_status"),
+	qPod("argocd_application_operation_status", `argocd_application_operation_status`, "name", "namespace", "operation_phase"),
+	qPod("argocd_application_operation_finished_timestamp_seconds", `argocd_application_operation_finished_timestamp_seconds`, "name", "namespace"),
+	qPod("argocd_application_resource_info", `argocd_application_resource_info`, "name", "namespace", "resource_group", "resource_kind", "resource_namespace", "resource_name"),
+	qPod("argocd_application_resource_sync_status", `argocd_application_resource_sync_status`, "name", "namespace", "resource_group", "resource_kind", "resource_namespace", "resource_name", "sync_status"),
+	qPod("argocd_application_resource_status", `argocd_application_resource_status`, "name", "namespace", "resource_group", "resource_kind", "resource_namespace", "resource_name", "status"),
+	qPod("argocd_application_resource_health_status", `argocd_application_resource_health_status`, "name", "namespace", "resource_group", "resource_kind", "resource_namespace", "resource_name", "health_status"),
 }
 
 var RecordingRules = map[string]func(db *db.DB, p *db.Project, w *model.World) []*model.MetricValues{

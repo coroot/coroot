@@ -1,15 +1,15 @@
 <template>
     <div>
-        <div v-if="resources.length === 0 && !loading" class="pa-3 text-center grey--text">No FluxCD resources found</div>
+        <div v-if="resources.length === 0 && !loading" class="pa-3 text-center grey--text">No ArgoCD resources found</div>
 
         <div v-else>
             <div class="d-flex flex-column flex-sm-row flex-wrap flex-md-nowrap mb-4" style="gap: 12px">
                 <v-text-field v-model="search" label="search" clearable dense hide-details prepend-inner-icon="mdi-magnify" outlined class="search" />
                 <v-autocomplete
-                    v-if="availableNamespaces.length > 0"
-                    v-model="selectedNamespaces"
-                    :items="namespacesForSelect"
-                    label="namespaces"
+                    v-if="availableProjects.length > 0"
+                    v-model="selectedProjects"
+                    :items="projectsForSelect"
+                    label="projects"
                     color="primary"
                     multiple
                     outlined
@@ -18,11 +18,11 @@
                     small-chips
                     deletable-chips
                     hide-details
-                    class="namespaces"
-                    :class="{ empty: !selectedNamespaces.length }"
+                    class="projects"
+                    :class="{ empty: !selectedProjects.length }"
                 >
                     <template #selection="{ item }">
-                        <v-chip small label close close-icon="mdi-close" @click:close="removeNamespace(item.value)" color="primary" class="namespace">
+                        <v-chip small label close close-icon="mdi-close" @click:close="removeProject(item.value)" color="primary" class="project">
                             <span :title="item.text">{{ item.value }}</span>
                         </v-chip>
                     </template>
@@ -41,20 +41,38 @@
                 :items-per-page="20"
                 :items="filteredApps"
                 item-key="id"
-                :headers="headers"
+                :headers="appHeaders"
                 :footer-props="{ itemsPerPageOptions: [10, 20, 50, 100, -1] }"
             >
                 <template #item.name="{ item }">
-                    <div class="d-flex align-center" :title="nameTitle(item)">
-                        <v-icon size="14" class="mr-1" color="inherit">{{ kindIcon(item.type) }}</v-icon>
-                        {{ item.name }}
+                    <span :title="nameTitle(item)">{{ item.name }}</span>
+                </template>
+                <template #item.sync_status="{ item }">
+                    <div class="d-flex align-center">
+                        <Led :status="item.sync_level" />
+                        {{ item.sync_status }}
                     </div>
                 </template>
-                <template #item.status="{ item }">
+                <template #item.health_status="{ item }">
                     <div class="d-flex align-center">
-                        <Led :status="item.level" />
-                        {{ item.status }}
-                        <span v-if="item.reason" class="text--secondary ml-1">({{ item.reason }})</span>
+                        <Led :status="item.health_level" />
+                        {{ item.health_status }}
+                    </div>
+                </template>
+                <template #item.operation_phase="{ item }">
+                    <div class="d-flex align-center">
+                        <template v-if="item.operation_phase">
+                            <Led :status="item.operation_level" />
+                            <span>{{ item.operation_phase }}</span>
+                            <span
+                                v-if="item.operation_finished_at"
+                                class="op-time"
+                                :title="$format.date(item.operation_finished_at * 1000, '{YYYY}-{MM}-{DD} {HH}:{mm}:{ss}')"
+                            >
+                                · {{ $format.timeSinceNow(item.operation_finished_at * 1000) }} ago
+                            </span>
+                        </template>
+                        <span v-else>—</span>
                         <router-link :to="eventsLink(item)" class="events-link ml-2">
                             <v-icon small>mdi-format-list-bulleted</v-icon>
                             <span>events</span>
@@ -62,44 +80,34 @@
                     </div>
                 </template>
                 <template #item.source="{ item }">
-                    <div v-if="source(item)">
-                        <div class="d-flex align-center">
-                            <Led :status="source(item).level" />
-                            <span>{{ source(item).status }}</span>
-                            <v-icon size="13" class="ml-2 mr-1 text--secondary" color="inherit">{{ sourceIcon(item) }}</v-icon>
-                            <span class="text--secondary text-truncate" style="max-width: 20ch" :title="sourceUrl(item)">{{
-                                $format.repo(sourceUrl(item))
-                            }}</span>
-                        </div>
-                        <div
-                            v-if="sourceIssue(item)"
-                            class="text--secondary text-truncate"
-                            style="font-size: 12px; max-width: 24ch"
-                            :title="sourceIssue(item).reason || sourceIssue(item).status"
-                        >
-                            {{ sourceIssue(item).reason || sourceIssue(item).status }}
-                        </div>
+                    <div class="d-flex align-center" :title="item.repo" style="max-width: 28ch">
+                        <v-icon v-if="sourceTypeIcon(item)" size="13" class="mr-1" color="inherit">{{ sourceTypeIcon(item) }}</v-icon>
+                        <span class="text-truncate">{{ sourceSubtitle(item) || $format.repo(item.repo) }}</span>
                     </div>
-                    <div v-else>—</div>
                 </template>
                 <template #item.resources="{ item }">
-                    <div v-if="item.inventory_entries && item.inventory_entries.length > 0">
+                    <div v-if="item.resources && item.resources.length > 0">
                         <ul class="resources">
-                            <li v-for="(entry, index) in getVisibleEntries(item)" :key="entry.id" class="resource">
+                            <li v-for="(entry, index) in getVisibleResources(item)" :key="entry.id" class="resource">
                                 <router-link v-if="entry.coroot_app_id && $utils.appId(entry.coroot_app_id).name" :to="appLink(entry.coroot_app_id)">
                                     {{ formatResourceId(entry.id) }}
                                 </router-link>
                                 <span v-else>{{ formatResourceId(entry.id) }}</span>
+                                <span v-if="entry.issue" class="resource-issue text--secondary"> <Led status="warning" />{{ entry.issue }} </span>
                                 <a
-                                    v-if="index === getVisibleEntries(item).length - 1 && item.inventory_entries.length > 1 && !isExpanded(item.id)"
-                                    @click="toggleExpansion(item.id)"
+                                    v-if="index === getVisibleResources(item).length - 1 && item.resources.length > 1 && !isResourceExpanded(item.id)"
+                                    @click="toggleResourceExpansion(item.id)"
                                     href="#"
                                 >
-                                    , +{{ item.inventory_entries.length - 1 }} more
+                                    , +{{ item.resources.length - 1 }} more
                                 </a>
                             </li>
                         </ul>
-                        <a v-if="item.inventory_entries.length > 1 && isExpanded(item.id)" class="resources-toggle" @click="toggleExpansion(item.id)">
+                        <a
+                            v-if="item.resources.length > 1 && isResourceExpanded(item.id)"
+                            class="resources-toggle"
+                            @click="toggleResourceExpansion(item.id)"
+                        >
                             <span>Show less</span>
                         </a>
                     </div>
@@ -114,8 +122,10 @@
 import Led from './Led';
 import StatusFacets from './StatusFacets';
 
-const APP_KINDS = ['Kustomization', 'HelmRelease', 'ResourceSet'];
-const FACETS = [{ key: 'status', label: 'Status', statusField: 'status', levelField: 'level' }];
+const FACETS = [
+    { key: 'sync', label: 'Sync', statusField: 'sync_status', levelField: 'sync_level' },
+    { key: 'health', label: 'Health', statusField: 'health_status', levelField: 'health_level' },
+];
 
 export default {
     components: { Led, StatusFacets },
@@ -124,11 +134,11 @@ export default {
             loading: false,
             error: '',
             resources: [],
-            selectedNamespaces: [],
-            selectedStatus: { status: null },
+            selectedProjects: [],
+            selectedStatus: { sync: null, health: null },
             search: '',
             searchDebounceTimer: null,
-            expandedEntries: {},
+            expandedResources: {},
         };
     },
 
@@ -142,41 +152,38 @@ export default {
     },
 
     computed: {
-        resourcesById() {
-            const m = {};
-            this.resources.forEach((r) => (m[r.id] = r));
-            return m;
-        },
         apps() {
-            return this.resources.filter((r) => APP_KINDS.includes(r.type));
+            return this.resources;
         },
-        availableNamespaces() {
+        availableProjects() {
             const s = new Set();
-            this.apps.forEach((a) => a.namespace && s.add(a.namespace));
+            this.apps.forEach((a) => a.project && s.add(a.project));
             return Array.from(s).sort();
         },
-        namespacesForSelect() {
+        projectsForSelect() {
             const counts = {};
             this.apps.forEach((a) => {
-                if (a.namespace) counts[a.namespace] = (counts[a.namespace] || 0) + 1;
+                if (a.project) counts[a.project] = (counts[a.project] || 0) + 1;
             });
-            this.selectedNamespaces.forEach((ns) => {
-                if (counts[ns] === undefined) counts[ns] = 0;
+            this.selectedProjects.forEach((p) => {
+                if (counts[p] === undefined) counts[p] = 0;
             });
             return Object.keys(counts)
                 .sort()
-                .map((ns) => ({ value: ns, text: `${ns} (${counts[ns]})` }));
+                .map((p) => ({ value: p, text: `${p} (${counts[p]})` }));
         },
         baseApps() {
             let items = this.apps;
-            if (this.selectedNamespaces.length > 0) {
-                const set = new Set(this.selectedNamespaces);
-                items = items.filter((a) => set.has(a.namespace));
+            if (this.selectedProjects.length > 0) {
+                const set = new Set(this.selectedProjects);
+                items = items.filter((a) => set.has(a.project));
             }
             if (this.search) {
                 const q = this.search.toLowerCase();
                 items = items.filter((a) =>
-                    [a.name, a.type, a.namespace, a.target_namespace, this.sourceUrl(a)].some((f) => (f || '').toLowerCase().includes(q)),
+                    ['name', 'project', 'repo', 'path', 'cluster', 'sync_status', 'health_status', 'operation_phase'].some((f) =>
+                        (a[f] || '').toLowerCase().includes(q),
+                    ),
                 );
             }
             return items;
@@ -201,11 +208,14 @@ export default {
         filteredApps() {
             return this.applyStatus(this.baseApps, null);
         },
-        headers() {
+        appHeaders() {
             const cols = [
                 { value: 'name', text: 'Name', sortable: true },
+                { value: 'project', text: 'Project', sortable: true },
                 { value: 'cluster', text: 'Cluster', sortable: true },
-                { value: 'status', text: 'Status', sortable: true },
+                { value: 'sync_status', text: 'Sync', sortable: true },
+                { value: 'health_status', text: 'Health', sortable: true },
+                { value: 'operation_phase', text: 'Last sync', sortable: true },
                 { value: 'source', text: 'Source', sortable: false },
                 { value: 'resources', text: 'Resources', sortable: false },
             ];
@@ -217,46 +227,71 @@ export default {
         get() {
             this.loading = true;
             this.error = '';
-            this.$api.getOverview('fluxcd', '', (data, error) => {
+            this.$api.getOverview('argocd', '', (data, error) => {
                 this.loading = false;
                 if (error) {
                     this.error = error;
                     return;
                 }
-                this.resources = data.fluxcd || [];
+                this.resources = data.argocd || [];
             });
         },
-        kindIcon(type) {
-            return type === 'HelmRelease' ? 'mdi-ship-wheel' : 'mdi-source-branch';
+        updateQuery(updates) {
+            this.$router.replace({ query: { ...this.$route.query, ...updates } }).catch((err) => err);
+        },
+        stateFromUri() {
+            const q = this.$route.query;
+            this.selectedProjects = Array.isArray(q.projects) ? q.projects : q.projects ? [q.projects] : [];
+            this.selectedStatus = { sync: q.sync || null, health: q.health || null };
+            this.search = q.search || '';
+        },
+        sourceSubtitle(item) {
+            const detail = item.chart || item.path;
+            if (item.source_type && detail) return `${item.source_type} · ${detail}`;
+            return item.source_type || detail || '';
         },
         nameTitle(item) {
-            const parts = [`kind: ${item.type}`];
-            if (item.namespace) parts.push(`namespace: ${item.namespace}`);
-            if (item.target_namespace) parts.push(`target namespace: ${item.target_namespace}`);
-            return parts.join('\n');
+            return item.namespace ? `namespace: ${item.namespace}` : '';
         },
-        source(item) {
-            return item.repository_id ? this.resourcesById[item.repository_id] : null;
+        sourceTypeIcon(item) {
+            if (item.source_type === 'Helm') return 'mdi-ship-wheel';
+            if (item.source_type === 'Kustomize' || item.source_type === 'Directory') return 'mdi-source-branch';
+            return '';
         },
-        sourceUrl(item) {
-            const s = this.source(item);
-            return s ? s.url : '';
+        formatResourceId(rid) {
+            const p = this.$utils.appId(rid);
+            return `${p.kind}:${p.name}`;
         },
-        sourceIcon(item) {
-            const s = this.source(item);
-            if (!s) return '';
-            switch (s.type) {
-                case 'HelmRepository':
-                    return 'mdi-ship-wheel';
-                case 'OCIRepository':
-                    return 'mdi-package-variant';
-                default: // GitRepository
-                    return 'mdi-source-branch';
-            }
+        appLink(applicationId) {
+            return {
+                name: 'overview',
+                params: { view: 'applications', id: applicationId },
+                query: this.$utils.contextQuery(),
+            };
         },
-        sourceIssue(item) {
-            const s = this.source(item);
-            return s && s.level === 'warning' ? s : null;
+        eventsLink(item) {
+            const query = {
+                filters: [
+                    { name: 'object.kind', op: '=', value: 'Application' },
+                    { name: 'object.namespace', op: '=', value: item.namespace },
+                    { name: 'object.name', op: '=', value: item.name },
+                ],
+            };
+            return {
+                name: 'overview',
+                params: { view: 'kubernetes' },
+                query: { ...this.$utils.contextQuery(), query: JSON.stringify(query) },
+            };
+        },
+        sortedResources(item) {
+            return [...item.resources].sort((a, b) => {
+                if (!!a.issue !== !!b.issue) return a.issue ? -1 : 1;
+                const aL = a.coroot_app_id && this.$utils.appId(a.coroot_app_id).name;
+                const bL = b.coroot_app_id && this.$utils.appId(b.coroot_app_id).name;
+                if (aL && !bL) return -1;
+                if (!aL && bL) return 1;
+                return this.formatResourceId(a.id).localeCompare(this.formatResourceId(b.id));
+            });
         },
         applyStatus(items, exceptKey) {
             FACETS.forEach((f) => {
@@ -273,62 +308,19 @@ export default {
                 [key]: this.selectedStatus[key] === value ? null : value,
             };
         },
-        formatResourceId(rid) {
-            const p = this.$utils.appId(rid);
-            return `${p.kind}:${p.name}`;
+        getVisibleResources(item) {
+            const all = this.sortedResources(item);
+            return this.isResourceExpanded(item.id) || all.length <= 1 ? all : all.slice(0, 1);
         },
-        appLink(applicationId) {
-            return {
-                name: 'overview',
-                params: { view: 'applications', id: applicationId },
-                query: this.$utils.contextQuery(),
-            };
+        isResourceExpanded(id) {
+            return !!this.expandedResources[id];
         },
-        eventsLink(item) {
-            const query = {
-                filters: [
-                    { name: 'object.kind', op: '=', value: item.type },
-                    { name: 'object.namespace', op: '=', value: item.namespace },
-                    { name: 'object.name', op: '=', value: item.name },
-                ],
-            };
-            return {
-                name: 'overview',
-                params: { view: 'kubernetes' },
-                query: { ...this.$utils.contextQuery(), query: JSON.stringify(query) },
-            };
+        toggleResourceExpansion(id) {
+            this.$set(this.expandedResources, id, !this.expandedResources[id]);
         },
-        sortedEntries(item) {
-            return [...item.inventory_entries].sort((a, b) => {
-                const aL = a.coroot_app_id && this.$utils.appId(a.coroot_app_id).name;
-                const bL = b.coroot_app_id && this.$utils.appId(b.coroot_app_id).name;
-                if (aL && !bL) return -1;
-                if (!aL && bL) return 1;
-                return this.formatResourceId(a.id).localeCompare(this.formatResourceId(b.id));
-            });
-        },
-        getVisibleEntries(item) {
-            const all = this.sortedEntries(item);
-            return this.isExpanded(item.id) || all.length <= 1 ? all : all.slice(0, 1);
-        },
-        isExpanded(id) {
-            return !!this.expandedEntries[id];
-        },
-        toggleExpansion(id) {
-            this.$set(this.expandedEntries, id, !this.expandedEntries[id]);
-        },
-        removeNamespace(ns) {
-            const i = this.selectedNamespaces.indexOf(ns);
-            if (i >= 0) this.selectedNamespaces.splice(i, 1);
-        },
-        updateQuery(updates) {
-            this.$router.replace({ query: { ...this.$route.query, ...updates } }).catch((err) => err);
-        },
-        stateFromUri() {
-            const q = this.$route.query;
-            this.selectedNamespaces = Array.isArray(q.namespaces) ? q.namespaces : q.namespaces ? [q.namespaces] : [];
-            this.selectedStatus = { status: q.status || null };
-            this.search = q.search || '';
+        removeProject(p) {
+            const i = this.selectedProjects.indexOf(p);
+            if (i >= 0) this.selectedProjects.splice(i, 1);
         },
     },
 
@@ -345,12 +337,15 @@ export default {
             },
             immediate: false,
         },
-        selectedNamespaces() {
-            this.updateQuery({ namespaces: this.selectedNamespaces.length > 0 ? this.selectedNamespaces : undefined });
+        selectedProjects() {
+            this.updateQuery({ projects: this.selectedProjects.length > 0 ? this.selectedProjects : undefined });
         },
         selectedStatus: {
             handler() {
-                this.updateQuery({ status: this.selectedStatus.status || undefined });
+                this.updateQuery({
+                    sync: this.selectedStatus.sync || undefined,
+                    health: this.selectedStatus.health || undefined,
+                });
             },
             deep: true,
         },
@@ -388,22 +383,22 @@ export default {
 .search:deep(input) {
     width: 100px !important;
 }
-.namespaces:deep(input) {
+.projects:deep(input) {
     width: 0 !important;
 }
-.namespaces.empty:deep(input) {
+.projects.empty:deep(input) {
     width: 100px !important;
 }
-.namespace {
+.project {
     margin: 4px 4px 0 0 !important;
     padding: 0 8px !important;
 }
-.namespace span {
+.project span {
     max-width: 20ch;
     overflow: hidden;
     text-overflow: ellipsis;
 }
-.namespace:deep(.v-icon) {
+.project:deep(.v-icon) {
     font-size: 16px !important;
 }
 .resources {
@@ -416,6 +411,16 @@ export default {
 }
 .resources-toggle {
     font-size: 12px;
+}
+.resource-issue {
+    font-size: 12px;
+    margin-left: 4px;
+    white-space: nowrap;
+}
+.op-time {
+    margin-left: 4px;
+    font-size: 12px;
+    color: rgba(0, 0, 0, 0.6);
 }
 .events-link {
     display: inline-flex;

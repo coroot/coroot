@@ -40,6 +40,12 @@ func mergeWorlds(worlds []*model.World, checkConfigs model.CheckConfigs) *model.
 				res.Flux.Merge(w.Flux)
 			}
 		}
+		if w.ArgoCD != nil {
+			if res.ArgoCD == nil {
+				res.ArgoCD = model.NewArgoCD()
+			}
+			res.ArgoCD.Merge(w.ArgoCD)
+		}
 		if w.IntegrationStatus.NodeAgent.Installed {
 			res.IntegrationStatus.NodeAgent.Installed = true
 		}
