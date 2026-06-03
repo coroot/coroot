@@ -50,6 +50,11 @@
                                 <v-icon dark>{{ v.icon }}</v-icon>
                             </v-badge>
                         </span>
+                        <span v-else-if="id === 'kubernetes' && menuCollapsed && kubernetesIssues">
+                            <v-badge color="orange" dot offset-y="6">
+                                <v-icon dark>{{ v.icon }}</v-icon>
+                            </v-badge>
+                        </span>
                         <v-icon v-else dark>{{ v.icon }}</v-icon>
                     </v-list-item-icon>
                     <v-list-item-content>
@@ -63,6 +68,12 @@
                             <span class="alert-pill ml-2">
                                 <span v-if="context.alerts.critical" class="critical">{{ context.alerts.critical }}</span>
                                 <span v-if="context.alerts.warning" class="warning">{{ context.alerts.warning }}</span>
+                            </span>
+                        </span>
+                        <span v-else-if="id === 'kubernetes' && kubernetesIssues" class="d-flex align-center">
+                            {{ v.name }}
+                            <span class="alert-pill ml-2">
+                                <span class="warning">{{ kubernetesIssues }}</span>
                             </span>
                         </span>
                         <template v-else>{{ v.name }}</template>
@@ -337,6 +348,11 @@ export default {
                 return 'warning';
             }
             return null;
+        },
+        kubernetesIssues() {
+            const f = this.context.fluxcd;
+            const a = this.context.argocd;
+            return (f ? f.issues : 0) + (a ? a.issues : 0);
         },
         systemAlertHeight() {
             return this.$vuetify.breakpoint.xs ? 64 : 32;

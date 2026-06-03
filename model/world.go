@@ -23,7 +23,8 @@ type World struct {
 	Nodes        []*Node
 	Applications map[ApplicationId]*Application
 
-	Flux *Flux
+	Flux   *Flux
+	ArgoCD *ArgoCD
 
 	AWS AWS
 

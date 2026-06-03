@@ -31,7 +31,9 @@ The following is an example of the reported payload:
         "clickhouse": true, // whether a Clickhouse integration is configured
         "tracing": true, // whether Distributed Tracing is enabled
         "logs": true, // whether Logs Monitoring is enabled
-        "profiles": true // whether Continuous Profiling is enabled
+        "profiles": true, // whether Continuous Profiling is enabled
+        "fluxcd": true, // whether Coroot has seen FluxCD resources
+        "argocd": true // whether Coroot has seen ArgoCD applications
     },
     "stack": {
         "clouds": ["aws", "hetzner", "ovh"], // based on the `node_cloud_info` metric
@@ -42,6 +44,7 @@ The following is an example of the reported payload:
         "projects": 2, // the number of configured projects
         "applications": 18, // the total number of applications
         "nodes": 10, // the total number of nodes
+        "gpus": 4, // the total number of GPUs across all nodes
         "instances": 50, // the total number of application instances (containers)
         "deployments": 1, // the number of application rollouts
         "deployment_summaries": {"-CPU": 1, "+Logs": 1, "-Memory": 1} // the number of notable changes during new deployments by type

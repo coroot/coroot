@@ -5,6 +5,7 @@
         <v-tabs :value="tab" height="40" show-arrows slider-size="2" class="px-4 pb-2">
             <v-tab v-for="t in tabs" :key="t.id" :to="{ params: { id: t.id } }" :tab-value="t.id" exact>
                 {{ t.name }}
+                <span v-if="t.issues" class="issues-badge">{{ t.issues }}</span>
             </v-tab>
         </v-tabs>
 
@@ -33,6 +34,11 @@
                     <FluxCD @loading="setLoading" @error="setError" />
                 </div>
             </template>
+            <template v-else-if="tab === 'argocd'">
+                <div class="pt-4">
+                    <ArgoCD @loading="setLoading" @error="setError" />
+                </div>
+            </template>
             <template v-else-if="tab === 'rollouts'">
                 <div class="pt-4">
                     <Deployments @loading="setLoading" @error="setError" />
@@ -47,9 +53,10 @@ import Views from '@/views/Views.vue';
 import Deployments from '@/views/Deployments.vue';
 import Logs from '@/components/Logs.vue';
 import FluxCD from '@/components/FluxCD.vue';
+import ArgoCD from '@/components/ArgoCD.vue';
 
 export default {
-    components: { Deployments, Views, Logs, FluxCD },
+    components: { Deployments, Views, Logs, FluxCD, ArgoCD },
     data() {
         return {
             tab: this.$route.params.id,
@@ -58,10 +65,9 @@ export default {
         };
     },
     mounted() {
-        if (!this.tabs.find((t) => t.id === this.tab)) {
-            if (this.$route.params.id) {
-                this.$router.replace({ params: { id: undefined } });
-            }
+        const known = [undefined, 'fluxcd', 'argocd', 'rollouts'];
+        if (this.$route.params.id && !known.includes(this.$route.params.id)) {
+            this.$router.replace({ params: { id: undefined } });
         }
     },
     watch: {
@@ -72,15 +78,17 @@ export default {
     },
     computed: {
         tabs() {
-            let tabs = [
-                { id: undefined, name: 'Events' },
-                { id: 'fluxcd', name: 'FluxCD' },
-                { id: 'rollouts', name: 'Rollouts' },
-            ];
-            if (this.$api.context && this.$api.context.fluxcd === false) {
-                tabs = tabs.filter((tab) => tab.id !== 'fluxcd');
+            const ctx = this.$api.context || {};
+            const flux = ctx.fluxcd;
+            const argo = ctx.argocd;
+            const tabs = [{ id: undefined, name: 'Events' }];
+            if (flux || this.tab === 'fluxcd') {
+                tabs.push({ id: 'fluxcd', name: 'FluxCD', issues: flux && flux.issues });
             }
-
+            if (argo || this.tab === 'argocd') {
+                tabs.push({ id: 'argocd', name: 'ArgoCD', issues: argo && argo.issues });
+            }
+            tabs.push({ id: 'rollouts', name: 'Rollouts' });
             return tabs;
         },
     },
@@ -96,4 +104,21 @@ export default {
 };
 </script>
 
-<style scoped></style>
+<style scoped>
+.issues-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    min-width: 16px;
+    height: 16px;
+    margin-left: 6px;
+    padding: 0 4px;
+    border-radius: 8px;
+    font-size: 11px !important;
+    line-height: 1;
+    letter-spacing: 0 !important;
+    color: white;
+    background-color: #ffa726;
+}
+</style>
