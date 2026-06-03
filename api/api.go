@@ -1803,6 +1803,11 @@ func (api *Api) Inspection(w http.ResponseWriter, r *http.Request, u *db.User) {
 				http.Error(w, "", http.StatusBadRequest)
 				return
 			}
+			if err := form.Validate(); err != nil {
+				klog.Warningln("bad request:", err)
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
 			if err = api.db.SaveCheckConfig(db.ProjectId(projectId), appId, checkId, form.Configs); err != nil {
 				klog.Errorln("failed to save check config:", err)
 				http.Error(w, "", http.StatusInternalServerError)
@@ -1813,6 +1818,11 @@ func (api *Api) Inspection(w http.ResponseWriter, r *http.Request, u *db.User) {
 			if err = forms.ReadAndValidate(r, &form); err != nil {
 				klog.Warningln("bad request:", err)
 				http.Error(w, "", http.StatusBadRequest)
+				return
+			}
+			if err := form.Validate(); err != nil {
+				klog.Warningln("bad request:", err)
+				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
 			}
 			if err = api.db.SaveCheckConfig(db.ProjectId(projectId), appId, checkId, form.Configs); err != nil {
