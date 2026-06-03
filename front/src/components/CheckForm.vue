@@ -19,6 +19,10 @@
                 <v-btn icon @click="emitValue(false)"><v-icon>mdi-close</v-icon></v-btn>
             </div>
 
+            <v-alert v-if="!form && error" color="red" icon="mdi-alert-octagon-outline" outlined text class="my-3">
+                {{ error }}
+            </v-alert>
+
             <v-form v-if="form" v-model="valid">
                 <CheckFormSLOAvailability v-if="check.id === 'SLOAvailability'" :appId="appId" :form="form" />
                 <CheckFormSLOLatency v-else-if="check.id === 'SLOLatency'" :appId="appId" :form="form" />
@@ -105,6 +109,7 @@ export default {
     methods: {
         get() {
             this.loading = true;
+            this.error = '';
             this.$api.getInspectionConfig(this.appId, this.check.id, (data, error) => {
                 this.loading = false;
                 if (error) {

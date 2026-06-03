@@ -19,6 +19,7 @@ import (
 	"github.com/coroot/coroot/prom"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
+	"github.com/prometheus/prometheus/promql/parser"
 )
 
 var (
@@ -89,6 +90,13 @@ func (f *CheckConfigForm) Valid() bool {
 	return true
 }
 
+func validateCustomQuery(query string) error {
+	if _, err := parser.ParseExpr(strings.ReplaceAll(query, "$RANGE", "1m")); err != nil {
+		return fmt.Errorf("invalid query: %s", err)
+	}
+	return nil
+}
+
 type CheckConfigSLOAvailabilityForm struct {
 	Configs []model.CheckConfigSLOAvailability `json:"configs"`
 	Default bool                               `json:"default"`
@@ -103,6 +111,20 @@ func (f *CheckConfigSLOAvailabilityForm) Valid() bool {
 	return true
 }
 
+func (f *CheckConfigSLOAvailabilityForm) Validate() error {
+	for _, c := range f.Configs {
+		if !c.Custom {
+			continue
+		}
+		for _, q := range []string{c.Total(), c.Failed()} {
+			if err := validateCustomQuery(q); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 type CheckConfigSLOLatencyForm struct {
 	Configs []model.CheckConfigSLOLatency `json:"configs"`
 	Default bool                          `json:"default"`
@@ -115,6 +137,18 @@ func (f *CheckConfigSLOLatencyForm) Valid() bool {
 		}
 	}
 	return true
+}
+
+func (f *CheckConfigSLOLatencyForm) Validate() error {
+	for _, c := range f.Configs {
+		if !c.Custom {
+			continue
+		}
+		if err := validateCustomQuery(c.Histogram()); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type ApplicationCategoryForm struct {

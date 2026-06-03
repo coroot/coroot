@@ -1723,12 +1723,11 @@ func (api *Api) Inspection(w http.ResponseWriter, r *http.Request, u *db.User) {
 	var category model.ApplicationCategory
 	if !appId.IsZero() {
 		app = world.GetApplication(appId)
-		if app == nil {
-			klog.Warningln("application not found:", appId)
-			http.Error(w, "Application not found", http.StatusNotFound)
-			return
+		if app != nil {
+			category = app.Category
+		} else {
+			category = project.CalcApplicationCategory(appId)
 		}
-		category = app.Category
 	}
 
 	switch r.Method {
@@ -1804,6 +1803,11 @@ func (api *Api) Inspection(w http.ResponseWriter, r *http.Request, u *db.User) {
 				http.Error(w, "", http.StatusBadRequest)
 				return
 			}
+			if err := form.Validate(); err != nil {
+				klog.Warningln("bad request:", err)
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
 			if err = api.db.SaveCheckConfig(db.ProjectId(projectId), appId, checkId, form.Configs); err != nil {
 				klog.Errorln("failed to save check config:", err)
 				http.Error(w, "", http.StatusInternalServerError)
@@ -1814,6 +1818,11 @@ func (api *Api) Inspection(w http.ResponseWriter, r *http.Request, u *db.User) {
 			if err = forms.ReadAndValidate(r, &form); err != nil {
 				klog.Warningln("bad request:", err)
 				http.Error(w, "", http.StatusBadRequest)
+				return
+			}
+			if err := form.Validate(); err != nil {
+				klog.Warningln("bad request:", err)
+				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
 			}
 			if err = api.db.SaveCheckConfig(db.ProjectId(projectId), appId, checkId, form.Configs); err != nil {
