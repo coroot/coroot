@@ -1723,12 +1723,11 @@ func (api *Api) Inspection(w http.ResponseWriter, r *http.Request, u *db.User) {
 	var category model.ApplicationCategory
 	if !appId.IsZero() {
 		app = world.GetApplication(appId)
-		if app == nil {
-			klog.Warningln("application not found:", appId)
-			http.Error(w, "Application not found", http.StatusNotFound)
-			return
+		if app != nil {
+			category = app.Category
+		} else {
+			category = project.CalcApplicationCategory(appId)
 		}
-		category = app.Category
 	}
 
 	switch r.Method {
