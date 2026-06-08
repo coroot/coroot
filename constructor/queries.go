@@ -392,6 +392,8 @@ var QUERIES = []Query{
 	qDB("redis_instance_info", `redis_instance_info`, "redis_version", "role"),
 	qDB("redis_commands_duration_seconds_total", `rate(redis_commands_duration_seconds_total[$RANGE])`, "cmd"),
 	qDB("redis_commands_total", `rate(redis_commands_total[$RANGE])`, "cmd"),
+	qDB("redis_db_keys", `redis_db_keys`, "db"),
+	qDB("redis_db_keys_expiring", `redis_db_keys_expiring`, "db"),
 
 	qDB("mongo_up", `mongo_up`),
 	qDB("mongo_scrape_error", `mongo_scrape_error`, "error", "warning"),

@@ -30,6 +30,7 @@ func (a *appAuditor) redis() {
 	table := report.GetOrCreateTable("Instance", "Role", "Status", "Version")
 	latencyChart := report.GetOrCreateChart("Redis average latency, seconds", nil)
 	queriesChart := report.GetOrCreateChartGroup("Redis queries on <selector>, per seconds", nil)
+	keyspaceChart := report.GetOrCreateChartGroup("Redis keyspace on <selector>, keys", nil)
 
 	availabilityCheck.AddWidget(table.Widget())
 	latencyCheck.AddWidget(latencyChart.Widget())
@@ -97,6 +98,18 @@ func (a *appAuditor) redis() {
 			}
 			queriesChart.GetOrCreateChart(i.Name).Stacked().Sorted().
 				AddMany(byCmd, 5, timeseries.NanSum)
+		}
+
+		if keyspaceChart != nil && (len(i.Redis.Keys) > 0 || len(i.Redis.KeysExpiring) > 0) {
+			byDb := map[string]model.SeriesData{}
+			for db, ts := range i.Redis.Keys {
+				byDb[db+" keys"] = ts
+			}
+			for db, ts := range i.Redis.KeysExpiring {
+				byDb[db+" expiring keys"] = ts
+			}
+			keyspaceChart.GetOrCreateChart(i.Name).Sorted().
+				AddMany(byDb, 20, timeseries.Max)
 		}
 	}
 }

@@ -10,10 +10,12 @@ type Redis struct {
 	Up    *timeseries.TimeSeries
 	Error LabelLastValue
 
-	Version   LabelLastValue
-	Role      LabelLastValue
-	Calls     map[string]*timeseries.TimeSeries
-	CallsTime map[string]*timeseries.TimeSeries
+	Version      LabelLastValue
+	Role         LabelLastValue
+	Calls        map[string]*timeseries.TimeSeries
+	CallsTime    map[string]*timeseries.TimeSeries
+	Keys         map[string]*timeseries.TimeSeries
+	KeysExpiring map[string]*timeseries.TimeSeries
 }
 
 func NewRedis(internalExporter bool) *Redis {
@@ -21,6 +23,8 @@ func NewRedis(internalExporter bool) *Redis {
 		InternalExporter: internalExporter,
 		Calls:            map[string]*timeseries.TimeSeries{},
 		CallsTime:        map[string]*timeseries.TimeSeries{},
+		Keys:             map[string]*timeseries.TimeSeries{},
+		KeysExpiring:     map[string]*timeseries.TimeSeries{},
 	}
 }
 

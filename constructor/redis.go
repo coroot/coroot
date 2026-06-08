@@ -35,5 +35,9 @@ func redis(instance *model.Instance, queryName string, m *model.MetricValues) {
 		instance.Redis.CallsTime[m.Labels["cmd"]] = merge(instance.Redis.CallsTime[m.Labels["cmd"]], m.Values, timeseries.Any)
 	case "redis_commands_total":
 		instance.Redis.Calls[m.Labels["cmd"]] = merge(instance.Redis.Calls[m.Labels["cmd"]], m.Values, timeseries.Any)
+	case "redis_db_keys":
+		instance.Redis.Keys[m.Labels["db"]] = merge(instance.Redis.Keys[m.Labels["db"]], m.Values, timeseries.Any)
+	case "redis_db_keys_expiring":
+		instance.Redis.KeysExpiring[m.Labels["db"]] = merge(instance.Redis.KeysExpiring[m.Labels["db"]], m.Values, timeseries.Any)
 	}
 }
