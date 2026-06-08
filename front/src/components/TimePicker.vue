@@ -74,6 +74,7 @@ export default {
         };
     },
 
+
     watch: {
         menu(v) {
             if (!v) {
@@ -115,6 +116,7 @@ export default {
             this.to = this.dates[1] + ' 23:59';
             this.picker = false;
         },
+
     },
 
     computed: {

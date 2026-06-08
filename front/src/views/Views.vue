@@ -16,8 +16,9 @@
                 </div>
                 <v-spacer />
 
-                <div class="ml-3">
+                <div class="ml-3 d-flex align-center gap-2">
                     <TimePicker :small="$vuetify.breakpoint.xsOnly" />
+                    <RefreshPicker :small="$vuetify.breakpoint.xsOnly" />
                 </div>
             </v-container>
         </v-app-bar>
@@ -34,6 +35,7 @@
 
 <script>
 import TimePicker from '@/components/TimePicker.vue';
+import RefreshPicker from '@/components/RefreshPicker.vue';
 
 export const views = {
     applications: { name: 'Applications', icon: 'mdi-apps' },
@@ -61,7 +63,7 @@ export default {
         noTitle: Boolean,
     },
 
-    components: { TimePicker },
+    components: { TimePicker, RefreshPicker },
 
     computed: {
         view() {

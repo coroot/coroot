@@ -283,10 +283,12 @@ export default {
         this.$events.watch(this, this.getUser, 'projects');
         this.getUser();
         window.addEventListener('keydown', this.searchListener);
+        document.addEventListener('visibilitychange', this.handleVisibilityChange);
     },
 
     beforeDestroy() {
         window.removeEventListener('keydown', this.searchListener);
+        document.removeEventListener('visibilitychange', this.handleVisibilityChange);
     },
 
     computed: {
@@ -427,6 +429,11 @@ export default {
         },
         refresh() {
             this.$events.emit('refresh');
+        },
+        handleVisibilityChange() {
+            if (document.visibilityState === 'visible') {
+                this.$events.emit('refresh');
+            }
         },
         toggleMenu() {
             this.menuCollapsed = !this.menuCollapsed;
