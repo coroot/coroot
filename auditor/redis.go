@@ -30,7 +30,7 @@ func (a *appAuditor) redis() {
 	table := report.GetOrCreateTable("Instance", "Role", "Status", "Version")
 	latencyChart := report.GetOrCreateChart("Redis average latency, seconds", nil)
 	queriesChart := report.GetOrCreateChartGroup("Redis queries on <selector>, per seconds", nil)
-	keyspaceChart := report.GetOrCreateChartGroup("Redis keyspace on <selector>, keys", nil)
+	keysChart := report.GetOrCreateChartGroup("Redis keys <selector>", nil)
 
 	availabilityCheck.AddWidget(table.Widget())
 	latencyCheck.AddWidget(latencyChart.Widget())
@@ -100,16 +100,30 @@ func (a *appAuditor) redis() {
 				AddMany(byCmd, 5, timeseries.NanSum)
 		}
 
-		if keyspaceChart != nil && (len(i.Redis.Keys) > 0 || len(i.Redis.KeysExpiring) > 0) {
+		if keysChart != nil && (len(i.Redis.Keys) > 0 || len(i.Redis.KeysExpiring) > 0) {
+			totalKeys := timeseries.NewAggregate(timeseries.NanSum)
+			for _, ts := range i.Redis.Keys {
+				totalKeys.Add(ts)
+			}
+			keysChart.GetOrCreateChart("overview").Feature().AddSeries(i.Name, totalKeys.Get())
+
 			byDb := map[string]model.SeriesData{}
 			for db, ts := range i.Redis.Keys {
-				byDb[db+" keys"] = ts
+				val := ts.Reduce(timeseries.NanSum)
+				if !timeseries.IsNaN(val) && val > 0 {
+					byDb[db+" keys"] = ts
+				}
 			}
 			for db, ts := range i.Redis.KeysExpiring {
-				byDb[db+" expiring keys"] = ts
+				val := ts.Reduce(timeseries.NanSum)
+				if !timeseries.IsNaN(val) && val > 0 {
+					byDb[db+" expiring keys"] = ts
+				}
 			}
-			keyspaceChart.GetOrCreateChart(i.Name).Sorted().
-				AddMany(byDb, 20, timeseries.Max)
+			if len(byDb) > 0 {
+				keysChart.GetOrCreateChart(i.Name).Sorted().
+					AddMany(byDb, 20, timeseries.Max)
+			}
 		}
 	}
 }
