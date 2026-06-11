@@ -254,7 +254,6 @@ export default {
         query: {
             handler(curr, prev) {
                 if (this.init) {
-                    this.init = false;
                     return;
                 }
                 this.setQuery(curr.view !== prev.view);
@@ -293,7 +292,7 @@ export default {
                         this.qb.items = ['=', '!='];
                         break;
                     case 'Message':
-                        this.qb.items = ['contains'];
+                        this.qb.items = ['contains', 'not contains'];
                         break;
                     case 'pattern.hash':
                         this.qb.items = ['='];
@@ -328,12 +327,17 @@ export default {
                     this.loadingError = error || data.message;
                     this.data.status = 'warning';
                     this.data.message = 'Failed to load logs';
+                    this.init = false;
                     return;
                 }
                 this.data = data;
                 this.form.service = this.data.service || '';
+                this.init = true;
                 this.query.source = this.data.source || '';
                 this.query.view = this.data.view || '';
+                this.$nextTick(() => {
+                    this.init = false;
+                });
             });
         },
         startRefresh(interval) {

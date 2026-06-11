@@ -236,13 +236,20 @@ func (q LogQuery) filters(attr *string) ([]string, []any) {
 
 	filters := utils.Uniq(q.Filters)
 	var message []string
+	var notMessage [][]string
 	byName := map[string][]LogFilter{}
 	for _, f := range filters {
 		if attr == nil && f.Name == "Message" {
 			fields := strings.FieldsFunc(f.Value, func(r rune) bool {
 				return unicode.IsSpace(r) || (r <= unicode.MaxASCII && !unicode.IsNumber(r) && !unicode.IsLetter(r))
 			})
-			message = append(message, fields...)
+			if f.Op == "not contains" {
+				if len(fields) > 0 {
+					notMessage = append(notMessage, fields)
+				}
+			} else {
+				message = append(message, fields...)
+			}
 			continue
 		}
 		if attr != nil && f.Name == *attr {
@@ -352,24 +359,32 @@ func (q LogQuery) filters(attr *string) ([]string, []any) {
 	}
 
 	if len(message) > 0 {
-		message = utils.Uniq(message)
-		var ands []string
-		for i, m := range message {
-			set := utils.NewStringSet(m, strings.ToLower(m), strings.ToUpper(m), strings.Title(m))
-			var ors []string
-			for j, s := range set.Items() {
-				name := fmt.Sprintf("token_%d_%d", i, j)
-				ors = append(ors, fmt.Sprintf("hasToken(Body, @%s)", name))
-				args = append(args, clickhouse.Named(name, s))
-			}
-			if len(ors) > 0 {
-				ands = append(ands, fmt.Sprintf("(%s)", strings.Join(ors, " OR ")))
-			}
+		if expr := messageTokensExpr(utils.Uniq(message), "token", &args); expr != "" {
+			where = append(where, expr)
 		}
-		if len(ands) > 0 {
-			where = append(where, strings.Join(ands, " AND "))
+	}
+	for k, tokens := range notMessage {
+		if expr := messageTokensExpr(utils.Uniq(tokens), fmt.Sprintf("not_token_%d", k), &args); expr != "" {
+			where = append(where, fmt.Sprintf("NOT (%s)", expr))
 		}
 	}
 
 	return where, args
+}
+
+func messageTokensExpr(tokens []string, prefix string, args *[]any) string {
+	var ands []string
+	for i, m := range tokens {
+		set := utils.NewStringSet(m, strings.ToLower(m), strings.ToUpper(m), strings.Title(m))
+		var ors []string
+		for j, s := range set.Items() {
+			name := fmt.Sprintf("%s_%d_%d", prefix, i, j)
+			ors = append(ors, fmt.Sprintf("hasToken(Body, @%s)", name))
+			*args = append(*args, clickhouse.Named(name, s))
+		}
+		if len(ors) > 0 {
+			ands = append(ands, fmt.Sprintf("(%s)", strings.Join(ors, " OR ")))
+		}
+	}
+	return strings.Join(ands, " AND ")
 }

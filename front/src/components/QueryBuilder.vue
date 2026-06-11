@@ -195,6 +195,8 @@ export default {
             let op = filter.op;
             if (filter.op === 'contains') {
                 op = '🔍';
+            } else if (filter.op === 'not contains') {
+                op = '!🔍';
             }
             return filter.name + ' ' + op + ' ' + filter.value;
         },

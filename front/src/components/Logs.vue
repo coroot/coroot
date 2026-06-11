@@ -301,7 +301,7 @@ export default {
                         this.qb.items = ['=', '!='];
                         break;
                     case 'Message':
-                        this.qb.items = ['contains'];
+                        this.qb.items = ['contains', 'not contains'];
                         break;
                     case 'pattern.hash':
                         this.qb.items = ['='];
