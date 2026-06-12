@@ -162,9 +162,19 @@ func renderEntries(ctx context.Context, v *View, ch *clickhouse.Client, app *mod
 	}
 	var err error
 	lq := clickhouse.LogQuery{
-		Ctx:     w.Ctx,
-		Filters: q.Filters,
-		Limit:   q.Limit,
+		Ctx:   w.Ctx,
+		Limit: q.Limit,
+	}
+	var clusterFilter *clickhouse.LogFilter
+	for _, f := range q.Filters {
+		if f.Name == "Cluster" {
+			clusterFilter = &f
+			continue
+		}
+		lq.Filters = append(lq.Filters, f)
+	}
+	if !clusterFilter.Matches(ch.Project().Name) {
+		return
 	}
 	lq.Services = app.LogQueryServices(v.Source, otelService)
 	if v.Source == model.LogSourceAgent {
