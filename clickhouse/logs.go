@@ -112,10 +112,14 @@ func (c *Client) GetLogFilters(ctx context.Context, query LogQuery, name string)
 	where, args := query.filters(&name)
 	var q string
 	var res []string
+	orderBy := "ORDER BY 1"
+	settings := ""
 	switch name {
 	case "":
 		res = append(res, "Severity", "Message", "Cluster")
-		q = "SELECT DISTINCT arrayJoin(arrayConcat(mapKeys(LogAttributes), mapKeys(ResourceAttributes)))"
+		q = "SELECT arrayJoin(arrayConcat(mapKeys(LogAttributes), mapKeys(ResourceAttributes))) AS k"
+		orderBy = `GROUP BY 1 HAVING NOT match(k, '\\.\\d+(\\.|$)') ORDER BY count(1) DESC, 1`
+		settings = " SETTINGS max_block_size=2048"
 	case "Severity":
 		q = "SELECT DISTINCT multiIf(SeverityNumber=0, 0, intDiv(SeverityNumber, 4)+1)"
 	case "Message":
@@ -128,7 +132,7 @@ func (c *Client) GetLogFilters(ctx context.Context, query LogQuery, name string)
 	}
 	q += " FROM @@table_otel_logs@@"
 	q += " WHERE " + strings.Join(where, " AND ")
-	q += " ORDER BY 1 LIMIT 1000"
+	q += " " + orderBy + " LIMIT 1000" + settings
 	rows, err := c.Query(ctx, q, args...)
 	if err != nil {
 		return nil, err
