@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/coroot/coroot/clickhouse"
@@ -99,6 +100,8 @@ func renderLogs(ctx context.Context, chs clickhouse.Clients, w *model.World, que
 	var err error
 	var items []string
 	suggest := utils.NewStringSet()
+	var suggestLock sync.Mutex
+	var suggestWg sync.WaitGroup
 	bySeverity := map[model.Severity]*timeseries.Aggregate{}
 	var overallEntries []*model.LogEntry
 
@@ -110,6 +113,20 @@ func renderLogs(ctx context.Context, chs clickhouse.Clients, w *model.World, que
 			items, err = ch.GetLogFilters(ctx, lq, *q.Suggest)
 			suggest.Add(items...)
 		} else {
+			if q.Since == "" {
+				suggestWg.Add(1)
+				go func(ch *clickhouse.Client, lq clickhouse.LogQuery) {
+					defer suggestWg.Done()
+					names, e := ch.GetLogFilters(ctx, lq, "")
+					if e != nil {
+						klog.Errorln(e)
+						return
+					}
+					suggestLock.Lock()
+					suggest.Add(names...)
+					suggestLock.Unlock()
+				}(ch, lq)
+			}
 			histogram, err = ch.GetLogsHistogram(ctx, lq)
 			for _, b := range histogram {
 				agg := bySeverity[b.Severity]
@@ -135,6 +152,7 @@ func renderLogs(ctx context.Context, chs clickhouse.Clients, w *model.World, que
 			return v
 		}
 	}
+	suggestWg.Wait()
 	v.Suggest = suggest.Items()
 
 	if len(bySeverity) > 0 {

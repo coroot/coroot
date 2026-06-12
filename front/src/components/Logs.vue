@@ -311,9 +311,13 @@ export default {
                 }
                 return;
             }
+            if (what === 'name') {
+                this.qb.items = this.view.suggest || [];
+                return;
+            }
             this.qb.loading = true;
             this.qb.error = '';
-            const query = JSON.stringify({ ...this.queryWithDefaults, suggest: what === 'value' ? name : '' });
+            const query = JSON.stringify({ ...this.queryWithDefaults, suggest: name });
             this.$api.getOverview('logs', query, (data, error) => {
                 this.qb.loading = false;
                 if (error || data.status === 'warning') {
