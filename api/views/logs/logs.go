@@ -9,6 +9,7 @@ import (
 	"slices"
 	"sort"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/coroot/coroot/clickhouse"
@@ -194,6 +195,19 @@ func renderEntries(ctx context.Context, v *View, ch *clickhouse.Client, app *mod
 	if q.Suggest != nil {
 		v.Suggest, err = ch.GetLogFilters(ctx, lq, *q.Suggest)
 	} else {
+		var wg sync.WaitGroup
+		if q.Since == "" {
+			wg.Add(1)
+			go func(lq clickhouse.LogQuery) {
+				defer wg.Done()
+				suggest, suggestErr := ch.GetLogFilters(ctx, lq, "")
+				if suggestErr != nil {
+					klog.Errorln(suggestErr)
+					return
+				}
+				v.Suggest = suggest
+			}(lq)
+		}
 		histogram, err = ch.GetLogsHistogram(ctx, lq)
 		if err == nil {
 			if q.Since != "" {
@@ -203,6 +217,7 @@ func renderEntries(ctx context.Context, v *View, ch *clickhouse.Client, app *mod
 			}
 			entries, err = ch.GetLogs(ctx, lq)
 		}
+		wg.Wait()
 	}
 
 	if err != nil {

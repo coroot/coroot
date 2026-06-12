@@ -7,7 +7,7 @@ RUN npm ci
 RUN npm run build-prod
 
 
-FROM golang:1.23-bullseye AS backend-builder
+FROM golang:1.25-bookworm AS backend-builder
 ARG VERSION=unknown
 
 RUN apt update && apt install -y liblz4-dev

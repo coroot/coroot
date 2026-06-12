@@ -302,9 +302,13 @@ export default {
                 }
                 return;
             }
+            if (what === 'name') {
+                this.qb.items = this.data.suggest || [];
+                return;
+            }
             this.qb.loading = true;
             this.qb.error = '';
-            const query = JSON.stringify({ ...this.query, suggest: what === 'value' ? name : '' });
+            const query = JSON.stringify({ ...this.query, suggest: name });
             this.$api.getLogs(this.appId, query, (data, error) => {
                 this.qb.loading = false;
                 if (error || data.status === 'warning') {
