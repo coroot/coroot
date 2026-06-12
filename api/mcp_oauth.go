@@ -113,6 +113,9 @@ func (api *Api) mcpIssueToken(audience string, userId int, clientId string, ttl 
 func (api *Api) MCPUserFromBearer(r *http.Request) *db.User {
 	auth := r.Header.Get("Authorization")
 	if !strings.HasPrefix(auth, mcpBearerPrefix) {
+		if api.authAnonymousRole != "" {
+			return db.AnonymousUser(api.authAnonymousRole)
+		}
 		return nil
 	}
 	token := strings.TrimPrefix(auth, mcpBearerPrefix)
@@ -126,6 +129,9 @@ func (api *Api) MCPUserFromBearer(r *http.Request) *db.User {
 	}
 	user, err := api.db.GetUser(userId)
 	if err != nil || user == nil {
+		if api.authAnonymousRole != "" {
+			return db.AnonymousUser(api.authAnonymousRole)
+		}
 		return nil
 	}
 	return user
