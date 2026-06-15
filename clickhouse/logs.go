@@ -108,18 +108,24 @@ func (c *Client) GetLogs(ctx context.Context, query LogQuery) ([]*model.LogEntry
 	return res, nil
 }
 
+const maxLogFilterScanWindow = 1 * timeseries.Hour
+
 func (c *Client) GetLogFilters(ctx context.Context, query LogQuery, name string) ([]string, error) {
+	if query.Since.IsZero() {
+		if window := query.Ctx.To.Sub(query.Ctx.From); window > maxLogFilterScanWindow {
+			query.Ctx.From = query.Ctx.To.Add(-maxLogFilterScanWindow)
+		}
+	}
 	where, args := query.filters(&name)
 	var q string
 	var res []string
 	orderBy := "ORDER BY 1"
-	settings := ""
+	settings := " SETTINGS max_block_size=2048, max_threads=4"
 	switch name {
 	case "":
 		res = append(res, "Severity", "Message", "Cluster")
 		q = "SELECT arrayJoin(arrayConcat(mapKeys(LogAttributes), mapKeys(ResourceAttributes))) AS k"
 		orderBy = `GROUP BY 1 HAVING NOT match(k, '\\.\\d+(\\.|$)') ORDER BY count(1) DESC, 1`
-		settings = " SETTINGS max_block_size=2048"
 	case "Severity":
 		q = "SELECT DISTINCT multiIf(SeverityNumber=0, 0, intDiv(SeverityNumber, 4)+1)"
 	case "Message":
