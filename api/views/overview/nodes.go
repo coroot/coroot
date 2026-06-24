@@ -30,8 +30,8 @@ type Node struct {
 	InstanceType          string            `json:"instance_type"`
 	Compute               string            `json:"compute"`
 	IPs                   []string          `json:"ips"`
-	CPUPercent            int               `json:"cpu_percent"`
-	MemoryPercent         int               `json:"memory_percent"`
+	CPUPercent            *int              `json:"cpu_percent"`
+	MemoryPercent         *int              `json:"memory_percent"`
 	GPUs                  int               `json:"gpus"`
 	TotalNetworkBandWidth int               `json:"total_network_band_width"`
 	NetworkBandwidth      *NetworkBandWidth `json:"network_bandwidth"`
@@ -68,11 +68,13 @@ func RenderNodes(w *model.World, project *db.Project) []Node {
 		}
 
 		if l := n.CpuUsagePercent.Last(); !timeseries.IsNaN(l) {
-			node.CPUPercent = int(l)
+			v := int(l)
+			node.CPUPercent = &v
 		}
 		if total := n.MemoryTotalBytes.Last(); !timeseries.IsNaN(total) {
 			if avail := n.MemoryAvailableBytes.Last(); !timeseries.IsNaN(avail) {
-				node.MemoryPercent = int(100 - avail/total*100)
+				v := int(100 - avail/total*100)
+				node.MemoryPercent = &v
 			}
 		}
 

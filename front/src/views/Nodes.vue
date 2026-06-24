@@ -31,8 +31,12 @@
             </template>
 
             <template #item.os="{ item }">
-                <AppIcon :icon="item.os" style="vertical-align: middle" />
-                <span v-if="item.kernel_version" class="caption grey--text ml-1">{{ item.kernel_version }}</span>
+                <div class="d-flex align-center">
+                    <AppIcon :icon="item.os" />
+                    <span v-if="item.kernel_version" class="caption grey--text ml-1 truncated" style="max-width: 50ch" :title="item.kernel_version">
+                        {{ item.kernel_version }}
+                    </span>
+                </div>
             </template>
 
             <template #item.status="{ item }">
@@ -74,7 +78,7 @@
 
             <template #item.cpu_percent="{ item }">
                 <v-progress-linear
-                    v-if="item.cpu_percent"
+                    v-if="item.cpu_percent != null"
                     background-color="blue lighten-3"
                     height="16"
                     color="blue lighten-1"
@@ -86,7 +90,7 @@
             </template>
             <template #item.memory_percent="{ item }">
                 <v-progress-linear
-                    v-if="item.memory_percent"
+                    v-if="item.memory_percent != null"
                     background-color="purple lighten-3"
                     height="16"
                     color="purple lighten-1"

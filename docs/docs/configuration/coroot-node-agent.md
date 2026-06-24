@@ -59,6 +59,29 @@ You can configure coroot-node-agent using command-line flags or environment vari
 | `--wal-dir` | `WAL_DIR` | `/tmp/coroot-node-agent` | Directory for WAL storage |
 | `--max-spool-size` | `MAX_SPOOL_SIZE` | `500MB` | Max size for on-disk spool |
 
+## Windows
+
+The Windows agent uses the same flags, but only the platform-independent subset. Linux-only capabilities (eBPF L7 tracing and profiling, cgroups, Java/Python/Node.js instrumentation, the ICMP pinger, systemd handling, and trace/profile export) do not apply.
+
+Flag names are identical (for example `--scrape-interval`), but **environment variables are prefixed with `COROOT_`**. On Windows environment variables are global, so the prefix avoids clashing with other software. For example, `SCRAPE_INTERVAL` becomes `COROOT_SCRAPE_INTERVAL`.
+
+| Flag | Env Variable | Description |
+|------|--------------|-------------|
+| `--collector-endpoint` | `COROOT_COLLECTOR_ENDPOINT` | Base URL of your Coroot instance |
+| `--api-key` | `COROOT_API_KEY` | Project API key |
+| `--scrape-interval` | `COROOT_SCRAPE_INTERVAL` | Metrics collection interval |
+| `--metrics-endpoint` / `--logs-endpoint` | `COROOT_METRICS_ENDPOINT` / `COROOT_LOGS_ENDPOINT` | Custom export URLs |
+| `--insecure-skip-verify` | `COROOT_INSECURE_SKIP_VERIFY` | Skip TLS verification of the collector |
+| `--ca-file` | `COROOT_CA_FILE` | Path to a custom CA certificate |
+| `--disable-log-parsing` | `COROOT_DISABLE_LOG_PARSING` | Disable Windows Event Log and container log collection |
+| `--disable-gpu-monitoring` | `COROOT_DISABLE_GPU_MONITORING` | Disable NVIDIA GPU monitoring |
+| `--container-allowlist` / `--container-denylist` | `COROOT_CONTAINER_ALLOWLIST` / `COROOT_CONTAINER_DENYLIST` | Regex of services to include or exclude |
+| `--provider` / `--region` / `--availability-zone` / `--instance-type` / `--instance-life-cycle` | `COROOT_PROVIDER` and so on | Override `node_cloud_info` labels |
+| `--wal-dir` / `--max-spool-size` | `COROOT_WAL_DIR` / `COROOT_MAX_SPOOL_SIZE` | Spool directory and max size |
+| `--listen` | `COROOT_LISTEN` | Local `/metrics` listen address |
+
+See the [Windows installation guide](../installation/windows) for setting these via the MSI or machine environment variables.
+
 ## Container Environment Variables
 
 You can disable specific functionality for individual containers by setting environment variables within the container:

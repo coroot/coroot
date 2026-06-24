@@ -9,6 +9,7 @@ const (
 	ApplicationTypePostgres        ApplicationType = "postgres"
 	ApplicationTypePgbouncer       ApplicationType = "pgbouncer"
 	ApplicationTypeMysql           ApplicationType = "mysql"
+	ApplicationTypeMSSQL           ApplicationType = "mssql"
 	ApplicationTypeCassandra       ApplicationType = "cassandra"
 	ApplicationTypeElasticsearch   ApplicationType = "elasticsearch"
 	ApplicationTypeOpensearch      ApplicationType = "opensearch"
@@ -48,7 +49,7 @@ func (at ApplicationType) IsDatabase() bool {
 	switch at {
 	case ApplicationTypeCassandra, ApplicationTypeMemcached,
 		ApplicationTypeZookeeper, ApplicationTypeElasticsearch, ApplicationTypeOpensearch, ApplicationTypePostgres,
-		ApplicationTypeMysql, ApplicationTypeRedis, ApplicationTypeKeyDB, ApplicationTypeValkey, ApplicationTypeDragonfly,
+		ApplicationTypeMysql, ApplicationTypeMSSQL, ApplicationTypeRedis, ApplicationTypeKeyDB, ApplicationTypeValkey, ApplicationTypeDragonfly,
 		ApplicationTypeMongodb, ApplicationTypePrometheus, ApplicationTypeVictoriaMetrics, ApplicationTypeVictoriaLogs,
 		ApplicationTypeClickHouse, ApplicationTypeFoundationDB:
 		return true

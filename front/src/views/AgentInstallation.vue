@@ -44,6 +44,7 @@
 
             <v-tabs v-model="tab" height="40" slider-size="2" class="mb-4">
                 <v-tab><v-icon class="mr-1">mdi-memory</v-icon>Linux node (Systemd)</v-tab>
+                <v-tab><v-icon class="mr-1">mdi-microsoft-windows</v-icon>Windows node</v-tab>
                 <v-tab><v-icon class="mr-1">mdi-docker</v-icon>Docker</v-tab>
                 <v-tab><v-icon class="mr-1">mdi-kubernetes</v-icon>Kubernetes</v-tab>
             </v-tabs>
@@ -72,6 +73,42 @@ sudo journalctl -u coroot-node-agent
                     <Code>
                         <pre>
 /usr/bin/coroot-node-agent-uninstall.sh
+                        </pre>
+                    </Code>
+                </v-tab-item>
+
+                <v-tab-item transition="none">
+                    <p>
+                        Run this in an <b>elevated</b> PowerShell (Run as administrator). It downloads the latest agent and installs it as a Windows
+                        service via the MSI package; re-running it upgrades an existing installation.
+                    </p>
+                    <Code :disabled="!valid">
+                        <pre>
+$env:COROOT_COLLECTOR_ENDPOINT = '{{ coroot_url || '&lt;COROOT_URL_HERE&gt;' }}'
+$env:COROOT_API_KEY = '{{ api_key || '&lt;API_KEY_HERE&gt;' }}'
+$env:COROOT_SCRAPE_INTERVAL = '{{ scrape_interval }}'
+iwr -useb https://raw.githubusercontent.com/coroot/coroot-node-agent/main/install.ps1 | iex
+                        </pre>
+                    </Code>
+                    <p>To view the agent log:</p>
+                    <Code>
+                        <pre>
+Get-WinEvent -ProviderName coroot-windows-agent -MaxEvents 50
+                        </pre>
+                    </Code>
+                    <p>
+                        To set additional options, define machine environment variables prefixed with <var>COROOT_</var> (e.g.
+                        <var>COROOT_SCRAPE_INTERVAL</var>, <var>COROOT_INSECURE_SKIP_VERIFY</var>) and restart the service:
+                    </p>
+                    <Code>
+                        <pre>
+Restart-Service coroot-windows-agent
+                        </pre>
+                    </Code>
+                    <p>To uninstall the agent, remove "Coroot Windows Agent" from Settings &gt; Apps, or run:</p>
+                    <Code>
+                        <pre>
+Get-Package "Coroot Windows Agent" | Uninstall-Package
                         </pre>
                     </Code>
                 </v-tab-item>

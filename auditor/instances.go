@@ -27,6 +27,7 @@ func (a *appAuditor) instances() {
 	up := timeseries.NewAggregate(timeseries.NanSum)
 	var availableInstances, unavailableInstances int
 	periodicJob := a.app.PeriodicJob()
+	nonNetworkWinApp := a.app.WindowsApp() && !a.app.ListensTCP()
 
 	for _, i := range a.app.Instances {
 		if instancesChart != nil {
@@ -129,7 +130,7 @@ func (a *appAuditor) instances() {
 			if r := c.Restarts.Reduce(timeseries.NanSum); !timeseries.IsNaN(r) {
 				restarts := int64(r)
 				instanceRestartsTotal += restarts
-				if !periodicJob {
+				if !periodicJob && !nonNetworkWinApp {
 					restartsCheck.Inc(restarts)
 					if restarts > int64(restartsCheck.Threshold) {
 						restartsCheck.AddItem("%s/%s", i.Name, c.Name)
@@ -170,6 +171,9 @@ func (a *appAuditor) instances() {
 	if periodicJob {
 		availabilityCheck.SetStatus(model.OK, "not checked for periodic jobs")
 		restartsCheck.SetStatus(model.OK, "not checked for periodic jobs")
+	} else if nonNetworkWinApp {
+		availabilityCheck.SetStatus(model.OK, "not checked for non-network windows services")
+		restartsCheck.SetStatus(model.OK, "not checked for non-network windows services")
 	} else if desired > 0 {
 		availabilityCheck.SetDesired(int64(desired))
 		available := float32(availabilityCheck.Count())

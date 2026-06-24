@@ -423,6 +423,26 @@ func (app *Application) PeriodicJob() bool {
 	return app.PeriodicSystemdJob
 }
 
+func (app *Application) WindowsApp() bool {
+	for _, i := range app.Instances {
+		if i.Node != nil && i.Node.GetOS() == OSWindows {
+			return true
+		}
+	}
+	return false
+}
+
+func (app *Application) ListensTCP() bool {
+	for _, i := range app.Instances {
+		for l := range i.TcpListens {
+			if l.Port != "0" {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func (app *Application) IsCorootComponent() bool {
 	for t := range app.ApplicationTypes() {
 		if t.IsCorootComponent() {
