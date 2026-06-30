@@ -105,6 +105,33 @@ Coroot supports two SSO protocols:
   <img alt="Keycloak SAML metadata" src="/img/docs/saml_keycloak_metadata.png" class="card w-600"/>
 * [Configure and enable](#configure-saml-for-coroot) SAML authentication for Coroot.
 
+### Setup SAML with OneLogin
+
+* Log in to the [OneLogin Admin portal](https://app.onelogin.com/).
+* Navigate to **Applications** > **Applications**, then click **Add App**.
+* Search for **SAML Custom Connector (Advanced)** and select it.
+* Enter a name for your Coroot integration (you can also upload the [logo](https://coroot.com/static/img/coroot_512.png)), then click **Save**.
+* On the **Configuration** tab, set the following fields, all using the `https://COROOT_ADDRESS/sso/saml` URL:
+  * **Audience (EntityID)**
+  * **Recipient**
+  * **ACS (Consumer) URL Validator**
+  * **ACS (Consumer) URL**
+
+  Leave **RelayState** empty — Coroot manages it automatically.
+  <img alt="OneLogin SAML configuration" src="/img/docs/saml_onelogin_params.png" class="card w-800"/>
+* On the **Parameters** tab, configure the attribute mappings.
+  :::info
+  Coroot expects to receive the following attributes: <b>Email</b>, <b>FirstName</b>, and <b>LastName</b>
+  :::
+  Add the `Email`, `FirstName`, and `LastName` fields, and set the **NameID value** to **Email**.
+  <img alt="OneLogin SAML attributes" src="/img/docs/saml_onelogin_attributes.png" class="card w-800"/>
+  For each field, make sure the **Include in SAML assertion** flag is enabled, otherwise the attribute won't be sent to Coroot.
+  <img alt="OneLogin SAML attribute - include in assertion" src="/img/docs/saml_onelogin_attribute_email.png" class="card w-600"/>
+* Click **Save**.
+* On the **Access** tab (or **Users**), assign the app to the users who should be able to log in to Coroot.
+* On the **SSO** tab, copy the **Issuer URL** / download the **Identity Provider Metadata XML**.
+* [Configure and enable](#configure-saml-for-coroot) SAML authentication for Coroot.
+
 ### Configure SAML for Coroot
 
 * Navigate to the **Project Settings** > **Organization** > **Single Sign-On (SAML)** section.
