@@ -37,8 +37,9 @@ func mergeWorlds(worlds []*model.World, checkConfigs model.CheckConfigs) *model.
 		}
 		if w.Flux != nil {
 			if res.Flux == nil {
-				res.Flux.Merge(w.Flux)
+				res.Flux = model.NewFlux()
 			}
+			res.Flux.Merge(w.Flux)
 		}
 		if w.ArgoCD != nil {
 			if res.ArgoCD == nil {
