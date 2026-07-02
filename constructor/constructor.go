@@ -160,10 +160,11 @@ func (c *Constructor) loadProjectWorld(ctx context.Context, cache Cache, project
 	prof.stage("load_dotnet", func() { c.loadDotNet(metrics, containers) })
 	prof.stage("load_python", func() { c.loadPython(metrics, containers) })
 	prof.stage("load_nodejs", func() { c.loadNodejs(metrics, containers) })
-	prof.stage("enrich_instances", func() { enrichInstances(w, metrics, rdsInstancesById, ecInstancesById) })
+	prof.stage("enrich_instances", func() { enrichInstances(w, metrics, rdsInstancesById, ecInstancesById, pjs) })
 	prof.stage("calc_app_categories", func() { c.calcApplicationCategories(w, project) })
 	prof.stage("group_custom_applications", func() { c.groupCustomApplications(w, project) })
 	prof.stage("join_db_cluster_components", func() { c.joinDBClusterComponents(w, project) })
+	prof.stage("load_postgres_backups", func() { loadPostgresBackups(w, metrics, project) })
 	prof.stage("load_app_settings", func() { c.loadApplicationSettings(w, project) })
 	prof.stage("load_app_sli", func() { c.loadSLIs(w, metrics, project) })
 	prof.stage("load_container_logs", func() { c.loadContainerLogs(metrics, containers, pjs) })
@@ -372,7 +373,7 @@ type podId struct {
 	name, ns string
 }
 
-func enrichInstances(w *model.World, metrics map[string][]*model.MetricValues, rdsInstancesById map[string]*model.Instance, ecInstanceById map[string]*model.Instance) {
+func enrichInstances(w *model.World, metrics map[string][]*model.MetricValues, rdsInstancesById map[string]*model.Instance, ecInstanceById map[string]*model.Instance, pjs promJobStatuses) {
 	instancesByListen := map[model.Listen]*model.Instance{}
 	instancesByPod := map[podId]*model.Instance{}
 	for _, app := range w.Applications {
@@ -410,9 +411,6 @@ func enrichInstances(w *model.World, metrics map[string][]*model.MetricValues, r
 
 	for _, queryName := range []string{"pg_up", "redis_up", "mongo_up", "memcached_up"} {
 		for _, m := range metrics[queryName] {
-			if !metricFromInternalExporter(m.Labels) {
-				continue
-			}
 			address := m.Labels["address"]
 			if address == "" {
 				continue
@@ -423,13 +421,13 @@ func enrichInstances(w *model.World, metrics map[string][]*model.MetricValues, r
 			}
 			switch queryName {
 			case "pg_up":
-				instance.Postgres = model.NewPostgres(true)
+				instance.Postgres = model.NewPostgres()
 			case "redis_up":
-				instance.Redis = model.NewRedis(true)
+				instance.Redis = model.NewRedis()
 			case "mongo_up":
-				instance.Mongodb = model.NewMongodb(true)
+				instance.Mongodb = model.NewMongodb()
 			case "memcached_up":
-				instance.Memcached = model.NewMemcached(true)
+				instance.Memcached = model.NewMemcached()
 			}
 		}
 	}
@@ -439,7 +437,7 @@ func enrichInstances(w *model.World, metrics map[string][]*model.MetricValues, r
 			switch {
 			case strings.HasPrefix(queryName, "pg_"):
 				instance := findInstance(instancesByPod, instancesByListenAddr, rdsInstancesById, ecInstanceById, m.Labels, model.ApplicationTypePostgres)
-				postgres(instance, queryName, m)
+				postgres(instance, queryName, m, pjs)
 			case strings.HasPrefix(queryName, "redis_"):
 				instance := findInstance(instancesByPod, instancesByListenAddr, rdsInstancesById, ecInstanceById, m.Labels, model.ApplicationTypeRedis, model.ApplicationTypeKeyDB)
 				redis(instance, queryName, m)
@@ -534,6 +532,9 @@ func (c *Constructor) joinDBClusterComponents(w *model.World, project *db.Projec
 				cluster = &appGroup{app: w.GetOrCreateApplication(id, false), members: map[model.ApplicationId]*model.Application{}}
 				dbClusters[id] = cluster
 			}
+			if app.Cluster.Manager != "" {
+				cluster.app.Cluster.Manager = app.Cluster.Manager
+			}
 			cluster.members[app.Id] = app
 		}
 	}
@@ -592,8 +593,4 @@ func getActualServiceInstance(instance *model.Instance, applicationTypes ...mode
 		}
 	}
 	return instance
-}
-
-func metricFromInternalExporter(ls model.Labels) bool {
-	return ls["job"] == "coroot-cluster-agent"
 }

@@ -44,6 +44,9 @@ func (ss *StringSet) Delete(s string) {
 }
 
 func (ss *StringSet) Len() int {
+	if ss == nil {
+		return 0
+	}
 	return len(ss.m)
 }
 

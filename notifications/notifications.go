@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/coroot/coroot/db"
@@ -74,7 +75,11 @@ func incidentDetails(app *model.Application, incident *model.ApplicationIncident
 				if r.Name == model.AuditReportSLO || ch.Status < model.WARNING {
 					continue
 				}
-				reports = append(reports, db.IncidentNotificationDetailsReport{Name: r.Name, Check: ch.Title, Message: ch.Message})
+				message := ch.Message
+				if ch.Details.Len() > 0 {
+					message += " (" + strings.Join(ch.Details.Items(), "; ") + ")"
+				}
+				reports = append(reports, db.IncidentNotificationDetailsReport{Name: r.Name, Check: ch.Title, Message: message})
 			}
 		}
 	} else {

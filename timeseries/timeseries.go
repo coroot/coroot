@@ -446,6 +446,42 @@ func (ts *TimeSeries) LastNotNull() (Time, float32) {
 	return tt, vv
 }
 
+func (ts *TimeSeries) LastNAvg(nPoints int, defaultValue float32) float32 {
+	if ts.IsEmpty() || len(ts.data) < nPoints {
+		return defaultValue
+	}
+	sum := float32(0)
+	count := 0
+	for _, v := range ts.data[len(ts.data)-nPoints:] {
+		if !IsNaN(v) {
+			sum += v
+			count++
+		}
+	}
+	if count > 0 {
+		return sum / float32(count)
+	}
+	return defaultValue
+}
+
+func (ts *TimeSeries) Average() float32 {
+	if ts.IsEmpty() {
+		return NaN
+	}
+	sum, count := float32(0), 0
+	iter := ts.Iter()
+	for iter.Next() {
+		if _, v := iter.Value(); !IsNaN(v) {
+			sum += v
+			count++
+		}
+	}
+	if count == 0 {
+		return NaN
+	}
+	return sum / float32(count)
+}
+
 func Increase(x, status *TimeSeries) *TimeSeries {
 	if x.IsEmpty() || status.IsEmpty() {
 		return nil

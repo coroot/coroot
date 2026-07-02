@@ -10,10 +10,7 @@ func memcached(instance *model.Instance, queryName string, m *model.MetricValues
 		return
 	}
 	if instance.Memcached == nil {
-		instance.Memcached = model.NewMemcached(false)
-	}
-	if instance.Memcached.InternalExporter != metricFromInternalExporter(m.Labels) {
-		return
+		instance.Memcached = model.NewMemcached()
 	}
 	switch queryName {
 	case "memcached_up":

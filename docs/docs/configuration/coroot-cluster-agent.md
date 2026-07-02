@@ -29,5 +29,6 @@ You can configure coroot-cluster-agent using command-line flags or environment v
 | `--collect-kubernetes-events` | `COLLECT_KUBERNETES_EVENTS` | `true` | Collect and forward Kubernetes events |
 | `--track-database-changes` | `TRACK_DATABASE_CHANGES` | `true` | Track schema and settings changes in databases |
 | `--track-database-sizes` | `TRACK_DATABASE_SIZES` | `true` | Collect per-database and per-table size metrics |
+| `--track-database-bloat` | `TRACK_DATABASE_BLOAT` | `true` | Estimate per-database, per-table and per-index bloat (PostgreSQL only) |
 | `--max-tables-per-database` | `MAX_TABLES_PER_DATABASE` | `1000` | Skip databases with more tables than this limit |
 | `--exclude-databases` | `EXCLUDE_DATABASES` | `postgres,mysql,information_schema,performance_schema,sys` | Databases to exclude from schema and size tracking (applies to both PostgreSQL and MySQL). MongoDB system databases (admin, config, local) are always excluded regardless of this setting. |

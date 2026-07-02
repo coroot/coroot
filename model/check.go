@@ -89,6 +89,13 @@ var Checks = struct {
 	PostgresLatency            CheckConfig
 	PostgresReplicationLag     CheckConfig
 	PostgresConnections        CheckConfig
+	PostgresCheckpoint         CheckConfig
+	PostgresWalArchiving       CheckConfig
+	PostgresWraparound         CheckConfig
+	PostgresBloat              CheckConfig
+	PostgresAutovacuum         CheckConfig
+	PostgresStaleStatistics    CheckConfig
+	PostgresBackups            CheckConfig
 	LogErrors                  CheckConfig
 	JvmAvailability            CheckConfig
 	JvmSafepointTime           CheckConfig
@@ -330,6 +337,65 @@ var Checks = struct {
 		ConditionFormatTemplate: "the number of connections > <threshold> of `max_connections`",
 		Unit:                    CheckUnitPercent,
 	},
+	PostgresCheckpoint: CheckConfig{
+		Category:                AuditReportPostgres,
+		Type:                    CheckTypeItemBased,
+		Title:                   "Postgres checkpoints",
+		DefaultThreshold:        3,
+		MessageTemplate:         `too long since the last checkpoint on {{.Items "postgres instance"}}`,
+		ConditionFormatTemplate: "time since the last checkpoint > <threshold> * `checkpoint_timeout`",
+	},
+	PostgresWalArchiving: CheckConfig{
+		Category:                AuditReportPostgres,
+		Type:                    CheckTypeItemBased,
+		Title:                   "Postgres WAL archiving",
+		DefaultThreshold:        0,
+		MessageTemplate:         `WAL archiving is failing on {{.Items "postgres instance"}}`,
+		ConditionFormatTemplate: "the most recent WAL archive attempt has failed",
+	},
+	PostgresWraparound: CheckConfig{
+		Category:                AuditReportPostgres,
+		Type:                    CheckTypeItemBased,
+		Title:                   "Postgres transaction ID wraparound",
+		DefaultThreshold:        50,
+		Unit:                    CheckUnitPercent,
+		MessageTemplate:         `transaction ID wraparound risk on {{.Items "postgres instance"}}`,
+		ConditionFormatTemplate: "the transaction ID age > <threshold> of the wraparound limit",
+	},
+	PostgresBloat: CheckConfig{
+		Category:                AuditReportPostgres,
+		Type:                    CheckTypeItemBased,
+		Title:                   "Postgres bloat",
+		DefaultThreshold:        50,
+		Unit:                    CheckUnitPercent,
+		MessageTemplate:         `{{.ItemsWithToBe "database"}} bloated`,
+		ConditionFormatTemplate: "the estimated wasted space of a database > <threshold> of its size",
+	},
+	PostgresAutovacuum: CheckConfig{
+		Category:                AuditReportPostgres,
+		Type:                    CheckTypeItemBased,
+		Title:                   "Postgres autovacuum",
+		DefaultThreshold:        2,
+		MessageTemplate:         `autovacuum is falling behind on {{.Items "postgres instance"}}`,
+		ConditionFormatTemplate: "a table sits above <threshold>x its autovacuum trigger threshold with a material amount of dead rows",
+	},
+	PostgresStaleStatistics: CheckConfig{
+		Category:                AuditReportPostgres,
+		Type:                    CheckTypeItemBased,
+		Title:                   "Postgres stale statistics",
+		DefaultThreshold:        2,
+		MessageTemplate:         `planner statistics are stale on {{.Items "postgres instance"}}`,
+		ConditionFormatTemplate: "a large table sits above <threshold>x its autoanalyze trigger threshold",
+	},
+	PostgresBackups: CheckConfig{
+		Category:                AuditReportPostgres,
+		Type:                    CheckTypeItemBased,
+		Title:                   "Postgres backups",
+		DefaultThreshold:        86400,
+		Unit:                    CheckUnitSecond,
+		MessageTemplate:         `backups are failing or stale on {{.Items "postgres cluster"}}`,
+		ConditionFormatTemplate: "no successful backup within <threshold>, the last backup failed, or WAL archiving is broken",
+	},
 	LogErrors: CheckConfig{
 		Category:                AuditReportLogs,
 		Type:                    CheckTypeEventBased,
@@ -508,14 +574,15 @@ func (c CheckContext) ThresholdPercent() string {
 }
 
 type Check struct {
-	Id                      CheckId   `json:"id"`
-	Title                   string    `json:"title"`
-	Status                  Status    `json:"status"`
-	Message                 string    `json:"message"`
-	Threshold               float32   `json:"threshold"`
-	Unit                    CheckUnit `json:"unit"`
-	ConditionFormatTemplate string    `json:"condition_format_template"`
-	Widgets                 []*Widget `json:"-"`
+	Id                      CheckId          `json:"id"`
+	Title                   string           `json:"title"`
+	Status                  Status           `json:"status"`
+	Message                 string           `json:"message"`
+	Threshold               float32          `json:"threshold"`
+	Unit                    CheckUnit        `json:"unit"`
+	ConditionFormatTemplate string           `json:"condition_format_template"`
+	Details                 *utils.StringSet `json:"details,omitempty"`
+	Widgets                 []*Widget        `json:"-"`
 
 	typ             CheckType
 	messageTemplate string
@@ -555,6 +622,16 @@ func (ch *Check) Fire() {
 func (ch *Check) SetStatus(status Status, format string, a ...any) {
 	ch.Status = status
 	ch.Message = fmt.Sprintf(format, a...)
+}
+
+func (ch *Check) AddDetail(format string, a ...any) {
+	if format == "" {
+		return
+	}
+	if ch.Details == nil {
+		ch.Details = utils.NewStringSet()
+	}
+	ch.Details.Add(fmt.Sprintf(format, a...))
 }
 
 func (ch *Check) AddItem(format string, a ...any) {

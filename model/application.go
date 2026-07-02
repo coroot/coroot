@@ -11,11 +11,29 @@ import (
 	"golang.org/x/exp/maps"
 )
 
+type ClusterManager string
+
+const (
+	ClusterManagerCNPG           ClusterManager = "cnpg"
+	ClusterManagerCrunchy        ClusterManager = "crunchy"
+	ClusterManagerZalando        ClusterManager = "zalando"
+	ClusterManagerStackGres      ClusterManager = "stackgres"
+	ClusterManagerPerconaMongoDB ClusterManager = "percona-mongodb"
+	ClusterManagerPerconaXtraDB  ClusterManager = "percona-xtradb"
+)
+
+type ApplicationCluster struct {
+	Manager ClusterManager
+	Backups *PgBackups
+}
+
 type Application struct {
 	Id ApplicationId
 
 	Custom   bool
 	Category ApplicationCategory
+
+	Cluster ApplicationCluster
 
 	Annotations ApplicationAnnotations
 

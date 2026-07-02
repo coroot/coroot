@@ -1,6 +1,6 @@
 <template>
     <v-simple-table dense>
-        <thead>
+        <thead v-if="header.some((h) => h && h.trim())">
             <tr>
                 <th class="text-left" v-for="h in header">{{ h }}</th>
             </tr>
@@ -76,6 +76,10 @@
                                 :title="c.value"
                                 >{{ c.value }}</router-link
                             >
+                            <span v-else-if="c.timestamp" class="text-no-wrap" :title="$format.date(c.timestamp, '{YYYY}-{MM}-{DD} {HH}:{mm}:{ss}')">
+                                {{ $format.date(c.timestamp, '{YYYY}-{MM}-{DD} {HH}:{mm}') }}
+                                <span v-for="t in c.tags" class="tag ml-1">{{ t }}</span>
+                            </span>
                             <span
                                 v-else
                                 :class="{ 'grey--text': c.is_stub, truncated: !!c.max_width }"
@@ -85,7 +89,7 @@
                             >
                             <span v-if="c.unit && c.value" class="caption grey--text ml-1">{{ c.unit }}</span>
                         </div>
-                        <div v-if="c.tags && !smallScreen">
+                        <div v-if="c.tags && !c.timestamp && !smallScreen">
                             <span v-for="t in c.tags" class="tag">{{ t }}</span>
                         </div>
                     </div>

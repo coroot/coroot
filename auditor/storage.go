@@ -27,6 +27,8 @@ func (a *appAuditor) storage() {
 	spaceCheck.AddWidget(spaceChart.Widget())
 
 	seenVolumes := false
+	investigated := map[string]bool{}
+	ioInvestigated := map[string]bool{}
 	isK8s := a.app.IsK8s()
 	for _, i := range a.app.Instances {
 		for _, v := range i.Volumes {
@@ -66,6 +68,10 @@ func (a *appAuditor) storage() {
 					}
 					if load > ioCheck.Threshold {
 						ioCheck.AddItem("%s:%s", i.Name, v.MountPoint)
+						if !ioInvestigated[i.Name] {
+							ioInvestigated[i.Name] = true
+							pgIOFindings(i, d, load, ioCheck)
+						}
 					}
 					if iopsChart != nil {
 						iopsChart.GetOrCreateChart(fullName).Stacked().Sorted().
@@ -99,6 +105,10 @@ func (a *appAuditor) storage() {
 						}
 						if percentage > spaceCheck.Threshold {
 							spaceCheck.AddItem("%s:%s", i.Name, v.MountPoint)
+							if !investigated[i.Name] {
+								investigated[i.Name] = true
+								pgDiskUsageFindings(i, capacity, spaceCheck)
+							}
 						}
 					}
 					report.GetOrCreateTable("Volume", "Latency", "I/O load", "Space", "Device").AddRow(

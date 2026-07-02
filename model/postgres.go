@@ -48,9 +48,63 @@ func (k DbTableKey) String() string {
 	return fmt.Sprintf("%s.%s", k.Db, k.Table)
 }
 
-type Postgres struct {
-	InternalExporter bool
+type DbIndexKey struct {
+	Db    string
+	Table string
+	Index string
+}
 
+func (k DbIndexKey) String() string {
+	return fmt.Sprintf("%s.%s", k.Table, k.Index)
+}
+
+type PgReplicationSlot struct {
+	Active      LabelLastValue
+	WalStatus   LabelLastValue
+	RetainedWal *timeseries.TimeSeries
+}
+
+type PgBackups struct {
+	Schedule            string
+	NextScheduledBackup timeseries.Time
+	RetentionPolicy     string
+	Methods             map[string]*PgBackupMethod
+	LastFailedBackup    timeseries.Time
+	Conditions          map[string]PgBackupCondition
+	Runs                []*PgBackupRun
+}
+
+type PgBackupMethod struct {
+	Destination              string
+	Endpoint                 string
+	Schedule                 string
+	LastSuccessfulBackup     timeseries.Time
+	FirstRecoverabilityPoint timeseries.Time
+}
+
+type PgBackupRun struct {
+	Name        string
+	Method      string
+	Kind        string
+	Destination string
+	Status      string
+	CompletedAt timeseries.Time
+}
+
+func (r *PgBackupRun) Succeeded() bool {
+	switch r.Status {
+	case "Succeeded", "completed":
+		return true
+	}
+	return false
+}
+
+type PgBackupCondition struct {
+	Status string
+	Reason string
+}
+
+type Postgres struct {
 	Up *timeseries.TimeSeries
 
 	Error   LabelLastValue
@@ -71,24 +125,83 @@ type Postgres struct {
 	P95 *timeseries.TimeSeries
 	P99 *timeseries.TimeSeries
 
-	WalCurrentLsn *timeseries.TimeSeries
-	WalReceiveLsn *timeseries.TimeSeries
-	WalReplayLsn  *timeseries.TimeSeries
+	WalCurrentLsn       *timeseries.TimeSeries
+	WalThroughput       *timeseries.TimeSeries
+	WalReceiveLsn       *timeseries.TimeSeries
+	WalReplayLsn        *timeseries.TimeSeries
+	WalReplayPaused     *timeseries.TimeSeries
+	WalReceiverStatus   *timeseries.TimeSeries
+	WalSize             *timeseries.TimeSeries
+	WalArchivedSegments *timeseries.TimeSeries
+	WalArchiveFailures  *timeseries.TimeSeries
+	WalArchivingStatus  *timeseries.TimeSeries
+
+	ReplicationSlots map[string]*PgReplicationSlot
+
+	XidAge        map[string]*timeseries.TimeSeries
+	MultixactAge  map[string]*timeseries.TimeSeries
+	OldestXminAge map[string]*timeseries.TimeSeries
+
+	CheckpointsScheduledByType map[string]*timeseries.TimeSeries
+	Checkpoints                *timeseries.TimeSeries
+	Restartpoints              *timeseries.TimeSeries
+	TimeSinceLastCheckpoint    *timeseries.TimeSeries
+	WalSinceLastCheckpoint     *timeseries.TimeSeries
+	BuffersWrittenBySource     map[string]*timeseries.TimeSeries
 
 	DatabaseSize map[string]*timeseries.TimeSeries
 	TableSize    map[DbTableKey]*timeseries.TimeSeries
+
+	DatabaseTableBloat map[string]*timeseries.TimeSeries
+	DatabaseIndexBloat map[string]*timeseries.TimeSeries
+	TableBloat         map[DbTableKey]*timeseries.TimeSeries
+	IndexBloat         map[DbIndexKey]*timeseries.TimeSeries
+
+	TableDeadTupleBytes         map[DbTableKey]*timeseries.TimeSeries
+	TableDeadTuples             map[DbTableKey]*timeseries.TimeSeries
+	TableLiveTuples             map[DbTableKey]*timeseries.TimeSeries
+	TableSecondsSinceAutovacuum map[DbTableKey]*timeseries.TimeSeries
+	TableVacuumInProgress       map[DbTableKey]*timeseries.TimeSeries
+	TableVacuumThrottled        map[DbTableKey]*timeseries.TimeSeries
+
+	TableModsSinceAnalyze    map[DbTableKey]*timeseries.TimeSeries
+	TableReltuples           map[DbTableKey]*timeseries.TimeSeries
+	TableSecondsSinceAnalyze map[DbTableKey]*timeseries.TimeSeries
+
+	TableSettings map[DbTableKey]map[string]float32
+
+	AutovacuumWorkers *timeseries.TimeSeries
 }
 
-func NewPostgres(internalExporter bool) *Postgres {
+func NewPostgres() *Postgres {
 	return &Postgres{
-		InternalExporter:              internalExporter,
 		Connections:                   map[PgConnectionKey]*timeseries.TimeSeries{},
 		AwaitingQueriesByLockingQuery: map[QueryKey]*timeseries.TimeSeries{},
 		Settings:                      map[string]PgSetting{},
 		PerQuery:                      map[QueryKey]*QueryStat{},
 		QueriesByDB:                   map[string]*timeseries.TimeSeries{},
+		CheckpointsScheduledByType:    map[string]*timeseries.TimeSeries{},
+		ReplicationSlots:              map[string]*PgReplicationSlot{},
+		XidAge:                        map[string]*timeseries.TimeSeries{},
+		MultixactAge:                  map[string]*timeseries.TimeSeries{},
+		OldestXminAge:                 map[string]*timeseries.TimeSeries{},
+		BuffersWrittenBySource:        map[string]*timeseries.TimeSeries{},
 		DatabaseSize:                  map[string]*timeseries.TimeSeries{},
 		TableSize:                     map[DbTableKey]*timeseries.TimeSeries{},
+		DatabaseTableBloat:            map[string]*timeseries.TimeSeries{},
+		DatabaseIndexBloat:            map[string]*timeseries.TimeSeries{},
+		TableBloat:                    map[DbTableKey]*timeseries.TimeSeries{},
+		IndexBloat:                    map[DbIndexKey]*timeseries.TimeSeries{},
+		TableDeadTupleBytes:           map[DbTableKey]*timeseries.TimeSeries{},
+		TableDeadTuples:               map[DbTableKey]*timeseries.TimeSeries{},
+		TableLiveTuples:               map[DbTableKey]*timeseries.TimeSeries{},
+		TableSecondsSinceAutovacuum:   map[DbTableKey]*timeseries.TimeSeries{},
+		TableVacuumInProgress:         map[DbTableKey]*timeseries.TimeSeries{},
+		TableVacuumThrottled:          map[DbTableKey]*timeseries.TimeSeries{},
+		TableModsSinceAnalyze:         map[DbTableKey]*timeseries.TimeSeries{},
+		TableReltuples:                map[DbTableKey]*timeseries.TimeSeries{},
+		TableSecondsSinceAnalyze:      map[DbTableKey]*timeseries.TimeSeries{},
+		TableSettings:                 map[DbTableKey]map[string]float32{},
 	}
 }
 
