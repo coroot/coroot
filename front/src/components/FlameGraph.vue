@@ -41,7 +41,8 @@
 import FlameGraphNode from './FlameGraphNode.vue';
 
 function maxDiff(root, node) {
-    const baseDiff = (node.total - node.comp) / (root.total - root.comp);
+    const baseTotal = root.total - root.comp;
+    const baseDiff = baseTotal ? (node.total - node.comp) / baseTotal : 0;
     const compDiff = node.comp / root.comp;
     const diff = Math.abs(compDiff - baseDiff);
     return Math.max(diff, ...(node.children || []).map((ch) => maxDiff(root, ch)));

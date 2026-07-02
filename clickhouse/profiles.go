@@ -108,7 +108,7 @@ func (c *Client) getDiffProfile(ctx context.Context, q ProfileQuery) (*model.Fla
 		root.InsertStack(stack, base+comp, &comp)
 	}
 
-	if root.Total == 0 || root.Total == root.Comp || root.Comp == 0 {
+	if root.Total == 0 || root.Comp == 0 {
 		return nil, nil
 	}
 
