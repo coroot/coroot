@@ -93,10 +93,11 @@ export default {
 
     computed: {
         rates() {
+            const baseTotal = this.root.total - this.root.comp;
             const r = {
                 root: (this.node.total / this.root.total) * 100,
                 parent: (this.node.total / this.parent.total) * 100,
-                base: ((this.node.total - this.node.comp) / (this.root.total - this.root.comp)) * 100,
+                base: baseTotal ? ((this.node.total - this.node.comp) / baseTotal) * 100 : 0,
                 comp: (this.node.comp / this.root.comp) * 100,
             };
             r.diff = r.comp - r.base;
