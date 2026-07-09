@@ -171,6 +171,7 @@ type IntegrationClickhouse struct {
 	InitialDatabase string          `json:"-"`
 	TlsEnable       bool            `json:"tls_enable"`
 	TlsSkipVerify   bool            `json:"tls_skip_verify"`
+	TlsCAFile       string          `json:"tls_ca_file"`
 }
 
 type IntegrationSlack struct {
