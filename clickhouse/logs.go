@@ -83,10 +83,14 @@ func (c *Client) GetLogsHistogram(ctx context.Context, query LogQuery) ([]model.
 
 func (c *Client) GetLogs(ctx context.Context, query LogQuery) ([]*model.LogEntry, error) {
 	where, args := query.filters(nil)
+	cond := strings.Join(where, " AND ")
+	limit := fmt.Sprint(query.Limit)
+	cutoff := "SELECT min(Timestamp) FROM (SELECT Timestamp FROM @@table_otel_logs@@ WHERE " + cond + " ORDER BY Timestamp DESC LIMIT " + limit + ")"
 	q := "SELECT ServiceName, Timestamp, multiIf(SeverityNumber=0, 0, intDiv(SeverityNumber, 4)+1), Body, TraceId, ResourceAttributes, LogAttributes"
 	q += " FROM @@table_otel_logs@@"
-	q += " WHERE " + strings.Join(where, " AND ")
-	q += " LIMIT " + fmt.Sprint(query.Limit)
+	q += " WHERE " + cond + " AND Timestamp >= (" + cutoff + ")"
+	q += " ORDER BY Timestamp DESC"
+	q += " LIMIT " + limit
 
 	rows, err := c.Query(ctx, q, args...)
 	if err != nil {
