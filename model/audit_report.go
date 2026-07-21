@@ -64,6 +64,37 @@ func (r *AuditReport) AddWidget(w *Widget) *Widget {
 	return w
 }
 
+func (r *AuditReport) ArrangeWidgets() {
+	var ungrouped []*Widget
+	var groups []string
+	byGroup := map[string][]*Widget{}
+	priorities := map[string]int{}
+	for _, w := range r.Widgets {
+		if w.Group == "" {
+			ungrouped = append(ungrouped, w)
+			continue
+		}
+		if _, ok := byGroup[w.Group]; !ok {
+			groups = append(groups, w.Group)
+			priorities[w.Group] = w.groupPriority
+		}
+		byGroup[w.Group] = append(byGroup[w.Group], w)
+	}
+	if len(groups) == 0 {
+		return
+	}
+	slices.SortStableFunc(groups, func(a, b string) int {
+		return priorities[a] - priorities[b]
+	})
+	widgets := make([]*Widget, 0, len(r.Widgets)+len(groups))
+	widgets = append(widgets, ungrouped...)
+	for _, g := range groups {
+		widgets = append(widgets, &Widget{GroupHeader: g, Width: "100%"})
+		widgets = append(widgets, byGroup[g]...)
+	}
+	r.Widgets = widgets
+}
+
 func (r *AuditReport) GetOrCreateChartGroup(title string, doc *DocLink) *ChartGroup {
 	if !r.detailed {
 		return nil

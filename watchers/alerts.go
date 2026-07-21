@@ -169,6 +169,9 @@ func (w *Alerts) evaluateCheckAlert(project *db.Project, rule *model.AlertingRul
 		if description != "" {
 			details = []model.AlertDetail{{Name: "Description", Value: description}}
 		}
+		if check.Details.Len() > 0 {
+			details = append(details, model.AlertDetail{Name: "Findings", Value: strings.Join(check.Details.Items(), "\n")})
+		}
 
 		if existingAlert == nil {
 			if rule.For > 0 {

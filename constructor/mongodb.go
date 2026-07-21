@@ -12,10 +12,7 @@ func mongodb(instance *model.Instance, queryName string, m *model.MetricValues) 
 		return
 	}
 	if instance.Mongodb == nil {
-		instance.Mongodb = model.NewMongodb(false)
-	}
-	if instance.Mongodb.InternalExporter != metricFromInternalExporter(m.Labels) {
-		return
+		instance.Mongodb = model.NewMongodb()
 	}
 	switch queryName {
 	case "mongo_up":

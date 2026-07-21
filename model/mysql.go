@@ -36,8 +36,6 @@ type MysqlTableIOStats struct {
 }
 
 type Mysql struct {
-	InternalExporter bool
-
 	Up         *timeseries.TimeSeries
 	ServerUUID LabelLastValue
 	Error      LabelLastValue
@@ -67,13 +65,12 @@ type Mysql struct {
 	TableSize    map[DbTableKey]*timeseries.TimeSeries
 }
 
-func NewMysql(internalExporter bool) *Mysql {
+func NewMysql() *Mysql {
 	return &Mysql{
-		InternalExporter: internalExporter,
-		PerQuery:         map[MysqlQueryKey]*MysqlQueryStat{},
-		TablesIOTime:     map[DbTableKey]*MysqlTableIOStats{},
-		DatabaseSize:     map[string]*timeseries.TimeSeries{},
-		TableSize:        map[DbTableKey]*timeseries.TimeSeries{},
+		PerQuery:     map[MysqlQueryKey]*MysqlQueryStat{},
+		TablesIOTime: map[DbTableKey]*MysqlTableIOStats{},
+		DatabaseSize: map[string]*timeseries.TimeSeries{},
+		TableSize:    map[DbTableKey]*timeseries.TimeSeries{},
 	}
 }
 

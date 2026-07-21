@@ -119,6 +119,14 @@
                                 </div>
                             </template>
                             <template v-else-if="d.name === 'KubernetesEventsQuery'" />
+                            <template v-else-if="d.name === 'Findings'">
+                                <div :key="'dl-' + i" class="label">Findings</div>
+                                <div :key="'dv-' + i" class="findings">
+                                    <div v-for="(f, j) in d.value.split('\n')" :key="j" class="finding">
+                                        <v-icon small color="amber darken-2" class="mr-1">mdi-alert</v-icon>{{ f }}
+                                    </div>
+                                </div>
+                            </template>
                             <template v-else>
                                 <div :key="'dl-' + i" class="label">{{ d.name }}</div>
                                 <div :key="'dv-' + i" :class="d.code ? 'description log-sample' : 'description'">
@@ -400,6 +408,16 @@ export default {
 }
 .description {
     white-space: pre-wrap;
+}
+.findings .finding {
+    display: block;
+    width: fit-content;
+    max-width: 100%;
+    font-size: 14px;
+    padding: 1px 8px;
+    margin: 2px 0;
+    background-color: var(--background-color-hi);
+    border-radius: 4px;
 }
 .description.log-sample {
     position: relative;

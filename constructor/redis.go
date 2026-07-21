@@ -10,10 +10,7 @@ func redis(instance *model.Instance, queryName string, m *model.MetricValues) {
 		return
 	}
 	if instance.Redis == nil {
-		instance.Redis = model.NewRedis(false)
-	}
-	if instance.Redis.InternalExporter != metricFromInternalExporter(m.Labels) {
-		return
+		instance.Redis = model.NewRedis()
 	}
 	switch queryName {
 	case "redis_up":

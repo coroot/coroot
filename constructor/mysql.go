@@ -10,7 +10,7 @@ func mysql(instance *model.Instance, queryName string, m *model.MetricValues) {
 		return
 	}
 	if instance.Mysql == nil {
-		instance.Mysql = model.NewMysql(true)
+		instance.Mysql = model.NewMysql()
 	}
 	switch queryName {
 	case "mysql_up":

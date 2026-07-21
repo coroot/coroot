@@ -10,7 +10,10 @@
             :doc="doc_link"
         />
         <DependencyMap v-if="w.dependency_map" :nodes="w.dependency_map.nodes" :links="w.dependency_map.links" />
-        <Table v-if="w.table" :header="w.table.header" :rows="w.table.rows" />
+        <template v-if="w.table">
+            <div v-if="w.table.title" class="table-title text-subtitle-2">{{ w.table.title }}</div>
+            <Table :header="w.table.header" :rows="w.table.rows" />
+        </template>
         <Heatmap v-if="w.heatmap" :heatmap="w.heatmap" :selection="heatmapSelection" @select="heatmapDrillDown" />
         <div v-if="w.flamegraph">
             <div style="font-size: 14px" v-html="w.flamegraph.title"></div>
@@ -105,5 +108,8 @@ export default {
     padding: 4px 8px;
     background-color: var(--background-color-hi);
     border-radius: 4px;
+}
+.table-title {
+    margin: 8px 0 4px;
 }
 </style>

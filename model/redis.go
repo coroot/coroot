@@ -5,8 +5,6 @@ import (
 )
 
 type Redis struct {
-	InternalExporter bool
-
 	Up    *timeseries.TimeSeries
 	Error LabelLastValue
 
@@ -18,13 +16,12 @@ type Redis struct {
 	KeysExpiring map[string]*timeseries.TimeSeries
 }
 
-func NewRedis(internalExporter bool) *Redis {
+func NewRedis() *Redis {
 	return &Redis{
-		InternalExporter: internalExporter,
-		Calls:            map[string]*timeseries.TimeSeries{},
-		CallsTime:        map[string]*timeseries.TimeSeries{},
-		Keys:             map[string]*timeseries.TimeSeries{},
-		KeysExpiring:     map[string]*timeseries.TimeSeries{},
+		Calls:        map[string]*timeseries.TimeSeries{},
+		CallsTime:    map[string]*timeseries.TimeSeries{},
+		Keys:         map[string]*timeseries.TimeSeries{},
+		KeysExpiring: map[string]*timeseries.TimeSeries{},
 	}
 }
 

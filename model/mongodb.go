@@ -5,8 +5,6 @@ import (
 )
 
 type Mongodb struct {
-	InternalExporter bool
-
 	Up          *timeseries.TimeSeries
 	Error       LabelLastValue
 	Warning     LabelLastValue
@@ -19,11 +17,10 @@ type Mongodb struct {
 	CollectionSize map[DbTableKey]*timeseries.TimeSeries
 }
 
-func NewMongodb(internalExporter bool) *Mongodb {
+func NewMongodb() *Mongodb {
 	return &Mongodb{
-		InternalExporter: internalExporter,
-		DatabaseSize:     map[string]*timeseries.TimeSeries{},
-		CollectionSize:   map[DbTableKey]*timeseries.TimeSeries{},
+		DatabaseSize:   map[string]*timeseries.TimeSeries{},
+		CollectionSize: map[DbTableKey]*timeseries.TimeSeries{},
 	}
 }
 

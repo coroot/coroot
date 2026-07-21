@@ -71,9 +71,10 @@ func Audit(w *model.World, p *db.Project, generateDetailedReportFor *model.Appli
 		for _, r := range a.reports {
 			widgets := a.enrichWidgets(r.Widgets, app.Events)
 			sort.SliceStable(widgets, func(i, j int) bool {
-				return widgets[i].Table != nil
+				return widgets[i].Table != nil && widgets[j].Table == nil
 			})
 			r.Widgets = widgets
+			r.ArrangeWidgets()
 
 			for _, ch := range r.Checks {
 				ch.Calc()

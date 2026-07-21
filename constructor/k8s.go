@@ -263,28 +263,32 @@ func podLabels(metrics []*model.MetricValues, pods map[string]*model.Instance) {
 			continue
 		}
 		cluster, role := "", ""
+		var manager model.ClusterManager
 		switch {
 		case m.Labels["label_postgres_operator_crunchydata_com_cluster"] != "":
 			cluster = m.Labels["label_postgres_operator_crunchydata_com_cluster"]
 			role = m.Labels["label_postgres_operator_crunchydata_com_role"]
+			manager = model.ClusterManagerCrunchy
 		case m.Labels["label_cluster_name"] != "" && m.Labels["label_team"] != "": // zalando pg operator
 			cluster = m.Labels["label_cluster_name"]
 			if m.Labels["label_application"] == "spilo" { // not a pooler (pgbouncer)
 				role = m.Labels["label_spilo_role"]
 			}
-		case m.Labels["label_k8s_enterprisedb_io_cluster"] != "":
-			cluster = m.Labels["label_k8s_enterprisedb_io_cluster"]
-			role = m.Labels["label_role"]
+			manager = model.ClusterManagerZalando
 		case m.Labels["label_cnpg_io_cluster"] != "":
 			cluster = m.Labels["label_cnpg_io_cluster"]
 			role = m.Labels["label_role"]
+			manager = model.ClusterManagerCNPG
 		case m.Labels["label_stackgres_io_cluster_name"] != "":
 			cluster = m.Labels["label_stackgres_io_cluster_name"]
 			role = m.Labels["label_role"]
+			manager = model.ClusterManagerStackGres
 		case m.Labels["label_app_kubernetes_io_managed_by"] == "percona-server-mongodb-operator":
 			cluster = m.Labels["label_app_kubernetes_io_instance"]
+			manager = model.ClusterManagerPerconaMongoDB
 		case m.Labels["label_app_kubernetes_io_managed_by"] == "percona-xtradb-cluster-operator":
 			cluster = m.Labels["label_app_kubernetes_io_instance"]
+			manager = model.ClusterManagerPerconaXtraDB
 		case strings.HasPrefix(m.Labels["label_helm_sh_chart"], "mongodb"):
 			if m.Labels["label_app_kubernetes_io_name"] != "" && m.Labels["label_app_kubernetes_io_instance"] != "" {
 				cluster = m.Labels["label_app_kubernetes_io_instance"] + "-" + m.Labels["label_app_kubernetes_io_name"]
@@ -312,6 +316,9 @@ func podLabels(metrics []*model.MetricValues, pods map[string]*model.Instance) {
 		}
 		if cluster != "" {
 			instance.ClusterName.Update(m.Values, cluster)
+			if manager != "" && instance.Owner != nil {
+				instance.Owner.Cluster.Manager = manager
+			}
 		}
 		if role == "master" {
 			role = "primary"

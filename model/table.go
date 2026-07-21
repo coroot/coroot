@@ -8,6 +8,7 @@ import (
 )
 
 type Table struct {
+	Title  string      `json:"title,omitempty"`
 	Header []string    `json:"header"`
 	Rows   []*TableRow `json:"rows"`
 
@@ -15,11 +16,30 @@ type Table struct {
 	widget *Widget
 }
 
+func (t *Table) SetTitle(title string) *Table {
+	if t == nil {
+		return nil
+	}
+	t.Title = title
+	return t
+}
+
 func (t *Table) Widget() *Widget {
 	if t == nil {
 		return nil
 	}
 	return t.widget
+}
+
+func (t *Table) Group(name string, priority int) *Table {
+	if t == nil {
+		return nil
+	}
+	if t.widget != nil {
+		t.widget.Group = name
+		t.widget.groupPriority = priority
+	}
+	return t
 }
 
 func NewTable(header ...string) *Table {
@@ -94,8 +114,17 @@ type TableCell struct {
 	Chart      *timeseries.TimeSeries `json:"chart"`
 	IsStub     bool                   `json:"is_stub"`
 	MaxWidth   int                    `json:"max_width"`
+	Timestamp  int64                  `json:"timestamp,omitempty"`
 
 	DeploymentSummaries []ApplicationDeploymentSummary `json:"deployment_summaries"`
+}
+
+func (c *TableCell) SetTimestamp(unixMs int64) *TableCell {
+	if c == nil {
+		return nil
+	}
+	c.Timestamp = unixMs
+	return c
 }
 
 func NewTableCell(values ...string) *TableCell {

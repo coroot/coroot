@@ -35,6 +35,21 @@ create extension pg_stat_statements;
                     </pre>
                 </Code>
                 <p>The <var>pg_stat_statements</var> extension should be loaded via the <var>shared_preload_libraries</var> server setting.</p>
+                <p>
+                    Enable <var>track_io_timing</var> to attribute disk I/O to specific queries. Without it, the per-query I/O time reported by
+                    <var>pg_stat_statements</var> is always zero.
+                </p>
+                <Code>
+                    <pre>
+alter system set track_io_timing = on;
+select pg_reload_conf();
+                    </pre>
+                </Code>
+                <p>
+                    Persist this setting in the server configuration so it survives restarts. If your Postgres is managed by an operator or a cloud
+                    provider (e.g., CloudNativePG, RDS), set <var>track_io_timing</var> in that platform's configuration instead — a runtime change
+                    may be reverted on the next restart or reconciliation.
+                </p>
             </template>
 
             <template v-if="type === 'mysql'">

@@ -251,6 +251,17 @@ func (ch *Chart) Feature() *Chart {
 	return ch
 }
 
+func (ch *Chart) Group(name string, priority int) *Chart {
+	if ch == nil {
+		return nil
+	}
+	if ch.widget != nil {
+		ch.widget.Group = name
+		ch.widget.groupPriority = priority
+	}
+	return ch
+}
+
 type ChartGroup struct {
 	ctx    timeseries.Context
 	Title  string   `json:"title"`
@@ -264,6 +275,17 @@ func (cg *ChartGroup) Widget() *Widget {
 		return nil
 	}
 	return cg.widget
+}
+
+func (cg *ChartGroup) Group(name string, priority int) *ChartGroup {
+	if cg == nil {
+		return nil
+	}
+	if cg.widget != nil {
+		cg.widget.Group = name
+		cg.widget.groupPriority = priority
+	}
+	return cg
 }
 
 func NewChartGroup(ctx timeseries.Context, title string) *ChartGroup {
@@ -295,6 +317,7 @@ func (cg *ChartGroup) GetOrCreateChart(title string) *Chart {
 		}
 	}
 	ch := NewChart(cg.ctx, title)
+	ch.widget = cg.widget
 	cg.Charts = append(cg.Charts, ch)
 	return ch
 }

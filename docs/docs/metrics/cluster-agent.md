@@ -14,6 +14,7 @@ Using the credentials provided by Coroot or via Kubernetes annotations, the agen
  * The agent can be integrated with AWS to discover RDS and ElastiCache clusters and collect their telemetry data.
  * The agent discovers and scrapes [custom metrics](/metrics/custom-metrics) from annotated pods.
  * The agent monitors GitOps tooling by reading [FluxCD](#fluxcd) and [ArgoCD](#argocd) custom resources through its embedded kube-state-metrics and exposing their state as metrics.
+ * The agent monitors [Postgres backups](#postgres-backups) of clusters managed by CloudNativePG and the Percona Operator for PostgreSQL, reading their custom resources through the embedded kube-state-metrics.
 
 ## Postgres
 
@@ -55,6 +56,11 @@ Using the credentials provided by Coroot or via Kubernetes annotations, the agen
   * wait_event_type: [type](https://www.postgresql.org/docs/current/monitoring-stats.html#WAIT-EVENT-TABLE) of event that the connection is waiting for.
   * query - If the state of a connection is `active`, this is the currently executing query.
   For `idle in transaction` connections, this is the last executed query. This label holds a normalized and obfuscated query.
+
+### pg_autovacuum_workers
+* **Description**: Number of running autovacuum worker processes
+* **Type**: Gauge
+* **Source**: `pg_stat_activity` (`backend_type = 'autovacuum worker'`)
 
 ### pg_latency_seconds
 * **Description**: Query execution time
@@ -148,6 +154,90 @@ SELECT * FROM tbl WHERE id=?;
 * **Type**: Counter
 * **Source**:  `pg_last_wal_replay_lsn()` or `pg_last_xlog_replay_location()`
 
+### WAL size and archiving
+
+### pg_wal_size_bytes
+* **Description**: Size of the WAL directory
+* **Type**: Gauge
+* **Source**: `pg_ls_waldir()`
+
+### pg_replication_slot_retained_wal_bytes
+* **Description**: Amount of WAL retained for the replication slot
+* **Type**: Gauge
+* **Source**: `pg_replication_slots` (`restart_lsn`); `wal_status` is reported on Postgres >= 13
+* **Labels**: slot, active, wal_status
+
+### pg_wal_archived_segments_total
+* **Description**: Number of WAL files successfully archived
+* **Type**: Counter
+* **Source**: `pg_stat_archiver`
+
+### pg_wal_archive_failures_total
+* **Description**: Number of failed attempts to archive WAL files
+* **Type**: Counter
+* **Source**: `pg_stat_archiver`
+
+### pg_wal_archiving_status
+* **Description**: 1 if the last WAL archive attempt succeeded, 0 if it failed
+* **Type**: Gauge
+* **Source**: `pg_stat_archiver`
+
+### Checkpoint metrics
+
+The agent tracks checkpoint activity from [`pg_stat_checkpointer`](https://www.postgresql.org/docs/current/monitoring-stats.html#MONITORING-PG-STAT-CHECKPOINTER-VIEW) (Postgres >= 17) or `pg_stat_bgwriter` (older versions). The counters are rebased and accumulated over the agent's lifetime.
+
+### pg_checkpoints_scheduled_total
+* **Description**: Number of scheduled checkpoints, including skipped ones
+* **Type**: Counter
+* **Source**: `pg_stat_checkpointer` (Postgres >= 17) or `pg_stat_bgwriter`
+* **Labels**: type (`timed`, `requested`)
+
+### pg_checkpoints_total
+* **Description**: Number of checkpoints that have been completed
+* **Type**: Counter
+* **Source**: `pg_stat_checkpointer` (Postgres >= 17) or `pg_stat_bgwriter`
+
+### pg_restartpoints_total
+* **Description**: Number of restartpoints that have been completed on a standby
+* **Type**: Counter
+* **Source**: `pg_stat_checkpointer.restartpoints_done` (Postgres >= 17)
+
+### pg_buffers_written_total
+* **Description**: Total number of dirty buffers flushed to disk
+* **Type**: Counter
+* **Source**: `pg_stat_checkpointer` (Postgres >= 17) or `pg_stat_bgwriter`
+* **Labels**: source (`checkpointer`)
+
+### pg_time_since_last_checkpoint_seconds
+* **Description**: Seconds since the last checkpoint observed by the agent
+* **Type**: Gauge
+* **Source**: Measured by the agent from the checkpoint completion counter
+
+### pg_wal_since_last_checkpoint_bytes
+* **Description**: Amount of WAL written since the last completed checkpoint (to be replayed in the case of a crash)
+* **Type**: Gauge
+* **Source**: `pg_control_checkpoint()` (`redo_lsn`)
+
+### Transaction ID age
+
+### pg_xid_age
+* **Description**: Transactions since the oldest unfrozen transaction ID (age of `datfrozenxid`)
+* **Type**: Gauge
+* **Source**: `pg_database`
+* **Labels**: db
+
+### pg_multixact_age
+* **Description**: Multixacts since the oldest unfrozen multixact ID (age of `datminmxid`)
+* **Type**: Gauge
+* **Source**: `pg_database`
+* **Labels**: db
+
+### pg_oldest_xmin_age
+* **Description**: Age, in transactions, of the oldest transaction ID held back from freezing, by holder
+* **Type**: Gauge
+* **Source**: `pg_stat_activity`, `pg_replication_slots`, `pg_prepared_xacts` (Postgres >= 10)
+* **Labels**: holder (`running_transaction`, `standby_feedback`, `replication_slot`, `prepared_transaction`)
+
 ### Change tracking
 
 When `--track-database-changes` is enabled, the agent detects and emits change events for:
@@ -157,7 +247,7 @@ When `--track-database-changes` is enabled, the agent detects and emits change e
 
 Each change event includes `db.system`, `db.target`, `db.name`, `db_change.object`, and `db_change.type` attributes.
 
-### Size metrics
+### Size and bloat metrics
 
 The agent collects database and table size metrics. For table sizes, only the top 20 largest tables across all databases are reported.
 
@@ -178,6 +268,158 @@ The agent collects database and table size metrics. For table sizes, only the to
 * **Type**: Gauge
 * **Source**: Computed from consecutive `pg_total_relation_size()` measurements
 * **Labels**: db, schema, table
+
+When `--track-database-bloat` is enabled, the agent also estimates wasted space (bloat) for tables and indexes from planner statistics (`pg_class.reltuples`/`relpages` and `pg_stats` column widths), without scanning table data. TOAST relations are excluded, and only the top tables and indexes by estimated bloat are reported per database. Estimates are approximate and depend on up-to-date `ANALYZE`/autovacuum statistics.
+
+### pg_db_table_bloat_bytes
+* **Description**: Estimated wasted space across all tables of the database
+* **Type**: Gauge
+* **Source**: Estimated from `pg_class` and `pg_stats`
+* **Labels**: db
+
+### pg_db_index_bloat_bytes
+* **Description**: Estimated wasted space across all indexes of the database
+* **Type**: Gauge
+* **Source**: Estimated from `pg_class` and `pg_stats`
+* **Labels**: db
+
+### pg_table_bloat_bytes
+* **Description**: Estimated wasted space in the table heap
+* **Type**: Gauge
+* **Source**: Estimated from `pg_class` and `pg_stats`
+* **Labels**: db, schema, table
+
+### pg_index_bloat_bytes
+* **Description**: Estimated wasted space in the index
+* **Type**: Gauge
+* **Source**: Estimated from `pg_class` and `pg_stats`
+* **Labels**: db, schema, table, index
+
+When `--track-database-sizes` is enabled, the agent also reports dead-row statistics — a leading indicator of autovacuum falling behind, distinct from bloat. The dead/live counts let Coroot compute *autovacuum pressure* (how many times past its own autovacuum trigger a table sits), and dead bytes provides materiality. All three are emitted from one query with one top-N ranking (by dead bytes), so every reported table carries the complete set.
+
+### pg_table_dead_tuple_bytes
+* **Description**: Estimated size of dead tuples not yet reclaimed by vacuum (heap size × dead fraction)
+* **Type**: Gauge
+* **Source**: `pg_stat_user_tables` (`n_dead_tup`, `n_live_tup`) and `pg_relation_size()`
+* **Labels**: db, schema, table
+
+### pg_table_dead_tuples
+* **Description**: Number of dead tuples not yet reclaimed by vacuum
+* **Type**: Gauge
+* **Source**: `pg_stat_user_tables` (`n_dead_tup`)
+* **Labels**: db, schema, table
+
+### pg_table_live_tuples
+* **Description**: Estimated number of live tuples
+* **Type**: Gauge
+* **Source**: `pg_stat_user_tables` (`n_live_tup`)
+* **Labels**: db, schema, table
+
+### pg_table_seconds_since_last_autovacuum
+* **Description**: Seconds since the last autovacuum of the table. Not reported for tables that have never been autovacuumed.
+* **Type**: Gauge
+* **Source**: `pg_stat_user_tables` (`now() - last_autovacuum`)
+* **Labels**: db, schema, table
+
+### pg_table_setting
+* **Description**: Info metric (value always `1`) carrying a table's per-table autovacuum and autoanalyze reloption overrides as labels. Reported only for tables that override at least one setting; an unset override is an empty label. Coroot uses the trigger overrides to compute pressure against the table's own vacuum and analyze triggers, and the cost overrides to pinpoint per-table throttling.
+* **Type**: Gauge
+* **Source**: `pg_class.reloptions`
+* **Labels**: db, schema, table, and the override values: `autovacuum_disabled` (`1` when `autovacuum_enabled=false`, which disables autoanalyze too), `autovacuum_vacuum_scale_factor`, `autovacuum_vacuum_threshold`, `autovacuum_vacuum_cost_delay`, `autovacuum_vacuum_cost_limit`, `autovacuum_analyze_scale_factor`, `autovacuum_analyze_threshold`
+
+### pg_table_vacuum_in_progress
+* **Description**: `1` if a vacuum is currently running on the table. Reported only while a vacuum is in progress. Lets Coroot tell a table that has a worker on it (possibly crawling) from one waiting for a free worker.
+* **Type**: Gauge
+* **Source**: [`pg_stat_progress_vacuum`](https://www.postgresql.org/docs/current/progress-reporting.html#VACUUM-PROGRESS-REPORTING) (Postgres >= 9.6)
+* **Labels**: db, schema, table
+
+### pg_table_vacuum_throttled
+* **Description**: `1` if the running vacuum is sleeping on the cost-based delay (`VacuumDelay` wait event) at scrape time, `0` otherwise. Reported only while a vacuum is in progress; a high average means the vacuum is being throttled by `autovacuum_vacuum_cost_delay`/`autovacuum_vacuum_cost_limit`.
+* **Type**: Gauge
+* **Source**: `pg_stat_progress_vacuum` joined with `pg_stat_activity` (`wait_event = 'VacuumDelay'`)
+* **Labels**: db, schema, table
+
+### pg_table_mods_since_analyze
+* **Description**: Rows modified (inserted, updated, or deleted) since the table's planner statistics were last analyzed. Unlike dead tuples this includes inserts, so it is collected as its own top-N (ranked by analyze pressure) rather than reusing the dead-tuple set. Coroot divides it by the autoanalyze trigger to compute how stale the statistics are.
+* **Type**: Gauge
+* **Source**: `pg_stat_user_tables` (`n_mod_since_analyze`)
+* **Labels**: db, schema, table
+
+### pg_table_reltuples
+* **Description**: The planner's estimate of the number of live rows in the table. Used as the denominator of analyze/vacuum pressure. Unlike `n_live_tup` it is persisted in `pg_class`, so it survives a replica promotion (which resets the cumulative `pg_stat_*` counters) and keeps pressure from spiking to a false value on a freshly promoted primary.
+* **Type**: Gauge
+* **Source**: `pg_class.reltuples`
+* **Labels**: db, schema, table
+
+### pg_table_seconds_since_last_analyze
+* **Description**: Seconds since the table's planner statistics were last refreshed by `ANALYZE` or autoanalyze. Not reported for tables that have never been analyzed.
+* **Type**: Gauge
+* **Source**: `pg_stat_user_tables` (`now() - greatest(last_analyze, last_autoanalyze)`)
+* **Labels**: db, schema, table
+
+## Postgres backups
+
+Backup state is collected through the agent's embedded kube-state-metrics from the custom resources of [CloudNativePG](https://cloudnative-pg.io/) (`cnpg`) and the [Percona Operator for PostgreSQL](https://docs.percona.com/percona-operator-for-postgresql/) (pgBackRest, `percona`). Every metric carries an `operator` label identifying the source and, via the common `namespace`/`name` labels, correlates to the corresponding `DatabaseCluster` application in Coroot, so a single operator-agnostic set of metrics powers the backup inspection.
+
+### pg_backup_target_info
+* **Description**: A configured backup destination. cnpg reports a single object-storage target, and pgBackRest reports one series per repository. Coroot assembles the destination from the explicit `path` or the object-storage sub-fields.
+* **Type**: Info
+* **Source**: `Cluster.spec.backup` (cnpg), `PerconaPGCluster.spec.backups.pgbackrest.repos` (Percona)
+* **Labels**: operator, method, path, endpoint, s3_bucket, s3_endpoint, gcs_bucket, azure_container, schedule, retention_policy
+
+### pg_cluster_status
+* **Description**: A cluster status condition (e.g. `ReadyForBackup`, `LastBackupSucceeded`, `ContinuousArchiving`, `PGBackRestRepoHostReady`). Value is 1 for the currently-active series. The reason feeds Coroot's "why backups are failing" hint.
+* **Type**: Info
+* **Source**: `.status.conditions`
+* **Labels**: operator, type, status, reason
+
+### pg_backup_last_successful_timestamp_seconds
+* **Description**: Time of the last successful backup, per method. Reported by cnpg. For Percona it is derived from the individual backup runs.
+* **Type**: Gauge
+* **Source**: `Cluster.status.lastSuccessfulBackupByMethod`
+* **Labels**: operator, method
+
+### pg_backup_first_recoverability_point_timestamp_seconds
+* **Description**: The oldest point in time the cluster can be restored to (start of the recovery window), per method.
+* **Type**: Gauge
+* **Source**: `Cluster.status.firstRecoverabilityPointByMethod`
+* **Labels**: operator, method
+
+### pg_backup_last_failed_timestamp_seconds
+* **Description**: Time of the last failed backup.
+* **Type**: Gauge
+* **Source**: `Cluster.status.lastFailedBackup`
+* **Labels**: operator
+
+### pg_backup_schedule_info
+* **Description**: The backup schedule (cron).
+* **Type**: Info
+* **Source**: `ScheduledBackup.spec.schedule` (cnpg)
+* **Labels**: operator, cluster, schedule
+
+### pg_backup_next_scheduled_timestamp_seconds
+* **Description**: When the next scheduled backup is due. Coroot also derives an expected next run from the schedule and the last backup, so an overdue schedule is detected even when the operator stops advancing this value.
+* **Type**: Gauge
+* **Source**: `ScheduledBackup.status.nextScheduleTime` (cnpg)
+* **Labels**: operator, cluster
+
+### pg_backup_info
+* **Description**: An individual backup run (one series per backup object), used to list recent backups. Carries immutable identity only. The run's phase is in `pg_backup_status`.
+* **Type**: Info
+* **Source**: `Backup` (cnpg), `PerconaPGBackup` (Percona)
+* **Labels**: operator, cluster, method, kind, path
+
+### pg_backup_status
+* **Description**: The current phase of a backup run (e.g. `Running`, `Succeeded`, `Failed`, `completed`). Value is 1 for the currently-active series (a run's phase changes over its lifecycle, so only the live series is used).
+* **Type**: Info
+* **Source**: `Backup.status.phase` (cnpg), `PerconaPGBackup.status.state` (Percona)
+* **Labels**: operator, status
+
+### pg_backup_completed_timestamp_seconds
+* **Description**: When a backup run completed.
+* **Type**: Gauge
+* **Source**: `Backup.status.stoppedAt` (cnpg), `PerconaPGBackup.status.completed` (Percona)
+* **Labels**: operator, cluster
 
 ## MySQL
 

@@ -13,9 +13,12 @@ type Widget struct {
 	Tracing   *Tracing   `json:"tracing,omitempty"`
 
 	GroupHeader string `json:"group_header,omitempty"`
+	Group       string `json:"group,omitempty"`
 
 	Width   string   `json:"width,omitempty"`
 	DocLink *DocLink `json:"doc_link,omitempty"`
+
+	groupPriority int
 }
 
 func (w *Widget) AddAnnotation(annotations ...Annotation) {
