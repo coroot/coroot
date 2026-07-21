@@ -5,7 +5,6 @@ import (
 	"embed"
 	"fmt"
 	"net/http"
-	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"path"
@@ -148,7 +147,6 @@ func main() {
 
 	router := mux.NewRouter()
 	router.Use(statsCollector.MiddleWare)
-	router.PathPrefix("/debug/pprof/").Handler(http.DefaultServeMux)
 	router.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {}).Methods(http.MethodGet)
 
 	router.HandleFunc("/v1/metrics", coll.Metrics)
@@ -228,9 +226,16 @@ func main() {
 	r.HandleFunc("/api/clickhouse-connect", a.ClickhouseConnect).Methods(http.MethodConnect)
 
 	r.HandleFunc("/stats", func(w http.ResponseWriter, r *http.Request) {
+		if a.GetUser(r) == nil {
+			return
+		}
 		statsCollector.RegisterRequest(r)
 	}).Methods(http.MethodPost)
 	r.HandleFunc("/stats", func(w http.ResponseWriter, r *http.Request) {
+		if a.GetUser(r) == nil {
+			http.Redirect(w, r, cfg.UrlBasePath+"login", http.StatusFound)
+			return
+		}
 		statsCollector.Stats(r, w)
 	}).Methods(http.MethodGet)
 
