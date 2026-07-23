@@ -190,6 +190,8 @@ func (p *Prometheus) Validate() error {
 type Auth struct {
 	AnonymousRole          string `yaml:"anonymous_role"`
 	BootstrapAdminPassword string `yaml:"bootstrap_admin_password"`
+	// HandoffSecret protects POST /api/auth/handoff for trusted callers (e.g. Kubero).
+	HandoffSecret string `yaml:"handoff_secret"`
 }
 
 func NewConfig() *Config {

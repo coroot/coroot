@@ -135,7 +135,7 @@ func main() {
 
 	statsCollector := stats.NewCollector(cfg.DisableUsageStatistics, instanceUuid, version, Edition, database, promCache, pricing, globalClickhouse)
 
-	a := api.NewApi(cfg, promCache, database, coll, statsCollector, pricing, rbac.NewStaticRoleManager(), nil, globalClickhouse, globalPrometheus, deploymentUuid, instanceUuid, nil)
+	a := api.NewApi(cfg, promCache, database, coll, statsCollector, pricing, rbac.NewDBRoleManager(database), nil, globalClickhouse, globalPrometheus, deploymentUuid, instanceUuid, nil)
 	err = a.AuthInit(cfg.Auth.AnonymousRole, cfg.Auth.BootstrapAdminPassword)
 	if err != nil {
 		klog.Exitln(err)
@@ -167,6 +167,9 @@ func main() {
 	r.UseEncodedPath()
 	r.HandleFunc("/api/login", a.Login).Methods(http.MethodPost)
 	r.HandleFunc("/api/logout", a.Logout).Methods(http.MethodPost)
+	// Kubero / trusted S2S handoff: mint OTT (secret) → browser consumes → coroot_session
+	r.HandleFunc("/api/auth/handoff", a.CreateHandoff).Methods(http.MethodPost)
+	r.HandleFunc("/api/auth/handoff", a.ConsumeHandoff).Methods(http.MethodGet)
 
 	r.HandleFunc("/api/user", a.Auth(a.User)).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/users", a.Auth(a.Users)).Methods(http.MethodGet, http.MethodPost)
