@@ -97,12 +97,7 @@
                             </tr>
                         </tbody>
                         <tfoot>
-                            <v-btn
-                                color="primary"
-                                small
-                                class="ml-1 mt-2"
-                                @click="form.permissions.push({ scope: '', action: '', object: '' })"
-                            >
+                            <v-btn color="primary" small class="ml-1 mt-2" @click="form.permissions.push({ scope: '', action: '', object: '' })">
                                 Add policy
                             </v-btn>
                         </tfoot>
