@@ -3,12 +3,6 @@
         <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text class="mt-2">
             {{ error }}
         </v-alert>
-        <v-alert v-if="disabled" color="info" outlined text>
-            Coroot Community Edition includes three predefined roles: Admin, Editor, and Viewer.
-            <br />
-            For more granular Role-Based Access Control (RBAC), upgrade to Coroot Enterprise (from $1 per CPU core/month).
-            <a href="https://coroot.com/account" target="_blank" class="font-weight-bold">Start</a> your free trial today.
-        </v-alert>
         <v-simple-table v-if="!error" dense class="table mt-5">
             <thead>
                 <tr>
@@ -17,7 +11,6 @@
                         <div class="d-flex">
                             <div>
                                 <span>{{ r.name }}</span>
-                                <span v-if="disabled && r.custom">*</span>
                             </div>
                             <div class="d-flex align-center">
                                 <v-btn v-if="r.custom" @click="edit(r)" x-small icon><v-icon x-small>mdi-pencil</v-icon></v-btn>
@@ -44,20 +37,19 @@
                 </tr>
             </tbody>
         </v-simple-table>
-        <v-btn v-if="!error" color="primary" @click="add()" small :disabled="disabled" class="mt-3">Add role</v-btn>
-        <div v-if="disabled" class="mt-2 grey--text">* - examples of fine-grained custom roles</div>
+        <v-btn v-if="!error" color="primary" @click="add()" small class="mt-3">Add role</v-btn>
 
         <v-dialog v-model="form.active" max-width="800">
             <v-card class="pa-4">
                 <div class="d-flex align-center font-weight-medium mb-4">
                     {{ form.title }}
-                    <v-btn v-if="form.action === 'edit'" :disabled="disabled" @click="form.action = 'delete'" icon small>
+                    <v-btn v-if="form.action === 'edit'" @click="form.action = 'delete'" icon small>
                         <v-icon small>mdi-trash-can-outline</v-icon>
                     </v-btn>
                     <v-spacer />
                     <v-btn icon @click="form.active = false"><v-icon>mdi-close</v-icon></v-btn>
                 </div>
-                <v-form v-model="form.valid" :disabled="disabled" ref="form" class="form">
+                <v-form v-model="form.valid" ref="form" class="form">
                     <div class="font-weight-medium">Name</div>
                     <v-text-field v-model="form.name" outlined dense :rules="[$validators.notEmpty]" />
                     <div class="font-weight-medium">Permission policies</div>
@@ -98,7 +90,7 @@
                                     <v-text-field v-model="p.object" outlined dense hide-details />
                                 </td>
                                 <td>
-                                    <v-btn small icon :disabled="disabled" @click="form.permissions.splice(i, 1)">
+                                    <v-btn small icon @click="form.permissions.splice(i, 1)">
                                         <v-icon small>mdi-trash-can-outline</v-icon>
                                     </v-btn>
                                 </td>
@@ -109,27 +101,23 @@
                                 color="primary"
                                 small
                                 class="ml-1 mt-2"
-                                :disabled="disabled"
                                 @click="form.permissions.push({ scope: '', action: '', object: '' })"
                             >
                                 Add policy
                             </v-btn>
                         </tfoot>
                     </v-simple-table>
-                    <div v-if="disabled" class="mb-2 caption grey--text">
-                        This form is disabled because adjusting role permissions is not supported in the Coroot Community Edition.
-                    </div>
                     <v-alert v-if="form.error" color="red" icon="mdi-alert-octagon-outline" outlined text>{{ form.error }}</v-alert>
                     <v-alert v-if="form.message" color="green" outlined text>{{ form.message }}</v-alert>
                     <div class="d-flex align-center">
                         <v-spacer />
                         <template v-if="form.action === 'delete'">
                             <div>Are you sure you want to delete the role?</div>
-                            <v-btn color="error" :disabled="disabled" @click="post" :loading="form.loading" small class="ml-2">Delete</v-btn>
+                            <v-btn color="error" @click="post" :loading="form.loading" small class="ml-2">Delete</v-btn>
                             <v-btn color="info" @click="form.action = 'edit'" small class="ml-2">Cancel</v-btn>
                         </template>
                         <template v-else>
-                            <v-btn color="primary" :disabled="disabled || !form.valid" @click="post" :loading="form.loading">Save</v-btn>
+                            <v-btn color="primary" :disabled="!form.valid" @click="post" :loading="form.loading">Save</v-btn>
                         </template>
                     </div>
                 </v-form>
@@ -144,7 +132,6 @@ export default {
         return {
             loading: false,
             error: '',
-            disabled: this.$coroot.edition !== 'Enterprise',
             roles: [],
             actions: [],
             scopes: [],

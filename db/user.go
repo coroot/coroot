@@ -6,6 +6,7 @@ import (
 	"errors"
 
 	"github.com/coroot/coroot/rbac"
+	"github.com/coroot/coroot/utils"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -152,6 +153,55 @@ func (db *DB) GetUser(id int) (*User, error) {
 		return nil, err
 	}
 	return &u, nil
+}
+
+func (db *DB) GetUserByEmail(email string) (*User, error) {
+	u := User{Email: email}
+	var roles string
+	err := db.db.QueryRow("SELECT id, name, roles FROM users WHERE email = $1", email).Scan(&u.Id, &u.Name, &roles)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	err = json.Unmarshal([]byte(roles), &u.Roles)
+	if err != nil {
+		return nil, err
+	}
+	return &u, nil
+}
+
+// EnsureUser returns an existing user by email or creates one with a random unusable password.
+// When the user already exists, name and role are updated when provided.
+func (db *DB) EnsureUser(email, name string, role rbac.RoleName) (*User, error) {
+	u, err := db.GetUserByEmail(email)
+	if err == nil {
+		if name == "" {
+			name = u.Name
+		}
+		if role == "" && len(u.Roles) > 0 {
+			role = u.Roles[0]
+		}
+		if err = db.UpdateUser(u.Id, email, "", name, role); err != nil {
+			return nil, err
+		}
+		return db.GetUser(u.Id)
+	}
+	if !errors.Is(err, ErrNotFound) {
+		return nil, err
+	}
+	if name == "" {
+		name = email
+	}
+	if role == "" {
+		role = rbac.RoleViewer
+	}
+	// Random unusable password — handoff users authenticate via session cookie only.
+	if err = db.AddUser(email, utils.RandomString(48), name, role); err != nil {
+		return nil, err
+	}
+	return db.GetUserByEmail(email)
 }
 
 func (db *DB) AddUser(email, password, name string, role rbac.RoleName) error {
