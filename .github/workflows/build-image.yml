@@ -25,6 +25,9 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Reclaim runner disk
+        run: bash "$GITHUB_WORKSPACE/.github/scripts/reclaim-runner-disk.sh"
+
       - uses: actions/setup-node@v5
         with:
           node-version: 24
