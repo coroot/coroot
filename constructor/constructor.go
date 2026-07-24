@@ -77,10 +77,6 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 		}
 		memberProjects = append(memberProjects, p)
 	}
-	checkConfigs, err := c.db.GetCheckConfigs(c.rootProject.Id)
-	if err != nil {
-		return nil, err
-	}
 	var worlds []*model.World
 	for _, mp := range memberProjects {
 		cache, ok := c.cacheClients[mp.Id]
@@ -93,7 +89,7 @@ func (c *Constructor) LoadWorld(ctx context.Context, from, to timeseries.Time, s
 		}
 		worlds = append(worlds, w)
 	}
-	return mergeWorlds(worlds, checkConfigs), nil
+	return mergeWorlds(worlds), nil
 }
 
 func (c *Constructor) loadProjectWorld(ctx context.Context, cache Cache, project *db.Project, from, to timeseries.Time, step timeseries.Duration, prof *Profile, parentProject *db.Project) (*model.World, error) {
