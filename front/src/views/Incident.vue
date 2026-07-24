@@ -47,6 +47,11 @@
                         </router-link>
                     </div>
 
+                    <div v-if="$api.context.multicluster && incident.cluster">
+                        <span class="field-name">Cluster</span>:
+                        <span>{{ incident.cluster }}</span>
+                    </div>
+
                     <div>
                         <span class="field-name"> Root Cause Analysis: </span>
                         <template v-if="incident.rca">

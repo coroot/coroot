@@ -30,16 +30,7 @@
             sort-desc
             must-sort
             no-data-text="No incidents found"
-            :headers="[
-                { value: 'incident', text: 'Incident', sortable: false },
-                { value: 'application', text: 'Application', sortable: false },
-                { value: 'description', text: 'Description', sortable: false },
-                { value: 'rca', text: 'Root Cause', sortable: false },
-                { value: 'impact', text: 'Impacted requests', sortable: true },
-                { value: 'opened_at', text: 'Opened at', sortable: true },
-                { value: 'duration', text: 'Duration', sortable: true },
-                { value: 'actions', text: '', sortable: false, align: 'end', width: '20px' },
-            ]"
+            :headers="headers"
             :footer-props="{ itemsPerPageOptions: [10, 20, 50, 100] }"
             @update:items-per-page="changeLimit"
         >
@@ -77,6 +68,14 @@
                 <div class="d-flex">
                     <span :class="{ 'grey--text': item.resolved_at }">
                         {{ $utils.appId(item.application_id).name }}
+                    </span>
+                </div>
+            </template>
+
+            <template #item.cluster="{ item }">
+                <div class="d-flex">
+                    <span :class="{ 'grey--text': item.resolved_at }">
+                        {{ item.cluster }}
                     </span>
                 </div>
             </template>
@@ -170,6 +169,23 @@ export default {
     },
 
     computed: {
+        headers() {
+            const headers = [
+                { value: 'incident', text: 'Incident', sortable: false },
+                { value: 'application', text: 'Application', sortable: false },
+                { value: 'cluster', text: 'Cluster', sortable: true },
+                { value: 'description', text: 'Description', sortable: false },
+                { value: 'rca', text: 'Root Cause', sortable: false },
+                { value: 'impact', text: 'Impacted requests', sortable: true },
+                { value: 'opened_at', text: 'Opened at', sortable: true },
+                { value: 'duration', text: 'Duration', sortable: true },
+                { value: 'actions', text: '', sortable: false, align: 'end', width: '20px' },
+            ];
+            if (!this.$api.context.multicluster) {
+                return headers.filter((h) => h.value !== 'cluster');
+            }
+            return headers;
+        },
         applications() {
             if (!this.incidents) {
                 return [];
