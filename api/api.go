@@ -1213,6 +1213,19 @@ func (api *Api) Alerts(w http.ResponseWriter, r *http.Request, u *db.User) {
 		}
 	}
 
+	if query.SortBy == "cluster" {
+		projectNames, err := api.db.GetProjectNames()
+		if err != nil {
+			klog.Errorln(err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		query.ClusterNames = make(map[string]string, len(projectNames))
+		for id, name := range projectNames {
+			query.ClusterNames[string(id)] = name
+		}
+	}
+
 	result, err := api.db.QueryAlerts(projectId, query)
 	if err != nil {
 		klog.Errorln(err)

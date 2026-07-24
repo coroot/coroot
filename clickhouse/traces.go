@@ -314,7 +314,7 @@ func (c *Client) getTraceSpanStats(ctx context.Context, q SpanQuery, filters []s
 
 	res := map[model.TraceSpanKey]*model.TraceSpanStats{}
 
-	var k model.TraceSpanKey
+	k := model.TraceSpanKey{Cluster: c.Project().Name}
 	for rows.Next() {
 		if err = rows.Scan(&k.ServiceName, &k.SpanName, &bucket, &total, &failed); err != nil {
 			return nil, err
@@ -489,6 +489,7 @@ func (c *Client) getTraceErrors(ctx context.Context, q SpanQuery) (map[model.Tra
 		for _, s := range errorSpans {
 			ls := s.Labels()
 			k := model.TraceSpanKey{
+				Cluster:     c.Project().Name,
 				ServiceName: s.ServiceName,
 				SpanName:    s.Name,
 				LabelsHash:  ls.Hash(),

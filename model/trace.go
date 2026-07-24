@@ -131,6 +131,7 @@ func (s *TraceSpan) Details() TraceSpanDetails {
 }
 
 type TraceSpanKey struct {
+	Cluster     string `json:"cluster"`
 	ServiceName string `json:"service_name"`
 	SpanName    string `json:"span_name"`
 	LabelsHash  uint64 `json:"-"`

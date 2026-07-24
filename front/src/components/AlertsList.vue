@@ -74,17 +74,7 @@
             :sort-desc.sync="sortDesc"
             must-sort
             no-data-text="No alerts found"
-            :headers="[
-                { value: 'select', text: '', sortable: false, width: '40px' },
-                { value: 'application', text: 'Application', sortable: true, width: '120px' },
-                { value: 'summary', text: 'Summary', sortable: true },
-                { value: 'notifications', text: 'Notifications', sortable: false },
-                { value: 'opened_at', text: 'Opened at', sortable: true },
-                { value: 'resolved_at', text: 'Resolved at', sortable: true },
-                { value: 'duration', text: 'Duration', sortable: true },
-                { value: 'rule', text: 'Rule', sortable: true },
-                { value: 'actions', text: '', sortable: false, align: 'end', width: '20px' },
-            ]"
+            :headers="headers"
             :footer-props="{ itemsPerPageOptions: [10, 20, 50, 100] }"
             @update:options="onOptionsChange"
         >
@@ -158,6 +148,14 @@
                     >
                         {{ $utils.appId(item.application_id).name }}
                     </router-link>
+                </div>
+            </template>
+
+            <template #item.cluster="{ item }">
+                <div class="app-name" :title="item.cluster">
+                    <span :class="{ 'grey--text': item.resolved_at || item.manually_resolved_at || item.suppressed }">
+                        {{ item.cluster }}
+                    </span>
                 </div>
             </template>
 
@@ -262,6 +260,24 @@ export default {
     },
 
     computed: {
+        headers() {
+            const headers = [
+                { value: 'select', text: '', sortable: false, width: '40px' },
+                { value: 'application', text: 'Application', sortable: true, width: '120px' },
+                { value: 'cluster', text: 'Cluster', sortable: true, width: '120px' },
+                { value: 'summary', text: 'Summary', sortable: true },
+                { value: 'notifications', text: 'Notifications', sortable: false },
+                { value: 'opened_at', text: 'Opened at', sortable: true },
+                { value: 'resolved_at', text: 'Resolved at', sortable: true },
+                { value: 'duration', text: 'Duration', sortable: true },
+                { value: 'rule', text: 'Rule', sortable: true },
+                { value: 'actions', text: '', sortable: false, align: 'end', width: '20px' },
+            ];
+            if (!this.$api.context.multicluster) {
+                return headers.filter((h) => h.value !== 'cluster');
+            }
+            return headers;
+        },
         items() {
             if (!this.alerts) {
                 return [];
