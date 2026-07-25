@@ -17,6 +17,19 @@ This initial password can be changed later through the UI.
 To disable authentication, use the `--auth-anonymous-role` CLI argument or the `AUTH_ANONYMOUS_ROLE` environment variable, 
 setting it to one of the following roles: `Admin`, `Editor`, or `Viewer`.
 
+## Trusted session handoff (Kubero)
+
+Trusted callers (e.g. Kubero) can mint a short-lived, single-use handoff token and deep-link a user into Coroot without
+sharing passwords:
+
+1. Set `AUTH_HANDOFF_SECRET` (or `--auth-handoff-secret`) on Coroot.
+2. `POST /api/auth/handoff` with header `X-Handoff-Secret: <secret>` (or `Authorization: Bearer <secret>`) and JSON body:
+   `{ "email", "name?", "role?", "redirect?", "ttl_seconds?", "permissions?" }`.
+3. Open the returned `handoff_url` in the browser; Coroot sets the `coroot_session` cookie and redirects to `redirect`
+   (relative path only, e.g. `/p/<projectId>/...`).
+
+When `permissions` is provided with a non-builtin `role`, Coroot upserts that custom role before assigning it to the user.
+
 ## Reset admin password
 
 To reset admin password, use the following command:

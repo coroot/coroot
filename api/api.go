@@ -57,6 +57,7 @@ type Api struct {
 
 	authSecret        string
 	authAnonymousRole rbac.RoleName
+	handoffs          handoffStore
 
 	deploymentUuid string
 	instanceUuid   string
@@ -192,25 +193,88 @@ func (api *Api) Users(w http.ResponseWriter, r *http.Request, u *db.User) {
 
 func (api *Api) Roles(w http.ResponseWriter, r *http.Request, u *db.User) {
 	if r.Method == http.MethodPost {
-		http.Error(w, "", http.StatusMethodNotAllowed)
+		if !api.IsAllowed(u, rbac.Actions.Roles().Edit()) {
+			http.Error(w, "You are not allowed to edit roles.", http.StatusForbidden)
+			return
+		}
+		mgr, ok := api.roles.(rbac.MutableRoleManager)
+		if !ok {
+			http.Error(w, "custom roles are not supported", http.StatusMethodNotAllowed)
+			return
+		}
+		var form forms.RoleForm
+		if err := forms.ReadAndValidate(r, &form); err != nil {
+			klog.Warningln("bad request:", err)
+			http.Error(w, "", http.StatusBadRequest)
+			return
+		}
+		switch form.Action {
+		case forms.RoleActionAdd, forms.RoleActionEdit:
+			if form.Name.Builtin() {
+				http.Error(w, "Cannot modify a builtin role.", http.StatusBadRequest)
+				return
+			}
+			if form.Action == forms.RoleActionEdit && form.Id != "" && form.Id != form.Name {
+				if form.Id.Builtin() {
+					http.Error(w, "Cannot rename a builtin role.", http.StatusBadRequest)
+					return
+				}
+				if err := mgr.DeleteRole(form.Id); err != nil && !errors.Is(err, db.ErrNotFound) {
+					klog.Errorln(err)
+					http.Error(w, "", http.StatusInternalServerError)
+					return
+				}
+			}
+			perms, err := form.PermissionSet()
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			if err := mgr.SaveRole(form.Name, perms); err != nil {
+				klog.Errorln(err)
+				if errors.Is(err, db.ErrConflict) {
+					http.Error(w, "Cannot modify a builtin role.", http.StatusConflict)
+					return
+				}
+				http.Error(w, "", http.StatusInternalServerError)
+				return
+			}
+		case forms.RoleActionDelete:
+			name := form.Id
+			if name == "" {
+				name = form.Name
+			}
+			if name.Builtin() {
+				http.Error(w, "Cannot delete a builtin role.", http.StatusBadRequest)
+				return
+			}
+			if err := mgr.DeleteRole(name); err != nil {
+				klog.Errorln(err)
+				if errors.Is(err, db.ErrNotFound) {
+					http.Error(w, "Role not found.", http.StatusNotFound)
+					return
+				}
+				if errors.Is(err, db.ErrConflict) {
+					http.Error(w, "Cannot delete a builtin role.", http.StatusConflict)
+					return
+				}
+				http.Error(w, "", http.StatusInternalServerError)
+				return
+			}
+		default:
+			http.Error(w, "", http.StatusBadRequest)
+			return
+		}
 		return
 	}
-	qaSample := rbac.NewRole("QA",
-		rbac.NewPermission(rbac.ScopeProjectAll, rbac.ActionAll, rbac.Object{"project_id": "staging"}),
-	)
-	dbaSample := rbac.NewRole("DBA",
-		rbac.NewPermission(rbac.ScopeProjectInstrumentations, rbac.ActionEdit, nil),
-		rbac.NewPermission(rbac.ScopeApplication, rbac.ActionView, rbac.Object{"application_category": "databases"}),
-		rbac.NewPermission(rbac.ScopeNode, rbac.ActionView, rbac.Object{"node_name": "db*"}),
-		rbac.NewPermission(rbac.ScopeDashboard, rbac.ActionView, rbac.Object{"dashboard_name": "db*"}),
-	)
+
 	roles, err := api.roles.GetRoles()
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
-	utils.WriteJson(w, views.Roles(append(roles, qaSample, dbaSample)))
+	utils.WriteJson(w, views.Roles(roles))
 }
 
 func (api *Api) SSO(w http.ResponseWriter, r *http.Request, u *db.User) {
@@ -233,6 +297,7 @@ func (api *Api) SSO(w http.ResponseWriter, r *http.Request, u *db.User) {
 }
 
 func (api *Api) AI(w http.ResponseWriter, r *http.Request, u *db.User) {
+	// TODO(phase2): BYO LLM provider for CRA — not implemented in Phase 1.
 	res := struct {
 		Provider string `json:"provider"`
 	}{}

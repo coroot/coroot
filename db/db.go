@@ -119,6 +119,7 @@ func (db *DB) Migrate(extraTables ...Table) error {
 		&Dashboards{},
 		&Setting{},
 		&User{},
+		&CustomRole{},
 		&AlertingRule{},
 		&Alert{},
 	}
