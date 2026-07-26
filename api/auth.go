@@ -308,6 +308,13 @@ func (api *Api) userMenu(u *db.User, projects map[db.ProjectId]string) users.Men
 		if api.IsAllowed(u, rbac.Actions.Project(pid).AlertingRules().View()) {
 			m.AlertingRules = true
 		}
+		// Inspections are project-wide — show for roles that can view/edit them
+		// (Admin/Editor/Viewer via * or explicit edit), but not for
+		// namespace-scoped handoff users who only get alerting_rules.
+		if api.IsAllowed(u, rbac.Actions.Project(pid).Inspections().Edit()) ||
+			api.IsAllowed(u, rbac.NewAction(rbac.ScopeProjectInspections, rbac.ActionView, rbac.Object{"project_id": pid})) {
+			m.Inspections = true
+		}
 	}
 	return m
 }

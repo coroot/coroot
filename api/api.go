@@ -1630,6 +1630,27 @@ func (api *Api) AlertingRules(w http.ResponseWriter, r *http.Request, u *db.User
 		for name := range project.GetApplicationCategories() {
 			categories = append(categories, categoryOption{Name: name})
 		}
+		rules = api.filterAlertingRules(u, projectId, world, rules)
+		if namespaces, restricted := api.restrictedNamespaces(u, projectId, world); restricted {
+			// Category-based selectors and project-wide notification routing are
+			// not available to namespace-scoped users.
+			categories = nil
+			filteredCounts := map[string]int{}
+			for _, rule := range rules {
+				if c, ok := alertCounts[string(rule.Id)]; ok {
+					filteredCounts[string(rule.Id)] = c
+				}
+			}
+			alertCounts = filteredCounts
+			utils.WriteJson(w, api.WithContext(u, project, cacheStatus, world, map[string]any{
+				"rules":                  rules,
+				"checks":                 checks,
+				"categories":             categories,
+				"alert_counts":           alertCounts,
+				"restricted_namespaces":  namespaces,
+			}))
+			return
+		}
 		utils.WriteJson(w, api.WithContext(u, project, cacheStatus, world, map[string]any{"rules": rules, "checks": checks, "categories": categories, "alert_counts": alertCounts}))
 	case http.MethodPost:
 		if !api.IsAllowed(u, rbac.Actions.Project(projectId).AlertingRules().Edit()) {
@@ -1639,6 +1660,16 @@ func (api *Api) AlertingRules(w http.ResponseWriter, r *http.Request, u *db.User
 		var rule model.AlertingRule
 		if err := json.NewDecoder(r.Body).Decode(&rule); err != nil {
 			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+		world, _, _, err := api.LoadWorldByRequest(r)
+		if err != nil {
+			klog.Errorln(err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		if err := api.validateAlertingRuleForUser(u, projectId, world, &rule); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 		rule.Id = model.AlertingRuleId(utils.NanoId(8))
@@ -1674,6 +1705,16 @@ func (api *Api) AlertingRule(w http.ResponseWriter, r *http.Request, u *db.User)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
+		world, _, _, err := api.LoadWorldByRequest(r)
+		if err != nil {
+			klog.Errorln(err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		if !api.canAccessAlertingRule(u, projectId, world, rule) {
+			http.Error(w, "Rule not found", http.StatusNotFound)
+			return
+		}
 		utils.WriteJson(w, rule)
 
 	case http.MethodPut:
@@ -1695,9 +1736,23 @@ func (api *Api) AlertingRule(w http.ResponseWriter, r *http.Request, u *db.User)
 			http.Error(w, "This rule is managed via config and cannot be edited", http.StatusForbidden)
 			return
 		}
+		world, _, _, err := api.LoadWorldByRequest(r)
+		if err != nil {
+			klog.Errorln(err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		if !api.canAccessAlertingRule(u, projectId, world, existing) {
+			http.Error(w, "Rule not found", http.StatusNotFound)
+			return
+		}
 		var rule model.AlertingRule
 		if err := json.NewDecoder(r.Body).Decode(&rule); err != nil {
 			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+		if err := api.validateAlertingRuleForUser(u, projectId, world, &rule); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 		rule.Id = ruleId
@@ -1726,6 +1781,16 @@ func (api *Api) AlertingRule(w http.ResponseWriter, r *http.Request, u *db.User)
 		}
 		if rule.Readonly {
 			http.Error(w, "This rule is managed via config and cannot be deleted", http.StatusForbidden)
+			return
+		}
+		world, _, _, err := api.LoadWorldByRequest(r)
+		if err != nil {
+			klog.Errorln(err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		if !api.canAccessAlertingRule(u, projectId, world, rule) {
+			http.Error(w, "Rule not found or is builtin", http.StatusNotFound)
 			return
 		}
 		if resolvedAlerts, err := api.db.ResolveAlertsByRule(db.ProjectId(projectId), string(ruleId)); err != nil {
@@ -1761,6 +1826,13 @@ func (api *Api) AlertingRulesExport(w http.ResponseWriter, r *http.Request, u *d
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
+	world, _, _, err := api.LoadWorldByRequest(r)
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	rules = api.filterAlertingRules(u, projectId, world, rules)
 
 	var exported []config.AlertingRule
 	for _, r := range rules {

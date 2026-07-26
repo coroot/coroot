@@ -59,9 +59,13 @@ export default {
     computed: {
         tabs() {
             const tabs = [{ id: undefined, name: 'Alerts' }];
-            // Handoff / scoped users can view alerts but not configure rules.
-            if (this.$root.user && this.$root.user.menu && this.$root.user.menu.alerting_rules) {
+            const menu = this.$root.user && this.$root.user.menu;
+            if (menu && menu.alerting_rules) {
                 tabs.push({ id: 'rules', name: 'Alerting Rules' });
+            }
+            // Inspections stay project-wide; namespace-scoped handoff users only
+            // get Alerting Rules for their apps.
+            if (menu && menu.inspections) {
                 tabs.push({ id: 'inspections', name: 'Inspections' });
             }
             return tabs;

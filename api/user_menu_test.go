@@ -31,8 +31,9 @@ func TestUserMenuHandoffVsAdmin(t *testing.T) {
 	assert.False(t, m.Kubernetes)
 	assert.False(t, m.Costs)
 	assert.False(t, m.AlertingRules)
+	assert.False(t, m.Inspections)
 
-	// Dedicated handoff also has node view.
+	// Dedicated handoff also has node view + alerting rules, but not inspections.
 	api.roles = staticRoles{
 		rbac.NewRole(handoffRole,
 			rbac.NewPermission(rbac.ScopeApplication, rbac.ActionView, rbac.Object{
@@ -45,10 +46,18 @@ func TestUserMenuHandoffVsAdmin(t *testing.T) {
 				"project_id": string(projectId),
 				"node_name":  "*",
 			}),
+			rbac.NewPermission(rbac.ScopeProjectAlertingRules, rbac.ActionView, rbac.Object{
+				"project_id": string(projectId),
+			}),
+			rbac.NewPermission(rbac.ScopeProjectAlertingRules, rbac.ActionEdit, rbac.Object{
+				"project_id": string(projectId),
+			}),
 		),
 	}
 	m = api.userMenu(handoff, projects)
 	assert.True(t, m.Nodes)
+	assert.True(t, m.AlertingRules)
+	assert.False(t, m.Inspections)
 	assert.False(t, m.Kubernetes)
 	assert.False(t, m.Costs)
 
@@ -61,8 +70,10 @@ func TestUserMenuHandoffVsAdmin(t *testing.T) {
 	assert.True(t, m.Kubernetes)
 	assert.True(t, m.Costs)
 	assert.True(t, m.AlertingRules)
+	assert.True(t, m.Inspections)
 
 	viewer := &db.User{Roles: []rbac.RoleName{rbac.RoleViewer}}
 	m = api.userMenu(viewer, projects)
 	assert.True(t, m.AlertingRules)
+	assert.True(t, m.Inspections)
 }

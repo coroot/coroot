@@ -203,7 +203,14 @@
 
                         <template v-if="selectorType === 'applications'">
                             <div class="subtitle-1">Application patterns</div>
-                            <div class="caption grey--text">Comma-separated glob patterns to match application IDs (e.g., */myapp, namespace/*).</div>
+                            <div class="caption grey--text">
+                                <template v-if="isNamespaceScoped">
+                                    Comma-separated patterns confined to your namespace(s)
+                                    ({{ restrictedNamespaces.join(', ') }}), e.g.
+                                    {{ restrictedNamespaces[0] }}:Deployment:my-app or {{ restrictedNamespaces[0] }}:*:*.
+                                </template>
+                                <template v-else> Comma-separated glob patterns to match application IDs (e.g., */myapp, namespace/*). </template>
+                            </div>
                             <v-text-field v-model="selectorPatternsText" outlined dense hide-details="auto" class="mb-4" />
                         </template>
                     </template>
@@ -308,6 +315,10 @@ export default {
             type: Array,
             default: () => [],
         },
+        restrictedNamespaces: {
+            type: Array,
+            default: () => [],
+        },
     },
 
     data() {
@@ -340,17 +351,6 @@ export default {
             promqlExpression: '',
             templateSummary: '',
             notificationCategory: 'application',
-            sourceTypes: [
-                { value: 'check', text: 'Built-in inspection' },
-                { value: 'log_patterns', text: 'Log patterns' },
-                { value: 'promql', text: 'PromQL expression' },
-                { value: 'kubernetes_events', text: 'Kubernetes events' },
-            ],
-            selectorTypes: [
-                { value: 'all', text: 'All applications' },
-                { value: 'category', text: 'By category' },
-                { value: 'applications', text: 'By application patterns' },
-            ],
             severityOptions: [
                 { value: 'warning', text: 'Warning', color: 'orange lighten-1' },
                 { value: 'critical', text: 'Critical', color: 'red lighten-1' },
@@ -364,6 +364,31 @@ export default {
     },
 
     computed: {
+        isNamespaceScoped() {
+            return (this.restrictedNamespaces || []).length > 0;
+        },
+        sourceTypes() {
+            const all = [
+                { value: 'check', text: 'Built-in inspection' },
+                { value: 'log_patterns', text: 'Log patterns' },
+                { value: 'promql', text: 'PromQL expression' },
+                { value: 'kubernetes_events', text: 'Kubernetes events' },
+            ];
+            if (!this.isNamespaceScoped) {
+                return all;
+            }
+            return all.filter((s) => s.value !== 'promql');
+        },
+        selectorTypes() {
+            if (this.isNamespaceScoped) {
+                return [{ value: 'applications', text: 'By application patterns' }];
+            }
+            return [
+                { value: 'all', text: 'All applications' },
+                { value: 'category', text: 'By category' },
+                { value: 'applications', text: 'By application patterns' },
+            ];
+        },
         checkOptions() {
             return this.checks.map((c) => ({ value: c.id, text: c.title })).sort((a, b) => a.text.localeCompare(b.text));
         },
@@ -401,6 +426,9 @@ export default {
     mounted() {
         if (this.ruleId) {
             this.loadRule();
+        } else if (this.isNamespaceScoped) {
+            this.selectorType = 'applications';
+            this.selectorPatternsText = this.restrictedNamespaces.map((ns) => `${ns}:*:*`).join(', ');
         }
     },
 
@@ -497,11 +525,12 @@ export default {
             });
         },
         buildPayload() {
-            const isPromQL = this.sourceType === 'promql';
+            const isPromQL = this.sourceType === 'promql' && !this.isNamespaceScoped;
+            const selectorType = this.isNamespaceScoped ? 'applications' : isPromQL ? 'all' : this.selectorType;
             return {
                 name: this.name,
                 source: {
-                    type: this.sourceType,
+                    type: this.isNamespaceScoped && this.sourceType === 'promql' ? 'check' : this.sourceType,
                     check: this.sourceType === 'check' ? { check_id: this.checkId } : null,
                     log_pattern:
                         this.sourceType === 'log_patterns'
@@ -523,10 +552,10 @@ export default {
                     promql: isPromQL ? { expression: this.promqlExpression } : null,
                 },
                 selector: {
-                    type: isPromQL ? 'all' : this.selectorType,
-                    categories: this.selectorType === 'category' && !isPromQL ? this.selectorCategories : [],
+                    type: selectorType,
+                    categories: selectorType === 'category' ? this.selectorCategories : [],
                     application_id_patterns:
-                        this.selectorType === 'applications' && !isPromQL
+                        selectorType === 'applications'
                             ? this.selectorPatternsText
                                   .split(',')
                                   .map((p) => p.trim())

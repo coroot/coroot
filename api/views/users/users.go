@@ -32,6 +32,7 @@ type Menu struct {
 	Kubernetes    bool `json:"kubernetes"`
 	Costs         bool `json:"costs"`
 	AlertingRules bool `json:"alerting_rules"`
+	Inspections   bool `json:"inspections"`
 }
 
 type Project struct {

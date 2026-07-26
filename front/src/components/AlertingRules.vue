@@ -141,6 +141,7 @@
             :rule-id="ruleId === 'new' ? null : ruleId"
             :checks="checks"
             :categories="categories"
+            :restricted-namespaces="restrictedNamespaces"
             @close="closeForm"
             @saved="onRuleSaved"
         />
@@ -158,6 +159,7 @@ export default {
             rules: [],
             checks: [],
             categories: [],
+            restrictedNamespaces: [],
             alertCounts: {},
             search: '',
             selected: [],
@@ -213,6 +215,7 @@ export default {
                 this.rules = (data && data.rules) || [];
                 this.checks = (data && data.checks) || [];
                 this.categories = (data && data.categories) || [];
+                this.restrictedNamespaces = (data && data.restricted_namespaces) || [];
                 this.alertCounts = (data && data.alert_counts) || {};
             });
         },
