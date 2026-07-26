@@ -566,6 +566,9 @@ type SpanQuery struct {
 
 	Limit int
 
+	// Services, when non-empty, restricts results to these ServiceName values.
+	Services []string
+
 	Filters          []SpanFilter
 	ExcludePeerAddrs []string
 
@@ -632,6 +635,15 @@ func (q *SpanQuery) SpansByServiceNameFilter() ([]string, []any) {
 func (q *SpanQuery) Filter() ([]string, []any) {
 	var filter []string
 	var args []any
+	switch len(q.Services) {
+	case 0:
+	case 1:
+		filter = append(filter, "ServiceName = @services")
+		args = append(args, clickhouse.Named("services", q.Services[0]))
+	default:
+		filter = append(filter, "ServiceName IN (@services)")
+		args = append(args, clickhouse.Named("services", q.Services))
+	}
 	for i, f := range q.Filters {
 		if strings.ContainsFunc(f.Field, func(r rune) bool { return !unicode.IsLetter(r) }) {
 			continue

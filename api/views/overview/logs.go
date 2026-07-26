@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -50,7 +51,7 @@ type LogsQuery struct {
 	Since   string                 `json:"since"`
 }
 
-func renderLogs(ctx context.Context, chs clickhouse.Clients, w *model.World, query string) *Logs {
+func renderLogs(ctx context.Context, chs clickhouse.Clients, w *model.World, query string, restrict bool, fullWorld *model.World) *Logs {
 	v := &Logs{}
 
 	if chs.Error != nil {
@@ -93,6 +94,14 @@ func renderLogs(ctx context.Context, chs clickhouse.Clients, w *model.World, que
 		if q.Otel {
 			lq.Source = model.LogSourceOtel
 		}
+	}
+
+	if restrict {
+		services := logServicesForApps(ctx, chs, w, fullWorld)
+		if len(services) == 0 {
+			return v
+		}
+		lq.Services = services
 	}
 
 	var histogram []model.LogHistogramBucket
@@ -162,11 +171,43 @@ func renderLogs(ctx context.Context, chs clickhouse.Clients, w *model.World, que
 		}
 	}
 
-	v.renderEntries(overallEntries, w, q.Limit)
+	v.renderEntries(overallEntries, w, q.Limit, restrict)
 	return v
 }
 
-func (v *Logs) renderEntries(entries []*model.LogEntry, w *model.World, limit int) {
+func logServicesForApps(ctx context.Context, chs clickhouse.Clients, appsWorld, fullWorld *model.World) []string {
+	if appsWorld == nil || len(appsWorld.Applications) == 0 {
+		return nil
+	}
+	if fullWorld == nil {
+		fullWorld = appsWorld
+	}
+	candidates := utils.NewStringSet()
+	for _, ch := range chs.Clients {
+		svcs, err := ch.GetServicesFromLogs(ctx, appsWorld.Ctx.From)
+		if err != nil {
+			klog.Errorln(err)
+			continue
+		}
+		candidates.Add(svcs...)
+	}
+	otel := make([]string, 0, candidates.Len())
+	for _, s := range candidates.Items() {
+		if !strings.HasPrefix(s, "/") {
+			otel = append(otel, s)
+		}
+	}
+	out := utils.NewStringSet()
+	for _, app := range appsWorld.Applications {
+		out.Add(app.LogServices()...)
+		if s := app.OtelLogService(otel, fullWorld); s != "" {
+			out.Add(s)
+		}
+	}
+	return out.Items()
+}
+
+func (v *Logs) renderEntries(entries []*model.LogEntry, w *model.World, limit int, dropUnmapped bool) {
 	if len(entries) == 0 {
 		return
 	}
@@ -198,6 +239,10 @@ func (v *Logs) renderEntries(entries []*model.LogEntry, w *model.World, limit in
 
 	var maxTs int64
 	for _, e := range entries {
+		app := apps[key{service: e.ServiceName, clusterId: e.ClusterId}]
+		if dropUnmapped && app == nil {
+			continue
+		}
 		entry := LogEntry{
 			Application: e.ServiceName,
 			Timestamp:   e.Timestamp.UnixMilli(),
@@ -208,7 +253,7 @@ func (v *Logs) renderEntries(entries []*model.LogEntry, w *model.World, limit in
 			TraceId:     e.TraceId,
 			Cluster:     e.ClusterName,
 		}
-		if app := apps[key{service: e.ServiceName, clusterId: e.ClusterId}]; app != nil {
+		if app != nil {
 			entry.Application = app.Id.String()
 		}
 		entry.Attributes["Cluster"] = e.ClusterName

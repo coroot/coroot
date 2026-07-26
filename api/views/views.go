@@ -23,8 +23,14 @@ import (
 	"github.com/coroot/coroot/rbac"
 )
 
-func Overview(ctx context.Context, chs clickhouse.Clients, p *db.Project, w *model.World, view, query string) *overview.Overview {
-	return overview.Render(ctx, chs, p, w, view, query)
+type OverviewOpts = overview.RenderOpts
+
+func Overview(ctx context.Context, chs clickhouse.Clients, p *db.Project, w *model.World, view, query string, opts ...OverviewOpts) *overview.Overview {
+	var o OverviewOpts
+	if len(opts) > 0 {
+		o = opts[0]
+	}
+	return overview.Render(ctx, chs, p, w, view, query, o)
 }
 
 func Application(p *db.Project, w *model.World, app *model.Application) *application.View {

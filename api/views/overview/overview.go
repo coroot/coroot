@@ -23,7 +23,16 @@ type Overview struct {
 	Categories   []model.ApplicationCategory `json:"categories"`
 }
 
-func Render(ctx context.Context, chs clickhouse.Clients, project *db.Project, w *model.World, view, query string) *Overview {
+// RenderOpts controls RBAC scoping for project-wide telemetry views.
+type RenderOpts struct {
+	// RestrictTelemetry scopes logs/traces ClickHouse queries to services of
+	// apps present in w (already filtered to viewable apps).
+	RestrictTelemetry bool
+	// FullWorld is used for GuessService uniqueness when w is a restricted copy.
+	FullWorld *model.World
+}
+
+func Render(ctx context.Context, chs clickhouse.Clients, project *db.Project, w *model.World, view, query string, opts RenderOpts) *Overview {
 	v := &Overview{}
 	for name := range project.Settings.ApplicationCategorySettings {
 		if !name.Default() {
@@ -31,6 +40,11 @@ func Render(ctx context.Context, chs clickhouse.Clients, project *db.Project, w 
 		}
 	}
 	slices.Sort(v.Categories)
+
+	fullWorld := opts.FullWorld
+	if fullWorld == nil {
+		fullWorld = w
+	}
 
 	switch view {
 	case "applications":
@@ -42,9 +56,9 @@ func Render(ctx context.Context, chs clickhouse.Clients, project *db.Project, w 
 	case "deployments":
 		v.Deployments = renderDeployments(w)
 	case "traces":
-		v.Traces = RenderTraces(ctx, chs, w, query)
+		v.Traces = RenderTraces(ctx, chs, w, query, opts.RestrictTelemetry, fullWorld)
 	case "logs":
-		v.Logs = renderLogs(ctx, chs, w, query)
+		v.Logs = renderLogs(ctx, chs, w, query, opts.RestrictTelemetry, fullWorld)
 	case "costs":
 		v.Costs = renderCosts(w)
 	case "risks":

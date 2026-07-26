@@ -517,7 +517,16 @@ func (api *Api) Overview(w http.ResponseWriter, r *http.Request, u *db.User) {
 	}
 
 	auditor.Audit(world, project, nil, nil)
-	ov := views.Overview(r.Context(), chs, project, world, view, r.URL.Query().Get("query"))
+	renderWorld := world
+	restrictTelemetry := false
+	if (view == "logs" || view == "traces") && api.hasRestrictedAppAccess(u, projectId, world) {
+		restrictTelemetry = true
+		renderWorld = api.worldWithViewableApps(u, projectId, world)
+	}
+	ov := views.Overview(r.Context(), chs, project, renderWorld, view, r.URL.Query().Get("query"), views.OverviewOpts{
+		RestrictTelemetry: restrictTelemetry,
+		FullWorld:         world,
+	})
 	ov = api.filterOverviewForUser(u, projectId, world, ov)
 	utils.WriteJson(w, api.WithContext(u, project, cacheStatus, world, ov))
 }
@@ -2099,6 +2108,10 @@ func (api *Api) Tracing(w http.ResponseWriter, r *http.Request, u *db.User) {
 		http.Error(w, "Application not found", http.StatusNotFound)
 		return
 	}
+	if !api.IsAllowed(u, rbac.Actions.Project(projectId).Application(app.Category, app.Id.Namespace, app.Id.Kind, app.Id.Name).View()) {
+		http.Error(w, "You are not allowed to view this application.", http.StatusForbidden)
+		return
+	}
 	q := r.URL.Query()
 	var ch *clickhouse.Client
 	if ch, err = api.GetClickhouseClient(project, app.Id.ClusterId); err != nil {
@@ -2152,6 +2165,10 @@ func (api *Api) Logs(w http.ResponseWriter, r *http.Request, u *db.User) {
 	if app == nil {
 		klog.Warningln("application not found:", appId)
 		http.Error(w, "Application not found", http.StatusNotFound)
+		return
+	}
+	if !api.IsAllowed(u, rbac.Actions.Project(projectId).Application(app.Category, app.Id.Namespace, app.Id.Kind, app.Id.Name).View()) {
+		http.Error(w, "You are not allowed to view this application.", http.StatusForbidden)
 		return
 	}
 	ch, chErr := api.GetClickhouseClient(project, app.Id.ClusterId)

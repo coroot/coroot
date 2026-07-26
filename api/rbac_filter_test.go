@@ -63,9 +63,15 @@ func TestRenderSearchFiltersByApplicationPermission(t *testing.T) {
 	require.Len(t, ov.Map, 1)
 	assert.Equal(t, allowed.Id, ov.Map[0].Id)
 
+	assert.True(t, api.hasRestrictedAppAccess(user, projectId, w))
+	restricted := api.worldWithViewableApps(user, projectId, w)
+	require.Len(t, restricted.Applications, 1)
+	assert.NotNil(t, restricted.Applications[allowed.Id])
+
 	// Builtin Viewer still sees everything.
 	viewer := &db.User{Roles: []rbac.RoleName{rbac.RoleViewer}}
 	api.roles = staticRoles(rbac.Roles)
 	search = api.renderSearch(viewer, projectId, w)
 	assert.Len(t, search.Applications, 2)
+	assert.False(t, api.hasRestrictedAppAccess(viewer, projectId, w))
 }

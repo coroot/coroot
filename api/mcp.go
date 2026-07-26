@@ -1311,7 +1311,7 @@ func (h *MCPHandler) runTracesQuery(ctx context.Context, req mcp.CallToolRequest
 		q.Filters = append(q.Filters, overview.Filter{Field: "SpanName", Op: "=", Value: s})
 	}
 	queryJSON, _ := json.Marshal(q)
-	res := overview.RenderTraces(ctx, chs, world, string(queryJSON))
+	res := overview.RenderTraces(ctx, chs, world, string(queryJSON), false, world)
 	if res.Error != "" {
 		return nil, mcp.NewToolResultError(res.Error)
 	}

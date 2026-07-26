@@ -121,6 +121,36 @@ func (api *Api) canViewApplication(u *db.User, projectId string, app *model.Appl
 	return api.IsAllowed(u, rbac.Actions.Project(projectId).Application(app.Category, app.Id.Namespace, app.Id.Kind, app.Id.Name).View())
 }
 
+// hasRestrictedAppAccess is true when the user cannot view every application
+// in the world (namespace-scoped handoff roles).
+func (api *Api) hasRestrictedAppAccess(u *db.User, projectId string, w *model.World) bool {
+	if u == nil || w == nil {
+		return false
+	}
+	for _, app := range w.Applications {
+		if !api.canViewApplication(u, projectId, app) {
+			return true
+		}
+	}
+	return false
+}
+
+// worldWithViewableApps returns a shallow copy of w whose Applications map
+// contains only apps the user may view.
+func (api *Api) worldWithViewableApps(u *db.User, projectId string, w *model.World) *model.World {
+	if w == nil {
+		return nil
+	}
+	cp := *w
+	cp.Applications = map[model.ApplicationId]*model.Application{}
+	for id, app := range w.Applications {
+		if api.canViewApplication(u, projectId, app) {
+			cp.Applications[id] = app
+		}
+	}
+	return &cp
+}
+
 func (api *Api) canViewNode(u *db.User, projectId, nodeName string) bool {
 	if u == nil {
 		return true

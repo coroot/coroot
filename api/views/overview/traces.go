@@ -79,7 +79,7 @@ type Filter struct {
 	Value string `json:"value"`
 }
 
-func RenderTraces(ctx context.Context, chs clickhouse.Clients, w *model.World, query string) *Traces {
+func RenderTraces(ctx context.Context, chs clickhouse.Clients, w *model.World, query string, restrict bool, fullWorld *model.World) *Traces {
 	res := &Traces{}
 
 	if chs.Error != nil {
@@ -100,8 +100,21 @@ func RenderTraces(ctx context.Context, chs clickhouse.Clients, w *model.World, q
 		sq.AddFilter(f.Field, f.Op, f.Value)
 	}
 
+	if restrict {
+		services := traceServicesForApps(ctx, chs, w, fullWorld)
+		if len(services) == 0 {
+			res.Message = "not_found"
+			return res
+		}
+		sq.Services = services
+	}
+
 	if !q.IncludeAux {
-		sq.ExcludePeerAddrs = getMonitoringAndControlPlanePodIps(w)
+		excludeWorld := fullWorld
+		if excludeWorld == nil {
+			excludeWorld = w
+		}
+		sq.ExcludePeerAddrs = getMonitoringAndControlPlanePodIps(excludeWorld)
 		sq.AddFilter("SpanName", "!~", "GET /(health[z]*|metrics|debug/.+|actuator/.+)")
 	}
 
@@ -353,6 +366,45 @@ func RenderTraces(ctx context.Context, chs clickhouse.Clients, w *model.World, q
 	}
 
 	return res
+}
+
+func traceServicesForApps(ctx context.Context, chs clickhouse.Clients, appsWorld, fullWorld *model.World) []string {
+	if appsWorld == nil || len(appsWorld.Applications) == 0 {
+		return nil
+	}
+	if fullWorld == nil {
+		fullWorld = appsWorld
+	}
+	candidates := utils.NewStringSet()
+	for _, ch := range chs.Clients {
+		svcs, err := ch.GetServicesFromTraces(ctx, appsWorld.Ctx.From)
+		if err != nil {
+			klog.Errorln(err)
+			continue
+		}
+		candidates.Add(svcs...)
+	}
+	otel := make([]string, 0, candidates.Len())
+	for _, s := range candidates.Items() {
+		if !strings.HasPrefix(s, "/") {
+			otel = append(otel, s)
+		}
+	}
+	out := utils.NewStringSet()
+	for _, app := range appsWorld.Applications {
+		// Agent/eBPF spans use container service names (same as logs).
+		out.Add(app.LogServices()...)
+		var otelService string
+		if app.Settings != nil && app.Settings.Tracing != nil {
+			otelService = app.Settings.Tracing.Service
+		} else {
+			otelService = model.GuessService(otel, fullWorld, app)
+		}
+		if otelService != "" {
+			out.Add(otelService)
+		}
+	}
+	return out.Items()
 }
 
 func getMonitoringAndControlPlanePodIps(w *model.World) []string {
