@@ -84,7 +84,7 @@
             <template #append>
                 <v-list dense class="ma-0 pa-0">
                     <v-divider class="ma-3" style="border-color: var(--border-dark)"></v-divider>
-                    <v-menu v-if="user && menu.project" dark right offset-x tile>
+                    <v-menu v-if="user && menuFlags.project" dark right offset-x tile>
                         <template #activator="{ on }">
                             <v-list-item v-on="on">
                                 <v-list-item-icon class="mr-3">
@@ -110,7 +110,7 @@
                         </v-list>
                     </v-menu>
 
-                    <v-list-item v-if="menu.settings" :to="{ name: project ? 'project_settings' : 'project_new' }">
+                    <v-list-item v-if="menuFlags.settings" :to="{ name: project ? 'project_settings' : 'project_new' }">
                         <v-list-item-icon class="mr-3">
                             <v-icon dark>mdi-cog</v-icon>
                         </v-list-item-icon>
@@ -312,7 +312,7 @@ export default {
         views() {
             return views;
         },
-        menu() {
+        menuFlags() {
             const m = (this.user && this.user.menu) || {};
             return {
                 settings: !!m.settings,
@@ -325,9 +325,9 @@ export default {
         visibleViews() {
             const out = {};
             for (const [id, v] of Object.entries(this.views)) {
-                if (id === 'nodes' && !this.menu.nodes) continue;
-                if (id === 'kubernetes' && !this.menu.kubernetes) continue;
-                if (id === 'costs' && !this.menu.costs) continue;
+                if (id === 'nodes' && !this.menuFlags.nodes) continue;
+                if (id === 'kubernetes' && !this.menuFlags.kubernetes) continue;
+                if (id === 'costs' && !this.menuFlags.costs) continue;
                 out[id] = v;
             }
             return out;
