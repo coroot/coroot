@@ -305,6 +305,9 @@ func (api *Api) userMenu(u *db.User, projects map[db.ProjectId]string) users.Men
 		if !m.Kubernetes && api.IsAllowed(u, rbac.Actions.Project(pid).Integrations().Edit()) {
 			m.Kubernetes = true
 		}
+		if api.IsAllowed(u, rbac.Actions.Project(pid).AlertingRules().View()) {
+			m.AlertingRules = true
+		}
 	}
 	return m
 }

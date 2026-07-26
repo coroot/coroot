@@ -30,6 +30,7 @@ func TestUserMenuHandoffVsAdmin(t *testing.T) {
 	assert.False(t, m.Nodes)
 	assert.False(t, m.Kubernetes)
 	assert.False(t, m.Costs)
+	assert.False(t, m.AlertingRules)
 
 	// Dedicated handoff also has node view.
 	api.roles = staticRoles{
@@ -59,4 +60,9 @@ func TestUserMenuHandoffVsAdmin(t *testing.T) {
 	assert.True(t, m.Nodes)
 	assert.True(t, m.Kubernetes)
 	assert.True(t, m.Costs)
+	assert.True(t, m.AlertingRules)
+
+	viewer := &db.User{Roles: []rbac.RoleName{rbac.RoleViewer}}
+	m = api.userMenu(viewer, projects)
+	assert.True(t, m.AlertingRules)
 }

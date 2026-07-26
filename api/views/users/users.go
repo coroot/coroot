@@ -26,11 +26,12 @@ type User struct {
 
 // Menu is the permission-derived sidebar visibility for the current user.
 type Menu struct {
-	Settings   bool `json:"settings"`
-	Project    bool `json:"project"`
-	Nodes      bool `json:"nodes"`
-	Kubernetes bool `json:"kubernetes"`
-	Costs      bool `json:"costs"`
+	Settings      bool `json:"settings"`
+	Project       bool `json:"project"`
+	Nodes         bool `json:"nodes"`
+	Kubernetes    bool `json:"kubernetes"`
+	Costs         bool `json:"costs"`
+	AlertingRules bool `json:"alerting_rules"`
 }
 
 type Project struct {

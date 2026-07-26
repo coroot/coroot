@@ -1221,6 +1221,19 @@ func (api *Api) Incidents(w http.ResponseWriter, r *http.Request, u *db.User) {
 		utils.WriteJson(w, api.WithContext(u, project, cacheStatus, world, nil))
 		return
 	}
+	if api.hasRestrictedAppAccess(u, string(projectId), world) {
+		filtered := incidents[:0]
+		for _, i := range incidents {
+			app := world.GetApplication(i.ApplicationId)
+			if app == nil {
+				continue
+			}
+			if api.canViewApplication(u, string(projectId), app) {
+				filtered = append(filtered, i)
+			}
+		}
+		incidents = filtered
+	}
 	utils.WriteJson(w, api.WithContext(u, project, cacheStatus, world, views.Incidents(world, incidents)))
 }
 
@@ -1295,11 +1308,33 @@ func (api *Api) Alerts(w http.ResponseWriter, r *http.Request, u *db.User) {
 		}
 	}
 
+	world, project, cacheStatus, err := api.LoadWorldByRequest(r)
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	if project == nil || world == nil {
+		utils.WriteJson(w, api.WithContext(u, project, cacheStatus, world, nil))
+		return
+	}
+
+	limit, offset := query.Limit, query.Offset
+	restricted := api.hasRestrictedAppAccess(u, string(projectId), world)
+	if restricted {
+		// Fetch a wide page, then filter + re-paginate in memory for namespace RBAC.
+		query.Limit = 10000
+		query.Offset = 0
+	}
+
 	result, err := api.db.QueryAlerts(projectId, query)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
 		return
+	}
+	if restricted {
+		result = api.filterAlertsResult(u, string(projectId), world, result, query.IncludeResolved, limit, offset)
 	}
 
 	rules, err := api.db.GetAlertingRules(projectId)
@@ -1320,16 +1355,6 @@ func (api *Api) Alerts(w http.ResponseWriter, r *http.Request, u *db.User) {
 		return
 	}
 
-	world, project, cacheStatus, err := api.LoadWorldByRequest(r)
-	if err != nil {
-		klog.Errorln(err)
-		http.Error(w, "", http.StatusInternalServerError)
-		return
-	}
-	if project == nil || world == nil {
-		utils.WriteJson(w, api.WithContext(u, project, cacheStatus, world, nil))
-		return
-	}
 	utils.WriteJson(w, api.WithContext(u, project, cacheStatus, world, views.Alerts(world, result, rules, notifications)))
 }
 

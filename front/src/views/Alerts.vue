@@ -58,11 +58,13 @@ export default {
     },
     computed: {
         tabs() {
-            return [
-                { id: undefined, name: 'Alerts' },
-                { id: 'rules', name: 'Alerting Rules' },
-                { id: 'inspections', name: 'Inspections' },
-            ];
+            const tabs = [{ id: undefined, name: 'Alerts' }];
+            // Handoff / scoped users can view alerts but not configure rules.
+            if (this.$root.user && this.$root.user.menu && this.$root.user.menu.alerting_rules) {
+                tabs.push({ id: 'rules', name: 'Alerting Rules' });
+                tabs.push({ id: 'inspections', name: 'Inspections' });
+            }
+            return tabs;
         },
     },
 

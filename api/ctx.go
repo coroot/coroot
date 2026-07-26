@@ -83,10 +83,7 @@ func (api *Api) WithContext(u *db.User, p *db.Project, cacheStatus *cache.Status
 	if p == nil {
 		return DataWithContext{}
 	}
-	alerts, _ := api.db.GetFiringAlertCountsBySeverity(p.Id)
-	if alerts == nil {
-		alerts = map[string]int{}
-	}
+	alerts := api.renderAlertCounts(u, string(p.Id), w)
 	res := DataWithContext{
 		Context: Context{
 			Status:         renderStatus(p, cacheStatus, w, api.globalPrometheus),
@@ -119,6 +116,84 @@ func (api *Api) canViewApplication(u *db.User, projectId string, app *model.Appl
 		return true
 	}
 	return api.IsAllowed(u, rbac.Actions.Project(projectId).Application(app.Category, app.Id.Namespace, app.Id.Kind, app.Id.Name).View())
+}
+
+func (api *Api) canViewAlert(u *db.User, projectId string, w *model.World, a *model.Alert) bool {
+	if a == nil {
+		return false
+	}
+	if u == nil {
+		return true
+	}
+	if w != nil {
+		if app := w.GetApplication(a.ApplicationId); app != nil {
+			return api.canViewApplication(u, projectId, app)
+		}
+	}
+	return api.IsAllowed(u, rbac.Actions.Project(projectId).Application(a.ApplicationCategory, a.ApplicationId.Namespace, a.ApplicationId.Kind, a.ApplicationId.Name).View())
+}
+
+func (api *Api) renderAlertCounts(u *db.User, projectId string, w *model.World) map[string]int {
+	if api.db == nil {
+		return map[string]int{}
+	}
+	if !api.hasRestrictedAppAccess(u, projectId, w) {
+		alerts, _ := api.db.GetFiringAlertCountsBySeverity(db.ProjectId(projectId))
+		if alerts == nil {
+			return map[string]int{}
+		}
+		return alerts
+	}
+	result, err := api.db.QueryAlerts(db.ProjectId(projectId), db.AlertsQuery{Limit: 10000})
+	if err != nil || result == nil {
+		return map[string]int{}
+	}
+	counts := map[string]int{}
+	for _, a := range result.Alerts {
+		if !api.canViewAlert(u, projectId, w, a) {
+			continue
+		}
+		counts[a.Severity.String()]++
+	}
+	return counts
+}
+
+// filterAlertsResult keeps only alerts the user may view and re-applies pagination.
+func (api *Api) filterAlertsResult(u *db.User, projectId string, w *model.World, result *db.AlertsResult, includeResolved bool, limit, offset int) *db.AlertsResult {
+	if result == nil {
+		return result
+	}
+	filtered := make([]*model.Alert, 0, len(result.Alerts))
+	firing, resolved := 0, 0
+	for _, a := range result.Alerts {
+		if !api.canViewAlert(u, projectId, w, a) {
+			continue
+		}
+		filtered = append(filtered, a)
+		if a.ResolvedAt == 0 && a.ManuallyResolvedAt == 0 && !a.Suppressed {
+			firing++
+		} else {
+			resolved++
+		}
+	}
+	out := &db.AlertsResult{Firing: firing, Resolved: resolved}
+	if includeResolved {
+		out.Total = firing + resolved
+	} else {
+		out.Total = firing
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	if offset > len(filtered) {
+		offset = len(filtered)
+	}
+	filtered = filtered[offset:]
+	if limit > 0 && len(filtered) > limit {
+		filtered = filtered[:limit]
+	}
+	out.Alerts = filtered
+	return out
 }
 
 // hasRestrictedAppAccess is true when the user cannot view every application
