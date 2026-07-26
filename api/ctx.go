@@ -7,6 +7,7 @@ import (
 	"github.com/coroot/coroot/cache"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
+	"github.com/coroot/coroot/rbac"
 	"github.com/coroot/coroot/utils"
 )
 
@@ -78,7 +79,7 @@ type LicenseManager interface {
 	CheckLicense() *License
 }
 
-func (api *Api) WithContext(p *db.Project, cacheStatus *cache.Status, w *model.World, data any) DataWithContext {
+func (api *Api) WithContext(u *db.User, p *db.Project, cacheStatus *cache.Status, w *model.World, data any) DataWithContext {
 	if p == nil {
 		return DataWithContext{}
 	}
@@ -89,8 +90,8 @@ func (api *Api) WithContext(p *db.Project, cacheStatus *cache.Status, w *model.W
 	res := DataWithContext{
 		Context: Context{
 			Status:         renderStatus(p, cacheStatus, w, api.globalPrometheus),
-			Search:         renderSearch(w),
-			Incidents:      renderIncidents(w),
+			Search:         api.renderSearch(u, string(p.Id), w),
+			Incidents:      api.renderIncidents(u, string(p.Id), w),
 			Alerts:         alerts,
 			Fluxcd:         gitOpsStatus(w, w != nil && w.Flux != nil, overview.CountFluxIssues),
 			Argocd:         gitOpsStatus(w, w != nil && w.ArgoCD != nil, overview.CountArgoCDIssues),
@@ -110,12 +111,59 @@ func (api *Api) WithContext(p *db.Project, cacheStatus *cache.Status, w *model.W
 	return res
 }
 
-func renderIncidents(w *model.World) map[model.ApplicationCategory]int {
+func (api *Api) canViewApplication(u *db.User, projectId string, app *model.Application) bool {
+	if app == nil {
+		return false
+	}
+	if u == nil {
+		return true
+	}
+	return api.IsAllowed(u, rbac.Actions.Project(projectId).Application(app.Category, app.Id.Namespace, app.Id.Kind, app.Id.Name).View())
+}
+
+func (api *Api) canViewNode(u *db.User, projectId, nodeName string) bool {
+	if u == nil {
+		return true
+	}
+	return api.IsAllowed(u, rbac.Actions.Project(projectId).Node(nodeName).View())
+}
+
+func (api *Api) filterOverviewForUser(u *db.User, projectId string, w *model.World, ov *overview.Overview) *overview.Overview {
+	if ov == nil || u == nil || w == nil {
+		return ov
+	}
+	if len(ov.Applications) > 0 {
+		filtered := make([]*overview.ApplicationStatus, 0, len(ov.Applications))
+		for _, a := range ov.Applications {
+			app := w.GetApplication(a.Id)
+			if api.canViewApplication(u, projectId, app) {
+				filtered = append(filtered, a)
+			}
+		}
+		ov.Applications = filtered
+	}
+	if len(ov.Map) > 0 {
+		filtered := make([]*overview.Application, 0, len(ov.Map))
+		for _, a := range ov.Map {
+			app := w.GetApplication(a.Id)
+			if api.canViewApplication(u, projectId, app) {
+				filtered = append(filtered, a)
+			}
+		}
+		ov.Map = filtered
+	}
+	return ov
+}
+
+func (api *Api) renderIncidents(u *db.User, projectId string, w *model.World) map[model.ApplicationCategory]int {
 	res := map[model.ApplicationCategory]int{}
 	if w == nil {
 		return res
 	}
 	for _, app := range w.Applications {
+		if !api.canViewApplication(u, projectId, app) {
+			continue
+		}
 		if len(app.Incidents) == 0 {
 			continue
 		}
@@ -199,19 +247,26 @@ func renderStatus(p *db.Project, cacheStatus *cache.Status, w *model.World, glob
 	return res
 }
 
-func renderSearch(w *model.World) Search {
+func (api *Api) renderSearch(u *db.User, projectId string, w *model.World) Search {
 	search := Search{}
 	if w == nil {
 		return search
 	}
 	for _, app := range w.Applications {
+		if !api.canViewApplication(u, projectId, app) {
+			continue
+		}
 		search.Applications = append(search.Applications, Application{
 			Id: app.Id,
 		})
 	}
 	for _, node := range w.Nodes {
+		name := node.GetName()
+		if !api.canViewNode(u, projectId, name) {
+			continue
+		}
 		search.Nodes = append(search.Nodes, Node{
-			Name: node.GetName(),
+			Name: name,
 		})
 	}
 	return search
