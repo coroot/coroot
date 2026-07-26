@@ -375,6 +375,12 @@ func traceServicesForApps(ctx context.Context, chs clickhouse.Clients, appsWorld
 	if fullWorld == nil {
 		fullWorld = appsWorld
 	}
+	namespaces := map[string]bool{}
+	appNames := map[string]bool{}
+	for _, app := range appsWorld.Applications {
+		namespaces[app.Id.Namespace] = true
+		appNames[app.Id.Name] = true
+	}
 	candidates := utils.NewStringSet()
 	for _, ch := range chs.Clients {
 		svcs, err := ch.GetServicesFromTraces(ctx, appsWorld.Ctx.From)
@@ -402,6 +408,11 @@ func traceServicesForApps(ctx context.Context, chs clickhouse.Clients, appsWorld
 		}
 		if otelService != "" {
 			out.Add(otelService)
+		}
+	}
+	for _, s := range candidates.Items() {
+		if serviceBelongsToNamespaces(s, namespaces, appNames) {
+			out.Add(s)
 		}
 	}
 	return out.Items()

@@ -99,6 +99,7 @@ func renderLogs(ctx context.Context, chs clickhouse.Clients, w *model.World, que
 	if restrict {
 		services := logServicesForApps(ctx, chs, w, fullWorld)
 		if len(services) == 0 {
+			v.Message = "No logs found for applications you can access."
 			return v
 		}
 		lq.Services = services
@@ -172,6 +173,9 @@ func renderLogs(ctx context.Context, chs clickhouse.Clients, w *model.World, que
 	}
 
 	v.renderEntries(overallEntries, w, q.Limit, restrict)
+	if restrict && len(v.Entries) == 0 && v.Error == "" && v.Message == "" && q.Suggest == nil {
+		v.Message = "No logs found for applications you can access."
+	}
 	return v
 }
 
@@ -181,6 +185,12 @@ func logServicesForApps(ctx context.Context, chs clickhouse.Clients, appsWorld, 
 	}
 	if fullWorld == nil {
 		fullWorld = appsWorld
+	}
+	namespaces := map[string]bool{}
+	appNames := map[string]bool{}
+	for _, app := range appsWorld.Applications {
+		namespaces[app.Id.Namespace] = true
+		appNames[app.Id.Name] = true
 	}
 	candidates := utils.NewStringSet()
 	for _, ch := range chs.Clients {
@@ -204,7 +214,38 @@ func logServicesForApps(ctx context.Context, chs clickhouse.Clients, appsWorld, 
 			out.Add(s)
 		}
 	}
+	// Include every ClickHouse service that clearly belongs to an allowed
+	// namespace (agent paths are /k8s/<ns>/<workload>[/...]).
+	for _, s := range candidates.Items() {
+		if serviceBelongsToNamespaces(s, namespaces, appNames) {
+			out.Add(s)
+		}
+	}
 	return out.Items()
+}
+
+func serviceBelongsToNamespaces(service string, namespaces, appNames map[string]bool) bool {
+	if service == "" {
+		return false
+	}
+	// Agent / container logs: /k8s/<namespace>/<workload>...
+	if strings.HasPrefix(service, "/k8s/") || strings.HasPrefix(service, "/k8s-cronjob/") {
+		parts := strings.Split(service, "/")
+		// "", "k8s", "<ns>", "<workload>", ...
+		if len(parts) >= 4 && namespaces[parts[2]] {
+			return true
+		}
+	}
+	// OTel service names often match the workload / app name.
+	if appNames[service] {
+		return true
+	}
+	for ns := range namespaces {
+		if strings.Contains(service, ns) {
+			return true
+		}
+	}
+	return false
 }
 
 func (v *Logs) renderEntries(entries []*model.LogEntry, w *model.World, limit int, dropUnmapped bool) {
