@@ -257,6 +257,16 @@ func (api *Api) filterOverviewForUser(u *db.User, projectId string, w *model.Wor
 		}
 		ov.Map = filtered
 	}
+	if len(ov.Risks) > 0 {
+		filtered := make([]*overview.Risk, 0, len(ov.Risks))
+		for _, r := range ov.Risks {
+			app := w.GetApplication(r.ApplicationId)
+			if api.canViewApplication(u, projectId, app) {
+				filtered = append(filtered, r)
+			}
+		}
+		ov.Risks = filtered
+	}
 	return ov
 }
 

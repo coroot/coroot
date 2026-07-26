@@ -519,9 +519,10 @@ func (api *Api) Overview(w http.ResponseWriter, r *http.Request, u *db.User) {
 	auditor.Audit(world, project, nil, nil)
 	renderWorld := world
 	restrictTelemetry := false
-	if (view == "logs" || view == "traces") && api.hasRestrictedAppAccess(u, projectId, world) {
-		restrictTelemetry = true
+	restricted := api.hasRestrictedAppAccess(u, projectId, world)
+	if restricted && (view == "logs" || view == "traces" || view == "risks") {
 		renderWorld = api.worldWithViewableApps(u, projectId, world)
+		restrictTelemetry = view == "logs" || view == "traces"
 	}
 	ov := views.Overview(r.Context(), chs, project, renderWorld, view, r.URL.Query().Get("query"), views.OverviewOpts{
 		RestrictTelemetry: restrictTelemetry,

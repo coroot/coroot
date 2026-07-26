@@ -56,12 +56,18 @@ func TestRenderSearchFiltersByApplicationPermission(t *testing.T) {
 			{Id: allowed.Id},
 			{Id: denied.Id},
 		},
+		Risks: []*overview.Risk{
+			{ApplicationId: allowed.Id},
+			{ApplicationId: denied.Id},
+		},
 	}
 	ov = api.filterOverviewForUser(user, projectId, w, ov)
 	require.Len(t, ov.Applications, 1)
 	assert.Equal(t, allowed.Id, ov.Applications[0].Id)
 	require.Len(t, ov.Map, 1)
 	assert.Equal(t, allowed.Id, ov.Map[0].Id)
+	require.Len(t, ov.Risks, 1)
+	assert.Equal(t, allowed.Id, ov.Risks[0].ApplicationId)
 
 	assert.True(t, api.hasRestrictedAppAccess(user, projectId, w))
 	restricted := api.worldWithViewableApps(user, projectId, w)
