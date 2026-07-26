@@ -31,7 +31,7 @@
 
             <v-list v-if="project" dense class="ma-0 pa-0">
                 <v-list-item
-                    v-for="(v, id) in views"
+                    v-for="(v, id) in visibleViews"
                     :to="{
                         name: 'overview',
                         params: { view: id, id: undefined, report: undefined },
@@ -84,7 +84,7 @@
             <template #append>
                 <v-list dense class="ma-0 pa-0">
                     <v-divider class="ma-3" style="border-color: var(--border-dark)"></v-divider>
-                    <v-menu v-if="user" dark right offset-x tile>
+                    <v-menu v-if="user && menu.project" dark right offset-x tile>
                         <template #activator="{ on }">
                             <v-list-item v-on="on">
                                 <v-list-item-icon class="mr-3">
@@ -110,7 +110,7 @@
                         </v-list>
                     </v-menu>
 
-                    <v-list-item :to="{ name: project ? 'project_settings' : 'project_new' }">
+                    <v-list-item v-if="menu.settings" :to="{ name: project ? 'project_settings' : 'project_new' }">
                         <v-list-item-icon class="mr-3">
                             <v-icon dark>mdi-cog</v-icon>
                         </v-list-item-icon>
@@ -142,7 +142,7 @@
                             <ThemeSelector />
                             <template v-if="user && !user.anonymous">
                                 <v-divider class="my-2" />
-                                <v-list-item @click="changePassword = true">Change password</v-list-item>
+                                <v-list-item v-if="!isHandoffUser" @click="changePassword = true">Change password</v-list-item>
                                 <v-list-item :to="{ name: 'logout' }">Sign out</v-list-item>
                             </template>
                         </v-list>
@@ -312,6 +312,26 @@ export default {
         views() {
             return views;
         },
+        menu() {
+            const m = (this.user && this.user.menu) || {};
+            return {
+                settings: !!m.settings,
+                project: !!m.project,
+                nodes: !!m.nodes,
+                kubernetes: !!m.kubernetes,
+                costs: !!m.costs,
+            };
+        },
+        visibleViews() {
+            const out = {};
+            for (const [id, v] of Object.entries(this.views)) {
+                if (id === 'nodes' && !this.menu.nodes) continue;
+                if (id === 'kubernetes' && !this.menu.kubernetes) continue;
+                if (id === 'costs' && !this.menu.costs) continue;
+                out[id] = v;
+            }
+            return out;
+        },
         logo() {
             if (this.menuCollapsed) {
                 return 'icon.svg';
@@ -357,13 +377,17 @@ export default {
         systemAlertHeight() {
             return this.$vuetify.breakpoint.xs ? 64 : 32;
         },
+        isHandoffUser() {
+            const email = (this.user && this.user.email) || '';
+            return email.endsWith('@handoff.local');
+        },
     },
 
     watch: {
         $route: {
             handler(curr, prev) {
                 this.getUser();
-                if (curr.name === 'overview' && !this.views[curr.params.view]) {
+                if (curr.name === 'overview' && curr.params.view && !this.visibleViews[curr.params.view]) {
                     this.$router.replace({ params: { view: 'applications' } }).catch((err) => err);
                     return;
                 }

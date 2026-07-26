@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/coroot/coroot/api/forms"
+	"github.com/coroot/coroot/api/views/users"
 	"github.com/coroot/coroot/collector"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/rbac"
@@ -278,4 +279,32 @@ func (api *Api) IsAllowed(u *db.User, actions ...rbac.Action) bool {
 		}
 	}
 	return false
+}
+
+// userMenu derives which sidebar entries the UI should show for this user.
+// Readonly / handoff users (no project.settings edit) get a stripped menu:
+// no Project switcher (unless multi-project), Settings, Kubernetes, or Costs.
+// Nodes appears only when the role grants project.node view (Kubero grants
+// that for dedicated-cluster phases).
+func (api *Api) userMenu(u *db.User, projects map[db.ProjectId]string) users.Menu {
+	m := users.Menu{}
+	if u == nil {
+		return m
+	}
+	m.Settings = api.IsAllowed(u, rbac.Actions.Project("*").Settings().Edit())
+	// Project switcher: admins always; others only when they can access >1 project.
+	m.Project = m.Settings || len(projects) > 1
+	// Ops surfaces stay admin-only.
+	m.Kubernetes = m.Settings
+	m.Costs = m.Settings
+	for id := range projects {
+		pid := string(id)
+		if api.IsAllowed(u, rbac.Actions.Project(pid).Node("*").View()) {
+			m.Nodes = true
+		}
+		if !m.Kubernetes && api.IsAllowed(u, rbac.Actions.Project(pid).Integrations().Edit()) {
+			m.Kubernetes = true
+		}
+	}
+	return m
 }

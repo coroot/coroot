@@ -20,6 +20,17 @@ type User struct {
 	Anonymous bool          `json:"anonymous,omitempty"`
 	Readonly  bool          `json:"readonly,omitempty"`
 	Projects  []Project     `json:"projects,omitempty"`
+	// Menu controls which sidebar entries the UI shows (RBAC-driven).
+	Menu Menu `json:"menu"`
+}
+
+// Menu is the permission-derived sidebar visibility for the current user.
+type Menu struct {
+	Settings   bool `json:"settings"`
+	Project    bool `json:"project"`
+	Nodes      bool `json:"nodes"`
+	Kubernetes bool `json:"kubernetes"`
+	Costs      bool `json:"costs"`
 }
 
 type Project struct {
@@ -50,12 +61,13 @@ func RenderUsers(users []*db.User, roles []rbac.Role) *Users {
 	return v
 }
 
-func RenderUser(user *db.User, projects map[db.ProjectId]string, viewonly bool) *User {
+func RenderUser(user *db.User, projects map[db.ProjectId]string, viewonly bool, menu Menu) *User {
 	v := &User{
 		Name:      user.Name,
 		Email:     user.Email,
 		Anonymous: user.Anonymous,
 		Readonly:  viewonly,
+		Menu:      menu,
 	}
 
 	if len(user.Roles) > 0 {

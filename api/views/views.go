@@ -79,8 +79,8 @@ func Users(us []*db.User, rs []rbac.Role) *users.Users {
 	return users.RenderUsers(us, rs)
 }
 
-func User(u *db.User, projects map[db.ProjectId]string, viewonly bool) *users.User {
-	return users.RenderUser(u, projects, viewonly)
+func User(u *db.User, projects map[db.ProjectId]string, viewonly bool, menu users.Menu) *users.User {
+	return users.RenderUser(u, projects, viewonly, menu)
 }
 
 var (

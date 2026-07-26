@@ -127,7 +127,7 @@ func (api *Api) User(w http.ResponseWriter, r *http.Request, u *db.User) {
 		}
 	}
 	viewonly := !api.IsAllowed(u, rbac.Actions.Project("*").Settings().Edit())
-	utils.WriteJson(w, views.User(u, filtered, viewonly))
+	utils.WriteJson(w, views.User(u, filtered, viewonly, api.userMenu(u, filtered)))
 }
 
 func (api *Api) Users(w http.ResponseWriter, r *http.Request, u *db.User) {
