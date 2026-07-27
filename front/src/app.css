@@ -69,25 +69,166 @@ body.theme--dark {
     font-family: var(--font-display) !important;
 }
 
-.v-application .v-navigation-drawer,
-.v-application .v-navigation-drawer .v-list {
-    color: var(--text-dark) !important;
-    background-color: var(--sidebar-dark) !important;
+/* ─── Sidebar (dashboard-like flat nav) ─────────────────────────────── */
+.v-application {
+    --sidebar-bg: #ffffff;
+    --sidebar-fg: #18181b;
+    --sidebar-muted: #52525b;
+    --sidebar-border: #d4d4d8;
+    --sidebar-hover: rgba(24, 24, 27, 0.04);
+    --sidebar-active: #f4f4f5;
+    --radius: 0.5rem;
+}
+.v-application.theme--dark {
+    --sidebar-bg: #181818;
+    --sidebar-fg: #ececec;
+    --sidebar-muted: #a3a3a3;
+    --sidebar-border: #2b2b2b;
+    --sidebar-hover: rgba(255, 255, 255, 0.04);
+    --sidebar-active: rgba(255, 255, 255, 0.06);
+}
+
+.v-application .v-navigation-drawer.sb-nav {
+    color: var(--sidebar-fg) !important;
+    background-color: var(--sidebar-bg) !important;
+    border-right: 1px solid var(--sidebar-border) !important;
+    box-shadow: none !important;
+}
+.v-application .v-navigation-drawer.sb-nav .v-list {
+    color: var(--sidebar-fg) !important;
+    background-color: transparent !important;
+}
+.v-application .sb-nav .v-navigation-drawer__border {
+    display: none;
+}
+.v-application .sb-nav__divider {
+    border-color: var(--sidebar-border) !important;
+}
+.v-application .sb-nav__item {
+    min-height: 36px !important;
+    margin: 2px 0 !important;
+    border-radius: 6px !important;
+    color: var(--sidebar-muted) !important;
+    font-size: 13px !important;
+    font-weight: 400 !important;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+.v-application .sb-nav__item .v-list-item__icon,
+.v-application .sb-nav__item .v-icon {
+    color: inherit !important;
+}
+.v-application .sb-nav__item .v-list-item__title,
+.v-application .sb-nav__item .v-list-item__content {
+    color: inherit !important;
+    font-size: 13px !important;
+    font-weight: inherit !important;
+}
+.v-application .sb-nav__item .v-list-item__subtitle {
+    color: var(--sidebar-muted) !important;
+    opacity: 0.85;
+    font-size: 11px !important;
+}
+.v-application .sb-nav__item:hover {
+    background-color: var(--sidebar-hover) !important;
+    color: var(--sidebar-fg) !important;
+}
+.v-application .sb-nav__item--active,
+.v-application .sb-nav__item.v-list-item--active {
+    background-color: var(--sidebar-active) !important;
+    color: var(--sidebar-fg) !important;
+    font-weight: 500 !important;
+}
+.v-application .sb-nav__item--active::before,
+.v-application .sb-nav__item.v-list-item--active::before {
+    opacity: 0 !important;
+}
+.v-application .sb-nav__search .v-list-item__action {
+    color: var(--sidebar-muted) !important;
+    font-size: 11px !important;
+    opacity: 0.8;
+}
+.v-application .sb-menu {
+    border: 1px solid var(--border-color-dimmed);
+    border-radius: var(--radius);
+    background-color: var(--background-color-hi) !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18) !important;
 }
 
 .v-application .v-footer {
     background-color: var(--background-color);
 }
-.v-application .v-main {
+.v-application .v-main,
+.v-application .sb-main {
     color: var(--text-color) !important;
     background-color: var(--background-color) !important;
 }
-.v-application .v-main .v-tabs > .v-tabs-bar,
-.v-application .v-main .v-data-table,
-.v-application .v-main .v-list,
+
+/* ─── Cards / tables / lists — flat portal panels ───────────────────── */
 .v-application .v-main .v-card {
     color: var(--text-color) !important;
-    background-color: var(--background-color) !important;
+    background-color: var(--background-color-hi) !important;
+    border: 1px solid var(--border-color-dimmed) !important;
+    border-radius: var(--radius) !important;
+    box-shadow: none !important;
+}
+.v-application.theme--dark .v-main .v-card {
+    background-color: rgba(255, 255, 255, 0.02) !important;
+    border-color: rgba(255, 255, 255, 0.06) !important;
+}
+.v-application .v-main .v-data-table {
+    color: var(--text-color) !important;
+    background-color: var(--background-color-hi) !important;
+    border: 1px solid var(--border-color-dimmed);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+.v-application.theme--dark .v-main .v-data-table {
+    background-color: rgba(255, 255, 255, 0.02) !important;
+    border-color: rgba(255, 255, 255, 0.06);
+}
+.v-application .v-main .v-data-table > .v-data-table__wrapper > table > thead > tr > th {
+    background-color: transparent !important;
+    color: var(--text-color-dimmed) !important;
+    font-size: 12px !important;
+    font-weight: 500 !important;
+    border-bottom: 1px solid var(--border-color-dimmed) !important;
+    text-transform: none !important;
+    letter-spacing: normal !important;
+}
+.v-application .v-main .v-data-table > .v-data-table__wrapper > table > tbody > tr > td {
+    border-bottom: 1px solid var(--border-color-dimmed) !important;
+    font-size: 13px !important;
+}
+.v-application .v-main .v-data-table > .v-data-table__wrapper > table > tbody > tr:hover {
+    background-color: var(--sidebar-hover) !important;
+}
+.v-application .v-main .v-list {
+    color: var(--text-color) !important;
+    background-color: transparent !important;
+}
+
+/* ─── Tabs — underline, no Material bar fill ────────────────────────── */
+.v-application .v-main .v-tabs > .v-tabs-bar {
+    color: var(--text-color) !important;
+    background-color: transparent !important;
+    border-bottom: 1px solid var(--border-color-dimmed);
+    height: 40px;
+}
+.v-application .v-main .v-tabs .v-tab {
+    text-transform: none !important;
+    letter-spacing: normal !important;
+    font-size: 13px !important;
+    font-weight: 400 !important;
+    color: var(--text-color-dimmed) !important;
+    min-width: 0;
+}
+.v-application .v-main .v-tabs .v-tab--active {
+    color: var(--text-color) !important;
+    font-weight: 500 !important;
+}
+.v-application .v-main .v-tabs .v-tabs-slider-wrapper .v-tabs-slider {
+    background-color: var(--brand-primary) !important;
+    height: 2px !important;
 }
 
 .v-application .v-tooltip__content {
@@ -107,13 +248,47 @@ body.theme--dark {
 
 a {
     text-decoration: none !important;
+    color: var(--brand-primary);
 }
+a:hover {
+    opacity: 0.9;
+}
+
+/* ─── Buttons — flatter, soft radius ────────────────────────────────── */
 .v-btn {
     text-transform: none !important;
-    font-weight: normal !important;
+    font-weight: 500 !important;
     letter-spacing: inherit !important;
-    font-size: inherit !important;
+    font-size: 13px !important;
+    border-radius: 6px !important;
+    box-shadow: none !important;
 }
+.v-btn:not(.v-btn--round):not(.v-btn--icon) {
+    min-height: 32px;
+}
+.v-btn.v-btn--contained.primary,
+.v-btn.primary {
+    box-shadow: none !important;
+}
+.v-btn.v-btn--outlined {
+    border-color: var(--border-color-dimmed) !important;
+}
+.v-application .sb-alert {
+    border-radius: var(--radius) !important;
+    box-shadow: none !important;
+}
+.v-application .v-text-field--outlined fieldset {
+    border-color: var(--border-color-dimmed) !important;
+    border-radius: 6px !important;
+}
+.v-application .v-text-field--outlined.v-input--is-focused fieldset {
+    border-color: var(--brand-primary) !important;
+}
+.v-chip {
+    border-radius: 6px !important;
+    font-weight: 500 !important;
+}
+
 /* don't want smaller and bold items in dense lists, e.g. <v-select dense /> */
 .v-list--dense .v-list-item .v-list-item__title {
     font-size: inherit;

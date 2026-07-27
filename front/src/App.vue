@@ -10,26 +10,35 @@
             <LicenseCheck v-if="ee" :height="systemAlertHeight" @show="(v) => toggleSystemAlert('license', v)" />
         </v-system-bar>
 
-        <v-navigation-drawer v-if="menu" permanent app dark :mini-variant="menuCollapsed" width="188" stateless>
+        <v-navigation-drawer
+            v-if="menu"
+            permanent
+            app
+            :mini-variant="menuCollapsed"
+            width="220"
+            stateless
+            class="sb-nav"
+            :class="{ 'sb-nav--mini': menuCollapsed }"
+        >
             <template #prepend>
-                <div class="mx-2 my-3">
+                <div class="sb-nav__brand mx-2 my-3 px-1">
                     <router-link :to="project ? { name: 'overview', query: $utils.contextQuery() } : { name: 'index' }">
-                        <img :src="`${$coroot.base_path}static/${logo}`" height="38" class="logo" alt=":~#" />
+                        <img :src="`${$coroot.base_path}static/${logo}`" height="32" class="logo" alt=":~#" />
                     </router-link>
                 </div>
-                <v-list v-if="project" dense class="pa-0">
-                    <v-list-item @click="search = true">
+                <v-list v-if="project" dense class="pa-0 px-2">
+                    <v-list-item class="sb-nav__item sb-nav__search" @click="search = true">
                         <v-list-item-icon class="mr-3">
-                            <v-icon dark>mdi-magnify</v-icon>
+                            <v-icon small>mdi-magnify</v-icon>
                         </v-list-item-icon>
                         <v-list-item-content class="text-no-wrap">Go to...</v-list-item-content>
-                        <v-list-item-action class="my-0">{{ mac ? '⌘' : 'ctrl' }}+k</v-list-item-action>
+                        <v-list-item-action class="my-0 caption">{{ mac ? '⌘' : 'ctrl' }}+k</v-list-item-action>
                     </v-list-item>
-                    <v-divider class="ma-3" style="border-color: var(--border-dark)"></v-divider>
+                    <v-divider class="ma-2 sb-nav__divider"></v-divider>
                 </v-list>
             </template>
 
-            <v-list v-if="project" dense class="ma-0 pa-0">
+            <v-list v-if="project" dense class="ma-0 pa-0 px-2">
                 <v-list-item
                     v-for="(v, id) in visibleViews"
                     :to="{
@@ -37,25 +46,26 @@
                         params: { view: id, id: undefined, report: undefined },
                         query: getMenuQuery(id),
                     }"
-                    :class="{ 'v-list-item--active': id === view }"
+                    class="sb-nav__item"
+                    :class="{ 'v-list-item--active sb-nav__item--active': id === view }"
                 >
                     <v-list-item-icon class="mr-3">
                         <span v-if="id === 'incidents' && menuCollapsed && incidentsCount">
                             <v-badge color="red" dot offset-y="6">
-                                <v-icon dark>{{ v.icon }}</v-icon>
+                                <v-icon small>{{ v.icon }}</v-icon>
                             </v-badge>
                         </span>
                         <span v-else-if="id === 'alerts' && menuCollapsed && alertsCount">
                             <v-badge :color="alertsMaxSeverity === 'critical' ? 'red' : 'orange'" dot offset-y="6">
-                                <v-icon dark>{{ v.icon }}</v-icon>
+                                <v-icon small>{{ v.icon }}</v-icon>
                             </v-badge>
                         </span>
                         <span v-else-if="id === 'kubernetes' && menuCollapsed && kubernetesIssues">
                             <v-badge color="orange" dot offset-y="6">
-                                <v-icon dark>{{ v.icon }}</v-icon>
+                                <v-icon small>{{ v.icon }}</v-icon>
                             </v-badge>
                         </span>
-                        <v-icon v-else dark>{{ v.icon }}</v-icon>
+                        <v-icon v-else small>{{ v.icon }}</v-icon>
                     </v-list-item-icon>
                     <v-list-item-content>
                         <span v-if="id === 'incidents' && incidentsCount">
@@ -82,13 +92,13 @@
             </v-list>
 
             <template #append>
-                <v-list dense class="ma-0 pa-0">
-                    <v-divider class="ma-3" style="border-color: var(--border-dark)"></v-divider>
-                    <v-menu v-if="user && menuFlags.project" dark right offset-x tile>
+                <v-list dense class="ma-0 pa-0 px-2 pb-2">
+                    <v-divider class="ma-2 sb-nav__divider"></v-divider>
+                    <v-menu v-if="user && menuFlags.project" right offset-x>
                         <template #activator="{ on }">
-                            <v-list-item v-on="on">
+                            <v-list-item class="sb-nav__item" v-on="on">
                                 <v-list-item-icon class="mr-3">
-                                    <v-icon dark>mdi-hexagon-multiple</v-icon>
+                                    <v-icon small>mdi-hexagon-multiple</v-icon>
                                 </v-list-item-icon>
                                 <v-list-item-content class="pa-0">
                                     <v-list-item-subtitle class="mb-0">Project</v-list-item-subtitle>
@@ -99,7 +109,7 @@
                                 </v-list-item-content>
                             </v-list-item>
                         </template>
-                        <v-list dense class="pa-0">
+                        <v-list dense class="pa-0 sb-menu">
                             <v-list-item v-for="p in projects" :key="p.name" :to="{ name: 'overview', params: { projectId: p.id } }">
                                 {{ p.name }}
                             </v-list-item>
@@ -110,26 +120,26 @@
                         </v-list>
                     </v-menu>
 
-                    <v-list-item v-if="menuFlags.settings" :to="{ name: project ? 'project_settings' : 'project_new' }">
+                    <v-list-item v-if="menuFlags.settings" class="sb-nav__item" :to="{ name: project ? 'project_settings' : 'project_new' }">
                         <v-list-item-icon class="mr-3">
-                            <v-icon dark>mdi-cog</v-icon>
+                            <v-icon small>mdi-cog</v-icon>
                         </v-list-item-icon>
                         <v-list-item-content> Settings </v-list-item-content>
                     </v-list-item>
 
                     <!-- v-menu.eager is necessary to apply the selected theme -->
-                    <v-menu v-if="user" dark right offset-x tile eager>
+                    <v-menu v-if="user" right offset-x eager>
                         <template #activator="{ on }">
-                            <v-list-item v-on="on">
+                            <v-list-item class="sb-nav__item" v-on="on">
                                 <v-list-item-icon class="mr-3">
-                                    <v-icon dark>mdi-account</v-icon>
+                                    <v-icon small>mdi-account</v-icon>
                                 </v-list-item-icon>
                                 <v-list-item-content>
                                     <v-list-item-title>{{ user.name }}</v-list-item-title>
                                 </v-list-item-content>
                             </v-list-item>
                         </template>
-                        <v-list dense class="pa-0">
+                        <v-list dense class="pa-0 sb-menu">
                             <v-list-item v-if="user">
                                 <div class="py-2">
                                     <div>{{ user.name }}</div>
@@ -148,16 +158,16 @@
                         </v-list>
                     </v-menu>
 
-                    <v-menu dark right offset-x tile>
+                    <v-menu right offset-x>
                         <template #activator="{ on }">
-                            <v-list-item v-on="on">
+                            <v-list-item class="sb-nav__item" v-on="on">
                                 <v-list-item-icon class="mr-3">
-                                    <v-icon dark>mdi-help-circle-outline</v-icon>
+                                    <v-icon small>mdi-help-circle-outline</v-icon>
                                 </v-list-item-icon>
                                 <v-list-item-content>Help</v-list-item-content>
                             </v-list-item>
                         </template>
-                        <v-list dense class="pa-0">
+                        <v-list dense class="pa-0 sb-menu">
                             <v-list-item href="https://docs.coroot.com/" target="_blank">
                                 <v-icon small class="mr-1">mdi-book-open-outline</v-icon>Documentation</v-list-item
                             >
@@ -175,10 +185,10 @@
                         </v-list>
                     </v-menu>
 
-                    <v-list-item @click="toggleMenu">
+                    <v-list-item class="sb-nav__item" @click="toggleMenu">
                         <v-list-item-icon class="mr-3">
-                            <v-icon v-if="menuCollapsed" dark>mdi-chevron-right</v-icon>
-                            <v-icon v-else dark>mdi-chevron-left</v-icon>
+                            <v-icon v-if="menuCollapsed" small>mdi-chevron-right</v-icon>
+                            <v-icon v-else small>mdi-chevron-left</v-icon>
                         </v-list-item-icon>
                         <v-list-item-content> Collapse </v-list-item-content>
                     </v-list-item>
@@ -186,14 +196,14 @@
             </template>
         </v-navigation-drawer>
 
-        <v-main>
-            <v-container fluid class="py-5 px-5">
+        <v-main class="sb-main">
+            <v-container fluid class="py-4 px-5">
                 <v-alert
                     v-if="status && status.status === 'warning' && $route.name !== 'project_settings'"
                     color="red"
-                    elevation="2"
+                    elevation="0"
                     border="left"
-                    class="mb-4"
+                    class="mb-4 sb-alert"
                     colored-border
                 >
                     <div class="d-sm-flex align-center" style="gap: 8px">
