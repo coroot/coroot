@@ -109,7 +109,7 @@ func (cfg *Config) Bootstrap(database *db.DB) error {
 				Custom:              false,
 				ObjectivePercentage: override.ObjectivePercent,
 			}}
-			if err = saveInspectionOverride(database, po.project, override.ApplicationId, model.Checks.SLOAvailability.Id, c); err != nil {
+			if err = saveInspectionOverride(database, byName, po.project, override.ApplicationId, model.Checks.SLOAvailability.Id, c); err != nil {
 				return err
 			}
 		}
@@ -119,7 +119,7 @@ func (cfg *Config) Bootstrap(database *db.DB) error {
 				ObjectivePercentage: override.ObjectivePercent,
 				ObjectiveBucket:     model.RoundUpToDefaultBucket(float32(override.ObjectiveThreshold.Seconds())),
 			}}
-			if err = saveInspectionOverride(database, po.project, override.ApplicationId, model.Checks.SLOLatency.Id, c); err != nil {
+			if err = saveInspectionOverride(database, byName, po.project, override.ApplicationId, model.Checks.SLOLatency.Id, c); err != nil {
 				return err
 			}
 		}
@@ -161,21 +161,30 @@ func (cfg *Config) Bootstrap(database *db.DB) error {
 	return nil
 }
 
-func saveInspectionOverride(database *db.DB, project *db.Project, appId model.ApplicationId, checkId model.CheckId, cfg any) error {
+func saveInspectionOverride(database *db.DB, projectsByName map[string]*db.Project, project *db.Project, appId model.ApplicationId, checkId model.CheckId, cfg any) error {
 	if !project.Multicluster() {
 		return database.SaveCheckConfig(project.Id, appId, checkId, cfg)
 	}
 	if appId.ClusterId != "" && appId.ClusterId != model.ClusterIdExternal {
 		for _, mp := range project.Settings.MemberProjects {
-			if mp == appId.ClusterId {
-				return database.SaveCheckConfig(db.ProjectId(mp), appId, checkId, cfg)
+			p := projectsByName[mp]
+			if p == nil {
+				continue
+			}
+			if p.ClusterId() == appId.ClusterId {
+				return database.SaveCheckConfig(p.Id, appId, checkId, cfg)
 			}
 		}
 		klog.Warningf("skipping inspection override for %s: cluster %s is not a member of project %s", appId, appId.ClusterId, project.Name)
 		return nil
 	}
 	for _, mp := range project.Settings.MemberProjects {
-		if err := database.SaveCheckConfig(db.ProjectId(mp), appId, checkId, cfg); err != nil {
+		p := projectsByName[mp]
+		if p == nil {
+			klog.Warningf("skipping inspection override for %s: member project %s of project %s not found", appId, mp, project.Name)
+			continue
+		}
+		if err := database.SaveCheckConfig(p.Id, appId, checkId, cfg); err != nil {
 			return err
 		}
 	}
