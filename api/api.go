@@ -1710,13 +1710,22 @@ func (api *Api) AlertingRulesExport(w http.ResponseWriter, r *http.Request, u *d
 	utils.WriteJson(w, map[string]string{"yaml": string(out)})
 }
 
-func appConfigProjectId(project *db.Project, appId model.ApplicationId) (db.ProjectId, bool) {
+func (api *Api) appConfigProjectId(project *db.Project, appId model.ApplicationId) (db.ProjectId, bool) {
 	if !project.Multicluster() || appId.ClusterId == "" {
 		return project.Id, true
 	}
+	projects, err := api.db.GetProjects()
+	if err != nil {
+		klog.Errorln("failed to get projects:", err)
+		return "", false
+	}
 	for _, mp := range project.Settings.MemberProjects {
-		if mp == appId.ClusterId {
-			return db.ProjectId(mp), true
+		p := projects[mp]
+		if p == nil {
+			continue
+		}
+		if p.ClusterId() == appId.ClusterId {
+			return p.Id, true
 		}
 	}
 	return "", false
@@ -1744,7 +1753,7 @@ func (api *Api) Inspection(w http.ResponseWriter, r *http.Request, u *db.User) {
 		return
 	}
 
-	configProjectId, ok := appConfigProjectId(project, appId)
+	configProjectId, ok := api.appConfigProjectId(project, appId)
 	if !ok {
 		klog.Warningln("application doesn't belong to any member project:", appId)
 		http.Error(w, "Application not found", http.StatusNotFound)
@@ -1923,7 +1932,7 @@ func (api *Api) Instrumentation(w http.ResponseWriter, r *http.Request, u *db.Us
 			http.Error(w, "You are not allowed to configure database integrations.", http.StatusForbidden)
 			return
 		}
-		configProjectId, ok := appConfigProjectId(project, appId)
+		configProjectId, ok := api.appConfigProjectId(project, appId)
 		if !ok {
 			klog.Warningln("application doesn't belong to any member project:", appId)
 			http.Error(w, "Application not found", http.StatusNotFound)
@@ -1989,7 +1998,7 @@ func (api *Api) Profiling(w http.ResponseWriter, r *http.Request, u *db.User) {
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
-		configProjectId, ok := appConfigProjectId(project, appId)
+		configProjectId, ok := api.appConfigProjectId(project, appId)
 		if !ok {
 			klog.Warningln("application doesn't belong to any member project:", appId)
 			http.Error(w, "Application not found", http.StatusNotFound)
@@ -2060,7 +2069,7 @@ func (api *Api) Tracing(w http.ResponseWriter, r *http.Request, u *db.User) {
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
-		configProjectId, ok := appConfigProjectId(project, appId)
+		configProjectId, ok := api.appConfigProjectId(project, appId)
 		if !ok {
 			klog.Warningln("application doesn't belong to any member project:", appId)
 			http.Error(w, "Application not found", http.StatusNotFound)
@@ -2131,7 +2140,7 @@ func (api *Api) Logs(w http.ResponseWriter, r *http.Request, u *db.User) {
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
-		configProjectId, ok := appConfigProjectId(project, appId)
+		configProjectId, ok := api.appConfigProjectId(project, appId)
 		if !ok {
 			klog.Warningln("application doesn't belong to any member project:", appId)
 			http.Error(w, "Application not found", http.StatusNotFound)
@@ -2248,7 +2257,7 @@ func (api *Api) Risks(w http.ResponseWriter, r *http.Request, u *db.User) {
 			http.Error(w, "", http.StatusBadRequest)
 			return
 		}
-		configProjectId, ok := appConfigProjectId(project, appId)
+		configProjectId, ok := api.appConfigProjectId(project, appId)
 		if !ok {
 			klog.Warningln("application doesn't belong to any member project:", appId)
 			http.Error(w, "Application not found", http.StatusNotFound)
