@@ -1,3 +1,4 @@
+import Vue from 'vue';
 import axios from 'axios';
 import * as storage from '@/utils/storage';
 import { v4 } from 'uuid';
@@ -11,6 +12,9 @@ export default class Api {
     vuetify = null;
     deviceId = '';
     basePath = '';
+
+    // Shared so components below App can read permissions without prop drilling.
+    auth = Vue.observable({ user: null });
 
     context = {
         status: {},
@@ -114,7 +118,10 @@ export default class Api {
         if (form) {
             this.post(`user`, form, cb);
         } else {
-            this.get(`user`, {}, cb);
+            this.get(`user`, {}, (data, error) => {
+                this.auth.user = error ? null : data;
+                cb(data, error);
+            });
         }
     }
 

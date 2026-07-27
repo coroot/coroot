@@ -319,8 +319,8 @@ export default {
             return this.$route.query.alert;
         },
         canManageRules() {
-            const menu = this.$root.user && this.$root.user.menu;
-            return menu && menu.alerting_rules;
+            const user = this.$api.auth.user;
+            return !!(user && user.menu && user.menu.alerting_rules);
         },
     },
     methods: {
