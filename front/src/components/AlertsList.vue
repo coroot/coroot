@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div class="d-flex align-center mb-4">
+        <div class="d-flex align-center flex-wrap mb-4 alerts-toolbar">
             <v-text-field
                 v-model="searchInput"
                 label="search"
@@ -13,6 +13,11 @@
                 @input="debouncedSearch"
                 @click:clear="clearSearch"
             />
+            <v-spacer />
+            <v-btn v-if="canManageRules" color="primary" small class="mr-2" @click="openNewRule">
+                <v-icon small class="mr-1">mdi-plus</v-icon>
+                Add rule
+            </v-btn>
         </div>
 
         <div class="legend mb-3">
@@ -313,8 +318,15 @@ export default {
         selectedAlertId() {
             return this.$route.query.alert;
         },
+        canManageRules() {
+            const menu = this.$root.user && this.$root.user.menu;
+            return menu && menu.alerting_rules;
+        },
     },
     methods: {
+        openNewRule() {
+            this.$router.push({ params: { id: 'rules' }, query: { ...this.$route.query, rule: 'new' } }).catch(() => {});
+        },
         openAlert(id) {
             this.$router.push({ query: { ...this.$route.query, alert: id } }).catch((err) => err);
         },
@@ -472,6 +484,9 @@ export default {
 </script>
 
 <style scoped>
+.alerts-toolbar {
+    gap: 8px;
+}
 .table:deep(table) {
     min-width: 500px;
 }

@@ -44,16 +44,16 @@ export default {
         };
     },
     mounted() {
-        if (!this.tabs.find((t) => t.id === this.tab)) {
-            if (this.$route.params.id) {
-                this.$router.replace({ params: { id: undefined } });
-            }
-        }
+        this.syncTabRoute();
     },
     watch: {
         '$route.params.id'(newId) {
             this.tab = newId;
             this.error = '';
+            this.syncTabRoute();
+        },
+        '$root.user'() {
+            this.syncTabRoute();
         },
     },
     computed: {
@@ -70,9 +70,29 @@ export default {
             }
             return tabs;
         },
+        isHandoffUser() {
+            const email = (this.$root.user && this.$root.user.email) || '';
+            return email.endsWith('@handoff.local');
+        },
     },
 
     methods: {
+        syncTabRoute() {
+            if (!this.$root.user) {
+                return;
+            }
+            const currentId = this.$route.params.id;
+            if (currentId && !this.tabs.find((t) => t.id === currentId)) {
+                this.$router.replace({ params: { id: undefined } }).catch(() => {});
+                return;
+            }
+            // Handoff users manage namespace-scoped rules; land on that tab so
+            // "Add rule" is visible without hunting for a second tab.
+            const menu = this.$root.user.menu;
+            if (!currentId && menu && menu.alerting_rules && this.isHandoffUser) {
+                this.$router.replace({ params: { id: 'rules' } }).catch(() => {});
+            }
+        },
         setLoading(loading) {
             this.loading = loading;
         },

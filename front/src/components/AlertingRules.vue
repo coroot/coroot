@@ -1,15 +1,15 @@
 <template>
     <div>
-        <div class="d-flex align-center mb-4">
-            <div>
+        <div class="d-flex align-center flex-wrap mb-4 alerting-rules-toolbar">
+            <div class="alerting-rules-toolbar__search">
                 <v-text-field v-model="search" label="search" prepend-inner-icon="mdi-magnify" dense outlined hide-details clearable class="search" />
             </div>
             <v-spacer />
-            <v-btn color="primary" small @click="openForm('new')" class="mr-4">
+            <v-btn v-if="canEdit" color="primary" small @click="openForm('new')" class="mr-4">
                 <v-icon small class="mr-1">mdi-plus</v-icon>
                 Add rule
             </v-btn>
-            <v-btn outlined small @click="showExport" class="mr-4">
+            <v-btn v-if="canEdit" outlined small @click="showExport" class="mr-4">
                 <v-icon small class="mr-1">mdi-export</v-icon>
                 Export
             </v-btn>
@@ -26,7 +26,7 @@
             </v-menu>
         </div>
 
-        <div v-if="selected.length" class="d-flex align-center justify-end mb-3">
+        <div v-if="canEdit && selected.length" class="d-flex align-center justify-end mb-3">
             <span class="caption red--text mr-2">Disabling selected rules will resolve their firing alerts</span>
             <v-btn small outlined class="mr-2" @click="bulkSetEnabled(true)"> Enable ({{ selected.length }}) </v-btn>
             <v-btn small outlined @click="bulkSetEnabled(false)"> Disable ({{ selected.length }}) </v-btn>
@@ -160,6 +160,7 @@ export default {
             checks: [],
             categories: [],
             restrictedNamespaces: [],
+            canEdit: false,
             alertCounts: {},
             search: '',
             selected: [],
@@ -216,6 +217,7 @@ export default {
                 this.checks = (data && data.checks) || [];
                 this.categories = (data && data.categories) || [];
                 this.restrictedNamespaces = (data && data.restricted_namespaces) || [];
+                this.canEdit = !!(data && data.can_edit);
                 this.alertCounts = (data && data.alert_counts) || {};
             });
         },
@@ -302,6 +304,13 @@ export default {
 </script>
 
 <style scoped>
+.alerting-rules-toolbar {
+    gap: 8px;
+}
+.alerting-rules-toolbar__search {
+    flex: 0 1 auto;
+    min-width: 0;
+}
 .table:deep(table) {
     min-width: 500px;
 }
