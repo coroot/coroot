@@ -31,20 +31,37 @@ func (api *Api) RCA(w http.ResponseWriter, r *http.Request, u *db.User) {
 		}
 	}()
 
+	project, err := api.db.GetProject(projectId)
+	if err != nil {
+		klog.Errorln(err)
+		rca.Status = "Failed"
+		rca.Error = err.Error()
+		return
+	}
+
+	// The local provider summarizes the telemetry in-process, so it skips both the Coroot Cloud
+	// gating below and the raw metric dump that only the cloud API consumes.
+	if api.localRCAEnabled() {
+		appId, err := GetApplicationId(r)
+		if err != nil {
+			klog.Errorln(err)
+			rca.Status = "Failed"
+			rca.Error = err.Error()
+			return
+		}
+		if incident != nil {
+			from, to = api.IncidentTimeContext(projectId, incident, to)
+		}
+		rca = api.localRCA(r.Context(), project, appId, incident, from, to)
+		return
+	}
+
 	cloudAPI := cloud.API(api.db, api.deploymentUuid, api.instanceUuid, r.Referer())
 	if status, err := cloudAPI.RCAStatus(r.Context(), false); status != "OK" {
 		rca.Status = status
 		if err != nil {
 			rca.Error = err.Error()
 		}
-		return
-	}
-
-	project, err := api.db.GetProject(projectId)
-	if err != nil {
-		klog.Errorln(err)
-		rca.Status = "Failed"
-		rca.Error = err.Error()
 		return
 	}
 
@@ -170,6 +187,14 @@ func (api *Api) IncidentRCA(ctx context.Context, project *db.Project, world *mod
 	if rca != nil && rca.Status == "OK" {
 		return
 	}
+
+	// The watcher calls this before enqueuing notifications, so the local provider investigates in the
+	// background instead of blocking the alert on an LLM round trip.
+	if api.localRCAEnabled() {
+		api.localIncidentRCA(project, world, incident)
+		return
+	}
+
 	if rca == nil {
 		rca = &model.RCA{}
 	}

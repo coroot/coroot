@@ -36,6 +36,14 @@ var (
 	clickHouseSpaceManagerUsageThresholdPercent = kingpin.Flag("clickhouse-space-manager-usage-threshold", "Disk usage percentage threshold for triggering partition cleanup in ClickHouse").Envar("CLICKHOUSE_SPACE_MANAGER_USAGE_THRESHOLD").Int()
 	clickHouseSpaceManagerMinPartitions         = kingpin.Flag("clickhouse-space-manager-min-partitions", "Minimum number of partitions to keep when cleaning up ClickHouse disk space").Envar("CLICKHOUSE_SPACE_MANAGER_MIN_PARTITIONS").Int()
 
+	rcaProvider        = kingpin.Flag("rca-provider", `Root cause analysis backend: "cloud" (Coroot Cloud) or "local" (self-hosted OpenAI-compatible LLM).`).Envar("RCA_PROVIDER").String()
+	rcaLlmBaseUrl      = kingpin.Flag("rca-llm-base-url", "Base URL of an OpenAI-compatible API, e.g. https://openrouter.ai/api/v1").Envar("RCA_LLM_BASE_URL").String()
+	rcaLlmApiKey       = kingpin.Flag("rca-llm-api-key", "API key for the OpenAI-compatible API").Envar("RCA_LLM_API_KEY").String()
+	rcaLlmModel        = kingpin.Flag("rca-llm-model", "Model to use for root cause analysis, e.g. moonshotai/kimi-k2.6").Envar("RCA_LLM_MODEL").String()
+	rcaSystemPrompt    = kingpin.Flag("rca-system-prompt", "Override the built-in root cause analysis system prompt").Envar("RCA_SYSTEM_PROMPT").String()
+	rcaAutoInvestigate = kingpin.Flag("rca-auto-investigate", "Automatically investigate incidents as they are detected instead of on-demand only").Envar("RCA_AUTO_INVESTIGATE").Bool()
+	rcaTimeout         = timeseries.DurationFlag(kingpin.Flag("rca-timeout", "Timeout for a single root cause analysis (e.g. 2m, 10m; default 5m)").Envar("RCA_TIMEOUT"))
+
 	globalClickhouseAddress         = kingpin.Flag("global-clickhouse-address", "").Envar("GLOBAL_CLICKHOUSE_ADDRESS").String()
 	globalClickhouseUser            = kingpin.Flag("global-clickhouse-user", "").Envar("GLOBAL_CLICKHOUSE_USER").String()
 	globalClickhousePassword        = kingpin.Flag("global-clickhouse-password", "").Envar("GLOBAL_CLICKHOUSE_PASSWORD").String()
@@ -135,6 +143,27 @@ func (cfg *Config) ApplyFlags() {
 	}
 	if *developerMode {
 		cfg.DeveloperMode = *developerMode
+	}
+	if *rcaProvider != "" {
+		cfg.RCA.Provider = *rcaProvider
+	}
+	if *rcaLlmBaseUrl != "" {
+		cfg.RCA.BaseUrl = *rcaLlmBaseUrl
+	}
+	if *rcaLlmApiKey != "" {
+		cfg.RCA.ApiKey = *rcaLlmApiKey
+	}
+	if *rcaLlmModel != "" {
+		cfg.RCA.Model = *rcaLlmModel
+	}
+	if *rcaSystemPrompt != "" {
+		cfg.RCA.SystemPrompt = *rcaSystemPrompt
+	}
+	if *rcaAutoInvestigate {
+		cfg.RCA.AutoInvestigate = *rcaAutoInvestigate
+	}
+	if *rcaTimeout > 0 {
+		cfg.RCA.Timeout = *rcaTimeout
 	}
 	if *clickHouseSpaceManagerDisabled {
 		cfg.ClickHouseSpaceManager.Enabled = false

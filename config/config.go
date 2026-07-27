@@ -37,6 +37,8 @@ type Config struct {
 
 	Auth Auth `yaml:"auth"`
 
+	RCA RCA `yaml:"rca"`
+
 	Projects []Project `yaml:"projects"`
 
 	DoNotCheckForDeployments bool `yaml:"do_not_check_for_deployments"`
@@ -194,6 +196,51 @@ type Auth struct {
 	HandoffSecret string `yaml:"handoff_secret"`
 }
 
+const (
+	// RCAProviderCloud delegates root cause analysis to Coroot Cloud (upstream behavior).
+	RCAProviderCloud = "cloud"
+	// RCAProviderLocal runs root cause analysis against a self-hosted OpenAI-compatible LLM.
+	RCAProviderLocal = "local"
+)
+
+type RCA struct {
+	Provider     string `yaml:"provider"`
+	BaseUrl      string `yaml:"base_url"`
+	ApiKey       string `yaml:"api_key"`
+	Model        string `yaml:"model"`
+	SystemPrompt string `yaml:"system_prompt"`
+	// AutoInvestigate lets the incident watcher run RCA without user interaction.
+	AutoInvestigate bool                `yaml:"auto_investigate"`
+	Timeout         timeseries.Duration `yaml:"timeout"`
+}
+
+func (c *RCA) IsLocal() bool {
+	return c.Provider == RCAProviderLocal
+}
+
+func (c *RCA) Validate() error {
+	switch c.Provider {
+	case "", RCAProviderCloud:
+		return nil
+	case RCAProviderLocal:
+	default:
+		return fmt.Errorf("invalid provider %q, expected %q or %q", c.Provider, RCAProviderCloud, RCAProviderLocal)
+	}
+	if c.BaseUrl == "" {
+		return fmt.Errorf("base_url is required when provider is %q", RCAProviderLocal)
+	}
+	if err := validateUrl(c.BaseUrl); err != nil {
+		return err
+	}
+	if c.Model == "" {
+		return fmt.Errorf("model is required when provider is %q", RCAProviderLocal)
+	}
+	if c.Timeout <= 0 {
+		return fmt.Errorf("invalid timeout: %d", c.Timeout)
+	}
+	return nil
+}
+
 func NewConfig() *Config {
 	cfg := &Config{
 		ListenAddress: ":8080",
@@ -220,6 +267,11 @@ func NewConfig() *Config {
 
 		Auth: Auth{
 			BootstrapAdminPassword: db.AdminUserDefaultPassword,
+		},
+
+		RCA: RCA{
+			Provider: RCAProviderCloud,
+			Timeout:  5 * timeseries.Minute,
 		},
 
 		ClickHouseSpaceManager: ClickHouseSpaceManager{
@@ -297,6 +349,10 @@ func (cfg *Config) Validate() error {
 		if err = cfg.CorootCloud.Validate(); err != nil {
 			return fmt.Errorf("invalid corootCloud settings: %w", err)
 		}
+	}
+
+	if err = cfg.RCA.Validate(); err != nil {
+		return fmt.Errorf("invalid rca settings: %w", err)
 	}
 
 	for i, p := range cfg.Projects {

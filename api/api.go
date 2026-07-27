@@ -62,6 +62,8 @@ type Api struct {
 	deploymentUuid string
 	instanceUuid   string
 
+	rca *rcaRunner
+
 	loadWorld LoadWorldF
 }
 
@@ -82,6 +84,7 @@ func NewApi(cfg *config.Config, cache *cache.Cache, db *db.DB, collector *collec
 		licenseMgr:       licenseMgr,
 		deploymentUuid:   deploymentUuid,
 		instanceUuid:     instanceUuid,
+		rca:              newRCARunner(cfg.RCA),
 		loadWorld:        loadWorld,
 	}
 }
