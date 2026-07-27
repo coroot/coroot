@@ -170,6 +170,8 @@ func main() {
 	// Kubero / trusted S2S handoff: mint OTT (secret) → browser consumes → coroot_session
 	r.HandleFunc("/api/auth/handoff", a.CreateHandoff).Methods(http.MethodPost)
 	r.HandleFunc("/api/auth/handoff", a.ConsumeHandoff).Methods(http.MethodGet)
+	// Read-only incident lookup for the same trusted callers (Kubero app dashboard banner).
+	r.HandleFunc("/api/integration/incident", a.IntegrationAppIncident).Methods(http.MethodGet)
 
 	r.HandleFunc("/api/user", a.Auth(a.User)).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/users", a.Auth(a.Users)).Methods(http.MethodGet, http.MethodPost)
