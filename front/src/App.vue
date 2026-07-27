@@ -139,21 +139,25 @@
                                 </v-list-item-content>
                             </v-list-item>
                         </template>
-                        <v-list dense class="pa-0 sb-menu">
-                            <v-list-item v-if="user">
-                                <div class="py-2">
-                                    <div>{{ user.name }}</div>
-                                    <div v-if="user.email" class="caption grey--text">login: {{ user.email }}</div>
-                                    <div v-if="user.role" class="caption grey--text">role: {{ user.role }}</div>
-                                </div>
+                        <v-list dense class="pa-0 sb-menu sb-menu--compact">
+                            <v-list-item v-if="user" class="sb-menu__user">
+                                <v-list-item-content class="py-1">
+                                    <v-list-item-title class="sb-menu__title">{{ user.name }}</v-list-item-title>
+                                    <v-list-item-subtitle v-if="user.email && !isHandoffUser" class="sb-menu__meta">
+                                        {{ user.email }}
+                                    </v-list-item-subtitle>
+                                    <v-list-item-subtitle v-if="user.role" class="sb-menu__meta">
+                                        {{ user.role }}
+                                    </v-list-item-subtitle>
+                                </v-list-item-content>
                             </v-list-item>
-                            <v-divider v-if="user" class="ma-2" />
-                            <v-subheader class="px-4">Theme</v-subheader>
-                            <ThemeSelector />
+                            <v-divider v-if="user" />
+                            <v-subheader class="sb-menu__subheader">Theme</v-subheader>
+                            <ThemeSelector compact />
                             <template v-if="user && !user.anonymous">
-                                <v-divider class="my-2" />
-                                <v-list-item v-if="!isHandoffUser" @click="changePassword = true">Change password</v-list-item>
-                                <v-list-item :to="{ name: 'logout' }">Sign out</v-list-item>
+                                <v-divider />
+                                <v-list-item v-if="!isHandoffUser" dense @click="changePassword = true">Change password</v-list-item>
+                                <v-list-item dense :to="{ name: 'logout' }">Sign out</v-list-item>
                             </template>
                         </v-list>
                     </v-menu>

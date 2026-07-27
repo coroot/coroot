@@ -153,6 +153,48 @@ body.theme--dark {
     background-color: var(--background-color-hi) !important;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18) !important;
 }
+.v-application .sb-menu--compact {
+    width: 200px;
+    max-width: 200px;
+}
+.v-application .sb-menu--compact .v-list-item {
+    min-height: 32px !important;
+}
+.v-application .sb-menu--compact .v-divider {
+    margin: 0 !important;
+}
+.v-application .sb-menu--compact .sb-menu__user {
+    min-height: auto !important;
+}
+.v-application .sb-menu--compact .sb-menu__title {
+    font-size: 13px !important;
+    font-weight: 600;
+    line-height: 1.3 !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.v-application .sb-menu--compact .sb-menu__meta {
+    font-size: 11px !important;
+    line-height: 1.3 !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: 0.7;
+}
+.v-application .sb-menu--compact .sb-menu__subheader {
+    min-height: 28px !important;
+    height: 28px !important;
+    font-size: 11px !important;
+    padding: 0 12px !important;
+    color: var(--text-color-dimmed) !important;
+}
+.v-application .sb-menu--compact .sb-theme-selector__item {
+    min-height: 28px !important;
+    font-size: 13px !important;
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+}
 
 .v-application .v-footer {
     background-color: var(--background-color);
