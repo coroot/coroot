@@ -73,10 +73,6 @@ export default {
             }
             return tabs;
         },
-        isHandoffUser() {
-            const email = (this.user && this.user.email) || '';
-            return email.endsWith('@handoff.local');
-        },
     },
 
     methods: {
@@ -87,13 +83,6 @@ export default {
             const currentId = this.$route.params.id;
             if (currentId && !this.tabs.find((t) => t.id === currentId)) {
                 this.$router.replace({ params: { id: undefined } }).catch(() => {});
-                return;
-            }
-            // Handoff users manage namespace-scoped rules; land on that tab so
-            // "Add rule" is visible without hunting for a second tab.
-            const menu = this.user.menu;
-            if (!currentId && menu && menu.alerting_rules && this.isHandoffUser) {
-                this.$router.replace({ params: { id: 'rules' } }).catch(() => {});
             }
         },
         setLoading(loading) {
