@@ -21,10 +21,10 @@ func TestRenderSearchFiltersByApplicationPermission(t *testing.T) {
 	roles := staticRoles{
 		rbac.NewRole(roleName,
 			rbac.NewPermission(rbac.ScopeApplication, rbac.ActionView, rbac.Object{
-				"project_id":             projectId,
-				"application_namespace":  "twenty-production",
-				"application_kind":       "*",
-				"application_name":       "*",
+				"project_id":            projectId,
+				"application_namespace": "twenty-production",
+				"application_kind":      "*",
+				"application_name":      "*",
 			}),
 		),
 	}

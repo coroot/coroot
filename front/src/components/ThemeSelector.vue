@@ -1,6 +1,13 @@
 <template>
     <v-list-item-group v-model="theme" :class="{ 'sb-theme-selector--compact': compact }">
-        <v-list-item v-for="(icon, name) in themes" :key="name" dense :class="{ 'sb-theme-selector__item': compact }" @click="setTheme(name)" :value="name">
+        <v-list-item
+            v-for="(icon, name) in themes"
+            :key="name"
+            dense
+            :class="{ 'sb-theme-selector__item': compact }"
+            @click="setTheme(name)"
+            :value="name"
+        >
             <v-icon :x-small="compact" :small="!compact" class="mr-1">{{ icon }}</v-icon>
             <span class="text-capitalize">{{ name }}</span>
         </v-list-item>

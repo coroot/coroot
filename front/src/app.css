@@ -111,7 +111,9 @@ body.theme--dark {
     color: var(--sidebar-muted) !important;
     font-size: 13px !important;
     font-weight: 400 !important;
-    transition: background-color 0.15s ease, color 0.15s ease;
+    transition:
+        background-color 0.15s ease,
+        color 0.15s ease;
 }
 .v-application .sb-nav__item .v-list-item__icon,
 .v-application .sb-nav__item .v-icon {

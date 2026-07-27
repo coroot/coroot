@@ -1644,21 +1644,21 @@ func (api *Api) AlertingRules(w http.ResponseWriter, r *http.Request, u *db.User
 			}
 			alertCounts = filteredCounts
 			utils.WriteJson(w, api.WithContext(u, project, cacheStatus, world, map[string]any{
-				"rules":                  rules,
-				"checks":                 checks,
-				"categories":             categories,
-				"alert_counts":           alertCounts,
-				"restricted_namespaces":  namespaces,
-				"can_edit":               canEdit,
+				"rules":                 rules,
+				"checks":                checks,
+				"categories":            categories,
+				"alert_counts":          alertCounts,
+				"restricted_namespaces": namespaces,
+				"can_edit":              canEdit,
 			}))
 			return
 		}
 		utils.WriteJson(w, api.WithContext(u, project, cacheStatus, world, map[string]any{
-			"rules":         rules,
-			"checks":        checks,
-			"categories":    categories,
-			"alert_counts":  alertCounts,
-			"can_edit":      canEdit,
+			"rules":        rules,
+			"checks":       checks,
+			"categories":   categories,
+			"alert_counts": alertCounts,
+			"can_edit":     canEdit,
 		}))
 	case http.MethodPost:
 		if !api.IsAllowed(u, rbac.Actions.Project(projectId).AlertingRules().Edit()) {

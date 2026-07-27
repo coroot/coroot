@@ -205,8 +205,7 @@
                             <div class="subtitle-1">Application patterns</div>
                             <div class="caption grey--text">
                                 <template v-if="isNamespaceScoped">
-                                    Comma-separated patterns confined to your namespace(s)
-                                    ({{ restrictedNamespaces.join(', ') }}), e.g.
+                                    Comma-separated patterns confined to your namespace(s) ({{ restrictedNamespaces.join(', ') }}), e.g.
                                     {{ restrictedNamespaces[0] }}:Deployment:my-app or {{ restrictedNamespaces[0] }}:*:*.
                                 </template>
                                 <template v-else> Comma-separated glob patterns to match application IDs (e.g., */myapp, namespace/*). </template>
