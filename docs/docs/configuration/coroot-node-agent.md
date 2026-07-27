@@ -23,6 +23,7 @@ You can configure coroot-node-agent using command-line flags or environment vari
 | `--listen` | `LISTEN` | `0.0.0.0:80` | HTTP listen address |
 | `--cgroupfs-root` | `CGROUPFS_ROOT` | `/sys/fs/cgroup` | Path to the host's cgroup filesystem root |
 | `--disable-log-parsing` | `DISABLE_LOG_PARSING` | `false` | Disable container log parsing |
+| `--disable-json-log-parsing` | `DISABLE_JSON_LOG_PARSING` | `false` | Disable extracting the message, severity, and attributes from JSON-formatted logs |
 | `--disable-pinger` | `DISABLE_PINGER` | `false` | Disable ICMP ping to upstreams |
 | `--disable-l7-tracing` | `DISABLE_L7_TRACING` | `false` | Disable application-layer (L7) tracing |
 | `--disable-gpu-monitoring` | `DISABLE_GPU_MONITORING` | `false` | Disable GPU monitoring (NVML) |
@@ -74,6 +75,7 @@ Flag names are identical (for example `--scrape-interval`), but **environment va
 | `--insecure-skip-verify` | `COROOT_INSECURE_SKIP_VERIFY` | Skip TLS verification of the collector |
 | `--ca-file` | `COROOT_CA_FILE` | Path to a custom CA certificate |
 | `--disable-log-parsing` | `COROOT_DISABLE_LOG_PARSING` | Disable Windows Event Log and container log collection |
+| `--disable-json-log-parsing` | `COROOT_DISABLE_JSON_LOG_PARSING` | Disable extracting the message, severity, and attributes from JSON-formatted logs |
 | `--disable-gpu-monitoring` | `COROOT_DISABLE_GPU_MONITORING` | Disable NVIDIA GPU monitoring |
 | `--container-allowlist` / `--container-denylist` | `COROOT_CONTAINER_ALLOWLIST` / `COROOT_CONTAINER_DENYLIST` | Regex of services to include or exclude |
 | `--provider` / `--region` / `--availability-zone` / `--instance-type` / `--instance-life-cycle` | `COROOT_PROVIDER` and so on | Override `node_cloud_info` labels |
