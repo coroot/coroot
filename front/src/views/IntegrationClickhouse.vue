@@ -143,9 +143,9 @@
                                     <td>{{ formatBytes(disk.total_space) }}</td>
                                     <td>
                                         <v-progress-linear
-                                            background-color="blue lighten-3"
+                                            background-color="primary lighten-4"
                                             height="16"
-                                            color="blue lighten-1"
+                                            color="primary"
                                             :value="getDiskUsagePercent(disk)"
                                             style="min-width: 64px"
                                         >

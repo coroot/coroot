@@ -1,8 +1,11 @@
 import Vue from 'vue';
 import Vuetify from 'vuetify/lib';
-import colors from 'vuetify/lib/util/colors';
 
 Vue.use(Vuetify);
+
+// Stackblaze dashboard tokens (dashboard/src/styles/tailwind.css)
+const primaryLight = '#5d54a4';
+const primaryDark = '#6b26d9';
 
 export default new Vuetify({
     icons: {
@@ -11,10 +14,14 @@ export default new Vuetify({
     theme: {
         themes: {
             light: {
-                secondary: colors.blue.lighten1,
+                primary: primaryLight,
+                secondary: primaryLight,
+                accent: primaryLight,
             },
             dark: {
-                secondary: colors.blue.lighten1,
+                primary: primaryDark,
+                secondary: primaryDark,
+                accent: primaryDark,
             },
         },
     },

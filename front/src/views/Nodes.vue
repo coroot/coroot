@@ -79,9 +79,9 @@
             <template #item.cpu_percent="{ item }">
                 <v-progress-linear
                     v-if="item.cpu_percent != null"
-                    background-color="blue lighten-3"
+                    background-color="primary lighten-4"
                     height="16"
-                    color="blue lighten-1"
+                    color="primary"
                     :value="item.cpu_percent"
                     style="min-width: 64px"
                 >

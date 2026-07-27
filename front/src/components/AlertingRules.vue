@@ -329,7 +329,7 @@ export default {
 }
 .name-link {
     cursor: pointer;
-    color: #1976d2;
+    color: var(--brand-primary, #5d54a4);
     text-decoration: underline;
 }
 .name-link.disabled {

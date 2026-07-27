@@ -11,7 +11,7 @@
 export default {
     data() {
         return {
-            theme: this.$storage.local('theme') || 'auto',
+            theme: this.$storage.local('theme') || 'dark',
         };
     },
 
@@ -37,20 +37,26 @@ export default {
                 this.$storage.local('theme', this.theme);
             } else {
                 matchMedia.addEventListener('change', (e) => {
-                    const theme = this.$storage.local('theme') || 'auto';
+                    const theme = this.$storage.local('theme') || 'dark';
                     if (theme === 'auto') {
                         this.$vuetify.theme.dark = e.matches;
+                        this.syncBodyClass();
                     }
                 });
             }
-            this.theme = this.$storage.local('theme') || 'auto';
+            this.theme = this.$storage.local('theme') || 'dark';
             if (this.theme === 'auto') {
                 this.$vuetify.theme.dark = matchMedia.matches;
             } else {
                 this.$vuetify.theme.dark = this.theme === 'dark';
             }
+            this.syncBodyClass();
+        },
+        syncBodyClass() {
             if (this.$vuetify.theme.dark) {
                 document.body.classList.add('theme--dark');
+            } else {
+                document.body.classList.remove('theme--dark');
             }
         },
     },

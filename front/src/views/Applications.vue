@@ -85,7 +85,7 @@
                         fill
                         smooth
                         padding="4"
-                        :color="`blue ${$vuetify.theme.dark ? '' : 'lighten-4'}`"
+                        :color="`primary ${$vuetify.theme.dark ? '' : 'lighten-4'}`"
                         height="30"
                         width="120"
                     />
@@ -103,7 +103,7 @@ import Views from '@/views/Views.vue';
 const statuses = {
     critical: { name: 'SLO violation', color: 'red lighten-1' },
     warning: { name: 'Warning', color: 'orange lighten-1' },
-    info: { name: 'Errors in logs', color: 'blue lighten-1' },
+    info: { name: 'Errors in logs', color: 'primary' },
     unknown: { name: 'Integration required', color: 'purple lighten-1' },
     ok: { name: 'OK', color: 'green lighten-1' },
 };

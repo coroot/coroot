@@ -45,7 +45,7 @@ import ChartTooltip from './ChartTooltip';
 import ChartAnnotations from './ChartAnnotations';
 import ChartIncidents from './ChartIncidents';
 
-const font = '12px Roboto, sans-serif';
+const font = '12px Inter, system-ui, sans-serif';
 
 function fmtDigits(...v) {
     const min = Math.min(...v.filter((v) => !!v));

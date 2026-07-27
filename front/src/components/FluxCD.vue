@@ -424,7 +424,7 @@ export default {
     padding: 2px 6px;
     border-radius: 4px;
     background-color: rgba(25, 118, 210, 0.1);
-    color: #1976d2;
+    color: var(--brand-primary, #5d54a4);
     text-decoration: none;
     font-size: 12px;
     transition: background-color 0.2s;

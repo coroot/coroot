@@ -67,7 +67,7 @@ import ChartAnnotations from './ChartAnnotations';
 import ChartIncidents from './ChartIncidents';
 import ChartTooltip from './ChartTooltip';
 
-const font = '12px Roboto, sans-serif';
+const font = '12px Inter, system-ui, sans-serif';
 
 const suffixes1 = ['', 'K', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y'];
 const suffixes2 = ['', 'm', 'µ', 'n', 'p', 'f', 'a', 'z', 'y'];

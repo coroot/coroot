@@ -30,7 +30,7 @@
                         fill
                         smooth
                         padding="4"
-                        color="blue lighten-2"
+                        color="primary lighten-2"
                         height="32"
                         style="min-width: 100px"
                     />

@@ -1,29 +1,40 @@
 :root {
-    --text-light: rgba(0, 0, 0, 0.87);
-    --text-light-dimmed: rgba(0, 0, 0, 0.6);
-    --text-dark: rgba(255, 255, 255, 0.87);
-    --text-dark-dimmed: rgba(255, 255, 255, 0.6);
-    --background-light: white;
-    --background-light-hi: #eeeeee;
-    --background-dark: #121212;
-    --background-dark-hi: #424242;
-    --brightness-dimmed: 80%;
-    --border-light: rgba(0, 0, 0, 0.3);
-    --border-light-dimmed: rgba(0, 0, 0, 0.12);
-    --border-dark: rgba(255, 255, 255, 0.3);
-    --border-dark-dimmed: rgba(255, 255, 255, 0.12);
-    --tooltip-light: white;
-    --tooltip-dark: #424242;
+    /* Stackblaze dashboard palette (dashboard/src/styles/tailwind.css) */
+    --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-display: 'Space Grotesk', system-ui, -apple-system, sans-serif;
+    --brand-primary-light: #5d54a4;
+    --brand-primary-dark: #6b26d9;
+
+    --text-light: #18181b;
+    --text-light-dimmed: #52525b;
+    --text-dark: #ececec;
+    --text-dark-dimmed: #a3a3a3;
+    --background-light: #f0f0f3;
+    --background-light-hi: #ffffff;
+    --background-dark: #1e1e1e;
+    --background-dark-hi: #252526;
+    --sidebar-dark: #181818;
+    --brightness-dimmed: 100%;
+    --border-light: #d4d4d8;
+    --border-light-dimmed: rgba(24, 24, 27, 0.12);
+    --border-dark: rgba(255, 255, 255, 0.14);
+    --border-dark-dimmed: rgba(255, 255, 255, 0.08);
+    --tooltip-light: #ffffff;
+    --tooltip-dark: #252526;
 
     --status-unknown: grey;
     --status-ok: #23d160;
     --status-warning: #ffdd57;
     --status-critical: #f44034;
 }
+body {
+    font-family: var(--font-sans);
+}
 body.theme--dark {
     background-color: var(--background-dark);
 }
 .v-application {
+    font-family: var(--font-sans) !important;
     --text-color: var(--text-light);
     --text-color-dimmed: var(--text-light-dimmed);
     --background-color: var(--background-light);
@@ -32,6 +43,7 @@ body.theme--dark {
     --border-color: var(--border-light);
     --border-color-dimmed: var(--border-light-dimmed);
     --tooltip-color: var(--tooltip-light);
+    --brand-primary: var(--brand-primary-light);
 }
 .v-application.theme--dark {
     --text-color: var(--text-dark);
@@ -42,15 +54,25 @@ body.theme--dark {
     --border-color: var(--border-dark);
     --border-color-dimmed: var(--border-dark-dimmed);
     --tooltip-color: var(--tooltip-dark);
+    --brand-primary: var(--brand-primary-dark);
 }
-.v-application.theme--dark .logo {
-    filter: brightness(var(--brightness-dimmed));
+.v-application .text-h1,
+.v-application .text-h2,
+.v-application .text-h3,
+.v-application .text-h4,
+.v-application .text-h5,
+.v-application .text-h6,
+.v-application .display-1,
+.v-application .display-2,
+.v-application .headline,
+.v-application .title {
+    font-family: var(--font-display) !important;
 }
 
 .v-application .v-navigation-drawer,
 .v-application .v-navigation-drawer .v-list {
     color: var(--text-dark) !important;
-    background-color: var(--background-dark) !important;
+    background-color: var(--sidebar-dark) !important;
 }
 
 .v-application .v-footer {
@@ -129,4 +151,11 @@ a {
 }
 *::-webkit-scrollbar-thumb {
     background-color: #757575;
+}
+body.theme--dark *::-webkit-scrollbar-track,
+body.theme--dark *::-webkit-scrollbar {
+    background-color: #252526;
+}
+body.theme--dark *::-webkit-scrollbar-thumb {
+    background-color: #525252;
 }
