@@ -13,12 +13,28 @@ import (
 )
 
 type integrationIncident struct {
-	Key          string `json:"key"`
-	Severity     string `json:"severity"`
-	OpenedAt     int64  `json:"opened_at"`
-	ShortSummary string `json:"short_summary"`
-	RCAStatus    string `json:"rca_status,omitempty"`
-	Url          string `json:"url"`
+	Key           string `json:"key"`
+	ApplicationId string `json:"application_id,omitempty"`
+	Severity      string `json:"severity"`
+	OpenedAt      int64  `json:"opened_at"`
+	ShortSummary  string `json:"short_summary"`
+	RCAStatus     string `json:"rca_status,omitempty"`
+	Url           string `json:"url"`
+}
+
+func newIntegrationIncident(incident *model.ApplicationIncident, basePath, projectId string) integrationIncident {
+	out := integrationIncident{
+		Key:      incident.Key,
+		Severity: incident.Severity.String(),
+		OpenedAt: int64(incident.OpenedAt),
+		// Falls back to a generated description ("High latency and errors") until the RCA lands.
+		ShortSummary: incident.ShortDescription(),
+		Url:          incidentUrl(basePath, projectId, incident.Key),
+	}
+	if incident.RCA != nil {
+		out.RCAStatus = incident.RCA.Status
+	}
+	return out
 }
 
 // IntegrationAppIncident reports the currently open incident for a single application to
@@ -59,18 +75,42 @@ func (api *Api) IntegrationAppIncident(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	out := integrationIncident{
-		Key:      incident.Key,
-		Severity: incident.Severity.String(),
-		OpenedAt: int64(incident.OpenedAt),
-		// Falls back to a generated description ("High latency and errors") until the RCA lands.
-		ShortSummary: incident.ShortDescription(),
-		Url:          incidentUrl(api.cfg.UrlBasePath, projectId, incident.Key),
+	utils.WriteJson(w, map[string]any{
+		"incident": newIntegrationIncident(incident, api.cfg.UrlBasePath, projectId),
+	})
+}
+
+// IntegrationProjectIncidents lists every open incident in a project for the same trusted
+// callers. Kubero uses it to flag affected apps across its project/app list views without
+// issuing one request per application.
+//
+// GET /api/integration/incidents?project={projectId}
+func (api *Api) IntegrationProjectIncidents(w http.ResponseWriter, r *http.Request) {
+	if !api.checkHandoffSecret(r) {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
 	}
-	if incident.RCA != nil {
-		out.RCAStatus = incident.RCA.Status
+
+	projectId := strings.TrimSpace(r.URL.Query().Get("project"))
+	if projectId == "" {
+		http.Error(w, "project is required", http.StatusBadRequest)
+		return
 	}
-	utils.WriteJson(w, map[string]any{"incident": out})
+
+	incidents, err := api.db.GetOpenIncidents(db.ProjectId(projectId))
+	if err != nil {
+		klog.Errorln("failed to get incidents:", err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+
+	out := make([]integrationIncident, 0, len(incidents))
+	for _, incident := range incidents {
+		i := newIntegrationIncident(incident, api.cfg.UrlBasePath, projectId)
+		i.ApplicationId = incident.ApplicationId.String()
+		out = append(out, i)
+	}
+	utils.WriteJson(w, map[string]any{"incidents": out})
 }
 
 func incidentUrl(basePath, projectId, key string) string {

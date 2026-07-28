@@ -172,6 +172,7 @@ func main() {
 	r.HandleFunc("/api/auth/handoff", a.ConsumeHandoff).Methods(http.MethodGet)
 	// Read-only incident lookup for the same trusted callers (Kubero app dashboard banner).
 	r.HandleFunc("/api/integration/incident", a.IntegrationAppIncident).Methods(http.MethodGet)
+	r.HandleFunc("/api/integration/incidents", a.IntegrationProjectIncidents).Methods(http.MethodGet)
 
 	r.HandleFunc("/api/user", a.Auth(a.User)).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/users", a.Auth(a.Users)).Methods(http.MethodGet, http.MethodPost)
