@@ -141,11 +141,6 @@ func (c *Collector) Metrics(w http.ResponseWriter, r *http.Request) {
 		io.Copy(io.Discard, res.Body)
 		res.Body.Close()
 	}()
-	for k, vs := range res.Header {
-		for _, v := range vs {
-			w.Header().Add(k, v)
-		}
-	}
 	if res.StatusCode == http.StatusBadRequest {
 		scanner := bufio.NewScanner(io.LimitReader(res.Body, 1024))
 		line := ""
@@ -155,8 +150,14 @@ func (c *Collector) Metrics(w http.ResponseWriter, r *http.Request) {
 		klog.Errorf("failed to write: got %d (%s) from prometheus, responding to the agent with 200 (to prevent retry)", res.StatusCode, line)
 		w.WriteHeader(http.StatusOK)
 		return
-	} else if res.StatusCode > 400 {
+	}
+	if res.StatusCode > 400 {
 		klog.Errorf("failed to write: got %d from prometheus", res.StatusCode)
+	}
+	for k, vs := range res.Header {
+		for _, v := range vs {
+			w.Header().Add(k, v)
+		}
 	}
 	w.WriteHeader(res.StatusCode)
 	_, _ = io.Copy(w, res.Body)
