@@ -54,6 +54,7 @@ You can configure coroot-node-agent using command-line flags or environment vari
 | `--traces-sampling` | `TRACES_SAMPLING` | `1.0` | Trace sampling rate (0.0 to 1.0) |
 | `--logs-endpoint` | `LOGS_ENDPOINT` | – | Custom URL for logs export |
 | `--profiles-endpoint` | `PROFILES_ENDPOINT` | – | Custom URL for profiles export |
+| `--profiles-prune-fraction` | `PROFILES_PRUNE_FRACTION` | `0.0025` | Drop insignificant profile code paths accounting for less than this fraction of the profile total (`0` to disable) |
 | `--insecure-skip-verify` | `INSECURE_SKIP_VERIFY` | `false` | Skip TLS certificate verification |
 | `--ca-file` | `CA_FILE` | – | Path to the custom CA certificate file |
 | `--scrape-interval` | `SCRAPE_INTERVAL` | `15s` | How often to collect internal metrics |
