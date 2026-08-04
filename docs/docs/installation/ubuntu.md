@@ -69,6 +69,11 @@ curl -sfL https://raw.githubusercontent.com/coroot/coroot-node-agent/main/instal
 
 Access Coroot at: http://NODE_IP:8080.
 
+**Upgrade Coroot**
+
+To upgrade Coroot, re-run the installation command from Step #3 — the install script downloads the latest version and restarts the service.
+To upgrade coroot-node-agent, re-run the installation command from Step #4.
+
 **Uninstall Coroot**
 
 To uninstall Coroot run the following command:
@@ -145,6 +150,11 @@ curl -sfL https://raw.githubusercontent.com/coroot/coroot-node-agent/main/instal
 **Step #5: Accessing Coroot**
 
 Access Coroot at: http://NODE_IP:8080.
+
+**Upgrade Coroot**
+
+To upgrade Coroot, re-run the installation command from Step #3 — the install script downloads the latest version and restarts the service.
+To upgrade coroot-node-agent, re-run the installation command from Step #4.
 
 **Uninstall Coroot**
 

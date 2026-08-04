@@ -80,6 +80,17 @@ If you installed Coroot on your desktop machine, you can access it at http://loc
 If Coroot is deployed on a remote node, replace `NODE_IP_ADDRESS` with the IP address of the node in the following URL: 
 http://NODE_IP_ADDRESS:8080/.
 
+## Upgrade Coroot
+
+To upgrade Coroot, pull the latest images and re-apply the Docker Compose configuration:
+
+```bash
+curl -fsS https://raw.githubusercontent.com/coroot/coroot/main/deploy/docker-compose.yaml | \
+  docker compose -f - pull
+curl -fsS https://raw.githubusercontent.com/coroot/coroot/main/deploy/docker-compose.yaml | \
+  docker compose -f - up -d
+```
+
 ## Uninstall Coroot
 
 To uninstall Coroot run the following command:
@@ -169,6 +180,17 @@ CONTAINER ID   IMAGE                                 COMMAND                  CR
 If you installed Coroot on your desktop machine, you can access it at http://localhost:8080/.
 If Coroot is deployed on a remote node, replace `NODE_IP_ADDRESS` with the IP address of the node in the following URL: 
 http://NODE_IP_ADDRESS:8080/.
+
+## Upgrade Coroot
+
+To upgrade Coroot, pull the latest images and re-apply the Docker Compose configuration:
+
+```
+curl -fsS https://raw.githubusercontent.com/coroot/coroot/main/deploy/docker-compose.yaml | \
+  LICENSE_KEY="COROOT-LICENSE-KEY-HERE" docker compose -f - pull
+curl -fsS https://raw.githubusercontent.com/coroot/coroot/main/deploy/docker-compose.yaml | \
+  LICENSE_KEY="COROOT-LICENSE-KEY-HERE" docker compose -f - up -d
+```
 
 ## Uninstall Coroot
 

@@ -40,7 +40,14 @@ Then, you can access Coroot at http://localhost:8080
 
 **Upgrade**
 
-The Coroot Operator for Kubernetes automatically upgrades all components.
+The Coroot Operator automatically upgrades all Coroot components (Coroot server, node agent, cluster agent) as long as their image versions are not pinned in the [Coroot Custom Resource](/installation/k8s-operator). If you have specified a particular image for a component, the operator keeps that version, and you upgrade by changing the image tag in the Custom Resource.
+
+To upgrade the operator itself:
+
+```bash
+helm repo update coroot
+helm upgrade -n coroot coroot-operator coroot/coroot-operator
+```
 
 **Uninstall**
 
@@ -89,7 +96,14 @@ Then, you can access Coroot at http://localhost:8080
 
 **Upgrade**
 
-The Coroot Operator for Kubernetes automatically upgrades all components.
+The Coroot Operator automatically upgrades all Coroot components (Coroot server, node agent, cluster agent) as long as their image versions are not pinned in the [Coroot Custom Resource](/installation/k8s-operator). If you have specified a particular image for a component, the operator keeps that version, and you upgrade by changing the image tag in the Custom Resource.
+
+To upgrade the operator itself:
+
+```
+helm repo update coroot
+helm upgrade -n coroot coroot-operator coroot/coroot-operator
+```
 
 **Uninstall**
 
