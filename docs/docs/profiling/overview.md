@@ -35,6 +35,11 @@ When you use Helm to install Coroot, all these components are automatically inst
 The eBPF-based approach can only gather CPU profiles.
 To collect other profile types, such as memory or lock contention, language-specific profilers are used.
 
+To reduce network traffic and the memory Coroot needs for profile ingestion, `coroot-node-agent` prunes insignificant
+code paths before uploading a profile: stacks are truncated at frames accounting for less than 0.25% of the profile total
+(configurable via `--profiles-prune-fraction`). Since the flame graph hides such frames anyway, and the value of a truncated
+stack is preserved on its parent frames, this doesn't affect what you see in the UI.
+
 ## Language-specific profiling
 
 * **[Go profiling](/profiling/go-profiling)**: `coroot-node-agent` automatically collects heap profiles from all Go
