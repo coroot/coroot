@@ -17,6 +17,25 @@
             edition: '{{.Edition}}',
             cloud_url: '{{.CloudURL}}',
         };
+        // Kubero handoff: apply ?theme= / coroot_theme cookie BEFORE the Vue
+        // bundle loads so a stale localStorage theme ("auto") can't win.
+        (function () {
+            try {
+                var m = /(?:^|[?&])theme=(light|dark|auto)(?:&|$)/.exec(location.search || '');
+                var theme = m && m[1];
+                if (!theme) {
+                    var cm = document.cookie.match(/(?:^|; )coroot_theme=(light|dark|auto)(?:;|$)/);
+                    theme = cm && cm[1];
+                }
+                if (!theme) return;
+                var data = {};
+                try { data = JSON.parse(localStorage.getItem('coroot') || '{}') || {}; } catch (e) {}
+                data.theme = theme;
+                localStorage.setItem('coroot', JSON.stringify(data));
+                var dark = theme === 'dark' || (theme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+                if (dark) document.documentElement.style.backgroundColor = '#1e1e1e';
+            } catch (e) {}
+        })();
     </script>
 </head>
 <body>
