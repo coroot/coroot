@@ -9,6 +9,7 @@ import Utils from '@/utils/utils';
 import * as validators from '@/utils/validators';
 import * as storage from '@/utils/storage';
 import * as format from '@/utils/format';
+import { bootstrapTheme } from '@/utils/theme';
 import Api from '@/api';
 import App from '@/App';
 import Project from '@/views/Project';
@@ -116,6 +117,11 @@ Vue.prototype.$utils = new Utils(router);
 Vue.prototype.$validators = validators;
 Vue.prototype.$storage = storage;
 Vue.prototype.$coroot = config;
+
+// Apply theme before first paint. Kubero handoff may pass ?theme=dark|light
+// so the opened tab matches the dashboard; otherwise use stored preference
+// (default dark). Without this, Vuetify boots light until ThemeSelector mounts.
+bootstrapTheme(vuetify);
 
 new Vue({
     router,
