@@ -273,6 +273,7 @@ import ChangePassword from './views/auth/ChangePassword.vue';
 import CloudPromoDialog from './components/CloudPromoDialog.vue';
 import LicenseCheck from './components/LicenseCheck.vue';
 import { views } from '@/views/Views.vue';
+import { applyTheme } from '@/utils/theme';
 import './app.css';
 
 export default {
@@ -291,6 +292,13 @@ export default {
             search: false,
             systemAlerts: [],
         };
+    },
+
+    created() {
+        // Re-apply once v-app is about to mount so theme--dark lands on
+        // .v-application (CSS variables). Prefer the value bootstrapTheme
+        // already persisted from ?theme= / cookie.
+        applyTheme(this.$vuetify, this.$storage.local('theme') || 'dark');
     },
 
     mounted() {

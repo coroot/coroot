@@ -60,6 +60,9 @@ type HandoffCreateForm struct {
 	Redirect    string             `json:"redirect"`
 	TTLSeconds  int                `json:"ttl_seconds"`
 	Permissions rbac.PermissionSet `json:"permissions"`
+	// Theme is light|dark|auto from the embedding product (e.g. Kubero).
+	// Applied on handoff consume so the SPA matches the caller's UI.
+	Theme string `json:"theme"`
 }
 
 func (f *HandoffCreateForm) Valid() bool {

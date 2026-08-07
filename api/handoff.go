@@ -27,8 +27,11 @@ const (
 type handoffToken struct {
 	UserId   int
 	Redirect string
+	Theme    string // light|dark|auto — from Kubero (or redirect ?theme=)
 	Expires  time.Time
 }
+
+const corootThemeCookie = "coroot_theme"
 
 type handoffStore struct {
 	mu     sync.Mutex
@@ -150,14 +153,22 @@ func (api *Api) CreateHandoff(w http.ResponseWriter, r *http.Request) {
 
 	token := utils.RandomString(handoffTokenBytes)
 	redirect := sanitizeHandoffRedirect(form.Redirect)
+	theme := normalizeHandoffTheme(form.Theme)
+	if theme == "" {
+		theme = themeFromRedirect(redirect)
+	}
 	api.handoffs.put(token, handoffToken{
 		UserId:   user.Id,
 		Redirect: redirect,
+		Theme:    theme,
 		Expires:  time.Now().Add(ttl),
 	})
 
 	handoffPath := path.Join(api.cfg.UrlBasePath, "api/auth/handoff")
 	q := url.Values{"token": {token}}
+	if theme != "" {
+		q.Set("theme", theme)
+	}
 	handoffURL := handoffPath + "?" + q.Encode()
 
 	utils.WriteJson(w, map[string]any{
@@ -186,6 +197,13 @@ func (api *Api) ConsumeHandoff(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
+	theme := normalizeHandoffTheme(ht.Theme)
+	if theme == "" {
+		theme = normalizeHandoffTheme(r.URL.Query().Get("theme"))
+	}
+	if theme != "" {
+		api.setThemeCookie(w, theme)
+	}
 	target := ht.Redirect
 	if target == "" {
 		target = api.cfg.UrlBasePath
@@ -193,13 +211,90 @@ func (api *Api) ConsumeHandoff(w http.ResponseWriter, r *http.Request) {
 			target = "/"
 		}
 	} else if api.cfg.UrlBasePath != "/" && !strings.HasPrefix(target, api.cfg.UrlBasePath) {
-		joined := path.Join(api.cfg.UrlBasePath, strings.TrimPrefix(target, "/"))
-		if strings.HasSuffix(ht.Redirect, "/") && !strings.HasSuffix(joined, "/") {
-			joined += "/"
-		}
-		target = joined
+		target = joinBasePathPreserveQuery(api.cfg.UrlBasePath, target)
+	}
+	if theme != "" {
+		target = appendQueryParam(target, "theme", theme)
 	}
 	http.Redirect(w, r, target, http.StatusFound)
+}
+
+func (api *Api) setThemeCookie(w http.ResponseWriter, theme string) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     corootThemeCookie,
+		Value:    theme,
+		Path:     "/",
+		MaxAge:   365 * 24 * 60 * 60,
+		SameSite: http.SameSiteLaxMode,
+		// Readable by the SPA so theme can apply before Vue mounts.
+		HttpOnly: false,
+	})
+}
+
+func normalizeHandoffTheme(t string) string {
+	switch strings.ToLower(strings.TrimSpace(t)) {
+	case "light", "dark", "auto":
+		return strings.ToLower(strings.TrimSpace(t))
+	default:
+		return ""
+	}
+}
+
+func themeFromRedirect(redirect string) string {
+	u, err := url.Parse(redirect)
+	if err != nil {
+		return ""
+	}
+	return normalizeHandoffTheme(u.Query().Get("theme"))
+}
+
+// joinBasePathPreserveQuery joins UrlBasePath with a relative redirect without
+// dropping ?query or #fragment (path.Join alone is easy to misuse here).
+func joinBasePathPreserveQuery(base, target string) string {
+	frag := ""
+	if i := strings.Index(target, "#"); i >= 0 {
+		frag = target[i:]
+		target = target[:i]
+	}
+	query := ""
+	if i := strings.Index(target, "?"); i >= 0 {
+		query = target[i:]
+		target = target[:i]
+	}
+	joined := path.Join(base, strings.TrimPrefix(target, "/"))
+	if strings.HasSuffix(target, "/") && !strings.HasSuffix(joined, "/") {
+		joined += "/"
+	}
+	return joined + query + frag
+}
+
+func appendQueryParam(raw, key, value string) string {
+	if value == "" {
+		return raw
+	}
+	u, err := url.Parse(raw)
+	if err != nil || u.Path == "" && !strings.HasPrefix(raw, "/") {
+		sep := "?"
+		if strings.Contains(raw, "?") {
+			sep = "&"
+		}
+		return raw + sep + url.QueryEscape(key) + "=" + url.QueryEscape(value)
+	}
+	q := u.Query()
+	q.Set(key, value)
+	u.RawQuery = q.Encode()
+	// url.Parse("/p/x?a=1") keeps Path; String() is fine for relative refs.
+	if u.Scheme == "" && u.Host == "" {
+		out := u.Path
+		if u.RawQuery != "" {
+			out += "?" + u.RawQuery
+		}
+		if u.Fragment != "" {
+			out += "#" + u.Fragment
+		}
+		return out
+	}
+	return u.String()
 }
 
 func (api *Api) checkHandoffSecret(r *http.Request) bool {
