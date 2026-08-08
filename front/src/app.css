@@ -58,6 +58,8 @@ body.theme--dark {
     --border-color-dimmed: var(--border-light-dimmed);
     --tooltip-color: var(--tooltip-light);
     --brand-primary: var(--brand-primary-light);
+    /* Links stay brand purple in light; white in dark for contrast */
+    --link-color: var(--brand-primary-light);
 }
 .v-application.theme--dark {
     --text-color: var(--text-dark);
@@ -70,6 +72,7 @@ body.theme--dark {
     --border-color-dimmed: var(--border-dark-dimmed);
     --tooltip-color: var(--tooltip-dark);
     --brand-primary: var(--brand-primary-dark);
+    --link-color: #ffffff;
 }
 .v-application .text-h1,
 .v-application .text-h2,
@@ -331,10 +334,10 @@ body.theme--dark {
 
 a {
     text-decoration: none !important;
-    color: var(--brand-primary);
+    color: var(--link-color);
 }
 a:hover {
-    opacity: 0.9;
+    opacity: 0.85;
 }
 
 /* ─── Buttons — flatter, soft radius ────────────────────────────────── */

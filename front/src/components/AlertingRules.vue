@@ -338,7 +338,7 @@ export default {
 }
 .name-link {
     cursor: pointer;
-    color: var(--brand-primary, #5d54a4);
+    color: var(--link-color, var(--brand-primary, #5d54a4));
     text-decoration: underline;
 }
 .name-link.disabled {

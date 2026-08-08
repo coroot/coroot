@@ -81,9 +81,9 @@ export default {
     background-color: rgba(128, 128, 128, 0.12);
 }
 .chip.active {
-    border-color: var(--brand-primary, #5d54a4);
+    border-color: var(--link-color, var(--brand-primary, #5d54a4));
     background-color: rgba(25, 118, 210, 0.1);
-    color: var(--brand-primary, #5d54a4);
+    color: var(--link-color, var(--brand-primary, #5d54a4));
 }
 .chip.muted {
     opacity: 0.45;
