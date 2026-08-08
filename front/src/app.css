@@ -250,6 +250,17 @@ body.theme--dark {
     color: var(--text-color) !important;
     background-color: transparent !important;
 }
+/* Menus need an opaque panel — flat-shell lists are otherwise transparent */
+.v-application .v-menu__content {
+    background-color: var(--background-color-hi) !important;
+    border: 1px solid var(--border-color-dimmed);
+    border-radius: var(--radius);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18) !important;
+}
+.v-application.theme--dark .v-menu__content {
+    background-color: var(--background-dark-hi) !important;
+    border-color: rgba(255, 255, 255, 0.06);
+}
 
 /* ─── Tabs — underline, no Material bar fill ────────────────────────── */
 .v-application .v-main .v-tabs > .v-tabs-bar {
@@ -306,6 +317,16 @@ a:hover {
     font-size: 13px !important;
     border-radius: 6px !important;
     box-shadow: none !important;
+}
+/* Keep connected button groups joined despite the global radius */
+.v-btn-toggle .v-btn {
+    border-radius: 0 !important;
+}
+.v-btn-toggle .v-btn:first-child {
+    border-radius: 6px 0 0 6px !important;
+}
+.v-btn-toggle .v-btn:last-child {
+    border-radius: 0 6px 6px 0 !important;
 }
 .v-btn:not(.v-btn--round):not(.v-btn--icon) {
     min-height: 32px;

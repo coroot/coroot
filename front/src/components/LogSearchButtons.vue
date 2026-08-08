@@ -45,13 +45,17 @@ export default {
 </script>
 
 <style scoped>
+.buttons {
+    flex-shrink: 0;
+    align-self: flex-start;
+}
 .buttons .v-btn:first-child {
-    border-radius: 4px 0 0 4px;
+    border-radius: 6px 0 0 6px !important;
 }
 .buttons .v-btn:last-child {
-    border-radius: 0 4px 4px 0;
+    border-radius: 0 6px 6px 0 !important;
 }
 .buttons .v-btn:not(:last-child) {
-    border-right: thin solid var(--border-color-dimmed) !important;
+    border-right: thin solid rgba(255, 255, 255, 0.25) !important;
 }
 </style>

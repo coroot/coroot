@@ -206,6 +206,8 @@ export default {
 
 <style scoped>
 .qb {
+    position: relative;
+    z-index: 2;
     display: flex;
     flex-wrap: wrap;
     gap: 4px;
@@ -215,6 +217,9 @@ export default {
     min-height: 40px;
     max-width: 100%;
     min-width: 0;
+}
+.qb:deep(.v-menu__content) {
+    z-index: 8 !important;
 }
 .filter {
     display: flex;

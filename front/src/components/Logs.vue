@@ -8,9 +8,9 @@
                 {{ view.error }}
             </v-alert>
 
-            <v-card outlined class="px-4 mb-2" :class="showSources ? 'py-2' : 'pt-2 pb-4'">
+            <v-card outlined class="query px-4 mb-2" :class="showSources ? 'py-2' : 'pt-2 pb-4'">
                 <div class="subtitle-1">Query:</div>
-                <div class="d-flex flex-wrap flex-md-nowrap gap-2">
+                <div class="d-flex flex-wrap flex-md-nowrap gap-2 align-start">
                     <QueryBuilder
                         v-model="query.filters"
                         :loading="qb.loading"
@@ -443,6 +443,11 @@ export default {
 </script>
 
 <style scoped>
+.query {
+    position: relative;
+    z-index: 3;
+    overflow: visible;
+}
 .view {
     color: var(--text-color-dimmed);
 }

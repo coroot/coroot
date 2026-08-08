@@ -1,6 +1,6 @@
 <template>
     <div>
-        <v-card outlined class="pa-4 mb-2">
+        <v-card outlined class="query pa-4 mb-2">
             <slot name="check">
                 <Check :appId="appId" :check="check" />
             </slot>
@@ -18,7 +18,7 @@
                 <v-select :items="sources" v-model="query.source" outlined hide-details dense :menu-props="{ offsetY: true }" class="mt-4" />
 
                 <div class="subtitle-1 mt-3">Query:</div>
-                <div class="d-flex flex-wrap flex-md-nowrap" style="gap: 8px">
+                <div class="d-flex flex-wrap flex-md-nowrap align-start" style="gap: 8px">
                     <QueryBuilder
                         v-model="query.filters"
                         :loading="qb.loading"
@@ -408,6 +408,11 @@ export default {
 </script>
 
 <style scoped>
+.query {
+    position: relative;
+    z-index: 3;
+    overflow: visible;
+}
 .mono {
     font-family: monospace, monospace;
 }
