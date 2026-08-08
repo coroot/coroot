@@ -130,11 +130,12 @@ export default {
 
     computed: {
         theme() {
+            // Match dashboard chart-grid-stroke / muted foreground
             const dark = this.$vuetify.theme.dark;
             return {
                 dark,
-                text: dark ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0,0,0,0.87)',
-                grid: dark ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0,0,0,0.07)',
+                text: dark ? '#9d9d9d' : '#505050',
+                grid: dark ? '#2b2b2b' : 'rgb(0 0 0 / 0.1)',
             };
         },
         config() {

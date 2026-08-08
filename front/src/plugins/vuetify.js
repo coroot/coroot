@@ -4,6 +4,7 @@ import Vuetify from 'vuetify/lib';
 Vue.use(Vuetify);
 
 // Stackblaze dashboard tokens (dashboard/src/styles/tailwind.css)
+// Light → VS Code Visual Studio Light | Dark → VS Code Dark Modern
 const primaryLight = '#5d54a4';
 const primaryDark = '#6b26d9';
 
@@ -40,16 +41,29 @@ export default new Vuetify({
     },
     theme: {
         dark: initialDark(),
+        options: {
+            customProperties: true,
+        },
         themes: {
             light: {
                 primary: primaryLight,
-                secondary: primaryLight,
+                secondary: '#f3f3f3',
                 accent: primaryLight,
+                error: '#c72e0f',
+                warning: '#b89500',
+                info: '#0284c7',
+                success: '#098658',
+                background: '#ffffff',
             },
             dark: {
                 primary: primaryDark,
-                secondary: primaryDark,
+                secondary: '#2b2b2b',
                 accent: primaryDark,
+                error: '#f85149',
+                warning: '#9e6a03',
+                info: '#0ea5e9',
+                success: '#2ea043',
+                background: '#1f1f1f',
             },
         },
     },
