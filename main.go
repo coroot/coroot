@@ -173,6 +173,10 @@ func main() {
 	// Read-only incident lookup for the same trusted callers (Kubero app dashboard banner).
 	r.HandleFunc("/api/integration/incident", a.IntegrationAppIncident).Methods(http.MethodGet)
 	r.HandleFunc("/api/integration/incidents", a.IntegrationProjectIncidents).Methods(http.MethodGet)
+	// Kubero in-dashboard Observability / Logs (namespace-scoped overview proxies).
+	r.HandleFunc("/api/integration/overview/applications", a.IntegrationOverviewApplications).Methods(http.MethodGet)
+	r.HandleFunc("/api/integration/overview/logs", a.IntegrationOverviewLogs).Methods(http.MethodGet)
+	r.HandleFunc("/api/integration/status", a.IntegrationStatus).Methods(http.MethodGet)
 
 	r.HandleFunc("/api/user", a.Auth(a.User)).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/users", a.Auth(a.Users)).Methods(http.MethodGet, http.MethodPost)

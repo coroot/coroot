@@ -137,3 +137,86 @@ func TestIntegrationAppIncidentAcceptsBearer(t *testing.T) {
 		t.Errorf("expected the bearer token to be accepted (400 for missing params), got %d", w.Code)
 	}
 }
+
+func TestParseNamespacesQuery(t *testing.T) {
+	if parseNamespacesQuery("") != nil {
+		t.Fatal("empty should be nil")
+	}
+	got := parseNamespacesQuery(" Foo-Bar , baz ")
+	if !got["foo-bar"] || !got["baz"] || len(got) != 2 {
+		t.Fatalf("unexpected set: %#v", got)
+	}
+}
+
+func TestWorldWithNamespaces(t *testing.T) {
+	w := &model.World{
+		Applications: map[model.ApplicationId]*model.Application{
+			model.NewApplicationId("", "ns-a", model.ApplicationKindDeployment, "a"): {Id: model.NewApplicationId("", "ns-a", model.ApplicationKindDeployment, "a")},
+			model.NewApplicationId("", "ns-b", model.ApplicationKindDeployment, "b"): {Id: model.NewApplicationId("", "ns-b", model.ApplicationKindDeployment, "b")},
+		},
+	}
+	filtered := worldWithNamespaces(w, map[string]bool{"ns-a": true})
+	if len(filtered.Applications) != 1 {
+		t.Fatalf("expected 1 app, got %d", len(filtered.Applications))
+	}
+	if worldWithNamespaces(w, nil) != w {
+		t.Fatal("nil allowlist should return original world")
+	}
+}
+
+func TestIntegrationOverviewApplicationsRequiresSecret(t *testing.T) {
+	r := httptest.NewRequest(http.MethodGet, "/api/integration/overview/applications?project=p", nil)
+	w := httptest.NewRecorder()
+	integrationTestApi("s3cret").IntegrationOverviewApplications(w, r)
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401, got %d", w.Code)
+	}
+}
+
+func TestIntegrationOverviewApplicationsRequiresProject(t *testing.T) {
+	r := httptest.NewRequest(http.MethodGet, "/api/integration/overview/applications", nil)
+	r.Header.Set("X-Handoff-Secret", "s3cret")
+	w := httptest.NewRecorder()
+	integrationTestApi("s3cret").IntegrationOverviewApplications(w, r)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", w.Code)
+	}
+}
+
+func TestIntegrationOverviewLogsRequiresSecret(t *testing.T) {
+	r := httptest.NewRequest(http.MethodGet, "/api/integration/overview/logs?project=p", nil)
+	w := httptest.NewRecorder()
+	integrationTestApi("s3cret").IntegrationOverviewLogs(w, r)
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401, got %d", w.Code)
+	}
+}
+
+func TestIntegrationOverviewLogsRequiresProject(t *testing.T) {
+	r := httptest.NewRequest(http.MethodGet, "/api/integration/overview/logs", nil)
+	r.Header.Set("X-Handoff-Secret", "s3cret")
+	w := httptest.NewRecorder()
+	integrationTestApi("s3cret").IntegrationOverviewLogs(w, r)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", w.Code)
+	}
+}
+
+func TestIntegrationStatusRequiresSecret(t *testing.T) {
+	r := httptest.NewRequest(http.MethodGet, "/api/integration/status?project=p", nil)
+	w := httptest.NewRecorder()
+	integrationTestApi("s3cret").IntegrationStatus(w, r)
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401, got %d", w.Code)
+	}
+}
+
+func TestIntegrationStatusRequiresProject(t *testing.T) {
+	r := httptest.NewRequest(http.MethodGet, "/api/integration/status", nil)
+	r.Header.Set("X-Handoff-Secret", "s3cret")
+	w := httptest.NewRecorder()
+	integrationTestApi("s3cret").IntegrationStatus(w, r)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", w.Code)
+	}
+}
