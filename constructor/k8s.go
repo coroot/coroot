@@ -289,6 +289,8 @@ func podLabels(metrics []*model.MetricValues, pods map[string]*model.Instance) {
 		case m.Labels["label_app_kubernetes_io_managed_by"] == "percona-xtradb-cluster-operator":
 			cluster = m.Labels["label_app_kubernetes_io_instance"]
 			manager = model.ClusterManagerPerconaXtraDB
+		case m.Labels["label_app_kubernetes_io_managed_by"] == "valkey-operator":
+			cluster = m.Labels["label_valkey_io_cluster"]
 		case strings.HasPrefix(m.Labels["label_helm_sh_chart"], "mongodb"):
 			if m.Labels["label_app_kubernetes_io_name"] != "" && m.Labels["label_app_kubernetes_io_instance"] != "" {
 				cluster = m.Labels["label_app_kubernetes_io_instance"] + "-" + m.Labels["label_app_kubernetes_io_name"]
