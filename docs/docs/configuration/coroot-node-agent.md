@@ -45,6 +45,7 @@ You can configure coroot-node-agent using command-line flags or environment vari
 | `--log-per-second` | `LOG_PER_SECOND` | `10.0` | Rate limit for logs per second |
 | `--log-burst` | `LOG_BURST` | `100` | Max burst for log rate limiting |
 | `--log-patterns-per-container` | `LOG_PATTERNS_PER_CONTAINER` | `256` | Max unique log patterns per container per level |
+| `--log-pattern-extraction-limit` | `LOG_PATTERN_EXTRACTION_LIMIT` | `100` | Max log messages per second per container for which patterns are extracted. Over-limit messages are counted under a dedicated `event was sampled` pattern (`0` - unlimited) |
 | `--max-fqdns-per-container` | `MAX_FQDNS_PER_CONTAINER` | `50` | Max unique FQDN values per container in `container_dns_requests_total`; extras are bucketed under `~other` |
 | `--max-label-length` | `MAX_LABEL_LENGTH` | `4096` | Max metric label length |
 | `--collector-endpoint` | `COLLECTOR_ENDPOINT` | – | Unified base URL for telemetry export |
