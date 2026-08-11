@@ -23,14 +23,14 @@
             <template #prepend>
                 <router-link
                     v-if="workspace"
-                    :to="project ? { name: 'overview', query: $utils.contextQuery() } : { name: 'index' }"
+                    :to="project ? { name: 'overview', params: { view: 'applications', id: undefined, report: undefined }, query: $utils.contextQuery() } : { name: 'index' }"
                     class="sb-nav__workspace"
                 >
                     <img :src="`${$coroot.base_path}static/sb-flame.svg`" height="28" class="sb-nav__flame" alt="" />
                     <span v-if="!menuCollapsed" class="sb-nav__workspace-name">{{ workspace }}</span>
                 </router-link>
                 <div v-else class="sb-nav__brand mx-2 my-3 px-1">
-                    <router-link :to="project ? { name: 'overview', query: $utils.contextQuery() } : { name: 'index' }">
+                    <router-link :to="project ? { name: 'overview', params: { view: 'applications', id: undefined, report: undefined }, query: $utils.contextQuery() } : { name: 'index' }">
                         <img :src="`${$coroot.base_path}static/${logo}`" height="32" class="logo" alt=":~#" />
                     </router-link>
                 </div>
