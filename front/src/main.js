@@ -10,6 +10,7 @@ import * as validators from '@/utils/validators';
 import * as storage from '@/utils/storage';
 import * as format from '@/utils/format';
 import { bootstrapTheme } from '@/utils/theme';
+import { bootstrapHandoff } from '@/utils/handoff';
 import Api from '@/api';
 import App from '@/App';
 import Project from '@/views/Project';
@@ -122,6 +123,9 @@ Vue.prototype.$coroot = config;
 // so the opened tab matches the dashboard; otherwise use stored preference
 // (default dark). Without this, Vuetify boots light until ThemeSelector mounts.
 bootstrapTheme(vuetify);
+// Read + persist the Kubero handoff chrome signals (return_url, workspace) and
+// strip their query params, same as bootstrapTheme.
+bootstrapHandoff();
 
 new Vue({
     router,

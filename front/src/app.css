@@ -95,6 +95,7 @@ body.theme--dark {
     --sidebar-border: #e5e5e5;
     --sidebar-hover: #f3f3f3;
     --sidebar-active: #f3f3f3;
+    --sidebar-primary: #5d54a4;
     --radius: 0.5rem;
 }
 .v-application.theme--dark {
@@ -104,6 +105,7 @@ body.theme--dark {
     --sidebar-border: #2b2b2b;
     --sidebar-hover: #2b2b2b;
     --sidebar-active: #2b2b2b;
+    --sidebar-primary: #5d54a4;
 }
 
 .v-application .v-navigation-drawer.sb-nav {
@@ -155,8 +157,10 @@ body.theme--dark {
 .v-application .sb-nav__item--active,
 .v-application .sb-nav__item.v-list-item--active {
     background-color: var(--sidebar-active) !important;
-    color: var(--sidebar-fg) !important;
+    /* Dashboard purple accent on the active item (text + icon inherit). */
+    color: var(--sidebar-primary) !important;
     font-weight: 500 !important;
+    box-shadow: inset 2px 0 0 var(--sidebar-primary);
 }
 .v-application .sb-nav__item--active::before,
 .v-application .sb-nav__item.v-list-item--active::before {
@@ -166,6 +170,28 @@ body.theme--dark {
     color: var(--sidebar-muted) !important;
     font-size: 11px !important;
     opacity: 0.8;
+}
+/* Workspace header (flame + tenant name) — dashboard sidebar header look. */
+.v-application .sb-nav__workspace {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 52px;
+    padding: 0 14px;
+    border-bottom: 1px solid var(--sidebar-border);
+    text-decoration: none;
+}
+.v-application .sb-nav__flame {
+    flex: 0 0 auto;
+    display: block;
+}
+.v-application .sb-nav__workspace-name {
+    color: var(--sidebar-fg) !important;
+    font-size: 14px;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 .v-application .sb-menu {
     border: 1px solid var(--border-color);
