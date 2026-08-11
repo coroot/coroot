@@ -631,6 +631,16 @@ func (db *DB) GetLatestAlertsByRule(projectId ProjectId, ruleId string) ([]*mode
 	return alerts, nil
 }
 
+func (db *DB) DeleteOldAlerts(before timeseries.Time) (int64, error) {
+	result, err := db.db.Exec(
+		"DELETE FROM alert WHERE resolved_at > 0 AND resolved_at < $1",
+		before)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 func (db *DB) HasAlerts(projectId ProjectId) (bool, error) {
 	var exists int
 	err := db.db.QueryRow(

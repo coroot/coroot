@@ -143,7 +143,7 @@ func main() {
 
 	incidents := watchers.NewIncidents(database, a.IncidentRCA)
 
-	watchers.Start(database, promCache, pricing, incidents, !cfg.DoNotCheckForDeployments, globalClickhouse, globalPrometheus, cfg.ClickHouseSpaceManager, nil, nil)
+	watchers.Start(database, promCache, pricing, incidents, !cfg.DoNotCheckForDeployments, globalClickhouse, globalPrometheus, cfg.ClickHouseSpaceManager, cfg.Alerts, nil, nil)
 
 	router := mux.NewRouter()
 	router.Use(statsCollector.MiddleWare)

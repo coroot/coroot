@@ -48,6 +48,8 @@ type Config struct {
 
 	ClickHouseSpaceManager ClickHouseSpaceManager `yaml:"clickhouse_space_manager"`
 
+	Alerts Alerts `yaml:"alerts"`
+
 	CorootCloud *cloud.Settings `yaml:"corootCloud"`
 
 	BootstrapClickhouse *Clickhouse `yaml:"-"`
@@ -105,6 +107,10 @@ type Profiles struct {
 
 type Metrics struct {
 	TTL timeseries.Duration `yaml:"ttl"`
+}
+
+type Alerts struct {
+	RetentionPeriod timeseries.Duration `yaml:"retention_period"`
 }
 
 type Postgres struct {
@@ -215,6 +221,9 @@ func NewConfig() *Config {
 		Metrics: Metrics{
 			TTL: 7 * timeseries.Day,
 		},
+		Alerts: Alerts{
+			RetentionPeriod: 90 * timeseries.Day,
+		},
 
 		Auth: Auth{
 			BootstrapAdminPassword: db.AdminUserDefaultPassword,
@@ -324,6 +333,9 @@ func (cfg *Config) Validate() error {
 	}
 	if cfg.ClickHouseSpaceManager.UsageThresholdPercent < 0 || cfg.ClickHouseSpaceManager.UsageThresholdPercent > 100 {
 		return fmt.Errorf("invalid usage_threshold_percent: %d", cfg.ClickHouseSpaceManager.UsageThresholdPercent)
+	}
+	if cfg.Alerts.RetentionPeriod <= 0 {
+		return fmt.Errorf("invalid alerts.retention_period: %d", cfg.Alerts.RetentionPeriod)
 	}
 
 	return nil

@@ -17,7 +17,7 @@ import (
 	"k8s.io/klog"
 )
 
-func Start(database *db.DB, mcache *cache.Cache, pricing *pricing.Manager, incidents *Incidents, checkDeployments bool, globalClickHouse *db.IntegrationClickhouse, globalPrometheus *db.IntegrationPrometheus, spaceManagerCfg config.ClickHouseSpaceManager, logPatternEvaluator LogPatternEvaluator, kubernetesEventEvaluator KubernetesEventEvaluator) {
+func Start(database *db.DB, mcache *cache.Cache, pricing *pricing.Manager, incidents *Incidents, checkDeployments bool, globalClickHouse *db.IntegrationClickhouse, globalPrometheus *db.IntegrationPrometheus, spaceManagerCfg config.ClickHouseSpaceManager, alertsCfg config.Alerts, logPatternEvaluator LogPatternEvaluator, kubernetesEventEvaluator KubernetesEventEvaluator) {
 	var deployments *Deployments
 	if checkDeployments {
 		deployments = NewDeployments(database, pricing)
@@ -34,6 +34,7 @@ func Start(database *db.DB, mcache *cache.Cache, pricing *pricing.Manager, incid
 	pending := map[db.ProjectId]bool{}
 	pendingLock := sync.Mutex{}
 	lastSpaceManagerRun := time.Time{}
+	lastAlertsCleanupRun := time.Time{}
 
 	// Fast consumer goroutine - just receives and deduplicates
 	go func() {
@@ -89,6 +90,10 @@ func Start(database *db.DB, mcache *cache.Cache, pricing *pricing.Manager, incid
 				if time.Since(lastSpaceManagerRun) >= time.Hour {
 					lastSpaceManagerRun = time.Now()
 					runSpaceManagerOnce(spaceManagerCfg, database, globalClickHouse)
+				}
+				if time.Since(lastAlertsCleanupRun) >= time.Hour {
+					lastAlertsCleanupRun = time.Now()
+					runAlertsCleanupOnce(alertsCfg, database)
 				}
 			}
 		}
@@ -200,6 +205,25 @@ func handleProjectUpdate(database *db.DB, cache *cache.Cache, pricing *pricing.M
 	}
 	wg.Wait()
 	klog.Infof("%s: iteration done in %s", project.Id, time.Since(start).Truncate(time.Millisecond))
+}
+
+func runAlertsCleanupOnce(cfg config.Alerts, database *db.DB) {
+	if cfg.RetentionPeriod <= 0 {
+		return
+	}
+	before := timeseries.Now().Add(-cfg.RetentionPeriod)
+	deletedAlerts, err := database.DeleteOldAlerts(before)
+	if err != nil {
+		klog.Errorf("alerts cleanup: failed to delete old alerts: %v", err)
+	} else if deletedAlerts > 0 {
+		klog.Infof("alerts cleanup: deleted %d resolved alerts older than %s", deletedAlerts, cfg.RetentionPeriod)
+	}
+	deletedNotifications, err := database.DeleteOldAlertNotifications(before)
+	if err != nil {
+		klog.Errorf("alerts cleanup: failed to delete old alert notifications: %v", err)
+	} else if deletedNotifications > 0 {
+		klog.Infof("alerts cleanup: deleted %d alert notifications older than %s", deletedNotifications, cfg.RetentionPeriod)
+	}
 }
 
 func runSpaceManagerOnce(cfg config.ClickHouseSpaceManager, database *db.DB, globalClickHouse *db.IntegrationClickhouse) {

@@ -33,7 +33,7 @@ type AlertNotificationDetails struct {
 }
 
 func (n *AlertNotification) Migrate(m *Migrator) error {
-	return m.Exec(`
+	err := m.Exec(`
 	CREATE TABLE IF NOT EXISTS alert_notification (
 		project_id TEXT NOT NULL REFERENCES project(id),
 		alert_id TEXT NOT NULL,
@@ -47,6 +47,13 @@ func (n *AlertNotification) Migrate(m *Migrator) error {
 		details TEXT
 	);
 `)
+	if err != nil {
+		return err
+	}
+	if err = m.Exec(`CREATE INDEX IF NOT EXISTS alert_notification_project_alert ON alert_notification (project_id, alert_id)`); err != nil {
+		return err
+	}
+	return m.Exec(`CREATE INDEX IF NOT EXISTS alert_notification_timestamp ON alert_notification (timestamp)`)
 }
 
 func (db *DB) PutAlertNotification(n AlertNotification) {
@@ -147,6 +154,16 @@ func (db *DB) GetAlertNotificationsByAlertIds(projectId ProjectId, alertIds []st
 		res[n.AlertId] = append(res[n.AlertId], n)
 	}
 	return res, nil
+}
+
+func (db *DB) DeleteOldAlertNotifications(before timeseries.Time) (int64, error) {
+	result, err := db.db.Exec(
+		"DELETE FROM alert_notification WHERE timestamp < $1",
+		before)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 func (db *DB) GetPreviousAlertNotifications(n AlertNotification) ([]AlertNotification, error) {
