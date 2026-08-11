@@ -570,6 +570,7 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]*model
 	isEmpty := func(ts *timeseries.TimeSeries) bool {
 		return ts.IsEmpty() || ts.Reduce(timeseries.NanSum) == 0.
 	}
+	serviceEndpointInstances := map[*model.Service]*model.Instance{}
 	for _, app := range w.Applications { // creating ApplicationKindExternalService for unknown remote instances
 		for _, instance := range app.Instances {
 			for _, u := range instance.Upstreams {
@@ -584,9 +585,17 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]*model
 					if a := svc.GetDestinationApplication(); a != nil && len(a.Instances) > 0 {
 						u.RemoteInstance = a.Instances[0]
 						continue
-					} else {
-						appId.Name = svc.Name
 					}
+					ri, ok := serviceEndpointInstances[svc]
+					if !ok {
+						ri = serviceEndpointInstance(svc, instancesByListen)
+						serviceEndpointInstances[svc] = ri
+					}
+					if ri != nil {
+						u.RemoteInstance = ri
+						continue
+					}
+					appId.Name = svc.Name
 				} else {
 					if isEmpty(u.SuccessfulConnections) && isEmpty(u.Active) && isEmpty(u.FailedConnections) {
 						continue
@@ -609,6 +618,21 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]*model
 			}
 		}
 	}
+}
+
+func serviceEndpointInstance(svc *model.Service, instancesByListen map[model.Listen]*model.Instance) *model.Instance {
+	var res *model.Instance
+	for ep := range svc.Endpoints {
+		i := instancesByListen[model.Listen{IP: ep.IP().String(), Port: strconv.Itoa(int(ep.Port()))}]
+		if i == nil {
+			continue
+		}
+		if res != nil && res.Owner != i.Owner {
+			return nil
+		}
+		res = i
+	}
+	return res
 }
 
 func getOrCreateConnection(instance *model.Instance, m *model.MetricValues) *model.Connection {

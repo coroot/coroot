@@ -194,7 +194,7 @@ var QUERIES = []Query{
 	Q("kube_service_info", `kube_service_info`, "namespace", "service", "cluster_ip"),
 	Q("kube_service_port", `kube_service_port`, "namespace", "service", "port", "node_port"),
 	Q("kube_service_spec_type", `kube_service_spec_type`, "namespace", "service", "type"),
-	Q("kube_endpoint_address", `kube_endpoint_address`, "namespace", "endpoint", "ip"),
+	Q("kube_endpoint_address", `kube_endpoint_address`, "namespace", "endpoint", "ip", "port_number"),
 	Q("kube_service_status_load_balancer_ingress", `kube_service_status_load_balancer_ingress`, "namespace", "service", "ip"),
 	Q("kube_deployment_spec_replicas", `kube_deployment_spec_replicas`, "namespace", "deployment"),
 	Q("kube_daemonset_status_desired_number_scheduled", `kube_daemonset_status_desired_number_scheduled`, "namespace", "daemonset"),
@@ -866,7 +866,11 @@ var RecordingRules = map[string]func(db *db.DB, p *db.Project, w *model.World) [
 						endpoints = utils.NewStringSet()
 						byDest[dest.Id] = endpoints
 					}
-					endpoints.Add(net.JoinHostPort(u.ActualRemoteIP, u.ActualRemotePort))
+					if u.ActualRemoteIP != "" {
+						endpoints.Add(net.JoinHostPort(u.ActualRemoteIP, u.ActualRemotePort))
+					} else if u.ServiceRemoteIP != "" { // failed connections have no actual destination
+						endpoints.Add(net.JoinHostPort(u.ServiceRemoteIP, u.ServiceRemotePort))
+					}
 				}
 			}
 			appId := app.Id.String()

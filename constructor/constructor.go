@@ -378,7 +378,9 @@ func enrichInstances(w *model.World, metrics map[string][]*model.MetricValues, r
 				instancesByPod[podId{name: i.Name, ns: app.Id.Namespace}] = i
 			}
 			for l := range i.TcpListens {
-				instancesByListen[l] = i
+				if e := instancesByListen[l]; e == nil || (e.Owner.Id.Kind == model.ApplicationKindExternalService && app.Id.Kind != model.ApplicationKindExternalService) {
+					instancesByListen[l] = i
+				}
 			}
 		}
 	}
