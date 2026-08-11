@@ -86,12 +86,14 @@ func (c *Constructor) loadAppToAppConnections(w *model.World, metrics map[string
 				status := mv.Labels["status"]
 				conn.RequestsCount[proto][status] = merge(conn.RequestsCount[proto][status], mv.Values, timeseries.NanSum)
 			case qRecordingRuleApplicationExternalEndpoint:
-				conn.Endpoints.Add(mv.ActualDestination)
-				conn.RemoteApplication.GetOrCreateInstance(mv.ActualDestination, nil)
-				if ip, port, _ := net.SplitHostPort(mv.ActualDestination); ip != "" && port != "" {
-					if net.ParseIP(ip) != nil {
-						instance := conn.RemoteApplication.GetOrCreateInstance(mv.ActualDestination, nil)
-						instance.TcpListens[model.Listen{IP: ip, Port: port}] = true
+				if mv.ActualDestination != "" && mv.ActualDestination != ":" { // failed-only connections have no actual destination
+					conn.Endpoints.Add(mv.ActualDestination)
+					conn.RemoteApplication.GetOrCreateInstance(mv.ActualDestination, nil)
+					if ip, port, _ := net.SplitHostPort(mv.ActualDestination); ip != "" && port != "" {
+						if net.ParseIP(ip) != nil {
+							instance := conn.RemoteApplication.GetOrCreateInstance(mv.ActualDestination, nil)
+							instance.TcpListens[model.Listen{IP: ip, Port: port}] = true
+						}
 					}
 				}
 			}

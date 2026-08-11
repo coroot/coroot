@@ -4,12 +4,14 @@ import (
 	"fmt"
 	"net"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
+	"inet.af/netaddr"
 	"k8s.io/klog"
 )
 
@@ -38,8 +40,8 @@ func (c *Constructor) loadKubernetesMetadata(w *model.World, metrics map[string]
 		if s.ClusterIP != "" {
 			servicesByClusterIP[s.ClusterIP] = s
 		}
-		for _, ip := range s.EndpointIPs.Items() {
-			if app := appsByPodIP[ip]; app != nil {
+		for ep := range s.Endpoints {
+			if app := appsByPodIP[ep.IP().String()]; app != nil {
 				s.DestinationApps[app.Id] = app
 			}
 		}
@@ -69,7 +71,7 @@ func loadServices(metrics map[string][]*model.MetricValues) map[serviceId]*model
 			Name:            name,
 			Namespace:       m.Labels["namespace"],
 			ClusterIP:       m.Labels["cluster_ip"],
-			EndpointIPs:     utils.NewStringSet(),
+			Endpoints:       map[netaddr.IPPort]struct{}{},
 			LoadBalancerIPs: utils.NewStringSet(),
 			Ports:           utils.NewStringSet(),
 			NodePorts:       utils.NewStringSet(),
@@ -89,7 +91,10 @@ func loadServices(metrics map[string][]*model.MetricValues) map[serviceId]*model
 	}
 	for _, m := range metrics["kube_endpoint_address"] {
 		if s := services[serviceId{name: m.Labels["endpoint"], ns: m.Labels["namespace"]}]; s != nil {
-			s.EndpointIPs.Add(m.Labels["ip"])
+			if ip, err := netaddr.ParseIP(m.Labels["ip"]); err == nil {
+				port, _ := strconv.ParseUint(m.Labels["port_number"], 10, 16)
+				s.Endpoints[netaddr.IPPortFrom(ip, uint16(port))] = struct{}{}
+			}
 		}
 	}
 	for _, m := range metrics["kube_service_port"] {
