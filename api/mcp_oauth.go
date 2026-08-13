@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"path"
@@ -186,8 +187,8 @@ func (api *Api) MCPOAuthRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for _, ru := range req.RedirectURIs {
-		if _, err := url.Parse(ru); err != nil {
-			mcpOAuthError(w, http.StatusBadRequest, oauthErrInvalidRedirectURI, "invalid redirect_uri")
+		if !mcpRedirectURIValid(ru) {
+			mcpOAuthError(w, http.StatusBadRequest, oauthErrInvalidRedirectURI, "invalid redirect_uri: must be https, or http on loopback (127.0.0.1/::1/localhost)")
 			return
 		}
 	}
@@ -467,6 +468,36 @@ func mcpRedirectURIAllowed(allowed []string, given string) bool {
 		}
 	}
 	return false
+}
+
+var mcpDangerousRedirectSchemes = map[string]bool{
+	"javascript": true,
+	"data":       true,
+	"vbscript":   true,
+	"file":       true,
+}
+
+func mcpRedirectURIValid(raw string) bool {
+	u, err := url.Parse(raw)
+	if err != nil || !u.IsAbs() || u.Fragment != "" {
+		return false
+	}
+	switch strings.ToLower(u.Scheme) {
+	case "http":
+		return mcpIsLoopbackHost(u.Hostname())
+	case "https":
+		return u.Host != ""
+	default:
+		return !mcpDangerousRedirectSchemes[strings.ToLower(u.Scheme)]
+	}
+}
+
+func mcpIsLoopbackHost(host string) bool {
+	if host == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
 
 func mcpOAuthError(w http.ResponseWriter, status int, code, desc string) {
