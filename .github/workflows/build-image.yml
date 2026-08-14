@@ -73,45 +73,9 @@ jobs:
             VERSION=${{ github.sha }}
           # Local buildx cache on the self-hosted runner; avoid type=gha.
 
-      # Roll the observability cluster onto the freshly pushed :latest image.
-      - name: Ensure kubectl
-        run: |
-          set -euo pipefail
-          BIN="$HOME/.local/bin"
-          mkdir -p "$BIN"
-          echo "$BIN" >> "$GITHUB_PATH"
-          export PATH="$BIN:$PATH"
-          if ! command -v kubectl >/dev/null 2>&1; then
-            curl -fsSL -o "$BIN/kubectl" \
-              "https://dl.k8s.io/release/$(curl -fsSL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-            chmod +x "$BIN/kubectl"
-          fi
-          kubectl version --client=true 2>/dev/null || kubectl version --client || true
-
-      - name: Restore coroot kubeconfig
-        env:
-          KUBECONFIG_B64_COROOT: ${{ secrets.KUBECONFIG_B64_COROOT }}
-        run: |
-          set -euo pipefail
-          if [ -z "${KUBECONFIG_B64_COROOT:-}" ]; then
-            echo "::error::Repo secret KUBECONFIG_B64_COROOT is missing/empty"
-            exit 1
-          fi
-          mkdir -p "$HOME/.kube"
-          printf '%s' "$KUBECONFIG_B64_COROOT" | base64 -d > "$HOME/.kube/config"
-          chmod 600 "$HOME/.kube/config"
-
-      - name: Rollout coroot
-        env:
-          NAMESPACE: coroot
-          STATEFULSET: coroot-coroot
-        run: |
-          set -euo pipefail
-          kubectl -n "${NAMESPACE}" rollout restart "sts/${STATEFULSET}"
-          kubectl -n "${NAMESPACE}" rollout status "sts/${STATEFULSET}" --timeout=5m
-          IMAGE_ID=$(kubectl -n "${NAMESPACE}" get pod "${STATEFULSET}-0" \
-            -o jsonpath='{.status.containerStatuses[0].imageID}')
-          READY=$(kubectl -n "${NAMESPACE}" get pod "${STATEFULSET}-0" \
-            -o jsonpath='{.status.containerStatuses[0].ready}')
-          echo "Running image: ${IMAGE_ID} ready=${READY}"
-          test "${READY}" = "true"
+      # No rollout here. Coroot is PER REGION (coroot.stackblaze.cloud is
+      # retired): each region pins an exact SHA tag via region-provisioner's
+      # coroot_server_image and deploys through coroot-observability-cluster.
+      # The old central rollout used KUBECONFIG_B64_COROOT, whose LAN target
+      # only the retired office runner could reach — from any regional runner
+      # it fails with "no route to host".
