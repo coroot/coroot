@@ -12,6 +12,7 @@ type Incident struct {
 	ShortDescription    string                    `json:"short_description"`
 	ApplicationCategory model.ApplicationCategory `json:"application_category"`
 	Duration            timeseries.Duration       `json:"duration"`
+	Cluster             string                    `json:"cluster"`
 }
 
 func RenderList(w *model.World, incidents []*model.ApplicationIncident) []Incident {
@@ -36,6 +37,7 @@ func renderIncident(w *model.World, incident *model.ApplicationIncident) Inciden
 	if app := w.GetApplication(i.ApplicationId); app != nil {
 		i.ApplicationCategory = app.Category
 	}
+	i.Cluster = w.ClusterName(i.ApplicationId.ClusterId)
 	to := timeseries.Now()
 	if i.Resolved() {
 		to = i.ResolvedAt

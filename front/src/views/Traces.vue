@@ -158,15 +158,7 @@
                     class="table"
                     mobile-breakpoint="0"
                     no-data-text="No traces found"
-                    :headers="[
-                        { value: 'service_name', text: 'Root Service Name', align: 'start' },
-                        { value: 'span_name', text: 'Root Span Name', align: 'start' },
-                        { value: 'total', text: 'Requests', align: 'end' },
-                        { value: 'failed', text: 'Errors', align: 'end' },
-                        { value: 'duration_quantiles[0]', text: 'p50', align: 'end' },
-                        { value: 'duration_quantiles[1]', text: 'p95', align: 'end' },
-                        { value: 'duration_quantiles[2]', text: 'p99', align: 'end' },
-                    ]"
+                    :headers="overviewHeaders"
                     :footer-props="{ itemsPerPageOptions: [10, 20, 50, 100, -1] }"
                 >
                     <template #item.service_name="{ item }">
@@ -178,6 +170,9 @@
                         <router-link :to="filterTraces(item.service_name, item.span_name)">
                             {{ item.span_name }}
                         </router-link>
+                    </template>
+                    <template #item.cluster="{ item }">
+                        <span class="text-no-wrap">{{ item.cluster }}</span>
                     </template>
                     <template #item.total="{ item }">
                         <span>{{ format(item.total) }}</span>
@@ -208,6 +203,7 @@
                             <tr v-for="item in view.summary ? [view.summary.overall] : []">
                                 <td class="font-weight-medium">OVERALL</td>
                                 <td></td>
+                                <td v-if="$api.context.multicluster"></td>
                                 <td class="text-right font-weight-medium">
                                     <span>{{ format(item.total) }}</span>
                                     <span class="caption grey--text">/s</span>
@@ -242,6 +238,7 @@
                     <thead>
                         <tr>
                             <th>Trace ID</th>
+                            <th v-if="$api.context.multicluster">Cluster</th>
                             <th>Root Service</th>
                             <th>Name</th>
                             <th>Status</th>
@@ -256,6 +253,7 @@
                                     {{ s.trace_id.substring(0, 8) }}
                                 </router-link>
                             </td>
+                            <td v-if="$api.context.multicluster" class="text-no-wrap">{{ s.cluster }}</td>
                             <td class="text-no-wrap">{{ s.service }}</td>
                             <td class="text-no-wrap">{{ s.name }}</td>
                             <td class="text-no-wrap">
@@ -334,13 +332,7 @@
                     class="table errors"
                     mobile-breakpoint="0"
                     no-data-text="No errors found"
-                    :headers="[
-                        { value: 'service_name', text: 'Service Name', width: '15%' },
-                        { value: 'span_name', text: 'Span', width: '25%' },
-                        { value: 'sample_error', text: 'Error', width: '40%' },
-                        { value: 'sample_trace_id', text: 'Sample Trace', sortable: false, width: '16ch' },
-                        { value: 'count', text: 'Percentage', width: '16ch' },
-                    ]"
+                    :headers="errorsHeaders"
                     :footer-props="{ itemsPerPageOptions: [10, 20, 50, 100, -1] }"
                 >
                     <template #item.service_name="{ item }">
@@ -452,6 +444,36 @@ export default {
                 { name: 'latency', title: 'latency explorer', icon: 'mdi-clock-fast' },
                 { name: 'attributes', title: 'compare attributes', icon: 'mdi-select-compare' },
             ];
+        },
+        overviewHeaders() {
+            const headers = [
+                { value: 'service_name', text: 'Root Service Name', align: 'start' },
+                { value: 'span_name', text: 'Root Span Name', align: 'start' },
+                { value: 'cluster', text: 'Cluster', align: 'start' },
+                { value: 'total', text: 'Requests', align: 'end' },
+                { value: 'failed', text: 'Errors', align: 'end' },
+                { value: 'duration_quantiles[0]', text: 'p50', align: 'end' },
+                { value: 'duration_quantiles[1]', text: 'p95', align: 'end' },
+                { value: 'duration_quantiles[2]', text: 'p99', align: 'end' },
+            ];
+            if (!this.$api.context.multicluster) {
+                return headers.filter((h) => h.value !== 'cluster');
+            }
+            return headers;
+        },
+        errorsHeaders() {
+            const headers = [
+                { value: 'service_name', text: 'Service Name', width: '15%' },
+                { value: 'span_name', text: 'Span', width: '25%' },
+                { value: 'cluster', text: 'Cluster', width: '10%' },
+                { value: 'sample_error', text: 'Error', width: '40%' },
+                { value: 'sample_trace_id', text: 'Sample Trace', sortable: false, width: '16ch' },
+                { value: 'count', text: 'Percentage', width: '16ch' },
+            ];
+            if (!this.$api.context.multicluster) {
+                return headers.filter((h) => h.value !== 'cluster');
+            }
+            return headers;
         },
         query() {
             let q = {};

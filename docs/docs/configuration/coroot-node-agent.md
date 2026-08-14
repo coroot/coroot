@@ -23,6 +23,7 @@ You can configure coroot-node-agent using command-line flags or environment vari
 | `--listen` | `LISTEN` | `0.0.0.0:80` | HTTP listen address |
 | `--cgroupfs-root` | `CGROUPFS_ROOT` | `/sys/fs/cgroup` | Path to the host's cgroup filesystem root |
 | `--disable-log-parsing` | `DISABLE_LOG_PARSING` | `false` | Disable container log parsing |
+| `--disable-json-log-parsing` | `DISABLE_JSON_LOG_PARSING` | `false` | Disable extracting the message, severity, and attributes from JSON-formatted logs |
 | `--disable-pinger` | `DISABLE_PINGER` | `false` | Disable ICMP ping to upstreams |
 | `--disable-l7-tracing` | `DISABLE_L7_TRACING` | `false` | Disable application-layer (L7) tracing |
 | `--disable-gpu-monitoring` | `DISABLE_GPU_MONITORING` | `false` | Disable GPU monitoring (NVML) |
@@ -44,6 +45,7 @@ You can configure coroot-node-agent using command-line flags or environment vari
 | `--log-per-second` | `LOG_PER_SECOND` | `10.0` | Rate limit for logs per second |
 | `--log-burst` | `LOG_BURST` | `100` | Max burst for log rate limiting |
 | `--log-patterns-per-container` | `LOG_PATTERNS_PER_CONTAINER` | `256` | Max unique log patterns per container per level |
+| `--log-pattern-extraction-limit` | `LOG_PATTERN_EXTRACTION_LIMIT` | `100` | Max log messages per second per container for which patterns are extracted. Over-limit messages are counted under a dedicated `event was sampled` pattern (`0` - unlimited) |
 | `--max-fqdns-per-container` | `MAX_FQDNS_PER_CONTAINER` | `50` | Max unique FQDN values per container in `container_dns_requests_total`; extras are bucketed under `~other` |
 | `--max-label-length` | `MAX_LABEL_LENGTH` | `4096` | Max metric label length |
 | `--collector-endpoint` | `COLLECTOR_ENDPOINT` | – | Unified base URL for telemetry export |
@@ -53,6 +55,7 @@ You can configure coroot-node-agent using command-line flags or environment vari
 | `--traces-sampling` | `TRACES_SAMPLING` | `1.0` | Trace sampling rate (0.0 to 1.0) |
 | `--logs-endpoint` | `LOGS_ENDPOINT` | – | Custom URL for logs export |
 | `--profiles-endpoint` | `PROFILES_ENDPOINT` | – | Custom URL for profiles export |
+| `--profiles-prune-fraction` | `PROFILES_PRUNE_FRACTION` | `0.0025` | Drop insignificant profile code paths accounting for less than this fraction of the profile total (`0` to disable) |
 | `--insecure-skip-verify` | `INSECURE_SKIP_VERIFY` | `false` | Skip TLS certificate verification |
 | `--ca-file` | `CA_FILE` | – | Path to the custom CA certificate file |
 | `--scrape-interval` | `SCRAPE_INTERVAL` | `15s` | How often to collect internal metrics |
@@ -74,6 +77,7 @@ Flag names are identical (for example `--scrape-interval`), but **environment va
 | `--insecure-skip-verify` | `COROOT_INSECURE_SKIP_VERIFY` | Skip TLS verification of the collector |
 | `--ca-file` | `COROOT_CA_FILE` | Path to a custom CA certificate |
 | `--disable-log-parsing` | `COROOT_DISABLE_LOG_PARSING` | Disable Windows Event Log and container log collection |
+| `--disable-json-log-parsing` | `COROOT_DISABLE_JSON_LOG_PARSING` | Disable extracting the message, severity, and attributes from JSON-formatted logs |
 | `--disable-gpu-monitoring` | `COROOT_DISABLE_GPU_MONITORING` | Disable NVIDIA GPU monitoring |
 | `--container-allowlist` / `--container-denylist` | `COROOT_CONTAINER_ALLOWLIST` / `COROOT_CONTAINER_DENYLIST` | Regex of services to include or exclude |
 | `--provider` / `--region` / `--availability-zone` / `--instance-type` / `--instance-life-cycle` | `COROOT_PROVIDER` and so on | Override `node_cloud_info` labels |

@@ -6,7 +6,7 @@ import (
 	"github.com/coroot/coroot/model"
 )
 
-func mergeWorlds(worlds []*model.World, checkConfigs model.CheckConfigs) *model.World {
+func mergeWorlds(worlds []*model.World) *model.World {
 	if len(worlds) == 0 {
 		return nil
 	}
@@ -16,7 +16,6 @@ func mergeWorlds(worlds []*model.World, checkConfigs model.CheckConfigs) *model.
 	sock2app := map[string]*model.Application{}
 	updateSocketToApplicationMapping(worlds[0], sock2app)
 	res := worlds[0]
-	res.CheckConfigs = checkConfigs
 	res.AWS = model.AWS{}
 	res.IntegrationStatus = model.IntegrationStatus{}
 	for _, w := range worlds[1:] {

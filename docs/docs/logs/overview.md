@@ -10,6 +10,16 @@ Coroot's node-agent automatically discovers and gathers logs from all containers
 Additionally, it performs low-overhead log analysis right on the node to identify message severities and recurring patterns.
 This process is seamless and compatible with a wide range of log formats, providing valuable meta-information for quick and easy log analysis.
 
+## JSON logs
+
+If an application writes JSON-formatted logs (e.g. using slog or zap for Go, logrus, pino, Serilog, or the .NET JSON console formatter),
+the agent automatically parses each record: the message and severity are extracted from their well-known fields, and the remaining
+fields are flattened into log attributes (e.g. `http.response.status`), so you can search logs by any of them.
+Pattern detection runs on the extracted message rather than the whole JSON line, so records that differ only in attribute
+values are grouped into the same pattern.
+
+This behavior is enabled by default and can be turned off with the `--disable-json-log-parsing` agent flag.
+
 <img alt="Coroot Log Monitoring" src="/img/docs/logs/overview.png" class="card w-1200"/>
 
 ## Event details

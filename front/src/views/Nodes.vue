@@ -11,7 +11,7 @@
             mobile-breakpoint="0"
             :items-per-page="100"
             :items="nodes_"
-            item-key="item"
+            item-key="key"
             no-data-text="No nodes found"
             :headers="headers"
             :footer-props="{ itemsPerPageOptions: [5, 10, 20, 50, 100, -1] }"
@@ -26,7 +26,7 @@
                 </router-link>
             </template>
 
-            <template #item.cluster="{ item }">
+            <template #item.cluster_name="{ item }">
                 <span class="truncated grey--text" style="max-width: 20ch">{{ item.cluster_name }}</span>
             </template>
 
@@ -150,18 +150,19 @@ export default {
                 { value: 'gpus', text: 'GPU', align: 'left' },
                 { value: 'total_network_bandwidth', text: 'Network', align: 'left' },
                 { value: 'os', text: 'OS', align: 'left' },
-                { value: 'cluster', text: 'Cluster', align: 'left' },
+                { value: 'cluster_name', text: 'Cluster', align: 'left' },
             ];
             if (!this.$api.context.multicluster) {
-                return headers.filter((h) => h.value !== 'cluster');
+                return headers.filter((h) => h.value !== 'cluster_name');
             }
             return headers;
         },
         nodes_() {
+            const nodes = (this.nodes || []).map((n) => ({ ...n, key: n.cluster_id + ':' + n.name }));
             if (!this.search) {
-                return this.nodes;
+                return nodes;
             }
-            return this.nodes.filter((n) =>
+            return nodes.filter((n) =>
                 (n.name + ' ' + n.availability_zone + ' ' + n.cluster_name + ' ' + n.ips.join(' ')).toLowerCase().includes(this.search.toLowerCase()),
             );
         },

@@ -55,6 +55,11 @@
                         </div>
                     </template>
 
+                    <template v-if="$api.context.multicluster && alert.cluster">
+                        <div class="label">Cluster</div>
+                        <div>{{ alert.cluster }}</div>
+                    </template>
+
                     <div class="label">Severity</div>
                     <div>
                         <v-chip small label outlined :color="severityColor">

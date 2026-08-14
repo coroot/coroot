@@ -187,9 +187,11 @@ func (c *LowLevelClient) Migrate(ctx context.Context, cfg config.CollectorConfig
 		if c.cluster != "" {
 			t = strings.ReplaceAll(t, "@merge_tree", "ReplicatedMergeTree('/clickhouse/tables/{shard}/{database}/{table}', '{replica}')")
 			t = strings.ReplaceAll(t, "@replacing_merge_tree", "ReplicatedReplacingMergeTree('/clickhouse/tables/{shard}/{database}/{table}', '{replica}')")
+			t = strings.ReplaceAll(t, "@summing_merge_tree", "ReplicatedSummingMergeTree('/clickhouse/tables/{shard}/{database}/{table}', '{replica}')")
 		} else {
 			t = strings.ReplaceAll(t, "@merge_tree", "MergeTree()")
 			t = strings.ReplaceAll(t, "@replacing_merge_tree", "ReplacingMergeTree()")
+			t = strings.ReplaceAll(t, "@summing_merge_tree", "SummingMergeTree()")
 		}
 		err := c.Exec(ctx, t)
 		if err != nil {
@@ -289,6 +291,41 @@ ORDER BY (ServiceName, SpanName, toUnixTimestamp(Timestamp), TraceId)
 SETTINGS index_granularity=8192, ttl_only_drop_parts = 1`,
 
 		`ALTER TABLE otel_traces @on_cluster ADD COLUMN IF NOT EXISTS NetSockPeerAddr LowCardinality(String) MATERIALIZED SpanAttributes['net.sock.peer.addr'] CODEC(ZSTD(1))`,
+
+		`ALTER TABLE otel_traces @on_cluster ADD INDEX IF NOT EXISTS idx_trace_id TraceId TYPE bloom_filter(0.001) GRANULARITY 1`,
+		`
+CREATE TABLE IF NOT EXISTS otel_traces_histogram @on_cluster (
+     ServiceName LowCardinality(String) CODEC(ZSTD(1)),
+     SpanName LowCardinality(String) CODEC(ZSTD(1)),
+     SpanKind LowCardinality(String) CODEC(ZSTD(1)),
+     Root UInt8 CODEC(ZSTD(1)),
+     NetSockPeerAddr LowCardinality(String) CODEC(ZSTD(1)),
+     NetPeerName LowCardinality(String) CODEC(ZSTD(1)),
+     NetPeerPort LowCardinality(String) CODEC(ZSTD(1)),
+     Timestamp DateTime CODEC(Delta, ZSTD(1)),
+     Bucket Float64 CODEC(ZSTD(1)),
+     Total UInt64 CODEC(ZSTD(1)),
+     Failed UInt64 CODEC(ZSTD(1))
+) ENGINE @summing_merge_tree
+TTL Timestamp + toIntervalSecond(@ttl_traces)
+PARTITION BY toDate(Timestamp)
+ORDER BY (ServiceName, SpanName, SpanKind, Root, Timestamp, NetSockPeerAddr, NetPeerName, NetPeerPort, Bucket)
+SETTINGS index_granularity=8192, ttl_only_drop_parts = 1`,
+
+		`
+CREATE MATERIALIZED VIEW IF NOT EXISTS otel_traces_histogram_mv @on_cluster TO otel_traces_histogram AS
+SELECT
+    ServiceName, SpanName, SpanKind,
+    ParentSpanId = '' AS Root,
+    NetSockPeerAddr,
+    SpanAttributes['net.peer.name'] AS NetPeerName,
+    SpanAttributes['net.peer.port'] AS NetPeerPort,
+    toDateTime(toStartOfMinute(Timestamp)) AS Timestamp,
+    roundDown(Duration/1000000, [0,5,10,25,50,100,250,500,1000,2500,5000,10000]) AS Bucket,
+    count(1) AS Total,
+    countIf(StatusCode = 'STATUS_CODE_ERROR') AS Failed
+FROM otel_traces
+GROUP BY ServiceName, SpanName, SpanKind, Root, NetSockPeerAddr, NetPeerName, NetPeerPort, Timestamp, Bucket`,
 
 		`
 CREATE TABLE IF NOT EXISTS otel_traces_trace_id_ts @on_cluster (
@@ -408,6 +445,9 @@ SETTINGS index_granularity = 8192`,
 		`CREATE TABLE IF NOT EXISTS otel_traces_trace_id_ts_distributed ON CLUSTER @cluster AS otel_traces_trace_id_ts
 			ENGINE = Distributed(@cluster, currentDatabase(), otel_traces_trace_id_ts)`,
 
+		`CREATE TABLE IF NOT EXISTS otel_traces_histogram_distributed ON CLUSTER @cluster AS otel_traces_histogram
+			ENGINE = Distributed(@cluster, currentDatabase(), otel_traces_histogram, rand())`,
+
 		`CREATE TABLE IF NOT EXISTS otel_traces_service_name_distributed ON CLUSTER @cluster AS otel_traces_service_name
 			ENGINE = Distributed(@cluster, currentDatabase(), otel_traces_service_name)`,
 
@@ -431,7 +471,7 @@ SETTINGS index_granularity = 8192`,
 func ReplaceTables(query string, distributed bool) string {
 	tbls := []string{
 		"otel_logs", "otel_logs_service_name_severity_text",
-		"otel_traces", "otel_traces_trace_id_ts", "otel_traces_service_name",
+		"otel_traces", "otel_traces_trace_id_ts", "otel_traces_service_name", "otel_traces_histogram",
 		"profiling_stacks", "profiling_samples", "profiling_profiles",
 		"metrics", "metrics_metadata",
 	}

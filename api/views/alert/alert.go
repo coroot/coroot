@@ -27,6 +27,7 @@ type Alert struct {
 	RuleName           string                `json:"rule_name"`
 	ProjectId          string                `json:"project_id"`
 	ApplicationId      model.ApplicationId   `json:"application_id"`
+	Cluster            string                `json:"cluster"`
 	Severity           model.Status          `json:"severity"`
 	Summary            string                `json:"summary"`
 	Details            []model.AlertDetail   `json:"details,omitempty"`
@@ -176,6 +177,31 @@ func kubernetesEventsWidgets(w *model.World, a *model.Alert, chs clickhouse.Clie
 	return []*model.Widget{{Chart: chart, Width: "100%"}}
 }
 
+func alertCluster(w *model.World, a *model.Alert) string {
+	if a.ApplicationId.ClusterId != "" {
+		return w.ClusterName(a.ApplicationId.ClusterId)
+	}
+	for _, d := range a.Details {
+		if d.Name != "KubernetesEventsQuery" {
+			continue
+		}
+		var raw []struct {
+			Name  string `json:"name"`
+			Op    string `json:"op"`
+			Value string `json:"value"`
+		}
+		if err := json.Unmarshal([]byte(d.Value), &raw); err != nil {
+			return ""
+		}
+		for _, f := range raw {
+			if f.Name == "Cluster" && f.Op == "=" {
+				return f.Value
+			}
+		}
+	}
+	return ""
+}
+
 func alertFingerprint(ruleId, appId, patternHash string) string {
 	h := sha256.New()
 	h.Write([]byte(ruleId))
@@ -240,6 +266,7 @@ func renderAlert(w *model.World, a *model.Alert, rulesMap map[string]string, not
 		RuleName:           ruleName,
 		ProjectId:          a.ProjectId,
 		ApplicationId:      a.ApplicationId,
+		Cluster:            alertCluster(w, a),
 		Severity:           a.Severity,
 		Summary:            a.Summary,
 		Details:            a.Details,

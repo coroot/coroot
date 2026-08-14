@@ -8,14 +8,14 @@
         </h2>
 
         <v-data-table
-            :items="nodes"
+            :items="items"
             sort-by="idle_costs"
             sort-desc
             must-sort
             dense
             class="table"
             mobile-breakpoint="0"
-            item-key="name"
+            item-key="key"
             :headers="headers"
             :footer-props="{ itemsPerPageOptions: [10, 20, 50, 100, -1] }"
         >
@@ -48,6 +48,7 @@
                 <tfoot>
                     <tr v-for="item in [total]">
                         <td class="font-weight-medium">TOTAL</td>
+                        <td v-if="$api.context.multicluster"></td>
                         <td></td>
                         <td></td>
                         <td></td>
@@ -71,6 +72,9 @@ export default {
     components: { NodeUsageBar },
 
     computed: {
+        items() {
+            return (this.nodes || []).map((n) => ({ ...n, key: n.cluster + ':' + n.name }));
+        },
         headers() {
             let headers = [
                 { value: 'name', text: 'Node', align: 'center' },

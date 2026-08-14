@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/coroot/coroot/model"
@@ -262,6 +263,7 @@ type AlertsQuery struct {
 	SortDesc        bool
 	Offset          int
 	Limit           int
+	ClusterNames    map[string]string // cluster id -> display name, required for SortBy == "cluster"
 }
 
 type AlertsResult struct {
@@ -319,11 +321,30 @@ func (db *DB) QueryAlerts(projectId ProjectId, q AlertsQuery) (*AlertsResult, er
 		orderBy = "alert.rule_id"
 	case "resolved_at":
 		orderBy = "alert.resolved_at"
+	case "cluster":
+		if len(q.ClusterNames) > 0 {
+			ids := make([]string, 0, len(q.ClusterNames))
+			for id := range q.ClusterNames {
+				ids = append(ids, id)
+			}
+			sort.Strings(ids)
+			expr := "CASE"
+			for _, id := range ids {
+				expr += fmt.Sprintf(" WHEN alert.application_id LIKE $%d THEN $%d", argIndex, argIndex+1)
+				args = append(args, id+":%", q.ClusterNames[id])
+				argIndex += 2
+			}
+			expr += " ELSE '' END"
+			orderBy = expr
+		}
 	}
 	if q.SortDesc {
 		orderBy += " DESC"
 	} else {
 		orderBy += " ASC"
+	}
+	if q.SortBy == "cluster" {
+		orderBy += ", alert.opened_at DESC"
 	}
 
 	if q.Limit <= 0 {

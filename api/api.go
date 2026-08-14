@@ -754,14 +754,6 @@ func (api *Api) ApiKeys(w http.ResponseWriter, r *http.Request, u *db.User) {
 }
 
 func (api *Api) Inspections(w http.ResponseWriter, r *http.Request, u *db.User) {
-	vars := mux.Vars(r)
-	projectId := vars["project"]
-	checkConfigs, err := api.db.GetCheckConfigs(db.ProjectId(projectId))
-	if err != nil {
-		klog.Errorln("failed to get check configs:", err)
-		http.Error(w, "", http.StatusInternalServerError)
-		return
-	}
 	world, project, cacheStatus, err := api.LoadWorldByRequest(r)
 	if err != nil {
 		klog.Errorln(err)
@@ -771,6 +763,14 @@ func (api *Api) Inspections(w http.ResponseWriter, r *http.Request, u *db.User) 
 	if project == nil || world == nil {
 		utils.WriteJson(w, api.WithContext(u, project, cacheStatus, world, nil))
 		return
+	}
+	checkConfigs := world.CheckConfigs
+	if checkConfigs == nil {
+		if checkConfigs, err = api.db.GetCheckConfigs(project.Id); err != nil {
+			klog.Errorln("failed to get check configs:", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
 	}
 	utils.WriteJson(w, api.WithContext(u, project, cacheStatus, world, views.Inspections(checkConfigs)))
 }
@@ -1309,6 +1309,19 @@ func (api *Api) Alerts(w http.ResponseWriter, r *http.Request, u *db.User) {
 	if o := r.URL.Query().Get("offset"); o != "" {
 		if parsed, err := strconv.Atoi(o); err == nil && parsed >= 0 {
 			query.Offset = parsed
+		}
+	}
+
+	if query.SortBy == "cluster" {
+		projectNames, err := api.db.GetProjectNames()
+		if err != nil {
+			klog.Errorln(err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		query.ClusterNames = make(map[string]string, len(projectNames))
+		for id, name := range projectNames {
+			query.ClusterNames[string(id)] = name
 		}
 	}
 
@@ -1888,6 +1901,27 @@ func (api *Api) AlertingRulesExport(w http.ResponseWriter, r *http.Request, u *d
 	utils.WriteJson(w, map[string]string{"yaml": string(out)})
 }
 
+func (api *Api) appConfigProjectId(project *db.Project, appId model.ApplicationId) (db.ProjectId, bool) {
+	if !project.Multicluster() || appId.ClusterId == "" {
+		return project.Id, true
+	}
+	projects, err := api.db.GetProjects()
+	if err != nil {
+		klog.Errorln("failed to get projects:", err)
+		return "", false
+	}
+	for _, mp := range project.Settings.MemberProjects {
+		p := projects[mp]
+		if p == nil {
+			continue
+		}
+		if p.ClusterId() == appId.ClusterId {
+			return p.Id, true
+		}
+	}
+	return "", false
+}
+
 func (api *Api) Inspection(w http.ResponseWriter, r *http.Request, u *db.User) {
 	vars := mux.Vars(r)
 	projectId := vars["project"]
@@ -1910,6 +1944,13 @@ func (api *Api) Inspection(w http.ResponseWriter, r *http.Request, u *db.User) {
 		return
 	}
 
+	configProjectId, ok := api.appConfigProjectId(project, appId)
+	if !ok {
+		klog.Warningln("application doesn't belong to any member project:", appId)
+		http.Error(w, "Application not found", http.StatusNotFound)
+		return
+	}
+
 	var app *model.Application
 	var category model.ApplicationCategory
 	if !appId.IsZero() {
@@ -1923,7 +1964,7 @@ func (api *Api) Inspection(w http.ResponseWriter, r *http.Request, u *db.User) {
 
 	switch r.Method {
 	case http.MethodGet:
-		checkConfigs, err := api.db.GetCheckConfigs(project.Id)
+		checkConfigs, err := api.db.GetCheckConfigs(configProjectId)
 		if err != nil {
 			klog.Errorln("failed to get check configs:", err)
 			http.Error(w, "", http.StatusInternalServerError)
@@ -1999,7 +2040,7 @@ func (api *Api) Inspection(w http.ResponseWriter, r *http.Request, u *db.User) {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
 			}
-			if err = api.db.SaveCheckConfig(db.ProjectId(projectId), appId, checkId, form.Configs); err != nil {
+			if err = api.db.SaveCheckConfig(configProjectId, appId, checkId, form.Configs); err != nil {
 				klog.Errorln("failed to save check config:", err)
 				http.Error(w, "", http.StatusInternalServerError)
 				return
@@ -2016,7 +2057,7 @@ func (api *Api) Inspection(w http.ResponseWriter, r *http.Request, u *db.User) {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
 			}
-			if err = api.db.SaveCheckConfig(db.ProjectId(projectId), appId, checkId, form.Configs); err != nil {
+			if err = api.db.SaveCheckConfig(configProjectId, appId, checkId, form.Configs); err != nil {
 				klog.Errorln("failed to save check config:", err)
 				http.Error(w, "", http.StatusInternalServerError)
 				return
@@ -2038,7 +2079,7 @@ func (api *Api) Inspection(w http.ResponseWriter, r *http.Request, u *db.User) {
 				case 2:
 					id = appId
 				}
-				if err = api.db.SaveCheckConfig(db.ProjectId(projectId), id, checkId, cfg); err != nil {
+				if err = api.db.SaveCheckConfig(configProjectId, id, checkId, cfg); err != nil {
 					klog.Errorln("failed to save check config:", err)
 					http.Error(w, "", http.StatusInternalServerError)
 					return
@@ -2058,7 +2099,7 @@ func (api *Api) Instrumentation(w http.ResponseWriter, r *http.Request, u *db.Us
 		http.Error(w, "invalid application id", http.StatusBadRequest)
 		return
 	}
-	world, _, _, err := api.LoadWorldByRequest(r)
+	world, project, _, err := api.LoadWorldByRequest(r)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)
@@ -2082,13 +2123,19 @@ func (api *Api) Instrumentation(w http.ResponseWriter, r *http.Request, u *db.Us
 			http.Error(w, "You are not allowed to configure database integrations.", http.StatusForbidden)
 			return
 		}
+		configProjectId, ok := api.appConfigProjectId(project, appId)
+		if !ok {
+			klog.Warningln("application doesn't belong to any member project:", appId)
+			http.Error(w, "Application not found", http.StatusNotFound)
+			return
+		}
 		var form forms.ApplicationInstrumentationForm
 		if err = forms.ReadAndValidate(r, &form); err != nil {
 			klog.Warningln("bad request:", err)
 			http.Error(w, "invalid data", http.StatusBadRequest)
 			return
 		}
-		if err = api.db.SaveApplicationSetting(db.ProjectId(projectId), appId, &form.ApplicationInstrumentation); err != nil {
+		if err = api.db.SaveApplicationSetting(configProjectId, appId, &form.ApplicationInstrumentation); err != nil {
 			klog.Errorln(err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
@@ -2132,13 +2179,29 @@ func (api *Api) Profiling(w http.ResponseWriter, r *http.Request, u *db.User) {
 			http.Error(w, "You are not allowed to configure profiling settings.", http.StatusForbidden)
 			return
 		}
+		project, err := api.db.GetProject(db.ProjectId(projectId))
+		if err != nil {
+			if errors.Is(err, db.ErrNotFound) {
+				http.Error(w, "Project not found.", http.StatusNotFound)
+				return
+			}
+			klog.Errorln("failed to get project:", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		configProjectId, ok := api.appConfigProjectId(project, appId)
+		if !ok {
+			klog.Warningln("application doesn't belong to any member project:", appId)
+			http.Error(w, "Application not found", http.StatusNotFound)
+			return
+		}
 		var form forms.ApplicationSettingsProfilingForm
 		if err := forms.ReadAndValidate(r, &form); err != nil {
 			klog.Warningln("bad request:", err)
 			http.Error(w, "invalid data", http.StatusBadRequest)
 			return
 		}
-		if err := api.db.SaveApplicationSetting(db.ProjectId(projectId), appId, &form.ApplicationSettingsProfiling); err != nil {
+		if err := api.db.SaveApplicationSetting(configProjectId, appId, &form.ApplicationSettingsProfiling); err != nil {
 			klog.Errorln(err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
@@ -2187,13 +2250,29 @@ func (api *Api) Tracing(w http.ResponseWriter, r *http.Request, u *db.User) {
 			http.Error(w, "You are not allowed to configure tracing settings.", http.StatusForbidden)
 			return
 		}
+		project, err := api.db.GetProject(db.ProjectId(projectId))
+		if err != nil {
+			if errors.Is(err, db.ErrNotFound) {
+				http.Error(w, "Project not found.", http.StatusNotFound)
+				return
+			}
+			klog.Errorln("failed to get project:", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		configProjectId, ok := api.appConfigProjectId(project, appId)
+		if !ok {
+			klog.Warningln("application doesn't belong to any member project:", appId)
+			http.Error(w, "Application not found", http.StatusNotFound)
+			return
+		}
 		var form forms.ApplicationSettingsTracingForm
 		if err := forms.ReadAndValidate(r, &form); err != nil {
 			klog.Warningln("bad request:", err)
 			http.Error(w, "invalid data", http.StatusBadRequest)
 			return
 		}
-		if err := api.db.SaveApplicationSetting(db.ProjectId(projectId), appId, &form.ApplicationSettingsTracing); err != nil {
+		if err := api.db.SaveApplicationSetting(configProjectId, appId, &form.ApplicationSettingsTracing); err != nil {
 			klog.Errorln(err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
@@ -2246,13 +2325,29 @@ func (api *Api) Logs(w http.ResponseWriter, r *http.Request, u *db.User) {
 			http.Error(w, "You are not allowed to configure logs settings.", http.StatusForbidden)
 			return
 		}
+		project, err := api.db.GetProject(db.ProjectId(projectId))
+		if err != nil {
+			if errors.Is(err, db.ErrNotFound) {
+				http.Error(w, "Project not found.", http.StatusNotFound)
+				return
+			}
+			klog.Errorln("failed to get project:", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		configProjectId, ok := api.appConfigProjectId(project, appId)
+		if !ok {
+			klog.Warningln("application doesn't belong to any member project:", appId)
+			http.Error(w, "Application not found", http.StatusNotFound)
+			return
+		}
 		var form forms.ApplicationSettingsLogsForm
 		if err := forms.ReadAndValidate(r, &form); err != nil {
 			klog.Warningln("bad request:", err)
 			http.Error(w, "invalid data", http.StatusBadRequest)
 			return
 		}
-		if err := api.db.SaveApplicationSetting(db.ProjectId(projectId), appId, &form.ApplicationSettingsLogs); err != nil {
+		if err := api.db.SaveApplicationSetting(configProjectId, appId, &form.ApplicationSettingsLogs); err != nil {
 			klog.Errorln(err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
@@ -2361,7 +2456,13 @@ func (api *Api) Risks(w http.ResponseWriter, r *http.Request, u *db.User) {
 			http.Error(w, "", http.StatusBadRequest)
 			return
 		}
-		if err = api.db.SaveApplicationSetting(db.ProjectId(projectId), appId, overrides); err != nil {
+		configProjectId, ok := api.appConfigProjectId(project, appId)
+		if !ok {
+			klog.Warningln("application doesn't belong to any member project:", appId)
+			http.Error(w, "Application not found", http.StatusNotFound)
+			return
+		}
+		if err = api.db.SaveApplicationSetting(configProjectId, appId, overrides); err != nil {
 			klog.Errorln(err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return

@@ -14,13 +14,7 @@
             no-data-text="No applications found"
             ref="table"
             v-on-resize="calcWidth"
-            :headers="[
-                { value: 'application', text: 'Application', sortable: false },
-                { value: 'requests', text: 'Requests', sortable: false },
-                { value: 'latency', text: 'Latency', sortable: false, width: this.sparklineWidthPercent + '%' },
-                { value: 'errors', text: 'Errors', sortable: false, width: this.sparklineWidthPercent + '%' },
-                { value: 'incident', text: 'Incident', sortable: false, width: '14ch' },
-            ]"
+            :headers="headers"
             :footer-props="{ itemsPerPageOptions: [10, 20, 50, 100, -1] }"
         >
             <template #item.application="{ item }">
@@ -119,6 +113,20 @@ export default {
     },
 
     computed: {
+        headers() {
+            const headers = [
+                { value: 'application', text: 'Application', sortable: false },
+                { value: 'cluster', text: 'Cluster', sortable: false },
+                { value: 'requests', text: 'Requests', sortable: false },
+                { value: 'latency', text: 'Latency', sortable: false, width: this.sparklineWidthPercent + '%' },
+                { value: 'errors', text: 'Errors', sortable: false, width: this.sparklineWidthPercent + '%' },
+                { value: 'incident', text: 'Incident', sortable: false, width: '14ch' },
+            ];
+            if (!this.$api.context.multicluster) {
+                return headers.filter((h) => h.value !== 'cluster');
+            }
+            return headers;
+        },
         applications() {
             if (!this.anomalyApplications) {
                 return [];

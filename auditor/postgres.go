@@ -4,7 +4,6 @@ import (
 	"cmp"
 	"fmt"
 	"slices"
-	"time"
 
 	"github.com/dustin/go-humanize"
 	"github.com/robfig/cron/v3"
@@ -58,9 +57,9 @@ const (
 	pgTimeSinceAnalyzeTitle       = "Time since last analyze by table <selector>, seconds"
 )
 
-const pgBackupScheduleGrace = 15 * 60
+const pgBackupScheduleGrace = 15 * timeseries.Minute
 
-func pgNextScheduledBackup(b *model.PgBackups, lastSuccess float32) timeseries.Time {
+func pgBackupSchedule(b *model.PgBackups) cron.Schedule {
 	schedule := b.Schedule
 	if schedule == "" {
 		for _, m := range b.Methods {
@@ -70,12 +69,53 @@ func pgNextScheduledBackup(b *model.PgBackups, lastSuccess float32) timeseries.T
 			}
 		}
 	}
-	if schedule != "" && !timeseries.IsNaN(lastSuccess) && lastSuccess > 0 {
-		if sched, err := pgParseCron(schedule); err == nil {
-			return timeseries.Time(sched.Next(time.Unix(int64(lastSuccess), 0)).Unix())
-		}
+	if schedule == "" {
+		return nil
+	}
+	sched, err := pgParseCron(schedule)
+	if err != nil {
+		return nil
+	}
+	return sched
+}
+
+func pgNextScheduledBackup(b *model.PgBackups, now timeseries.Time) timeseries.Time {
+	if sched := pgBackupSchedule(b); sched != nil {
+		return timeseries.TimeFromStandard(sched.Next(now.ToStandard()))
 	}
 	return b.NextScheduledBackup
+}
+
+func pgBackupInProgress(b *model.PgBackups) bool {
+	for _, r := range b.Runs {
+		if r.Succeeded() || r.CompletedAt > 0 {
+			continue
+		}
+		switch r.Status {
+		case "", "Failed", "failed":
+			continue
+		}
+		return true
+	}
+	return false
+}
+
+func pgBackupOverdue(b *model.PgBackups, lastSuccess timeseries.Time, now timeseries.Time) (bool, timeseries.Duration) {
+	if pgBackupInProgress(b) {
+		return false, 0
+	}
+	if sched := pgBackupSchedule(b); sched != nil && lastSuccess > 0 {
+		next := sched.Next(lastSuccess.ToStandard())
+		interval := timeseries.DurationFromStandard(sched.Next(next).Sub(next))
+		due := lastSuccess.Add(interval)
+		overdueBy := now.Sub(due)
+		return overdueBy > pgBackupScheduleGrace, overdueBy
+	}
+	if b.NextScheduledBackup > 0 {
+		overdueBy := now.Sub(b.NextScheduledBackup)
+		return overdueBy > pgBackupScheduleGrace, overdueBy
+	}
+	return false, 0
 }
 
 func pgParseCron(schedule string) (cron.Schedule, error) {
@@ -324,18 +364,10 @@ func pgConditionHint(reason string) string {
 }
 
 func pgBackups(report *model.AuditReport, b *model.PgBackups, instances []*model.Instance, cluster string, now timeseries.Time, check *model.Check) {
-	age := func(ts float32) float32 {
-		a := float32(now) - ts
-		if a < 0 {
-			a = 0
-		}
-		return a
-	}
-
-	var lastSuccess = timeseries.NaN
+	var lastSuccess timeseries.Time
 	consider := func(t timeseries.Time) {
-		if v := float32(t); v > 0 && (timeseries.IsNaN(lastSuccess) || v > lastSuccess) {
-			lastSuccess = v
+		if t > 0 && t > lastSuccess {
+			lastSuccess = t
 		}
 	}
 	for _, m := range b.Methods {
@@ -347,8 +379,8 @@ func pgBackups(report *model.AuditReport, b *model.PgBackups, instances []*model
 		}
 	}
 	var backupAge = timeseries.NaN
-	if !timeseries.IsNaN(lastSuccess) {
-		backupAge = age(lastSuccess)
+	if lastSuccess > 0 {
+		backupAge = float32(now.Sub(lastSuccess))
 		check.SetValue(backupAge)
 	}
 
@@ -400,9 +432,9 @@ func pgBackups(report *model.AuditReport, b *model.PgBackups, instances []*model
 		reasons = append(reasons, r)
 	}
 
-	nextBackup := pgNextScheduledBackup(b, lastSuccess)
-	if nextBackup > 0 && float32(now)-float32(nextBackup) > pgBackupScheduleGrace {
-		reasons = append(reasons, fmt.Sprintf("the scheduled backup is overdue (was due %s ago) - the backup schedule may not be running", utils.FormatDuration(timeseries.Duration(age(float32(nextBackup))), 1)))
+	nextBackup := pgNextScheduledBackup(b, now)
+	if overdue, overdueBy := pgBackupOverdue(b, lastSuccess, now); overdue {
+		reasons = append(reasons, fmt.Sprintf("the scheduled backup is overdue (was due %s ago) - the backup schedule may not be running", utils.FormatDuration(overdueBy, 1)))
 	}
 	if len(reasons) > 0 {
 		check.AddItem("%s", cluster)

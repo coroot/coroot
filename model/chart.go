@@ -343,6 +343,9 @@ func (hm *Heatmap) Widget() *Widget {
 }
 
 func NewHeatmap(ctx timeseries.Context, title string) *Heatmap {
+	if r := ctx.Step % 60; r != 0 {
+		ctx.Step += 60 - r
+	}
 	return &Heatmap{Ctx: ctx, Title: title}
 }
 

@@ -52,6 +52,11 @@ func (cfg *Config) Bootstrap(database *db.DB) error {
 		p.Settings.Readonly = false
 		p.Settings.Integrations.NotificationIntegrations.Readonly = false
 	}
+	type projectInspectionOverrides struct {
+		project   *db.Project
+		overrides *InspectionOverrides
+	}
+	var inspectionOverrides []projectInspectionOverrides
 	for _, p := range cfg.Projects {
 		pp := byName[p.Name]
 		if pp == nil {
@@ -95,24 +100,27 @@ func (cfg *Config) Bootstrap(database *db.DB) error {
 			}
 		}
 		if p.InspectionOverrides != nil {
-			for _, override := range p.InspectionOverrides.SLOAvailability {
-				c := []model.CheckConfigSLOAvailability{{
-					Custom:              false,
-					ObjectivePercentage: override.ObjectivePercent,
-				}}
-				if err = database.SaveCheckConfig(pp.Id, override.ApplicationId, model.Checks.SLOAvailability.Id, c); err != nil {
-					return err
-				}
+			inspectionOverrides = append(inspectionOverrides, projectInspectionOverrides{project: pp, overrides: p.InspectionOverrides})
+		}
+	}
+	for _, po := range inspectionOverrides {
+		for _, override := range po.overrides.SLOAvailability {
+			c := []model.CheckConfigSLOAvailability{{
+				Custom:              false,
+				ObjectivePercentage: override.ObjectivePercent,
+			}}
+			if err = saveInspectionOverride(database, byName, po.project, override.ApplicationId, model.Checks.SLOAvailability.Id, c); err != nil {
+				return err
 			}
-			for _, override := range p.InspectionOverrides.SLOLatency {
-				c := []model.CheckConfigSLOLatency{{
-					Custom:              false,
-					ObjectivePercentage: override.ObjectivePercent,
-					ObjectiveBucket:     model.RoundUpToDefaultBucket(float32(override.ObjectiveThreshold.Seconds())),
-				}}
-				if err = database.SaveCheckConfig(pp.Id, override.ApplicationId, model.Checks.SLOLatency.Id, c); err != nil {
-					return err
-				}
+		}
+		for _, override := range po.overrides.SLOLatency {
+			c := []model.CheckConfigSLOLatency{{
+				Custom:              false,
+				ObjectivePercentage: override.ObjectivePercent,
+				ObjectiveBucket:     model.RoundUpToDefaultBucket(float32(override.ObjectiveThreshold.Seconds())),
+			}}
+			if err = saveInspectionOverride(database, byName, po.project, override.ApplicationId, model.Checks.SLOLatency.Id, c); err != nil {
+				return err
 			}
 		}
 	}
@@ -150,6 +158,36 @@ func (cfg *Config) Bootstrap(database *db.DB) error {
 		}
 	}
 
+	return nil
+}
+
+func saveInspectionOverride(database *db.DB, projectsByName map[string]*db.Project, project *db.Project, appId model.ApplicationId, checkId model.CheckId, cfg any) error {
+	if !project.Multicluster() {
+		return database.SaveCheckConfig(project.Id, appId, checkId, cfg)
+	}
+	if appId.ClusterId != "" && appId.ClusterId != model.ClusterIdExternal {
+		for _, mp := range project.Settings.MemberProjects {
+			p := projectsByName[mp]
+			if p == nil {
+				continue
+			}
+			if p.ClusterId() == appId.ClusterId {
+				return database.SaveCheckConfig(p.Id, appId, checkId, cfg)
+			}
+		}
+		klog.Warningf("skipping inspection override for %s: cluster %s is not a member of project %s", appId, appId.ClusterId, project.Name)
+		return nil
+	}
+	for _, mp := range project.Settings.MemberProjects {
+		p := projectsByName[mp]
+		if p == nil {
+			klog.Warningf("skipping inspection override for %s: member project %s of project %s not found", appId, mp, project.Name)
+			continue
+		}
+		if err := database.SaveCheckConfig(p.Id, appId, checkId, cfg); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

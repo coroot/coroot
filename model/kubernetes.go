@@ -3,6 +3,7 @@ package model
 import (
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
+	"inet.af/netaddr"
 )
 
 type ApplicationKind string
@@ -65,7 +66,7 @@ type Service struct {
 	Namespace       string
 	ClusterIP       string
 	Type            LabelLastValue
-	EndpointIPs     *utils.StringSet
+	Endpoints       map[netaddr.IPPort]struct{} // the port is 0 if unknown
 	LoadBalancerIPs *utils.StringSet
 	NodePorts       *utils.StringSet
 	Ports           *utils.StringSet

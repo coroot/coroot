@@ -61,6 +61,21 @@ docker run --detach --name coroot-node-agent \
 
 Access Coroot through any node in your Docker Swarm cluster using its published port: http://NODE_IP:8080.
 
+**Upgrade Coroot**
+
+To upgrade Coroot, re-run the deploy command from Step #2 — Docker Swarm resolves the latest images and updates the services:
+
+```bash
+curl -fsS https://raw.githubusercontent.com/coroot/coroot/main/deploy/docker-swarm-stack.yaml | \
+  docker stack deploy -c - coroot
+```
+
+To upgrade coroot-node-agent, remove the container on each node and re-run the command from Step #4 (it always pulls the latest image):
+
+```bash
+docker rm -f coroot-node-agent
+```
+
 **Uninstall Coroot**
 
 To uninstall Coroot run the following command:
@@ -126,6 +141,21 @@ docker run --detach --name coroot-node-agent \
 **Step #5: Accessing Coroot**
 
 Access Coroot through any node in your Docker Swarm cluster using its published port: http://NODE_IP:8080.
+
+**Upgrade Coroot**
+
+To upgrade Coroot, re-run the deploy command from Step #2 — Docker Swarm resolves the latest images and updates the services:
+
+```
+curl -fsS https://raw.githubusercontent.com/coroot/coroot/main/deploy/docker-swarm-stack.yaml | \
+  LICENSE_KEY="COROOT-LICENSE-KEY-HERE" docker stack deploy -c - coroot
+```
+
+To upgrade coroot-node-agent, remove the container on each node and re-run the command from Step #4 (it always pulls the latest image):
+
+```
+docker rm -f coroot-node-agent
+```
 
 **Uninstall Coroot**
 
