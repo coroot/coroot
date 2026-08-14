@@ -455,6 +455,31 @@ Backup state is collected through the agent's embedded kube-state-metrics from t
 * **Source**: `performance_schema.events_statements_summary_by_digest`
 * **Labels**: schema, query
 
+### Lock waits
+
+The agent samples `performance_schema.data_lock_waits` on each scrape and reports the current
+number of queries blocked on row locks. Unlike `mysql_top_query_lock_time_per_second` (which is
+derived from cumulative counters and only updates once a blocked query completes), these gauges
+reflect the live contention at scrape time, which makes them suitable for correlation with client
+latency. Waiters are deduplicated by requesting transaction id, so a query blocked by several
+holders is counted once. Not collected on MariaDB.
+
+### mysql_locked_queries
+* **Description**: Number of queries currently waiting for a lock
+* **Type**: Gauge
+* **Source**: `performance_schema.data_lock_waits` joined to `performance_schema.threads` and
+`performance_schema.events_statements_current` on the requesting thread. The `query` label is the
+obfuscated statement digest of the waiting (victim) query.
+* **Labels**: schema, query (the query waiting for the lock)
+
+### mysql_lock_awaiting_queries
+* **Description**: Number of queries currently awaiting a lock, grouped by the query holding it
+* **Type**: Gauge
+* **Source**: `performance_schema.data_lock_waits` joined to `performance_schema.threads` and
+`performance_schema.events_statements_current` on the blocking thread. The `blocking_query` label
+is the obfuscated statement digest of the query holding the lock.
+* **Labels**: schema, blocking_query (the query holding the lock)
+
 ### Replication metrics
 
 ### mysql_replication_io_status

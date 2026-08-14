@@ -404,6 +404,8 @@ var QUERIES = []Query{
 	qDB("mysql_top_query_calls_per_second", `mysql_top_query_calls_per_second`, "schema", "query"),
 	qDB("mysql_top_query_time_per_second", `mysql_top_query_time_per_second`, "schema", "query"),
 	qDB("mysql_top_query_lock_time_per_second", `mysql_top_query_lock_time_per_second`, "schema", "query"),
+	qDB("mysql_locked_queries", `mysql_locked_queries`, "schema", "query"),
+	qDB("mysql_lock_awaiting_queries", `mysql_lock_awaiting_queries`, "schema", "blocking_query"),
 	qDB("mysql_replication_io_status", `mysql_replication_io_status`, "source_server_uuid", "last_error", "state"),
 	qDB("mysql_replication_sql_status", `mysql_replication_sql_status`, "source_server_uuid", "last_error", "state"),
 	qDB("mysql_replication_lag_seconds", `mysql_replication_lag_seconds`, "source_server_uuid"),

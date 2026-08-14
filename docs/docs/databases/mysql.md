@@ -36,7 +36,7 @@ Schema and size tracking will not error but will only cover system databases, si
 **SELECT ON \*.\***
 
 Coroot reads from:
-- `performance_schema` tables (`events_statements_summary_by_digest`, `table_io_waits_summary_by_table`, `variables_info`) for query statistics, table I/O waits, and settings change detection.
+- `performance_schema` tables (`events_statements_summary_by_digest`, `table_io_waits_summary_by_table`, `data_lock_waits`, `threads`, `events_statements_current`, `variables_info`) for query statistics, table I/O waits, lock contention, and settings change detection.
 - `information_schema` tables (`tables`, `columns`, `statistics`, `key_column_usage`) for schema and size tracking.
 
 The grant must be `ON *.*` because MySQL filters `information_schema` views to only show objects the user has privileges on. A narrower grant would cause schema and size queries to return empty results for user databases. See [Minimal permissions](#minimal-permissions) if you don't need schema or size tracking.
@@ -82,6 +82,15 @@ Coroot compares successive `SHOW GLOBAL VARIABLES` snapshots to detect configura
 - **`SUM_LOCK_TIME`** - lock wait time rate (seconds/sec).
 
 The top 20 queries by execution time are reported each scrape interval.
+
+### Lock waits
+
+**Always collected** (MySQL only; skipped on MariaDB). On each scrape Coroot samples `performance_schema.data_lock_waits`, joining `performance_schema.threads` and `performance_schema.events_statements_current` on both the requesting (waiting) and blocking threads:
+
+- **victim query** - the currently running statement of the thread waiting for a lock.
+- **blocking query** - the currently running statement of the thread holding the lock.
+
+This produces live gauges of how many queries are currently blocked (`mysql_locked_queries`) and which query is holding the locks they wait on (`mysql_lock_awaiting_queries`). Because it's a point-in-time sample of active contention rather than a cumulative counter, it reflects lock problems as they happen - useful for correlating client-side latency spikes with the exact query holding a lock. Waiters blocked by multiple holders are counted once (deduplicated by requesting transaction id), and query text is obfuscated like all other query metrics.
 
 ### Table I/O waits
 
