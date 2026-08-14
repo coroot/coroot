@@ -21,28 +21,11 @@
             :class="{ 'sb-nav--mini': menuCollapsed }"
         >
             <template #prepend>
-                <router-link
-                    v-if="workspace"
-                    :to="project ? { name: 'overview', query: $utils.contextQuery() } : { name: 'index' }"
-                    class="sb-nav__workspace"
-                >
-                    <img :src="`${$coroot.base_path}static/sb-flame.svg`" height="28" class="sb-nav__flame" alt="" />
-                    <span v-if="!menuCollapsed" class="sb-nav__workspace-name">{{ workspace }}</span>
-                </router-link>
-                <div v-else class="sb-nav__brand mx-2 my-3 px-1">
+                <div class="sb-nav__brand mx-2 my-3 px-1">
                     <router-link :to="project ? { name: 'overview', query: $utils.contextQuery() } : { name: 'index' }">
                         <img :src="`${$coroot.base_path}static/${logo}`" height="32" class="logo" alt=":~#" />
                     </router-link>
                 </div>
-                <v-list v-if="returnUrl" dense class="pa-0 px-2 pt-2">
-                    <v-list-item :href="returnUrl" target="_self" class="sb-nav__item sb-nav__back">
-                        <v-list-item-icon class="mr-3">
-                            <v-icon small>mdi-arrow-left</v-icon>
-                        </v-list-item-icon>
-                        <v-list-item-content class="text-no-wrap">Back to main panel</v-list-item-content>
-                    </v-list-item>
-                    <v-divider class="ma-2 sb-nav__divider"></v-divider>
-                </v-list>
                 <v-list v-if="project" dense class="pa-0 px-2">
                     <v-list-item class="sb-nav__item sb-nav__search" @click="search = true">
                         <v-list-item-icon class="mr-3">
@@ -291,7 +274,6 @@ import CloudPromoDialog from './components/CloudPromoDialog.vue';
 import LicenseCheck from './components/LicenseCheck.vue';
 import { views } from '@/views/Views.vue';
 import { applyTheme } from '@/utils/theme';
-import { getReturnUrl, getWorkspace } from '@/utils/handoff';
 import './app.css';
 
 export default {
@@ -420,12 +402,6 @@ export default {
         isHandoffUser() {
             const email = (this.user && this.user.email) || '';
             return email.endsWith('@handoff.local');
-        },
-        workspace() {
-            return getWorkspace();
-        },
-        returnUrl() {
-            return getReturnUrl();
         },
     },
 

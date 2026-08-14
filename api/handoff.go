@@ -25,22 +25,13 @@ const (
 )
 
 type handoffToken struct {
-	UserId    int
-	Redirect  string
-	Theme     string // light|dark|auto — from Kubero (or redirect ?theme=)
-	ReturnUrl string // absolute dashboard URL for the "Back to main panel" link
-	Workspace string // workspace/tenant display name for the sidebar header
-	Expires   time.Time
+	UserId   int
+	Redirect string
+	Theme    string // light|dark|auto — from Kubero (or redirect ?theme=)
+	Expires  time.Time
 }
 
-const (
-	corootThemeCookie     = "coroot_theme"
-	corootReturnUrlCookie = "coroot_return_url"
-	corootWorkspaceCookie = "coroot_workspace"
-	// Short-lived: the SPA persists these to localStorage on first paint, so
-	// the cookies only need to survive the base-path redirect.
-	handoffSignalTTL = 600 * time.Second
-)
+const corootThemeCookie = "coroot_theme"
 
 type handoffStore struct {
 	mu     sync.Mutex
@@ -166,27 +157,17 @@ func (api *Api) CreateHandoff(w http.ResponseWriter, r *http.Request) {
 	if theme == "" {
 		theme = themeFromRedirect(redirect)
 	}
-	returnUrl := strings.TrimSpace(form.ReturnUrl)
-	workspace := strings.TrimSpace(form.Workspace)
 	api.handoffs.put(token, handoffToken{
-		UserId:    user.Id,
-		Redirect:  redirect,
-		Theme:     theme,
-		ReturnUrl: returnUrl,
-		Workspace: workspace,
-		Expires:   time.Now().Add(ttl),
+		UserId:   user.Id,
+		Redirect: redirect,
+		Theme:    theme,
+		Expires:  time.Now().Add(ttl),
 	})
 
 	handoffPath := path.Join(api.cfg.UrlBasePath, "api/auth/handoff")
 	q := url.Values{"token": {token}}
 	if theme != "" {
 		q.Set("theme", theme)
-	}
-	if returnUrl != "" {
-		q.Set("return_url", returnUrl)
-	}
-	if workspace != "" {
-		q.Set("workspace", workspace)
 	}
 	handoffURL := handoffPath + "?" + q.Encode()
 
@@ -223,20 +204,6 @@ func (api *Api) ConsumeHandoff(w http.ResponseWriter, r *http.Request) {
 	if theme != "" {
 		api.setThemeCookie(w, theme)
 	}
-	returnUrl := strings.TrimSpace(ht.ReturnUrl)
-	if returnUrl == "" {
-		returnUrl = strings.TrimSpace(r.URL.Query().Get("return_url"))
-	}
-	if returnUrl != "" {
-		api.setHandoffSignalCookie(w, corootReturnUrlCookie, returnUrl)
-	}
-	workspace := strings.TrimSpace(ht.Workspace)
-	if workspace == "" {
-		workspace = strings.TrimSpace(r.URL.Query().Get("workspace"))
-	}
-	if workspace != "" {
-		api.setHandoffSignalCookie(w, corootWorkspaceCookie, workspace)
-	}
 	target := ht.Redirect
 	if target == "" {
 		target = api.cfg.UrlBasePath
@@ -249,12 +216,6 @@ func (api *Api) ConsumeHandoff(w http.ResponseWriter, r *http.Request) {
 	if theme != "" {
 		target = appendQueryParam(target, "theme", theme)
 	}
-	if returnUrl != "" {
-		target = appendQueryParam(target, "return_url", returnUrl)
-	}
-	if workspace != "" {
-		target = appendQueryParam(target, "workspace", workspace)
-	}
 	http.Redirect(w, r, target, http.StatusFound)
 }
 
@@ -266,23 +227,6 @@ func (api *Api) setThemeCookie(w http.ResponseWriter, theme string) {
 		MaxAge:   365 * 24 * 60 * 60,
 		SameSite: http.SameSiteLaxMode,
 		// Readable by the SPA so theme can apply before Vue mounts.
-		HttpOnly: false,
-	})
-}
-
-// setHandoffSignalCookie writes a short-lived, SPA-readable cookie (return_url
-// or workspace) that survives the base-path redirect. Mirrors setThemeCookie
-// but with a short Max-Age since the SPA persists the value to localStorage.
-func (api *Api) setHandoffSignalCookie(w http.ResponseWriter, name, value string) {
-	if value == "" {
-		return
-	}
-	http.SetCookie(w, &http.Cookie{
-		Name:     name,
-		Value:    url.QueryEscape(value),
-		Path:     "/",
-		MaxAge:   int(handoffSignalTTL.Seconds()),
-		SameSite: http.SameSiteLaxMode,
 		HttpOnly: false,
 	})
 }

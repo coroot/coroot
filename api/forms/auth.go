@@ -63,12 +63,6 @@ type HandoffCreateForm struct {
 	// Theme is light|dark|auto from the embedding product (e.g. Kubero).
 	// Applied on handoff consume so the SPA matches the caller's UI.
 	Theme string `json:"theme"`
-	// ReturnUrl is the absolute URL of the dashboard page that opened Coroot;
-	// surfaced as a "Back to main panel" link. Travels like Theme.
-	ReturnUrl string `json:"return_url"`
-	// Workspace is the workspace/tenant display name shown in the sidebar
-	// header next to the flame. Travels like Theme.
-	Workspace string `json:"workspace"`
 }
 
 func (f *HandoffCreateForm) Valid() bool {
