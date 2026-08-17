@@ -53,6 +53,7 @@ For instance, the `projects` parameter (a list of predefined projects) can only 
 | --global-clickhouse-initial-database | GLOBAL_CLICKHOUSE_INITIAL_DATABASE |               | The initial database on the ClickHouse server to be used for all projects. Coroot will automatically create and manage a dedicated database for each project within the server. |
 | --global-clickhouse-tls-enabled      | GLOBAL_CLICKHOUSE_TLS_ENABLED      | false         | Whether TLS is enabled for the ClickHouse server connection (true or false).                                                                                                    |
 | --global-clickhouse-tls-skip-verify  | GLOBAL_CLICKHOUSE_TLS_SKIP_VERIFY  | false         | Whether to skip verification of the ClickHouse server's TLS certificate (true or false).                                                                                        |
+| --global-clickhouse-tls-ca-file      | GLOBAL_CLICKHOUSE_TLS_CA_FILE      |               | Path to the CA certificate file for ClickHouse TLS verification.                                                                                                              |
 | --global-prometheus-url              | GLOBAL_PROMETHEUS_URL              |               | The URL of the Prometheus server to be used for all projects.                                                                                                                   |
 | --global-prometheus-tls-skip-verify  | GLOBAL_PROMETHEUS_TLS_SKIP_VERIFY  | false         | Whether to skip verification of the Prometheus server's TLS certificate (true or false).                                                                                        |
 | --global-refresh-interval            | GLOBAL_REFRESH_INTERVAL            | 15s           | The interval for refreshing Prometheus data.                                                                                                                                    |
@@ -124,6 +125,7 @@ global_clickhouse: # The ClickHouse server to be used for all projects.
   database:              # The initial database on the ClickHouse server.
   tls_enable: false      # Whether TLS is enabled for the ClickHouse server connection.
   tls_skip_verify: false # Whether to skip verification of the ClickHouse server's TLS certificate.
+  tls_ca_file:           # Path to a custom CA certificate file for ClickHouse TLS verification.
 
 clickhouse_space_manager: # Automatically manage ClickHouse disk space by cleaning up old partitions.
   enabled: true                    # Enable space manager (default: true).

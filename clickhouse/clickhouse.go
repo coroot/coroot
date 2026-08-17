@@ -2,7 +2,6 @@ package clickhouse
 
 import (
 	"context"
-	"crypto/tls"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -71,9 +70,7 @@ func NewClient(config *db.IntegrationClickhouse, project *db.Project) (*Client, 
 		opts.DialContext = dialer.Dial
 	}
 	if config.TlsEnable {
-		opts.TLS = &tls.Config{
-			InsecureSkipVerify: config.TlsSkipVerify,
-		}
+		opts.TLS = ch.TlsConfig(config.TlsCAFile, config.TlsSkipVerify)
 	}
 	conn, err := clickhouse.Open(opts)
 	if err != nil {
