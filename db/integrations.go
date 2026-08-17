@@ -113,6 +113,7 @@ func (integrations Integrations) GetInfo() []IntegrationInfo {
 		i.Incidents = cfg.Incidents
 		i.Deployments = cfg.Deployments
 		i.Alerts = boolValue(cfg.Alerts)
+		i.Details = fmt.Sprintf("default channel: %s", cfg.GetDefaultChannel())
 	}
 	res = append(res, i)
 
@@ -192,18 +193,83 @@ func (i *IntegrationSlack) Validate() error {
 	return nil
 }
 
+const TeamsDefaultChannelName = "default"
+
 type IntegrationTeams struct {
-	WebhookUrl  string `json:"webhook_url" yaml:"webhookURL"`
-	Incidents   bool   `json:"incidents" yaml:"incidents"`
-	Deployments bool   `json:"deployments" yaml:"deployments"`
-	Alerts      *bool  `json:"alerts,omitempty" yaml:"alerts,omitempty"`
+	// Deprecated: use Channels; kept for config compatibility (treated as the "default" channel)
+	WebhookUrl     string                    `json:"webhook_url,omitempty" yaml:"webhookURL,omitempty"`
+	Channels       []IntegrationTeamsChannel `json:"channels,omitempty" yaml:"channels,omitempty"`
+	DefaultChannel string                    `json:"default_channel,omitempty" yaml:"defaultChannel,omitempty"`
+	Incidents      bool                      `json:"incidents" yaml:"incidents"`
+	Deployments    bool                      `json:"deployments" yaml:"deployments"`
+	Alerts         *bool                     `json:"alerts,omitempty" yaml:"alerts,omitempty"`
+}
+
+type IntegrationTeamsChannel struct {
+	Name       string `json:"name" yaml:"name"`
+	WebhookUrl string `json:"webhook_url" yaml:"webhookURL"`
 }
 
 func (i *IntegrationTeams) Validate() error {
-	if i.WebhookUrl == "" {
-		return fmt.Errorf("webhook url is required")
+	if i.WebhookUrl != "" && len(i.Channels) > 0 {
+		return fmt.Errorf("webhookURL is deprecated and cannot be used together with channels")
+	}
+	channels := i.GetChannels()
+	if len(channels) == 0 {
+		return fmt.Errorf("at least one channel is required")
+	}
+	names := map[string]bool{}
+	for _, ch := range channels {
+		if ch.Name == "" {
+			return fmt.Errorf("channel name is required")
+		}
+		if strings.Contains(ch.Name, ":") {
+			return fmt.Errorf("channel name must not contain ':'")
+		}
+		if ch.WebhookUrl == "" {
+			return fmt.Errorf("webhook url is required for channel %s", ch.Name)
+		}
+		if u, err := url.Parse(ch.WebhookUrl); err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+			return fmt.Errorf("invalid webhook url for channel %s", ch.Name)
+		}
+		if names[ch.Name] {
+			return fmt.Errorf("duplicate channel name: %s", ch.Name)
+		}
+		names[ch.Name] = true
+	}
+	if !names[i.GetDefaultChannel()] {
+		return fmt.Errorf("default channel must be one of the configured channels")
 	}
 	return nil
+}
+
+func (i *IntegrationTeams) GetDefaultChannel() string {
+	if i.DefaultChannel != "" {
+		return i.DefaultChannel
+	}
+	return TeamsDefaultChannelName
+}
+
+func (i *IntegrationTeams) GetChannels() []IntegrationTeamsChannel {
+	if len(i.Channels) > 0 {
+		return i.Channels
+	}
+	if i.WebhookUrl != "" {
+		return []IntegrationTeamsChannel{{Name: TeamsDefaultChannelName, WebhookUrl: i.WebhookUrl}}
+	}
+	return nil
+}
+
+func (i *IntegrationTeams) GetWebhookUrl(channel string) string {
+	if channel == "" {
+		channel = i.GetDefaultChannel()
+	}
+	for _, ch := range i.GetChannels() {
+		if ch.Name == channel {
+			return ch.WebhookUrl
+		}
+	}
+	return ""
 }
 
 type IntegrationPagerduty struct {

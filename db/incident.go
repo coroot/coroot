@@ -85,12 +85,17 @@ func (n *IncidentNotification) Migrate(m *Migrator) error {
 type IncidentNotificationDestination struct {
 	IntegrationType IntegrationType
 	SlackChannel    string
+	TeamsChannel    string
 }
 
 func (d IncidentNotificationDestination) Value() (driver.Value, error) {
 	switch d.IntegrationType {
 	case IntegrationTypeSlack:
 		return fmt.Sprintf("%s:%s", d.IntegrationType, d.SlackChannel), nil
+	case IntegrationTypeTeams:
+		if d.TeamsChannel != "" {
+			return fmt.Sprintf("%s:%s", d.IntegrationType, d.TeamsChannel), nil
+		}
 	}
 	return fmt.Sprintf("%s", d.IntegrationType), nil
 }
@@ -106,6 +111,8 @@ func (d *IncidentNotificationDestination) Scan(src any) error {
 		switch d.IntegrationType {
 		case IntegrationTypeSlack:
 			d.SlackChannel = parts[1]
+		case IntegrationTypeTeams:
+			d.TeamsChannel = parts[1]
 		}
 	}
 	return nil

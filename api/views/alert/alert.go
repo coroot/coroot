@@ -1,6 +1,7 @@
 package alert
 
 import (
+	"cmp"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -248,14 +249,15 @@ func renderAlert(w *model.World, a *model.Alert, rulesMap map[string]string, not
 	seen := map[string]bool{}
 	var alertNotifications []AlertNotification
 	for _, n := range notifications {
-		key := string(n.Destination.IntegrationType) + ":" + n.Destination.SlackChannel
+		channel := cmp.Or(n.Destination.SlackChannel, n.Destination.TeamsChannel)
+		key := string(n.Destination.IntegrationType) + ":" + channel
 		if seen[key] {
 			continue
 		}
 		seen[key] = true
 		alertNotifications = append(alertNotifications, AlertNotification{
 			Type:    string(n.Destination.IntegrationType),
-			Channel: n.Destination.SlackChannel,
+			Channel: channel,
 		})
 	}
 

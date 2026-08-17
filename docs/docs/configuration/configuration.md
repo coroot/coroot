@@ -173,10 +173,16 @@ projects: # Create or update projects (configuration file only).
         deployments: false  # Notify of deployments.
         alerts: false       # Notify of alerts.
       teams:
-        webhookURL:         # Microsoft Teams Webhook URL (required).
-        incidents: false    # Notify of incidents (SLO violations).
-        deployments: false  # Notify of deployments.
-        alerts: false       # Notify of alerts.
+        channels:                # MS Teams channels (each channel is a separate webhook).
+          - name: default        # Channel name (required).
+            webhookURL:          # Microsoft Teams Webhook URL (required).
+          - name: ops
+            webhookURL:
+        defaultChannel: default  # The channel used unless an application category specifies another one (default: "default").
+        # webhookURL:            # Deprecated: use `channels`; treated as the "default" channel; cannot be used together with `channels`.
+        incidents: false         # Notify of incidents (SLO violations).
+        deployments: false       # Notify of deployments.
+        alerts: false            # Notify of alerts.
       pagerduty:
         integrationKey:     # PagerDuty Integration Key (required).
         incidents: false    # Notify of incidents (SLO violations).
@@ -215,9 +221,10 @@ projects: # Create or update projects (configuration file only).
             enabled: true
             slack:
               enabled: true
-              channel: ops
+              channel: ops    # Slack channel name (the integration's default channel is used if empty).
             teams:
               enabled: false
+              channel: ops    # MS Teams channel name (the integration's default channel is used if empty).
             pagerduty:
               enabled: false
             opsgenie:
@@ -231,6 +238,7 @@ projects: # Create or update projects (configuration file only).
               channel: general
             teams:
               enabled: false
+              channel: general
             webhook:
               enabled: false
           alerts:             # Notify of alerts.
@@ -240,6 +248,7 @@ projects: # Create or update projects (configuration file only).
               channel: alerts
             teams:
               enabled: false
+              channel: alerts
             pagerduty:
               enabled: false
             opsgenie:
