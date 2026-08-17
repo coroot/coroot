@@ -68,7 +68,8 @@ type ApplicationCategoryNotificationSettingsSlack struct {
 }
 
 type ApplicationCategoryNotificationSettingsTeams struct {
-	Enabled bool `json:"enabled" yaml:"enabled"`
+	Enabled bool   `json:"enabled" yaml:"enabled"`
+	Channel string `json:"channel" yaml:"channel,omitempty"`
 }
 
 type ApplicationCategoryNotificationSettingsPagerduty struct {
@@ -192,17 +193,26 @@ func (p *Project) GetApplicationCategories() map[model.ApplicationCategory]*Appl
 						category.NotificationSettings.Incidents.Enabled = true
 						category.NotificationSettings.Incidents.Teams = &ApplicationCategoryNotificationSettingsTeams{Enabled: true}
 					}
+					if category.NotificationSettings.Incidents.Teams.Channel == "" {
+						category.NotificationSettings.Incidents.Teams.Channel = integrationTeams.GetDefaultChannel()
+					}
 				}
 				if integrationTeams.Deployments {
 					if category.NotificationSettings.Deployments.Teams == nil {
 						category.NotificationSettings.Deployments.Enabled = notifyOfDeployments
 						category.NotificationSettings.Deployments.Teams = &ApplicationCategoryNotificationSettingsTeams{Enabled: notifyOfDeployments}
 					}
+					if category.NotificationSettings.Deployments.Teams.Channel == "" {
+						category.NotificationSettings.Deployments.Teams.Channel = integrationTeams.GetDefaultChannel()
+					}
 				}
 				if boolValue(integrationTeams.Alerts) {
 					if category.NotificationSettings.Alerts.Teams == nil {
 						category.NotificationSettings.Alerts.Enabled = true
 						category.NotificationSettings.Alerts.Teams = &ApplicationCategoryNotificationSettingsTeams{Enabled: true}
+					}
+					if category.NotificationSettings.Alerts.Teams.Channel == "" {
+						category.NotificationSettings.Alerts.Teams.Channel = integrationTeams.GetDefaultChannel()
 					}
 				}
 			}
@@ -324,13 +334,13 @@ func (p *Project) NewApplicationCategory() *ApplicationCategory {
 	}
 	if teams := p.Settings.Integrations.Teams; teams != nil {
 		if teams.Incidents {
-			category.NotificationSettings.Incidents.Teams = &ApplicationCategoryNotificationSettingsTeams{}
+			category.NotificationSettings.Incidents.Teams = &ApplicationCategoryNotificationSettingsTeams{Channel: teams.GetDefaultChannel()}
 		}
 		if teams.Deployments {
-			category.NotificationSettings.Deployments.Teams = &ApplicationCategoryNotificationSettingsTeams{}
+			category.NotificationSettings.Deployments.Teams = &ApplicationCategoryNotificationSettingsTeams{Channel: teams.GetDefaultChannel()}
 		}
 		if boolValue(teams.Alerts) {
-			category.NotificationSettings.Alerts.Teams = &ApplicationCategoryNotificationSettingsTeams{}
+			category.NotificationSettings.Alerts.Teams = &ApplicationCategoryNotificationSettingsTeams{Channel: teams.GetDefaultChannel()}
 		}
 	}
 	if webhook := p.Settings.Integrations.Webhook; webhook != nil {
@@ -407,6 +417,21 @@ func (db *DB) SaveApplicationCategory(project *Project, name model.ApplicationCa
 	if slack := categorySettings.NotificationSettings.Alerts.Slack; slack != nil {
 		if s := project.Settings.Integrations.Slack; s != nil && slack.Channel == s.DefaultChannel {
 			slack.Channel = ""
+		}
+	}
+	if teams := categorySettings.NotificationSettings.Incidents.Teams; teams != nil {
+		if t := project.Settings.Integrations.Teams; t != nil && teams.Channel == t.GetDefaultChannel() {
+			teams.Channel = ""
+		}
+	}
+	if teams := categorySettings.NotificationSettings.Deployments.Teams; teams != nil {
+		if t := project.Settings.Integrations.Teams; t != nil && teams.Channel == t.GetDefaultChannel() {
+			teams.Channel = ""
+		}
+	}
+	if teams := categorySettings.NotificationSettings.Alerts.Teams; teams != nil {
+		if t := project.Settings.Integrations.Teams; t != nil && teams.Channel == t.GetDefaultChannel() {
+			teams.Channel = ""
 		}
 	}
 

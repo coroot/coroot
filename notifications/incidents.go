@@ -38,7 +38,7 @@ func (n *IncidentNotifier) Enqueue(project *db.Project, app *model.Application, 
 		n.enqueue(now, project, app, incident, db.IncidentNotificationDestination{IntegrationType: db.IntegrationTypeSlack, SlackChannel: slack.Channel})
 	}
 	if teams := notificationSettings.Teams; teams != nil && teams.Enabled {
-		n.enqueue(now, project, app, incident, db.IncidentNotificationDestination{IntegrationType: db.IntegrationTypeTeams})
+		n.enqueue(now, project, app, incident, db.IncidentNotificationDestination{IntegrationType: db.IntegrationTypeTeams, TeamsChannel: teams.Channel})
 	}
 	if pagerduty := notificationSettings.Pagerduty; pagerduty != nil && pagerduty.Enabled {
 		n.enqueue(now, project, app, incident, db.IncidentNotificationDestination{IntegrationType: db.IntegrationTypePagerduty})
