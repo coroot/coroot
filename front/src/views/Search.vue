@@ -72,12 +72,13 @@
 export default {
     props: {
         value: Boolean,
+        initialSearch: String,
     },
 
     data() {
         return {
             context: this.$api.context,
-            search: '',
+            search: this.initialSearch || '',
             loading: false,
             error: '',
             dialog: this.value,
