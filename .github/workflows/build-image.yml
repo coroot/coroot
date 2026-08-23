@@ -107,3 +107,24 @@ jobs:
             -f slug=us-west-1 \
             -f image="ghcr.io/stackblaze/coroot:${SHORT}"
           echo "dispatched: dev Coroot → ghcr.io/stackblaze/coroot:${SHORT} (us-west-1 services cluster)"
+
+  # Option B (2026-08-23): merging to main rolls prod THROUGH THE CANARY —
+  # region-provisioner's coroot-prod-rollout deploys West, health-gates it,
+  # and only then rolls east+central and bumps the pin. A bad image stops at
+  # one region. Nothing here deploys directly.
+  deploy-prod:
+    if: github.ref == 'refs/heads/main'
+    needs: build-and-push
+    runs-on: [self-hosted, kubero]
+    steps:
+      - name: Dispatch the canary-gated rollout
+        env:
+          GH_TOKEN: ${{ secrets.REGION_ADMIN_TOKEN }}
+        run: |
+          set -euo pipefail
+          [ -n "${GH_TOKEN:-}" ] || { echo "::error::REGION_ADMIN_TOKEN missing"; exit 1; }
+          SHORT=$(echo "${GITHUB_SHA}" | cut -c1-7)
+          gh workflow run coroot-prod-rollout.yml \
+            --repo stackblaze/region-provisioner \
+            -f image="ghcr.io/stackblaze/coroot:${SHORT}"
+          echo "dispatched canary rollout for ghcr.io/stackblaze/coroot:${SHORT}"
