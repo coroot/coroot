@@ -87,7 +87,7 @@ jobs:
   # are untouched — they only ever run the SHA pinned in region-provisioner.
   deploy-dev:
     if: github.ref == 'refs/heads/dev'
-    needs: build
+    needs: build-and-push
     runs-on: [self-hosted, kubero]
     steps:
       - name: kubectl
