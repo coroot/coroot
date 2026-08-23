@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - dev
     paths-ignore:
       - 'docs/**'
       - '**.md'
@@ -79,3 +80,30 @@ jobs:
       # The old central rollout used KUBECONFIG_B64_COROOT, whose LAN target
       # only the retired office runner could reach — from any regional runner
       # it fails with "no route to host".
+
+  # The dev loop: a push to `dev` rolls the freshly built image onto the
+  # coroot-dev instance (leaseweb ns coroot-dev → coroot-dev.stackblaze.cloud)
+  # so the build is immediately visible, exactly like dashboard-dev. Regions
+  # are untouched — they only ever run the SHA pinned in region-provisioner.
+  deploy-dev:
+    if: github.ref == 'refs/heads/dev'
+    needs: build
+    runs-on: [self-hosted, kubero]
+    steps:
+      - name: kubectl
+        run: |
+          set -euo pipefail
+          BIN="$HOME/.local/bin"; mkdir -p "$BIN"; echo "$BIN" >> "$GITHUB_PATH"; export PATH="$BIN:$PATH"
+          command -v kubectl >/dev/null 2>&1 || { curl -fsSL -o "$BIN/kubectl" "https://dl.k8s.io/release/$(curl -fsSL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"; chmod +x "$BIN/kubectl"; }
+      - name: Roll coroot-dev to this build
+        env:
+          KUBECONFIG_B64_LEASEWEB: ${{ secrets.KUBECONFIG_B64_LEASEWEB }}
+        run: |
+          set -euo pipefail
+          [ -n "${KUBECONFIG_B64_LEASEWEB:-}" ] || { echo "::error::KUBECONFIG_B64_LEASEWEB missing"; exit 1; }
+          mkdir -p "$HOME/.kube"; printf '%s' "$KUBECONFIG_B64_LEASEWEB" | base64 -d > "$HOME/.kube/config"; chmod 600 "$HOME/.kube/config"
+          SHORT=$(echo "${GITHUB_SHA}" | cut -c1-7)
+          kubectl -n coroot-dev set image deployment/coroot coroot="ghcr.io/stackblaze/coroot:${SHORT}"
+          kubectl -n coroot-dev rollout status deployment/coroot --timeout=300s
+          echo "coroot-dev now runs ${SHORT} → https://coroot-dev.stackblaze.cloud"
+
