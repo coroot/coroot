@@ -241,7 +241,7 @@ func Load() (*Config, error) {
 	}
 
 	if len(data) > 0 {
-		if err = yaml.Unmarshal(data, cfg); err != nil {
+		if err = unmarshalWithEnv(data, cfg); err != nil {
 			return nil, err
 		}
 	}
@@ -267,8 +267,39 @@ func ReadFromFile() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	data = []byte(os.ExpandEnv(string(data)))
 	return data, nil
+}
+
+// unmarshalWithEnv parses the config and expands environment variables in its
+// scalar values. Expanding after parsing keeps values with YAML-special
+// characters (e.g. an API key starting with "!") from being interpreted as
+// YAML syntax.
+func unmarshalWithEnv(data []byte, cfg *Config) error {
+	var root yaml.Node
+	if err := yaml.Unmarshal(data, &root); err != nil {
+		return err
+	}
+	if root.Kind == 0 { // empty document
+		return nil
+	}
+	expandEnv(&root)
+	return root.Decode(cfg)
+}
+
+func expandEnv(n *yaml.Node) {
+	if n.Kind == yaml.ScalarNode {
+		if expanded := os.ExpandEnv(n.Value); expanded != n.Value {
+			n.Value = expanded
+			if n.Style == 0 && n.Tag == "!!str" {
+				// re-resolve the type of unquoted scalars, so values like
+				// `refresh_interval: $INTERVAL` decode into non-string fields
+				n.Tag = ""
+			}
+		}
+	}
+	for _, c := range n.Content {
+		expandEnv(c)
+	}
 }
 
 func (cfg *Config) Validate() error {
