@@ -158,6 +158,15 @@ coroot.com/mysql-scrape-credentials-secret-password-key: "password"
 
 # client TLS options: true, false, skip-verify, preferred (default: false)
 coroot.com/mysql-scrape-param-tls: "false"
+
+# TLS certificates from a secret: the server certificate is verified against the CA;
+# the client certificate is presented to servers that require mutual TLS.
+# Only the explicitly specified keys are read - set the ca key, the cert/key
+# pair, or all three
+coroot.com/mysql-scrape-tls-secret-name: "mysql-ca"
+coroot.com/mysql-scrape-tls-secret-ca-key: "ca.crt"
+coroot.com/mysql-scrape-tls-secret-cert-key: "tls.crt"
+coroot.com/mysql-scrape-tls-secret-key-key: "tls.key"
 ```
 
 Note that Coroot checks only **Pod** annotations, not higher-level Kubernetes objects like Deployments or StatefulSets.

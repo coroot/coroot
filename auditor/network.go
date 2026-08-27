@@ -85,3 +85,22 @@ func (a *appAuditor) network() {
 		}
 	}
 }
+
+func appConnectivityIssue(app *model.Application) string {
+	if app == nil {
+		return ""
+	}
+	for _, conns := range []map[model.ApplicationId]*model.AppToAppConnection{app.Upstreams, app.Downstreams} {
+		c := conns[app.Id]
+		if c == nil {
+			continue
+		}
+		switch {
+		case c.HasConnectivityIssues():
+			return "no network connectivity to a replication peer"
+		case c.HasFailedConnectionAttempts():
+			return "connection attempts to a replication peer are failing"
+		}
+	}
+	return ""
+}

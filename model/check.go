@@ -84,6 +84,12 @@ var Checks = struct {
 	RedisLatency               CheckConfig
 	MongodbAvailability        CheckConfig
 	MongodbReplicationLag      CheckConfig
+	MongodbLatency             CheckConfig
+	MongodbOplogWindow         CheckConfig
+	MongodbConnections         CheckConfig
+	MongodbSaturation          CheckConfig
+	MongodbFragmentation       CheckConfig
+	MongodbBackups             CheckConfig
 	MemcachedAvailability      CheckConfig
 	PostgresAvailability       CheckConfig
 	PostgresLatency            CheckConfig
@@ -293,6 +299,59 @@ var Checks = struct {
 		MessageTemplate:         `{{.ItemsWithToBe "mongodb replica"}} far behind the primary`,
 		ConditionFormatTemplate: "replication lag > <threshold>",
 		Unit:                    CheckUnitSecond,
+	},
+	MongodbLatency: CheckConfig{
+		Category:                AuditReportMongodb,
+		Type:                    CheckTypeItemBased,
+		Title:                   "Mongodb latency",
+		DefaultThreshold:        0.1,
+		Unit:                    CheckUnitSecond,
+		MessageTemplate:         `{{.ItemsWithToBe "mongodb instance"}} performing slowly`,
+		ConditionFormatTemplate: "the average operation latency of a mongodb instance > <threshold>",
+	},
+	MongodbOplogWindow: CheckConfig{
+		Category:                AuditReportMongodb,
+		Type:                    CheckTypeItemBased,
+		Title:                   "Mongodb oplog window",
+		DefaultThreshold:        3600,
+		Unit:                    CheckUnitSecond,
+		MessageTemplate:         `{{.ItemsWithToBe "mongodb instance"}} at risk of a full resync: the oplog window is too small`,
+		ConditionFormatTemplate: "the oplog window of a mongodb instance < <threshold>",
+	},
+	MongodbConnections: CheckConfig{
+		Category:                AuditReportMongodb,
+		Type:                    CheckTypeItemBased,
+		Title:                   "Mongodb connections",
+		DefaultThreshold:        90,
+		Unit:                    CheckUnitPercent,
+		MessageTemplate:         `{{.ItemsWithToBe "mongodb instance"}} approaching the connection limit`,
+		ConditionFormatTemplate: "the number of connections of a mongodb instance > <threshold> of the limit",
+	},
+	MongodbSaturation: CheckConfig{
+		Category:                AuditReportMongodb,
+		Type:                    CheckTypeItemBased,
+		Title:                   "Mongodb saturation",
+		DefaultThreshold:        0,
+		MessageTemplate:         `{{.ItemsWithToBe "mongodb instance"}} saturated: operations are queuing (waiting for a lock or a WiredTiger ticket)`,
+		ConditionFormatTemplate: "the number of queued operations > <threshold>",
+	},
+	MongodbFragmentation: CheckConfig{
+		Category:                AuditReportMongodb,
+		Type:                    CheckTypeItemBased,
+		Title:                   "Mongodb storage fragmentation",
+		DefaultThreshold:        50,
+		Unit:                    CheckUnitPercent,
+		MessageTemplate:         `{{.ItemsWithToBe "collection"}} fragmented`,
+		ConditionFormatTemplate: "reclaimable collection storage > <threshold> of the allocated storage",
+	},
+	MongodbBackups: CheckConfig{
+		Category:                AuditReportMongodb,
+		Type:                    CheckTypeItemBased,
+		Title:                   "Mongodb backups",
+		DefaultThreshold:        86400,
+		Unit:                    CheckUnitSecond,
+		MessageTemplate:         `backups are failing or stale on {{.Items "mongodb cluster"}}`,
+		ConditionFormatTemplate: "no successful backup within <threshold>, the last backup failed, or the scheduled backup is overdue",
 	},
 	MemcachedAvailability: CheckConfig{
 		Category:                AuditReportMemcached,

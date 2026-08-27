@@ -590,18 +590,232 @@ The agent collects database and table size metrics from `information_schema.tabl
 * **Labels**: error, warning
 
 ### mongo_info
-* **Description**: The server info
+* **Description**: The server info; `flavor` is `percona` for Percona Server for MongoDB, `mongodb` otherwise
 * **Type**: Gauge
-* **Labels**: server_version
+* **Labels**: server_version, flavor
 
 ### mongo_rs_status
-* **Description**: Replica set status: 1 if the member is part of a replica set
+* **Description**: Replica set status: 1 if the member is part of a replica set. The member reports its own role (`role` label), which Coroot uses to identify the primary and to derive each secondary's replication lag from `mongo_rs_last_applied_timestamp_ms`.
 * **Type**: Gauge
 * **Labels**: rs, role
 
 ### mongo_rs_last_applied_timestamp_ms
-* **Description**: Timestamp of the last applied operation in milliseconds
+* **Description**: Timestamp of the member's last applied operation, in milliseconds. Coroot computes replication lag as the primary's value minus each secondary's.
 * **Type**: Gauge
+
+### mongo_rs_member_config_info
+* **Description**: Replica set member configuration
+* **Type**: Gauge
+* **Source**: `replSetGetConfig`
+* **Labels**: rs, member, arbiter, votes
+
+### mongo_rs_config_info
+* **Description**: Replica set configuration; Coroot warns when `write_concern_majority_journal_default` is `false` (acknowledged majority writes may be lost if a majority of members crash simultaneously)
+* **Type**: Gauge
+* **Source**: `replSetGetConfig`
+* **Labels**: rs, write_concern_majority_journal_default
+
+### mongo_profiling_level
+* **Description**: Database profiling level (0 - off, 1 - slow operations, 2 - all operations). Coroot suggests enabling profiling when it is off everywhere, since it is the source of per-query statistics.
+* **Type**: Gauge
+* **Source**: the `profile` command (get-only, `profile: -1`)
+* **Labels**: db
+
+### mongo_oplog_window_seconds
+* **Description**: Time span between the oldest and the newest oplog entries
+* **Type**: Gauge
+* **Source**: `local.oplog.rs`
+
+### mongo_oplog_size_bytes / mongo_oplog_max_size_bytes
+* **Description**: Current size of the oplog data and the configured maximum
+* **Type**: Gauge
+* **Source**: `collStats` on `local.oplog.rs`
+
+### mongo_connections_current / mongo_connections_active / mongo_connections_max
+* **Description**: Number of client connections, connections currently executing operations, and the connection limit
+* **Type**: Gauge
+* **Source**: `serverStatus.connections`
+
+### mongo_connections_created_total
+* **Description**: Total number of connections created
+* **Type**: Counter
+
+### mongo_connections_rejected_total
+* **Description**: Total number of rejected connections
+* **Type**: Counter
+
+### mongo_connections_by_app
+* **Description**: Number of connections by client application name (top 20)
+* **Type**: Gauge
+* **Source**: `$currentOp`
+* **Labels**: app
+
+### mongo_opcounters_total
+* **Description**: Total number of operations by type (insert, query, update, delete, getmore, command)
+* **Type**: Counter
+* **Source**: `serverStatus.opcounters`
+* **Labels**: op
+
+### mongo_documents_returned_total
+* **Description**: Total number of documents returned by queries; compared with the scanned counters to detect inefficient queries
+* **Type**: Counter
+* **Source**: `serverStatus.metrics.document`
+
+### mongo_op_latency_seconds_total / mongo_op_latency_ops_total
+* **Description**: Total operation latency and operation count by type (read, write, command). The average latency is `rate(latency) / rate(ops)`.
+* **Type**: Counter
+* **Source**: `serverStatus.opLatencies`
+* **Labels**: type
+
+### mongo_queued_operations
+* **Description**: Number of operations queued waiting for a lock or a WiredTiger ticket
+* **Type**: Gauge
+* **Source**: `serverStatus.globalLock.currentQueue`
+* **Labels**: type
+
+### mongo_wt_tickets_available
+* **Description**: Available WiredTiger concurrency tickets by type (read, write)
+* **Type**: Gauge
+* **Source**: `serverStatus.queues.execution` (7.0+) or `serverStatus.wiredTiger.concurrentTransactions`
+* **Labels**: type
+
+### mongo_wt_cache_used_bytes / mongo_wt_cache_dirty_bytes / mongo_wt_cache_max_bytes
+* **Description**: WiredTiger cache usage, dirty bytes, and the configured maximum
+* **Type**: Gauge
+* **Source**: `serverStatus.wiredTiger.cache`
+
+### mongo_wt_pages_evicted_by_app_threads_total
+* **Description**: Pages evicted from the WiredTiger cache by application threads - a key cache-pressure signal
+* **Type**: Counter
+
+### mongo_wt_app_threads_evicting_seconds_total
+* **Description**: Total time application threads spent evicting pages instead of serving queries
+* **Type**: Counter
+
+### mongo_wt_cache_bytes_read_into_total
+* **Description**: Bytes read from disk into the WiredTiger cache (cache misses) - a direct signal that the working set does not fit in cache
+* **Type**: Counter
+* **Source**: `serverStatus.wiredTiger.cache`
+
+### mongo_wt_checkpoints_total / mongo_wt_checkpoint_seconds_total
+* **Description**: Number of WiredTiger checkpoints completed and the cumulative time spent in them. The rate of the seconds counter is the fraction of wall-time spent checkpointing - sustained high values indicate write-stall risk.
+* **Type**: Counter
+* **Source**: `serverStatus.wiredTiger` (`transaction` on 7.0, `checkpoint` on 8.0+)
+
+### mongo_wt_journal_bytes_written_total
+* **Description**: Bytes written to the WiredTiger journal (the crash-recovery write-ahead log)
+* **Type**: Counter
+* **Source**: `serverStatus.wiredTiger.log`
+
+### mongo_wt_journal_bytes_since_checkpoint
+* **Description**: Bytes written to the journal since the last checkpoint - the amount that would be replayed on crash recovery (MongoDB's analog of Postgres's `pg_wal_since_last_checkpoint_bytes`)
+* **Type**: Gauge
+
+### mongo_time_since_last_checkpoint_seconds
+* **Description**: Time since the last WiredTiger checkpoint observed by the agent; rises above the checkpoint interval if checkpoints stall
+* **Type**: Gauge
+
+### mongo_scanned_keys_total / mongo_scanned_documents_total
+* **Description**: Total number of index keys / documents scanned by the query executor. Compared with documents returned to detect inefficient queries.
+* **Type**: Counter
+* **Source**: `serverStatus.metrics.queryExecutor`
+
+### mongo_collection_scans_total
+* **Description**: Total number of queries that performed a collection scan
+* **Type**: Counter
+
+### mongo_scan_and_order_total
+* **Description**: Total number of queries that performed an in-memory sort
+* **Type**: Counter
+
+### mongo_write_conflicts_total
+* **Description**: Write conflicts (WiredTiger optimistic-concurrency retries); a rising rate indicates contention on hot documents
+* **Type**: Counter
+* **Source**: `serverStatus.metrics.operation`
+
+### mongo_ttl_deleted_documents_total
+* **Description**: Total number of documents deleted by TTL indexes
+* **Type**: Counter
+
+### mongo_flow_control_time_acquiring_seconds_total
+* **Description**: Total time write operations spent acquiring flow control tickets; a non-zero rate means flow control is throttling writes on the primary
+* **Type**: Counter
+* **Source**: `serverStatus.flowControl`
+
+### Per-query metrics
+
+Collected from the database profiler (`system.profile`), which requires `operationProfiling` to be enabled on
+the server, so the numbers cover slow (or, with Percona Server for MongoDB's `rateLimit`, sampled) operations.
+Query shapes are normalized (literal values replaced with `?`); only the top 20 shapes by total execution time
+are reported. Rates are smoothed over a 60-second window.
+
+Unlike the other MongoDB metrics (read from in-memory counters via `serverStatus`), these have a server-side cost:
+with profiling enabled, `mongod` writes a `system.profile` document for every captured operation. The agent only
+reads new entries incrementally, but the capture overhead is paid by the server — bound it with `slowOpThresholdMs`
+/ `mode: slowOp` and, on Percona Server for MongoDB, `rateLimit` sampling. See
+[Enabling the profiler](/databases/mongodb) for the trade-off.
+
+### mongo_top_query_calls_per_second / mongo_top_query_time_per_second / mongo_top_query_docs_returned_per_second / mongo_top_query_docs_examined_per_second / mongo_top_query_keys_examined_per_second
+* **Description**: Per-query-shape execution rate, time, and documents/keys examined vs returned
+* **Type**: Gauge
+* **Source**: `system.profile`
+* **Labels**: db, collection, query
+
+### Current operations
+
+### mongo_operations_waiting_for_lock
+* **Description**: Number of operations waiting for a lock, by database
+* **Type**: Gauge
+* **Source**: `$currentOp`
+* **Labels**: db
+
+### mongo_long_running_operations
+* **Description**: Number of operations of this query shape that have been running for at least 10s (their concurrency; top 20 shapes by count). Integrated over time this is the operation-time spent on long-running operations.
+* **Type**: Gauge
+* **Source**: `$currentOp`
+* **Labels**: db, collection, query, plan
+
+### mongo_fsync_locked
+* **Description**: 1 if `db.fsyncLock()` is holding a global lock on this member (e.g. a filesystem-snapshot backup). On a secondary this blocks the oplog applier, so it is a direct root cause of replication lag.
+* **Type**: Gauge
+* **Source**: the `currentOp` command (`fsyncLock`)
+
+### mongo_prepared_transactions
+* **Description**: Number of transactions currently in the prepared state. A prepared transaction holds locks on secondaries until its commit/abort replicates, so a stuck or long one can block oplog apply.
+* **Type**: Gauge
+* **Source**: `serverStatus.transactions` (`currentPrepared`)
+
+### mongo_open_transactions
+* **Description**: Number of open (including prepared) transactions broken down by the client application that owns them - a long or prepared one holds locks and can block oplog apply. The client name is normalized (UUID/pod suffixes stripped) and empty names are reported as `unknown`; only the top 20 applications are kept.
+* **Type**: Gauge
+* **Source**: `$currentOp` (entries with a `transaction` sub-document)
+* **Labels**: app
+
+### Cursors
+
+### mongo_cursors_open / mongo_cursors_open_no_timeout / mongo_cursors_timed_out_total
+* **Description**: Open cursors, open cursors created with the `noTimeout` option (a leak indicator), and the total number of cursors that timed out (a sign a client stopped iterating results before exhausting the cursor)
+* **Type**: Gauge (`mongo_cursors_open`, `mongo_cursors_open_no_timeout`), Counter (`mongo_cursors_timed_out_total`)
+* **Source**: `serverStatus.metrics.cursor`
+
+### Replication apply
+
+### mongo_repl_apply_ops_total
+* **Description**: Oplog operations applied by this member - the secondary apply throughput; a low rate on a lagging secondary indicates it is apply-bound
+* **Type**: Counter
+* **Source**: `serverStatus.metrics.repl.apply`
+
+### mongo_repl_buffer_operations / mongo_repl_buffer_bytes
+* **Description**: Number and size of oplog operations buffered on a secondary waiting to be applied; a backed-up buffer explains replication lag
+* **Type**: Gauge
+* **Source**: `serverStatus.metrics.repl.buffer`
+
+### MongoDB backups
+
+When running on Kubernetes, the agent collects backup state from the Percona Operator for MongoDB custom resources
+(`PerconaServerMongoDB`, `PerconaServerMongoDBBackup`): `mongo_backup_target_info`, `mongo_backup_schedule_info`,
+`mongo_backup_pitr_info`, `mongo_cluster_status`, `mongo_backup_info`, `mongo_backup_status`,
+and `mongo_backup_completed_timestamp_seconds`.
 
 ### Change tracking
 
@@ -633,7 +847,25 @@ The agent collects database and collection size metrics. For collection sizes, o
 ### mongo_collection_size_growth_bytes_per_second
 * **Description**: Collection size growth rate in bytes per second. Only the top 20 fastest growing collections across all databases are reported. Requires at least two collection cycles to compute.
 * **Type**: Gauge
-* **Source**: Computed from consecutive `collStats` measurements
+* **Source**: Computed from consecutive `$collStats` measurements
+* **Labels**: db, collection
+
+### mongo_collection_storage_size_bytes
+* **Description**: Bytes allocated on disk for documents of the collection
+* **Type**: Gauge
+* **Source**: `$collStats` (`storageStats.storageSize`)
+* **Labels**: db, collection
+
+### mongo_collection_free_storage_bytes
+* **Description**: Reusable (fragmented) bytes within the allocated collection storage
+* **Type**: Gauge
+* **Source**: `$collStats` (`storageStats.freeStorageSize`)
+* **Labels**: db, collection
+
+### mongo_collection_documents
+* **Description**: Number of documents in the collection
+* **Type**: Gauge
+* **Source**: `$collStats` (`storageStats.count`)
 * **Labels**: db, collection
 
 ## FluxCD
