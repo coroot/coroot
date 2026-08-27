@@ -542,7 +542,7 @@ func pgBackupRuns(report *model.AuditReport, runs []*model.PgBackupRun, now time
 		switch {
 		case r.Succeeded():
 			st = model.OK
-		case r.Status == "Failed" || r.Status == "failed":
+		case r.Status == "Failed" || r.Status == "failed" || r.Status == "error":
 			st = model.WARNING
 		}
 		completedCell := model.NewTableCell("running")
@@ -1361,7 +1361,7 @@ func pgWalStallCause(instance *model.Instance, instances []*model.Instance, prim
 		if primary := pgPrimaryInstance(instances); primary != nil {
 			msg = fmt.Sprintf("the standby is not connected to the primary (%s)", primary.Name)
 		}
-		if net := pgConnectivityIssue(instance.Owner); net != "" {
+		if net := appConnectivityIssue(instance.Owner); net != "" {
 			msg += " - " + net
 		}
 		return msg
@@ -1397,25 +1397,6 @@ func pgPrimaryInstance(instances []*model.Instance) *model.Instance {
 		}
 	}
 	return nil
-}
-
-func pgConnectivityIssue(app *model.Application) string {
-	if app == nil {
-		return ""
-	}
-	for _, conns := range []map[model.ApplicationId]*model.AppToAppConnection{app.Upstreams, app.Downstreams} {
-		c := conns[app.Id]
-		if c == nil {
-			continue
-		}
-		switch {
-		case c.HasConnectivityIssues():
-			return "no network connectivity to the primary"
-		case c.HasFailedConnectionAttempts():
-			return "connection attempts to the primary are failing"
-		}
-	}
-	return ""
 }
 
 const pgDiskFindingMinGrowthBytes = 256 * 1024 * 1024

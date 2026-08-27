@@ -67,7 +67,36 @@ GRANT SELECT, PROCESS, REPLICATION CLIENT ON *.* TO 'coroot'@'%';
             </template>
 
             <template v-if="type === 'mongodb'">
-                <p>This integration allows Coroot to collect MongoDB-specific metrics.</p>
+                <p>
+                    This integration allows Coroot to collect MongoDB-specific metrics, including per-query statistics, replication and oplog status.
+                </p>
+                <p>
+                    The agent connects to every <var>mongod</var> instance directly and requires a monitoring user with the
+                    <var>clusterMonitor</var> role and read access to the <var>local</var> database:
+                </p>
+                <Code>
+                    <pre>
+db.getSiblingDB("admin").createUser({
+    user: "coroot",
+    pwd: "&lt;PASSWORD&gt;",
+    roles: [{ role: "clusterMonitor", db: "admin" }, { role: "read", db: "local" }]
+})
+                    </pre>
+                </Code>
+                <p>
+                    Clusters managed by the Percona Operator for MongoDB already have such a user: the <var>MONGODB_CLUSTER_MONITOR_USER</var> /
+                    <var>MONGODB_CLUSTER_MONITOR_PASSWORD</var> keys of the <var>internal-&lt;cluster&gt;-users</var> Secret.
+                </p>
+                <p>Per-query statistics are collected from the database profiler. Enable it on each <var>mongod</var>:</p>
+                <Code>
+                    <pre>
+operationProfiling:
+  mode: all
+  slowOpThresholdMs: 200
+  rateLimit: 100
+                    </pre>
+                </Code>
+                <p>The <var>rateLimit</var> sampling is Percona Server for MongoDB only; on upstream MongoDB use <var>mode: slowOp</var>.</p>
             </template>
 
             <template v-if="type === 'memcached'">
@@ -106,6 +135,15 @@ coroot.com/postgres-scrape-credentials-secret-password-key: "password"
 
 # client SSL options: disable, require, verify-ca (default: disable)
 coroot.com/postgres-scrape-param-sslmode: "disable"
+
+# TLS certificates from a secret: the server certificate is verified against the CA;
+# the client certificate is presented to servers that require mutual TLS.
+# Only the explicitly specified keys are read - set the ca key, the cert/key
+# pair, or all three
+coroot.com/postgres-scrape-tls-secret-name: "postgres-ca"
+coroot.com/postgres-scrape-tls-secret-ca-key: "ca.crt"
+coroot.com/postgres-scrape-tls-secret-cert-key: "tls.crt"
+coroot.com/postgres-scrape-tls-secret-key-key: "tls.key"
                         </pre>
                         <pre v-if="type === 'mysql'">
 coroot.com/mysql-scrape: "true"
@@ -122,6 +160,15 @@ coroot.com/mysql-scrape-credentials-secret-password-key: "password"
 
 # client TLS options: true, false, skip-verify, preferred (default: false)
 coroot.com/mysql-scrape-param-tls: "false"
+
+# TLS certificates from a secret: the server certificate is verified against the CA;
+# the client certificate is presented to servers that require mutual TLS.
+# Only the explicitly specified keys are read - set the ca key, the cert/key
+# pair, or all three
+coroot.com/mysql-scrape-tls-secret-name: "mysql-ca"
+coroot.com/mysql-scrape-tls-secret-ca-key: "ca.crt"
+coroot.com/mysql-scrape-tls-secret-cert-key: "tls.crt"
+coroot.com/mysql-scrape-tls-secret-key-key: "tls.key"
                         </pre>
                         <pre v-if="type === 'redis'">
 coroot.com/redis-scrape: "true"
@@ -146,6 +193,19 @@ coroot.com/mongodb-scrape-credentials-password: "&lt;PASSWORD&gt;"
 coroot.com/mongodb-scrape-credentials-secret-name: "mongodb-secret"
 coroot.com/mongodb-scrape-credentials-secret-username-key: "username"
 coroot.com/mongodb-scrape-credentials-secret-password-key: "password"
+
+# optional parameters
+coroot.com/mongodb-scrape-param-tls: "false" # false, true, skip-verify
+coroot.com/mongodb-scrape-param-auth-source: "admin"
+
+# TLS certificates from a secret: the server certificate is verified against the CA;
+# the client certificate is presented to servers that require mutual TLS.
+# Only the explicitly specified keys are read - set the ca key, the cert/key
+# pair, or all three
+coroot.com/mongodb-scrape-tls-secret-name: "mongodb-ssl"
+coroot.com/mongodb-scrape-tls-secret-ca-key: "ca.crt"
+coroot.com/mongodb-scrape-tls-secret-cert-key: "tls.crt"
+coroot.com/mongodb-scrape-tls-secret-key-key: "tls.key"
                         </pre>
                         <pre v-if="type === 'memcached'">
 coroot.com/memcached-scrape: "true"
@@ -193,6 +253,20 @@ coroot.com/memcached-scrape-port: "11211"
                             />
                         </div>
 
+                        <div v-if="type === 'mongodb'">
+                            <div class="subtitle-1 mt-3">TLS</div>
+                            <v-select
+                                v-model="tls"
+                                :items="['false', 'true', 'skip-verify']"
+                                outlined
+                                dense
+                                hide-details
+                                :menu-props="{ offsetY: true }"
+                            />
+                            <div class="subtitle-1 mt-3">Auth Source</div>
+                            <v-text-field v-model="authSource" outlined dense hide-details placeholder="admin" />
+                        </div>
+
                         <v-checkbox v-model="config.enabled" label="Enabled" dense hide-details class="my-3" />
 
                         <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text class="mt-4">
@@ -235,6 +309,7 @@ export default {
 
             sslmode: 'disable',
             tls: 'false',
+            authSource: 'admin',
         };
     },
 
@@ -270,6 +345,14 @@ export default {
                 if (this.type === 'postgres' && this.config.params && this.config.params['sslmode']) {
                     this.sslmode = this.config.params['sslmode'];
                 }
+                if (this.type === 'mongodb' && this.config.params) {
+                    if (this.config.params['tls']) {
+                        this.tls = this.config.params['tls'];
+                    }
+                    if (this.config.params['authSource']) {
+                        this.authSource = this.config.params['authSource'];
+                    }
+                }
             });
         },
         save() {
@@ -282,6 +365,9 @@ export default {
             }
             if (this.type === 'mysql') {
                 form.params = { tls: this.tls };
+            }
+            if (this.type === 'mongodb') {
+                form.params = { tls: this.tls, authSource: this.authSource || 'admin' };
             }
             this.$api.saveInstrumentationSettings(this.appId, this.type, form, (data, error) => {
                 this.loading = false;

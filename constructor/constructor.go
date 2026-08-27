@@ -161,6 +161,7 @@ func (c *Constructor) loadProjectWorld(ctx context.Context, cache Cache, project
 	prof.stage("group_custom_applications", func() { c.groupCustomApplications(w, project) })
 	prof.stage("join_db_cluster_components", func() { c.joinDBClusterComponents(w, project) })
 	prof.stage("load_postgres_backups", func() { loadPostgresBackups(w, metrics, project) })
+	prof.stage("load_mongo_backups", func() { loadMongoBackups(w, metrics, project) })
 	prof.stage("load_app_settings", func() { c.loadApplicationSettings(w, project) })
 	prof.stage("load_app_sli", func() { c.loadSLIs(w, metrics, project) })
 	prof.stage("load_container_logs", func() { c.loadContainerLogs(metrics, containers, pjs) })
@@ -385,26 +386,38 @@ func enrichInstances(w *model.World, metrics map[string][]*model.MetricValues, r
 		}
 	}
 
+	betterInstance := func(cur, candidate *model.Instance) *model.Instance {
+		switch {
+		case cur == nil:
+			return candidate
+		case candidate == nil:
+			return cur
+		case cur.IsObsolete() != candidate.IsObsolete():
+			if cur.IsObsolete() {
+				return candidate
+			}
+			return cur
+		case candidate.Name < cur.Name:
+			return candidate
+		}
+		return cur
+	}
 	instancesByListenAddr := map[string]*model.Instance{}
 	for l, i := range instancesByListen {
 		if ip := net.ParseIP(l.IP); ip == nil {
 			continue
 		}
 		addr := net.JoinHostPort(l.IP, l.Port)
-		if instancesByListenAddr[addr] != nil {
-			continue
-		}
 		l.Proxied = true
 		if ii := instancesByListen[l]; ii != nil {
-			instancesByListenAddr[addr] = ii
-			continue
+			i = ii
+		} else {
+			l.Proxied = false
+			if ii := instancesByListen[l]; ii != nil {
+				i = ii
+			}
 		}
-		l.Proxied = false
-		if ii := instancesByListen[l]; ii != nil {
-			instancesByListenAddr[addr] = ii
-			continue
-		}
-		instancesByListenAddr[addr] = i
+		instancesByListenAddr[addr] = betterInstance(instancesByListenAddr[addr], i)
 	}
 
 	for _, queryName := range []string{"pg_up", "redis_up", "mongo_up", "memcached_up"} {
@@ -441,7 +454,7 @@ func enrichInstances(w *model.World, metrics map[string][]*model.MetricValues, r
 				redis(instance, queryName, m)
 			case strings.HasPrefix(queryName, "mongo_"):
 				instance := findInstance(instancesByPod, instancesByListenAddr, rdsInstancesById, ecInstanceById, m.Labels, model.ApplicationTypeMongodb, model.ApplicationTypeMongos)
-				mongodb(instance, queryName, m)
+				mongodb(instance, queryName, m, pjs)
 			case strings.HasPrefix(queryName, "memcached_"):
 				instance := findInstance(instancesByPod, instancesByListenAddr, rdsInstancesById, ecInstanceById, m.Labels, model.ApplicationTypeMemcached)
 				memcached(instance, queryName, m)
