@@ -26,7 +26,7 @@ go-fmt:
 
 .PHONY: go-imports
 go-imports:
-	go install golang.org/x/tools/cmd/goimports@latest
+	go install golang.org/x/tools/cmd/goimports@v0.39.0
 	goimports -w .
 
 .PHONY: go-test
