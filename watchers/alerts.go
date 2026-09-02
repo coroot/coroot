@@ -342,7 +342,7 @@ func (w *Alerts) evaluateLogPatternAlerts(project *db.Project, rule *model.Alert
 
 				var aiExplanation string
 				var aiSuppressed bool
-				if w.logPatternEvaluator != nil && src.EvaluateWithAI {
+				if src.EvaluateWithAI && w.logPatternEvaluator != nil && w.logPatternEvaluator.Enabled() {
 					eval, err := w.logPatternEvaluator.Evaluate(project, app, sev, lp)
 					if err != nil {
 						klog.Errorf("AI evaluation failed for %s/%s: %v", appId, hash, err)
@@ -815,7 +815,7 @@ func (w *Alerts) evaluateKubernetesEventsAlerts(project *db.Project, rule *model
 
 		var aiExplanation string
 		var aiSuppressed bool
-		if w.kubernetesEventEvaluator != nil && src.EvaluateWithAI && g.app != nil {
+		if src.EvaluateWithAI && g.app != nil && w.kubernetesEventEvaluator != nil && w.kubernetesEventEvaluator.Enabled() {
 			eval, err := w.kubernetesEventEvaluator.Evaluate(project, g.app, g.events[0])
 			if err != nil {
 				klog.Errorf("AI evaluation failed for k8s event %s/%s: %v", g.appId.String(), g.reason, err)

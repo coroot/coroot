@@ -71,7 +71,7 @@ func NewApi(cfg *config.Config, cache *cache.Cache, db *db.DB, collector *collec
 	globalClickHouse *db.IntegrationClickhouse, globalPrometheus *db.IntegrationPrometheus,
 	deploymentUuid, instanceUuid string, loadWorld LoadWorldF) *Api {
 
-	return &Api{
+	api := &Api{
 		cfg:              cfg,
 		cache:            cache,
 		db:               db,
@@ -84,9 +84,11 @@ func NewApi(cfg *config.Config, cache *cache.Cache, db *db.DB, collector *collec
 		licenseMgr:       licenseMgr,
 		deploymentUuid:   deploymentUuid,
 		instanceUuid:     instanceUuid,
-		rca:              newRCARunner(cfg.RCA),
 		loadWorld:        loadWorld,
 	}
+	api.applyPersistedAI()
+	api.rca = newRCARunner(api.cfg.RCA)
+	return api
 }
 
 func (api *Api) User(w http.ResponseWriter, r *http.Request, u *db.User) {
@@ -302,14 +304,6 @@ func (api *Api) SSO(w http.ResponseWriter, r *http.Request, u *db.User) {
 	for _, role := range roles {
 		res.Roles = append(res.Roles, role.Name)
 	}
-	utils.WriteJson(w, res)
-}
-
-func (api *Api) AI(w http.ResponseWriter, r *http.Request, u *db.User) {
-	// TODO(phase2): BYO LLM provider for CRA — not implemented in Phase 1.
-	res := struct {
-		Provider string `json:"provider"`
-	}{}
 	utils.WriteJson(w, res)
 }
 

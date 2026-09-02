@@ -143,7 +143,8 @@ func main() {
 
 	incidents := watchers.NewIncidents(database, a.IncidentRCA)
 
-	watchers.Start(database, promCache, pricing, incidents, !cfg.DoNotCheckForDeployments, globalClickhouse, globalPrometheus, cfg.ClickHouseSpaceManager, nil, nil)
+	alertAI := watchers.NewLocalAlertAI(a.LocalLLM)
+	watchers.Start(database, promCache, pricing, incidents, !cfg.DoNotCheckForDeployments, globalClickhouse, globalPrometheus, cfg.ClickHouseSpaceManager, alertAI.LogPatterns(), alertAI.KubernetesEvents())
 
 	router := mux.NewRouter()
 	router.Use(statsCollector.MiddleWare)

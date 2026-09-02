@@ -38,11 +38,18 @@ type rcaRunner struct {
 
 func newRCARunner(cfg config.RCA) *rcaRunner {
 	r := &rcaRunner{
-		cfg:      cfg,
 		inFlight: map[string]bool{},
 		attempts: map[string]int{},
 		slots:    make(chan struct{}, rcaMaxConcurrentInvestigations),
 	}
+	r.update(cfg)
+	return r
+}
+
+func (r *rcaRunner) update(cfg config.RCA) {
+	r.lock.Lock()
+	defer r.lock.Unlock()
+	r.cfg = cfg
 	if cfg.IsLocal() {
 		r.client = llm.NewClient(llm.Config{
 			BaseUrl:      cfg.BaseUrl,
@@ -51,8 +58,50 @@ func newRCARunner(cfg config.RCA) *rcaRunner {
 			SystemPrompt: cfg.SystemPrompt,
 			Timeout:      cfg.Timeout.ToStandard(),
 		})
+		return
 	}
-	return r
+	r.client = nil
+}
+
+func (r *rcaRunner) config() config.RCA {
+	r.lock.Lock()
+	defer r.lock.Unlock()
+	return r.cfg
+}
+
+func (r *rcaRunner) enabled() bool {
+	r.lock.Lock()
+	defer r.lock.Unlock()
+	return r.cfg.IsLocal()
+}
+
+func (r *rcaRunner) shouldAutoInvestigate() bool {
+	r.lock.Lock()
+	defer r.lock.Unlock()
+	return r.cfg.IsLocal() && r.cfg.AutoInvestigate
+}
+
+func (r *rcaRunner) timeout() time.Duration {
+	r.lock.Lock()
+	defer r.lock.Unlock()
+	d := r.cfg.Timeout.ToStandard()
+	if d <= 0 {
+		return 5 * time.Minute
+	}
+	return d
+}
+
+func (r *rcaRunner) llm() *llm.Client {
+	r.lock.Lock()
+	defer r.lock.Unlock()
+	return r.client
+}
+
+func (api *Api) LocalLLM() *llm.Client {
+	if api == nil || api.rca == nil {
+		return nil
+	}
+	return api.rca.llm()
 }
 
 // begin reserves capacity for an automatic investigation of the given incident. It returns false when
@@ -84,7 +133,7 @@ func (r *rcaRunner) done(key string, succeeded bool) {
 }
 
 func (api *Api) localRCAEnabled() bool {
-	return api.cfg.RCA.IsLocal()
+	return api.rca != nil && api.rca.enabled()
 }
 
 // localRCA runs an on-demand investigation. It loads and audits the world itself because the caller
@@ -130,7 +179,7 @@ func (api *Api) localRCA(ctx context.Context, project *db.Project, appId model.A
 // localIncidentRCA starts an automatic investigation in the background. The incident watcher calls
 // this synchronously before enqueuing notifications, so it must return immediately.
 func (api *Api) localIncidentRCA(project *db.Project, world *model.World, incident *model.ApplicationIncident) {
-	if !api.cfg.RCA.AutoInvestigate || project.Multicluster() {
+	if !api.rca.shouldAutoInvestigate() || project.Multicluster() {
 		return
 	}
 	app := world.GetApplication(incident.ApplicationId)
@@ -156,7 +205,7 @@ func (api *Api) localIncidentRCA(project *db.Project, world *model.World, incide
 	background := *incident
 
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), api.cfg.RCA.Timeout.ToStandard())
+		ctx, cancel := context.WithTimeout(context.Background(), api.rca.timeout())
 		defer cancel()
 
 		rca, err := api.investigateLocally(ctx, project, world, app, &background, from, to)
@@ -174,7 +223,8 @@ func (api *Api) localIncidentRCA(project *db.Project, world *model.World, incide
 // investigateLocally summarizes the telemetry for the application and asks the configured LLM for a
 // root cause. The world must already be audited.
 func (api *Api) investigateLocally(ctx context.Context, project *db.Project, world *model.World, app *model.Application, incident *model.ApplicationIncident, from, to timeseries.Time) (*model.RCA, error) {
-	if api.rca.client == nil {
+	client := api.rca.llm()
+	if client == nil {
 		return nil, fmt.Errorf("no LLM configured for local RCA")
 	}
 
@@ -208,7 +258,7 @@ func (api *Api) investigateLocally(ctx context.Context, project *db.Project, wor
 	}
 
 	start := time.Now()
-	result, err := api.rca.client.Analyze(ctx, buildRCAEvidence(in))
+	result, err := client.Analyze(ctx, buildRCAEvidence(in))
 	if err != nil {
 		return nil, err
 	}

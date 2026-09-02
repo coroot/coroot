@@ -130,6 +130,36 @@ func (c *Client) Analyze(ctx context.Context, evidence any) (*Result, error) {
 	return nil, fmt.Errorf("unreachable")
 }
 
+// Evaluation is the JSON object returned when triaging a log pattern or Kubernetes event.
+type Evaluation struct {
+	ShouldAlert bool   `json:"should_alert"`
+	Explanation string `json:"explanation"`
+}
+
+// Evaluate asks the model whether an on-call should be notified. system/user are the prompt pair;
+// the model must reply with {"should_alert": bool, "explanation": "..."}.
+func (c *Client) Evaluate(ctx context.Context, system, user string) (*Evaluation, error) {
+	if system == "" {
+		return nil, fmt.Errorf("system prompt is required")
+	}
+	content, err := c.complete(ctx, []message{
+		{Role: "system", Content: system},
+		{Role: "user", Content: user},
+	})
+	if err != nil {
+		return nil, err
+	}
+	content = strings.TrimSpace(stripCodeFence(content))
+	var eval Evaluation
+	if err = json.Unmarshal([]byte(content), &eval); err != nil {
+		return nil, fmt.Errorf("the model did not return valid JSON: %w", err)
+	}
+	if strings.TrimSpace(eval.Explanation) == "" {
+		return nil, fmt.Errorf("the model returned no explanation")
+	}
+	return &eval, nil
+}
+
 func (c *Client) complete(ctx context.Context, messages []message) (string, error) {
 	body, err := json.Marshal(chatRequest{
 		Model:          c.cfg.Model,
