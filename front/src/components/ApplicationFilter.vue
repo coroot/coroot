@@ -62,7 +62,7 @@
                 hide-details
             />
 
-            <v-tooltip bottom>
+            <v-tooltip v-if="isAdmin" bottom>
                 <template #activator="{ on }">
                     <v-btn :to="{ name: 'project_settings', params: { tab: 'applications' } }" v-on="on" icon x-small>
                         <v-icon>mdi-plus</v-icon>
@@ -123,12 +123,32 @@ export default {
         search() {
             return (this.searchString || '').trim();
         },
+        // Project settings edit — Coroot Admin. Kubero SSO handoff roles do not
+        // get this; they must not see control-plane/monitoring or the + that
+        // opens category configuration.
+        authReady() {
+            return !!(this.$api.auth && this.$api.auth.user);
+        },
+        isAdmin() {
+            const user = this.$api.auth && this.$api.auth.user;
+            return !!(user && user.menu && user.menu.settings);
+        },
         categories() {
-            const set = new Set(this.selectedCategories);
+            const set = new Set();
             (this.applications || []).forEach((a) => {
-                set.add(a.category);
+                if (a.category) {
+                    set.add(a.category);
+                }
             });
-            const categories = Array.from(set);
+            this.selectedCategories.forEach((c) => {
+                if (c) {
+                    set.add(c);
+                }
+            });
+            let categories = Array.from(set);
+            if (!this.isAdmin) {
+                categories = categories.filter((c) => c !== 'control-plane' && c !== 'monitoring');
+            }
             categories.sort((a, b) => a.localeCompare(b));
             return categories;
         },
@@ -205,10 +225,14 @@ export default {
             immediate: true,
         },
         selectedCategories() {
+            this.pruneAdminOnlyCategories();
             this.save();
         },
         selectedNamespaces() {
             this.save();
+        },
+        isAdmin() {
+            this.pruneAdminOnlyCategories();
         },
     },
 
@@ -219,6 +243,20 @@ export default {
                 this.selectedNamespaces.splice(i, 1);
             }
         },
+        adminOnlyCategory(c) {
+            return c === 'control-plane' || c === 'monitoring';
+        },
+        pruneAdminOnlyCategories() {
+            // Wait until /api/user lands so we don't wipe an admin's saved
+            // control-plane filter during the handoff user's first paint.
+            if (!this.authReady || this.isAdmin) {
+                return;
+            }
+            const next = this.selectedCategories.filter((c) => !this.adminOnlyCategory(c));
+            if (next.length !== this.selectedCategories.length) {
+                this.selectedCategories = next;
+            }
+        },
         load() {
             const projectId = this.$route.params.projectId;
             let saved = this.$storage.local(storageKey) || {};
@@ -226,6 +264,7 @@ export default {
             this.selectedCategories = saved.categories || [];
             this.selectedNamespaces = saved.namespaces || [];
             this.autoSelectNamespace = !!this.autoSelectNamespaceThreshold && !this.selectedNamespaces.length;
+            this.pruneAdminOnlyCategories();
         },
         save() {
             const saved = this.$storage.local(storageKey) || {};

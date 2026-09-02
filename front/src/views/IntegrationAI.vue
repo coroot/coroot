@@ -4,10 +4,6 @@
             Coroot leverages Large Language Models (LLMs) to automatically generate clear, concise summaries of root causes, helping your team
             troubleshoot faster.
         </p>
-        <v-alert v-if="disabled" color="info" outlined text>
-            Available exclusively in Coroot Enterprise (from $1 per CPU core/month).<br />
-            <a href="https://coroot.com/account" target="_blank" class="font-weight-bold">Start</a> your free trial today.
-        </v-alert>
         <v-alert v-if="readonly" color="primary" outlined text>
             AI settings are defined through the config and cannot be modified via the UI.
         </v-alert>
@@ -109,7 +105,7 @@ export default {
 
     data() {
         return {
-            disabled: this.$coroot.edition !== 'Enterprise',
+            disabled: false,
             readonly: false,
             form: { provider: '', anthropic: {}, openai: {}, openai_compatible: {} },
             valid: false,
