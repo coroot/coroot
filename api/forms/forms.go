@@ -192,7 +192,7 @@ func (f *ApplicationCategoryForm) SendTestNotification(ctx context.Context, proj
 			client = notifications.NewSlack(integrations.Slack.Token, cmp.Or(slack.Channel, integrations.Slack.DefaultChannel))
 		}
 		if teams := f.Test.Incident.Teams; teams != nil && integrations.Teams != nil {
-			client = notifications.NewTeams(integrations.Teams.WebhookUrl)
+			client = notifications.NewTeams(integrations.Teams.GetWebhookUrl(teams.Channel))
 		}
 		if pagerduty := f.Test.Incident.Pagerduty; pagerduty != nil && integrations.Pagerduty != nil {
 			client = notifications.NewPagerduty(integrations.Pagerduty.IntegrationKey)
@@ -211,7 +211,7 @@ func (f *ApplicationCategoryForm) SendTestNotification(ctx context.Context, proj
 			client = notifications.NewSlack(integrations.Slack.Token, cmp.Or(slack.Channel, integrations.Slack.DefaultChannel))
 		}
 		if teams := f.Test.Deployment.Teams; teams != nil && integrations.Teams != nil {
-			client = notifications.NewTeams(integrations.Teams.WebhookUrl)
+			client = notifications.NewTeams(integrations.Teams.GetWebhookUrl(teams.Channel))
 		}
 		if webhook := f.Test.Deployment.Webhook; webhook != nil && integrations.Webhook != nil {
 			client = notifications.NewWebhook(integrations.Webhook)
@@ -547,6 +547,9 @@ type IntegrationFormTeams struct {
 }
 
 func (f *IntegrationFormTeams) Valid() bool {
+	if len(f.GetChannels()) == 0 {
+		return true
+	}
 	if err := f.Validate(); err != nil {
 		return false
 	}
@@ -559,17 +562,26 @@ func (f *IntegrationFormTeams) Get(project *db.Project, masked bool) {
 		f.Incidents = true
 		f.Deployments = true
 		f.Alerts = ptrBool(true)
+		f.Channels = []db.IntegrationTeamsChannel{{Name: db.TeamsDefaultChannelName}}
+		f.DefaultChannel = db.TeamsDefaultChannelName
 		return
 	}
 	f.IntegrationTeams = *cfg
-	if masked {
-		f.WebhookUrl = "<hidden>"
+	f.WebhookUrl = ""
+	f.DefaultChannel = cfg.GetDefaultChannel()
+	channels := cfg.GetChannels()
+	f.Channels = make([]db.IntegrationTeamsChannel, len(channels))
+	for i, ch := range channels {
+		f.Channels[i] = ch
+		if masked {
+			f.Channels[i].WebhookUrl = "<hidden>"
+		}
 	}
 }
 
 func (f *IntegrationFormTeams) Update(ctx context.Context, project *db.Project, clear bool) error {
 	cfg := &f.IntegrationTeams
-	if clear {
+	if clear || len(f.GetChannels()) == 0 {
 		cfg = nil
 	}
 	project.Settings.Integrations.Teams = cfg
@@ -577,7 +589,11 @@ func (f *IntegrationFormTeams) Update(ctx context.Context, project *db.Project, 
 }
 
 func (f *IntegrationFormTeams) Test(ctx context.Context, project *db.Project) error {
-	return notifications.NewTeams(f.WebhookUrl).SendIncident(ctx, project.Settings.Integrations.BaseUrl, testIncidentNotification(project))
+	webhookUrl := f.GetWebhookUrl("")
+	if webhookUrl == "" {
+		return fmt.Errorf("no channels configured")
+	}
+	return notifications.NewTeams(webhookUrl).SendIncident(ctx, project.Settings.Integrations.BaseUrl, testIncidentNotification(project))
 }
 
 type IntegrationFormPagerduty struct {

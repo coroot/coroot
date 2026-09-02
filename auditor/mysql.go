@@ -28,18 +28,22 @@ func (a *appAuditor) mysql() {
 	connectionsCheck := report.CreateCheck(model.Checks.MysqlConnections)
 
 	table := report.GetOrCreateTable("Instance", "Status", "Queries", "Latency", "Replication status", "Replication lag", "DB Size", "Version")
-	qpsChart := report.GetOrCreateChartGroup("Queries <selector>, per second", nil)
-	latencyChart := report.GetOrCreateChart("Average latency, seconds", nil)
-	queriesByTotalTime := report.GetOrCreateChartGroup("Queries by total time <selector>, query seconds/second", nil)
-	tablesByIOTime := report.GetOrCreateChartGroup("I/O time by table <selector>, IO seconds/second", nil)
+	qpsChart := report.GetOrCreateChartGroup("Queries <selector>, per second", nil).Group("Queries", 1)
+	latencyChart := report.GetOrCreateChart("Average latency, seconds", nil).Group("Queries", 1)
+	queriesByTotalTime := report.GetOrCreateChartGroup("Queries by total time <selector>, query seconds/second", nil).Group("Queries", 1)
+	tablesByIOTime := report.GetOrCreateChartGroup("I/O time by table <selector>, IO seconds/second", nil).Group("Queries", 1)
+	slowQueriesChart := report.GetOrCreateChart("Slow queries, per second", nil).Group("Queries", 1)
 
-	trafficChart := report.GetOrCreateChartGroup("Traffic <selector>, bytes per second", nil)
-	slowQueriesChart := report.GetOrCreateChart("Slow queries, per second", nil)
-	connectionsChart := report.GetOrCreateChartGroup("Connections <selector>", nil)
-	newConnectionsChart := report.GetOrCreateChart("New connections, per second", nil)
-	replicationLagChart := report.GetOrCreateChart("Replication lag, seconds", nil)
-	dbSizeChart := report.GetOrCreateChartGroup("Database size <selector>, bytes", nil)
-	tableSizeChart := report.GetOrCreateChartGroup("Top tables by size <selector>, bytes", nil)
+	connectionsChart := report.GetOrCreateChartGroup("Connections <selector>", nil).Group("Connections", 2)
+	newConnectionsChart := report.GetOrCreateChart("New connections, per second", nil).Group("Connections", 2)
+
+	lockedQueriesChart := report.GetOrCreateChartGroup("Locked queries on <selector>", nil).Group("Locks", 3)
+	blockingQueriesChart := report.GetOrCreateChartGroup("Blocking queries by the number of awaiting queries on <selector>", nil).Group("Locks", 3)
+
+	trafficChart := report.GetOrCreateChartGroup("Traffic <selector>, bytes per second", nil).Group("Traffic", 4)
+	replicationLagChart := report.GetOrCreateChart("Replication lag, seconds", nil).Group("Replication", 5)
+	dbSizeChart := report.GetOrCreateChartGroup("Database size <selector>, bytes", nil).Group("Storage", 6)
+	tableSizeChart := report.GetOrCreateChartGroup("Top tables by size <selector>, bytes", nil).Group("Storage", 6)
 
 	availabilityCheck.AddWidget(table.Widget())
 
@@ -176,6 +180,20 @@ func (a *appAuditor) mysql() {
 				totalTime[q] = stat.TotalTime
 			}
 			queriesByTotalTime.GetOrCreateChart(i.Name).Stacked().Sorted().AddMany(totalTime, 5, timeseries.Max)
+		}
+		if lockedQueriesChart != nil {
+			locked := map[string]model.SeriesData{}
+			for k, ts := range i.Mysql.LockedQueries {
+				locked[k.String()] = ts
+			}
+			lockedQueriesChart.GetOrCreateChart(i.Name).Stacked().Sorted().AddMany(locked, 5, timeseries.NanSum)
+		}
+		if blockingQueriesChart != nil {
+			blocking := map[string]model.SeriesData{}
+			for k, ts := range i.Mysql.AwaitingQueriesByBlockingQuery {
+				blocking[k.String()] = ts
+			}
+			blockingQueriesChart.GetOrCreateChart(i.Name).Stacked().Sorted().AddMany(blocking, 5, timeseries.NanSum).ShiftColors()
 		}
 		if tablesByIOTime != nil {
 			totalTime := map[string]model.SeriesData{}

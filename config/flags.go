@@ -50,6 +50,7 @@ var (
 	globalClickhouseInitialDatabase = kingpin.Flag("global-clickhouse-initial-database", "").Envar("GLOBAL_CLICKHOUSE_INITIAL_DATABASE").String()
 	globalClickhouseTlsEnabled      = kingpin.Flag("global-clickhouse-tls-enabled", "").Envar("GLOBAL_CLICKHOUSE_TLS_ENABLED").Bool()
 	globalClickhouseTlsSkipVerify   = kingpin.Flag("global-clickhouse-tls-skip-verify", "").Envar("GLOBAL_CLICKHOUSE_TLS_SKIP_VERIFY").Bool()
+	globalClickhouseTlsCAFile       = kingpin.Flag("global-clickhouse-tls-ca-file", "Path to the CA certificate file for ClickHouse TLS verification").Envar("GLOBAL_CLICKHOUSE_TLS_CA_FILE").String()
 
 	globalPrometheusUrl            = kingpin.Flag("global-prometheus-url", "").Envar("GLOBAL_PROMETHEUS_URL").String()
 	globalPrometheusTlsSkipVerify  = kingpin.Flag("global-prometheus-tls-skip-verify", "").Envar("GLOBAL_PROMETHEUS_TLS_SKIP_VERIFY").Bool()
@@ -196,6 +197,9 @@ func (cfg *Config) ApplyFlags() {
 	}
 	if *globalClickhouseTlsSkipVerify {
 		cfg.GlobalClickhouse.TlsSkipVerify = *globalClickhouseTlsSkipVerify
+	}
+	if *globalClickhouseTlsCAFile != "" {
+		cfg.GlobalClickhouse.TlsCAFile = *globalClickhouseTlsCAFile
 	}
 	if !keep {
 		cfg.GlobalClickhouse = nil

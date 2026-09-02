@@ -506,6 +506,108 @@ func BuiltinAlertingRules() []AlertingRule {
 			Builtin: true,
 		},
 		{
+			Id:   "mongodb-latency",
+			Name: "MongoDB latency",
+			Source: AlertSource{
+				Type:  AlertSourceTypeCheck,
+				Check: &CheckSource{CheckId: Checks.MongodbLatency.Id},
+			},
+			Selector:      AppSelector{Type: AppSelectorTypeAll},
+			Severity:      WARNING,
+			For:           5 * timeseries.Minute,
+			KeepFiringFor: 5 * timeseries.Minute,
+			Templates: AlertTemplates{
+				Description: "MongoDB operation latency is elevated. This may cause slow response times for dependent applications.",
+			},
+			Enabled: true,
+			Builtin: true,
+		},
+		{
+			Id:   "mongodb-oplog-window",
+			Name: "MongoDB oplog window",
+			Source: AlertSource{
+				Type:  AlertSourceTypeCheck,
+				Check: &CheckSource{CheckId: Checks.MongodbOplogWindow.Id},
+			},
+			Selector:      AppSelector{Type: AppSelectorTypeAll},
+			Severity:      WARNING,
+			For:           5 * timeseries.Minute,
+			KeepFiringFor: 5 * timeseries.Minute,
+			Templates: AlertTemplates{
+				Description: "The MongoDB oplog window is too small. Any member that falls behind or restarts for longer than the window will require a full initial sync. Consider increasing the oplog size.",
+			},
+			Enabled: true,
+			Builtin: true,
+		},
+		{
+			Id:   "mongodb-connections",
+			Name: "MongoDB connections",
+			Source: AlertSource{
+				Type:  AlertSourceTypeCheck,
+				Check: &CheckSource{CheckId: Checks.MongodbConnections.Id},
+			},
+			Selector:      AppSelector{Type: AppSelectorTypeAll},
+			Severity:      WARNING,
+			For:           5 * timeseries.Minute,
+			KeepFiringFor: 5 * timeseries.Minute,
+			Templates: AlertTemplates{
+				Description: "A MongoDB instance is approaching its connection limit. New connections will be rejected once the limit is reached. Check client connection pooling.",
+			},
+			Enabled: true,
+			Builtin: true,
+		},
+		{
+			Id:   "mongodb-saturation",
+			Name: "MongoDB saturation",
+			Source: AlertSource{
+				Type:  AlertSourceTypeCheck,
+				Check: &CheckSource{CheckId: Checks.MongodbSaturation.Id},
+			},
+			Selector:      AppSelector{Type: AppSelectorTypeAll},
+			Severity:      WARNING,
+			For:           5 * timeseries.Minute,
+			KeepFiringFor: 5 * timeseries.Minute,
+			Templates: AlertTemplates{
+				Description: "A MongoDB instance is saturated and operations are queuing. The check details say why: either it is out of WiredTiger tickets (a storage bottleneck - slow disk, cache pressure, or too many concurrent operations), or operations are blocked on a lock held by a backup (fsyncLock), a long DDL, or a long transaction.",
+			},
+			Enabled: true,
+			Builtin: true,
+		},
+		{
+			Id:   "mongodb-fragmentation",
+			Name: "MongoDB storage fragmentation",
+			Source: AlertSource{
+				Type:  AlertSourceTypeCheck,
+				Check: &CheckSource{CheckId: Checks.MongodbFragmentation.Id},
+			},
+			Selector:      AppSelector{Type: AppSelectorTypeAll},
+			Severity:      WARNING,
+			For:           10 * timeseries.Minute,
+			KeepFiringFor: 5 * timeseries.Minute,
+			Templates: AlertTemplates{
+				Description: "A large share of the storage allocated for a MongoDB collection is reclaimable free space left by deleted documents. Run compact (rolling, secondaries first) to reclaim it.",
+			},
+			Enabled: true,
+			Builtin: true,
+		},
+		{
+			Id:   "mongodb-backups",
+			Name: "MongoDB backups",
+			Source: AlertSource{
+				Type:  AlertSourceTypeCheck,
+				Check: &CheckSource{CheckId: Checks.MongodbBackups.Id},
+			},
+			Selector:      AppSelector{Type: AppSelectorTypeAll},
+			Severity:      WARNING,
+			For:           10 * timeseries.Minute,
+			KeepFiringFor: 5 * timeseries.Minute,
+			Templates: AlertTemplates{
+				Description: "MongoDB backups are stale or failing: either no successful backup completed within the expected window, the most recent backup failed, or the scheduled backup is overdue. Check the backup storage and the percona-backup-mongodb logs.",
+			},
+			Enabled: true,
+			Builtin: true,
+		},
+		{
 			Id:   "mysql-availability",
 			Name: "MySQL availability",
 			Source: AlertSource{

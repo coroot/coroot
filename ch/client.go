@@ -57,9 +57,7 @@ func NewLowLevelClient(ctx context.Context, cfg *db.IntegrationClickhouse) (*Low
 		HandshakeTimeout: dialTimeout,
 	}
 	if cfg.TlsEnable {
-		opts.TLS = &tls.Config{
-			InsecureSkipVerify: cfg.TlsSkipVerify,
-		}
+		opts.TLS = TlsConfig(cfg.TlsCAFile, cfg.TlsSkipVerify)
 	}
 	if dialer != nil {
 		opts.Dialer = dialer

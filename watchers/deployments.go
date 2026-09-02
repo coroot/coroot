@@ -134,7 +134,7 @@ func (w *Deployments) sendNotifications(project *db.Project, world *model.World)
 				}
 			}
 			if teams := integrations.Teams; teams != nil && teams.Deployments && notificationSettings.Teams != nil && notificationSettings.Teams.Enabled && d.Notifications.Teams.State < ds.State {
-				client := notifications.NewTeams(teams.WebhookUrl)
+				client := notifications.NewTeams(teams.GetWebhookUrl(notificationSettings.Teams.Channel))
 				ctx, cancel := context.WithTimeout(context.Background(), sendTimeout)
 				err := client.SendDeployment(ctx, project, ds)
 				cancel()

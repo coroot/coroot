@@ -39,7 +39,7 @@ func getClient(destination db.IncidentNotificationDestination, integrations db.I
 		}
 	case db.IntegrationTypeTeams:
 		if cfg := integrations.Teams; cfg != nil && isEnabled(cfg.Incidents, cfg.Alerts, notificationType) {
-			return NewTeams(cfg.WebhookUrl)
+			return NewTeams(cfg.GetWebhookUrl(destination.TeamsChannel))
 		}
 	case db.IntegrationTypePagerduty:
 		if cfg := integrations.Pagerduty; cfg != nil && isEnabled(cfg.Incidents, cfg.Alerts, notificationType) {

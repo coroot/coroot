@@ -93,7 +93,7 @@ type PgBackupRun struct {
 
 func (r *PgBackupRun) Succeeded() bool {
 	switch r.Status {
-	case "Succeeded", "completed":
+	case "Succeeded", "completed", "ready":
 		return true
 	}
 	return false

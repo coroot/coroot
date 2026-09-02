@@ -57,8 +57,23 @@
                         </div>
                         <div v-if="form.notification_settings.incidents.teams" class="d-flex align-center mt-2">
                             <v-checkbox v-model="form.notification_settings.incidents.teams.enabled" dense hide-details class="mt-0 pt-0" />
-                            <div>MS Teams</div>
-                            <v-btn small color="secondary" class="ml-2" @click="test({ incident: { teams: {} } })">Test</v-btn>
+                            <div class="mr-2">MS Teams</div>
+                            <v-text-field
+                                v-model="form.notification_settings.incidents.teams.channel"
+                                hide-details
+                                outlined
+                                dense
+                                prefix="channel:"
+                                class="x-dense"
+                            />
+                            <v-btn
+                                small
+                                color="secondary"
+                                class="ml-2"
+                                @click="test({ incident: { teams: { channel: form.notification_settings.incidents.teams.channel } } })"
+                            >
+                                Test
+                            </v-btn>
                         </div>
                         <div v-if="form.notification_settings.incidents.pagerduty" class="d-flex align-center mt-2">
                             <v-checkbox v-model="form.notification_settings.incidents.pagerduty.enabled" dense hide-details class="mt-0 pt-0" />
@@ -110,7 +125,22 @@
                         <div v-if="form.notification_settings.deployments.teams" class="d-flex align-center mt-2">
                             <v-checkbox v-model="form.notification_settings.deployments.teams.enabled" dense hide-details class="mt-0 pt-0" />
                             <div class="mr-2">MS Teams</div>
-                            <v-btn small color="secondary" class="ml-2" @click="test({ deployment: { teams: {} } })">Test</v-btn>
+                            <v-text-field
+                                v-model="form.notification_settings.deployments.teams.channel"
+                                hide-details
+                                outlined
+                                dense
+                                prefix="channel:"
+                                class="x-dense"
+                            />
+                            <v-btn
+                                small
+                                color="secondary"
+                                class="ml-2"
+                                @click="test({ deployment: { teams: { channel: form.notification_settings.deployments.teams.channel } } })"
+                            >
+                                Test
+                            </v-btn>
                         </div>
                         <div v-if="form.notification_settings.deployments.webhook" class="d-flex align-center mt-2">
                             <v-checkbox v-model="form.notification_settings.deployments.webhook.enabled" dense hide-details class="mt-0 pt-0" />
@@ -152,7 +182,22 @@
                         <div v-if="form.notification_settings.alerts.teams" class="d-flex align-center mt-2">
                             <v-checkbox v-model="form.notification_settings.alerts.teams.enabled" dense hide-details class="mt-0 pt-0" />
                             <div class="mr-2">MS Teams</div>
-                            <v-btn small color="secondary" class="ml-2" @click="test({ alert: { teams: {} } })">Test</v-btn>
+                            <v-text-field
+                                v-model="form.notification_settings.alerts.teams.channel"
+                                hide-details
+                                outlined
+                                dense
+                                prefix="channel:"
+                                class="x-dense"
+                            />
+                            <v-btn
+                                small
+                                color="secondary"
+                                class="ml-2"
+                                @click="test({ alert: { teams: { channel: form.notification_settings.alerts.teams.channel } } })"
+                            >
+                                Test
+                            </v-btn>
                         </div>
                         <div v-if="form.notification_settings.alerts.pagerduty" class="d-flex align-center mt-2">
                             <v-checkbox v-model="form.notification_settings.alerts.pagerduty.enabled" dense hide-details class="mt-0 pt-0" />
