@@ -52,26 +52,20 @@ func (c *Client) GetServicesFromTraces(ctx context.Context, from timeseries.Time
 }
 
 func (c *Client) GetRootSpansHistogram(ctx context.Context, q SpanQuery) ([]model.HistogramBucket, error) {
-	if c.useTracesHistogram(ctx, q, q.Ctx.From) {
-		filter, filterArgs := q.RootSpansFilter("Root = 1")
-		return c.getSpansHistogram(ctx, q, filter, filterArgs, true)
-	}
-	filter, filterArgs := q.RootSpansFilter("ParentSpanId = ''")
-	return c.getSpansHistogram(ctx, q, filter, filterArgs, false)
+	fromMV := c.useTracesHistogram(ctx, q, q.Ctx.From)
+	filter, filterArgs := q.RootSpansFilter(fromMV)
+	return c.getSpansHistogram(ctx, q, filter, filterArgs, fromMV)
 }
 
 func (c *Client) GetRootSpans(ctx context.Context, q SpanQuery) ([]*model.TraceSpan, error) {
-	filter, filterArgs := q.RootSpansFilter("ParentSpanId = ''")
+	filter, filterArgs := q.RootSpansFilter(false)
 	return c.getSpans(ctx, q, "", filter, filterArgs)
 }
 
 func (c *Client) GetTraceSpanStats(ctx context.Context, q SpanQuery) (map[model.TraceSpanKey]*model.TraceSpanStats, error) {
-	if q.DurFrom == 0 && q.DurTo == 0 && !q.Errors && c.useTracesHistogram(ctx, q, q.TsFrom) {
-		filter, filterArgs := q.RootSpansFilter("Root = 1")
-		return c.getTraceSpanStats(ctx, q, filter, filterArgs, true)
-	}
-	filter, filterArgs := q.RootSpansFilter("ParentSpanId = ''")
-	return c.getTraceSpanStats(ctx, q, filter, filterArgs, false)
+	fromMV := q.DurFrom == 0 && q.DurTo == 0 && !q.Errors && c.useTracesHistogram(ctx, q, q.TsFrom)
+	filter, filterArgs := q.RootSpansFilter(fromMV)
+	return c.getTraceSpanStats(ctx, q, filter, filterArgs, fromMV)
 }
 
 func (c *Client) GetTraceErrors(ctx context.Context, q SpanQuery) (map[model.TraceSpanKey]*model.TraceErrorsStat, error) {
@@ -79,12 +73,13 @@ func (c *Client) GetTraceErrors(ctx context.Context, q SpanQuery) (map[model.Tra
 }
 
 func (c *Client) GetSpansByServiceNameHistogram(ctx context.Context, q SpanQuery) ([]model.HistogramBucket, error) {
-	filter, filterArgs := q.SpansByServiceNameFilter()
-	return c.getSpansHistogram(ctx, q, filter, filterArgs, c.useTracesHistogram(ctx, q, q.Ctx.From))
+	fromMV := c.useTracesHistogram(ctx, q, q.Ctx.From)
+	filter, filterArgs := q.SpansByServiceNameFilter(fromMV)
+	return c.getSpansHistogram(ctx, q, filter, filterArgs, fromMV)
 }
 
 func (c *Client) GetSpansByServiceName(ctx context.Context, q SpanQuery) ([]*model.TraceSpan, error) {
-	filter, filterArgs := q.SpansByServiceNameFilter()
+	filter, filterArgs := q.SpansByServiceNameFilter(false)
 	return c.getSpans(ctx, q, "", filter, filterArgs)
 }
 
@@ -583,7 +578,7 @@ WHERE Timestamp BETWEEN @from AND @to AND TraceId IN @traceIds`
 }
 
 func (c *Client) getTraceErrors(ctx context.Context, q SpanQuery) (map[model.TraceSpanKey]*model.TraceErrorsStat, error) {
-	filters, filterArgs := q.RootSpansFilter("ParentSpanId = ''")
+	filters, filterArgs := q.RootSpansFilter(false)
 	q.Errors = true
 	durFilter, durFilterArgs := q.DurationFilter()
 	if durFilter != "" {
@@ -638,7 +633,7 @@ func (c *Client) getTraceErrors(ctx context.Context, q SpanQuery) (map[model.Tra
 }
 
 func (c *Client) GetSelectionAndBaselineTraces(ctx context.Context, q SpanQuery) ([]*model.Trace, []*model.Trace, error) {
-	filters, filterArgs := q.RootSpansFilter("ParentSpanId = ''")
+	filters, filterArgs := q.RootSpansFilter(false)
 
 	var err error
 	var selectionFilter string
@@ -735,9 +730,16 @@ func (q *SpanQuery) DurationFilter() (string, []any) {
 	return filter, args
 }
 
-func (q *SpanQuery) RootSpansFilter(rootCondition string) ([]string, []any) {
+func rootSpanCondition(fromMV bool) string {
+	if fromMV {
+		return "Root = 1"
+	}
+	return "ParentSpanId = ''"
+}
+
+func (q *SpanQuery) RootSpansFilter(fromMV bool) ([]string, []any) {
 	filter, args := q.Filter()
-	filter = append(filter, rootCondition)
+	filter = append(filter, rootSpanCondition(fromMV))
 	filter = append(filter, "NOT startsWith(ServiceName, '/')")
 	if len(q.ExcludePeerAddrs) > 0 {
 		filter = append(filter, "NetSockPeerAddr NOT IN (@addrs)")
@@ -789,9 +791,9 @@ func (q *SpanQuery) filtersOnHistogramDimensions() bool {
 	return true
 }
 
-func (q *SpanQuery) SpansByServiceNameFilter() ([]string, []any) {
+func (q *SpanQuery) SpansByServiceNameFilter(fromMV bool) ([]string, []any) {
 	filter, args := q.Filter()
-	filter = append(filter, "(SpanKind = 'SPAN_KIND_SERVER' OR SpanKind = 'SPAN_KIND_CONSUMER')")
+	filter = append(filter, fmt.Sprintf("(SpanKind = 'SPAN_KIND_SERVER' OR SpanKind = 'SPAN_KIND_CONSUMER' OR (SpanKind = 'SPAN_KIND_INTERNAL' AND %s))", rootSpanCondition(fromMV)))
 	if len(q.ExcludePeerAddrs) > 0 {
 		filter = append(filter, "NetSockPeerAddr NOT IN (@addrs)")
 		args = append(args, clickhouse.Named("addrs", q.ExcludePeerAddrs))

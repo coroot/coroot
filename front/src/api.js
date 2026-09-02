@@ -63,7 +63,7 @@ export default class Api {
                     this.context.search = response.data.context.search;
                     this.context.incidents = response.data.context.incidents;
                     this.context.alerts = response.data.context.alerts || {};
-                    this.context.license = response.data.context.license;
+                    this.context.license = response.data.context.license || {};
                     this.context.fluxcd = response.data.context.fluxcd;
                     this.context.argocd = response.data.context.argocd;
                     this.context.multicluster = response.data.context.multicluster;

@@ -43,6 +43,9 @@ type Mysql struct {
 	Version    LabelLastValue
 	PerQuery   map[MysqlQueryKey]*MysqlQueryStat
 
+	LockedQueries                  map[MysqlQueryKey]*timeseries.TimeSeries
+	AwaitingQueriesByBlockingQuery map[MysqlQueryKey]*timeseries.TimeSeries
+
 	ReplicationSourceUUID LabelLastValue
 	ReplicationIOStatus   *MysqlReplicationStatus
 	ReplicationSQLStatus  *MysqlReplicationStatus
@@ -67,10 +70,12 @@ type Mysql struct {
 
 func NewMysql() *Mysql {
 	return &Mysql{
-		PerQuery:     map[MysqlQueryKey]*MysqlQueryStat{},
-		TablesIOTime: map[DbTableKey]*MysqlTableIOStats{},
-		DatabaseSize: map[string]*timeseries.TimeSeries{},
-		TableSize:    map[DbTableKey]*timeseries.TimeSeries{},
+		PerQuery:                       map[MysqlQueryKey]*MysqlQueryStat{},
+		LockedQueries:                  map[MysqlQueryKey]*timeseries.TimeSeries{},
+		AwaitingQueriesByBlockingQuery: map[MysqlQueryKey]*timeseries.TimeSeries{},
+		TablesIOTime:                   map[DbTableKey]*MysqlTableIOStats{},
+		DatabaseSize:                   map[string]*timeseries.TimeSeries{},
+		TableSize:                      map[DbTableKey]*timeseries.TimeSeries{},
 	}
 }
 

@@ -30,8 +30,12 @@ For more information, refer to the [Webhooks with Workflows for Microsoft Teams]
 
 * Go to the **Project Settings**  → **Integrations**
 * Create an MS Teams integration
-* Paste the workflow URL to the form
+* Add a channel and paste the workflow URL to the form
   <img alt="MS Teams integration" src="/img/docs/teams-integration.png" class="card w-800"/>
 
-* You can also send a test alert to check the integration
+* Coroot can send notifications to multiple Microsoft Teams channels (each channel is a separate workflow URL).
+  Notifications are routed to a channel by name in the [application category](/configuration/application-categories#notification-routing) settings.
+  The **Default channel** is used unless a category specifies another one.
+
+* You can also send a test alert to check the integration (it is sent to the default channel)
   <img alt="MS Teams Test Alert" src="/img/docs/teams-integration-test.png" class="card w-800"/>

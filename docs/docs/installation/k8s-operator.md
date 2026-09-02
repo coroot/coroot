@@ -344,13 +344,18 @@ spec:
 #          deployments: false  # Notify of deployments.
 #          alerts: false       # Notify of alerts.
 #        teams:
-#          webhookURL:        # Microsoft Teams Webhook URL (required).
-#          webhookURLSecret:  # Secret containing the Webhook URL.
-#            name: # Name of the secret to select from.
-#            key:  # Key of the secret to select from.
-#          incidents: false    # Notify of incidents (SLO violations).
-#          deployments: false  # Notify of deployments.
-#          alerts: false       # Notify of alerts.
+#          channels:                # MS Teams channels (each channel is a separate webhook).
+#            - name: default        # Channel name (required).
+#              webhookURL:          # Microsoft Teams Webhook URL for this channel.
+#              webhookURLSecret:    # Secret containing the Webhook URL.
+#                name: # Name of the secret to select from.
+#                key:  # Key of the secret to select from.
+#          defaultChannel: default  # The channel used unless an application category specifies another one (default: "default").
+#          # webhookURL:            # Deprecated: use `channels`; treated as the "default" channel; cannot be used together with `channels`.
+#          # webhookURLSecret:      # Secret containing the Webhook URL.
+#          incidents: false         # Notify of incidents (SLO violations).
+#          deployments: false       # Notify of deployments.
+#          alerts: false            # Notify of alerts.
 #        pagerduty:
 #          integrationKey:        # PagerDuty Integration Key (required).
 #          integrationKeySecret:  # Secret containing the Integration Key.
@@ -398,9 +403,10 @@ spec:
 #              enabled: true
 #              slack:
 #                enabled: true
-#                channel: ops
+#                channel: ops    # Slack channel name (the integration's default channel is used if empty).
 #              teams:
 #                enabled: false
+#                channel: ops    # MS Teams channel name (the integration's default channel is used if empty).
 #              pagerduty:
 #                enabled: false
 #              opsgenie:
@@ -414,6 +420,7 @@ spec:
 #                channel: general
 #              teams:
 #                enabled: false
+#                channel: general
 #              webhook:
 #                enabled: false
 #            alerts:             # Notify of alerts.
@@ -423,6 +430,7 @@ spec:
 #                channel: alerts
 #              teams:
 #                enabled: false
+#                channel: alerts
 #              pagerduty:
 #                enabled: false
 #              opsgenie:
