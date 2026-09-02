@@ -52,6 +52,14 @@ func (db *DB) CreateAdminIfNotExists(password string) error {
 	var i int
 	err := db.db.QueryRow("SELECT 1 FROM users WHERE email = $1", AdminUserLogin).Scan(&i)
 	if err == nil {
+		// Stackblaze: the bootstrap password is AUTHORITATIVE, not first-boot
+		// only. The admin credential lives in a Kubernetes Secret; the API
+		// deliberately refuses to edit the admin user and the CLI reset needs
+		// a TTY, so an existing admin whose password drifted from the Secret
+		// was unrecoverable without database surgery. Secret = truth.
+		if password != "" {
+			return db.SetAdminPassword(password)
+		}
 		return nil
 	}
 	if !errors.Is(err, sql.ErrNoRows) {

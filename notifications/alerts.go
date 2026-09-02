@@ -45,7 +45,7 @@ func (n *AlertNotifier) Enqueue(project *db.Project, app *model.Application, ale
 		n.enqueue(now, project, alert, rule, db.IncidentNotificationDestination{IntegrationType: db.IntegrationTypeSlack, SlackChannel: slack.Channel})
 	}
 	if teams := notificationSettings.Teams; teams != nil && teams.Enabled {
-		n.enqueue(now, project, alert, rule, db.IncidentNotificationDestination{IntegrationType: db.IntegrationTypeTeams})
+		n.enqueue(now, project, alert, rule, db.IncidentNotificationDestination{IntegrationType: db.IntegrationTypeTeams, TeamsChannel: teams.Channel})
 	}
 	if pagerduty := notificationSettings.Pagerduty; pagerduty != nil && pagerduty.Enabled {
 		n.enqueue(now, project, alert, rule, db.IncidentNotificationDestination{IntegrationType: db.IntegrationTypePagerduty})
@@ -269,7 +269,7 @@ func enqueueResolvedAlert(database *db.DB, now timeseries.Time, project *db.Proj
 			AlertId:       alert.Id,
 			RuleId:        alert.RuleId,
 			ApplicationId: alert.ApplicationId,
-			Destination:   db.IncidentNotificationDestination{IntegrationType: db.IntegrationTypeTeams},
+			Destination:   db.IncidentNotificationDestination{IntegrationType: db.IntegrationTypeTeams, TeamsChannel: teams.Channel},
 			Timestamp:     now,
 			Status:        model.OK,
 			Details:       details,

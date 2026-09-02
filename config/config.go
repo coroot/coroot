@@ -120,6 +120,7 @@ type Clickhouse struct {
 	Database      string `yaml:"database"`
 	TlsEnable     bool   `yaml:"tls_enable"`
 	TlsSkipVerify bool   `yaml:"tls_skip_verify"`
+	TlsCAFile     string `yaml:"tls_ca_file"`
 }
 
 func (c *Clickhouse) Validate() error {
@@ -404,6 +405,7 @@ func (cfg *Config) GetGlobalClickhouse() *db.IntegrationClickhouse {
 		InitialDatabase: clickhouse.Database,
 		TlsEnable:       clickhouse.TlsEnable,
 		TlsSkipVerify:   clickhouse.TlsSkipVerify,
+		TlsCAFile:       clickhouse.TlsCAFile,
 	}
 	if c.Auth.User == "" {
 		c.Auth.User = "default"
@@ -429,6 +431,7 @@ func (cfg *Config) GetBootstrapClickhouse() *db.IntegrationClickhouse {
 		Database:      clickhouse.Database,
 		TlsEnable:     clickhouse.TlsEnable,
 		TlsSkipVerify: clickhouse.TlsSkipVerify,
+		TlsCAFile:     clickhouse.TlsCAFile,
 	}
 	if c.Auth.User == "" {
 		c.Auth.User = "default"

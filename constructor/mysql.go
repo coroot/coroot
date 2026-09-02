@@ -36,6 +36,12 @@ func mysql(instance *model.Instance, queryName string, m *model.MetricValues) {
 		case "mysql_top_query_lock_time_per_second":
 			s.LockTime = merge(s.LockTime, m.Values, timeseries.Any)
 		}
+	case "mysql_locked_queries":
+		k := model.MysqlQueryKey{Schema: m.Labels["schema"], Query: m.Labels["query"]}
+		instance.Mysql.LockedQueries[k] = merge(instance.Mysql.LockedQueries[k], m.Values, timeseries.Any)
+	case "mysql_lock_awaiting_queries":
+		k := model.MysqlQueryKey{Schema: m.Labels["schema"], Query: m.Labels["blocking_query"]}
+		instance.Mysql.AwaitingQueriesByBlockingQuery[k] = merge(instance.Mysql.AwaitingQueriesByBlockingQuery[k], m.Values, timeseries.Any)
 	case "mysql_replication_io_status":
 		if instance.Mysql.ReplicationIOStatus == nil {
 			instance.Mysql.ReplicationIOStatus = &model.MysqlReplicationStatus{}
