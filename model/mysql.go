@@ -19,9 +19,11 @@ func (k MysqlQueryKey) String() string {
 }
 
 type MysqlQueryStat struct {
-	Calls     *timeseries.TimeSeries
-	TotalTime *timeseries.TimeSeries
-	LockTime  *timeseries.TimeSeries
+	Calls        *timeseries.TimeSeries
+	TotalTime    *timeseries.TimeSeries
+	LockTime     *timeseries.TimeSeries
+	RowsExamined *timeseries.TimeSeries
+	RowsSent     *timeseries.TimeSeries
 }
 
 type MysqlReplicationStatus struct {
@@ -51,10 +53,27 @@ type Mysql struct {
 	ReplicationSQLStatus  *MysqlReplicationStatus
 	ReplicationLagSeconds *timeseries.TimeSeries
 
-	ConnectionsMax     *timeseries.TimeSeries
-	ConnectionsCurrent *timeseries.TimeSeries
-	ConnectionsNew     *timeseries.TimeSeries
-	ConnectionsAborted *timeseries.TimeSeries
+	ConnectionsMax                 *timeseries.TimeSeries
+	ConnectionsCurrent             *timeseries.TimeSeries
+	ConnectionsNew                 *timeseries.TimeSeries
+	ConnectionsAborted             *timeseries.TimeSeries
+	ConnectionErrorsMaxConnections *timeseries.TimeSeries
+
+	ThreadsRunning       *timeseries.TimeSeries
+	CreatedTmpDiskTables *timeseries.TimeSeries
+	TableLocksWaited     *timeseries.TimeSeries
+	TableLocksImmediate  *timeseries.TimeSeries
+
+	BinlogSize          *timeseries.TimeSeries
+	BinlogFiles         *timeseries.TimeSeries
+	BinlogExpireSeconds *timeseries.TimeSeries
+	UndoSize            *timeseries.TimeSeries
+
+	InnodbTransactions map[string]*timeseries.TimeSeries
+
+	Galera           *MysqlGalera
+	GroupReplication *MysqlGroupReplication
+	Innodb           *MysqlInnodb
 
 	BytesSent     *timeseries.TimeSeries
 	BytesReceived *timeseries.TimeSeries
@@ -64,8 +83,73 @@ type Mysql struct {
 
 	TablesIOTime map[DbTableKey]*MysqlTableIOStats
 
-	DatabaseSize map[string]*timeseries.TimeSeries
-	TableSize    map[DbTableKey]*timeseries.TimeSeries
+	DatabaseSize    map[string]*timeseries.TimeSeries
+	TableSize       map[DbTableKey]*timeseries.TimeSeries
+	TableSizeGrowth map[DbTableKey]*timeseries.TimeSeries
+}
+
+type MysqlGalera struct {
+	ClusterStatus     LabelLastValue
+	ClusterSize       *timeseries.TimeSeries
+	LocalStateComment LabelLastValue
+	Ready             *timeseries.TimeSeries
+	Connected         *timeseries.TimeSeries
+
+	FlowControlPaused *timeseries.TimeSeries
+	LocalRecvQueue    *timeseries.TimeSeries
+	LocalSendQueue    *timeseries.TimeSeries
+	CertFailures      *timeseries.TimeSeries
+	BfAborts          *timeseries.TimeSeries
+}
+
+type MysqlGroupReplication struct {
+	State       LabelLastValue
+	ClusterSize *timeseries.TimeSeries
+	Online      *timeseries.TimeSeries
+
+	TransactionsInQueue    *timeseries.TimeSeries
+	TransactionsApplyQueue *timeseries.TimeSeries
+	ConflictsDetected      *timeseries.TimeSeries
+}
+
+type MysqlInnodb struct {
+	BufferPoolReadRequests  *timeseries.TimeSeries
+	BufferPoolReads         *timeseries.TimeSeries
+	BufferPoolWriteRequests *timeseries.TimeSeries
+	BufferPoolPagesTotal    *timeseries.TimeSeries
+	BufferPoolPagesFree     *timeseries.TimeSeries
+	BufferPoolPagesDirty    *timeseries.TimeSeries
+	BufferPoolPagesData     *timeseries.TimeSeries
+	BufferPoolWaitFree      *timeseries.TimeSeries
+	BufferPoolPagesFlushed  *timeseries.TimeSeries
+	PageSize                *timeseries.TimeSeries
+
+	Deadlocks         *timeseries.TimeSeries
+	LockWaitTimeouts  *timeseries.TimeSeries
+	HistoryListLength *timeseries.TimeSeries
+
+	RowsRead     *timeseries.TimeSeries
+	RowsInserted *timeseries.TimeSeries
+	RowsUpdated  *timeseries.TimeSeries
+	RowsDeleted  *timeseries.TimeSeries
+
+	RowLockWaits        *timeseries.TimeSeries
+	RowLockTime         *timeseries.TimeSeries
+	RowLockCurrentWaits *timeseries.TimeSeries
+
+	DataReads   *timeseries.TimeSeries
+	DataWrites  *timeseries.TimeSeries
+	DataRead    *timeseries.TimeSeries
+	DataWritten *timeseries.TimeSeries
+	DataFsyncs  *timeseries.TimeSeries
+
+	LogWaits     *timeseries.TimeSeries
+	OsLogWritten *timeseries.TimeSeries
+
+	SortMergePasses *timeseries.TimeSeries
+
+	Commits   *timeseries.TimeSeries
+	Rollbacks *timeseries.TimeSeries
 }
 
 func NewMysql() *Mysql {
@@ -76,6 +160,8 @@ func NewMysql() *Mysql {
 		TablesIOTime:                   map[DbTableKey]*MysqlTableIOStats{},
 		DatabaseSize:                   map[string]*timeseries.TimeSeries{},
 		TableSize:                      map[DbTableKey]*timeseries.TimeSeries{},
+		TableSizeGrowth:                map[DbTableKey]*timeseries.TimeSeries{},
+		InnodbTransactions:             map[string]*timeseries.TimeSeries{},
 	}
 }
 

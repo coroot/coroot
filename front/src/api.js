@@ -93,8 +93,8 @@ export default class Api {
     }
 
     get(url, args, cb) {
-        const { from, to, incident, alert, rcaFrom, rcaTo } = this.router.currentRoute.query;
-        const params = { ...args, from, to, incident, alert, rcaFrom, rcaTo };
+        const { from, to, incident, alert } = this.router.currentRoute.query;
+        const params = { ...args, from, to, incident, alert };
         this.request({ method: 'get', url, params }, cb);
     }
 
@@ -308,8 +308,8 @@ export default class Api {
     }
 
     getRCA(appId, withSummary, cb) {
-        const { from, to, incident, alert, rcaFrom, rcaTo } = this.router.currentRoute.query;
-        const params = { withSummary, from, to, incident, alert, rcaFrom, rcaTo };
+        const { from, to, incident, alert } = this.router.currentRoute.query;
+        const params = { withSummary, from, to, incident, alert };
         const url = this.projectPath(`app/${encodeURIComponent(appId)}/rca`);
         this.request({ method: 'get', url, params, timeout: withSummary ? 300000 : 60000 }, cb);
     }

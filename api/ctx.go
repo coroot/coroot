@@ -66,7 +66,8 @@ type Application struct {
 }
 
 type Node struct {
-	Name string `json:"name"`
+	Name      string `json:"name"`
+	ClusterId string `json:"cluster_id"`
 }
 
 type License struct {
@@ -211,7 +212,8 @@ func renderSearch(w *model.World) Search {
 	}
 	for _, node := range w.Nodes {
 		search.Nodes = append(search.Nodes, Node{
-			Name: node.GetName(),
+			Name:      node.GetName(),
+			ClusterId: node.ClusterId,
 		})
 	}
 	return search

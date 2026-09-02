@@ -83,7 +83,7 @@ func Audit(w *model.World, p *db.Project, generateDetailedReportFor *model.Appli
 				}
 			}
 			switch r.Name {
-			case model.AuditReportPostgres, model.AuditReportMongodb, model.AuditReportRedis, model.AuditReportInstances, model.AuditReportSLO:
+			case model.AuditReportPostgres, model.AuditReportMongodb, model.AuditReportMysql, model.AuditReportRedis, model.AuditReportInstances, model.AuditReportSLO:
 				if app.Status < r.Status {
 					app.Status = r.Status
 				}

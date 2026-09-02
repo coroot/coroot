@@ -20,11 +20,12 @@ const (
 	ClusterManagerStackGres      ClusterManager = "stackgres"
 	ClusterManagerPerconaMongoDB ClusterManager = "percona-mongodb"
 	ClusterManagerPerconaXtraDB  ClusterManager = "percona-xtradb"
+	ClusterManagerPerconaServer  ClusterManager = "percona-server-mysql"
 )
 
 type ApplicationCluster struct {
 	Manager ClusterManager
-	Backups *PgBackups
+	Backups *DBBackups
 }
 
 type Application struct {

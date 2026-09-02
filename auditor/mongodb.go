@@ -165,7 +165,7 @@ func (a *appAuditor) mongodb() {
 	if b := a.app.Cluster.Backups; b != nil && a.app.Cluster.Manager == model.ClusterManagerPerconaMongoDB &&
 		(len(b.Methods) > 0 || b.Schedule != "" || len(b.Runs) > 0) {
 		backupCheck := report.CreateCheck(model.Checks.MongodbBackups)
-		mongoBackups(report, b, a.app.Id.Name, a.w.Ctx.To, backupCheck)
+		clusterBackups(report, b, a.app.Id.Name, a.w.Ctx.To, backupCheck)
 	}
 
 	mongoConfigurationHints(report, a.app)
@@ -758,14 +758,14 @@ func mongoStorage(report *model.AuditReport, i *model.Instance, check *model.Che
 	}
 }
 
-func mongoBackups(report *model.AuditReport, b *model.PgBackups, cluster string, now timeseries.Time, check *model.Check) {
+func clusterBackups(report *model.AuditReport, b *model.DBBackups, cluster string, now timeseries.Time, check *model.Check) {
 	var lastSuccess timeseries.Time
 	for _, m := range b.Methods {
 		if m.LastSuccessfulBackup > lastSuccess {
 			lastSuccess = m.LastSuccessfulBackup
 		}
 	}
-	var lastRun *model.PgBackupRun
+	var lastRun *model.DBBackupRun
 	for _, r := range b.Runs {
 		if r.Succeeded() && r.CompletedAt > lastSuccess {
 			lastSuccess = r.CompletedAt
@@ -908,4 +908,14 @@ func calcMongoPrimaryBaseline(app *model.Application) map[string]*timeseries.Agg
 		))
 	}
 	return res
+}
+
+func mongoDiskUsageFindings(instance *model.Instance, capacity float32, check *model.Check) {
+	mg := instance.Mongodb
+	if mg == nil {
+		return
+	}
+	if reportGrowers(instance.Name, check, tableGrowers("collection", mg.CollectionSizeGrowth, mg.CollectionStorageSize)) == 0 {
+		reportLargest(instance.Name, "collection", capacity, mg.CollectionStorageSize, mg.DatabaseSize, check)
+	}
 }

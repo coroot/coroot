@@ -209,6 +209,11 @@ func (instance *Instance) IsFailed() bool {
 	return instance.Pod != nil && instance.Pod.IsFailed()
 }
 
+func (instance *Instance) IsJobPod() bool {
+	return instance.Pod != nil &&
+		(instance.Pod.OwnerKind == ApplicationKindJob || instance.Pod.OwnerKind == ApplicationKindCronJob)
+}
+
 func (instance *Instance) UpAndRunning() *timeseries.TimeSeries {
 	mem := timeseries.NewAggregate(timeseries.Any)
 	for _, c := range instance.Containers {

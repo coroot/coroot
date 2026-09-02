@@ -1,7 +1,9 @@
 package auditor
 
 import (
+	"cmp"
 	"fmt"
+	"slices"
 
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
@@ -107,7 +109,7 @@ func (a *appAuditor) storage() {
 							spaceCheck.AddItem("%s:%s", i.Name, v.MountPoint)
 							if !investigated[i.Name] {
 								investigated[i.Name] = true
-								pgDiskUsageFindings(i, capacity, spaceCheck)
+								diskUsageFindings(i, capacity, a.w.Ctx, spaceCheck)
 							}
 						}
 					}
@@ -130,4 +132,121 @@ func (a *appAuditor) storage() {
 	if !seenVolumes {
 		a.delReport(model.AuditReportStorage)
 	}
+}
+
+const diskFindingMinGrowthBytes = 256 * 1024 * 1024
+const diskFindingSignificantFraction = 0.02
+
+func diskFindingMinGrowth(capacity float32) float32 {
+	minGrowth := float32(diskFindingMinGrowthBytes)
+	if capacity > 0 && capacity*diskFindingSignificantFraction > minGrowth {
+		minGrowth = capacity * diskFindingSignificantFraction
+	}
+	return minGrowth
+}
+
+func diskUsageFindings(i *model.Instance, capacity float32, ctx timeseries.Context, check *model.Check) {
+	switch {
+	case i.Postgres != nil:
+		pgDiskUsageFindings(i, capacity, ctx, check)
+	case i.Mysql != nil:
+		mysqlDiskUsageFindings(i, capacity, ctx, check)
+	case i.Mongodb != nil:
+		mongoDiskUsageFindings(i, capacity, check)
+	}
+}
+
+const diskFindingMinGrowthRateBytesPerSecond = 16 * 1024 // ~1.35 GB/day
+
+func avgGrowthRate(ts *timeseries.TimeSeries) float32 {
+	if ts.IsEmpty() {
+		return 0
+	}
+	var sum float32
+	var n int
+	iter := ts.Iter()
+	for iter.Next() {
+		if _, v := iter.Value(); !timeseries.IsNaN(v) {
+			sum += v
+			n++
+		}
+	}
+	if n == 0 {
+		return 0
+	}
+	return sum / float32(n)
+}
+
+type diskGrower struct {
+	name string
+	rate float32 // bytes/second
+	size float32 // current total size, 0 if unknown
+}
+
+func tableGrowers(noun string, growthRate, size map[model.DbTableKey]*timeseries.TimeSeries) []diskGrower {
+	var res []diskGrower
+	for k, ts := range growthRate {
+		if rate := avgGrowthRate(ts); rate >= diskFindingMinGrowthRateBytesPerSecond {
+			res = append(res, diskGrower{noun + " " + k.String(), rate, lastSize(size[k])})
+		}
+	}
+	return res
+}
+
+func seriesGrowthRate(ts *timeseries.TimeSeries, ctx timeseries.Context) (rate, size float32) {
+	window := float32(ctx.To - ctx.From)
+	if window <= 0 {
+		return 0, 0
+	}
+	growth, last := seriesGrowth(ts)
+	return growth / window, last
+}
+
+func reportGrowers(instanceName string, check *model.Check, growers []diskGrower) int {
+	slices.SortFunc(growers, func(a, b diskGrower) int { return cmp.Compare(b.rate, a.rate) })
+	growers = growers[:min(3, len(growers))]
+	for _, g := range growers {
+		if g.size > 0 {
+			check.AddDetail("%s: %s is growing at %s/s (%s total)", instanceName, g.name,
+				humanize.Bytes(uint64(g.rate)), humanize.Bytes(uint64(g.size)))
+		} else {
+			check.AddDetail("%s: %s is growing at %s/s", instanceName, g.name, humanize.Bytes(uint64(g.rate)))
+		}
+	}
+	return len(growers)
+}
+
+func reportLargest(instanceName, noun string, capacity float32, tableSize map[model.DbTableKey]*timeseries.TimeSeries, dbSize map[string]*timeseries.TimeSeries, check *model.Check) {
+	minSize := diskFindingMinGrowth(capacity)
+	type item struct {
+		name string
+		size float32
+	}
+	var items []item
+	for k, ts := range tableSize {
+		if s := lastSize(ts); s >= minSize {
+			items = append(items, item{noun + " " + k.String(), s})
+		}
+	}
+	if len(items) == 0 {
+		for db, ts := range dbSize {
+			if s := lastSize(ts); s >= minSize {
+				items = append(items, item{"database " + db, s})
+			}
+		}
+	}
+	slices.SortFunc(items, func(a, b item) int { return cmp.Compare(b.size, a.size) })
+	for _, it := range items[:min(3, len(items))] {
+		check.AddDetail("%s: %s is %s", instanceName, it.name, humanize.Bytes(uint64(it.size)))
+	}
+}
+
+func lastSize(ts *timeseries.TimeSeries) float32 {
+	if ts == nil {
+		return 0
+	}
+	if last := ts.Last(); !timeseries.IsNaN(last) {
+		return last
+	}
+	return 0
 }

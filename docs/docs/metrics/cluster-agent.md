@@ -455,6 +455,18 @@ Backup state is collected through the agent's embedded kube-state-metrics from t
 * **Source**: `performance_schema.events_statements_summary_by_digest`
 * **Labels**: schema, query
 
+### mysql_top_query_rows_examined_per_second
+* **Description**: Rows examined per second by the query (vs rows returned: a high ratio means a missing index)
+* **Type**: Gauge
+* **Source**: `performance_schema.events_statements_summary_by_digest`
+* **Labels**: schema, query
+
+### mysql_top_query_rows_sent_per_second
+* **Description**: Rows returned per second by the query
+* **Type**: Gauge
+* **Source**: `performance_schema.events_statements_summary_by_digest`
+* **Labels**: schema, query
+
 ### Lock waits
 
 The agent samples `performance_schema.data_lock_waits` on each scrape and reports the current
@@ -519,6 +531,11 @@ is the obfuscated statement digest of the query holding the lock.
 * **Type**: Counter
 * **Source**: `SHOW GLOBAL STATUS` (`Aborted_connects`)
 
+### mysql_connection_errors_max_connections_total
+* **Description**: Number of connections refused because max_connections was reached
+* **Type**: Counter
+* **Source**: `SHOW GLOBAL STATUS`
+
 ### Traffic metrics
 
 ### mysql_traffic_received_bytes_total
@@ -577,6 +594,320 @@ The agent collects database and table size metrics from `information_schema.tabl
 * **Type**: Gauge
 * **Source**: Computed from consecutive `information_schema.tables` measurements
 * **Labels**: db, table
+
+### Server load metrics
+
+### mysql_threads_running
+* **Description**: Number of threads that are not sleeping
+* **Type**: Gauge
+* **Source**: `SHOW GLOBAL STATUS`
+
+### mysql_created_tmp_disk_tables_total
+* **Description**: Number of internal on-disk temporary tables created (sorts/joins spilling to disk)
+* **Type**: Counter
+* **Source**: `SHOW GLOBAL STATUS`
+
+### InnoDB buffer pool
+
+The buffer pool is InnoDB's page cache. Page counts are reported as-is; multiply by
+`mysql_innodb_page_size_bytes` to get bytes. The hit rate is
+`1 - mysql_innodb_buffer_pool_reads_total / mysql_innodb_buffer_pool_read_requests_total`: a
+falling hit rate means the working set no longer fits and reads are going to disk.
+
+### mysql_innodb_buffer_pool_read_requests_total
+* **Description**: Logical read requests to the InnoDB buffer pool
+* **Type**: Counter
+* **Source**: `SHOW GLOBAL STATUS`
+
+### mysql_innodb_buffer_pool_reads_total
+* **Description**: Read requests that could not be satisfied from the buffer pool and went to disk
+* **Type**: Counter
+* **Source**: `SHOW GLOBAL STATUS`
+
+### mysql_innodb_buffer_pool_write_requests_total
+* **Description**: Writes done to the InnoDB buffer pool
+* **Type**: Counter
+* **Source**: `SHOW GLOBAL STATUS`
+
+### mysql_innodb_buffer_pool_pages_total
+* **Description**: Total pages in the InnoDB buffer pool
+* **Type**: Gauge
+* **Source**: `SHOW GLOBAL STATUS`
+
+### mysql_innodb_buffer_pool_pages_free
+* **Description**: Free pages in the InnoDB buffer pool
+* **Type**: Gauge
+* **Source**: `SHOW GLOBAL STATUS`
+
+### mysql_innodb_buffer_pool_pages_dirty
+* **Description**: Dirty (modified, not yet flushed) pages in the buffer pool
+* **Type**: Gauge
+* **Source**: `SHOW GLOBAL STATUS`
+
+### mysql_innodb_buffer_pool_pages_data
+* **Description**: Pages holding data (clean + dirty) in the buffer pool
+* **Type**: Gauge
+* **Source**: `SHOW GLOBAL STATUS`
+
+### mysql_innodb_buffer_pool_wait_free_total
+* **Description**: Times a write had to wait for a free buffer-pool page (buffer pool pressure)
+* **Type**: Counter
+* **Source**: `SHOW GLOBAL STATUS`
+
+### mysql_innodb_buffer_pool_pages_flushed_total
+* **Description**: Buffer-pool pages flushed to disk
+* **Type**: Counter
+* **Source**: `SHOW GLOBAL STATUS`
+
+### mysql_innodb_page_size_bytes
+* **Description**: InnoDB page size in bytes (converts buffer-pool page counts to bytes)
+* **Type**: Gauge
+* **Source**: `SHOW GLOBAL VARIABLES`
+
+### InnoDB row operations and transactions
+
+### mysql_innodb_rows_read_total
+* **Description**: Rows read by InnoDB
+* **Type**: Counter
+* **Source**: `SHOW GLOBAL STATUS`
+
+### mysql_innodb_rows_inserted_total
+* **Description**: Rows inserted by InnoDB
+* **Type**: Counter
+* **Source**: `SHOW GLOBAL STATUS`
+
+### mysql_innodb_rows_updated_total
+* **Description**: Rows updated by InnoDB
+* **Type**: Counter
+* **Source**: `SHOW GLOBAL STATUS`
+
+### mysql_innodb_rows_deleted_total
+* **Description**: Rows deleted by InnoDB
+* **Type**: Counter
+* **Source**: `SHOW GLOBAL STATUS`
+
+### mysql_commit_total
+* **Description**: COMMIT statements executed
+* **Type**: Counter
+* **Source**: `SHOW GLOBAL STATUS`
+
+### mysql_rollback_total
+* **Description**: ROLLBACK statements executed
+* **Type**: Counter
+* **Source**: `SHOW GLOBAL STATUS`
+
+### mysql_sort_merge_passes_total
+* **Description**: Merge passes for sorts that spilled to disk (sort_buffer_size too small)
+* **Type**: Counter
+* **Source**: `SHOW GLOBAL STATUS`
+
+### InnoDB I/O and redo log
+
+### mysql_innodb_data_reads_total
+* **Description**: InnoDB data read operations (OS reads)
+* **Type**: Counter
+* **Source**: `SHOW GLOBAL STATUS`
+
+### mysql_innodb_data_writes_total
+* **Description**: InnoDB data write operations (OS writes)
+* **Type**: Counter
+* **Source**: `SHOW GLOBAL STATUS`
+
+### mysql_innodb_data_read_bytes_total
+* **Description**: Bytes read by InnoDB
+* **Type**: Counter
+* **Source**: `SHOW GLOBAL STATUS`
+
+### mysql_innodb_data_written_bytes_total
+* **Description**: Bytes written by InnoDB
+* **Type**: Counter
+* **Source**: `SHOW GLOBAL STATUS`
+
+### mysql_innodb_data_fsyncs_total
+* **Description**: InnoDB fsync() operations
+* **Type**: Counter
+* **Source**: `SHOW GLOBAL STATUS`
+
+### mysql_innodb_log_waits_total
+* **Description**: Times a write had to wait for the redo log buffer to be flushed
+* **Type**: Counter
+* **Source**: `SHOW GLOBAL STATUS`
+
+### mysql_innodb_os_log_written_bytes_total
+* **Description**: Bytes written to the InnoDB redo log
+* **Type**: Counter
+* **Source**: `SHOW GLOBAL STATUS`
+
+### Lock and contention metrics
+
+Row-lock counters come from `SHOW GLOBAL STATUS`. Deadlocks, lock-wait timeouts and the undo history
+list are not exposed there, so they are read from `information_schema.INNODB_METRICS` (requires
+the `PROCESS` privilege). A growing history list means purge is lagging behind a long-running
+transaction.
+
+### mysql_innodb_row_lock_waits_total
+* **Description**: Number of times a row lock had to be waited for
+* **Type**: Counter
+* **Source**: `SHOW GLOBAL STATUS`
+
+### mysql_innodb_row_lock_time_seconds_total
+* **Description**: Total time spent waiting for InnoDB row locks, seconds
+* **Type**: Counter
+* **Source**: `SHOW GLOBAL STATUS`
+
+### mysql_innodb_row_lock_current_waits
+* **Description**: Row locks currently being waited for
+* **Type**: Gauge
+* **Source**: `SHOW GLOBAL STATUS`
+
+### mysql_table_locks_waited_total
+* **Description**: Table-lock requests that had to wait (LOCK TABLES, MyISAM, DDL metadata locks)
+* **Type**: Counter
+* **Source**: `SHOW GLOBAL STATUS`
+
+### mysql_table_locks_immediate_total
+* **Description**: Table-lock requests granted immediately
+* **Type**: Counter
+* **Source**: `SHOW GLOBAL STATUS`
+
+### mysql_innodb_deadlocks_total
+* **Description**: Transactions rolled back by InnoDB deadlocks
+* **Type**: Counter
+* **Source**: `information_schema.INNODB_METRICS`
+
+### mysql_innodb_lock_wait_timeouts_total
+* **Description**: Transactions rolled back after waiting innodb_lock_wait_timeout for a row lock
+* **Type**: Counter
+* **Source**: `information_schema.INNODB_METRICS`
+
+### mysql_innodb_history_list_length
+* **Description**: Undo records not yet purged (history list length); grows while a long transaction holds them
+* **Type**: Gauge
+* **Source**: `information_schema.INNODB_METRICS`
+
+### mysql_innodb_transaction_seconds
+* **Description**: Age of the longest-running active InnoDB transactions, by query shape
+* **Type**: Gauge
+* **Source**: `information_schema.innodb_trx`
+* **Labels**: query
+
+### Galera metrics
+
+Collected when the instance is part of a Galera cluster (Percona XtraDB Cluster, MariaDB Galera),
+detected by the presence of `wsrep_cluster_size` in `SHOW GLOBAL STATUS`. Flow control is reported as a
+counter of seconds, so `rate()` gives the fraction of time writes were paused.
+
+### mysql_wsrep_cluster_size
+* **Description**: Number of nodes in the Galera cluster component
+* **Type**: Gauge
+* **Source**: `SHOW GLOBAL STATUS`
+
+### mysql_wsrep_cluster_status
+* **Description**: Status of the cluster component this node is in (Primary means it has quorum)
+* **Type**: Gauge
+* **Source**: `SHOW GLOBAL STATUS`
+* **Labels**: status
+
+### mysql_wsrep_local_state
+* **Description**: Current Galera node state (1), with the state name in the label
+* **Type**: Gauge
+* **Source**: `SHOW GLOBAL STATUS`
+* **Labels**: state
+
+### mysql_wsrep_ready
+* **Description**: Whether the node can accept queries (1 = ON)
+* **Type**: Gauge
+* **Source**: `SHOW GLOBAL STATUS`
+
+### mysql_wsrep_connected
+* **Description**: Whether the node is connected to the cluster (1 = ON)
+* **Type**: Gauge
+* **Source**: `SHOW GLOBAL STATUS`
+
+### mysql_wsrep_flow_control_paused_seconds_total
+* **Description**: Total time writes were paused by flow control
+* **Type**: Counter
+* **Source**: `SHOW GLOBAL STATUS`
+
+### mysql_wsrep_local_recv_queue
+* **Description**: Current number of write-sets waiting to be applied on this node
+* **Type**: Gauge
+* **Source**: `SHOW GLOBAL STATUS`
+
+### mysql_wsrep_local_send_queue
+* **Description**: Current number of write-sets waiting to be sent from this node
+* **Type**: Gauge
+* **Source**: `SHOW GLOBAL STATUS`
+
+### mysql_wsrep_local_cert_failures_total
+* **Description**: Number of transactions that failed certification (write conflicts)
+* **Type**: Counter
+* **Source**: `SHOW GLOBAL STATUS`
+
+### mysql_wsrep_local_bf_aborts_total
+* **Description**: Number of local transactions aborted by replication (brute-force aborts)
+* **Type**: Counter
+* **Source**: `SHOW GLOBAL STATUS`
+
+### Group Replication metrics
+
+Collected when `group_replication_group_name` is set.
+
+### mysql_group_replication_member_state
+* **Description**: Group Replication state of this member (1), with the state name in the label
+* **Type**: Gauge
+* **Source**: `performance_schema.replication_group_members`
+* **Labels**: state
+
+### mysql_group_replication_cluster_size
+* **Description**: Number of members in the Group Replication group
+* **Type**: Gauge
+* **Source**: `performance_schema.replication_group_members`
+
+### mysql_group_replication_members_online
+* **Description**: Number of members currently ONLINE in the group
+* **Type**: Gauge
+* **Source**: `performance_schema.replication_group_members`
+
+### mysql_group_replication_transactions_in_queue
+* **Description**: Transactions waiting in the certification queue on this member
+* **Type**: Gauge
+* **Source**: `performance_schema.replication_group_member_stats`
+
+### mysql_group_replication_transactions_remote_in_applier_queue
+* **Description**: Remote transactions waiting to be applied on this member
+* **Type**: Gauge
+* **Source**: `performance_schema.replication_group_member_stats`
+
+### mysql_group_replication_conflicts_detected_total
+* **Description**: Number of transactions that failed certification (conflicts) on this member
+* **Type**: Counter
+* **Source**: `performance_schema.replication_group_member_stats`
+
+### Binary log and undo metrics
+
+Binary logs and undo tablespaces grow independently of table data and are a common cause of a full
+data volume. If binary logging is disabled the binary log query is skipped.
+
+### mysql_binlog_size_bytes
+* **Description**: Total size of the binary logs on disk
+* **Type**: Gauge
+* **Source**: `SHOW BINARY LOGS`
+
+### mysql_binlog_files
+* **Description**: Number of binary log files on disk
+* **Type**: Gauge
+* **Source**: `SHOW BINARY LOGS`
+
+### mysql_binlog_expire_seconds
+* **Description**: binlog_expire_logs_seconds; 0 means binary logs are never purged automatically
+* **Type**: Gauge
+* **Source**: `SHOW GLOBAL VARIABLES` (`binlog_expire_logs_seconds`, or `expire_logs_days` on older MySQL and MariaDB)
+
+### mysql_undo_size_bytes
+* **Description**: Total size of the InnoDB undo tablespaces on disk
+* **Type**: Gauge
+* **Source**: `information_schema.INNODB_TABLESPACES` (`INNODB_SYS_TABLESPACES` on MariaDB)
 
 ## MongoDB
 

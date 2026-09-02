@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/dustin/go-humanize"
 	"github.com/robfig/cron/v3"
 
 	"github.com/coroot/coroot/model"
@@ -59,7 +58,7 @@ const (
 
 const pgBackupScheduleGrace = 15 * timeseries.Minute
 
-func pgBackupSchedule(b *model.PgBackups) cron.Schedule {
+func pgBackupSchedule(b *model.DBBackups) cron.Schedule {
 	schedule := b.Schedule
 	if schedule == "" {
 		for _, m := range b.Methods {
@@ -79,14 +78,14 @@ func pgBackupSchedule(b *model.PgBackups) cron.Schedule {
 	return sched
 }
 
-func pgNextScheduledBackup(b *model.PgBackups, now timeseries.Time) timeseries.Time {
+func pgNextScheduledBackup(b *model.DBBackups, now timeseries.Time) timeseries.Time {
 	if sched := pgBackupSchedule(b); sched != nil {
 		return timeseries.TimeFromStandard(sched.Next(now.ToStandard()))
 	}
 	return b.NextScheduledBackup
 }
 
-func pgBackupInProgress(b *model.PgBackups) bool {
+func pgBackupInProgress(b *model.DBBackups) bool {
 	for _, r := range b.Runs {
 		if r.Succeeded() || r.CompletedAt > 0 {
 			continue
@@ -100,7 +99,7 @@ func pgBackupInProgress(b *model.PgBackups) bool {
 	return false
 }
 
-func pgBackupOverdue(b *model.PgBackups, lastSuccess timeseries.Time, now timeseries.Time) (bool, timeseries.Duration) {
+func pgBackupOverdue(b *model.DBBackups, lastSuccess timeseries.Time, now timeseries.Time) (bool, timeseries.Duration) {
 	if pgBackupInProgress(b) {
 		return false, 0
 	}
@@ -343,7 +342,7 @@ func pgMethodLabel(name string) string {
 	return name
 }
 
-func pgBackupFailureHint(conds map[string]model.PgBackupCondition) string {
+func pgBackupFailureHint(conds map[string]model.DBBackupCondition) string {
 	for _, t := range []string{"PGBackRestReplicaRepoReady", "PGBackRestRepoHostReady", "PGBackRestReplicaCreate", "LastBackupSucceeded", "ContinuousArchiving"} {
 		if c, ok := conds[t]; ok && c.Status == "False" && c.Reason != "" {
 			return pgConditionHint(c.Reason)
@@ -363,7 +362,7 @@ func pgConditionHint(reason string) string {
 	}
 }
 
-func pgBackups(report *model.AuditReport, b *model.PgBackups, instances []*model.Instance, cluster string, now timeseries.Time, check *model.Check) {
+func pgBackups(report *model.AuditReport, b *model.DBBackups, instances []*model.Instance, cluster string, now timeseries.Time, check *model.Check) {
 	var lastSuccess timeseries.Time
 	consider := func(t timeseries.Time) {
 		if t > 0 && t > lastSuccess {
@@ -518,7 +517,7 @@ func pgBackups(report *model.AuditReport, b *model.PgBackups, instances []*model
 	pgBackupRuns(report, b.Runs, now, check)
 }
 
-func pgBackupRuns(report *model.AuditReport, runs []*model.PgBackupRun, now timeseries.Time, check *model.Check) {
+func pgBackupRuns(report *model.AuditReport, runs []*model.DBBackupRun, now timeseries.Time, check *model.Check) {
 	if len(runs) == 0 {
 		return
 	}
@@ -526,11 +525,11 @@ func pgBackupRuns(report *model.AuditReport, runs []*model.PgBackupRun, now time
 	if table == nil {
 		return
 	}
-	completed := func(r *model.PgBackupRun) float32 {
+	completed := func(r *model.DBBackupRun) float32 {
 		return float32(r.CompletedAt)
 	}
-	sorted := append([]*model.PgBackupRun(nil), runs...)
-	slices.SortFunc(sorted, func(a, b *model.PgBackupRun) int {
+	sorted := append([]*model.DBBackupRun(nil), runs...)
+	slices.SortFunc(sorted, func(a, b *model.DBBackupRun) int {
 		return cmp.Compare(completed(b), completed(a))
 	})
 	const maxRuns = 20
@@ -1399,63 +1398,49 @@ func pgPrimaryInstance(instances []*model.Instance) *model.Instance {
 	return nil
 }
 
-const pgDiskFindingMinGrowthBytes = 256 * 1024 * 1024
-const pgDiskFindingSignificantFraction = 0.02
-
-func pgDiskUsageFindings(instance *model.Instance, capacity float32, check *model.Check) {
-	if instance.Postgres == nil {
+func pgDiskUsageFindings(instance *model.Instance, capacity float32, ctx timeseries.Context, check *model.Check) {
+	pg := instance.Postgres
+	if pg == nil {
 		return
 	}
-	minGrowth := float32(pgDiskFindingMinGrowthBytes)
-	if capacity > 0 && capacity*pgDiskFindingSignificantFraction > minGrowth {
-		minGrowth = capacity * pgDiskFindingSignificantFraction
-	}
-	type consumer struct {
-		name   string
-		growth float32
-		size   float32
-	}
-	var consumers []consumer
-	for k, ts := range instance.Postgres.TableSize {
-		if growth, size := seriesGrowth(ts); growth > minGrowth {
-			name := "table " + k.String()
-			if bloatGrowth, _ := seriesGrowth(instance.Postgres.TableBloat[k]); bloatGrowth > growth/2 {
-				name += " (mostly bloat, consider reclaiming with pg_repack)"
-			}
-			consumers = append(consumers, consumer{name: name, growth: growth, size: size})
+	growers := tableGrowers("table", pg.TableSizeGrowth, pg.TableSize)
+	bloatRate := map[string]float32{}
+	for k, ts := range pg.TableBloat {
+		if rate, _ := seriesGrowthRate(ts, ctx); rate > 0 {
+			bloatRate["table "+k.String()] = rate
 		}
 	}
-	if growth, size := seriesGrowth(instance.Postgres.WalSize); growth > minGrowth {
+	for i := range growers {
+		if bloatRate[growers[i].name] > growers[i].rate/2 {
+			growers[i].name += " (mostly bloat, consider reclaiming with pg_repack)"
+		}
+	}
+	if rate, size := seriesGrowthRate(pg.WalSize, ctx); rate >= diskFindingMinGrowthRateBytesPerSecond {
 		name := "WAL directory"
-		if pgArchivingIsFailing(instance.Postgres) {
+		if pgArchivingIsFailing(pg) {
 			name = "WAL directory (archiving is failing, WAL cannot be recycled)"
 		}
-		consumers = append(consumers, consumer{name: name, growth: growth, size: size})
+		growers = append(growers, diskGrower{name, rate, size})
 	}
-	for name, slot := range instance.Postgres.ReplicationSlots {
-		if growth, size := seriesGrowth(slot.RetainedWal); growth > minGrowth {
-			state := "active"
-			if slot.Active.Value() != "true" {
-				state = "inactive"
-			}
-			if ws := slot.WalStatus.Value(); ws != "" && ws != "reserved" {
-				state += ", " + ws
-			}
-			consumers = append(consumers, consumer{name: fmt.Sprintf("replication slot '%s' (%s)", name, state), growth: growth, size: size})
+	for name, slot := range pg.ReplicationSlots {
+		if rate, size := seriesGrowthRate(slot.RetainedWal, ctx); rate >= diskFindingMinGrowthRateBytesPerSecond {
+			growers = append(growers, diskGrower{fmt.Sprintf("replication slot '%s' (%s)", name, pgSlotState(slot)), rate, size})
 		}
 	}
-	if len(consumers) == 0 {
-		for db, ts := range instance.Postgres.DatabaseSize {
-			if growth, size := seriesGrowth(ts); growth > minGrowth {
-				consumers = append(consumers, consumer{name: "database " + db, growth: growth, size: size})
-			}
-		}
+	if reportGrowers(instance.Name, check, growers) == 0 {
+		reportLargest(instance.Name, "table", capacity, pg.TableSize, pg.DatabaseSize, check)
 	}
-	slices.SortFunc(consumers, func(a, b consumer) int { return cmp.Compare(b.growth, a.growth) })
-	for _, c := range consumers[:min(3, len(consumers))] {
-		check.AddDetail("%s: %s grew by %s (%s total)", instance.Name, c.name,
-			humanize.Bytes(uint64(c.growth)), humanize.Bytes(uint64(c.size)))
+}
+
+func pgSlotState(slot *model.PgReplicationSlot) string {
+	state := "active"
+	if slot.Active.Value() != "true" {
+		state = "inactive"
 	}
+	if ws := slot.WalStatus.Value(); ws != "" && ws != "reserved" {
+		state += ", " + ws
+	}
+	return state
 }
 
 const pgIOFindingMinWait = 0.5

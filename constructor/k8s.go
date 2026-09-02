@@ -220,6 +220,7 @@ func (c *Constructor) podInfo(w *model.World, metrics []*model.MetricValues, job
 			if instance.Pod == nil {
 				instance.Pod = &model.Pod{}
 			}
+			instance.Pod.OwnerKind = ownerKind
 			if ownerKind == model.ApplicationKindReplicaSet {
 				instance.Pod.ReplicaSet = ownerName
 			}
@@ -294,6 +295,9 @@ func podLabels(metrics []*model.MetricValues, pods map[string]*model.Instance) {
 		case m.Labels["label_app_kubernetes_io_managed_by"] == "percona-xtradb-cluster-operator":
 			cluster = m.Labels["label_app_kubernetes_io_instance"]
 			manager = model.ClusterManagerPerconaXtraDB
+		case m.Labels["label_app_kubernetes_io_managed_by"] == "percona-server-mysql-operator":
+			cluster = m.Labels["label_app_kubernetes_io_instance"]
+			manager = model.ClusterManagerPerconaServer
 		case m.Labels["label_app_kubernetes_io_managed_by"] == "valkey-operator":
 			cluster = m.Labels["label_valkey_io_cluster"]
 		case strings.HasPrefix(m.Labels["label_helm_sh_chart"], "mongodb"):

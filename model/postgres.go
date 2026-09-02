@@ -64,46 +64,6 @@ type PgReplicationSlot struct {
 	RetainedWal *timeseries.TimeSeries
 }
 
-type PgBackups struct {
-	Schedule            string
-	NextScheduledBackup timeseries.Time
-	RetentionPolicy     string
-	Methods             map[string]*PgBackupMethod
-	LastFailedBackup    timeseries.Time
-	Conditions          map[string]PgBackupCondition
-	Runs                []*PgBackupRun
-}
-
-type PgBackupMethod struct {
-	Destination              string
-	Endpoint                 string
-	Schedule                 string
-	LastSuccessfulBackup     timeseries.Time
-	FirstRecoverabilityPoint timeseries.Time
-}
-
-type PgBackupRun struct {
-	Name        string
-	Method      string
-	Kind        string
-	Destination string
-	Status      string
-	CompletedAt timeseries.Time
-}
-
-func (r *PgBackupRun) Succeeded() bool {
-	switch r.Status {
-	case "Succeeded", "completed", "ready":
-		return true
-	}
-	return false
-}
-
-type PgBackupCondition struct {
-	Status string
-	Reason string
-}
-
 type Postgres struct {
 	Up *timeseries.TimeSeries
 
@@ -149,8 +109,9 @@ type Postgres struct {
 	WalSinceLastCheckpoint     *timeseries.TimeSeries
 	BuffersWrittenBySource     map[string]*timeseries.TimeSeries
 
-	DatabaseSize map[string]*timeseries.TimeSeries
-	TableSize    map[DbTableKey]*timeseries.TimeSeries
+	DatabaseSize    map[string]*timeseries.TimeSeries
+	TableSize       map[DbTableKey]*timeseries.TimeSeries
+	TableSizeGrowth map[DbTableKey]*timeseries.TimeSeries
 
 	DatabaseTableBloat map[string]*timeseries.TimeSeries
 	DatabaseIndexBloat map[string]*timeseries.TimeSeries
@@ -188,6 +149,7 @@ func NewPostgres() *Postgres {
 		BuffersWrittenBySource:        map[string]*timeseries.TimeSeries{},
 		DatabaseSize:                  map[string]*timeseries.TimeSeries{},
 		TableSize:                     map[DbTableKey]*timeseries.TimeSeries{},
+		TableSizeGrowth:               map[DbTableKey]*timeseries.TimeSeries{},
 		DatabaseTableBloat:            map[string]*timeseries.TimeSeries{},
 		DatabaseIndexBloat:            map[string]*timeseries.TimeSeries{},
 		TableBloat:                    map[DbTableKey]*timeseries.TimeSeries{},

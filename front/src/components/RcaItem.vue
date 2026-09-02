@@ -114,8 +114,8 @@ export default {
                 },
                 query: {
                     query: JSON.stringify({ hash: hyp.log_pattern.hash, view: 'messages' }),
-                    from: this.$route.query.rcaFrom,
-                    to: this.$route.query.rcaTo,
+                    from: this.$route.query.from,
+                    to: this.$route.query.to,
                 },
             };
         },

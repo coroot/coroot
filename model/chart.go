@@ -471,30 +471,42 @@ func EventsToAnnotations(events []*ApplicationEvent, ctx timeseries.Context) []A
 		icon := ""
 		var link *RouterLink
 		var msgs []string
+		count := map[string]int{}
 		for _, e := range a.events {
-			i := ""
+			i, msg := "", ""
 			switch e.Type {
 			case ApplicationEventTypeRollout:
-				msgs = append(msgs, "deployment "+e.Details)
+				msg = "deployment " + e.Details
 				i = "mdi-swap-horizontal-circle-outline"
 			case ApplicationEventTypeSwitchover:
-				msgs = append(msgs, "switchover "+e.Details)
+				msg = "switchover " + e.Details
 				i = "mdi-database-sync-outline"
 			case ApplicationEventTypeInstanceUp:
-				msgs = append(msgs, e.Details+" is up")
+				msg = e.Details + " is up"
 				i = "mdi-alert-octagon-outline"
 			case ApplicationEventTypeInstanceDown:
-				msgs = append(msgs, e.Details+" is down")
+				msg = e.Details + " is down"
 				i = "mdi-alert-octagon-outline"
 			case ApplicationEventTypeDbChange:
-				msgs = append(msgs, e.Details+" changed")
+				msg = e.Details + " changed"
 				i = "mdi-database-cog-outline"
+			}
+			if msg != "" {
+				if count[msg] == 0 {
+					msgs = append(msgs, msg)
+				}
+				count[msg]++
 			}
 			if icon == "" {
 				icon = i
 			}
 			if link == nil {
 				link = e.Link
+			}
+		}
+		for i, msg := range msgs {
+			if n := count[msg]; n > 1 {
+				msgs[i] = fmt.Sprintf("%s (×%d)", msg, n)
 			}
 		}
 		res = append(res, Annotation{

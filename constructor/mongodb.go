@@ -174,6 +174,9 @@ func mongodb(instance *model.Instance, queryName string, m *model.MetricValues, 
 	case "mongo_collection_storage_size_bytes":
 		key := model.DbTableKey{Db: m.Labels["db"], Table: m.Labels["collection"]}
 		mongo.CollectionStorageSize[key] = merge(mongo.CollectionStorageSize[key], m.Values, timeseries.Any)
+	case "mongo_collection_size_growth_bytes_per_second":
+		key := model.DbTableKey{Db: m.Labels["db"], Table: m.Labels["collection"]}
+		mongo.CollectionSizeGrowth[key] = merge(mongo.CollectionSizeGrowth[key], m.Values, timeseries.Any)
 	case "mongo_collection_free_storage_bytes":
 		key := model.DbTableKey{Db: m.Labels["db"], Table: m.Labels["collection"]}
 		mongo.CollectionFreeStorage[key] = merge(mongo.CollectionFreeStorage[key], m.Values, timeseries.Any)
@@ -208,23 +211,23 @@ func loadMongoBackups(w *model.World, metrics map[string][]*model.MetricValues, 
 		return
 	}
 
-	getOrCreateBackup := func(ns, name string) *model.PgBackups {
+	getOrCreateBackup := func(ns, name string) *model.DBBackups {
 		app := clustersByKey[ns+"/"+name]
 		if app == nil {
 			return nil
 		}
 		if app.Cluster.Backups == nil {
-			app.Cluster.Backups = &model.PgBackups{
-				Methods:    map[string]*model.PgBackupMethod{},
-				Conditions: map[string]model.PgBackupCondition{},
+			app.Cluster.Backups = &model.DBBackups{
+				Methods:    map[string]*model.DBBackupMethod{},
+				Conditions: map[string]model.DBBackupCondition{},
 			}
 		}
 		return app.Cluster.Backups
 	}
-	method := func(b *model.PgBackups, name string) *model.PgBackupMethod {
+	method := func(b *model.DBBackups, name string) *model.DBBackupMethod {
 		m := b.Methods[name]
 		if m == nil {
-			m = &model.PgBackupMethod{}
+			m = &model.DBBackupMethod{}
 			b.Methods[name] = m
 		}
 		return m
@@ -264,17 +267,17 @@ func loadMongoBackups(w *model.World, metrics map[string][]*model.MetricValues, 
 		if b == nil || m.Values.Last() != 1 {
 			continue
 		}
-		b.Conditions["state"] = model.PgBackupCondition{Status: m.Labels["status"]}
+		b.Conditions["state"] = model.DBBackupCondition{Status: m.Labels["status"]}
 	}
 	for _, m := range metrics["mongo_backup_pitr_info"] {
 		b := getOrCreateBackup(m.Labels["namespace"], m.Labels["name"])
 		if b == nil || m.Values.Last() != 1 {
 			continue
 		}
-		b.Conditions["pitr"] = model.PgBackupCondition{Status: m.Labels["enabled"]}
+		b.Conditions["pitr"] = model.DBBackupCondition{Status: m.Labels["enabled"]}
 	}
 
-	runsByKey := map[string]*model.PgBackupRun{}
+	runsByKey := map[string]*model.DBBackupRun{}
 	for _, m := range metrics["mongo_backup_info"] {
 		b := getOrCreateBackup(m.Labels["namespace"], m.Labels["cluster"])
 		if b == nil || m.Values.Last() != 1 {
@@ -284,7 +287,7 @@ func loadMongoBackups(w *model.World, metrics map[string][]*model.MetricValues, 
 		if kind == "" {
 			kind = m.Labels["method"]
 		}
-		r := &model.PgBackupRun{
+		r := &model.DBBackupRun{
 			Name:        m.Labels["name"],
 			Method:      m.Labels["method"],
 			Kind:        kind,

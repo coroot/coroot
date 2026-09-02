@@ -623,16 +623,26 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]*model
 func serviceEndpointInstance(svc *model.Service, instancesByListen map[model.Listen]*model.Instance) *model.Instance {
 	var res *model.Instance
 	for ep := range svc.Endpoints {
-		i := instancesByListen[model.Listen{IP: ep.IP().String(), Port: strconv.Itoa(int(ep.Port()))}]
+		ip := ep.IP().String()
+		i := instancesByListen[model.Listen{IP: ip, Port: strconv.Itoa(int(ep.Port()))}]
+		if i == nil {
+			i = instancesByListen[model.Listen{IP: ip, Port: "0"}]
+		}
+		i = freshestSameNameInstance(i)
 		if i == nil {
 			continue
 		}
-		if res != nil && res.Owner != i.Owner {
+		if res != nil && res.Owner != i.Owner && !sameDBCluster(res, i) {
 			return nil
 		}
 		res = i
 	}
 	return res
+}
+
+func sameDBCluster(a, b *model.Instance) bool {
+	c := a.ClusterName.Value()
+	return c != "" && c == b.ClusterName.Value()
 }
 
 func getOrCreateConnection(instance *model.Instance, m *model.MetricValues) *model.Connection {

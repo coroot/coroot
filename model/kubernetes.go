@@ -79,5 +79,33 @@ func (svc *Service) GetDestinationApplication() *Application {
 			return app
 		}
 	}
+	if len(svc.DestinationApps) > 1 {
+		var chosen *Application
+		cluster := ""
+		for _, app := range svc.DestinationApps {
+			c := app.databaseClusterName()
+			if c == "" {
+				return nil
+			}
+			if cluster == "" {
+				cluster = c
+			} else if c != cluster {
+				return nil
+			}
+			if chosen == nil || len(app.Instances) > len(chosen.Instances) {
+				chosen = app
+			}
+		}
+		return chosen
+	}
 	return nil
+}
+
+func (app *Application) databaseClusterName() string {
+	for _, i := range app.Instances {
+		if c := i.ClusterName.Value(); c != "" {
+			return c
+		}
+	}
+	return ""
 }

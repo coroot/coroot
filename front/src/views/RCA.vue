@@ -18,7 +18,7 @@
 
                 <div class="grey--text mb-2 mt-1">
                     <v-icon size="18" style="vertical-align: baseline">mdi-lightbulb-on-outline</v-icon>
-                    Select a chart area to identify the root cause of an anomaly
+                    Drag across a chart to zoom into the anomaly's time range
                 </div>
 
                 <v-row>
@@ -28,8 +28,8 @@
                             :chart="rca.latency_chart"
                             class="my-5 chart"
                             :loading="loading"
-                            @select="explainAnomaly"
-                            :selection="selection"
+                            @select="zoom"
+                            :selection="{}"
                         />
                     </v-col>
                     <v-col cols="12" md="6">
@@ -38,8 +38,8 @@
                             :chart="rca.errors_chart"
                             class="my-5 chart"
                             :loading="loading"
-                            @select="explainAnomaly"
-                            :selection="selection"
+                            @select="zoom"
+                            :selection="{}"
                         />
                     </v-col>
                 </v-row>
@@ -160,15 +160,7 @@ export default {
             loading: false,
             show_details: false,
             error: '',
-            selection: { mode: '', from: this.$route.query.rcaFrom || 0, to: this.$route.query.rcaTo || 0 },
         };
-    },
-
-    watch: {
-        '$route.query'() {
-            this.selection.from = this.$route.query.rcaFrom || 0;
-            this.selection.to = this.$route.query.rcaTo || 0;
-        },
     },
 
     mounted() {
@@ -180,11 +172,9 @@ export default {
         toggle_rca_details() {
             this.show_details = !this.show_details;
         },
-        explainAnomaly(s) {
-            this.selection.from = s.selection.from;
-            this.selection.to = s.selection.to;
-            this.$router.push({ query: { ...this.$route.query, rcaFrom: s.selection.from, rcaTo: s.selection.to, ...s.ctx } });
-            this.get();
+        zoom(s) {
+            const { from, to } = s.selection;
+            this.$router.push({ query: { ...this.$route.query, from, to } }).catch((err) => err);
         },
         get(withSummary) {
             this.loading = true;

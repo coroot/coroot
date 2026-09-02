@@ -156,12 +156,15 @@ func (c *Constructor) loadProjectWorld(ctx context.Context, cache Cache, project
 	prof.stage("load_dotnet", func() { c.loadDotNet(metrics, containers) })
 	prof.stage("load_python", func() { c.loadPython(metrics, containers) })
 	prof.stage("load_nodejs", func() { c.loadNodejs(metrics, containers) })
-	prof.stage("enrich_instances", func() { enrichInstances(w, metrics, rdsInstancesById, ecInstancesById, pjs) })
+	var instancesByListen map[model.Listen]*model.Instance
+	prof.stage("enrich_instances", func() { instancesByListen = enrichInstances(w, metrics, rdsInstancesById, ecInstancesById, pjs) })
 	prof.stage("calc_app_categories", func() { c.calcApplicationCategories(w, project) })
 	prof.stage("group_custom_applications", func() { c.groupCustomApplications(w, project) })
 	prof.stage("join_db_cluster_components", func() { c.joinDBClusterComponents(w, project) })
+	prof.stage("merge_external_into_pods", func() { mergeExternalServicesIntoPods(w, instancesByListen) })
 	prof.stage("load_postgres_backups", func() { loadPostgresBackups(w, metrics, project) })
 	prof.stage("load_mongo_backups", func() { loadMongoBackups(w, metrics, project) })
+	prof.stage("load_mysql_backups", func() { loadMysqlBackups(w, metrics) })
 	prof.stage("load_app_settings", func() { c.loadApplicationSettings(w, project) })
 	prof.stage("load_app_sli", func() { c.loadSLIs(w, metrics, project) })
 	prof.stage("load_container_logs", func() { c.loadContainerLogs(metrics, containers, pjs) })
@@ -370,7 +373,7 @@ type podId struct {
 	name, ns string
 }
 
-func enrichInstances(w *model.World, metrics map[string][]*model.MetricValues, rdsInstancesById map[string]*model.Instance, ecInstanceById map[string]*model.Instance, pjs promJobStatuses) {
+func enrichInstances(w *model.World, metrics map[string][]*model.MetricValues, rdsInstancesById map[string]*model.Instance, ecInstanceById map[string]*model.Instance, pjs promJobStatuses) map[model.Listen]*model.Instance {
 	instancesByListen := map[model.Listen]*model.Instance{}
 	instancesByPod := map[podId]*model.Instance{}
 	for _, app := range w.Applications {
@@ -463,6 +466,39 @@ func enrichInstances(w *model.World, metrics map[string][]*model.MetricValues, r
 				mysql(instance, queryName, m)
 			}
 		}
+	}
+	return instancesByListen
+}
+
+func mergeExternalServicesIntoPods(w *model.World, instancesByListen map[model.Listen]*model.Instance) {
+	for extId, ext := range w.Applications {
+		if ext.Id.Kind != model.ApplicationKindExternalService {
+			continue
+		}
+		var target *model.Instance
+		match := len(ext.Instances) > 0
+		for _, ei := range ext.Instances {
+			for l := range ei.TcpListens {
+				i := instancesByListen[model.Listen{IP: l.IP, Port: "0"}]
+				if i == nil || (target != nil && target.Owner != i.Owner) {
+					match = false
+				} else {
+					target = i
+				}
+			}
+		}
+		if !match || target == nil {
+			continue
+		}
+		for clientId, conn := range ext.Downstreams {
+			if conn.Application.Upstreams[target.Owner.Id] == nil {
+				conn.RemoteApplication = target.Owner
+				conn.Application.Upstreams[target.Owner.Id] = conn
+				target.Owner.Downstreams[clientId] = conn
+			}
+			delete(conn.Application.Upstreams, extId)
+		}
+		delete(w.Applications, extId)
 	}
 }
 
@@ -582,13 +618,31 @@ func findInstance(instancesByPod map[podId]*model.Instance, instancesByListen ma
 		address = ls["address"]
 	}
 	if address != "" {
-		instance := instancesByListen[address]
-		return getActualServiceInstance(instance, applicationTypes...)
+		if instance := instancesByListen[address]; instance != nil {
+			return getActualServiceInstance(freshestSameNameInstance(instance), applicationTypes...)
+		}
+		if host, _, err := net.SplitHostPort(address); err == nil {
+			if instance := instancesByListen[net.JoinHostPort(host, "0")]; instance != nil {
+				return getActualServiceInstance(freshestSameNameInstance(instance), applicationTypes...)
+			}
+		}
 	}
 	if ns, pod := guessNamespace(ls), guessPod(ls); ns != "" && pod != "" {
-		return getActualServiceInstance(instancesByPod[podId{name: pod, ns: ns}], applicationTypes...)
+		return getActualServiceInstance(freshestSameNameInstance(instancesByPod[podId{name: pod, ns: ns}]), applicationTypes...)
 	}
 	return nil
+}
+
+func freshestSameNameInstance(instance *model.Instance) *model.Instance {
+	if instance == nil || !instance.IsObsolete() || instance.Owner == nil {
+		return instance
+	}
+	for _, i := range instance.Owner.Instances {
+		if i.Name == instance.Name && !i.IsObsolete() {
+			return i
+		}
+	}
+	return instance
 }
 
 func getActualServiceInstance(instance *model.Instance, applicationTypes ...model.ApplicationType) *model.Instance {

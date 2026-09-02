@@ -70,8 +70,12 @@ func Render(project *db.Project, world *model.World, app *model.Application) *Vi
 	}
 	slices.Sort(appMap.Categories)
 
+	appIsJob := app.PeriodicJob()
 	for _, instance := range app.Instances {
 		if instance.IsObsolete() || instance.IsFailed() {
+			continue
+		}
+		if !appIsJob && instance.IsJobPod() {
 			continue
 		}
 		i := &Instance{Id: instance.Name, Labels: model.Labels{}}
