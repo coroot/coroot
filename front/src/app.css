@@ -4,7 +4,9 @@
     --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     --font-display: 'Space Grotesk', system-ui, -apple-system, sans-serif;
     --brand-primary-light: #5d54a4;
-    --brand-primary-dark: #6b26d9;
+    /* Dark accent-light — #6b26d9 (dashboard CTA fill) is unreadable on #1f1f1f */
+    --brand-primary-dark: #c4b5fd;
+    --brand-primary-dark-cta: #6b26d9;
 
     /* Light — editor.background white, foreground black */
     --text-light: #000000;
@@ -365,6 +367,19 @@ a:hover {
 .v-btn.v-btn--contained.primary,
 .v-btn.primary {
     box-shadow: none !important;
+}
+/* Saturated brand fill + white label — same as dashboard dark CTAs */
+.v-application.theme--dark .v-btn.primary:not(.v-btn--outlined):not(.v-btn--text):not(.v-btn--plain):not(.v-btn--icon) {
+    background-color: var(--brand-primary-dark-cta) !important;
+    border-color: var(--brand-primary-dark-cta) !important;
+    color: #ffffff !important;
+}
+/* Light primary fill needs dark label — Vuetify sometimes still picks white */
+.v-application.theme--dark .v-chip.primary {
+    color: #1f1f1f !important;
+}
+.v-application.theme--dark .v-chip.primary .v-icon {
+    color: #1f1f1f !important;
 }
 .v-btn.v-btn--outlined {
     border-color: var(--border-color-dimmed) !important;

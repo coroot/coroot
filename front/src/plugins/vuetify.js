@@ -6,7 +6,9 @@ Vue.use(Vuetify);
 // Stackblaze dashboard tokens (dashboard/src/styles/tailwind.css)
 // Light → VS Code Visual Studio Light | Dark → VS Code Dark Modern
 const primaryLight = '#5d54a4';
-const primaryDark = '#6b26d9';
+// Dashboard filled CTAs stay #6b26d9, but that purple is ~2.3:1 on #1f1f1f —
+// chips, checks, and focus rings vanish. Use accent-light for theme primary.
+const primaryDark = '#c4b5fd';
 
 function initialDark() {
     try {
