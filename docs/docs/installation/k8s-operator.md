@@ -109,9 +109,10 @@ spec:
 
 #  disableBuiltinAlerts: false # Disable all built-in alerting rules on startup.
 
-# Coroot stores Traces, Logs, and Profiles in ClickHouse.
+# Coroot stores Traces, Logs, Profiles (and optionally Metrics) in ClickHouse.
 # Their retention is managed by setting a Time-To-Live (TTL) for the corresponding Clickhouse tables.  
 # The TTLs below are applied during table creation and do not currently affect existing tables.
+#  metricsTTL: 7d
 #  tracesTTL: 7d
 #  logsTTL: 7d
 #  profilesTTL: 7d
