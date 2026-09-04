@@ -22,6 +22,8 @@ import (
 	"k8s.io/klog"
 )
 
+var promqlParser = parser.NewParser(parser.Options{})
+
 type HttpClient struct {
 	config     httpClientConfig
 	url        url.URL
@@ -258,11 +260,11 @@ func AddExtraSelector(query string, extraSelector string) (string, error) {
 	if extraSelector == "" {
 		return query, nil
 	}
-	extra, err := parser.ParseMetricSelector(extraSelector)
+	extra, err := promqlParser.ParseMetricSelector(extraSelector)
 	if err != nil {
 		return "", err
 	}
-	expr, err := parser.ParseExpr(query)
+	expr, err := promqlParser.ParseExpr(query)
 	if err != nil {
 		return "", err
 	}

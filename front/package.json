@@ -26,7 +26,7 @@
     "pluralize": "^8.0.0",
     "sql-formatter": "^12.2.0",
     "uplot": "^1.6.24",
-    "uuid": "^9.0.0",
+    "uuid": "^11.1.1",
     "vue": "^2.6.14",
     "vue-router": "^3.6.2",
     "vuetify": "^2.7.2"
@@ -76,5 +76,12 @@
   },
   "browserslist": [
     "defaults"
-  ]
+  ],
+  "overrides": {
+    "postcss": "^8.5.23",
+    "serialize-javascript": "^7.0.5",
+    "uuid": "$uuid",
+    "qs": "^6.16.0",
+    "webpack-dev-server": "^5.2.6"
+  }
 }

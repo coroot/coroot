@@ -88,11 +88,11 @@ func (c *ClickHouse) QueryRange(ctx context.Context, query string, filterLabels 
 	res := map[uint64]*model.MetricValues{}
 	for _, s := range matrix {
 		ls := map[string]string{}
-		for _, l := range s.Metric {
+		s.Metric.Range(func(l labels.Label) {
 			if filterLabels(l.Name) {
 				ls[l.Name] = l.Value
 			}
-		}
+		})
 		lsHash := promModel.LabelsToSignature(ls)
 		mv := res[lsHash]
 		if mv == nil {
@@ -210,7 +210,7 @@ func (c *ClickHouse) LabelValues(r *http.Request, w http.ResponseWriter, labelNa
 		return
 	}
 
-	matcherSets, err := parser.ParseMetricSelectors(r.Form["match[]"])
+	matcherSets, err := promqlParser.ParseMetricSelectors(r.Form["match[]"])
 	if err != nil {
 		writePrometheusResponse(w, fmt.Errorf("invalid matchers: %s", r.Form["match[]"]), errorBadData, nil)
 		return
@@ -266,7 +266,7 @@ func (c *ClickHouse) Series(r *http.Request, w http.ResponseWriter) {
 		writePrometheusResponse(w, errors.New("no match[] parameter provided"), errorBadData, nil)
 		return
 	}
-	matcherSets, err := parser.ParseMetricSelectors(r.Form["match[]"])
+	matcherSets, err := promqlParser.ParseMetricSelectors(r.Form["match[]"])
 	if err != nil {
 		writePrometheusResponse(w, fmt.Errorf("invalid matchers: %s", r.Form["match[]"]), errorBadData, nil)
 		return
@@ -287,7 +287,7 @@ func (c *ClickHouse) Series(r *http.Request, w http.ResponseWriter) {
 			s := q.Select(ctx, true, hints, mset...)
 			sets = append(sets, s)
 		}
-		set = storage.NewMergeSeriesSet(sets, storage.ChainedSeriesMerge)
+		set = storage.NewMergeSeriesSet(sets, 0, storage.ChainedSeriesMerge)
 	} else {
 		set = q.Select(ctx, false, hints, matcherSets[0]...)
 	}

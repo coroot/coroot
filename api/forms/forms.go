@@ -23,6 +23,8 @@ import (
 )
 
 var (
+	promqlParser = parser.NewParser(parser.Options{})
+
 	ErrInvalidForm = errors.New("invalid form")
 
 	slugRe  = regexp.MustCompile("^[-_0-9a-z]{3,}$")
@@ -91,7 +93,7 @@ func (f *CheckConfigForm) Valid() bool {
 }
 
 func validateCustomQuery(query string) error {
-	if _, err := parser.ParseExpr(strings.ReplaceAll(query, "$RANGE", "1m")); err != nil {
+	if _, err := promqlParser.ParseExpr(strings.ReplaceAll(query, "$RANGE", "1m")); err != nil {
 		return fmt.Errorf("invalid query: %s", err)
 	}
 	return nil
