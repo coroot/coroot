@@ -115,6 +115,11 @@ var Checks = struct {
 	MysqlReplicationStatus     CheckConfig
 	MysqlReplicationLag        CheckConfig
 	MysqlConnections           CheckConfig
+	MysqlConnectionErrors      CheckConfig
+	MysqlGaleraReplication     CheckConfig
+	MysqlGroupReplication      CheckConfig
+	MysqlLatency               CheckConfig
+	MysqlBackups               CheckConfig
 }{
 	index: map[CheckId]*CheckConfig{},
 
@@ -565,6 +570,49 @@ var Checks = struct {
 		MessageTemplate:         `{{.ItemsWithHave "mysql instance"}} too many connections`,
 		ConditionFormatTemplate: "the number of connections > <threshold> of `max_connections`",
 		Unit:                    CheckUnitPercent,
+	},
+	MysqlConnectionErrors: CheckConfig{
+		Category:                AuditReportMysql,
+		Type:                    CheckTypeItemBased,
+		Title:                   "Mysql connection errors",
+		DefaultThreshold:        1,
+		MessageTemplate:         `{{.ItemsWithHave "mysql instance"}} clients failing to connect`,
+		ConditionFormatTemplate: "the rate of aborted connection attempts > <threshold> per second",
+	},
+	MysqlGaleraReplication: CheckConfig{
+		Category:                AuditReportMysql,
+		Type:                    CheckTypeItemBased,
+		Title:                   "Mysql Galera replication",
+		DefaultThreshold:        10,
+		MessageTemplate:         `{{.ItemsWithHave "mysql instance"}} Galera replication problems`,
+		ConditionFormatTemplate: "a Galera node is throttled by flow control (> <threshold> of the time) or hitting certification conflicts",
+		Unit:                    CheckUnitPercent,
+	},
+	MysqlGroupReplication: CheckConfig{
+		Category:                AuditReportMysql,
+		Type:                    CheckTypeItemBased,
+		Title:                   "Mysql Group Replication",
+		DefaultThreshold:        1000,
+		MessageTemplate:         `{{.ItemsWithHave "mysql instance"}} Group Replication problems`,
+		ConditionFormatTemplate: "a member is not ONLINE, or its applier queue exceeds <threshold> transactions",
+	},
+	MysqlLatency: CheckConfig{
+		Category:                AuditReportMysql,
+		Type:                    CheckTypeItemBased,
+		Title:                   "Mysql latency",
+		DefaultThreshold:        0.1,
+		Unit:                    CheckUnitSecond,
+		MessageTemplate:         `{{.ItemsWithToBe "mysql instance"}} performing slowly`,
+		ConditionFormatTemplate: "the average query latency of a mysql instance > <threshold>",
+	},
+	MysqlBackups: CheckConfig{
+		Category:                AuditReportMysql,
+		Type:                    CheckTypeItemBased,
+		Title:                   "Mysql backups",
+		DefaultThreshold:        86400,
+		Unit:                    CheckUnitSecond,
+		MessageTemplate:         `backups are failing or stale on {{.Items "mysql cluster"}}`,
+		ConditionFormatTemplate: "no successful backup within <threshold>, the last backup failed, or the scheduled backup is overdue",
 	},
 }
 

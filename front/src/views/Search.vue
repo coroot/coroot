@@ -51,8 +51,8 @@
                         </v-list-item>
                         <v-list-item
                             v-for="n in results.nodes"
-                            :key="n.name"
-                            :to="{ name: 'overview', params: { view: 'nodes', id: n.name }, query: $utils.contextQuery() }"
+                            :key="n.cluster_id + ':' + n.name"
+                            :to="{ name: 'overview', params: { view: 'nodes', id: n.cluster_id + ':' + n.name }, query: $utils.contextQuery() }"
                             class="pl-4"
                         >
                             <v-list-item-content>

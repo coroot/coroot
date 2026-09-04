@@ -126,6 +126,9 @@ func postgres(instance *model.Instance, queryName string, m *model.MetricValues,
 	case "pg_table_size_bytes":
 		key := model.DbTableKey{Db: ls["db"], Table: ls["table"]}
 		pg.TableSize[key] = merge(pg.TableSize[key], values, timeseries.Any)
+	case "pg_table_size_growth_bytes_per_second":
+		key := model.DbTableKey{Db: ls["db"], Table: ls["table"]}
+		pg.TableSizeGrowth[key] = merge(pg.TableSizeGrowth[key], values, timeseries.Any)
 	case "pg_db_table_bloat_bytes":
 		pg.DatabaseTableBloat[ls["db"]] = merge(pg.DatabaseTableBloat[ls["db"]], values, timeseries.Any)
 	case "pg_db_index_bloat_bytes":
@@ -218,23 +221,23 @@ func loadPostgresBackups(w *model.World, metrics map[string][]*model.MetricValue
 		return
 	}
 
-	getOrCreateBackup := func(ns, name string) *model.PgBackups {
+	getOrCreateBackup := func(ns, name string) *model.DBBackups {
 		app := clustersByKey[ns+"/"+name]
 		if app == nil {
 			return nil
 		}
 		if app.Cluster.Backups == nil {
-			app.Cluster.Backups = &model.PgBackups{
-				Methods:    map[string]*model.PgBackupMethod{},
-				Conditions: map[string]model.PgBackupCondition{},
+			app.Cluster.Backups = &model.DBBackups{
+				Methods:    map[string]*model.DBBackupMethod{},
+				Conditions: map[string]model.DBBackupCondition{},
 			}
 		}
 		return app.Cluster.Backups
 	}
-	method := func(b *model.PgBackups, name string) *model.PgBackupMethod {
+	method := func(b *model.DBBackups, name string) *model.DBBackupMethod {
 		m := b.Methods[name]
 		if m == nil {
-			m = &model.PgBackupMethod{}
+			m = &model.DBBackupMethod{}
 			b.Methods[name] = m
 		}
 		return m
@@ -270,7 +273,7 @@ func loadPostgresBackups(w *model.World, metrics map[string][]*model.MetricValue
 		if b == nil || m.Values.Last() != 1 {
 			continue
 		}
-		b.Conditions[m.Labels["type"]] = model.PgBackupCondition{Status: m.Labels["status"], Reason: m.Labels["reason"]}
+		b.Conditions[m.Labels["type"]] = model.DBBackupCondition{Status: m.Labels["status"], Reason: m.Labels["reason"]}
 	}
 	for _, m := range metrics["pg_backup_last_successful_timestamp_seconds"] {
 		if m.Labels["method"] == "" {
@@ -304,7 +307,7 @@ func loadPostgresBackups(w *model.World, metrics map[string][]*model.MetricValue
 		}
 	}
 
-	runsByKey := map[string]*model.PgBackupRun{}
+	runsByKey := map[string]*model.DBBackupRun{}
 	for _, m := range metrics["pg_backup_info"] {
 		b := getOrCreateBackup(m.Labels["namespace"], m.Labels["cluster"])
 		if b == nil || m.Values.Last() != 1 {
@@ -314,7 +317,7 @@ func loadPostgresBackups(w *model.World, metrics map[string][]*model.MetricValue
 		if kind == "" {
 			kind = m.Labels["method"]
 		}
-		r := &model.PgBackupRun{
+		r := &model.DBBackupRun{
 			Name:        m.Labels["name"],
 			Method:      m.Labels["method"],
 			Kind:        kind,

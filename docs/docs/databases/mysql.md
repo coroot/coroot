@@ -28,7 +28,7 @@ GRANT PROCESS, REPLICATION CLIENT ON *.* TO 'coroot'@'%';
 GRANT SELECT ON performance_schema.* TO 'coroot'@'%';
 ```
 
-Query performance, table I/O waits, replication, and settings change detection will all work fully - `performance_schema` data is not filtered by database-level privileges.
+Query performance, table I/O waits, replication, cluster replication, InnoDB internals, binary log and undo sizes, and settings change detection will all work fully - `performance_schema` data is not filtered by database-level privileges, and the InnoDB views are gated by `PROCESS` rather than by database-level grants.
 Schema and size tracking will not error but will only cover system databases, since MySQL filters `information_schema` views based on the user's privileges.
 
 ### Required privileges explained
@@ -43,11 +43,19 @@ The grant must be `ON *.*` because MySQL filters `information_schema` views to o
 
 **PROCESS**
 
-Allows `SHOW GLOBAL STATUS` to return the full set of server status counters. Without this privilege, some counters are hidden.
+Allows `SHOW GLOBAL STATUS` to return the full set of server status counters (without it, some counters are hidden), and grants access to the InnoDB views in `information_schema`:
+
+- `innodb_trx` for long-running transactions and lock holders.
+- `INNODB_METRICS` for deadlocks, lock-wait timeouts, and the undo history list length.
+- `INNODB_TABLESPACES` (`INNODB_SYS_TABLESPACES` on MariaDB) for undo tablespace sizes.
+
+Without `PROCESS`, these views return only the current session's rows or nothing at all, so the corresponding charts stay empty.
 
 **REPLICATION CLIENT**
 
-Allows `SHOW REPLICA STATUS` (or `SHOW SLAVE STATUS` on older versions) to monitor replication health and lag. Not needed if the instance is not a replica.
+Allows `SHOW REPLICA STATUS` (or `SHOW SLAVE STATUS` on older versions) to monitor replication health and lag, and `SHOW BINARY LOGS` to track binary log size on disk.
+
+This privilege is useful on **every** instance that has binary logging enabled, not only on replicas: binary logs accumulate on the primary too, and they are a common cause of a full data volume.
 
 :::note
 All access is **read-only**. Coroot never modifies any data, schema, or configuration on your MySQL server.
@@ -110,6 +118,51 @@ Coroot runs `SHOW REPLICA STATUS` (falling back to `SHOW SLAVE STATUS` on MySQL 
 - **IO/SQL thread running state and last error** - whether the replica is receiving and applying events.
 - **`Seconds_Behind_Source`** - replication lag.
 - **Source server ID and UUID** - identify the replication source.
+
+### Cluster replication (Galera and Group Replication)
+
+**Always collected**, when the instance is part of a cluster. Coroot detects the flavour automatically and collects only what applies.
+
+For **Galera** (Percona XtraDB Cluster, MariaDB Galera) the `wsrep_*` counters already present in `SHOW GLOBAL STATUS`:
+
+- **Cluster size and status** - how many nodes are in the component, and whether it has quorum (`Primary`).
+- **Local state** (`Synced`, `Joining`, `Donor/Desynced`, ...), readiness, and connectivity.
+- **Flow control** - how much of the time writes were paused because a node could not keep up.
+- **Receive and send queues** - write-sets waiting to be applied or sent.
+- **Certification conflicts** - transactions rolled back because the same rows were written on more than one node (`cert_failures`, `bf_aborts`).
+
+For **Group Replication**, from `performance_schema.replication_group_members` and `replication_group_member_stats`:
+
+- **Member state** (`ONLINE`, `RECOVERING`, `ERROR`, `OFFLINE`, `UNREACHABLE`) and the number of members online.
+- **Certification and applier queues** - transactions waiting to be certified or applied.
+- **Conflicts detected**.
+
+### InnoDB internals
+
+**Always collected.** Most of these come from the `SHOW GLOBAL STATUS` counters Coroot already reads, so they add no extra queries:
+
+- **Buffer pool** - total, free, dirty and data pages (converted to bytes via `innodb_page_size`), read requests vs disk reads (hit rate), waits for a free page, and pages flushed.
+- **Row operations** - rows read, inserted, updated, deleted.
+- **Row locking** - lock waits, total lock wait time, and locks currently waited on.
+- **Disk I/O** - reads, writes, bytes read/written, and fsyncs.
+- **Redo log** - bytes written and log waits.
+- **Transactions** - commits and rollbacks; plus sort merge passes and on-disk temporary tables.
+
+A small additional query on `information_schema.INNODB_METRICS` (requires `PROCESS`) collects counters that `SHOW GLOBAL STATUS` does not expose:
+
+- **Deadlocks** and **lock-wait timeouts** - transactions InnoDB rolled back; the application sees `ER_LOCK_DEADLOCK` / `ER_LOCK_WAIT_TIMEOUT` and must retry.
+- **History list length** - undo records not yet purged. It grows while a long-running transaction holds them back, which bloats undo and slows reads.
+
+Table-level lock waits (`Table_locks_waited`, `Table_locks_immediate`) are collected as well, covering `LOCK TABLES`, MyISAM tables, and DDL metadata locks.
+
+### Binary logs and undo tablespaces
+
+**Always collected.** These artifacts grow independently of table data and are a common cause of a full data volume, so Coroot tracks them alongside table sizes:
+
+- **Binary logs** - total size and file count from `SHOW BINARY LOGS` (requires `REPLICATION CLIENT`), plus the configured retention (`binlog_expire_logs_seconds`, or `expire_logs_days` on older MySQL and MariaDB). Coroot reports binary logs as a disk growth source, and calls out the case where retention is disabled and they are never purged automatically.
+- **InnoDB undo tablespaces** - total size from `information_schema.INNODB_TABLESPACES` (`INNODB_SYS_TABLESPACES` on MariaDB; requires `PROCESS`). When undo is growing and the history list is long, Coroot attributes the growth to lagging purge.
+
+If binary logging is disabled, the binary log query is skipped and no error is reported.
 
 ### Schema tracking
 

@@ -13,6 +13,7 @@ type Pod struct {
 	LifeSpan *timeseries.TimeSeries
 
 	ReplicaSet string
+	OwnerKind  ApplicationKind // the pod's direct controller (created_by_kind): Job, ReplicaSet, StatefulSet, ...
 
 	InitContainers map[string]*Container
 }

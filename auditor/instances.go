@@ -30,6 +30,9 @@ func (a *appAuditor) instances() {
 	nonNetworkWinApp := a.app.WindowsApp() && !a.app.ListensTCP()
 
 	for _, i := range a.app.Instances {
+		if !periodicJob && i.IsJobPod() {
+			continue
+		}
 		if instancesChart != nil {
 			up.Add(i.UpAndRunning())
 		}

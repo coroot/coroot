@@ -109,6 +109,7 @@ type Mongodb struct {
 	DatabaseSize          map[string]*timeseries.TimeSeries
 	CollectionSize        map[DbTableKey]*timeseries.TimeSeries
 	CollectionStorageSize map[DbTableKey]*timeseries.TimeSeries
+	CollectionSizeGrowth  map[DbTableKey]*timeseries.TimeSeries
 	CollectionFreeStorage map[DbTableKey]*timeseries.TimeSeries
 	CollectionDocuments   map[DbTableKey]*timeseries.TimeSeries
 }
@@ -130,6 +131,7 @@ func NewMongodb() *Mongodb {
 		DatabaseSize:             map[string]*timeseries.TimeSeries{},
 		CollectionSize:           map[DbTableKey]*timeseries.TimeSeries{},
 		CollectionStorageSize:    map[DbTableKey]*timeseries.TimeSeries{},
+		CollectionSizeGrowth:     map[DbTableKey]*timeseries.TimeSeries{},
 		CollectionFreeStorage:    map[DbTableKey]*timeseries.TimeSeries{},
 		CollectionDocuments:      map[DbTableKey]*timeseries.TimeSeries{},
 	}
