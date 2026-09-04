@@ -280,6 +280,7 @@ export default {
                     seriesIdx,
                     (series, dataX, dataY, scaleX, scaleY, valToPosX, valToPosY, xOff, yOff, xDim, yDim, moveTo, lineTo, rect) => {
                         u.ctx.save();
+                        u.ctx.globalAlpha = 1;
 
                         xs.forEach((_, i) => {
                             if (!ys[i]) {
