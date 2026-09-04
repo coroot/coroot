@@ -1,4 +1,4 @@
-FROM node:21 AS frontend-builder
+FROM node:26 AS frontend-builder
 WORKDIR /tmp/src
 COPY . .
 WORKDIR /tmp/src/front
