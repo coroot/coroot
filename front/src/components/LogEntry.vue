@@ -16,6 +16,18 @@
             <div class="font-weight-medium mt-4 mb-2">Attributes</div>
             <v-simple-table dense class="attributes">
                 <tbody>
+                    <tr v-if="value.trace_id">
+                        <td class="name">Trace ID</td>
+                        <td class="value">{{ value.trace_id }}</td>
+                        <td class="text-right text-no-wrap ops">
+                            <v-btn small icon title="add to search" @click="filter('TraceId', '=', value.trace_id)">
+                                <v-icon small>mdi-plus</v-icon>
+                            </v-btn>
+                            <v-btn small icon title="exclude from search" @click="filter('TraceId', '!=', value.trace_id)">
+                                <v-icon small>mdi-minus</v-icon>
+                            </v-btn>
+                        </td>
+                    </tr>
                     <tr v-for="(v, k) in value.attributes">
                         <td class="name">{{ k }}</td>
                         <td class="value">
