@@ -130,6 +130,13 @@ func (c *Client) Ping(ctx context.Context) error {
 	return c.conn.Ping(ctx)
 }
 
+func (c *Client) ClusterId() string {
+	if c.project == nil {
+		return ""
+	}
+	return c.project.ClusterId()
+}
+
 func (c *Client) Query(ctx context.Context, query string, args ...interface{}) (driver.Rows, error) {
 	query = ch.ReplaceTables(query, c.useDistributed)
 	return c.conn.Query(ctx, query, args...)

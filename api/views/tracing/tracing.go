@@ -134,7 +134,7 @@ func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, 
 		source = model.TraceSourceOtel
 		var ignoredPeerAddrs []string
 		if !app.Category.Monitoring() {
-			ignoredPeerAddrs = getMonitoringPodIps(w)
+			ignoredPeerAddrs = getMonitoringPodIps(w, ch.ClusterId())
 		}
 		wg := sync.WaitGroup{}
 		wg.Add(2)
@@ -367,18 +367,21 @@ func getAppListens(app *model.Application) []model.Listen {
 	return res
 }
 
-func getMonitoringPodIps(w *model.World) []string {
-	var res []string
+func getMonitoringPodIps(w *model.World, clusterId string) []string {
+	res := map[string]bool{}
 	for _, a := range w.Applications {
+		if clusterId != "" && a.Id.ClusterId != clusterId {
+			continue
+		}
 		if a.Category.Monitoring() {
 			for _, i := range a.Instances {
 				for l := range i.TcpListens {
 					if l.Port == "0" {
-						res = append(res, l.IP)
+						res[l.IP] = true
 					}
 				}
 			}
 		}
 	}
-	return res
+	return maps.Keys(res)
 }

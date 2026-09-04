@@ -101,13 +101,15 @@ func RenderTraces(ctx context.Context, chs clickhouse.Clients, w *model.World, q
 	}
 
 	if !q.IncludeAux {
-		sq.ExcludePeerAddrs = getMonitoringAndControlPlanePodIps(w)
 		sq.AddFilter("SpanName", "!~", "GET /(health[z]*|metrics|debug/.+|actuator/.+)")
 	}
 
 	byLe := map[float32]*timeseries.Aggregate{}
 
 	for _, ch := range chs.Clients {
+		if !q.IncludeAux {
+			sq.ExcludePeerAddrs = getMonitoringAndControlPlanePodIps(w, ch.ClusterId())
+		}
 		histogram, err := ch.GetRootSpansHistogram(ctx, sq)
 		if err != nil {
 			klog.Errorln(err)
@@ -186,6 +188,9 @@ func RenderTraces(ctx context.Context, chs clickhouse.Clients, w *model.World, q
 	var overallSelectionTraces, overallBaselineTraces []*model.Trace
 
 	for _, ch := range chs.Clients {
+		if !q.IncludeAux {
+			sq.ExcludePeerAddrs = getMonitoringAndControlPlanePodIps(w, ch.ClusterId())
+		}
 		switch {
 		case q.TraceId != "":
 			spans, err := ch.GetSpansByTraceId(ctx, q.TraceId)
@@ -355,9 +360,12 @@ func RenderTraces(ctx context.Context, chs clickhouse.Clients, w *model.World, q
 	return res
 }
 
-func getMonitoringAndControlPlanePodIps(w *model.World) []string {
+func getMonitoringAndControlPlanePodIps(w *model.World, clusterId string) []string {
 	res := map[string]bool{}
 	for _, a := range w.Applications {
+		if clusterId != "" && a.Id.ClusterId != clusterId {
+			continue
+		}
 		if a.Category.Monitoring() || a.Category.ControlPlane() {
 			for _, i := range a.Instances {
 				for l := range i.TcpListens {
