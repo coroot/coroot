@@ -28,33 +28,6 @@ curl -fsS https://raw.githubusercontent.com/coroot/coroot/main/deploy/docker-com
   docker compose -f - up -d
 ```
 
-### ClickHouse system tables
-ClickHouse stores system log tables on the file system by default. As Coroot consults ClickHouse heavily, this will consume a lot of disk space.
-It is recommended to disable the system logs by mounting an xml override config into your clickhouse container.
-
-This can be achieved by creating an xml file `clickhouse-disable-system-logs.xml` and mounting it in the ClickHouse container.
-``` xml
-<?xml version="1.0"?>
-<clickhouse>
-  <asynchronous_metric_log remove="1"/>
-  <metric_log remove="1"/>
-  <query_log remove="1" />
-  <query_thread_log remove="1" />
-  <query_views_log remove="1" />
-  <part_log remove="1"/>
-  <text_log remove="1" />
-  <trace_log remove="1"/>
-  <opentelemetry_span_log remove="1"/>
-  <processors_profile_log remove="1"/>
-</clickhouse>
-```
-
-Then, modify the docker compose by mounting the file into the ClickHouse container.
-``` yaml
-    volumes:
-      - ./clickhouse-disable-system-logs.xml:/etc/clickhouse-server/config.d/disable-system-logs.xml
-```
-
 ## Validate the deployment
 
 Ensure that the Coroot containers are running by executing the following command:
