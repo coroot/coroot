@@ -6,19 +6,22 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
 jobs:
   GO:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version: '1.25'
       - name: gofmt -l .
         run: files=$(gofmt -l .); if [[ -n "$files" ]]; then echo "$files"; exit 1; fi
       - name: goimports -l .
         run: |
-          go install golang.org/x/tools/cmd/goimports@latest
+          go install golang.org/x/tools/cmd/goimports@v0.39.0
           files=$(goimports -l .); if [[ -n "$files" ]]; then echo "$files"; exit 1; fi
       - run: mkdir static && touch static/file.txt && go vet ./...
       - run: go test ./...
@@ -29,8 +32,8 @@ jobs:
       run:
         working-directory: ./front/
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: 24
       - run: npm ci
