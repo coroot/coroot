@@ -34,7 +34,7 @@ docker build -f dev.dockerfile -t coroot-dev .
 
 Run:
 ```shell
-docker run --rm -p 8080:127.0.0.1:8080 -d coroot-dev
+docker run --rm -p 127.0.0.1:8080:8080 -d coroot-dev
 ```
 
 Open http://127.0.0.1:8080 in your browser.

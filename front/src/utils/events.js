@@ -7,7 +7,9 @@ export default new Vue({
                 refresh: 0,
                 projects: 0,
                 roles: 0,
+                search: 0,
             },
+            searchQuery: '',
         };
     },
 
@@ -34,6 +36,10 @@ export default new Vue({
                 return;
             }
             this.events[event]++;
+        },
+        openSearch(query = '') {
+            this.searchQuery = query;
+            this.emit('search');
         },
     },
 });
