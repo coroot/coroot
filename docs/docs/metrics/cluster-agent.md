@@ -14,7 +14,7 @@ Using the credentials provided by Coroot or via Kubernetes annotations, the agen
  * The agent can be integrated with AWS to discover RDS and ElastiCache clusters and collect their telemetry data.
  * The agent discovers and scrapes [custom metrics](/metrics/custom-metrics) from annotated pods.
  * The agent monitors GitOps tooling by reading [FluxCD](#fluxcd) and [ArgoCD](#argocd) custom resources through its embedded kube-state-metrics and exposing their state as metrics.
- * The agent monitors [Postgres backups](#postgres-backups) of clusters managed by CloudNativePG and the Percona Operator for PostgreSQL, reading their custom resources through the embedded kube-state-metrics.
+ * The agent monitors database backups of clusters managed by Kubernetes operators, reading their custom resources through the embedded kube-state-metrics: [Postgres](#postgres-backups) (CloudNativePG, Percona Operator for PostgreSQL), [MySQL](#mysql-backups) (Percona Operator for MySQL based on Percona XtraDB Cluster), and [MongoDB](#mongodb-backups) (Percona Operator for MongoDB).
 
 ## Postgres
 
@@ -933,6 +933,52 @@ data volume. If binary logging is disabled the binary log query is skipped.
 * **Type**: Gauge
 * **Source**: `information_schema.INNODB_TABLESPACES` (`INNODB_SYS_TABLESPACES` on MariaDB)
 
+### MySQL backups
+
+When running on Kubernetes, backup state is collected through the agent's embedded kube-state-metrics from the custom resources of the [Percona Operator for MySQL based on Percona XtraDB Cluster](https://docs.percona.com/percona-operator-for-mysql/pxc/) (`PerconaXtraDBCluster`, `PerconaXtraDBClusterBackup`). Every metric carries an `operator` label (`percona`) and, via the common `namespace`/`name` labels, correlates to the corresponding `DatabaseCluster` application in Coroot.
+
+### mysql_backup_target_info
+* **Description**: A configured backup storage, one series per entry of `spec.backup.storages` (the `method` label is the storage name). Coroot assembles the destination from the S3 bucket and prefix or the Azure container.
+* **Type**: Info
+* **Source**: `PerconaXtraDBCluster.spec.backup.storages`
+* **Labels**: operator, method, type, s3_bucket, s3_endpoint, s3_prefix, azure_container
+
+### mysql_backup_schedule_info
+* **Description**: A scheduled backup (one series per entry of `spec.backup.schedule`). Coroot uses the schedule to detect overdue backups; `method` is the storage the schedule writes to.
+* **Type**: Info
+* **Source**: `PerconaXtraDBCluster.spec.backup.schedule`
+* **Labels**: operator, task, schedule, method
+
+### mysql_backup_pitr_info
+* **Description**: Whether point-in-time recovery (continuous binlog upload) is enabled for the cluster.
+* **Type**: Info
+* **Source**: `PerconaXtraDBCluster.spec.backup.pitr`
+* **Labels**: operator, enabled
+
+### mysql_cluster_status
+* **Description**: The cluster state reported by the operator (e.g. `ready`, `initializing`, `error`). Value is 1 for the currently-active series.
+* **Type**: Info
+* **Source**: `PerconaXtraDBCluster.status.state`
+* **Labels**: operator, status
+
+### mysql_backup_info
+* **Description**: An individual backup run (one series per `PerconaXtraDBClusterBackup` object), used to list recent backups. Carries immutable identity only; the run's phase is in `mysql_backup_status`. `cluster` is the name of the `PerconaXtraDBCluster` the backup belongs to.
+* **Type**: Info
+* **Source**: `PerconaXtraDBClusterBackup.spec` (`pxcCluster`, `storageName`), `.status` (`storage_type`, `destination`)
+* **Labels**: operator, cluster, method, kind, path
+
+### mysql_backup_status
+* **Description**: The current phase of a backup run (e.g. `Starting`, `Running`, `Succeeded`, `Failed`). Value is 1 for the currently-active series (a run's phase changes over its lifecycle, so only the live series is used).
+* **Type**: Info
+* **Source**: `PerconaXtraDBClusterBackup.status.state`
+* **Labels**: operator, status
+
+### mysql_backup_completed_timestamp_seconds
+* **Description**: When a backup run completed.
+* **Type**: Gauge
+* **Source**: `PerconaXtraDBClusterBackup.status.completed`
+* **Labels**: operator
+
 ## MongoDB
 
 ### mongo_up
@@ -952,11 +998,13 @@ data volume. If binary logging is disabled the binary log query is skipped.
 ### mongo_rs_status
 * **Description**: Replica set status: 1 if the member is part of a replica set. The member reports its own role (`role` label), which Coroot uses to identify the primary and to derive each secondary's replication lag from `mongo_rs_last_applied_timestamp_ms`.
 * **Type**: Gauge
+* **Source**: `replSetGetStatus` (the `self` member)
 * **Labels**: rs, role
 
 ### mongo_rs_last_applied_timestamp_ms
 * **Description**: Timestamp of the member's last applied operation, in milliseconds. Coroot computes replication lag as the primary's value minus each secondary's.
 * **Type**: Gauge
+* **Source**: `replSetGetStatus` (`optimes.appliedOpTime`)
 
 ### mongo_rs_member_config_info
 * **Description**: Replica set member configuration
@@ -1031,7 +1079,7 @@ data volume. If binary logging is disabled the binary log query is skipped.
 ### mongo_wt_tickets_available
 * **Description**: Available WiredTiger concurrency tickets by type (read, write)
 * **Type**: Gauge
-* **Source**: `serverStatus.queues.execution` (7.0+) or `serverStatus.wiredTiger.concurrentTransactions`
+* **Source**: `serverStatus.queues.execution` (8.0+) or `serverStatus.wiredTiger.concurrentTransactions` (7.0 and earlier)
 * **Labels**: type
 
 ### mongo_wt_cache_used_bytes / mongo_wt_cache_dirty_bytes / mongo_wt_cache_max_bytes
@@ -1042,10 +1090,12 @@ data volume. If binary logging is disabled the binary log query is skipped.
 ### mongo_wt_pages_evicted_by_app_threads_total
 * **Description**: Pages evicted from the WiredTiger cache by application threads - a key cache-pressure signal
 * **Type**: Counter
+* **Source**: `serverStatus.wiredTiger.cache` (sum of `pages evicted by application threads`, `page evict attempts by application threads`, and `modified page evict attempts by application threads`; the latter two are the 8.0+ counters)
 
 ### mongo_wt_app_threads_evicting_seconds_total
 * **Description**: Total time application threads spent evicting pages instead of serving queries
 * **Type**: Counter
+* **Source**: `serverStatus.wiredTiger.cache` (`application thread time evicting (usecs)`)
 
 ### mongo_wt_cache_bytes_read_into_total
 * **Description**: Bytes read from disk into the WiredTiger cache (cache misses) - a direct signal that the working set does not fit in cache
@@ -1133,7 +1183,7 @@ reads new entries incrementally, but the capture overhead is paid by the server 
 ### mongo_fsync_locked
 * **Description**: 1 if `db.fsyncLock()` is holding a global lock on this member (e.g. a filesystem-snapshot backup). On a secondary this blocks the oplog applier, so it is a direct root cause of replication lag.
 * **Type**: Gauge
-* **Source**: the `currentOp` command (`fsyncLock`)
+* **Source**: `$currentOp` (an operation with `desc: "fsyncLockWorker"` is present)
 
 ### mongo_prepared_transactions
 * **Description**: Number of transactions currently in the prepared state. A prepared transaction holds locks on secondaries until its commit/abort replicates, so a stuck or long one can block oplog apply.
@@ -1167,10 +1217,49 @@ reads new entries incrementally, but the capture overhead is paid by the server 
 
 ### MongoDB backups
 
-When running on Kubernetes, the agent collects backup state from the Percona Operator for MongoDB custom resources
-(`PerconaServerMongoDB`, `PerconaServerMongoDBBackup`): `mongo_backup_target_info`, `mongo_backup_schedule_info`,
-`mongo_backup_pitr_info`, `mongo_cluster_status`, `mongo_backup_info`, `mongo_backup_status`,
-and `mongo_backup_completed_timestamp_seconds`.
+When running on Kubernetes, backup state is collected through the agent's embedded kube-state-metrics from the custom resources of the [Percona Operator for MongoDB](https://docs.percona.com/percona-operator-for-mongodb/) (`PerconaServerMongoDB`, `PerconaServerMongoDBBackup`), which runs backups with Percona Backup for MongoDB (PBM). Every metric carries an `operator` label (`percona`) and, via the common `namespace`/`name` labels, correlates to the corresponding `DatabaseCluster` application in Coroot.
+
+### mongo_backup_target_info
+* **Description**: A configured backup storage, one series per entry of `spec.backup.storages` (the `method` label is the storage name). Coroot assembles the destination from the S3 bucket and prefix or the Azure container.
+* **Type**: Info
+* **Source**: `PerconaServerMongoDB.spec.backup.storages`
+* **Labels**: operator, method, type, s3_bucket, s3_endpoint, s3_prefix, azure_container
+
+### mongo_backup_schedule_info
+* **Description**: A scheduled backup task (one series per entry of `spec.backup.tasks`). Coroot uses the schedule of enabled tasks to detect overdue backups; `method` is the storage the task writes to and `kind` is `logical` or `physical`.
+* **Type**: Info
+* **Source**: `PerconaServerMongoDB.spec.backup.tasks`
+* **Labels**: operator, task, schedule, method, kind, enabled
+
+### mongo_backup_pitr_info
+* **Description**: Whether point-in-time recovery (continuous oplog backup) is enabled for the cluster.
+* **Type**: Info
+* **Source**: `PerconaServerMongoDB.spec.backup.pitr`
+* **Labels**: operator, enabled
+
+### mongo_cluster_status
+* **Description**: The cluster state reported by the operator (e.g. `ready`, `initializing`, `error`). Value is 1 for the currently-active series.
+* **Type**: Info
+* **Source**: `PerconaServerMongoDB.status.state`
+* **Labels**: operator, status
+
+### mongo_backup_info
+* **Description**: An individual backup run (one series per `PerconaServerMongoDBBackup` object), used to list recent backups. Carries immutable identity only; the run's phase is in `mongo_backup_status`. `cluster` is the name of the `PerconaServerMongoDB` the backup belongs to.
+* **Type**: Info
+* **Source**: `PerconaServerMongoDBBackup.spec` (`clusterName`, `storageName`, `type`), `.status.destination`
+* **Labels**: operator, cluster, method, kind, path
+
+### mongo_backup_status
+* **Description**: The current phase of a backup run (e.g. `waiting`, `requested`, `running`, `ready`, `error`). Value is 1 for the currently-active series (a run's phase changes over its lifecycle, so only the live series is used).
+* **Type**: Info
+* **Source**: `PerconaServerMongoDBBackup.status.state`
+* **Labels**: operator, status
+
+### mongo_backup_completed_timestamp_seconds
+* **Description**: When a backup run completed.
+* **Type**: Gauge
+* **Source**: `PerconaServerMongoDBBackup.status.completed`
+* **Labels**: operator
 
 ### Change tracking
 
@@ -1222,6 +1311,152 @@ The agent collects database and collection size metrics. For collection sizes, o
 * **Type**: Gauge
 * **Source**: `$collStats` (`storageStats.count`)
 * **Labels**: db, collection
+
+## Redis
+
+Redis metrics are collected by the embedded [redis_exporter](https://github.com/oliver006/redis_exporter) (in `redis-metrics-only` mode with latency histograms disabled), so the full metric set and its semantics are described in the exporter's documentation. The metrics Coroot relies on are:
+
+### redis_up
+* **Description**: Whether the Redis server is reachable or not
+* **Type**: Gauge
+
+### redis_exporter_last_scrape_error
+* **Description**: Whether a scrape error occurred
+* **Type**: Gauge
+* **Labels**: err
+
+### redis_instance_info
+* **Description**: The server info; Coroot uses `role` (`master`/`slave`) to build the replication topology
+* **Type**: Gauge
+* **Labels**: redis_version, role, and other fields of `INFO server`/`INFO replication`
+
+### redis_commands_total / redis_commands_duration_seconds_total
+* **Description**: Total number of calls and cumulative execution time per command. The rate of the seconds counter divided by the rate of calls is the average command latency.
+* **Type**: Counter
+* **Source**: `INFO commandstats`
+* **Labels**: cmd
+
+### redis_db_keys / redis_db_keys_expiring
+* **Description**: Number of keys and number of keys with a TTL in each logical database
+* **Type**: Gauge
+* **Source**: `INFO keyspace`
+* **Labels**: db
+
+## Memcached
+
+Memcached metrics are collected by the embedded [memcached_exporter](https://github.com/prometheus/memcached_exporter), so the full metric set is described in the exporter's documentation. The metrics Coroot relies on are:
+
+### memcached_up
+* **Description**: Whether the Memcached server is reachable or not
+* **Type**: Gauge
+
+### memcached_version
+* **Description**: The server version
+* **Type**: Gauge
+* **Labels**: version
+
+### memcached_limit_bytes
+* **Description**: The configured memory limit for item storage (`-m`)
+* **Type**: Gauge
+
+### memcached_items_evicted_total
+* **Description**: Total number of valid items removed from the cache to free memory for new items; a non-zero rate means the cache is undersized for the working set
+* **Type**: Counter
+
+### memcached_commands_total
+* **Description**: Total number of commands by type and outcome (`get`/`hit`, `get`/`miss`, `set`, `delete`, ...); Coroot derives the hit rate from the `get` hits and misses
+* **Type**: Counter
+* **Labels**: command, status
+
+## AWS
+
+When the AWS integration is configured in the Coroot project settings, the agent discovers RDS instances and ElastiCache nodes through the AWS API (optionally filtered by tags) and exposes their state. Every RDS metric carries an `rds_instance_id` label (`<region>/<DBInstanceIdentifier>`) and every ElastiCache metric an `ec_instance_id` label (`<region>/<CacheClusterId>/<CacheNodeId>`), which Coroot uses to match the instances to the applications that connect to them.
+
+### aws_discovery_error
+* **Description**: 1 for each distinct AWS API error encountered during the last discovery cycle, 0 when discovery succeeded
+* **Type**: Gauge
+* **Labels**: error
+
+### aws_rds_info
+* **Description**: RDS instance info
+* **Type**: Gauge
+* **Source**: `DescribeDBInstances`; `ipv4` is resolved by the agent from the endpoint address
+* **Labels**: region, availability_zone, endpoint, ipv4, port, engine, engine_version, instance_type, storage_type, multi_az, secondary_availability_zone, cluster_id, source_instance_id
+
+### aws_rds_status
+* **Description**: The status of the RDS instance (e.g. `available`, `modifying`, `backing-up`)
+* **Type**: Gauge
+* **Labels**: status
+
+### aws_rds_allocated_storage_gibibytes / aws_rds_storage_autoscaling_threshold_gibibytes / aws_rds_storage_provisioned_iops
+* **Description**: The allocated storage size, the storage autoscaling upper limit (`MaxAllocatedStorage`), and the number of provisioned IOPS
+* **Type**: Gauge
+
+### aws_rds_backup_retention_period_days
+* **Description**: The number of days automated backups are retained
+* **Type**: Gauge
+
+### aws_rds_read_replica_info
+* **Description**: One series per read replica of this instance
+* **Type**: Gauge
+* **Labels**: replica_instance_id
+
+### aws_rds_log_messages_total
+* **Description**: Number of messages in the instance's Postgres log grouped by the automatically extracted repeated pattern (`postgres` and `aurora-postgresql` engines only)
+* **Type**: Counter
+* **Source**: the instance's log files, read through the RDS `DownloadDBLogFilePortion` API
+* **Labels**: level, pattern_hash, sample
+
+The following OS-level metrics are read from [RDS Enhanced Monitoring](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_Monitoring.OS.html) (the `RDSOSMetrics` CloudWatch Logs group) and are only available when Enhanced Monitoring is enabled for the instance:
+
+### aws_rds_cpu_cores
+* **Description**: The number of virtual CPUs
+* **Type**: Gauge
+
+### aws_rds_cpu_usage_percent
+* **Description**: The percentage of the CPU spent in each mode
+* **Type**: Gauge
+* **Labels**: mode (`user`, `system`, `wait`, `steal`, `irq`, `nice`, `guest`)
+
+### aws_rds_memory_total_bytes / aws_rds_memory_cached_bytes / aws_rds_memory_free_bytes
+* **Description**: The total amount of memory, the amount used as page cache, and the amount of unassigned memory
+* **Type**: Gauge
+
+### aws_rds_io_ops_per_second / aws_rds_io_bytes_per_second
+* **Description**: The number of I/O operations and bytes read or written per second, per device (`aurora-data` for Aurora's network storage)
+* **Type**: Gauge
+* **Labels**: device, operation (`read`, `write`)
+
+### aws_rds_io_await_seconds / aws_rds_io_util_percent
+* **Description**: The average time to serve an I/O request including queue time, and the percentage of time during which requests were issued to the device
+* **Type**: Gauge
+* **Labels**: device
+
+### aws_rds_io_latency_seconds
+* **Description**: The average elapsed time between the submission of an I/O request and its completion (Amazon Aurora only)
+* **Type**: Gauge
+* **Labels**: device, operation
+
+### aws_rds_fs_total_bytes / aws_rds_fs_used_bytes
+* **Description**: The size of each file system and the space used by files on it; Coroot uses the `/rdsdbdata` mount point for the data volume
+* **Type**: Gauge
+* **Labels**: mount_point
+
+### aws_rds_net_rx_bytes_per_second / aws_rds_net_tx_bytes_per_second
+* **Description**: The number of bytes received and transmitted per second, per network interface
+* **Type**: Gauge
+* **Labels**: interface
+
+### aws_elasticache_info
+* **Description**: ElastiCache node info; `cluster_id` is the replication group id when the node belongs to one, the cache cluster id otherwise
+* **Type**: Gauge
+* **Source**: `DescribeCacheClusters`; `ipv4` is resolved by the agent from the endpoint address
+* **Labels**: region, availability_zone, endpoint, ipv4, port, engine, engine_version, instance_type, cluster_id
+
+### aws_elasticache_status
+* **Description**: The status of the ElastiCache node (e.g. `available`, `creating`, `rebooting`)
+* **Type**: Gauge
+* **Labels**: status
 
 ## FluxCD
 
