@@ -189,6 +189,32 @@ spec:
 #      name:           # Specifies the full image reference (e.g., <private-registry>/coroot-cluster-agent:<version>)
 #      pullPolicy:     # The image pull policy (e.g., Always, IfNotPresent, Never).
 #      pullSecrets: [] # The pull secrets for pulling the image from a private registry.
+#    # AWS integration (discovery of RDS and ElastiCache instances). Overrides the settings made in the Coroot UI.
+#    aws:
+#      region:          # AWS region to discover instances in (default: the region the cluster runs in).
+#      accessKeySecret: # Secret with a static access key (keys: access_key_id, secret_access_key).
+#        name:          # Leave unset to use the IAM role of the cluster-agent pod (EKS Pod Identity, IRSA) or the EC2 instance profile.
+#      rdsTagFilters:   # Discover only RDS instances whose tags match (glob patterns are supported in values).
+#        team: payments
+#        env: "prod*"
+#      elasticacheTagFilters: {} # Same for ElastiCache clusters.
+#    # Databases to collect metrics from, in addition to those configured in the Coroot UI or discovered through pod annotations.
+#    # Exactly one of host, rds or elasticache is required per entry.
+#    databases:
+#      - type: postgres         # postgres, mysql, redis, memcached or mongodb.
+#        rds: my-db             # An RDS instance discovered by the AWS integration: its endpoint is used.
+#        credentials:
+#          usernameSecret: {name: my-db-coroot, key: username}
+#          passwordSecret: {name: my-db-coroot, key: password}
+#        params: {sslmode: require}
+#      - type: redis
+#        elasticache: my-cache  # An ElastiCache cluster discovered by the AWS integration: every node is monitored.
+#      - type: mysql
+#        host: mysql.example.internal # A hostname is re-resolved on every configuration update; every resolved IP address is monitored.
+#        port: "3306"
+#        credentials:
+#          usernameSecret: {name: mysql-coroot, key: username}
+#          passwordSecret: {name: mysql-coroot, key: password}
 #    kubeStateMetrics:
 #      image: # If unspecified, the operator will install Kube State Metrics from Coroot's public registry.
 #        name:           # Specifies the full image reference (e.g., <private-registry>/kube-state-metrics:<version>)

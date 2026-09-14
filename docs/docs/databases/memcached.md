@@ -38,6 +38,26 @@ Then, switch to `Manual Configuration`, complete the form, and click `Save`.
 Coroot-cluster-agent updates its configuration every minute and also takes some time to collect metrics. 
 Please wait a few minutes for telemetry to appear.
 
+### Configuration as code
+
+When Coroot is deployed by the [Kubernetes Operator](/installation/k8s-operator), remote Memcached instances can be
+declared in the `clusterAgent.databases` section of the Coroot custom resource instead of the UI, with credentials
+referenced from a Kubernetes Secret. A hostname is re-resolved on every configuration update, and every resolved IP
+address is monitored, so DNS-based failover and multi-address names work without changes:
+
+```yaml
+spec:
+  clusterAgent:
+    databases:
+      - type: memcached
+        host: cache.example.internal     # or `elasticache: <CacheClusterId>` for an ElastiCache cluster discovered by the AWS integration
+        port: "11211"
+```
+
+Coroot attributes the collected metrics to the application it sees clients connecting to, by address. Settings in the
+custom resource take precedence over the UI. Installations without the operator can put the same `databases` list in
+the cluster-agent's [configuration file](/configuration/coroot-cluster-agent#configuration-file).
+
 ## Troubleshooting
 
 Check the coroot-cluster-agent logs if you encounter any issues.

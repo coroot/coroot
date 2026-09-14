@@ -115,7 +115,7 @@ func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, 
 	}
 	otelService := app.OtelLogService(otelServices, w)
 
-	if agentLogsFound {
+	if agentLogsFound && len(app.LogServices()) > 0 {
 		v.Sources = append(v.Sources, model.LogSourceAgent)
 	}
 
@@ -182,6 +182,9 @@ func renderEntries(ctx context.Context, v *View, ch *clickhouse.Client, app *mod
 		return
 	}
 	lq.Services = app.LogQueryServices(v.Source, otelService)
+	if v.Source == model.LogSourceAgent && len(lq.Services) == 0 {
+		return
+	}
 	if v.Source == model.LogSourceAgent {
 		hashes := utils.NewStringSet()
 		for _, f := range q.Filters {

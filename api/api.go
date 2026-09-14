@@ -917,7 +917,7 @@ func (api *Api) Integration(w http.ResponseWriter, r *http.Request, u *db.User) 
 				View any                   `json:"view"`
 			}{
 				Form: form,
-				View: views.AWS(world),
+				View: views.AWS(world, project.Settings.Integrations.AWS != nil),
 			})
 		case db.IntegrationTypeClickhouse:
 			cfg := project.ClickHouseConfig(api.globalClickHouse)

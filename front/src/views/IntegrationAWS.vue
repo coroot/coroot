@@ -58,21 +58,26 @@
         </v-dialog>
 
         <p>
-            <b>Step #2</b>: create an
+            <b>Step #2</b>: attach the policy to the IAM role of the cluster-agent pod (EKS Pod Identity or IRSA, see the
+            <a href="https://docs.coroot.com/guides/aws-eks-rds" target="_blank">guide</a>) and leave the keys below empty, or create an
             <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/id_users_create.html#id_users_create_console" target="_blank">IAM user</a>
-            with programmatic access, attach the policy to it and use AccessKeyID/SecretAccessKey in the form below.
+            with programmatic access, attach the policy to it and use its AccessKeyID/SecretAccessKey.
         </p>
 
         <v-form v-if="form" v-model="valid" ref="form">
             <div class="subtitle-1 mt-3">Region</div>
-            <div class="caption">Coroot only discovers RDS and ElastiCache instances within the specified region, e.g. <var>us-west-1</var></div>
-            <v-text-field v-model="form.region" :rules="[$validators.notEmpty]" outlined dense hide-details single-line clearable />
+            <div class="caption">
+                Coroot only discovers RDS and ElastiCache instances within the specified region, e.g. <var>us-west-1</var>. Leave it empty to use the
+                region the cluster-agent runs in.
+            </div>
+            <v-text-field v-model="form.region" outlined dense hide-details single-line clearable />
 
+            <div class="caption mt-3">Leave both keys empty to use the IAM role attached to the cluster-agent pod or the EC2 instance profile.</div>
             <div class="subtitle-1 mt-3">Access Key ID</div>
-            <v-text-field v-model="form.access_key_id" :rules="[$validators.notEmpty]" outlined dense hide-details single-line />
+            <v-text-field v-model="form.access_key_id" outlined dense hide-details single-line />
 
             <div class="subtitle-1 mt-3">Secret Access Key</div>
-            <v-text-field v-model="form.secret_access_key" :rules="[$validators.notEmpty]" outlined dense hide-details single-line type="password" />
+            <v-text-field v-model="form.secret_access_key" outlined dense hide-details single-line type="password" />
 
             <div class="subtitle-1 mt-3">RDS tag filters</div>
             <div class="caption">
@@ -97,14 +102,14 @@
             <v-alert v-if="message" color="green" outlined text class="mt-3">
                 {{ message }}
             </v-alert>
-            <div class="mt-3">
-                <v-btn v-if="saved.region && !form.region" block color="error" @click="del" :loading="loading">Delete</v-btn>
-                <v-btn v-else block color="primary" @click="save" :disabled="!valid" :loading="loading">Save</v-btn>
+            <div class="mt-3 d-flex" style="gap: 8px">
+                <v-btn color="primary" class="flex-grow-1" @click="save" :disabled="!valid" :loading="loading">Save</v-btn>
+                <v-btn v-if="configured" color="error" outlined @click="del" :loading="loading">Delete</v-btn>
             </div>
         </v-form>
 
         <h2 class="text-h6 mt-10 mb-3">Discovery status</h2>
-        <v-alert v-if="form && !form.region" color="primary" outlined text> Not configured </v-alert>
+        <v-alert v-if="!configured" color="primary" outlined text> Not configured </v-alert>
         <v-alert v-else-if="errors.length" color="error" outlined text class="pb-2">
             <div v-for="e in errors" class="mb-2">• {{ e }}</div>
         </v-alert>
@@ -173,7 +178,7 @@ export default {
             message: '',
             rds_tag_filters: '',
             elasticache_tag_filters: '',
-            saved: null,
+            configured: false,
             policyDialog: false,
             errors: [],
             instances: [],
@@ -197,7 +202,7 @@ export default {
                 this.form = data.form;
                 this.rds_tag_filters = map2str(this.form.rds_tag_filters);
                 this.elasticache_tag_filters = map2str(this.form.elasticache_tag_filters);
-                this.saved = JSON.parse(JSON.stringify(this.form));
+                this.configured = !!data.view.configured;
                 this.errors = data.view.errors || [];
                 this.instances = data.view.instances || [];
             });

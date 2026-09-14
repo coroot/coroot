@@ -67,8 +67,8 @@ func CustomApplications(p *db.Project) *applications.CustomApplicationsView {
 	return applications.RenderCustomApplications(p)
 }
 
-func AWS(w *model.World) *aws.View {
-	return aws.Render(w)
+func AWS(w *model.World, configured bool) *aws.View {
+	return aws.Render(w, configured)
 }
 
 func Roles(rs []rbac.Role) *roles.View {
