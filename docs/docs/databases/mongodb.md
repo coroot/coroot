@@ -169,6 +169,29 @@ Then, switch to `Manual Configuration`, complete the form, and click `Save`.
 Coroot-cluster-agent updates its configuration every minute and also takes some time to collect metrics. 
 Please wait a few minutes for telemetry to appear.
 
+### Configuration as code
+
+When Coroot is deployed by the [Kubernetes Operator](/installation/k8s-operator), remote MongoDB instances can be
+declared in the `clusterAgent.databases` section of the Coroot custom resource instead of the UI, with credentials
+referenced from a Kubernetes Secret. A hostname is re-resolved on every configuration update, and every resolved IP
+address is monitored, so DNS-based failover and multi-address names work without changes:
+
+```yaml
+spec:
+  clusterAgent:
+    databases:
+      - type: mongodb
+        host: mongo.example.internal
+        port: "27017"
+        credentials:
+          usernameSecret: {name: mongodb-coroot, key: username}
+          passwordSecret: {name: mongodb-coroot, key: password}
+```
+
+Coroot attributes the collected metrics to the application it sees clients connecting to, by address. Settings in the
+custom resource take precedence over the UI. Installations without the operator can put the same `databases` list in
+the cluster-agent's [configuration file](/configuration/coroot-cluster-agent#configuration-file).
+
 ## What data is collected
 
 - **Server status**: connections (current, available, active, created, rejected), operation counters, document operations,

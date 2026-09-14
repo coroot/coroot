@@ -475,7 +475,7 @@ type IntegrationFormAWS struct {
 }
 
 func (f *IntegrationFormAWS) Valid() bool {
-	return f.Region != "" && f.AccessKeyID != "" && f.SecretAccessKey != ""
+	return (f.AccessKeyID == "") == (f.SecretAccessKey == "")
 }
 
 func (f *IntegrationFormAWS) Get(project *db.Project, masked bool) {

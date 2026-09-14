@@ -6,8 +6,9 @@ import (
 )
 
 type View struct {
-	Errors    []string   `json:"errors"`
-	Instances []Instance `json:"instances"`
+	Configured bool       `json:"configured"`
+	Errors     []string   `json:"errors"`
+	Instances  []Instance `json:"instances"`
 }
 
 type Instance struct {
@@ -20,8 +21,8 @@ type Instance struct {
 	AvailabilityZone string              `json:"availability_zone"`
 }
 
-func Render(w *model.World) *View {
-	v := &View{}
+func Render(w *model.World, configured bool) *View {
+	v := &View{Configured: configured}
 
 	if w == nil {
 		return v

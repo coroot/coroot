@@ -220,7 +220,7 @@ Coroot reads `pg_database_size()` for per-database sizes and `pg_total_relation_
 Schema tracking, size tracking, and bloat estimation respect these additional flags:
 
 - **`--max-tables-per-database`** / `MAX_TABLES_PER_DATABASE` (default: `1000`) - skip databases with more tables than this limit, protecting against expensive queries on very large schemas.
-- **`--exclude-databases`** / `EXCLUDE_DATABASES` (default: `postgres`, `mysql`, `information_schema`, `performance_schema`, `sys`) - databases to exclude from schema, size, and bloat tracking. The default list is shared with the MySQL integration; for Postgres only `postgres` is relevant (the others don't exist as databases).
+- **`--exclude-databases`** / `EXCLUDE_DATABASES` (default: `postgres`, `rdsadmin`, `mysql`, `information_schema`, `performance_schema`, `sys`) - databases to exclude from schema, size, and bloat tracking. The default list is shared with the MySQL integration; for Postgres only `postgres` and `rdsadmin` (the internal database of Amazon RDS, which rejects all connections) are relevant (the others don't exist as databases).
 
 Each capability can be toggled independently:
 
@@ -409,6 +409,31 @@ Then, switch to `Manual Configuration`, complete the form, and click `Save`.
 
 Coroot-cluster-agent updates its configuration every minute and also takes some time to collect metrics.
 Please wait a few minutes for telemetry to appear.
+
+### Configuration as code
+
+When Coroot is deployed by the [Kubernetes Operator](/installation/k8s-operator), remote Postgres instances can be
+declared in the `clusterAgent.databases` section of the Coroot custom resource instead of the UI, with credentials
+referenced from a Kubernetes Secret. A hostname is re-resolved on every configuration update, and every resolved IP
+address is monitored, so DNS-based failover and multi-address names work without changes:
+
+```yaml
+spec:
+  clusterAgent:
+    databases:
+      - type: postgres
+        host: db.example.internal        # or `rds: <DBInstanceIdentifier>` for an RDS instance discovered by the AWS integration
+        port: "5432"
+        credentials:
+          usernameSecret: {name: postgres-coroot, key: username}
+          passwordSecret: {name: postgres-coroot, key: password}
+        params:
+          sslmode: require               # required by RDS Postgres 15+ and any server with `ssl = on` enforced in pg_hba.conf
+```
+
+Coroot attributes the collected metrics to the application it sees clients connecting to, by address. Settings in the
+custom resource take precedence over the UI. Installations without the operator can put the same `databases` list in
+the cluster-agent's [configuration file](/configuration/coroot-cluster-agent#configuration-file).
 
 ## Troubleshooting
 

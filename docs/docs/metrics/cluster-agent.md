@@ -1370,7 +1370,7 @@ Memcached metrics are collected by the embedded [memcached_exporter](https://git
 
 ## AWS
 
-When the AWS integration is configured in the Coroot project settings, the agent discovers RDS instances and ElastiCache nodes through the AWS API (optionally filtered by tags) and exposes their state. Every RDS metric carries an `rds_instance_id` label (`<region>/<DBInstanceIdentifier>`) and every ElastiCache metric an `ec_instance_id` label (`<region>/<CacheClusterId>/<CacheNodeId>`), which Coroot uses to match the instances to the applications that connect to them.
+When the [AWS integration](/configuration/aws) is configured in the Coroot project settings, the agent discovers RDS instances and ElastiCache nodes through the AWS API (optionally filtered by tags) and exposes their state. Every RDS metric carries an `rds_instance_id` label (`<region>/<DBInstanceIdentifier>`) and every ElastiCache metric an `ec_instance_id` label (`<region>/<CacheClusterId>/<CacheNodeId>`), which Coroot uses to match the instances to the applications that connect to them.
 
 ### aws_discovery_error
 * **Description**: 1 for each distinct AWS API error encountered during the last discovery cycle, 0 when discovery succeeded
