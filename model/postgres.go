@@ -98,9 +98,10 @@ type Postgres struct {
 
 	ReplicationSlots map[string]*PgReplicationSlot
 
-	XidAge        map[string]*timeseries.TimeSeries
-	MultixactAge  map[string]*timeseries.TimeSeries
-	OldestXminAge map[string]*timeseries.TimeSeries
+	XidAge             map[string]*timeseries.TimeSeries
+	MultixactAge       map[string]*timeseries.TimeSeries
+	OldestXminAge      map[string]*timeseries.TimeSeries
+	TransactionSeconds map[QueryKey]*timeseries.TimeSeries
 
 	CheckpointsScheduledByType map[string]*timeseries.TimeSeries
 	Checkpoints                *timeseries.TimeSeries
@@ -146,6 +147,7 @@ func NewPostgres() *Postgres {
 		XidAge:                        map[string]*timeseries.TimeSeries{},
 		MultixactAge:                  map[string]*timeseries.TimeSeries{},
 		OldestXminAge:                 map[string]*timeseries.TimeSeries{},
+		TransactionSeconds:            map[QueryKey]*timeseries.TimeSeries{},
 		BuffersWrittenBySource:        map[string]*timeseries.TimeSeries{},
 		DatabaseSize:                  map[string]*timeseries.TimeSeries{},
 		TableSize:                     map[DbTableKey]*timeseries.TimeSeries{},

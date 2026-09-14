@@ -13,10 +13,9 @@ import (
 )
 
 const pgActiveLockedState = "active (locked)"
-
 const pgBlockSize = 8192
-
 const pgWalSegmentSizeBytes = 16 * 1024 * 1024
+const pgRecentPoints = 5
 
 const (
 	pgQueriesChartTitle           = "Queries per second"
@@ -42,6 +41,7 @@ const (
 	pgXidAgeChartTitle            = "Transaction ID age, transactions"
 	pgMultixactAgeChartTitle      = "Multixact ID age, multixacts"
 	pgXminHoldersChartTitle       = "Oldest transaction ID held back <selector>, transactions"
+	pgLongestTransactionsTitle    = "Longest open transaction by query <selector>, seconds"
 	pgDiskUsageChartTitle         = "Disk usage <selector>, bytes"
 	pgTopTablesChartTitle         = "Top tables by size <selector>, bytes"
 	pgBloatByDbChartTitle         = "Estimated bloat by database <selector>, bytes"
@@ -161,6 +161,9 @@ func (a *appAuditor) postgres() {
 	checkpointCheck := report.CreateCheck(model.Checks.PostgresCheckpoint)
 	walArchivingCheck := report.CreateCheck(model.Checks.PostgresWalArchiving)
 	wraparoundCheck := report.CreateCheck(model.Checks.PostgresWraparound)
+	wraparoundXminHolder := ""
+	xminAges := pgClusterXminHolders(a.app.Instances)
+	longestTxn, longestTxnSeconds := pgLongestTransaction(a.app.Instances)
 	bloatCheck := report.CreateCheck(model.Checks.PostgresBloat)
 	autovacuumCheck := report.CreateCheck(model.Checks.PostgresAutovacuum)
 
@@ -243,7 +246,9 @@ func (a *appAuditor) postgres() {
 			walArchivingCheck.AddItem("%s", i.Name)
 			walArchivingCheck.AddDetail("%s: the last WAL archive attempt failed - check archive_command and the archive storage", i.Name)
 		}
-		pgWraparound(report, i, wraparoundCheck)
+		if h := pgWraparound(report, i, wraparoundCheck, xminAges, longestTxn, longestTxnSeconds); h != "" {
+			wraparoundXminHolder = h
+		}
 
 		diskUsageChart := report.GetOrCreateChartGroup(pgDiskUsageChartTitle, nil).Group("Storage", 8)
 		tableSizeChart := report.GetOrCreateChartGroup(pgTopTablesChartTitle, nil).Group("Storage", 8)
@@ -311,9 +316,6 @@ func (a *appAuditor) postgres() {
 
 	autovacuumCheck.AddWidget(report.GetOrCreateChartGroup(pgAutovacuumPressureTitle, nil).Widget())
 	autovacuumCheck.AddWidget(report.GetOrCreateChartGroup(pgDeadTuplesByTableTitle, nil).Widget())
-	autovacuumCheck.AddWidget(report.GetOrCreateChartGroup(pgTimeSinceAutovacuumTitle, nil).Widget())
-	autovacuumCheck.AddWidget(report.GetOrCreateChartGroup(pgAutovacuumWorkersTitle, nil).Widget())
-	autovacuumCheck.AddWidget(report.GetOrCreateChartGroup(pgThrottledByTableTitle, nil).Widget())
 	pgAutovacuum(report, a.app.Instances, autovacuumCheck)
 
 	staleStatsCheck := report.CreateCheck(model.Checks.PostgresStaleStatistics)
@@ -330,6 +332,15 @@ func (a *appAuditor) postgres() {
 	checkpointCheck.AddWidget(report.GetOrCreateChartGroup(pgCheckpointsChartTitle, nil).Widget())
 	walArchivingCheck.AddWidget(report.GetOrCreateChartGroup(pgWalArchivingChartTitle, nil).Widget())
 	wraparoundCheck.AddWidget(report.GetOrCreateChart(pgXidAgeChartTitle, nil).Widget())
+	switch wraparoundXminHolder {
+	case "":
+	case "replication_slot":
+		wraparoundCheck.AddWidget(report.GetOrCreateChartGroup(pgReplicationSlotsTitle, nil).Widget())
+	case "running_transaction":
+		wraparoundCheck.AddWidget(report.GetOrCreateChartGroup(pgLongestTransactionsTitle, nil).Widget())
+	default:
+		wraparoundCheck.AddWidget(report.GetOrCreateChartGroup(pgXminHoldersChartTitle, nil).Widget())
+	}
 	bloatCheck.AddWidget(report.GetOrCreateChartGroup(pgBloatByDbChartTitle, nil).Widget())
 
 	pgConfigurationHints(report, a.app.Instances)
@@ -746,7 +757,18 @@ func pgFormatBytes(v float32) string {
 const pgDeadTupleMinBytes = 512 << 20 // 512 MiB
 const pgAutovacuumRecentSeconds = 10 * 60
 
+const (
+	pgXminHolderDominantRatio = 0.8
+	pgXminHolderMaterialRatio = 0.1
+)
+
 func pgAutovacuum(report *model.AuditReport, instances []*model.Instance, check *model.Check) {
+	xminAges := pgClusterXminHolders(instances)
+	longestTxn, longestTxnSeconds := pgLongestTransaction(instances)
+	var want struct {
+		xminHolders, slots, longestTxn      bool
+		sinceAutovacuum, workers, throttled bool
+	}
 	for _, i := range instances {
 		pg := i.Postgres
 		if pg == nil {
@@ -755,12 +777,12 @@ func pgAutovacuum(report *model.AuditReport, instances []*model.Instance, check 
 		vacThreshold, ok1 := pgSettingFloat(pg, "autovacuum_vacuum_threshold")
 		vacScale, ok2 := pgSettingFloat(pg, "autovacuum_vacuum_scale_factor")
 		settingsOK := ok1 && ok2
-		xminHolder, _ := pgTopXminHolder(pg)
+		xminHolder, _ := pgTopXminHolder(xminAges)
 
 		maxWorkers, hasMaxWorkers := pgSettingFloat(pg, "autovacuum_max_workers")
 		workersSaturated := false
 		if hasMaxWorkers && maxWorkers > 0 {
-			if avg := pg.AutovacuumWorkers.LastNAvg(3, 0); !timeseries.IsNaN(avg) && avg >= maxWorkers-0.5 {
+			if avg := pg.AutovacuumWorkers.LastNAvg(pgRecentPoints, 0); !timeseries.IsNaN(avg) && avg >= maxWorkers-0.5 {
 				workersSaturated = true
 			}
 		}
@@ -840,14 +862,21 @@ func pgAutovacuum(report *model.AuditReport, instances []*model.Instance, check 
 				cause = "; autovacuum is disabled on this table (autovacuum_enabled=false)"
 			case recentlyVacuumed && xminHolder != "":
 				cause = fmt.Sprintf("; a %s is blocking cleanup (holds the vacuum horizon)", pgXminHolderLabel(xminHolder))
-				check.AddWidget(report.GetOrCreateChartGroup(pgXminHoldersChartTitle, nil).Widget())
-				if xminHolder == "replication_slot" {
-					check.AddWidget(report.GetOrCreateChartGroup(pgReplicationSlotsTitle, nil).Widget())
-				} else {
-					check.AddWidget(report.GetOrCreateChartGroup(pgIdleTransactionsTitle, nil).Widget())
-					check.AddWidget(report.GetOrCreateChartGroup(pgActiveQueriesTitle, nil).Widget())
+				if xminHolder == "running_transaction" && longestTxn.Query != "" {
+					cause += fmt.Sprintf(". The oldest is in %q, open %s: %s",
+						longestTxn.Db,
+						utils.FormatDurationShort(timeseries.Duration(int64(longestTxnSeconds)), 2),
+						longestTxn.Query)
+				}
+				want.xminHolders = true
+				switch xminHolder {
+				case "replication_slot":
+					want.slots = true
+				case "running_transaction":
+					want.longestTxn = true
 				}
 			case pg.TableVacuumInProgress[k] != nil && pg.TableVacuumInProgress[k].Last() == 1:
+				want.throttled = true
 				if pg.TableVacuumThrottled[k].Average() < 0.5 {
 					cause = "; vacuum running but too slow (large table or slow storage)"
 				} else if o := pgTableCostOverride(pg, k); o != "" {
@@ -856,14 +885,17 @@ func pgAutovacuum(report *model.AuditReport, instances []*model.Instance, check 
 					cause = "; vacuum throttled by the cost limits - tune autovacuum_vacuum_cost_delay/limit"
 				}
 			case workersSaturated && workersThrottled && !recentlyVacuumed:
+				want.workers, want.throttled = true, true
 				if o := pgTableCostOverride(pg, k); o != "" {
 					cause = fmt.Sprintf("; workers busy but throttled by this table's %s, adjust the cost settings (more workers won't help)", o)
 				} else {
 					cause = "; workers busy but throttled by the cost limits, tune autovacuum_vacuum_cost_delay/limit (more workers won't help)"
 				}
 			case workersSaturated && !recentlyVacuumed:
+				want.workers = true
 				cause = fmt.Sprintf("; all %.0f autovacuum workers are busy, raise autovacuum_max_workers", maxWorkers)
 			case hasAge:
+				want.sinceAutovacuum = true
 				cause = fmt.Sprintf("; autovacuum last ran %s ago", utils.FormatDurationShort(timeseries.Duration(avTs.Last()), 1))
 			}
 			worst.table, worst.dead, worst.pressure, worst.cause, worst.found = k.String(), dead, pLast, cause, true
@@ -898,6 +930,21 @@ func pgAutovacuum(report *model.AuditReport, instances []*model.Instance, check 
 			check.AddItem("%s", i.Name)
 			check.AddDetail("%s: %s: %.0fx over the autovacuum trigger threshold, ~%s of dead rows%s", i.Name, worst.table, worst.pressure, pgFormatBytes(worst.dead), worst.cause)
 		}
+	}
+
+	switch {
+	case want.slots:
+		check.AddWidget(report.GetOrCreateChartGroup(pgReplicationSlotsTitle, nil).Widget())
+	case want.longestTxn:
+		check.AddWidget(report.GetOrCreateChartGroup(pgLongestTransactionsTitle, nil).Widget())
+	case want.xminHolders:
+		check.AddWidget(report.GetOrCreateChartGroup(pgXminHoldersChartTitle, nil).Widget())
+	case want.throttled:
+		check.AddWidget(report.GetOrCreateChartGroup(pgThrottledByTableTitle, nil).Widget())
+	case want.workers:
+		check.AddWidget(report.GetOrCreateChartGroup(pgAutovacuumWorkersTitle, nil).Widget())
+	case want.sinceAutovacuum:
+		check.AddWidget(report.GetOrCreateChartGroup(pgTimeSinceAutovacuumTitle, nil).Widget())
 	}
 }
 
@@ -1012,17 +1059,59 @@ func pgSettingFloat(pg *model.Postgres, name string) (float32, bool) {
 	return 0, false
 }
 
-func pgTopXminHolder(pg *model.Postgres) (string, float32) {
+func pgAttributionInstances(instances []*model.Instance) []*model.Instance {
+	var primaries, all []*model.Instance
+	for _, i := range instances {
+		if i.Postgres == nil {
+			continue
+		}
+		all = append(all, i)
+		if i.ClusterRoleLast() == model.ClusterRolePrimary {
+			primaries = append(primaries, i)
+		}
+	}
+	if len(primaries) > 0 {
+		return primaries
+	}
+	return all
+}
+
+func pgClusterXminHolders(instances []*model.Instance) map[string]float32 {
+	ages := map[string]float32{}
+	for _, i := range pgAttributionInstances(instances) {
+		for h, ts := range i.Postgres.OldestXminAge {
+			if v := ts.LastNMax(pgRecentPoints, 0); v > ages[h] {
+				ages[h] = v
+			}
+		}
+	}
+	return ages
+}
+
+func pgLongestTransaction(instances []*model.Instance) (model.QueryKey, float32) {
+	var key model.QueryKey
+	longest := float32(0)
+	for _, i := range pgAttributionInstances(instances) {
+		for k, ts := range i.Postgres.TransactionSeconds {
+			if v := ts.LastNMax(pgRecentPoints, 0); v > longest {
+				key, longest = k, v
+			}
+		}
+	}
+	return key, longest
+}
+
+func pgTopXminHolder(ages map[string]float32) (string, float32) {
 	holder, age := "", float32(0)
-	for h, ts := range pg.OldestXminAge {
-		if last := ts.Last(); !timeseries.IsNaN(last) && last > age {
-			holder, age = h, last
+	for h, a := range ages {
+		if a > age {
+			holder, age = h, a
 		}
 	}
 	return holder, age
 }
 
-func pgWraparound(report *model.AuditReport, instance *model.Instance, check *model.Check) {
+func pgWraparound(report *model.AuditReport, instance *model.Instance, check *model.Check, xminAges map[string]float32, longestTxn model.QueryKey, longestTxnSeconds float32) string {
 	pg := instance.Postgres
 
 	xidAge, worstXidDb := pgMaxByKey(pg.XidAge)
@@ -1051,21 +1140,31 @@ func pgWraparound(report *model.AuditReport, instance *model.Instance, check *mo
 		kind, worstDb, worstAge = "multixact ID", worstMxidDb, m
 	}
 	if timeseries.IsNaN(worstAge) {
-		return
+		return ""
 	}
 	pct := worstAge / pgWraparoundLimit * 100
 	if pct > check.Value() {
 		check.SetValue(pct)
 	}
 	if pct <= check.Threshold {
-		return
+		return ""
 	}
 	check.AddItem("%s", instance.Name)
 	detail := fmt.Sprintf("%s: database %q is %.0f%% toward %s wraparound (age %s)", instance.Name, worstDb, pct, kind, pgFormatCount(worstAge))
+	holder := ""
 	if kind == "transaction ID" {
-		detail += "; " + pgDominantXminHolder(pg, worstAge)
+		var advice string
+		holder, advice = pgDominantXminHolder(xminAges, worstAge)
+		if holder == "running_transaction" && longestTxn.Query != "" {
+			advice += fmt.Sprintf(". The oldest is in %q, open %s: %s",
+				longestTxn.Db,
+				utils.FormatDurationShort(timeseries.Duration(int64(longestTxnSeconds)), 2),
+				longestTxn.Query)
+		}
+		detail += "; " + advice
 	}
 	check.AddDetail("%s", detail)
+	return holder
 }
 
 func pgMaxByKey(m map[string]*timeseries.TimeSeries) (*timeseries.TimeSeries, string) {
@@ -1080,22 +1179,28 @@ func pgMaxByKey(m map[string]*timeseries.TimeSeries) (*timeseries.TimeSeries, st
 	return agg.Get(), worstKey
 }
 
-func pgDominantXminHolder(pg *model.Postgres, frozenAge float32) string {
-	holder, holderAge := pgTopXminHolder(pg)
-	if holder == "" || holderAge < frozenAge*0.8 {
-		return "autovacuum is not freezing fast enough, check autovacuum settings and dead tuples"
-	}
+func pgDominantXminHolder(xminAges map[string]float32, frozenAge float32) (string, string) {
+	holder, holderAge := pgTopXminHolder(xminAges)
+	var what, action string
 	switch holder {
 	case "replication_slot":
-		return "a replication slot is holding the oldest transaction, drop or advance the lagging/inactive slot"
+		what, action = "a replication slot", "drop or advance the lagging or inactive slot"
 	case "running_transaction":
-		return "a long-running transaction is holding the oldest transaction - end it"
+		what, action = "a long-running transaction", "end that transaction"
 	case "prepared_transaction":
-		return "a prepared transaction is holding the oldest transaction, commit or roll it back"
+		what, action = "a prepared transaction", "commit or roll it back"
 	case "standby_feedback":
-		return "a standby with hot_standby_feedback is holding the oldest transaction"
+		what, action = "a standby with hot_standby_feedback", "reduce the standby's replication lag"
 	}
-	return ""
+	if what == "" || frozenAge <= 0 || holderAge < frozenAge*pgXminHolderMaterialRatio {
+		return "", "autovacuum is not freezing fast enough, check autovacuum settings and dead tuples"
+	}
+	if holderAge >= frozenAge*pgXminHolderDominantRatio {
+		return holder, fmt.Sprintf("vacuum cannot freeze past the oldest transaction ID, held back by %s; %s", what, action)
+	}
+	return holder, fmt.Sprintf(
+		"an older unfrozen backlog has not been cleared yet, and %s now holds the horizon %s back, so freezing cannot get past that; %s",
+		what, pgFormatCount(holderAge), action)
 }
 
 func pgXminHolderLabel(holder string) string {
@@ -1248,6 +1353,18 @@ func pgConnections(report *model.AuditReport, instance *model.Instance, connecti
 		Group("Connections", 2).
 		Stacked().
 		AddMany(idleInTransaction, 5, timeseries.NanSum)
+
+	if len(instance.Postgres.TransactionSeconds) > 0 {
+		longest := map[string]model.SeriesData{}
+		for k, ts := range instance.Postgres.TransactionSeconds {
+			longest[k.String()] = ts
+		}
+		report.
+			GetOrCreateChartInGroup(pgLongestTransactionsTitle, instance.Name, nil).
+			Group("Connections", 2).
+			Sorted().
+			AddMany(longest, 5, timeseries.Max)
+	}
 	report.
 		GetOrCreateChartInGroup(pgLockedQueriesTitle, instance.Name, nil).
 		Group("Locks", 3).
@@ -1454,7 +1571,7 @@ func pgIOFindings(instance *model.Instance, disk *model.DiskStats, ioLoad float3
 	var topKey model.QueryKey
 	var topIO float32
 	for k, stat := range pg.PerQuery {
-		if io := stat.IoTime.LastNAvg(5, 0); io > topIO {
+		if io := stat.IoTime.LastNAvg(pgRecentPoints, 0); io > topIO {
 			topIO, topKey = io, k
 		}
 	}
@@ -1464,12 +1581,12 @@ func pgIOFindings(instance *model.Instance, disk *model.DiskStats, ioLoad float3
 	if disk == nil {
 		return
 	}
-	w, r := disk.WrittenBytes.LastNAvg(5, 0), disk.ReadBytes.LastNAvg(5, 0)
+	w, r := disk.WrittenBytes.LastNAvg(pgRecentPoints, 0), disk.ReadBytes.LastNAvg(pgRecentPoints, 0)
 	if w <= 0 || w <= r {
 		return
 	}
-	source, bps := "WAL", pg.WalThroughput.LastNAvg(5, 0)
-	if ckpt := pg.BuffersWrittenBySource["checkpointer"].LastNAvg(5, 0) * pgBlockSize; ckpt > bps {
+	source, bps := "WAL", pg.WalThroughput.LastNAvg(pgRecentPoints, 0)
+	if ckpt := pg.BuffersWrittenBySource["checkpointer"].LastNAvg(pgRecentPoints, 0) * pgBlockSize; ckpt > bps {
 		source, bps = "checkpointer flushes", ckpt
 	}
 	if bps < w*pgIOFindingMinWriteShare {

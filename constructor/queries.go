@@ -374,6 +374,7 @@ var QUERIES = []Query{
 	qDB("pg_xid_age", `pg_xid_age`, "db"),
 	qDB("pg_multixact_age", `pg_multixact_age`, "db"),
 	qDB("pg_oldest_xmin_age", `pg_oldest_xmin_age`, "holder"),
+	qDB("pg_transaction_seconds", `pg_transaction_seconds`, "db", "user", "query"),
 	qDB("pg_database_size_bytes", `pg_database_size_bytes`, "db"),
 	qDB("pg_table_size_bytes", `pg_table_size_bytes`, "db", "table"),
 	qDB("pg_table_size_growth_bytes_per_second", `pg_table_size_growth_bytes_per_second`, "db", "table"),

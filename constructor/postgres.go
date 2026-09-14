@@ -120,6 +120,9 @@ func postgres(instance *model.Instance, queryName string, m *model.MetricValues,
 		pg.MultixactAge[ls["db"]] = merge(pg.MultixactAge[ls["db"]], values, timeseries.Any)
 	case "pg_oldest_xmin_age":
 		pg.OldestXminAge[ls["holder"]] = merge(pg.OldestXminAge[ls["holder"]], values, timeseries.Any)
+	case "pg_transaction_seconds":
+		key := model.QueryKey{Db: ls["db"], User: ls["user"], Query: ls["query"]}
+		pg.TransactionSeconds[key] = merge(pg.TransactionSeconds[key], values, timeseries.Any)
 	case "pg_database_size_bytes":
 		db := ls["db"]
 		pg.DatabaseSize[db] = merge(pg.DatabaseSize[db], values, timeseries.Any)

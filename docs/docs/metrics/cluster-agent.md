@@ -238,6 +238,24 @@ The agent tracks checkpoint activity from [`pg_stat_checkpointer`](https://www.p
 * **Source**: `pg_stat_activity`, `pg_replication_slots`, `pg_prepared_xacts` (Postgres >= 10)
 * **Labels**: holder (`running_transaction`, `standby_feedback`, `replication_slot`, `prepared_transaction`)
 
+### pg_transaction_seconds
+* **Description**: Age of the longest-running transaction, by query
+* **Type**: Gauge
+* **Source**: [`pg_stat_activity`](https://www.postgresql.org/docs/current/monitoring-stats.html#MONITORING-PG-STAT-ACTIVITY-VIEW) (`now() - xact_start`)
+* **Labels**:
+    * db
+    * user
+    * query - the statement the transaction is running. For an `idle in transaction` session this is the last statement it executed, which is the code path that opened the transaction. This label holds a normalized and obfuscated query, and is `~empty` when obfuscation leaves no text (for example a statement that is only a comment).
+
+  Where `pg_oldest_xmin_age` says that a running transaction is holding the vacuum
+  horizon back, this says which one, so a report can name the statement instead of
+  leaving you to find it in `pg_stat_activity` by hand. That matters because the
+  database named in a wraparound or bloat report is whichever one holds the oldest
+  `datfrozenxid`, which is often not the database the transaction is running in.
+
+  Only transactions open for at least 10 seconds are reported, and at most the 20
+  longest query shapes.
+
 ### Change tracking
 
 When `--track-database-changes` is enabled, the agent detects and emits change events for:
@@ -789,7 +807,13 @@ transaction.
 * **Description**: Age of the longest-running active InnoDB transactions, by query shape
 * **Type**: Gauge
 * **Source**: `information_schema.innodb_trx`
-* **Labels**: query
+* **Labels**: query - a normalized and obfuscated query. InnoDB reports no query for a
+  transaction that is idle between statements, so those are labelled
+  `(idle in transaction)`.
+
+  Only transactions open for at least 10 seconds are reported, and at most the 20
+  longest query shapes. The Postgres equivalent is
+  [pg_transaction_seconds](#pg_transaction_seconds).
 
 ### Galera metrics
 
