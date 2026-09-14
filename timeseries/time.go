@@ -90,6 +90,18 @@ func (d Duration) String() string {
 	return promModel.Duration(d.ToStandard()).String()
 }
 
+func (d Duration) ShortString() string {
+	switch {
+	case d >= Day && d%Day == 0:
+		return fmt.Sprintf("%dd", d/Day)
+	case d >= Hour && d%Hour == 0:
+		return fmt.Sprintf("%dh", d/Hour)
+	case d >= Minute && d%Minute == 0:
+		return fmt.Sprintf("%dm", d/Minute)
+	}
+	return fmt.Sprintf("%ds", d)
+}
+
 func (d *Duration) Set(s string) error {
 	pd, err := promModel.ParseDuration(s)
 	if err != nil {

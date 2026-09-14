@@ -22,6 +22,8 @@ type Config struct {
 	UrlBasePath        string `yaml:"url_base_path"`
 	DataDir            string `yaml:"data_dir"`
 
+	DefaultTimeRange timeseries.Duration `yaml:"defaultTimeRange"`
+
 	GRPC GRPC `yaml:"grpc"`
 	TLS  *TLS `yaml:"tls"`
 
@@ -199,6 +201,8 @@ func NewConfig() *Config {
 		UrlBasePath:   "/",
 		DataDir:       "./data",
 
+		DefaultTimeRange: timeseries.Hour,
+
 		Cache: Cache{
 			TTL:        30 * timeseries.Day,
 			GCInterval: 10 * timeseries.Minute,
@@ -276,6 +280,10 @@ func (cfg *Config) Validate() error {
 	cfg.UrlBasePath, err = url.JoinPath("/", cfg.UrlBasePath, "/")
 	if err != nil {
 		return fmt.Errorf("invalid url_base_path: %s", cfg.UrlBasePath)
+	}
+
+	if cfg.DefaultTimeRange < timeseries.Minute || cfg.DefaultTimeRange%timeseries.Minute != 0 {
+		return fmt.Errorf("invalid defaultTimeRange: %s (must be a whole number of minutes, e.g. 30m, 1h, 3h)", cfg.DefaultTimeRange)
 	}
 
 	if cfg.HTTPDisabled && cfg.HTTPSListenAddress == "" {
