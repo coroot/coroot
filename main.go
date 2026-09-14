@@ -21,6 +21,7 @@ import (
 	"github.com/coroot/coroot/grpc"
 	"github.com/coroot/coroot/rbac"
 	"github.com/coroot/coroot/stats"
+	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 	"github.com/coroot/coroot/watchers"
 	"github.com/gorilla/mux"
@@ -245,7 +246,7 @@ func main() {
 		r.PathPrefix("/static/").Handler(http.StripPrefix(cfg.UrlBasePath, http.FileServer(utils.NewStaticFSWrapper(static))))
 	}
 
-	indexHtml := readIndexHtml(cfg.UrlBasePath, version, instanceUuid, !cfg.DoNotCheckForUpdates, cfg.DeveloperMode)
+	indexHtml := readIndexHtml(cfg.UrlBasePath, version, instanceUuid, !cfg.DoNotCheckForUpdates, cfg.DefaultTimeRange, cfg.DeveloperMode)
 	r.PathPrefix("").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write(indexHtml)
 	})
@@ -272,7 +273,7 @@ func main() {
 	}
 }
 
-func readIndexHtml(basePath, version, instanceUuid string, checkForUpdates bool, developerMode bool) []byte {
+func readIndexHtml(basePath, version, instanceUuid string, checkForUpdates bool, defaultTimeRange timeseries.Duration, developerMode bool) []byte {
 	var (
 		err error
 		tpl *template.Template
@@ -287,19 +288,21 @@ func readIndexHtml(basePath, version, instanceUuid string, checkForUpdates bool,
 	}
 	buf := bytes.Buffer{}
 	err = tpl.Execute(&buf, struct {
-		BasePath        string
-		Version         string
-		InstanceUUID    string
-		CheckForUpdates bool
-		Edition         string
-		CloudURL        string
+		BasePath         string
+		Version          string
+		InstanceUUID     string
+		CheckForUpdates  bool
+		Edition          string
+		CloudURL         string
+		DefaultTimeRange string
 	}{
-		BasePath:        basePath,
-		Version:         version,
-		InstanceUUID:    instanceUuid,
-		CheckForUpdates: checkForUpdates,
-		Edition:         Edition,
-		CloudURL:        cloud.URL,
+		BasePath:         basePath,
+		Version:          version,
+		InstanceUUID:     instanceUuid,
+		CheckForUpdates:  checkForUpdates,
+		Edition:          Edition,
+		CloudURL:         cloud.URL,
+		DefaultTimeRange: defaultTimeRange.ShortString(),
 	})
 	if err != nil {
 		klog.Exitln(err)

@@ -81,7 +81,7 @@ export default {
                 return;
             }
             const fmt = '{YYYY}-{MM}-{DD} {HH}:{mm}';
-            const from = this.$route.query.from || 'now-1h';
+            const from = this.$route.query.from || this.defaultFrom;
             const to = this.$route.query.to || 'now';
             const iFrom = parseInt(from);
             const iTo = parseInt(this.$route.query.to);
@@ -97,7 +97,7 @@ export default {
             const { from, to, incident, alert, ...query } = this.$route.query;
             this.$router.push({ query: { ...query, ...interval.query } }).catch((err) => err);
             this.menu = false;
-            this.from = this.$route.query.from || 'now-1h';
+            this.from = this.$route.query.from || this.defaultFrom;
             this.to = this.$route.query.to || 'now';
             this.dates = [];
             this.picker = false;
@@ -121,18 +121,29 @@ export default {
         valid() {
             return isValid(this.from) && isValid(this.to) && this.from !== this.to;
         },
+        // the server-side default range ("1h", "30m", ...) that applies when the URL has no from/to
+        defaultFrom() {
+            return 'now-' + ((this.$coroot && this.$coroot.default_time_range) || '1h');
+        },
         intervals() {
+            // an empty query means "the default range", so the preset matching it gets an empty query
             const intervals = [
                 { text: 'last 5 minutes', query: { from: 'now-5m' } },
                 { text: 'last 15 minutes', query: { from: 'now-15m' } },
                 { text: 'last 30 minutes', query: { from: 'now-30m' } },
-                { text: 'last hour', query: {} },
+                { text: 'last hour', query: { from: 'now-1h' } },
                 { text: 'last 3 hours', query: { from: 'now-3h' } },
                 { text: 'last 12 hours', query: { from: 'now-12h' } },
                 { text: 'last day', query: { from: 'now-1d' } },
                 { text: 'last 3 days', query: { from: 'now-3d' } },
                 { text: 'last week', query: { from: 'now-7d' } },
             ];
+            const def = intervals.find((i) => i.query.from === this.defaultFrom);
+            if (def) {
+                def.query = {};
+            } else {
+                intervals.unshift({ text: 'last ' + this.defaultFrom.substring(4), query: {} });
+            }
             const incident = this.$route.query.incident;
             if (incident) {
                 intervals.unshift({ text: 'incident: ' + incident, query: { incident }, active: true });
@@ -143,7 +154,7 @@ export default {
                 intervals.unshift({ text: 'alert: ' + alert, query: { alert }, active: true });
                 return intervals;
             }
-            const from = this.$route.query.from;
+            const from = this.$route.query.from === this.defaultFrom ? undefined : this.$route.query.from;
             const to = this.$route.query.to === 'now' ? undefined : this.$route.query.to;
             const selected = intervals.find((i) => i.query.from === from && i.query.to === to);
             if (selected) {

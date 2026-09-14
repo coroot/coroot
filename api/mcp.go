@@ -43,7 +43,7 @@ Pick a tool by intent, cheapest first:
 - Incident detail → get_incident_details.
 - Acting on alerts → resolve_alerts (only after the underlying cause is fixed; alerts whose conditions still hold will re-fire).
 
-Time arguments accept epoch ms or relative strings like 'now-1h', 'now-15m'. Default windows are short (~1h) — widen explicitly when looking at historical patterns.`
+Time arguments accept epoch ms or relative strings like 'now-1h', 'now-15m'. Default windows are short (the server's configured default time range, 1h unless overridden) — widen explicitly when looking at historical patterns.`
 
 type mcpUserCtxKey struct{}
 
@@ -266,7 +266,7 @@ func (h *MCPHandler) registerTools() {
 			mcp.WithDescription("Per-endpoint distributed-trace summary: requests/sec, error rate, p50/p95/p99 latency. The 'full picture' for triage. Pass service+span to focus on one endpoint (the UI's drill-down)."),
 			mcp.WithString("service", mcp.Description("Filter to one service.name (e.g. 'checkout').")),
 			mcp.WithString("span", mcp.Description("Filter to one SpanName (e.g. 'GET /cart').")),
-			mcp.WithString("from", mcp.Description("Start time. Epoch ms or relative like 'now-1h'. Default: 'now-1h'.")),
+			mcp.WithString("from", mcp.Description("Start time. Epoch ms or relative like 'now-1h'. Default: the server's configured default time range (1h unless overridden).")),
 			mcp.WithString("to", mcp.Description("End time, same format. Default: 'now'.")),
 			mcp.WithReadOnlyHintAnnotation(true),
 			mcp.WithDestructiveHintAnnotation(false),
@@ -280,7 +280,7 @@ func (h *MCPHandler) registerTools() {
 			mcp.WithDescription("Top error reasons across distributed traces — grouped by endpoint, with a sample trace_id and the error message for each. Use after traces_summary identifies a high-error endpoint."),
 			mcp.WithString("service", mcp.Description("Filter to one service.name.")),
 			mcp.WithString("span", mcp.Description("Filter to one SpanName.")),
-			mcp.WithString("from", mcp.Description("Start time. Epoch ms or relative like 'now-1h'. Default: 'now-1h'.")),
+			mcp.WithString("from", mcp.Description("Start time. Epoch ms or relative like 'now-1h'. Default: the server's configured default time range (1h unless overridden).")),
 			mcp.WithString("to", mcp.Description("End time, same format. Default: 'now'.")),
 			mcp.WithReadOnlyHintAnnotation(true),
 			mcp.WithDestructiveHintAnnotation(false),
@@ -296,7 +296,7 @@ func (h *MCPHandler) registerTools() {
 			mcp.WithString("span", mcp.Description("Filter to one SpanName.")),
 			mcp.WithString("dur_from", mcp.Description("Min duration of slow band, e.g. '1s', '500ms'. Default: '1s'.")),
 			mcp.WithString("dur_to", mcp.Description("Max duration, e.g. '5s', 'inf'. Default: 'inf'.")),
-			mcp.WithString("from", mcp.Description("Start time. Epoch ms or relative like 'now-1h'. Default: 'now-1h'.")),
+			mcp.WithString("from", mcp.Description("Start time. Epoch ms or relative like 'now-1h'. Default: the server's configured default time range (1h unless overridden).")),
 			mcp.WithString("to", mcp.Description("End time, same format. Default: 'now'.")),
 			mcp.WithReadOnlyHintAnnotation(true),
 			mcp.WithDestructiveHintAnnotation(false),
@@ -309,7 +309,7 @@ func (h *MCPHandler) registerTools() {
 		mcp.NewTool("get_trace",
 			mcp.WithDescription("Fetch a single distributed trace by id. Returns the full span tree with attributes and events. Use trace_ids returned by traces_errors / traces_summary samples."),
 			mcp.WithString("trace_id", mcp.Required(), mcp.Description("Trace id (e.g. from traces_errors.sample_trace_id).")),
-			mcp.WithString("from", mcp.Description("Start time. Default: 'now-1h'.")),
+			mcp.WithString("from", mcp.Description("Start time. Default: the server's configured default time range (1h unless overridden).")),
 			mcp.WithString("to", mcp.Description("End time. Default: 'now'.")),
 			mcp.WithReadOnlyHintAnnotation(true),
 			mcp.WithDestructiveHintAnnotation(false),
@@ -334,7 +334,7 @@ func (h *MCPHandler) registerTools() {
 		mcp.NewTool("query_metrics",
 			mcp.WithDescription("Run a PromQL range query against the project's metrics backend. Returns time series with their labels and a value summary (last/min/max/avg + sparkline). Use this to inspect raw metric values, label distributions, or to verify Coroot's detection/aggregation logic. Discover metric names with list_metric_names first."),
 			mcp.WithString("query", mcp.Required(), mcp.Description("PromQL expression. Examples: 'up', 'rate(container_net_tcp_active_connections[1m])', 'group by (instance) ({__name__=\"redis_up\"})'.")),
-			mcp.WithString("from", mcp.Description("Start time. Either epoch milliseconds, or a relative string like 'now-1h', 'now-15m'. Default: 'now-1h'.")),
+			mcp.WithString("from", mcp.Description("Start time. Either epoch milliseconds, or a relative string like 'now-1h', 'now-15m'. Default: the server's configured default time range (1h unless overridden).")),
 			mcp.WithString("to", mcp.Description("End time, same format as `from`. Default: 'now'.")),
 			mcp.WithNumber("step_seconds", mcp.Description("Query step in seconds. Default: project refresh interval (typically 30s).")),
 			mcp.WithNumber("limit", mcp.Description("Max series to return. Default: 100, max: 1000. If the query returned more, the response sets `truncated: true`.")),
@@ -349,7 +349,7 @@ func (h *MCPHandler) registerTools() {
 		mcp.NewTool("query_logs",
 			mcp.WithDescription("Query log entries from ClickHouse, scoped to one application or across the whole project. Supports time range, severity filter, full-text search, and log-pattern filter. Returned entries are sorted newest-first and each includes the originating service so cluster-wide queries remain attributable."),
 			mcp.WithString("app_id", mcp.Description("Application id from list_applications (4-part 'cluster_id:namespace:Kind:name', e.g. 'hwvop6p7:default:Deployment:checkout'). Omit to search across all applications in the project.")),
-			mcp.WithString("from", mcp.Description("Start time. Epoch ms or relative like 'now-1h'. Default: 'now-1h'.")),
+			mcp.WithString("from", mcp.Description("Start time. Epoch ms or relative like 'now-1h'. Default: the server's configured default time range (1h unless overridden).")),
 			mcp.WithString("to", mcp.Description("End time, same format as `from`. Default: 'now'.")),
 			mcp.WithNumber("limit", mcp.Description("Max entries. Default: 100, max: 1000.")),
 			mcp.WithArray("severity",

@@ -2420,10 +2420,14 @@ func (api *Api) LoadWorldByRequest(r *http.Request) (*model.World, *db.Project, 
 
 func (api *Api) getTimeContext(projectId db.ProjectId, fromStr, toStr, incidentKey, alertId string) (from timeseries.Time, to timeseries.Time, incident *model.ApplicationIncident, truncated bool) {
 	now := timeseries.Now()
-	from = utils.ParseTime(now, fromStr, now.Add(-timeseries.Hour))
+	defaultRange := api.cfg.DefaultTimeRange
+	if defaultRange <= 0 {
+		defaultRange = timeseries.Hour
+	}
+	from = utils.ParseTime(now, fromStr, now.Add(-defaultRange))
 	to = utils.ParseTime(now, toStr, now)
 	if from >= to {
-		from = to.Add(-timeseries.Hour)
+		from = to.Add(-defaultRange)
 	}
 	if incidentKey != "" {
 		var err error

@@ -31,6 +31,7 @@ For instance, the `projects` parameter (a list of predefined projects) can only 
 | --tls-key-file                       | TLS_KEY_FILE                       |               | Path to the TLS private key file.                                                                                                                                               |
 | --url-base-path                      | URL_BASE_PATH                      | /             | Base URL to run Coroot at a sub-path, e.g., `/coroot/`.                                                                                                                         |
 | --data-dir                           | DATA_DIR                           | /data         | Path to the data directory.                                                                                                                                                     |
+| --default-time-range                 | DEFAULT_TIME_RANGE                 | 1h            | Default time range shown in the UI and used by the API when no explicit range is given, e.g., `30m`, `1h`, `3h`. Must be a whole number of minutes.                          |
 | --cache-ttl                          | CACHE_TTL                          | 30d           | Metric Cache Time-To-Live (TTL).                                                                                                                                                |
 | --cache-gc-interval                  | CACHE_GC_INTERVAL                  | 10m           | Metric Cache Garbage Collection (GC) interval.                                                                                                                                  |
 | --traces-ttl                         | TRACES_TTL                         | 7d            | Traces Time-To-Live (TTL).                                                                                                                                                      |
@@ -76,6 +77,7 @@ https_listen_address:        # HTTPS listen address in the format `ip:port` or `
 http_disabled: false         # Disable plain HTTP server (default: false).
 url_base_path: /             # Base URL to run Coroot at a sub-path, e.g., `/coroot/`.
 data_dir: /data              # Path to the data directory. 
+defaultTimeRange: 1h         # Default time range shown in the UI and used by the API when no explicit range is given, e.g., `30m`, `1h`, `3h`.
 
 # gRPC server configuration for receiving OTel traces and logs.
 grpc:

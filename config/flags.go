@@ -17,6 +17,7 @@ var (
 	tlsKeyFile                                  = kingpin.Flag("tls-key-file", "Path to the TLS private key file").Envar("TLS_KEY_FILE").String()
 	urlBasePath                                 = kingpin.Flag("url-base-path", "The base URL to run Coroot at a sub-path, e.g. /coroot/").Envar("URL_BASE_PATH").String()
 	dataDir                                     = kingpin.Flag("data-dir", `Path to the data directory`).Envar("DATA_DIR").String()
+	defaultTimeRange                            = timeseries.DurationFlag(kingpin.Flag("default-time-range", "Default time range for the UI and API when no explicit range is given (e.g. 30m, 1h, 3h; default 1h)").Envar("DEFAULT_TIME_RANGE"))
 	cacheTTL                                    = timeseries.DurationFlag(kingpin.Flag("cache-ttl", "Cache TTL (e.g. 8h, 2d, 1w; default 30d)").Envar("CACHE_TTL"))
 	cacheGcInterval                             = timeseries.DurationFlag(kingpin.Flag("cache-gc-interval", "Cache GC interval").Envar("CACHE_GC_INTERVAL"))
 	tracesTTL                                   = timeseries.DurationFlag(kingpin.Flag("traces-ttl", "Traces TTL (e.g. 8h, 3d, 2w; default 7d)").Envar("TRACES_TTL"))
@@ -90,6 +91,9 @@ func (cfg *Config) ApplyFlags() {
 	}
 	if *dataDir != "" {
 		cfg.DataDir = *dataDir
+	}
+	if *defaultTimeRange > 0 {
+		cfg.DefaultTimeRange = *defaultTimeRange
 	}
 	if *cacheTTL > 0 {
 		cfg.Cache.TTL = *cacheTTL
