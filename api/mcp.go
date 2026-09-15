@@ -624,6 +624,9 @@ func (h *MCPHandler) toolGetApplicationStatus(ctx context.Context, req mcp.CallT
 			continue
 		}
 		rem := conn.RemoteApplication
+		if rem.Id == app.Id {
+			continue
+		}
 		dep := mcpDependency{Id: rem.Id.String()}
 		if rem.Status != model.UNKNOWN {
 			dep.Status = rem.Status.String()
@@ -654,13 +657,16 @@ func (h *MCPHandler) toolGetApplicationStatus(ctx context.Context, req mcp.CallT
 	sort.Slice(out.Dependencies, func(i, j int) bool { return out.Dependencies[i].Id < out.Dependencies[j].Id })
 
 	for _, conn := range app.Downstreams {
-		if conn == nil || conn.RemoteApplication == nil || !conn.IsActual() {
+		if conn == nil || conn.Application == nil || !conn.IsActual() {
 			continue
 		}
-		rem := conn.RemoteApplication
-		c := mcpClient{Id: rem.Id.String()}
-		if rem.Status != model.UNKNOWN {
-			c.Status = rem.Status.String()
+		client := conn.Application
+		if client.Id == app.Id {
+			continue
+		}
+		c := mcpClient{Id: client.Id.String()}
+		if client.Status != model.UNKNOWN {
+			c.Status = client.Status.String()
 		}
 		out.Clients = append(out.Clients, c)
 	}
