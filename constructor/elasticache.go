@@ -25,7 +25,7 @@ func (c *Constructor) loadElasticacheMetadata(w *model.World, metrics map[string
 			instanceName := instanceParts[1] + "-" + instanceParts[2]
 			instance = w.GetOrCreateApplication(appId, false).GetOrCreateInstance(instanceName, nil)
 			ecInstancesById[ecId] = instance
-			instance.Elasticache = &model.Elasticache{}
+			instance.Elasticache = &model.Elasticache{Id: ecId}
 		}
 		if instance.Node == nil {
 			name := "elasticache:" + instance.Name

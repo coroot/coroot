@@ -9,8 +9,8 @@ authenticates to AWS with an IAM role bound to its pod, and database credentials
 referenced in the Coroot custom resource. No access keys and no settings in the Coroot UI are needed.
 
 What you get: RDS and ElastiCache instances in the Service Map, linked to the services that connect to them, with
-instance status, OS metrics from Enhanced Monitoring, Postgres logs, and database internals such as query statistics
-and locks. The integration is described in detail on the [AWS](/configuration/aws) configuration page.
+instance status, OS metrics from Enhanced Monitoring, database logs in the Logs tab, and database internals such as
+query statistics and locks. The integration is described in detail on the [AWS](/configuration/aws) configuration page.
 
 ## Prerequisites
 

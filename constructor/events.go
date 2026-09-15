@@ -50,6 +50,9 @@ func calcUpDownEvents(app *model.Application) []*model.ApplicationEvent {
 		status := ""
 		for iter.Next() {
 			t, v := iter.Value()
+			if timeseries.IsNaN(v) {
+				continue
+			}
 			switch {
 			case status == "up" && v != 1:
 				events = append(events, &model.ApplicationEvent{Start: t, Type: model.ApplicationEventTypeInstanceDown, Details: instance.Name})

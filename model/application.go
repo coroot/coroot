@@ -125,6 +125,12 @@ func (app *Application) LogServices() []string {
 		for _, c := range i.Containers {
 			res.Add(ContainerIdToServiceName(c.Id))
 		}
+		if i.Rds != nil && i.Rds.Id != "" {
+			res.Add("/aws/rds/" + i.Rds.Id)
+		}
+		if i.Elasticache != nil && i.Elasticache.Id != "" {
+			res.Add("/aws/elasticache/" + i.Elasticache.Id)
+		}
 	}
 	return res.Items()
 }

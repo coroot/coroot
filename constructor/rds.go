@@ -28,7 +28,7 @@ func (c *Constructor) loadRdsMetadata(w *model.World, metrics map[string][]*mode
 			}
 			instance = w.GetOrCreateApplication(id, false).GetOrCreateInstance(instanceParts[1], nil)
 			rdsInstancesById[rdsId] = instance
-			instance.Rds = &model.Rds{}
+			instance.Rds = &model.Rds{Id: rdsId}
 		}
 		if instance.Node == nil {
 			name := "rds:" + instance.Name

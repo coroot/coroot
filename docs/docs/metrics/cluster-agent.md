@@ -1402,7 +1402,7 @@ When the [AWS integration](/configuration/aws) is configured in the Coroot proje
 * **Labels**: replica_instance_id
 
 ### aws_rds_log_messages_total
-* **Description**: Number of messages in the instance's Postgres log grouped by the automatically extracted repeated pattern (`postgres` and `aurora-postgresql` engines only)
+* **Description**: Number of messages in the instance's logs (`postgres`, `aurora-postgresql`, `mysql`, `mariadb` and `aurora-mysql` engines) grouped by the automatically extracted repeated pattern
 * **Type**: Counter
 * **Source**: the instance's log files, read through the RDS `DownloadDBLogFilePortion` API
 * **Labels**: level, pattern_hash, sample
