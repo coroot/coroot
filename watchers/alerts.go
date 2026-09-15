@@ -633,6 +633,9 @@ func (w *Alerts) evaluateKubernetesEventsAlerts(project *db.Project, rule *model
 		// Node-level events (e.g., NodeNotReady from node-controller) are grouped
 		// by cluster+reason instead of per-app to avoid alert storms when a node fails.
 		if sourceComponent == "node-controller" {
+			if rule.Selector.Type != model.AppSelectorTypeAll {
+				continue
+			}
 			key := event.ClusterId + "|" + reason
 			g := groups[key]
 			if g == nil {
@@ -650,6 +653,9 @@ func (w *Alerts) evaluateKubernetesEventsAlerts(project *db.Project, rule *model
 		}
 		if app == nil {
 			app = appByComponentId[appId]
+		}
+		if rule.Selector.Type != model.AppSelectorTypeAll && (app == nil || !rule.Matches(app)) {
+			continue
 		}
 
 		var groupAppId model.ApplicationId
