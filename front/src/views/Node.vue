@@ -32,19 +32,13 @@ export default {
         };
     },
 
-    computed: {
-        name() {
-            return this.$utils.nodeId(this.id).name;
-        },
-    },
-
     mounted() {
         this.get();
         this.$events.watch(this, this.get, 'refresh');
     },
 
     watch: {
-        name() {
+        id() {
             this.node = null;
             this.get();
         },
@@ -53,7 +47,7 @@ export default {
     methods: {
         get() {
             this.loading = true;
-            this.$api.getNode(this.name, (data, error) => {
+            this.$api.getNode(this.id, (data, error) => {
                 this.loading = false;
                 if (error) {
                     this.error = error;
