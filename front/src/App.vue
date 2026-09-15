@@ -18,7 +18,7 @@
                     </router-link>
                 </div>
                 <v-list v-if="project" dense class="pa-0">
-                    <v-list-item @click="search = true">
+                    <v-list-item @click="openSearch()">
                         <v-list-item-icon class="mr-3">
                             <v-icon dark>mdi-magnify</v-icon>
                         </v-list-item-icon>
@@ -243,7 +243,7 @@
 
                 <CloudPromoDialog v-if="!ee && user" />
 
-                <Search v-if="search" v-model="search" />
+                <Search v-if="search" v-model="search" :initial-search="searchQuery" />
             </v-container>
         </v-main>
     </v-app>
@@ -275,12 +275,14 @@ export default {
             changePassword: false,
             menuCollapsed: menuCollapsed,
             search: false,
+            searchQuery: '',
             systemAlerts: [],
         };
     },
 
     mounted() {
         this.$events.watch(this, this.getUser, 'projects');
+        this.$events.watch(this, () => this.openSearch(this.$events.searchQuery), 'search');
         this.getUser();
         window.addEventListener('keydown', this.searchListener);
     },
@@ -435,8 +437,12 @@ export default {
         searchListener(e) {
             if (this.project && (e.metaKey || e.ctrlKey) && e.key === 'k') {
                 e.preventDefault();
-                this.search = true;
+                this.openSearch();
             }
+        },
+        openSearch(query = '') {
+            this.searchQuery = query;
+            this.search = true;
         },
         toggleSystemAlert(name, show) {
             const set = new Set(this.systemAlerts);
