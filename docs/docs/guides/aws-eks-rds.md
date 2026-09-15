@@ -176,7 +176,7 @@ spec:
         params:
           sslmode: require               # RDS Postgres 15+ rejects unencrypted connections
       - type: redis
-        elasticache: my-cache            # CacheClusterId; no credentials unless AUTH is enabled
+        elasticache: my-cache            # CacheClusterId (Redis or Valkey); no credentials unless AUTH is enabled
   clickhouse:
     storage:
       size: 100Gi

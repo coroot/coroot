@@ -201,7 +201,7 @@ spec:
 #    # Databases to collect metrics from, in addition to those configured in the Coroot UI or discovered through pod annotations.
 #    # Exactly one of host, rds or elasticache is required per entry.
 #    databases:
-#      - type: postgres         # postgres, mysql, redis, memcached or mongodb.
+#      - type: postgres         # postgres, mysql, redis (also for Valkey), memcached or mongodb.
 #        rds: my-db             # An RDS instance discovered by the AWS integration: its endpoint is used.
 #        credentials:
 #          usernameSecret: {name: my-db-coroot, key: username}

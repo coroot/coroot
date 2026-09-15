@@ -127,7 +127,7 @@ database itself, so the cluster-agent connects to each instance directly:
    the credentials. RDS Postgres 15 and later rejects unencrypted connections by default, so set **sslmode** to
    `require`.
 
-ElastiCache Redis and Memcached nodes need no credentials unless AUTH is enabled. Enable collection the same way,
+ElastiCache Redis, Valkey and Memcached nodes need no credentials unless AUTH is enabled. Enable collection the same way,
 from the **Redis** or **Memcached** tab of the node's application.
 
 The `rdsadmin` database that Amazon RDS creates on every Postgres instance rejects all connections and is excluded
