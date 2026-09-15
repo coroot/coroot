@@ -7,6 +7,7 @@ type AWS struct {
 }
 
 type Rds struct {
+	Id     string
 	Status LabelLastValue
 
 	Engine        LabelLastValue
@@ -30,6 +31,7 @@ func (r *Rds) ApplicationType() ApplicationType {
 }
 
 type Elasticache struct {
+	Id     string
 	Status LabelLastValue
 
 	Engine        LabelLastValue

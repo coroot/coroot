@@ -12,7 +12,7 @@ The integration adds:
 
 * **Instance inventory and status**: engine, version, instance type, storage, Multi-AZ, read replicas, backup retention
 * **OS-level metrics** from [RDS Enhanced Monitoring](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_Monitoring.OS.html): CPU, memory, disk I/O, network
-* **Postgres logs** of RDS and Aurora PostgreSQL instances, read through the RDS API and grouped by message pattern
+* **Database logs** of RDS Postgres and MySQL instances (including Aurora), read through the RDS API: shipped to Coroot and grouped by message pattern
 * **Cost estimates** for RDS and ElastiCache instances in the [Costs](/costs/overview) report
 
 Database internals (query statistics, locks, replication) are collected separately, see
@@ -99,6 +99,22 @@ An instance is discovered only if all listed tags match.
 OS-level metrics come from the `RDSOSMetrics` CloudWatch Logs group, which exists only for instances with
 Enhanced Monitoring enabled. Enable it with a granularity of 60 seconds or lower on each instance you want these
 metrics for; instances without it still get inventory, status, and log metrics.
+
+## Logs
+
+The cluster-agent tails the log files of RDS instances with the `postgres`, `aurora-postgresql`, `mysql`, `mariadb` and
+`aurora-mysql` engines through the RDS API and forwards every message to Coroot as an OpenTelemetry log record, the
+same way coroot-node-agent forwards container logs. All log files the RDS API lists for the instance are read: for
+Postgres that is the server log, for MySQL the error log plus the slow query and general logs when they are written
+to files (`log_output=FILE` in the parameter group). Messages
+are grouped by automatically extracted patterns, and multi-line messages are joined. The records carry the
+`pattern.hash` attribute and `service.name` set to `/aws/rds/<region>/<DBInstanceIdentifier>`, which Coroot uses to
+show them in the **Logs** tab of the RDS application. Log files are polled every 30 seconds, so a record's timestamp
+can lag the time in the log line by up to that much.
+
+Log collection needs the `rds:DescribeDBLogFiles` and `rds:DownloadDBLogFilePortion` permissions from the policy
+above. Forwarding can be disabled with the cluster-agent's `--collect-aws-logs=false` flag, in which case only the
+pattern-based `aws_rds_log_messages_total` metric is collected. ElastiCache logs are not collected.
 
 ## Database credentials
 

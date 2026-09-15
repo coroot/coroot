@@ -28,6 +28,7 @@ You can configure coroot-cluster-agent using command-line flags or environment v
 | `--insecure-skip-verify` | `INSECURE_SKIP_VERIFY` | `false` | Skip TLS certificate verification |
 | `--ca-file` | `CA_FILE` | – | Path to the custom CA certificate file |
 | `--collect-kubernetes-events` | `COLLECT_KUBERNETES_EVENTS` | `true` | Collect and forward Kubernetes events |
+| `--collect-aws-logs` | `COLLECT_AWS_LOGS` | `true` | Forward the logs of RDS Postgres and MySQL instances discovered through the [AWS integration](/configuration/aws#logs) |
 | `--track-database-changes` | `TRACK_DATABASE_CHANGES` | `true` | Track schema and settings changes in databases |
 | `--track-database-sizes` | `TRACK_DATABASE_SIZES` | `true` | Collect per-database and per-table size metrics |
 | `--track-database-bloat` | `TRACK_DATABASE_BLOAT` | `true` | Estimate per-database, per-table and per-index bloat (PostgreSQL only) |
