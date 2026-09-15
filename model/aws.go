@@ -47,6 +47,8 @@ func (e *Elasticache) ApplicationType() ApplicationType {
 	switch e.Engine.Value() {
 	case "redis":
 		return ApplicationTypeRedis
+	case "valkey":
+		return ApplicationTypeValkey
 	case "memcached":
 		return ApplicationTypeMemcached
 	}
