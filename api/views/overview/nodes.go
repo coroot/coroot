@@ -57,6 +57,23 @@ func RenderNodes(w *model.World, project *db.Project) []Node {
 			GPUs:          len(n.GPUs),
 			CloudProvider: strings.ToLower(n.CloudProvider.Value()),
 		}
+		for _, i := range n.Instances {
+			var t model.ApplicationType
+			var version string
+			switch {
+			case i.Rds != nil:
+				t, version = i.Rds.ApplicationType(), i.Rds.EngineVersion.Value()
+			case i.Elasticache != nil:
+				t, version = i.Elasticache.ApplicationType(), i.Elasticache.EngineVersion.Value()
+			default:
+				continue
+			}
+			if t != model.ApplicationTypeUnknown {
+				node.OS = t.Icon()
+			}
+			node.KernelVersion = strings.TrimSpace(string(t) + " " + version)
+			break
+		}
 		switch {
 		case !n.IsAgentInstalled():
 			node.Status = model.Indicator{Status: model.UNKNOWN, Message: "no agent installed"}
@@ -84,11 +101,11 @@ func RenderNodes(w *model.World, project *db.Project) []Node {
 			if iface.Up.Last() != 1 {
 				continue
 			}
-			if iface.RxBytes.IsEmpty() || iface.TxBytes.IsEmpty() {
-				continue
-			}
 			for _, ip := range iface.Addresses {
 				ips.Add(ip)
+			}
+			if iface.RxBytes.IsEmpty() || iface.TxBytes.IsEmpty() {
+				continue
 			}
 			if rx := iface.RxBytes.Last(); !timeseries.IsNaN(rx) {
 				rxTotalBytes += rx

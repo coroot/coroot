@@ -35,6 +35,11 @@ func (c *Constructor) loadElasticacheMetadata(w *model.World, metrics map[string
 			w.Nodes = append(w.Nodes, instance.Node)
 		}
 		instance.TcpListens[model.Listen{IP: m.Labels["ipv4"], Port: m.Labels["port"]}] = true
+		if ip := m.Labels["ipv4"]; ip != "" && len(instance.Node.NetInterfaces) == 0 {
+			instance.Node.NetInterfaces = append(instance.Node.NetInterfaces, &model.InterfaceStats{
+				Name: "eth0", Addresses: []string{ip}, Up: m.Values.WithNewValue(1),
+			})
+		}
 		instance.Elasticache.Engine.Update(m.Values, m.Labels["engine"])
 		instance.Elasticache.EngineVersion.Update(m.Values, m.Labels["engine_version"])
 		instance.Node.InstanceType.Update(m.Values, m.Labels["instance_type"])
