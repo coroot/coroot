@@ -46,10 +46,8 @@
             </template>
 
             <template #item.compute="{ item }">
-                <template v-if="item.compute">
-                    {{ item.compute }}
-                    <span v-if="item.instance_type" class="caption grey--text truncated"> ({{ item.instance_type }})</span>
-                </template>
+                {{ item.compute }}
+                <span v-if="item.instance_type" class="caption grey--text" :class="{ truncated: item.compute }"> ({{ item.instance_type }})</span>
             </template>
 
             <template #item.availability_zone="{ item }">
