@@ -46,6 +46,14 @@
                     <template v-else>no kube-state-metrics installed</template>
                 </template>
             </div>
+
+            <div v-for="c in status.clouds" :key="c.id" class="d-flex align-center mt-2">
+                <Led :status="c.status" />
+                <span class="font-weight-medium">{{ c.name }}</span
+                >:
+                <span class="ml-1 mr-2">{{ c.message }}</span>
+                <router-link :to="{ params: { tab: 'clouds' } }">{{ c.status === 'ok' ? 'details' : 'configure' }}</router-link>
+            </div>
         </div>
     </div>
 </template>

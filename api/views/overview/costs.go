@@ -252,7 +252,7 @@ func renderApplicationCosts(app *model.Application, appInstances []*instance, de
 				res.UsageCosts += avg * i.nodePrice.PerMemoryByte * month
 			}
 			switch i.ownerId.Kind {
-			case model.ApplicationKindRds, model.ApplicationKindElasticacheCluster:
+			case model.ApplicationKindRds, model.ApplicationKindElasticacheCluster, model.ApplicationKindCloudSQL, model.ApplicationKindMemorystore:
 				res.UsageCosts += i.nodePrice.Total * month
 				res.AllocationCosts += i.nodePrice.Total * month
 			}

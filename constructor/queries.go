@@ -101,6 +101,14 @@ func qRDS(name, query string, labels ...string) Query {
 	return Q(name, query, slices.Concat([]string{"rds_instance_id"}, labels)...)
 }
 
+func qCloudSQL(name, query string, labels ...string) Query {
+	return Q(name, query, slices.Concat([]string{"cloudsql_instance_id"}, labels)...)
+}
+
+func qMemorystore(name, query string, labels ...string) Query {
+	return Q(name, query, slices.Concat([]string{"memorystore_instance_id"}, labels)...)
+}
+
 func qDB(name, query string, labels ...string) Query {
 	return Q(name, query, slices.Concat(possibleDBInstanceLabels, possibleNamespaceLabels, possiblePodLabels, labels)...)
 }
@@ -328,6 +336,7 @@ var QUERIES = []Query{
 	qItoI("container_dns_requests_latency", `sum by(app_id, le) (rate(container_dns_requests_duration_seconds_total_bucket{app_id!=""}[$RANGE])) or rate(container_dns_requests_duration_seconds_total_bucket{app_id=""}[$RANGE]) `, "le"),
 
 	Q("aws_discovery_error", `aws_discovery_error`, "error"),
+	Q("gcp_discovery_error", `gcp_discovery_error`, "error"),
 	qRDS("aws_rds_info", `aws_rds_info`, "cluster_id", "ipv4", "port", "engine", "engine_version", "instance_type", "storage_type", "region", "availability_zone", "multi_az"),
 	qRDS("aws_rds_status", `aws_rds_status`, "status"),
 	qRDS("aws_rds_cpu_cores", `aws_rds_cpu_cores`),
@@ -348,6 +357,30 @@ var QUERIES = []Query{
 
 	Q("aws_elasticache_info", `aws_elasticache_info`, "ec_instance_id", "cluster_id", "ipv4", "port", "engine", "engine_version", "instance_type", "region", "availability_zone"),
 	Q("aws_elasticache_status", `aws_elasticache_status`, "ec_instance_id", "status"),
+
+	qCloudSQL("gcp_cloudsql_info", `gcp_cloudsql_info`, "project", "region", "zone", "ipv4", "port", "engine", "engine_version", "tier", "availability_type", "connection_name", "instance_type", "primary_instance"),
+	qCloudSQL("gcp_cloudsql_status", `gcp_cloudsql_status`, "status"),
+	// the GCP metrics are loaded in this order: the totals first, then the metrics derived from them
+	qCloudSQL("gcp_cloudsql_cpu_usage_percent", `gcp_cloudsql_cpu_usage_percent`),
+	qCloudSQL("gcp_cloudsql_cpu_cores", `gcp_cloudsql_cpu_cores`),
+	qCloudSQL("gcp_cloudsql_cpu_usage_cores", `gcp_cloudsql_cpu_usage_cores`),
+	qCloudSQL("gcp_cloudsql_memory_total_bytes", `gcp_cloudsql_memory_total_bytes`),
+	qCloudSQL("gcp_cloudsql_memory_components_percent", `gcp_cloudsql_memory_components_percent`, "component"),
+	qCloudSQL("gcp_cloudsql_memory_used_bytes", `gcp_cloudsql_memory_used_bytes`),
+	qCloudSQL("gcp_cloudsql_disk_total_bytes", `gcp_cloudsql_disk_total_bytes`),
+	qCloudSQL("gcp_cloudsql_disk_used_bytes", `gcp_cloudsql_disk_used_bytes`),
+	qCloudSQL("gcp_cloudsql_network_bytes_per_second", `gcp_cloudsql_network_bytes_per_second`, "direction"),
+	qCloudSQL("gcp_cloudsql_io_ops_per_second", `gcp_cloudsql_io_ops_per_second`, "operation"),
+	qCloudSQL("gcp_cloudsql_io_bytes_per_second", `gcp_cloudsql_io_bytes_per_second`, "operation"),
+	qCloudSQL("gcp_cloudsql_log_messages_total", `gcp_cloudsql_log_messages_total % 10000000`, "level", "pattern_hash", "sample", "job", "instance"),
+	qMemorystore("gcp_memorystore_info", `gcp_memorystore_info`, "project", "region", "zone", "ipv4", "port", "engine", "engine_version", "tier", "memory_size_gb", "instance"),
+	qMemorystore("gcp_memorystore_status", `gcp_memorystore_status`, "status"),
+	qMemorystore("gcp_memorystore_cpu_cores", `gcp_memorystore_cpu_cores`),
+	qMemorystore("gcp_memorystore_cpu_usage_percent", `gcp_memorystore_cpu_usage_percent`),
+	qMemorystore("gcp_memorystore_cpu_usage_cores", `gcp_memorystore_cpu_usage_cores`),
+	qMemorystore("gcp_memorystore_memory_total_bytes", `gcp_memorystore_memory_total_bytes`),
+	qMemorystore("gcp_memorystore_memory_used_bytes", `gcp_memorystore_memory_used_bytes`),
+	qMemorystore("gcp_memorystore_network_bytes_per_second", `gcp_memorystore_network_bytes_per_second`, "direction"),
 
 	qDB("pg_up", `pg_up`),
 	qDB("pg_scrape_error", `pg_scrape_error`, "error", "warning"),

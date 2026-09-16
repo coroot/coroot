@@ -50,7 +50,7 @@ spec:
   clusterAgent:
     databases:
       - type: memcached
-        host: cache.example.internal     # or `elasticache: <CacheClusterId>` for an ElastiCache cluster discovered by the AWS integration
+        host: cache.example.internal     # or `elasticache: <CacheClusterId>` (AWS integration) / `memorystore: <instance name>` (GCP integration)
         port: "11211"
 ```
 

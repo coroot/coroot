@@ -62,7 +62,7 @@ func availabilityRisks(w *model.World) []*Risk {
 	for _, app := range w.Applications {
 		switch app.Id.Kind {
 		case model.ApplicationKindExternalService, model.ApplicationKindRds, model.ApplicationKindElasticacheCluster,
-			model.ApplicationKindJob, model.ApplicationKindCronJob:
+			model.ApplicationKindCloudSQL, model.ApplicationKindMemorystore, model.ApplicationKindJob, model.ApplicationKindCronJob:
 			continue
 		}
 		dismissals := map[model.RiskKey]*model.RiskDismissal{}

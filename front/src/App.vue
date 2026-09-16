@@ -232,6 +232,10 @@
                             </div>
                             <v-btn outlined :to="{ name: 'project_settings' }">Install kube-state-metrics</v-btn>
                         </template>
+                        <template v-else-if="cloudWarning">
+                            <div class="flex-grow-1 mb-3 mb-sm-0">{{ cloudWarning.name }} integration: {{ cloudWarning.message }}</div>
+                            <v-btn outlined :to="{ name: 'project_settings', params: { tab: 'clouds' } }">Review the configuration</v-btn>
+                        </template>
                     </div>
                 </v-alert>
 
@@ -290,6 +294,9 @@ export default {
     },
 
     computed: {
+        cloudWarning() {
+            return (this.status?.clouds || []).find((c) => c.status === 'warning');
+        },
         projects() {
             if (!this.user) {
                 return [];

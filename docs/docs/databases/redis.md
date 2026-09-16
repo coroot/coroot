@@ -58,7 +58,7 @@ spec:
   clusterAgent:
     databases:
       - type: redis
-        host: cache.example.internal     # or `elasticache: <CacheClusterId>` for an ElastiCache cluster discovered by the AWS integration
+        host: cache.example.internal     # or `elasticache: <CacheClusterId>` (AWS integration) / `memorystore: <instance name>` (GCP integration)
         port: "6379"
         credentials:                     # only when AUTH is enabled
           passwordSecret: {name: redis-coroot, key: password}

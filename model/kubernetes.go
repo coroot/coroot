@@ -23,6 +23,8 @@ const (
 	ApplicationKindDatabaseCluster    ApplicationKind = "DatabaseCluster"
 	ApplicationKindRds                ApplicationKind = "RDS"
 	ApplicationKindElasticacheCluster ApplicationKind = "ElasticacheCluster"
+	ApplicationKindCloudSQL           ApplicationKind = "CloudSQL"
+	ApplicationKindMemorystore        ApplicationKind = "Memorystore"
 	ApplicationKindNomadJobGroup      ApplicationKind = "NomadJobGroup"
 	ApplicationKindArgoWorkflow       ApplicationKind = "Workflow"
 	ApplicationKindSparkApplication   ApplicationKind = "SparkApplication"

@@ -1,19 +1,15 @@
 <template>
-    <div style="max-width: 800px">
-        <p>
-            This integration enables Coroot to discover RDS and ElastiCache instances and collect their telemetry data. It requires permissions to
-            describe RDS and ElastiCache instances, read their logs and read Enhanced Monitoring data from CloudWatch.
+    <div>
+        <p style="max-width: 800px">
+            This integration enables Coroot to discover RDS and ElastiCache instances and collect their telemetry data: instance status, OS metrics
+            from Enhanced Monitoring, and database logs. The recommended setup lets the cluster-agent use the IAM role of its pod (EKS Pod Identity or
+            IRSA) and declares the integration and the database credentials in the Coroot custom resource, see the
+            <a href="https://docs.coroot.com/configuration/aws" target="_blank">AWS integration</a> page and the
+            <a href="https://docs.coroot.com/guides/aws-eks-rds" target="_blank">Monitoring Amazon RDS and ElastiCache from EKS</a> guide.
         </p>
-
-        <p>
-            <b>Step #1</b>: create an
-            <a
-                href="https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_create-console.html#access_policies_create-json-editor"
-                target="_blank"
-            >
-                IAM policy
-            </a>
-            with the <a @click="policyDialog = true">following permissions</a>.
+        <p style="max-width: 800px">
+            Alternatively, the integration can be configured here with the keys of an IAM user:
+            <a @click="showForm = !showForm">{{ showForm ? 'hide the settings' : 'show the settings' }}</a>
         </p>
         <v-dialog v-model="policyDialog" max-width="800">
             <v-card class="pa-5">
@@ -56,15 +52,19 @@
                 </Code>
             </v-card>
         </v-dialog>
-
-        <p>
-            <b>Step #2</b>: attach the policy to the IAM role of the cluster-agent pod (EKS Pod Identity or IRSA, see the
-            <a href="https://docs.coroot.com/guides/aws-eks-rds" target="_blank">guide</a>) and leave the keys below empty, or create an
-            <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/id_users_create.html#id_users_create_console" target="_blank">IAM user</a>
-            with programmatic access, attach the policy to it and use its AccessKeyID/SecretAccessKey.
-        </p>
-
-        <v-form v-if="form" v-model="valid" ref="form">
+        <v-form v-if="form && showForm" v-model="valid" ref="form" style="max-width: 800px">
+            <p>
+                <b>Step #1</b>: create an
+                <a
+                    href="https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_create-console.html#access_policies_create-json-editor"
+                    target="_blank"
+                >
+                    IAM policy
+                </a>
+                with the <a @click="policyDialog = true">following permissions</a>. <b>Step #2</b>: create an
+                <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/id_users_create.html#id_users_create_console" target="_blank">IAM user</a>
+                with programmatic access, attach the policy to it and use its AccessKeyID/SecretAccessKey.
+            </p>
             <div class="subtitle-1 mt-3">Region</div>
             <div class="caption">
                 Coroot only discovers RDS and ElastiCache instances within the specified region, e.g. <var>us-west-1</var>. Leave it empty to use the
@@ -72,7 +72,6 @@
             </div>
             <v-text-field v-model="form.region" outlined dense hide-details single-line clearable />
 
-            <div class="caption mt-3">Leave both keys empty to use the IAM role attached to the cluster-agent pod or the EC2 instance profile.</div>
             <div class="subtitle-1 mt-3">Access Key ID</div>
             <v-text-field v-model="form.access_key_id" outlined dense hide-details single-line />
 
@@ -96,7 +95,7 @@
             </div>
             <v-text-field v-model="elasticache_tag_filters" outlined dense hide-details single-line />
 
-            <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text class="mt-3">
+            <v-alert v-if="error" color="red" icon="mdi-alert-octagon-outline" outlined text class="mt-3" style="max-width: 800px">
                 {{ error }}
             </v-alert>
             <v-alert v-if="message" color="green" outlined text class="mt-3">
@@ -107,47 +106,13 @@
                 <v-btn v-if="configured" color="error" outlined @click="del" :loading="loading">Delete</v-btn>
             </div>
         </v-form>
-
-        <h2 class="text-h6 mt-10 mb-3">Discovery status</h2>
-        <v-alert v-if="!configured" color="primary" outlined text> Not configured </v-alert>
-        <v-alert v-else-if="errors.length" color="error" outlined text class="pb-2">
-            <div v-for="e in errors" class="mb-2">• {{ e }}</div>
-        </v-alert>
-        <v-alert v-else-if="!error" color="success" outlined text> OK </v-alert>
-        <v-alert v-else outlined text> Unknown </v-alert>
-
-        <h2 class="text-h6 mt-10 mb-3">Discovered instances</h2>
-        <v-data-table
-            :items="instances"
-            sort-by="application_id"
-            must-sort
-            dense
-            class="instances"
-            mobile-breakpoint="0"
-            :items-per-page="20"
-            no-data-text="No instances found"
-            :headers="[
-                { value: 'application_id', text: 'Application', align: 'start' },
-                { value: 'name', text: 'Instance', align: 'start' },
-                { value: 'status', text: 'Status', align: 'start' },
-                { value: 'engine', text: 'Engine', align: 'start' },
-                { value: 'engine_version', text: 'Version', align: 'start' },
-                { value: 'instance_type', text: 'Instance type', align: 'start' },
-                { value: 'availability_zone', text: 'AZ', align: 'start' },
-            ]"
-            :footer-props="{ itemsPerPageOptions: [10, 20, 50, 100, -1] }"
-        >
-            <template #item.application_id="{ item }">
-                <router-link :to="{ name: 'overview', params: { view: 'applications', id: item.application_id } }" class="text-no-wrap">
-                    {{ $utils.appId(item.application_id).name }}
-                </router-link>
-            </template>
-        </v-data-table>
+        <CloudDiscovery provider="AWS" :configured="configured" :detected="detected" :errors="errors" :instances="instances" :error="error" />
     </div>
 </template>
 
 <script>
 import Code from '../components/Code.vue';
+import CloudDiscovery from '../components/CloudDiscovery.vue';
 
 function map2str(m) {
     return Object.entries(m || {})
@@ -167,7 +132,7 @@ function str2map(s) {
 }
 
 export default {
-    components: { Code },
+    components: { Code, CloudDiscovery },
 
     data() {
         return {
@@ -179,7 +144,9 @@ export default {
             rds_tag_filters: '',
             elasticache_tag_filters: '',
             configured: false,
+            detected: false,
             policyDialog: false,
+            showForm: false,
             errors: [],
             instances: [],
         };
@@ -203,6 +170,8 @@ export default {
                 this.rds_tag_filters = map2str(this.form.rds_tag_filters);
                 this.elasticache_tag_filters = map2str(this.form.elasticache_tag_filters);
                 this.configured = !!data.view.configured;
+                this.detected = !!data.view.detected;
+                this.showForm = this.showForm || this.configured; // settings saved here stay visible
                 this.errors = data.view.errors || [];
                 this.instances = data.view.instances || [];
             });

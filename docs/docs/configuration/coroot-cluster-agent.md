@@ -28,12 +28,13 @@ You can configure coroot-cluster-agent using command-line flags or environment v
 | `--insecure-skip-verify` | `INSECURE_SKIP_VERIFY` | `false` | Skip TLS certificate verification |
 | `--ca-file` | `CA_FILE` | – | Path to the custom CA certificate file |
 | `--collect-kubernetes-events` | `COLLECT_KUBERNETES_EVENTS` | `true` | Collect and forward Kubernetes events |
+| `--collect-gcp-logs` | `COLLECT_GCP_LOGS` | `true` | Forward the logs of Cloud SQL instances discovered through the [GCP integration](/configuration/gcp#logs) |
 | `--collect-aws-logs` | `COLLECT_AWS_LOGS` | `true` | Forward the logs of RDS Postgres and MySQL instances discovered through the [AWS integration](/configuration/aws#logs) |
 | `--track-database-changes` | `TRACK_DATABASE_CHANGES` | `true` | Track schema and settings changes in databases |
 | `--track-database-sizes` | `TRACK_DATABASE_SIZES` | `true` | Collect per-database and per-table size metrics |
 | `--track-database-bloat` | `TRACK_DATABASE_BLOAT` | `true` | Estimate per-database, per-table and per-index bloat (PostgreSQL only) |
 | `--max-tables-per-database` | `MAX_TABLES_PER_DATABASE` | `1000` | Skip databases with more tables than this limit |
-| `--exclude-databases` | `EXCLUDE_DATABASES` | `postgres,rdsadmin,mysql,information_schema,performance_schema,sys` | Databases to exclude from schema and size tracking (applies to both PostgreSQL and MySQL). MongoDB system databases (admin, config, local) are always excluded regardless of this setting. |
+| `--exclude-databases` | `EXCLUDE_DATABASES` | `rdsadmin,cloudsqladmin,mysql,information_schema,performance_schema,sys` | Databases to exclude from monitoring (applies to both PostgreSQL and MySQL). For Postgres no connection, query, transaction ID age, schema or size metrics are collected for them; for MySQL they are excluded from schema and size tracking. MongoDB system databases (admin, config, local) are always excluded regardless of this setting. |
 
 ## Configuration file
 
@@ -51,7 +52,15 @@ aws:
   rdsTagFilters: {team: payments}
   elasticacheTagFilters: {}
 
-# Databases to collect metrics from, in addition to those configured in Coroot. Exactly one of host, rds or elasticache per entry.
+# GCP integration settings (Cloud SQL and Memorystore discovery).
+gcp:
+  projectId: my-project           # Optional: defaults to the project of the credentials or of the cluster.
+  region: us-central1             # Optional: defaults to the cluster's region, "all" scans every region of the project.
+  credentialsJson: ${GCP_KEY}     # Optional: a service account key; leave out to use Workload Identity or the VM's service account.
+  cloudsqlLabelFilters: {team: payments}
+  memorystoreLabelFilters: {}
+
+# Databases to collect metrics from, in addition to those configured in Coroot. Exactly one of host, rds, elasticache, cloudsql or memorystore per entry.
 databases:
   - type: postgres                # postgres, mysql, redis, memcached or mongodb.
     rds: my-db                    # An RDS instance discovered by the AWS integration: its endpoint is used.
@@ -59,6 +68,12 @@ databases:
     params: {sslmode: require}
   - type: redis
     elasticache: my-cache         # An ElastiCache cluster: every node is monitored.
+  - type: postgres
+    cloudsql: my-db               # A Cloud SQL instance discovered by the GCP integration.
+    credentials: {username: coroot, password: ${PG_PASSWORD}}
+    params: {sslmode: require}
+  - type: redis
+    memorystore: my-cache         # A Memorystore instance discovered by the GCP integration.
   - type: mysql
     host: mysql.example.internal  # Re-resolved on every configuration update; every resolved IP address is monitored.
     port: "3306"

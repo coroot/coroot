@@ -198,8 +198,18 @@ spec:
 #        team: payments
 #        env: "prod*"
 #      elasticacheTagFilters: {} # Same for ElastiCache clusters.
+#    # GCP integration (discovery of Cloud SQL and Memorystore instances).
+#    gcp:
+#      projectId:         # Project to discover instances in (default: the project of the GKE cluster).
+#      region:            # Region to discover instances in (default: the region the cluster runs in; "all" for every region of the project).
+#      credentialsSecret: # Secret with a service account key; leave unset to use GKE Workload Identity.
+#        name:
+#        key: credentials.json
+#      cloudsqlLabelFilters:    # Discover only Cloud SQL instances whose labels match (glob patterns are supported in values).
+#        team: payments
+#      memorystoreLabelFilters: {} # Same for Memorystore instances.
 #    # Databases to collect metrics from, in addition to those configured in the Coroot UI or discovered through pod annotations.
-#    # Exactly one of host, rds or elasticache is required per entry.
+#    # Exactly one of host, rds, elasticache, cloudsql or memorystore is required per entry.
 #    databases:
 #      - type: postgres         # postgres, mysql, redis (also for Valkey), memcached or mongodb.
 #        rds: my-db             # An RDS instance discovered by the AWS integration: its endpoint is used.
@@ -209,6 +219,14 @@ spec:
 #        params: {sslmode: require}
 #      - type: redis
 #        elasticache: my-cache  # An ElastiCache cluster discovered by the AWS integration: every node is monitored.
+#      - type: postgres
+#        cloudsql: my-db        # A Cloud SQL instance discovered by the GCP integration: its private IP is used.
+#        credentials:
+#          usernameSecret: {name: my-db-coroot, key: username}
+#          passwordSecret: {name: my-db-coroot, key: password}
+#        params: {sslmode: require}
+#      - type: redis
+#        memorystore: my-cache  # A Memorystore instance (Redis, Valkey with type redis, or Memcached with type memcached) discovered by the GCP integration.
 #      - type: mysql
 #        host: mysql.example.internal # A hostname is re-resolved on every configuration update; every resolved IP address is monitored.
 #        port: "3306"

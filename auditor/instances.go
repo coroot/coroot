@@ -56,6 +56,24 @@ func (a *appAuditor) instances() {
 			default:
 				status.SetStatus(model.OK, i.Elasticache.Status.Value())
 			}
+		} else if i.CloudSQL != nil {
+			switch {
+			case timeseries.IsNaN(i.CloudSQL.LifeSpan.Last()):
+				status.SetStatus(model.WARNING, "down (no metrics)")
+			case i.CloudSQL.Status.Value() != "RUNNABLE":
+				status.SetStatus(model.WARNING, i.CloudSQL.Status.Value())
+			default:
+				status.SetStatus(model.OK, i.CloudSQL.Status.Value())
+			}
+		} else if i.Memorystore != nil {
+			switch {
+			case timeseries.IsNaN(i.Memorystore.LifeSpan.Last()):
+				status.SetStatus(model.WARNING, "down (no metrics)")
+			case !i.Memorystore.IsUp():
+				status.SetStatus(model.WARNING, i.Memorystore.Status.Value())
+			default:
+				status.SetStatus(model.OK, i.Memorystore.Status.Value())
+			}
 		} else if i.Pod == nil {
 			if i.IsUp() {
 				status.SetStatus(model.OK, "ok")

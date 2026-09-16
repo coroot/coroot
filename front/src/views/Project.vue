@@ -6,7 +6,7 @@
 
         <h1 class="text-h5 mb-5">Configuration</h1>
 
-        <v-tabs :value="tab" height="40" show-arrows slider-size="2">
+        <v-tabs ref="tabs" :value="tab" height="40" show-arrows slider-size="2">
             <v-tab v-for="t in tabs" :key="t.id" :to="{ params: { tab: t.id } }" :disabled="t.disabled" :tab-value="t.id" exact>
                 {{ t.name }}
             </v-tab>
@@ -113,9 +113,20 @@
             <IntegrationAI />
         </template>
 
-        <template v-if="tab === 'aws'">
-            <h1 class="text-h5 my-5">AWS integration</h1>
+        <template v-if="tab === 'clouds' || tab === 'aws'">
+            <h1 class="text-h5 my-5">Cloud integrations</h1>
+            <p style="max-width: 800px">
+                Coroot discovers the managed databases of your cloud provider and monitors them alongside your own services: RDS and ElastiCache on
+                AWS, Cloud SQL and Memorystore on GCP.
+            </p>
+            <h2 class="mt-8 mb-3">
+                <img :src="`${$coroot.base_path}static/img/icons/aws${$vuetify.theme.dark ? '-dark' : ''}.svg`" height="28" alt="AWS" />
+            </h2>
             <IntegrationAWS />
+            <h2 class="mt-10 mb-3">
+                <img :src="`${$coroot.base_path}static/img/icons/gcp${$vuetify.theme.dark ? '-dark' : ''}.svg`" height="28" alt="Google Cloud" />
+            </h2>
+            <IntegrationGCP />
         </template>
 
         <template v-if="tab === 'applications'">
@@ -212,6 +223,7 @@ import Integrations from './Integrations.vue';
 import IntegrationPrometheus from './IntegrationPrometheus.vue';
 import IntegrationClickhouse from './IntegrationClickhouse.vue';
 import IntegrationAWS from './IntegrationAWS.vue';
+import IntegrationGCP from './IntegrationGCP.vue';
 import CustomApplications from './CustomApplications.vue';
 import Users from './Users.vue';
 import RBAC from './RBAC.vue';
@@ -233,6 +245,7 @@ export default {
         IntegrationPrometheus,
         IntegrationClickhouse,
         IntegrationAWS,
+        IntegrationGCP,
         ProjectApiKeys,
         ProjectDelete,
         ApplicationCategories,
@@ -266,6 +279,8 @@ export default {
     },
 
     mounted() {
+        // the slider is measured before the web font loads, when the fallback font makes the tabs wider
+        document.fonts?.ready.then(() => this.$refs.tabs?.callSlider());
         this.get();
         if (!this.tabs.find((t) => t.id === this.tab)) {
             this.$router.replace({ params: { tab: undefined } });
@@ -284,7 +299,7 @@ export default {
                 { id: 'clickhouse', name: 'Clickhouse', disabled: disabled || this.multicluster },
                 { id: 'ai', name: 'AI' },
                 { id: 'cloud', name: 'Coroot Cloud' },
-                { id: 'aws', name: 'AWS', disabled },
+                { id: 'clouds', name: 'Cloud integrations', disabled },
                 { id: 'applications', name: 'Applications', disabled },
                 { id: 'notifications', name: 'Notifications', disabled },
                 { id: 'organization', name: 'Organization' },

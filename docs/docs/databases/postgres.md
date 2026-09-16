@@ -220,7 +220,7 @@ Coroot reads `pg_database_size()` for per-database sizes and `pg_total_relation_
 Schema tracking, size tracking, and bloat estimation respect these additional flags:
 
 - **`--max-tables-per-database`** / `MAX_TABLES_PER_DATABASE` (default: `1000`) - skip databases with more tables than this limit, protecting against expensive queries on very large schemas.
-- **`--exclude-databases`** / `EXCLUDE_DATABASES` (default: `postgres`, `rdsadmin`, `mysql`, `information_schema`, `performance_schema`, `sys`) - databases to exclude from schema, size, and bloat tracking. The default list is shared with the MySQL integration; for Postgres only `postgres` and `rdsadmin` (the internal database of Amazon RDS, which rejects all connections) are relevant (the others don't exist as databases).
+- **`--exclude-databases`** / `EXCLUDE_DATABASES` (default: `rdsadmin`, `cloudsqladmin`, `mysql`, `information_schema`, `performance_schema`, `sys`) - databases to exclude from monitoring: no connections, query statistics, transaction ID age, schema, size or bloat metrics are collected for them. The default list is shared with the MySQL integration; for Postgres only `rdsadmin` and `cloudsqladmin` (the internal databases of Amazon RDS and Cloud SQL, whose maintenance activity would otherwise show up among your queries) are relevant (the others don't exist as databases).
 
 Each capability can be toggled independently:
 
@@ -422,7 +422,7 @@ spec:
   clusterAgent:
     databases:
       - type: postgres
-        host: db.example.internal        # or `rds: <DBInstanceIdentifier>` for an RDS instance discovered by the AWS integration
+        host: db.example.internal        # or `rds: <DBInstanceIdentifier>` (AWS integration) / `cloudsql: <instance name>` (GCP integration)
         port: "5432"
         credentials:
           usernameSecret: {name: postgres-coroot, key: username}

@@ -19,6 +19,7 @@ const (
 	IntegrationTypePrometheus IntegrationType = "prometheus"
 	IntegrationTypeClickhouse IntegrationType = "clickhouse"
 	IntegrationTypeAWS        IntegrationType = "aws"
+	IntegrationTypeGCP        IntegrationType = "gcp"
 	IntegrationTypeSlack      IntegrationType = "slack"
 	IntegrationTypePagerduty  IntegrationType = "pagerduty"
 	IntegrationTypeTeams      IntegrationType = "teams"

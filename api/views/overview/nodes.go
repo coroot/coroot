@@ -1,7 +1,6 @@
 package overview
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -65,6 +64,10 @@ func RenderNodes(w *model.World, project *db.Project) []Node {
 				t, version = i.Rds.ApplicationType(), i.Rds.EngineVersion.Value()
 			case i.Elasticache != nil:
 				t, version = i.Elasticache.ApplicationType(), i.Elasticache.EngineVersion.Value()
+			case i.CloudSQL != nil:
+				t, version = i.CloudSQL.ApplicationType(), i.CloudSQL.EngineVersion.Value()
+			case i.Memorystore != nil:
+				t, version = i.Memorystore.ApplicationType(), i.Memorystore.EngineVersion.Value()
 			default:
 				continue
 			}
@@ -132,13 +135,15 @@ func RenderNodes(w *model.World, project *db.Project) []Node {
 }
 
 func compute(n *model.Node) string {
-	c := n.CpuCapacity.Last()
-	m := n.MemoryTotalBytes.Last()
-	if !timeseries.IsNaN(c) && !timeseries.IsNaN(m) {
-		v, u := utils.FormatBytes(m)
-		return fmt.Sprintf("%d vCPU / %s%s", int(c), v, u)
+	var parts []string
+	if c := n.CpuCapacity.Last(); !timeseries.IsNaN(c) {
+		parts = append(parts, strconv.FormatFloat(float64(c), 'f', -1, 32)+" vCPU")
 	}
-	return ""
+	if m := n.MemoryTotalBytes.Last(); !timeseries.IsNaN(m) {
+		v, u := utils.FormatBytes(m)
+		parts = append(parts, v+u)
+	}
+	return strings.Join(parts, " / ")
 }
 
 func getNodeTags(n *model.Node) []string {

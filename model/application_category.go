@@ -43,6 +43,9 @@ var BuiltinCategoryPatterns = map[ApplicationCategory][]string{
 		"*/*chaos-*",
 		"istio*/*",
 		"amazon-cloudwatch/*",
+		"gke-managed-*/*",
+		"_/gke-*",
+		"_/system-sysdaemons",
 		"karpenter/*",
 		"cert-manager/*",
 		"argocd/*",
@@ -94,5 +97,6 @@ var BuiltinCategoryPatterns = map[ApplicationCategory][]string{
 		"*/*vmauth*",
 		"datadog/*",
 		"*/*datadog*",
+		"gmp-*/*",
 	},
 }

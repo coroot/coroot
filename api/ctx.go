@@ -3,11 +3,14 @@ package api
 import (
 	"fmt"
 
+	"github.com/coroot/coroot/api/views"
+	"github.com/coroot/coroot/api/views/cloud"
 	"github.com/coroot/coroot/api/views/overview"
 	"github.com/coroot/coroot/cache"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/utils"
+	"github.com/dustin/go-humanize/english"
 )
 
 type DataWithContext struct {
@@ -37,6 +40,14 @@ type Status struct {
 	Prometheus       Prometheus        `json:"prometheus"`
 	NodeAgent        NodeAgent         `json:"node_agent"`
 	KubeStateMetrics *KubeStateMetrics `json:"kube_state_metrics"`
+	Clouds           []CloudStatus     `json:"clouds"`
+}
+
+type CloudStatus struct {
+	Id      string       `json:"id"`
+	Name    string       `json:"name"`
+	Status  model.Status `json:"status"`
+	Message string       `json:"message"`
 }
 
 type Prometheus struct {
@@ -195,6 +206,31 @@ func renderStatus(p *db.Project, cacheStatus *cache.Status, w *model.World, glob
 			res.KubeStateMetrics.Status = model.WARNING
 			res.Status = model.WARNING
 		}
+	}
+
+	for _, c := range []struct {
+		id, name string
+		view     *cloud.View
+	}{
+		{"aws", "AWS", views.AWS(w, p.Settings.Integrations.AWS != nil)},
+		{"gcp", "GCP", views.GCP(w)},
+	} {
+		cs := CloudStatus{Id: c.id, Name: c.name}
+		switch {
+		case !c.view.Configured && !c.view.Detected:
+			continue
+		case !c.view.Configured:
+			cs.Status = model.INFO
+			cs.Message = fmt.Sprintf("the cluster runs on %s, but the integration is not configured: its managed databases are not discovered", c.name)
+		case len(c.view.Errors) > 0:
+			cs.Status = model.WARNING
+			cs.Message = fmt.Sprintf("%s reported by the cluster-agent", english.Plural(len(c.view.Errors), "discovery error", ""))
+			res.Status = model.WARNING
+		default:
+			cs.Status = model.OK
+			cs.Message = english.Plural(len(c.view.Instances), "instance", "") + " discovered"
+		}
+		res.Clouds = append(res.Clouds, cs)
 	}
 
 	return res
