@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/binary"
 	"io"
 	"net"
 	"net/http"
@@ -10,6 +9,7 @@ import (
 	"github.com/coroot/coroot/collector"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/utils"
+	"golang.org/x/net/websocket"
 	"k8s.io/klog"
 )
 
@@ -20,57 +20,47 @@ func (api *Api) ClickhouseConfig(w http.ResponseWriter, r *http.Request, project
 
 func (api *Api) ClickhouseConnect(w http.ResponseWriter, r *http.Request) {
 	apiKey := r.Header.Get(collector.ApiKeyHeader)
-	hj, ok := w.(http.Hijacker)
-	if !ok {
-		klog.Errorln("connection hijacking not supported")
-		http.Error(w, "hijacking not supported", http.StatusInternalServerError)
-		return
-	}
-	clientConn, _, err := hj.Hijack()
-	if err != nil {
-		klog.Errorln(err)
-		http.Error(w, "hijack failed", http.StatusInternalServerError)
-		return
-	}
-	defer clientConn.Close()
-
 	if apiKey == "" {
-		_ = binary.Write(clientConn, binary.LittleEndian, uint32(http.StatusBadRequest))
 		klog.Warningln("no api key")
+		http.Error(w, "no api key", http.StatusBadRequest)
 		return
 	}
 	project, err := api.getProjectByApiKey(apiKey)
 	if err != nil {
-		_ = binary.Write(clientConn, binary.LittleEndian, uint32(http.StatusInternalServerError))
 		klog.Errorln(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	if project == nil {
 		klog.Warningln("no project found")
-		_ = binary.Write(clientConn, binary.LittleEndian, uint32(http.StatusNotFound))
+		http.Error(w, "project not found", http.StatusNotFound)
 		return
 	}
 	cfg := project.ClickHouseConfig(api.globalClickHouse)
-
+	if cfg == nil {
+		http.Error(w, "clickhouse is not configured", http.StatusNotFound)
+		return
+	}
 	upstreamConn, err := net.DialTimeout("tcp", cfg.Addr, 10*time.Second)
 	if err != nil {
 		klog.Errorln(err)
-		_ = binary.Write(clientConn, binary.LittleEndian, uint32(http.StatusBadGateway))
+		http.Error(w, err.Error(), http.StatusBadGateway)
 		return
 	}
 	defer upstreamConn.Close()
 
-	_ = binary.Write(clientConn, binary.LittleEndian, uint32(http.StatusOK))
-	errCh := make(chan error, 2)
-
-	go func() {
-		_, e := io.Copy(upstreamConn, clientConn)
-		errCh <- e
-	}()
-	go func() {
-		_, e := io.Copy(clientConn, upstreamConn)
-		errCh <- e
-	}()
-
-	<-errCh
+	websocket.Server{Handler: func(ws *websocket.Conn) {
+		defer ws.Close()
+		ws.PayloadType = websocket.BinaryFrame
+		errCh := make(chan error, 2)
+		go func() {
+			_, e := io.Copy(upstreamConn, ws)
+			errCh <- e
+		}()
+		go func() {
+			_, e := io.Copy(ws, upstreamConn)
+			errCh <- e
+		}()
+		<-errCh
+	}}.ServeHTTP(w, r)
 }

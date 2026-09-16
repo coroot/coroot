@@ -224,7 +224,7 @@ func main() {
 	r.HandleFunc("/api/v1/label/{labelName}/values", a.ApiKeyAuth(a.PrometheusLabelValues))
 
 	r.HandleFunc("/api/clickhouse-config", a.ApiKeyAuth(a.ClickhouseConfig)).Methods(http.MethodGet)
-	r.HandleFunc("/api/clickhouse-connect", a.ClickhouseConnect).Methods(http.MethodConnect)
+	r.HandleFunc("/api/clickhouse-connect", a.ClickhouseConnect).Methods(http.MethodGet)
 
 	r.HandleFunc("/stats", func(w http.ResponseWriter, r *http.Request) {
 		if a.GetUser(r) == nil {

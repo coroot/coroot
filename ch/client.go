@@ -3,7 +3,6 @@ package ch
 import (
 	"context"
 	"crypto/tls"
-	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -11,6 +10,7 @@ import (
 	"net/textproto"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/ClickHouse/ch-go"
@@ -19,6 +19,7 @@ import (
 	"github.com/coroot/coroot/config"
 	"github.com/coroot/coroot/db"
 	"golang.org/x/exp/maps"
+	"golang.org/x/net/websocket"
 	"k8s.io/klog"
 )
 
@@ -520,6 +521,22 @@ type Dialer struct {
 	cfg *db.IntegrationClickhouse
 }
 
+type wsConn struct {
+	*websocket.Conn
+	raw net.Conn
+}
+
+func (c *wsConn) LocalAddr() net.Addr  { return c.raw.LocalAddr() }
+func (c *wsConn) RemoteAddr() net.Addr { return c.raw.RemoteAddr() }
+
+func (c *wsConn) SyscallConn() (syscall.RawConn, error) {
+	sc, ok := c.raw.(syscall.Conn)
+	if !ok {
+		return nil, fmt.Errorf("underlying connection does not support syscall.Conn")
+	}
+	return sc.SyscallConn()
+}
+
 func (d *Dialer) Dial(ctx context.Context, address string) (net.Conn, error) {
 	return d.DialContext(ctx, "tcp", address)
 }
@@ -529,32 +546,31 @@ func (d *Dialer) DialContext(ctx context.Context, network, address string) (net.
 	if err != nil {
 		return nil, err
 	}
-	conn, err := net.DialTimeout("tcp", d.cfg.Addr, dialTimeout)
+	rawConn, err := net.DialTimeout("tcp", d.cfg.Addr, dialTimeout)
 	if err != nil {
 		return nil, err
 	}
+	conn := rawConn
+	scheme := "ws"
 	if d.cfg.TlsEnable {
+		scheme = "wss"
 		conn = tls.Client(conn, &tls.Config{ServerName: host, InsecureSkipVerify: d.cfg.TlsSkipVerify})
 	}
-
-	payload := fmt.Sprintf(
-		"CONNECT /api/clickhouse-connect HTTP/1.1\r\nHost: %s\r\n%s: %s\r\n\r\n",
-		host,
-		headerKey(authHeader),
-		headerValue(d.cfg.Auth.Password),
-	)
-	if _, err = conn.Write([]byte(payload)); err != nil {
+	config, err := websocket.NewConfig(fmt.Sprintf("%s://%s/api/clickhouse-connect", scheme, d.cfg.Addr), "http://"+host)
+	if err != nil {
 		conn.Close()
 		return nil, err
 	}
-	var status uint32
-	if err = binary.Read(conn, binary.LittleEndian, &status); err != nil {
-		return nil, err
+	config.Header.Set(authHeader, headerValue(d.cfg.Auth.Password))
+	_ = conn.SetDeadline(time.Now().Add(dialTimeout))
+	ws, err := websocket.NewClient(config, conn)
+	if err != nil {
+		conn.Close()
+		return nil, fmt.Errorf("failed to connect to clickhouse through remote Coroot: %w", err)
 	}
-	if status != http.StatusOK {
-		return nil, fmt.Errorf("failed to connect to clickhouse: %d", status)
-	}
-	return conn, nil
+	_ = conn.SetDeadline(time.Time{})
+	ws.PayloadType = websocket.BinaryFrame
+	return &wsConn{Conn: ws, raw: rawConn}, nil
 }
 
 func GetRemoteCorootDialer(cfg *db.IntegrationClickhouse) *Dialer {
