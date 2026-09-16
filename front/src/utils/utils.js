@@ -37,10 +37,13 @@ export default class Utils {
     }
 
     nodeId(id) {
-        const parts = id.split(':');
+        const i = id.indexOf(':');
+        if (i < 0) {
+            return { cluster: '', name: id };
+        }
         return {
-            cluster: parts[0],
-            name: parts[1],
+            cluster: id.substring(0, i),
+            name: id.substring(i + 1),
         };
     }
 

@@ -32,6 +32,12 @@ export default {
         };
     },
 
+    computed: {
+        name() {
+            return this.$utils.nodeId(this.id).name;
+        },
+    },
+
     mounted() {
         this.get();
         this.$events.watch(this, this.get, 'refresh');

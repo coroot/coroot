@@ -1370,7 +1370,7 @@ Memcached metrics are collected by the embedded [memcached_exporter](https://git
 
 ## AWS
 
-When the [AWS integration](/configuration/aws) is configured in the Coroot project settings, the agent discovers RDS instances and ElastiCache nodes through the AWS API (optionally filtered by tags) and exposes their state. Every RDS metric carries an `rds_instance_id` label (`<region>/<DBInstanceIdentifier>`) and every ElastiCache metric an `ec_instance_id` label (`<region>/<CacheClusterId>/<CacheNodeId>`), which Coroot uses to match the instances to the applications that connect to them.
+When the [AWS integration](/configuration/aws) is configured, the agent discovers RDS instances and ElastiCache nodes through the AWS API (optionally filtered by tags) and exposes their state. Every RDS metric carries an `rds_instance_id` label (`<region>/<DBInstanceIdentifier>`) and every ElastiCache metric an `ec_instance_id` label (`<region>/<CacheClusterId>/<CacheNodeId>`), which Coroot uses to match the instances to the applications that connect to them.
 
 ### aws_discovery_error
 * **Description**: 1 for each distinct AWS API error encountered during the last discovery cycle, 0 when discovery succeeded
@@ -1606,3 +1606,85 @@ Every metric below also carries `uid`, `name`, and `namespace` labels identifyin
 * **Type**: Info
 * **Source**: `status.operationState.syncResult.resources[]`
 * **Labels**: resource_group, resource_kind, resource_namespace, resource_name, status (e.g. `Synced`, `Pruned`, `SyncFailed`)
+
+## GCP
+
+When the [GCP integration](/configuration/gcp) is configured, the agent discovers Cloud SQL and Memorystore instances through the GCP APIs (optionally filtered by labels) and exposes their state. Every Cloud SQL metric carries a `cloudsql_instance_id` label (`<project>/<instance>`) and every Memorystore metric a `memorystore_instance_id` label (`<project>/<region>/<instance>`), which Coroot uses to match the instances to the applications that connect to them.
+
+### gcp_discovery_error
+* **Description**: 1 for each distinct GCP API error encountered during the last discovery cycle, 0 when discovery succeeded
+* **Type**: Gauge
+* **Labels**: error
+
+### gcp_cloudsql_info
+* **Description**: Cloud SQL instance info
+* **Type**: Gauge
+* **Source**: the Cloud SQL Admin API (`instances.list`); `ipv4` is the private IP if the instance has one, otherwise the public one
+* **Labels**: project, region, zone, ipv4, port, engine, engine_version, tier, availability_type, connection_name, instance_type (`CLOUD_SQL_INSTANCE` or `READ_REPLICA_INSTANCE`), primary_instance (the primary of a read replica)
+
+### gcp_cloudsql_status
+* **Description**: The state of the Cloud SQL instance (e.g. `RUNNABLE`, `SUSPENDED`, `MAINTENANCE`)
+* **Type**: Gauge
+* **Labels**: status
+
+### gcp_cloudsql_cpu_usage_percent / gcp_cloudsql_cpu_cores / gcp_cloudsql_cpu_usage_cores
+* **Description**: CPU utilization as a percentage of the reserved vCPUs (`database/cpu/utilization`), the number of reserved vCPUs (`database/cpu/reserved_cores`), and the CPU time of the database process in cores (`database/cpu/usage_time` aligned as a rate)
+* **Type**: Gauge
+* **Source**: Cloud Monitoring (`cloudsql.googleapis.com/database/*`), the latest 1-minute aligned value
+
+### gcp_cloudsql_memory_total_bytes / gcp_cloudsql_memory_used_bytes / gcp_cloudsql_memory_components_percent
+* **Description**: the memory quota (`database/memory/quota`), the memory usage of the database process including its buffers and cache (`database/memory/total_usage`), and the quota split into the `usage`, `cache` and `free` components in percent (`database/memory/components`)
+* **Type**: Gauge
+* **Source**: Cloud Monitoring, the latest 1-minute aligned value
+* **Labels**: component (`usage`, `cache`, `free`) for `gcp_cloudsql_memory_components_percent`
+
+### gcp_cloudsql_disk_total_bytes / gcp_cloudsql_disk_used_bytes
+* **Description**: the data disk quota (`database/disk/quota`) and usage (`database/disk/bytes_used`)
+* **Type**: Gauge
+* **Source**: Cloud Monitoring, the latest 1-minute aligned value
+
+### gcp_cloudsql_io_ops_per_second
+* **Description**: Disk I/O operations per second of the instance
+* **Type**: Gauge
+* **Source**: Cloud Monitoring, `disk/read_ops_count` and `disk/write_ops_count` aligned as rates
+* **Labels**: operation (`read`, `write`)
+
+### gcp_cloudsql_io_bytes_per_second
+* **Description**: Disk I/O throughput of the instance
+* **Type**: Gauge
+* **Source**: Cloud Monitoring, `disk/read_bytes_count` and `disk/write_bytes_count` aligned as rates
+* **Labels**: operation (`read`, `write`)
+
+### gcp_cloudsql_network_bytes_per_second
+* **Description**: Network throughput of the instance
+* **Type**: Gauge
+* **Source**: Cloud Monitoring, `network/received_bytes_count` and `network/sent_bytes_count` aligned as rates
+* **Labels**: direction (`rx`, `tx`)
+
+### gcp_cloudsql_log_messages_total
+* **Description**: Number of messages in the instance's logs (`postgres` and `mysql` engines) grouped by the automatically extracted repeated pattern
+* **Type**: Counter
+* **Source**: Cloud Logging, the `cloudsql_database` resource of the instance
+* **Labels**: level, pattern_hash, sample
+
+### gcp_memorystore_info
+* **Description**: Memorystore instance info. Redis and Valkey instances have one series, Memcached instances one per node (`memorystore_instance_id` is `<project>/<region>/<instance>/<node>`)
+* **Type**: Gauge
+* **Source**: the Memorystore for Redis, Memcached and Valkey APIs (`instances.list`)
+* **Labels**: project, region, zone, ipv4, port, engine (`redis`, `memcached`, `valkey`), engine_version, tier, memory_size_gb, instance
+
+### gcp_memorystore_status
+* **Description**: The state of the Memorystore instance (`READY` for Redis and Memcached, `ACTIVE` for Valkey, or a transitional state)
+* **Type**: Gauge
+* **Labels**: status
+
+### gcp_memorystore_cpu_usage_percent / gcp_memorystore_cpu_usage_cores / gcp_memorystore_memory_used_bytes / gcp_memorystore_network_bytes_per_second
+* **Description**: OS-level metrics of the node from Cloud Monitoring, what each product publishes: CPU utilization in percent (Valkey: `instance/cpu/average_utilization` of the primaries), CPU time of the engine process in cores (Redis: `stats/cpu_utilization` of the primary summed over user and system time, Memcached: `node/cpu/usage_time` summed over the modes), memory used by the engine (Redis: `stats/memory/usage`, Valkey: `instance/memory/total_used_memory`, Memcached: the used part of `node/cache_memory`) and network throughput (Redis: `stats/network_traffic`, Memcached: `node/received_bytes_count` and `node/sent_bytes_count`, aligned as rates)
+* **Type**: Gauge
+* **Source**: Cloud Monitoring (`redis.googleapis.com/`, `memorystore.googleapis.com/instance/`, `memcache.googleapis.com/node/`), the latest 1-minute aligned value
+* **Labels**: direction (`rx`, `tx`) for `gcp_memorystore_network_bytes_per_second`
+
+### gcp_memorystore_cpu_cores / gcp_memorystore_memory_total_bytes
+* **Description**: The vCPU count and memory capacity of the node. Memory comes from the instance configuration of all three products; vCPUs are reported only for Memcached nodes (`nodeConfig.cpuCount`), the Redis and Valkey APIs don't return them
+* **Type**: Gauge
+

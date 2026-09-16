@@ -34,6 +34,8 @@ type Instance struct {
 	Pod *Pod
 
 	Rds         *Rds
+	CloudSQL    *CloudSQL
+	Memorystore *Memorystore
 	Elasticache *Elasticache
 
 	Jvms   map[string]*Jvm
@@ -90,6 +92,12 @@ func (instance *Instance) ApplicationTypes() map[ApplicationType]bool {
 		res[t] = true
 	}
 	if t := instance.Elasticache.ApplicationType(); t != ApplicationTypeUnknown {
+		res[t] = true
+	}
+	if t := instance.CloudSQL.ApplicationType(); t != ApplicationTypeUnknown {
+		res[t] = true
+	}
+	if t := instance.Memorystore.ApplicationType(); t != ApplicationTypeUnknown {
 		res[t] = true
 	}
 	return res

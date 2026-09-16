@@ -27,6 +27,7 @@ type World struct {
 	ArgoCD *ArgoCD
 
 	AWS AWS
+	GCP GCP
 
 	IntegrationStatus IntegrationStatus
 
@@ -38,6 +39,7 @@ func NewWorld(from, to timeseries.Time, step, rawStep timeseries.Duration) *Worl
 		Ctx:              timeseries.Context{From: from, To: to, Step: step, RawStep: rawStep},
 		Applications:     map[ApplicationId]*Application{},
 		AWS:              AWS{DiscoveryErrors: map[string]bool{}},
+		GCP:              GCP{DiscoveryErrors: map[string]bool{}},
 		ProjectNamesById: map[string]string{},
 	}
 }

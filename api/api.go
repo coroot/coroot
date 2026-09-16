@@ -896,6 +896,20 @@ func (api *Api) Integration(w http.ResponseWriter, r *http.Request, u *db.User) 
 		return
 	}
 	t := db.IntegrationType(vars["type"])
+	if t == db.IntegrationTypeGCP {
+		if r.Method != http.MethodGet {
+			http.Error(w, "the GCP integration is configured in the Coroot custom resource or the cluster-agent config file", http.StatusMethodNotAllowed)
+			return
+		}
+		world, _, _, err := api.LoadWorldByRequest(r)
+		if err != nil {
+			klog.Errorln(err)
+		}
+		utils.WriteJson(w, struct {
+			View any `json:"view"`
+		}{View: views.GCP(world)})
+		return
+	}
 	form := forms.NewIntegrationForm(t, api.globalClickHouse, api.globalPrometheus)
 	if form == nil {
 		klog.Warningln("unknown integration type:", t)

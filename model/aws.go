@@ -3,6 +3,7 @@ package model
 import "github.com/coroot/coroot/timeseries"
 
 type AWS struct {
+	Configured      bool
 	DiscoveryErrors map[string]bool
 }
 

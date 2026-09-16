@@ -7,7 +7,7 @@ import (
 	"github.com/coroot/coroot/api/views/alert"
 	"github.com/coroot/coroot/api/views/application"
 	"github.com/coroot/coroot/api/views/applications"
-	"github.com/coroot/coroot/api/views/aws"
+	"github.com/coroot/coroot/api/views/cloud"
 	"github.com/coroot/coroot/api/views/dashboards"
 	"github.com/coroot/coroot/api/views/incident"
 	"github.com/coroot/coroot/api/views/inspections"
@@ -67,8 +67,12 @@ func CustomApplications(p *db.Project) *applications.CustomApplicationsView {
 	return applications.RenderCustomApplications(p)
 }
 
-func AWS(w *model.World, configured bool) *aws.View {
-	return aws.Render(w, configured)
+func AWS(w *model.World, configured bool) *cloud.View {
+	return cloud.AWS(w, configured)
+}
+
+func GCP(w *model.World) *cloud.View {
+	return cloud.GCP(w)
 }
 
 func Roles(rs []rbac.Role) *roles.View {

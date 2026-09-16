@@ -131,6 +131,12 @@ func (app *Application) LogServices() []string {
 		if i.Elasticache != nil && i.Elasticache.Id != "" {
 			res.Add("/aws/elasticache/" + i.Elasticache.Id)
 		}
+		if i.CloudSQL != nil && i.CloudSQL.Id != "" {
+			res.Add("/gcp/cloudsql/" + i.CloudSQL.Id)
+		}
+		if i.Memorystore != nil && i.Memorystore.Id != "" {
+			res.Add("/gcp/memorystore/" + i.Memorystore.Id)
+		}
 	}
 	return res.Items()
 }
@@ -188,6 +194,10 @@ func (app *Application) Labels() Labels {
 		res["db"] = fmt.Sprintf(`%s (RDS)`, app.Instances[0].Rds.Engine.Value())
 	case ApplicationKindElasticacheCluster:
 		res["db"] = fmt.Sprintf(`%s (EC)`, app.Instances[0].Elasticache.Engine.Value())
+	case ApplicationKindCloudSQL:
+		res["db"] = fmt.Sprintf(`%s (Cloud SQL)`, app.Instances[0].CloudSQL.Engine.Value())
+	case ApplicationKindMemorystore:
+		res["db"] = fmt.Sprintf(`%s (Memorystore)`, app.Instances[0].Memorystore.Engine.Value())
 	case ApplicationKindUnknown, ApplicationKindDockerSwarmService, ApplicationKindNomadJobGroup:
 		if app.Id.Namespace != "_" {
 			res["ns"] = app.Id.Namespace
@@ -324,7 +334,8 @@ func (app *Application) IsStandalone() bool {
 }
 
 func (app *Application) IsDatabase() bool {
-	if app.Id.Kind == ApplicationKindRds || app.Id.Kind == ApplicationKindElasticacheCluster {
+	switch app.Id.Kind {
+	case ApplicationKindRds, ApplicationKindElasticacheCluster, ApplicationKindCloudSQL, ApplicationKindMemorystore:
 		return true
 	}
 	for t := range app.ApplicationTypes() {

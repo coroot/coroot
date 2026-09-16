@@ -21,8 +21,10 @@ Database internals (query statistics, locks, replication) are collected separate
 All AWS API calls are made by the [cluster-agent](/installation/architecture), not by the Coroot server. The agent polls
 the RDS and ElastiCache APIs once a minute, so a new instance shows up within about a minute of being created.
 
-To configure the integration, go to the **Project Settings**, click on **AWS**, and fill in the form described below.
-The page also shows the discovery status, the last errors reported by the agent, and the list of discovered instances.
+The recommended setup uses the IAM role of the cluster-agent pod and declares the settings in the Coroot custom
+resource, see [Configuration as code](#configuration-as-code). Alternatively, go to the **Project Settings**, open
+**Cloud integrations**, expand the AWS settings and fill in the form described below. Either way, the page shows the
+discovery status, the last errors reported by the agent, and the list of discovered instances.
 
 ## IAM permissions
 
@@ -130,8 +132,13 @@ database itself, so the cluster-agent connects to each instance directly:
 ElastiCache Redis, Valkey and Memcached nodes need no credentials unless AUTH is enabled. Enable collection the same way,
 from the **Redis** or **Memcached** tab of the node's application.
 
-The `rdsadmin` database that Amazon RDS creates on every Postgres instance rejects all connections and is excluded
-from schema and size tracking by default, see [`--exclude-databases`](/configuration/coroot-cluster-agent).
+An `rds:` entry in the [configuration as code](#configuration-as-code) covers the instance and its read replicas: the
+same monitoring user exists on the replicas, so they are monitored with the primary's credentials without being
+declared separately. Replicas are subject to the [tag filters](#tag-filters) like any other instance.
+
+The `rdsadmin` database that Amazon RDS creates on every Postgres instance is used by the service itself, so it is
+excluded from monitoring by default: its maintenance connections and queries don't show up among yours, see
+[`--exclude-databases`](/configuration/coroot-cluster-agent).
 
 ## Configuration as code
 
@@ -170,5 +177,5 @@ AWS discovery (region=us-east-1): 3 RDS instances, 2 ElastiCache nodes
 
 `CredentialsEndpointProvider` means EKS Pod Identity, `WebIdentityCredentials` means IRSA, `EC2RoleProvider` means the
 instance profile, and `StaticCredentials` means the key from the integration settings. Discovery errors are shown on
-the integration page and exposed as the `aws_discovery_error` metric. The full list of collected metrics is in the
+the **Cloud integrations** page and exposed as the `aws_discovery_error` metric. The full list of collected metrics is in the
 [cluster-agent metrics reference](/metrics/cluster-agent#aws).

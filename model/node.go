@@ -9,6 +9,7 @@ import (
 const (
 	CloudProviderAWS   = "aws"
 	CloudProviderAzure = "azure"
+	CloudProviderGCP   = "gcp"
 )
 
 type OSType string
@@ -170,6 +171,9 @@ func (n *Node) IsUp() bool {
 	// currently, we don't collect OS metrics for Elasticache nodes
 	if len(n.Instances) == 1 && n.Instances[0].Owner.Id.Kind == ApplicationKindElasticacheCluster {
 		return n.Instances[0].Elasticache.Status.Value() == "available"
+	}
+	if len(n.Instances) == 1 && n.Instances[0].Owner.Id.Kind == ApplicationKindMemorystore {
+		return n.Instances[0].Memorystore.IsUp()
 	}
 
 	return !n.CpuUsagePercent.TailIsEmpty()
