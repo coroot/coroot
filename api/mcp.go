@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"sort"
 	"strings"
@@ -26,7 +27,9 @@ import (
 
 const MCPInstructions = `Coroot is a production observability platform. Reach for it when the user asks about live behavior of a running system: why a service is slow or erroring, what changed, what alerts are firing, what depends on what, recent incidents, capacity, deploys. It is NOT for source-code questions, generic ML/ops advice, or anything that doesn't map to a running cluster.
 
-Multiple projects (clusters) may be available. Always start with list_projects + select_project; the selection persists for the session. Application ids are 4-part 'cluster_id:namespace:Kind:name' — pass them through as returned (don't strip the cluster_id even if the project looks single-cluster).
+Multiple projects (clusters) may be available. Always start with list_projects + select_project; the selection persists for the session. Application ids are 4-part 'cluster_id:namespace:Kind:name' — pass them through as returned (don't strip the cluster_id even if the project looks single-cluster). Node ids are 'cluster_id:name' (the name itself may contain ':', e.g. 'hwvop6p7:rds:db1'). Short forms are rejected.
+
+Responses are sized to fit an agent's context. List results come as {total, returned, items}; when a result is cut it sets 'truncated: true' with a 'hint' on how to narrow the request (filters, a smaller limit, a shorter time range).
 
 Pick a tool by intent, cheapest first:
 
@@ -65,6 +68,7 @@ func (api *Api) SetupMCP(instructions string) *MCPHandler {
 			"coroot",
 			"1.0.0",
 			mcpserver.WithToolCapabilities(false),
+			mcpserver.WithRecovery(),
 			mcpserver.WithInstructions(instructions),
 		),
 	}
@@ -165,7 +169,10 @@ func (h *MCPHandler) registerTools() {
 	)
 	h.AddTool(
 		mcp.NewTool("list_applications",
-			mcp.WithDescription("List applications in the selected project. Returns id, namespace, application category (e.g. application, monitoring, control-plane), detected types (postgres, java, nginx, ...), overall status (ok|warning|critical), and a list of failing inspections (CPU, Memory, SLO, Postgres, Logs, ...) with their statuses. Use this to triage which apps to drill into via get_application_status."),
+			mcp.WithDescription("List applications in the selected project, unhealthy first. Returns id, namespace, application category (e.g. application, monitoring, control-plane), detected types (postgres, java, nginx, ...), overall status (ok|warning|critical), and a list of failing inspections (CPU, Memory, SLO, Postgres, Logs, ...) with their statuses. Use this to triage which apps to drill into via get_application_status. Large projects are cut to fit the response size limit (`truncated: true`), so narrow with the filters."),
+			mcp.WithString("namespace", mcp.Description("Filter to one namespace.")),
+			mcp.WithString("search", mcp.Description("Case-insensitive substring of the application id.")),
+			mcp.WithString("min_status", mcp.Description("'warning' (apps with issues only) | 'critical'. Applies to the worst of the overall status and the failing inspections. Default: all applications.")),
 			mcp.WithReadOnlyHintAnnotation(true),
 			mcp.WithDestructiveHintAnnotation(false),
 			mcp.WithIdempotentHintAnnotation(true),
@@ -177,7 +184,7 @@ func (h *MCPHandler) registerTools() {
 		mcp.NewTool("list_alerts",
 			mcp.WithDescription("List alerts for the selected project. Use state to choose: 'firing' (active triage, default), 'resolved' (most-recent resolved history), or 'any' (mixed, sorted by opened time)."),
 			mcp.WithString("state", mcp.Description("'firing' | 'resolved' | 'any'. Default: 'firing'.")),
-			mcp.WithString("app_id", mcp.Description("Filter to one application (id from list_applications).")),
+			mcp.WithString("app_id", mcp.Description("Filter to one application (full 4-part id from list_applications).")),
 			mcp.WithNumber("limit", mcp.Description("Max alerts to return. Default: 100, max: 1000.")),
 			mcp.WithReadOnlyHintAnnotation(true),
 			mcp.WithDestructiveHintAnnotation(false),
@@ -190,7 +197,7 @@ func (h *MCPHandler) registerTools() {
 		mcp.NewTool("list_incidents",
 			mcp.WithDescription("List SLO incident summaries (severity, opened/resolved time, burn rates, impact). Use get_incident_details for full RCA + propagation map."),
 			mcp.WithString("state", mcp.Description("'open' | 'resolved' | 'any'. Default: 'any' (open first, then most-recent resolved).")),
-			mcp.WithString("app_id", mcp.Description("Filter to one application (id from list_applications).")),
+			mcp.WithString("app_id", mcp.Description("Filter to one application (full 4-part id from list_applications).")),
 			mcp.WithNumber("hours", mcp.Description("Look-back window in hours. Default: 0 (no time filter — most recent overall).")),
 			mcp.WithNumber("limit", mcp.Description("Max incidents to return. Default: 50, max: 500.")),
 			mcp.WithReadOnlyHintAnnotation(true),
@@ -242,7 +249,8 @@ func (h *MCPHandler) registerTools() {
 	)
 	h.AddTool(
 		mcp.NewTool("list_nodes",
-			mcp.WithDescription("List nodes (hosts/VMs) in the selected project: name, cluster, status (up/down/no-agent), OS/kernel, instance type, CPU/memory utilization %, network throughput, GPUs. Mirrors the UI's Nodes view."),
+			mcp.WithDescription("List nodes (hosts/VMs) in the selected project: id ('cluster_id:name'), name, cluster, status (up/down/no-agent), OS/kernel, instance type, CPU/memory utilization %, network throughput, GPUs. Mirrors the UI's Nodes view. Nodes with problems come first; large fleets are cut to fit the response size limit (`truncated: true`)."),
+			mcp.WithString("search", mcp.Description("Case-insensitive substring of the node name.")),
 			mcp.WithReadOnlyHintAnnotation(true),
 			mcp.WithDestructiveHintAnnotation(false),
 			mcp.WithIdempotentHintAnnotation(true),
@@ -253,7 +261,7 @@ func (h *MCPHandler) registerTools() {
 	h.AddTool(
 		mcp.NewTool("get_node_details",
 			mcp.WithDescription("Per-node audit report (CPU/memory/disk/network inspections + their checks). Use after list_nodes to drill into a specific host."),
-			mcp.WithString("name", mcp.Required(), mcp.Description("Node name from list_nodes.")),
+			mcp.WithString("node_id", mcp.Required(), mcp.Description("Node id from list_nodes ('cluster_id:name', e.g. 'hwvop6p7:ip-10-0-1-15' or 'hwvop6p7:rds:db1'). Pass it through as returned.")),
 			mcp.WithReadOnlyHintAnnotation(true),
 			mcp.WithDestructiveHintAnnotation(false),
 			mcp.WithIdempotentHintAnnotation(true),
@@ -336,8 +344,8 @@ func (h *MCPHandler) registerTools() {
 			mcp.WithString("query", mcp.Required(), mcp.Description("PromQL expression. Examples: 'up', 'rate(container_net_tcp_active_connections[1m])', 'group by (instance) ({__name__=\"redis_up\"})'.")),
 			mcp.WithString("from", mcp.Description("Start time. Either epoch milliseconds, or a relative string like 'now-1h', 'now-15m'. Default: the server's configured default time range (1h unless overridden).")),
 			mcp.WithString("to", mcp.Description("End time, same format as `from`. Default: 'now'.")),
-			mcp.WithNumber("step_seconds", mcp.Description("Query step in seconds. Default: project refresh interval (typically 30s).")),
-			mcp.WithNumber("limit", mcp.Description("Max series to return. Default: 100, max: 1000. If the query returned more, the response sets `truncated: true`.")),
+			mcp.WithNumber("step_seconds", mcp.Description("Query step in seconds. Default: project refresh interval (typically 30s). Widened automatically so a series has about 120 points at most; the response reports the effective `step_seconds`.")),
+			mcp.WithNumber("limit", mcp.Description("Max series to return. Default: 100, max: 1000. If the query returned more, or the series don't fit the response size limit, the response sets `truncated: true`.")),
 			mcp.WithReadOnlyHintAnnotation(true),
 			mcp.WithDestructiveHintAnnotation(false),
 			mcp.WithIdempotentHintAnnotation(true),
@@ -351,7 +359,8 @@ func (h *MCPHandler) registerTools() {
 			mcp.WithString("app_id", mcp.Description("Application id from list_applications (4-part 'cluster_id:namespace:Kind:name', e.g. 'hwvop6p7:default:Deployment:checkout'). Omit to search across all applications in the project.")),
 			mcp.WithString("from", mcp.Description("Start time. Epoch ms or relative like 'now-1h'. Default: the server's configured default time range (1h unless overridden).")),
 			mcp.WithString("to", mcp.Description("End time, same format as `from`. Default: 'now'.")),
-			mcp.WithNumber("limit", mcp.Description("Max entries. Default: 100, max: 1000.")),
+			mcp.WithNumber("limit", mcp.Description("Max entries. Default: 100, max: 1000. If the entries don't fit the response size limit, only the newest are returned and the response sets `truncated: true`.")),
+			mcp.WithNumber("max_body_length", mcp.Description("Log bodies longer than this are cut (ending with '…'). Default: 1000, max: 10000.")),
 			mcp.WithArray("severity",
 				mcp.Description("Filter to one or more severities (OR). Allowed: 'unknown','trace','debug','info','warning','error','fatal'. Default: all."),
 				mcp.WithStringItems(),
@@ -421,6 +430,8 @@ type mcpAppInfo struct {
 	Types     []string           `json:"types,omitempty"`
 	Status    string             `json:"status,omitempty"`
 	Issues    []mcpInspectionRef `json:"issues,omitempty"`
+
+	status model.Status
 }
 
 type mcpInspectionRef struct {
@@ -446,10 +457,22 @@ func (h *MCPHandler) RequireUserAndProject(ctx context.Context) (*db.User, *db.P
 	return user, project, nil
 }
 
-func (h *MCPHandler) toolListApplications(ctx context.Context, _ mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func (h *MCPHandler) toolListApplications(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	user, project, errResult := h.RequireUserAndProject(ctx)
 	if errResult != nil {
 		return errResult, nil
+	}
+	namespace := req.GetString("namespace", "")
+	search := strings.ToLower(req.GetString("search", ""))
+	minStatus := model.UNKNOWN
+	switch req.GetString("min_status", "") {
+	case "":
+	case "warning":
+		minStatus = model.WARNING
+	case "critical":
+		minStatus = model.CRITICAL
+	default:
+		return mcp.NewToolResultError("min_status must be 'warning' or 'critical'"), nil
 	}
 	now := timeseries.Now()
 	world, _, err := h.Api.LoadWorld(ctx, project, now.Add(-timeseries.Hour), now)
@@ -458,15 +481,22 @@ func (h *MCPHandler) toolListApplications(ctx context.Context, _ mcp.CallToolReq
 		return mcp.NewToolResultError("failed to load world"), nil
 	}
 	if world == nil {
-		return MCPJSON([]mcpAppInfo{})
+		return mcpJSONList([]mcpAppInfo{}, "")
 	}
 	auditor.Audit(world, project, nil, nil)
 	apps := make([]mcpAppInfo, 0, len(world.Applications))
 	for _, app := range world.Applications {
+		if namespace != "" && app.Id.Namespace != namespace {
+			continue
+		}
+		id := app.Id.String()
+		if search != "" && !strings.Contains(strings.ToLower(id), search) {
+			continue
+		}
 		if !h.Api.IsAllowed(user, rbac.Actions.Project(string(project.Id)).Application(app.Category, app.Id.Namespace, app.Id.Kind, app.Id.Name).View()) {
 			continue
 		}
-		info := mcpAppInfo{Id: app.Id.String(), Category: string(app.Category)}
+		info := mcpAppInfo{Id: id, Category: string(app.Category), status: app.Status}
 		if app.Id.Namespace != "_" {
 			info.Namespace = app.Id.Namespace
 		}
@@ -483,13 +513,24 @@ func (h *MCPHandler) toolListApplications(ctx context.Context, _ mcp.CallToolReq
 					Inspection: string(r.Name),
 					Status:     r.Status.String(),
 				})
+				if r.Status > info.status {
+					info.status = r.Status
+				}
 			}
+		}
+		if info.status < minStatus {
+			continue
 		}
 		sort.Slice(info.Issues, func(i, j int) bool { return info.Issues[i].Inspection < info.Issues[j].Inspection })
 		apps = append(apps, info)
 	}
-	sort.Slice(apps, func(i, j int) bool { return apps[i].Id < apps[j].Id })
-	return MCPJSON(apps)
+	sort.Slice(apps, func(i, j int) bool {
+		if apps[i].status != apps[j].status {
+			return apps[i].status > apps[j].status
+		}
+		return apps[i].Id < apps[j].Id
+	})
+	return mcpJSONList(apps, "only the first applications (unhealthy first) are returned, narrow with namespace, search or min_status")
 }
 
 type mcpIssue struct {
@@ -510,8 +551,9 @@ type MCPSeriesValue struct {
 }
 
 type mcpChart struct {
-	Title  string           `json:"title"`
-	Series []MCPSeriesValue `json:"series,omitempty"`
+	Title         string           `json:"title"`
+	Series        []MCPSeriesValue `json:"series,omitempty"`
+	SeriesOmitted int              `json:"series_omitted,omitempty"`
 }
 
 type mcpLogPattern struct {
@@ -571,6 +613,9 @@ func (h *MCPHandler) toolGetApplicationStatus(ctx context.Context, req mcp.CallT
 	appIdStr, err := req.RequireString("app_id")
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
+	}
+	if appIdStr == "" {
+		return mcp.NewToolResultError("app_id is required"), nil
 	}
 	now := timeseries.Now()
 	world, _, err := h.Api.LoadWorld(ctx, project, now.Add(-timeseries.Hour), now)
@@ -679,6 +724,7 @@ const (
 	mcpLogPatternsTopN    = 10
 	mcpLogSampleMaxLength = 200
 	MCPSparklineBuckets   = 12
+	mcpChartMaxSeries     = 10
 )
 
 func mcpExtractCharts(widgets []*model.Widget) []mcpChart {
@@ -727,6 +773,14 @@ func mcpSummarizeChart(ch *model.Chart) *mcpChart {
 	if len(out.Series) == 0 {
 		return nil
 	}
+	if len(out.Series) > mcpChartMaxSeries {
+		sort.SliceStable(out.Series, func(i, j int) bool {
+			mi, mj := out.Series[i].Max, out.Series[j].Max
+			return mi != nil && (mj == nil || *mi > *mj)
+		})
+		out.SeriesOmitted = len(out.Series) - mcpChartMaxSeries
+		out.Series = out.Series[:mcpChartMaxSeries]
+	}
 	return &out
 }
 
@@ -745,6 +799,9 @@ func MCPSummarize(name string, labels map[string]string, ts *timeseries.TimeSeri
 	iter := ts.Iter()
 	for iter.Next() {
 		_, v := iter.Value()
+		if math.IsInf(float64(v), 0) {
+			v = timeseries.NaN
+		}
 		values = append(values, v)
 		if timeseries.IsNaN(v) {
 			continue
@@ -920,7 +977,7 @@ func (h *MCPHandler) toolListAlerts(ctx context.Context, req mcp.CallToolRequest
 
 	var filterId model.ApplicationId
 	if appIdFilter != "" {
-		filterId, err = model.NewApplicationIdFromString(appIdFilter, string(project.Id))
+		filterId, err = mcpParseAppId(appIdFilter)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("invalid app_id: %s", err)), nil
 		}
@@ -939,7 +996,7 @@ func (h *MCPHandler) toolListAlerts(ctx context.Context, req mcp.CallToolRequest
 		}
 		out = append(out, a)
 	}
-	return MCPJSON(out)
+	return mcpJSONList(out, "only the first alerts are returned, narrow with app_id or state, or lower the limit")
 }
 
 func (h *MCPHandler) toolListIncidents(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -960,7 +1017,7 @@ func (h *MCPHandler) toolListIncidents(ctx context.Context, req mcp.CallToolRequ
 	}
 	var filterId model.ApplicationId
 	if s := req.GetString("app_id", ""); s != "" {
-		id, err := model.NewApplicationIdFromString(s, string(project.Id))
+		id, err := mcpParseAppId(s)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("invalid app_id: %s", err)), nil
 		}
@@ -1011,7 +1068,7 @@ func (h *MCPHandler) toolListIncidents(ctx context.Context, req mcp.CallToolRequ
 	if len(filtered) > limit {
 		filtered = filtered[:limit]
 	}
-	return MCPJSON(filtered)
+	return mcpJSONList(filtered, "only the first incidents are returned, narrow with app_id, state or hours, or lower the limit")
 }
 
 func (h *MCPHandler) fetchIncidents(projectId db.ProjectId, hours int, state string, limit int) ([]*model.ApplicationIncident, error) {
@@ -1104,23 +1161,27 @@ const (
 	mcpMetricsNamesLimit    = 500
 	mcpMetricsNamesMaxLimit = 5000
 	mcpMetricsMinStep       = 15 * timeseries.Second
+	mcpMetricsMaxPoints     = 120
 	mcpMetricsMaxRange      = 24 * timeseries.Hour
 )
 
 type mcpQuerySeries struct {
 	Labels map[string]string `json:"labels,omitempty"`
 	Values []*float32        `json:"values"`
+
+	sortKey string
 }
 
 type mcpQueryMetricsResult struct {
-	Query        string           `json:"query"`
-	From         string           `json:"from"`
-	To           string           `json:"to"`
-	StepSeconds  int64            `json:"step_seconds"`
-	SeriesTotal  int              `json:"series_total"`
-	SeriesReturn int              `json:"series_returned"`
-	Truncated    bool             `json:"truncated,omitempty"`
-	Series       []mcpQuerySeries `json:"series"`
+	Query        string            `json:"query"`
+	From         string            `json:"from"`
+	To           string            `json:"to"`
+	StepSeconds  int64             `json:"step_seconds"`
+	SeriesTotal  int               `json:"series_total"`
+	SeriesReturn int               `json:"series_returned"`
+	Truncated    bool              `json:"truncated,omitempty"`
+	Hint         string            `json:"hint,omitempty"`
+	Series       []json.RawMessage `json:"series"`
 }
 
 type mcpListMetricNamesResult struct {
@@ -1167,6 +1228,9 @@ func (h *MCPHandler) toolQueryMetrics(ctx context.Context, req mcp.CallToolReque
 	if step < mcpMetricsMinStep {
 		step = mcpMetricsMinStep
 	}
+	if minStep := (to.Sub(from) + mcpMetricsMaxPoints - 1) / mcpMetricsMaxPoints; step < minStep {
+		step = minStep
+	}
 
 	series, err := client.QueryRange(ctx, query, prom.FilterLabelsKeepAll, from, to, step)
 	if err != nil {
@@ -1186,15 +1250,15 @@ func (h *MCPHandler) toolQueryMetrics(ctx context.Context, req mcp.CallToolReque
 		out.SeriesReturn = limit
 		out.Truncated = true
 	}
-	out.Series = make([]mcpQuerySeries, 0, len(series))
+	res := make([]mcpQuerySeries, 0, len(series))
 	for _, mv := range series {
-		s := mcpQuerySeries{Labels: mv.Labels}
+		s := mcpQuerySeries{Labels: mv.Labels, sortKey: labelsString(mv.Labels)}
 		if mv.Values != nil {
 			s.Values = make([]*float32, 0, mv.Values.Len())
 			iter := mv.Values.Iter()
 			for iter.Next() {
 				_, v := iter.Value()
-				if timeseries.IsNaN(v) {
+				if timeseries.IsNaN(v) || math.IsInf(float64(v), 0) {
 					s.Values = append(s.Values, nil)
 					continue
 				}
@@ -1202,15 +1266,28 @@ func (h *MCPHandler) toolQueryMetrics(ctx context.Context, req mcp.CallToolReque
 				s.Values = append(s.Values, &vv)
 			}
 		}
-		out.Series = append(out.Series, s)
+		res = append(res, s)
 	}
-	sort.Slice(out.Series, func(i, j int) bool {
-		return labelsString(out.Series[i].Labels) < labelsString(out.Series[j].Labels)
-	})
+	sort.Slice(res, func(i, j int) bool { return res[i].sortKey < res[j].sortKey })
+	fitted, err := mcpFitToBudget(res, "only the first series are returned, aggregate in PromQL (sum by, topk), narrow the label matchers, or shorten the time range")
+	if err != nil {
+		return nil, err
+	}
+	out.Series = fitted.Items
+	if fitted.Truncated {
+		out.SeriesReturn = fitted.Returned
+		out.Truncated = true
+		out.Hint = fitted.Hint
+	}
 	return MCPJSON(out)
 }
 
-func (h *MCPHandler) toolListNodes(ctx context.Context, _ mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+type mcpNode struct {
+	Id string `json:"id"`
+	overview.Node
+}
+
+func (h *MCPHandler) toolListNodes(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	user, project, errResult := h.RequireUserAndProject(ctx)
 	if errResult != nil {
 		return errResult, nil
@@ -1222,17 +1299,27 @@ func (h *MCPHandler) toolListNodes(ctx context.Context, _ mcp.CallToolRequest) (
 		return mcp.NewToolResultError("failed to load world"), nil
 	}
 	if world == nil {
-		return MCPJSON([]overview.Node{})
+		return mcpJSONList([]mcpNode{}, "")
 	}
+	search := strings.ToLower(req.GetString("search", ""))
 	all := overview.RenderNodes(world, project)
-	out := make([]overview.Node, 0, len(all))
+	out := make([]mcpNode, 0, len(all))
 	for _, n := range all {
+		if search != "" && !strings.Contains(strings.ToLower(n.Name), search) {
+			continue
+		}
 		if !h.Api.IsAllowed(user, rbac.Actions.Project(string(project.Id)).Node(n.Name).View()) {
 			continue
 		}
-		out = append(out, n)
+		out = append(out, mcpNode{Id: mcpNodeId(n.ClusterId, n.Name), Node: n})
 	}
-	return MCPJSON(out)
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Status.Status != out[j].Status.Status {
+			return out[i].Status.Status > out[j].Status.Status
+		}
+		return out[i].Name < out[j].Name
+	})
+	return mcpJSONList(out, "only the first nodes (down first) are returned, narrow with search")
 }
 
 func (h *MCPHandler) toolGetNodeDetails(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -1240,12 +1327,9 @@ func (h *MCPHandler) toolGetNodeDetails(ctx context.Context, req mcp.CallToolReq
 	if errResult != nil {
 		return errResult, nil
 	}
-	name, err := req.RequireString("name")
+	nodeId, err := req.RequireString("node_id")
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
-	}
-	if !h.Api.IsAllowed(user, rbac.Actions.Project(string(project.Id)).Node(name).View()) {
-		return mcp.NewToolResultError("forbidden: no access to this node"), nil
 	}
 	now := timeseries.Now()
 	world, _, err := h.Api.LoadWorld(ctx, project, now.Add(-timeseries.Hour), now)
@@ -1256,9 +1340,12 @@ func (h *MCPHandler) toolGetNodeDetails(ctx context.Context, req mcp.CallToolReq
 	if world == nil {
 		return mcp.NewToolResultError("no data available"), nil
 	}
-	node := world.GetNode(name)
+	node := mcpFindNode(world, nodeId)
 	if node == nil {
-		return mcp.NewToolResultError("node not found"), nil
+		return mcp.NewToolResultError("node not found: use an id returned by list_nodes ('cluster_id:name')"), nil
+	}
+	if !h.Api.IsAllowed(user, rbac.Actions.Project(string(project.Id)).Node(node.GetName()).View()) {
+		return mcp.NewToolResultError("forbidden: no access to this node"), nil
 	}
 	auditor.Audit(world, project, nil, nil)
 	report := auditor.AuditNode(world, node)
@@ -1324,12 +1411,26 @@ func (h *MCPHandler) runTracesQuery(ctx context.Context, req mcp.CallToolRequest
 	return res, nil
 }
 
+type mcpTracesSummary struct {
+	Overall model.TraceSpanStats `json:"overall"`
+	mcpList
+}
+
 func (h *MCPHandler) toolTracesSummary(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	res, errResult := h.runTracesQuery(ctx, req, overview.Query{})
 	if errResult != nil {
 		return errResult, nil
 	}
-	return MCPJSON(res.Summary)
+	if res.Summary == nil {
+		return MCPJSON(res.Summary)
+	}
+	stats := res.Summary.Stats
+	sort.Slice(stats, func(i, j int) bool { return stats[i].Total > stats[j].Total })
+	fitted, err := mcpFitToBudget(stats, "only the busiest endpoints are returned, narrow with service and span")
+	if err != nil {
+		return nil, err
+	}
+	return MCPJSON(mcpTracesSummary{Overall: res.Summary.Overall, mcpList: fitted})
 }
 
 func (h *MCPHandler) toolTracesErrors(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -1337,7 +1438,9 @@ func (h *MCPHandler) toolTracesErrors(ctx context.Context, req mcp.CallToolReque
 	if errResult != nil {
 		return errResult, nil
 	}
-	return MCPJSON(res.Errors)
+	errs := res.Errors
+	sort.Slice(errs, func(i, j int) bool { return errs[i].Count > errs[j].Count })
+	return mcpJSONList(errs, "only the most frequent errors are returned, narrow with service and span")
 }
 
 func (h *MCPHandler) toolTracesOutliers(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -1362,7 +1465,9 @@ func (h *MCPHandler) toolGetTrace(ctx context.Context, req mcp.CallToolRequest) 
 	if errResult != nil {
 		return errResult, nil
 	}
-	return MCPJSON(res.Trace)
+	spans := res.Trace
+	sort.SliceStable(spans, func(i, j int) bool { return spans[i].Timestamp < spans[j].Timestamp })
+	return mcpJSONList(spans, "only the earliest spans of the trace are returned")
 }
 
 func (h *MCPHandler) toolListMetricNames(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -1441,18 +1546,22 @@ func labelsString(ls map[string]string) string {
 }
 
 const (
-	mcpLogsDefaultLimit = 100
-	mcpLogsMaxLimit     = 1000
+	mcpLogsDefaultLimit         = 100
+	mcpLogsMaxLimit             = 1000
+	mcpLogsDefaultMaxBodyLength = 1000
+	mcpLogsMaxBodyLength        = 10000
 )
 
 type mcpLogsResult struct {
-	AppId    string            `json:"app_id,omitempty"`
-	Source   string            `json:"source"`
-	From     string            `json:"from"`
-	To       string            `json:"to"`
-	Limit    int               `json:"limit"`
-	Returned int               `json:"returned"`
-	Entries  []*model.LogEntry `json:"entries"`
+	AppId     string            `json:"app_id,omitempty"`
+	Source    string            `json:"source"`
+	From      string            `json:"from"`
+	To        string            `json:"to"`
+	Limit     int               `json:"limit"`
+	Returned  int               `json:"returned"`
+	Truncated bool              `json:"truncated,omitempty"`
+	Hint      string            `json:"hint,omitempty"`
+	Entries   []json.RawMessage `json:"entries"`
 }
 
 func (h *MCPHandler) toolQueryLogs(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -1468,6 +1577,10 @@ func (h *MCPHandler) toolQueryLogs(ctx context.Context, req mcp.CallToolRequest)
 	limit := int(req.GetFloat("limit", mcpLogsDefaultLimit))
 	if limit <= 0 || limit > mcpLogsMaxLimit {
 		limit = mcpLogsDefaultLimit
+	}
+	maxBodyLength := int(req.GetFloat("max_body_length", mcpLogsDefaultMaxBodyLength))
+	if maxBodyLength <= 0 || maxBodyLength > mcpLogsMaxBodyLength {
+		maxBodyLength = mcpLogsDefaultMaxBodyLength
 	}
 	search := req.GetString("search", "")
 	logPattern := strings.TrimSpace(req.GetString("log_pattern", ""))
@@ -1534,13 +1647,22 @@ func (h *MCPHandler) toolQueryLogs(ctx context.Context, req mcp.CallToolRequest)
 	}
 
 	sort.Slice(entries, func(i, j int) bool { return entries[i].Timestamp.After(entries[j].Timestamp) })
+	for _, e := range entries {
+		e.Body = mcpTruncate(e.Body, maxBodyLength)
+	}
+	fitted, err := mcpFitToBudget(entries, "only the newest entries are returned, narrow the time range, add severity/search filters, or lower max_body_length")
+	if err != nil {
+		return nil, err
+	}
 	out := mcpLogsResult{
-		Source:   string(source),
-		From:     MCPFormatTime(from),
-		To:       MCPFormatTime(to),
-		Limit:    limit,
-		Returned: len(entries),
-		Entries:  entries,
+		Source:    string(source),
+		From:      MCPFormatTime(from),
+		To:        MCPFormatTime(to),
+		Limit:     limit,
+		Returned:  fitted.Returned,
+		Truncated: fitted.Truncated,
+		Hint:      fitted.Hint,
+		Entries:   fitted.Items,
 	}
 	if app != nil {
 		out.AppId = app.Id.String()
@@ -1552,13 +1674,13 @@ func (h *MCPHandler) ResolveApp(user *db.User, project *db.Project, world *model
 	if appIdStr == "" {
 		return nil, nil
 	}
-	appId, err := model.NewApplicationIdFromString(appIdStr, string(project.Id))
+	appId, err := mcpParseAppId(appIdStr)
 	if err != nil {
 		return nil, mcp.NewToolResultError(fmt.Sprintf("invalid app_id: %s", err))
 	}
 	app := world.GetApplication(appId)
 	if app == nil {
-		return nil, mcp.NewToolResultError("application not found")
+		return nil, mcp.NewToolResultError("application not found: use an id returned by list_applications")
 	}
 	if !h.Api.IsAllowed(user, rbac.Actions.Project(string(project.Id)).Application(app.Category, app.Id.Namespace, app.Id.Kind, app.Id.Name).View()) {
 		return nil, mcp.NewToolResultError("forbidden: no access to this application")
@@ -1604,7 +1726,7 @@ func (h *MCPHandler) resolveLogSource(ctx context.Context, ch *clickhouse.Client
 
 func mcpLastNotNull(ts *timeseries.TimeSeries) *float32 {
 	_, v := ts.LastNotNull()
-	if timeseries.IsNaN(v) {
+	if timeseries.IsNaN(v) || math.IsInf(float64(v), 0) {
 		return nil
 	}
 	return &v
@@ -1640,10 +1762,94 @@ func mcpAggregateUpstreamHistogram(from, to *model.Application) []model.Histogra
 	return out
 }
 
+const (
+	mcpListBudgetBytes  = 50000
+	mcpMaxResponseBytes = 80000
+)
+
 func MCPJSON(v any) (*mcp.CallToolResult, error) {
 	data, err := json.Marshal(v)
 	if err != nil {
 		return nil, err
 	}
+	if len(data) > mcpMaxResponseBytes {
+		text := strings.TrimSuffix(utils.TruncateUtf8(string(data), mcpMaxResponseBytes), "...")
+		text += fmt.Sprintf("\n[truncated: the response was %d bytes, the limit is %d. Narrow the request with filters, a smaller limit, or a shorter time range.]", len(data), mcpMaxResponseBytes)
+		return mcp.NewToolResultText(text), nil
+	}
 	return mcp.NewToolResultText(string(data)), nil
+}
+
+type mcpList struct {
+	Total     int               `json:"total"`
+	Returned  int               `json:"returned"`
+	Truncated bool              `json:"truncated,omitempty"`
+	Hint      string            `json:"hint,omitempty"`
+	Items     []json.RawMessage `json:"items"`
+}
+
+func mcpFitToBudget[T any](items []T, hint string) (mcpList, error) {
+	out := mcpList{Total: len(items), Items: make([]json.RawMessage, 0, len(items))}
+	size := 0
+	for _, item := range items {
+		data, err := json.Marshal(item)
+		if err != nil {
+			return out, err
+		}
+		if size += len(data) + 1; size > mcpListBudgetBytes && len(out.Items) > 0 {
+			out.Truncated = true
+			out.Hint = hint
+			break
+		}
+		out.Items = append(out.Items, data)
+	}
+	out.Returned = len(out.Items)
+	return out, nil
+}
+
+func mcpJSONList[T any](items []T, hint string) (*mcp.CallToolResult, error) {
+	l, err := mcpFitToBudget(items, hint)
+	if err != nil {
+		return nil, err
+	}
+	return MCPJSON(l)
+}
+
+func mcpParseAppId(s string) (model.ApplicationId, error) {
+	id, err := model.NewApplicationIdFromString(s, "")
+	if err != nil {
+		return id, err
+	}
+	if id.ClusterId == "" {
+		return id, fmt.Errorf("'%s' has no cluster_id, pass the full 4-part 'cluster_id:namespace:Kind:name' id as returned by list_applications", s)
+	}
+	return id, nil
+}
+
+func mcpNodeId(clusterId, name string) string {
+	return clusterId + ":" + name
+}
+
+func mcpFindNode(world *model.World, id string) *model.Node {
+	for _, n := range world.Nodes {
+		c, name := n.ClusterId, n.GetName()
+		if name != "" && len(id) > len(c) && id[len(c)] == ':' && id[:len(c)] == c && id[len(c)+1:] == name {
+			return n
+		}
+	}
+	return nil
+}
+
+func mcpTruncate(s string, maxRunes int) string {
+	if len(s) <= maxRunes {
+		return s
+	}
+	n := 0
+	for i := range s {
+		if n == maxRunes {
+			return s[:i] + "…"
+		}
+		n++
+	}
+	return s
 }
