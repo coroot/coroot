@@ -1,6 +1,6 @@
 <template>
     <Views :loading="loading" :error="error">
-        <ApplicationFilter :applications="applications" @filter="setFilter" class="mb-4" />
+        <ApplicationFilter :applications="applications" @filter="setFilter" @search="setSearch" class="mb-4" />
 
         <div class="legend mb-3">
             <div v-for="s in statuses" class="item">
@@ -19,6 +19,10 @@
             :headers="headers"
             :footer-props="{ itemsPerPageOptions: [10, 20, 50, 100, -1] }"
         >
+            <template #no-data>
+                <SearchMore v-if="search" :query="search" />
+                <template v-else>No applications found</template>
+            </template>
             <template #item.application="{ item: { id, name, ns, color } }">
                 <div class="application">
                     <div class="status" :class="color" />
@@ -98,6 +102,7 @@
 <script>
 import ApplicationFilter from '../components/ApplicationFilter.vue';
 import AppIcon from '../components/AppIcon.vue';
+import SearchMore from '../components/SearchMore.vue';
 import Views from '@/views/Views.vue';
 
 const statuses = {
@@ -109,12 +114,13 @@ const statuses = {
 };
 
 export default {
-    components: { Views, ApplicationFilter, AppIcon },
+    components: { Views, ApplicationFilter, AppIcon, SearchMore },
 
     data() {
         return {
             applications: [],
             filter: new Set(),
+            search: '',
             loading: false,
             error: '',
         };
@@ -205,6 +211,9 @@ export default {
         },
         setFilter(filter) {
             this.filter = filter;
+        },
+        setSearch(search) {
+            this.search = search;
         },
         link(id, report, query) {
             return { name: 'overview', params: { view: 'applications', id, report }, query: { ...query, ...this.$utils.contextQuery() } };

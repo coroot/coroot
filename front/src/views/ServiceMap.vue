@@ -2,11 +2,20 @@
     <Views :loading="loading" :error="error">
         <NoData v-if="!loading && !applications.length" />
 
-        <ApplicationFilter v-else :applications="applications" :autoSelectNamespaceThreshold="maxApplications" @filter="setFilter" class="mb-4" />
+        <ApplicationFilter
+            v-else
+            :applications="applications"
+            :autoSelectNamespaceThreshold="maxApplications"
+            @filter="setFilter"
+            @search="setSearch"
+            class="mb-4"
+        />
 
         <div v-if="tooManyApplications" class="text-center red--text mt-5">
             Too many applications ({{ tooManyApplications }}) to render. Please choose a different category or namespace.
         </div>
+
+        <SearchMore v-else-if="search && !levels.length" :query="search" />
 
         <div class="applications" v-on-resize="calc" @scroll="calc">
             <div
@@ -79,6 +88,7 @@ import AppIcon from '@/components/AppIcon.vue';
 import ApplicationFilter from '@/components/ApplicationFilter.vue';
 import AppPreferences from '@/components/AppPreferences.vue';
 import NoData from '@/components/NoData.vue';
+import SearchMore from '@/components/SearchMore.vue';
 
 function findBackLinks(index, a, discovered, finished, found) {
     if (!a) {
@@ -115,7 +125,7 @@ function calcLevel(index, a, level, backLinks) {
 }
 
 export default {
-    components: { Views, NoData, AppPreferences, ApplicationFilter, AppHealth, Labels, AppIcon },
+    components: { Views, NoData, SearchMore, AppPreferences, ApplicationFilter, AppHealth, Labels, AppIcon },
 
     data() {
         return {
@@ -127,6 +137,7 @@ export default {
             arrows: [],
             hi: null,
             filter: new Set(),
+            search: '',
             tooManyApplications: 0,
         };
     },
@@ -173,6 +184,9 @@ export default {
         setFilter(filter) {
             this.filter = filter;
             this.calc();
+        },
+        setSearch(search) {
+            this.search = search;
         },
         calc() {
             if (!this.applications) {
