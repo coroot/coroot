@@ -165,7 +165,12 @@ func (h *MCPHandler) registerTools() {
 	)
 	h.AddTool(
 		mcp.NewTool("list_applications",
-			mcp.WithDescription("List applications in the selected project. Returns id, namespace, application category (e.g. application, monitoring, control-plane), detected types (postgres, java, nginx, ...), overall status (ok|warning|critical), and a list of failing inspections (CPU, Memory, SLO, Postgres, Logs, ...) with their statuses. Use this to triage which apps to drill into via get_application_status."),
+			mcp.WithDescription("List applications in the selected project. Returns id, namespace, application category (e.g. application, monitoring, control-plane), detected types (postgres, java, nginx, ...), overall status (ok|warning|critical), and a list of failing inspections (CPU, Memory, SLO, Postgres, Logs, ...) with their statuses. Use this to triage which apps to drill into via get_application_status. A large project can hold thousands of applications: narrow the result with namespace/category/status/search instead of listing everything. Results are ordered by severity (critical first, then warning, ok, unknown) and then by id, and capped at limit (default 200), so the applications that matter for triage survive the cap."),
+			mcp.WithString("namespace", mcp.Description("Only applications in this namespace.")),
+			mcp.WithString("category", mcp.Description("Only this application category, e.g. 'application', 'monitoring', 'control-plane'.")),
+			mcp.WithString("status", mcp.Enum("ok", "warning", "critical", "unknown"), mcp.Description("Only applications with this overall status.")),
+			mcp.WithString("search", mcp.Description("Case-insensitive substring match on the application id (name, namespace or kind).")),
+			mcp.WithNumber("limit", mcp.Description("Max applications to return, most severe first. Default: 200, max: 5000, 0: no limit.")),
 			mcp.WithReadOnlyHintAnnotation(true),
 			mcp.WithDestructiveHintAnnotation(false),
 			mcp.WithIdempotentHintAnnotation(true),
@@ -446,11 +451,93 @@ func (h *MCPHandler) RequireUserAndProject(ctx context.Context) (*db.User, *db.P
 	return user, project, nil
 }
 
-func (h *MCPHandler) toolListApplications(ctx context.Context, _ mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+const (
+	mcpAppsDefaultLimit = 200
+	mcpAppsMaxLimit     = 5000
+)
+
+// mcpAppsFilter carries the optional list_applications filters. Zero values mean
+// "no filtering"; limit 0 means "no cap".
+type mcpAppsFilter struct {
+	namespace string
+	category  string
+	status    string
+	search    string
+	limit     int
+}
+
+// mcpAppStatusRank orders applications by how much attention they need, so a
+// result that is capped at limit keeps the ones worth looking at.
+func mcpAppStatusRank(status string) int {
+	switch status {
+	case "critical":
+		return 0
+	case "warning":
+		return 1
+	case "ok":
+		return 2
+	default: // "unknown": no status reported yet
+		return 3
+	}
+}
+
+// mcpSelectApplications applies the filters, orders the result by severity and
+// then by id, and caps it at filter.limit. Kept separate from the handler so the
+// selection is testable without a world: on a large hub the tool returned the
+// whole registry (tens of thousands of applications), which no caller can use.
+func mcpSelectApplications(apps []mcpAppInfo, filter mcpAppsFilter) []mcpAppInfo {
+	search := strings.ToLower(filter.search)
+	selected := make([]mcpAppInfo, 0, len(apps))
+	for _, app := range apps {
+		if filter.namespace != "" && app.Namespace != filter.namespace {
+			continue
+		}
+		if filter.category != "" && app.Category != filter.category {
+			continue
+		}
+		if filter.status != "" && app.Status != filter.status {
+			continue
+		}
+		if search != "" && !strings.Contains(strings.ToLower(app.Id), search) {
+			continue
+		}
+		selected = append(selected, app)
+	}
+	sort.Slice(selected, func(i, j int) bool {
+		si, sj := mcpAppStatusRank(selected[i].Status), mcpAppStatusRank(selected[j].Status)
+		if si != sj {
+			return si < sj
+		}
+		return selected[i].Id < selected[j].Id
+	})
+	if filter.limit > 0 && len(selected) > filter.limit {
+		selected = selected[:filter.limit]
+	}
+	return selected
+}
+
+func (h *MCPHandler) toolListApplications(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	user, project, errResult := h.RequireUserAndProject(ctx)
 	if errResult != nil {
 		return errResult, nil
 	}
+
+	filter := mcpAppsFilter{
+		namespace: req.GetString("namespace", ""),
+		category:  req.GetString("category", ""),
+		status:    req.GetString("status", ""),
+		search:    req.GetString("search", ""),
+		limit:     int(req.GetFloat("limit", mcpAppsDefaultLimit)),
+	}
+	switch filter.status {
+	case "", "ok", "warning", "critical", "unknown":
+	default:
+		return mcp.NewToolResultError("status must be 'ok', 'warning', 'critical' or 'unknown'"), nil
+	}
+	if filter.limit < 0 || filter.limit > mcpAppsMaxLimit {
+		return mcp.NewToolResultError(fmt.Sprintf("limit must be between 0 and %d (0 = no limit)", mcpAppsMaxLimit)), nil
+	}
+
 	now := timeseries.Now()
 	world, _, err := h.Api.LoadWorld(ctx, project, now.Add(-timeseries.Hour), now)
 	if err != nil {
@@ -488,8 +575,7 @@ func (h *MCPHandler) toolListApplications(ctx context.Context, _ mcp.CallToolReq
 		sort.Slice(info.Issues, func(i, j int) bool { return info.Issues[i].Inspection < info.Issues[j].Inspection })
 		apps = append(apps, info)
 	}
-	sort.Slice(apps, func(i, j int) bool { return apps[i].Id < apps[j].Id })
-	return MCPJSON(apps)
+	return MCPJSON(mcpSelectApplications(apps, filter))
 }
 
 type mcpIssue struct {
