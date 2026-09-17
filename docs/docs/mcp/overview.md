@@ -26,10 +26,10 @@ The MCP endpoint is served at `/mcp` on your Coroot instance. Tools marked **EE*
 | --- | --- | --- |
 | `list_projects` | Discover projects (clusters) the user can access. | A `{name: id}` map. |
 | `select_project` | Set the active project for the session. | Acknowledgement of the selected project. |
-| `list_applications` | Triage which apps to look at. | One row per application with id, namespace, category, detected types (postgres, java), overall status, list of failing inspections. |
+| `list_applications` | Triage which apps to look at. Filter with `namespace`, `search`, `min_status`. | One row per application (unhealthy first) with id, namespace, category, detected types (postgres, java), overall status, list of failing inspections. |
 | `list_alerts` | See currently firing or recently resolved alerts. | List of alerts with id, application, severity, summary, opened and resolved timestamps, full alert details. |
 | `list_incidents` | Browse the SLO incident timeline (open and resolved). | Incidents with id, application, severity, opened and resolved timestamps, burn rates, impact. |
-| `list_nodes` | Get a fleet-wide host overview. | One row per node with name, cluster, status, OS, kernel, instance type, current CPU%, memory%, GPUs, network throughput, IPs. |
+| `list_nodes` | Get a fleet-wide host overview. Filter with `search`. | One row per node (down first) with id, name, cluster, status, OS, kernel, instance type, current CPU%, memory%, GPUs, network throughput, IPs. |
 | `get_application_status` | Drill into one application's health. | Overall status, per-inspection issues with the failing checks, top log-pattern samples, upstream dependencies (connectivity, RTT, request latency), downstream clients. |
 | `get_incident_details` | Pull full context on one SLO incident. | One incident with full burn rates, impact percentages, and any persisted RCA (root cause, immediate fixes, propagation map). |
 | `get_node_details` | Drill into one host. | Per-node audit report (CPU, Memory, Disk, Network, GPU inspections plus their checks) and sparklines for CPU%, memory%, network rx and tx. |
@@ -37,9 +37,9 @@ The MCP endpoint is served at `/mcp` on your Coroot instance. Tools marked **EE*
 | `traces_errors` | Find out why requests fail. | Top error reasons grouped by endpoint with count, sample error message, sample `trace_id`. |
 | `traces_outliers` | Explain why p95 or p99 is high. | Latency flamegraph that diffs slow traces (`dur_from..dur_to`) against the rest, showing where time is spent in the slow tail. |
 | `get_trace` | Inspect one specific request end to end. | Full span tree for one trace. Each span has id, parent, service, name, timestamp, duration, status, plus attributes and events. |
-| `query_metrics` | Run a custom PromQL query. | Time series for the expression. Per-series labels and raw values aligned to a step. |
+| `query_metrics` | Run a custom PromQL query. | Time series for the expression. Per-series labels and raw values aligned to a step (about 120 points per series at most, the step is widened for long ranges). |
 | `list_metric_names` | Discover what metrics exist. | Distinct metric names, filterable by regex. |
-| `query_logs` | Search application or project-wide logs. | Log entries (newest first) with timestamp, severity, body, trace id, log and resource attributes. |
+| `query_logs` | Search application or project-wide logs. | Log entries (newest first) with timestamp, severity, body (cut to `max_body_length`, 1000 characters by default), trace id, log and resource attributes. |
 | `resolve_alerts` | Manually resolve alerts after the underlying issue is fixed. | Number of alerts resolved and notifications sent. |
 | **`list_anomalies`** *(EE)* | Surface SLO violations and sub-SLO error or latency spikes across the fleet. | Apps with active anomalies, each with status, sample issue messages, and the related open incident. |
 | **`investigate_anomaly`** *(EE)* | Find the root cause of a problem in one app. Coroot follows the dependency graph from the affected service the way an engineer would, checking each candidate cause (saturation, deploys, downstream errors, slow databases, log spikes, profile shifts) against the anomaly window. The findings are then handed to an LLM that writes the human-readable explanation. | Root cause, immediate fixes, a detailed explanation, and a propagation map showing how the failure spread across services. Persisted onto the incident when an `incident_key` is provided, so subsequent `get_incident_details` calls return the same RCA without rerunning it. |
@@ -97,6 +97,16 @@ A Coroot project usually corresponds to one cluster, and a single MCP session ca
 * The agent calls `list_projects` to see what is available. The result is a `{name: id}` map.
 * It calls `select_project` with one id. The selection sticks for the rest of the session, so subsequent tools (list_applications, query_logs, traces_summary) all run against that project.
 * Switching is just another `select_project` call. No reconnect, no re-auth.
-* Application ids returned by tools are 4-part `cluster_id:namespace:Kind:name` (for example `hwvop6p7:default:Deployment:checkout`). The cluster prefix keeps ids unambiguous when the user moves between projects, so pass them back unchanged.
+* Application ids returned by tools are 4-part `cluster_id:namespace:Kind:name` (for example `hwvop6p7:default:Deployment:checkout`). The cluster prefix keeps ids unambiguous when the user moves between projects, so pass them back unchanged. Short forms such as `namespace:Kind:name` are rejected with an error that asks for the full id.
+* Node ids work the same way. They are `cluster_id:name` (for example `hwvop6p7:ip-10-0-1-15`). Names of managed databases contain a colon themselves, so their ids look like `hwvop6p7:rds:db1`. `get_node_details` takes the `id` returned by `list_nodes`.
 
 If you also use [multi-cluster projects](../configuration/multi-cluster.md), they show up alongside regular ones in `list_projects`. Pick the multi-cluster project to query the aggregated view, or pick a member project to scope the question to one cluster.
+
+## Response size
+
+Agent runtimes reject tool results that are too large for the model's context (Claude Code, for example, caps MCP tool output at 25,000 tokens), and some of them report such a call as failed even though the data was fetched. Coroot sizes every tool response to stay within such limits.
+
+* Responses are summaries built for an LLM, not the payloads the UI uses. Charts are reduced to last/min/max/avg plus a 12-point sparkline, and only failing inspections carry charts (top 10 series per chart).
+* List results (`list_applications`, `list_alerts`, `list_incidents`, `list_nodes`, `traces_summary`, `traces_errors`, `get_trace`) come as `{total, returned, items}` and are cut at about 50 KB. `query_logs` entries and `query_metrics` series are cut the same way.
+* When a result is cut, the response sets `truncated: true` and a `hint` that tells the agent how to narrow the request (filters, a smaller `limit`, a shorter time range). The most relevant items come first: unhealthy applications, down nodes, newest log entries, busiest endpoints, most frequent errors.
+* Any other response is capped at 80 KB.
