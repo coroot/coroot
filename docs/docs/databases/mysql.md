@@ -187,6 +187,19 @@ Both schema tracking and size tracking respect these additional flags:
 - **`--max-tables-per-database`** / `MAX_TABLES_PER_DATABASE` (default: `1000`) - skip databases with more tables than this limit, protecting against expensive queries on very large schemas.
 - **`--exclude-databases`** / `EXCLUDE_DATABASES` (default: `mysql`, `information_schema`, `performance_schema`, `sys`) - databases to exclude from schema and size tracking.
 
+## Performance impact
+
+All statistics are collected with regular SQL queries over a single persistent connection, so the agent can never occupy more than one MySQL thread.
+
+We benchmarked the integration on a MySQL 8.4 server with 100 databases, 10,000 tables and 500 client connections executing 10,000 queries per second.
+With the default agent settings (15-second scrape interval, schema and size tracking enabled):
+
+- the latency of application queries did not change (0.72ms on average with the instrumentation both disabled and enabled);
+- `mysqld` consumed about 0.07 additional CPU cores (+2%), with no additional memory usage or disk I/O;
+- coroot-cluster-agent consumed about 0.01 CPU cores and less than 120MB of memory.
+
+See [Performance Impact](/installation/performance-impact#mysql-instrumentation-coroot-cluster-agent) for the lab setup and detailed results.
+
 ## Kubernetes (pod annotations)
 
 The Kubernetes approach to monitoring databases typically involves running metric exporters as sidecar containers within database instance Pods.
