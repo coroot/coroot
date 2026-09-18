@@ -3,6 +3,8 @@ package cloud
 import (
 	"strings"
 
+	"slices"
+
 	"github.com/coroot/coroot/model"
 	"golang.org/x/exp/maps"
 )
@@ -31,7 +33,7 @@ func AWS(w *model.World, configured bool) *View {
 	}
 	v.Configured = configured || w.AWS.Configured
 	v.Detected = detected(w, model.CloudProviderAWS)
-	v.Errors = maps.Keys(w.AWS.DiscoveryErrors)
+	v.Errors = errors(w.AWS.DiscoveryErrors)
 	v.Instances = instances(w, func(i *model.Instance) (model.LabelLastValue, model.LabelLastValue, model.LabelLastValue, bool) {
 		switch {
 		case i.Rds != nil:
@@ -51,7 +53,7 @@ func GCP(w *model.World) *View {
 	}
 	v.Configured = w.GCP.Configured
 	v.Detected = detected(w, model.CloudProviderGCP)
-	v.Errors = maps.Keys(w.GCP.DiscoveryErrors)
+	v.Errors = errors(w.GCP.DiscoveryErrors)
 	v.Instances = instances(w, func(i *model.Instance) (model.LabelLastValue, model.LabelLastValue, model.LabelLastValue, bool) {
 		switch {
 		case i.CloudSQL != nil:
@@ -73,6 +75,26 @@ func detected(w *model.World, provider string) bool {
 	return false
 }
 
+func OCI(w *model.World) *View {
+	v := &View{}
+	if w == nil {
+		return v
+	}
+	v.Configured = w.OCI.Configured
+	v.Detected = detected(w, model.CloudProviderOCI)
+	v.Errors = errors(w.OCI.DiscoveryErrors)
+	v.Instances = instances(w, func(i *model.Instance) (model.LabelLastValue, model.LabelLastValue, model.LabelLastValue, bool) {
+		switch {
+		case i.OCIDB != nil:
+			return i.OCIDB.Status, i.OCIDB.Engine, i.OCIDB.EngineVersion, true
+		case i.OCICache != nil:
+			return i.OCICache.Status, i.OCICache.Engine, i.OCICache.EngineVersion, true
+		}
+		return model.LabelLastValue{}, model.LabelLastValue{}, model.LabelLastValue{}, false
+	})
+	return v
+}
+
 func instances(w *model.World, managed func(*model.Instance) (status, engine, version model.LabelLastValue, ok bool)) []Instance {
 	var res []Instance
 	for _, app := range w.Applications {
@@ -89,5 +111,11 @@ func instances(w *model.World, managed func(*model.Instance) (status, engine, ve
 			res = append(res, ii)
 		}
 	}
+	return res
+}
+
+func errors(m map[string]bool) []string {
+	res := maps.Keys(m)
+	slices.Sort(res)
 	return res
 }

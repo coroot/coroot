@@ -1688,3 +1688,71 @@ When the [GCP integration](/configuration/gcp) is configured, the agent discover
 * **Description**: The vCPU count and memory capacity of the node. Memory comes from the instance configuration of all three products; vCPUs are reported only for Memcached nodes (`nodeConfig.cpuCount`), the Redis and Valkey APIs don't return them
 * **Type**: Gauge
 
+## OCI
+
+When the [OCI integration](/configuration/oci) is configured, the agent discovers the MySQL HeatWave and Database with
+PostgreSQL DB systems and the OCI Cache clusters of the configured compartments. Every DB system metric carries an
+`oci_db_id` label and every cache metric an `oci_cache_id` label: the OCID of the resource, or the instance id for the
+standby instances of a PostgreSQL DB system.
+
+### oci_discovery_error
+* **Description**: 1 for each distinct OCI API error encountered since the previous discovery cycle (discovery, OCI Monitoring and the log readers), 0 when there was none
+* **Type**: Gauge
+* **Labels**: error
+
+### oci_db_info
+* **Description**: DB system info
+* **Type**: Gauge
+* **Source**: the MySQL HeatWave (`ListDbSystems`, `ListReplicas`) and Database with PostgreSQL (`ListDbSystems`, `GetDbSystem`, `GetPrimaryDbInstance`, `GetConnectionDetails`) APIs
+* **Labels**: name, compartment, region, availability_domain (in the node-agent's form, e.g. `us-ashburn-1-ad-1`), ipv4, port, engine (`mysql`, `postgres`), engine_version, shape, high_availability, primary (the name of the primary for MySQL read replicas and PostgreSQL standby instances, which are reported as separate instances)
+
+### oci_db_status
+* **Description**: The lifecycle state of the DB system (e.g. `ACTIVE`, `UPDATING`, `INACTIVE`)
+* **Type**: Gauge
+* **Labels**: status
+
+### oci_db_cpu_cores / oci_db_memory_total_bytes
+* **Description**: the vCPUs (2 per OCPU) and the memory of the DB system, from the shape (PostgreSQL) or from OCI Monitoring (`OCPUsAllocated`, `MemoryAllocated` for MySQL)
+* **Type**: Gauge
+
+### oci_db_cpu_usage_percent / oci_db_cpu_usage_cores / oci_db_memory_used_bytes / oci_db_memory_usage_percent
+* **Description**: CPU utilization (`CPUUtilization`), CPU usage in vCPUs (MySQL: `OCPUsUsed`), memory used by the database (MySQL: `MemoryUsed`) and memory utilization (PostgreSQL: `MemoryUtilization`)
+* **Type**: Gauge
+* **Source**: OCI Monitoring (`oci_mysql_database`, `oci_postgresql`), the latest 1-minute value
+
+### oci_db_disk_total_bytes / oci_db_disk_used_bytes
+* **Description**: storage allocated and used (MySQL: `StorageAllocated`, `StorageUsed`; PostgreSQL: `UsedStorage`)
+* **Type**: Gauge
+
+### oci_db_io_ops_per_second / oci_db_io_bytes_per_second / oci_db_io_latency_seconds / oci_db_network_bytes_per_second
+* **Description**: disk I/O operations and throughput (`DbVolumeRead/WriteOperations`, `DbVolumeRead/WriteBytes`, `Read/WriteIops`, `Read/WriteThroughput`) and network throughput (`NetworkReceive/TransmitBytes`, MySQL only)
+* **Type**: Gauge
+* **Labels**: operation (`read`, `write`), direction (`rx`, `tx`)
+* **Note**: the I/O latency (`ReadLatency`, `WriteLatency`) is reported for PostgreSQL only
+
+### oci_db_log_messages_total
+* **Description**: the number of messages in the DB system's log grouped by the automatically extracted repeated pattern
+* **Labels**: `level`, `pattern_hash`, `sample`
+* **Source**: OCI Logging, the `postgresql_database_logs` service log of the DB system (PostgreSQL), or the server's error log read through `performance_schema.error_log` (MySQL HeatWave, which publishes no logs to OCI Logging)
+
+### oci_cache_info
+* **Description**: OCI Cache cluster info
+* **Type**: Gauge
+* **Source**: the OCI Cache API (`ListRedisClusters`); `ipv4` is the primary endpoint
+* **Labels**: name, compartment, region, ipv4, port, engine (`valkey`, `redis`), engine_version, node_count, node_memory_gb
+
+### oci_cache_status
+* **Description**: The lifecycle state of the cluster (`ACTIVE` or a transitional state)
+* **Type**: Gauge
+* **Labels**: status
+
+### oci_cache_memory_total_bytes / oci_cache_cpu_usage_percent / oci_cache_memory_used_bytes / oci_cache_network_bytes_per_second
+* **Description**: the memory of a node, and from OCI Monitoring (`oci_redis`): CPU utilization (`CPUUtilization`), memory used by the engine (`UsedMemory`) and network throughput (`NetworkBytesIn/Out`)
+* **Type**: Gauge
+* **Labels**: direction (`rx`, `tx`) for the network metric
+
+### oci_cache_log_messages_total
+* **Description**: the number of messages in the cache cluster's engine log grouped by the automatically extracted repeated pattern
+* **Labels**: `level`, `pattern_hash`, `sample`
+* **Source**: OCI Logging, the `oci-cache-engine-logs` service log of the cluster
+

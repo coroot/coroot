@@ -117,7 +117,7 @@
             <h1 class="text-h5 my-5">Cloud integrations</h1>
             <p style="max-width: 800px">
                 Coroot discovers the managed databases of your cloud provider and monitors them alongside your own services: RDS and ElastiCache on
-                AWS, Cloud SQL and Memorystore on GCP.
+                AWS, Cloud SQL and Memorystore on GCP, MySQL HeatWave, PostgreSQL and OCI Cache on Oracle Cloud.
             </p>
             <h2 class="mt-8 mb-3">
                 <img :src="`${$coroot.base_path}static/img/icons/aws${$vuetify.theme.dark ? '-dark' : ''}.svg`" height="28" alt="AWS" />
@@ -127,6 +127,8 @@
                 <img :src="`${$coroot.base_path}static/img/icons/gcp${$vuetify.theme.dark ? '-dark' : ''}.svg`" height="28" alt="Google Cloud" />
             </h2>
             <IntegrationGCP />
+            <h2 class="mt-10 mb-3"><img :src="`${$coroot.base_path}static/img/icons/oci.svg`" height="22" alt="Oracle Cloud" /></h2>
+            <IntegrationOCI />
         </template>
 
         <template v-if="tab === 'applications'">
@@ -224,6 +226,7 @@ import IntegrationPrometheus from './IntegrationPrometheus.vue';
 import IntegrationClickhouse from './IntegrationClickhouse.vue';
 import IntegrationAWS from './IntegrationAWS.vue';
 import IntegrationGCP from './IntegrationGCP.vue';
+import IntegrationOCI from './IntegrationOCI.vue';
 import CustomApplications from './CustomApplications.vue';
 import Users from './Users.vue';
 import RBAC from './RBAC.vue';
@@ -246,6 +249,7 @@ export default {
         IntegrationClickhouse,
         IntegrationAWS,
         IntegrationGCP,
+        IntegrationOCI,
         ProjectApiKeys,
         ProjectDelete,
         ApplicationCategories,

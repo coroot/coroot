@@ -422,7 +422,7 @@ spec:
   clusterAgent:
     databases:
       - type: postgres
-        host: db.example.internal        # or `rds: <DBInstanceIdentifier>` (AWS integration) / `cloudsql: <instance name>` (GCP integration)
+        host: db.example.internal        # or `rds: <DBInstanceIdentifier>` (AWS integration) / `cloudsql: <instance name>` (GCP integration) / `ocidb: <display name>` (OCI integration)
         port: "5432"
         credentials:
           usernameSecret: {name: postgres-coroot, key: username}

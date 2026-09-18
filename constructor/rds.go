@@ -8,13 +8,15 @@ import (
 	"github.com/coroot/coroot/timeseries"
 )
 
-func (c *Constructor) loadRdsMetadata(w *model.World, metrics map[string][]*model.MetricValues, pjs promJobStatuses, rdsInstancesById map[string]*model.Instance, project *db.Project) {
+func rdsKey(id string) string { return "rds/" + id }
+
+func (c *Constructor) loadRdsMetadata(w *model.World, metrics map[string][]*model.MetricValues, pjs promJobStatuses, cloudInstancesById map[string]*model.Instance, project *db.Project) {
 	for _, m := range metrics["aws_rds_info"] {
 		rdsId := m.Labels["rds_instance_id"]
 		if rdsId == "" {
 			continue
 		}
-		instance := rdsInstancesById[rdsId]
+		instance := cloudInstancesById[rdsKey(rdsId)]
 		if instance == nil {
 			var id model.ApplicationId
 			instanceParts := strings.SplitN(rdsId, "/", 2)
@@ -27,7 +29,7 @@ func (c *Constructor) loadRdsMetadata(w *model.World, metrics map[string][]*mode
 				id = c.newApplicationId(project.ClusterId(), "", model.ApplicationKindRds, instanceParts[1])
 			}
 			instance = w.GetOrCreateApplication(id, false).GetOrCreateInstance(instanceParts[1], nil)
-			rdsInstancesById[rdsId] = instance
+			cloudInstancesById[rdsKey(rdsId)] = instance
 			instance.Rds = &model.Rds{Id: rdsId}
 		}
 		if instance.Node == nil {
@@ -55,7 +57,7 @@ func (c *Constructor) loadRdsMetadata(w *model.World, metrics map[string][]*mode
 	}
 }
 
-func (c *Constructor) loadRds(w *model.World, metrics map[string][]*model.MetricValues, pjs promJobStatuses, rdsInstancesById map[string]*model.Instance) {
+func (c *Constructor) loadRds(w *model.World, metrics map[string][]*model.MetricValues, pjs promJobStatuses, cloudInstancesById map[string]*model.Instance) {
 	for _, q := range QUERIES {
 		if !strings.HasPrefix(q.Name, "aws_rds_") || q.Name == "aws_rds_info" {
 			continue
@@ -65,7 +67,7 @@ func (c *Constructor) loadRds(w *model.World, metrics map[string][]*model.Metric
 			if rdsId == "" {
 				continue
 			}
-			instance := rdsInstancesById[rdsId]
+			instance := cloudInstancesById[rdsKey(rdsId)]
 			if instance == nil {
 				continue
 			}
@@ -144,7 +146,10 @@ func (c *Constructor) loadRds(w *model.World, metrics map[string][]*model.Metric
 		}
 	}
 	if c.pricing != nil {
-		for _, instance := range rdsInstancesById {
+		for key, instance := range cloudInstancesById {
+			if !strings.HasPrefix(key, "rds/") {
+				continue
+			}
 			instance.Node.Price = c.pricing.GetNodePrice(nil, instance.Node)
 		}
 	}

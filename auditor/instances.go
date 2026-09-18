@@ -74,6 +74,24 @@ func (a *appAuditor) instances() {
 			default:
 				status.SetStatus(model.OK, i.Memorystore.Status.Value())
 			}
+		} else if i.OCIDB != nil {
+			switch {
+			case timeseries.IsNaN(i.OCIDB.LifeSpan.Last()):
+				status.SetStatus(model.WARNING, "down (no metrics)")
+			case i.OCIDB.Status.Value() != "ACTIVE":
+				status.SetStatus(model.WARNING, i.OCIDB.Status.Value())
+			default:
+				status.SetStatus(model.OK, i.OCIDB.Status.Value())
+			}
+		} else if i.OCICache != nil {
+			switch {
+			case timeseries.IsNaN(i.OCICache.LifeSpan.Last()):
+				status.SetStatus(model.WARNING, "down (no metrics)")
+			case !i.OCICache.IsUp():
+				status.SetStatus(model.WARNING, i.OCICache.Status.Value())
+			default:
+				status.SetStatus(model.OK, i.OCICache.Status.Value())
+			}
 		} else if i.Pod == nil {
 			if i.IsUp() {
 				status.SetStatus(model.OK, "ok")

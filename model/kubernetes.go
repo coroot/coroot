@@ -25,6 +25,8 @@ const (
 	ApplicationKindElasticacheCluster ApplicationKind = "ElasticacheCluster"
 	ApplicationKindCloudSQL           ApplicationKind = "CloudSQL"
 	ApplicationKindMemorystore        ApplicationKind = "Memorystore"
+	ApplicationKindOCIDB              ApplicationKind = "OCIDB"
+	ApplicationKindOCICache           ApplicationKind = "OCICache"
 	ApplicationKindNomadJobGroup      ApplicationKind = "NomadJobGroup"
 	ApplicationKindArgoWorkflow       ApplicationKind = "Workflow"
 	ApplicationKindSparkApplication   ApplicationKind = "SparkApplication"

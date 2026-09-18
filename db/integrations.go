@@ -20,6 +20,7 @@ const (
 	IntegrationTypeClickhouse IntegrationType = "clickhouse"
 	IntegrationTypeAWS        IntegrationType = "aws"
 	IntegrationTypeGCP        IntegrationType = "gcp"
+	IntegrationTypeOCI        IntegrationType = "oci"
 	IntegrationTypeSlack      IntegrationType = "slack"
 	IntegrationTypePagerduty  IntegrationType = "pagerduty"
 	IntegrationTypeTeams      IntegrationType = "teams"

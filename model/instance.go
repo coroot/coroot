@@ -36,6 +36,8 @@ type Instance struct {
 	Rds         *Rds
 	CloudSQL    *CloudSQL
 	Memorystore *Memorystore
+	OCIDB       *OCIDB
+	OCICache    *OCICache
 	Elasticache *Elasticache
 
 	Jvms   map[string]*Jvm
@@ -100,7 +102,17 @@ func (instance *Instance) ApplicationTypes() map[ApplicationType]bool {
 	if t := instance.Memorystore.ApplicationType(); t != ApplicationTypeUnknown {
 		res[t] = true
 	}
+	if t := instance.OCIDB.ApplicationType(); t != ApplicationTypeUnknown {
+		res[t] = true
+	}
+	if t := instance.OCICache.ApplicationType(); t != ApplicationTypeUnknown {
+		res[t] = true
+	}
 	return res
+}
+
+func (instance *Instance) IsManagedDatabase() bool {
+	return instance.Rds != nil || instance.Elasticache != nil || instance.CloudSQL != nil || instance.Memorystore != nil || instance.OCIDB != nil || instance.OCICache != nil
 }
 
 func (instance *Instance) InstrumentedType() ApplicationType {

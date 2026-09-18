@@ -209,7 +209,15 @@ spec:
 #        team: payments
 #      memorystoreLabelFilters: {} # Same for Memorystore instances.
 #    # Databases to collect metrics from, in addition to those configured in the Coroot UI or discovered through pod annotations.
-#    # Exactly one of host, rds, elasticache, cloudsql or memorystore is required per entry.
+#    oci:
+#      compartmentIds: [] # OCIDs of the compartments to discover instances in (default: the cluster's compartment, with OKE Workload Identity).
+#      region:            # Region to discover instances in (default: the region the cluster runs in).
+#      apiKeySecret:      # Secret with an API key (keys: tenancy_id, user_id, fingerprint, private_key); leave unset to use OKE Workload Identity or the instance principal.
+#        name:
+#      dbTagFilters:      # Discover only DB systems whose freeform tags match (glob patterns are supported in values).
+#        team: payments
+#      cacheTagFilters: {} # Same for OCI Cache clusters.
+#    # Exactly one of host, rds, elasticache, cloudsql, memorystore, ocidb or ocicache is required per entry.
 #    databases:
 #      - type: postgres         # postgres, mysql, redis (also for Valkey), memcached or mongodb.
 #        rds: my-db             # An RDS instance discovered by the AWS integration: its endpoint is used.
@@ -227,6 +235,8 @@ spec:
 #        params: {sslmode: require}
 #      - type: redis
 #        memorystore: my-cache  # A Memorystore instance (Redis, Valkey with type redis, or Memcached with type memcached) discovered by the GCP integration.
+#        ocidb: my-db           # A MySQL HeatWave or PostgreSQL DB system discovered by the OCI integration (display name).
+#        ocicache: my-cache     # An OCI Cache cluster discovered by the OCI integration (display name, type redis).
 #      - type: mysql
 #        host: mysql.example.internal # A hostname is re-resolved on every configuration update; every resolved IP address is monitored.
 #        port: "3306"

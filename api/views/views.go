@@ -75,6 +75,10 @@ func GCP(w *model.World) *cloud.View {
 	return cloud.GCP(w)
 }
 
+func OCI(w *model.World) *cloud.View {
+	return cloud.OCI(w)
+}
+
 func Roles(rs []rbac.Role) *roles.View {
 	return roles.Render(rs)
 }

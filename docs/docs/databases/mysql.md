@@ -250,7 +250,7 @@ spec:
   clusterAgent:
     databases:
       - type: mysql
-        host: db.example.internal        # or `rds: <DBInstanceIdentifier>` (AWS integration) / `cloudsql: <instance name>` (GCP integration)
+        host: db.example.internal        # or `rds: <DBInstanceIdentifier>` (AWS integration) / `cloudsql: <instance name>` (GCP integration) / `ocidb: <display name>` (OCI integration)
         port: "3306"
         credentials:
           usernameSecret: {name: mysql-coroot, key: username}

@@ -8,13 +8,15 @@ import (
 	"github.com/coroot/coroot/timeseries"
 )
 
-func (c *Constructor) loadElasticacheMetadata(w *model.World, metrics map[string][]*model.MetricValues, pjs promJobStatuses, ecInstancesById map[string]*model.Instance, project *db.Project) {
+func ecKey(id string) string { return "elasticache/" + id }
+
+func (c *Constructor) loadElasticacheMetadata(w *model.World, metrics map[string][]*model.MetricValues, pjs promJobStatuses, cloudInstancesById map[string]*model.Instance, project *db.Project) {
 	for _, m := range metrics["aws_elasticache_info"] {
 		ecId := m.Labels["ec_instance_id"]
 		if ecId == "" {
 			continue
 		}
-		instance := ecInstancesById[ecId]
+		instance := cloudInstancesById[ecKey(ecId)]
 		if instance == nil {
 			var appId model.ApplicationId
 			instanceParts := strings.SplitN(ecId, "/", 3)
@@ -24,7 +26,7 @@ func (c *Constructor) loadElasticacheMetadata(w *model.World, metrics map[string
 			appId = c.newApplicationId(project.ClusterId(), "", model.ApplicationKindElasticacheCluster, m.Labels["cluster_id"])
 			instanceName := instanceParts[1] + "-" + instanceParts[2]
 			instance = w.GetOrCreateApplication(appId, false).GetOrCreateInstance(instanceName, nil)
-			ecInstancesById[ecId] = instance
+			cloudInstancesById[ecKey(ecId)] = instance
 			instance.Elasticache = &model.Elasticache{Id: ecId}
 		}
 		if instance.Node == nil {
@@ -49,7 +51,7 @@ func (c *Constructor) loadElasticacheMetadata(w *model.World, metrics map[string
 	}
 }
 
-func (c *Constructor) loadElasticache(w *model.World, metrics map[string][]*model.MetricValues, pjs promJobStatuses, ecInstancesById map[string]*model.Instance) {
+func (c *Constructor) loadElasticache(w *model.World, metrics map[string][]*model.MetricValues, pjs promJobStatuses, cloudInstancesById map[string]*model.Instance) {
 	for _, q := range QUERIES {
 		if !strings.HasPrefix(q.Name, "aws_elasticache_") {
 			continue
@@ -59,7 +61,7 @@ func (c *Constructor) loadElasticache(w *model.World, metrics map[string][]*mode
 			if ecId == "" {
 				continue
 			}
-			instance := ecInstancesById[ecId]
+			instance := cloudInstancesById[ecKey(ecId)]
 			if instance == nil {
 				continue
 			}
@@ -71,7 +73,10 @@ func (c *Constructor) loadElasticache(w *model.World, metrics map[string][]*mode
 		}
 	}
 	if c.pricing != nil {
-		for _, instance := range ecInstancesById {
+		for key, instance := range cloudInstancesById {
+			if !strings.HasPrefix(key, "elasticache/") {
+				continue
+			}
 			instance.Node.Price = c.pricing.GetNodePrice(nil, instance.Node)
 		}
 	}

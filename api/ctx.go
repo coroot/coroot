@@ -214,6 +214,7 @@ func renderStatus(p *db.Project, cacheStatus *cache.Status, w *model.World, glob
 	}{
 		{"aws", "AWS", views.AWS(w, p.Settings.Integrations.AWS != nil)},
 		{"gcp", "GCP", views.GCP(w)},
+		{"oci", "OCI", views.OCI(w)},
 	} {
 		cs := CloudStatus{Id: c.id, Name: c.name}
 		switch {

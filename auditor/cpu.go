@@ -93,7 +93,7 @@ func (a *appAuditor) cpu(ncs nodeConsumersByNode) {
 				nodesChart.GetOrCreateChart("overview").
 					AddSeries(nodeName, i.Node.CpuUsagePercent).
 					Feature()
-				cpuByModeChart(nodesChart.GetOrCreateChart(nodeName), node.CpuUsageByMode)
+				nodeCpuChart(nodesChart.GetOrCreateChart(nodeName), node)
 			}
 			if consumersChart != nil {
 				consumersChart.GetOrCreateChart(nodeName).

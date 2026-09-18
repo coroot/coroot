@@ -53,10 +53,7 @@ func AuditNode(w *model.World, node *model.Node) *model.AuditReport {
 		info.AddRow(infoRow...)
 	}
 
-	cpuByModeChart(
-		report.GetOrCreateChart("CPU usage, %", model.NewDocLink("inspections", "cpu", "node-cpu-usage")).Group("CPU", 1),
-		node.CpuUsageByMode,
-	)
+	nodeCpuChart(report.GetOrCreateChart("CPU usage, %", model.NewDocLink("inspections", "cpu", "node-cpu-usage")).Group("CPU", 1), node)
 
 	ncs := getNodeConsumers(node)
 	report.GetOrCreateChart("CPU consumers, cores", model.NewDocLink("inspections", "cpu", "cpu-consumers")).
