@@ -68,6 +68,10 @@ func RenderNodes(w *model.World, project *db.Project) []Node {
 				t, version = i.CloudSQL.ApplicationType(), i.CloudSQL.EngineVersion.Value()
 			case i.Memorystore != nil:
 				t, version = i.Memorystore.ApplicationType(), i.Memorystore.EngineVersion.Value()
+			case i.OCIDB != nil:
+				t, version = i.OCIDB.ApplicationType(), i.OCIDB.EngineVersion.Value()
+			case i.OCICache != nil:
+				t, version = i.OCICache.ApplicationType(), i.OCICache.EngineVersion.Value()
 			default:
 				continue
 			}

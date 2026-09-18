@@ -15,6 +15,15 @@ func loadCloudStatus(w *model.World, metrics map[string][]*model.MetricValues) {
 			w.AWS.DiscoveryErrors[e] = true
 		}
 	}
+	for _, m := range metrics["oci_discovery_error"] {
+		if timeseries.IsNaN(m.Values.Last()) {
+			continue
+		}
+		w.OCI.Configured = true
+		if e := m.Labels["error"]; e != "" && m.Values.Last() > 0 {
+			w.OCI.DiscoveryErrors[e] = true
+		}
+	}
 	for _, m := range metrics["gcp_discovery_error"] {
 		if timeseries.IsNaN(m.Values.Last()) {
 			continue

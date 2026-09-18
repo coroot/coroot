@@ -10,6 +10,7 @@ const (
 	CloudProviderAWS   = "aws"
 	CloudProviderAzure = "azure"
 	CloudProviderGCP   = "gcp"
+	CloudProviderOCI   = "oracle"
 )
 
 type OSType string
@@ -174,6 +175,9 @@ func (n *Node) IsUp() bool {
 	}
 	if len(n.Instances) == 1 && n.Instances[0].Owner.Id.Kind == ApplicationKindMemorystore {
 		return n.Instances[0].Memorystore.IsUp()
+	}
+	if len(n.Instances) == 1 && n.Instances[0].Owner.Id.Kind == ApplicationKindOCICache {
+		return n.Instances[0].OCICache.IsUp()
 	}
 
 	return !n.CpuUsagePercent.TailIsEmpty()

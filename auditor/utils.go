@@ -18,6 +18,9 @@ func getNodeConsumers(node *model.Node) *nodeConsumers {
 	for _, i := range node.Instances {
 		for _, c := range i.Containers {
 			app := i.Owner.Id.Name
+			if i.IsManagedDatabase() {
+				app = i.Name
+			}
 			if nc.cpu[app] == nil {
 				nc.cpu[app] = timeseries.NewAggregate(timeseries.NanSum)
 			}
@@ -43,7 +46,12 @@ func (m nodeConsumersByNode) get(node *model.Node) *nodeConsumers {
 	return ncs
 }
 
-func cpuByModeChart(ch *model.Chart, modes map[string]*timeseries.TimeSeries) {
+func nodeCpuChart(ch *model.Chart, node *model.Node) {
+	if len(node.CpuUsageByMode) == 0 {
+		ch.AddSeries("used", node.CpuUsagePercent)
+		return
+	}
+	modes := node.CpuUsageByMode
 	ch.Sorted()
 	ch.Stacked()
 	for _, mode := range []string{"user", "nice", "system", "wait", "iowait", "steal", "irq", "softirq"} {

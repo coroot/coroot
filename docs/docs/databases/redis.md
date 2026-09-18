@@ -46,6 +46,12 @@ Then, switch to `Manual Configuration`, complete the form, and click `Save`.
 Coroot-cluster-agent updates its configuration every minute and also takes some time to collect metrics.
 Please wait a few minutes for telemetry to appear.
 
+### TLS
+
+Set the `tls` parameter to `true` for a Redis or Valkey server that requires in-transit encryption, or to
+`skip-verify` when the server certificate cannot be verified, for example when it is issued for a hostname and the
+agent connects to the IP address. Managed caches that require TLS, such as OCI Cache, get `skip-verify` by default.
+
 ### Configuration as code
 
 When Coroot is deployed by the [Kubernetes Operator](/installation/k8s-operator), remote Redis instances can be
@@ -58,7 +64,7 @@ spec:
   clusterAgent:
     databases:
       - type: redis
-        host: cache.example.internal     # or `elasticache: <CacheClusterId>` (AWS integration) / `memorystore: <instance name>` (GCP integration)
+        host: cache.example.internal     # or `elasticache: <CacheClusterId>` (AWS integration) / `memorystore: <instance name>` (GCP integration) / `ocicache: <display name>` (OCI integration)
         port: "6379"
         credentials:                     # only when AUTH is enabled
           passwordSecret: {name: redis-coroot, key: password}

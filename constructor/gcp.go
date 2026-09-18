@@ -11,13 +11,13 @@ import (
 func cloudSQLKey(id string) string    { return "cloudsql/" + id }
 func memorystoreKey(id string) string { return "memorystore/" + id }
 
-func (c *Constructor) loadGCPMetadata(w *model.World, metrics map[string][]*model.MetricValues, gcpInstancesById map[string]*model.Instance, project *db.Project) {
+func (c *Constructor) loadGCPMetadata(w *model.World, metrics map[string][]*model.MetricValues, cloudInstancesById map[string]*model.Instance, project *db.Project) {
 	for _, m := range metrics["gcp_cloudsql_info"] {
 		id := m.Labels["cloudsql_instance_id"]
 		if id == "" {
 			continue
 		}
-		instance := gcpInstancesById[cloudSQLKey(id)]
+		instance := cloudInstancesById[cloudSQLKey(id)]
 		if instance == nil {
 			parts := strings.SplitN(id, "/", 2) // <project>/<instance>
 			if len(parts) != 2 {
@@ -30,7 +30,7 @@ func (c *Constructor) loadGCPMetadata(w *model.World, metrics map[string][]*mode
 			}
 			appId := c.newApplicationId(project.ClusterId(), "", model.ApplicationKindCloudSQL, appName)
 			instance = w.GetOrCreateApplication(appId, false).GetOrCreateInstance(parts[1], nil)
-			gcpInstancesById[cloudSQLKey(id)] = instance
+			cloudInstancesById[cloudSQLKey(id)] = instance
 			instance.CloudSQL = &model.CloudSQL{Id: id}
 		}
 		if instance.Node == nil {
@@ -66,7 +66,7 @@ func (c *Constructor) loadGCPMetadata(w *model.World, metrics map[string][]*mode
 		if id == "" {
 			continue
 		}
-		instance := gcpInstancesById[memorystoreKey(id)]
+		instance := cloudInstancesById[memorystoreKey(id)]
 		if instance == nil {
 			// <project>/<region>/<instance> for Redis and Valkey, <project>/<region>/<instance>/<node> for Memcached
 			parts := strings.Split(id, "/")
@@ -79,7 +79,7 @@ func (c *Constructor) loadGCPMetadata(w *model.World, metrics map[string][]*mode
 			}
 			appId := c.newApplicationId(project.ClusterId(), "", model.ApplicationKindMemorystore, appName)
 			instance = w.GetOrCreateApplication(appId, false).GetOrCreateInstance(instanceName, nil)
-			gcpInstancesById[memorystoreKey(id)] = instance
+			cloudInstancesById[memorystoreKey(id)] = instance
 			instance.Memorystore = &model.Memorystore{Id: id}
 		}
 		if instance.Node == nil {
@@ -105,12 +105,12 @@ func (c *Constructor) loadGCPMetadata(w *model.World, metrics map[string][]*mode
 	}
 }
 
-func (c *Constructor) loadGCP(w *model.World, metrics map[string][]*model.MetricValues, pjs promJobStatuses, gcpInstancesById map[string]*model.Instance) {
+func (c *Constructor) loadGCP(w *model.World, metrics map[string][]*model.MetricValues, pjs promJobStatuses, cloudInstancesById map[string]*model.Instance) {
 	for _, q := range QUERIES { // in the order of QUERIES: the totals come before the metrics derived from them
 		switch {
 		case strings.HasPrefix(q.Name, "gcp_cloudsql_") && q.Name != "gcp_cloudsql_info":
 			for _, m := range metrics[q.Name] {
-				instance := gcpInstancesById[cloudSQLKey(m.Labels["cloudsql_instance_id"])]
+				instance := cloudInstancesById[cloudSQLKey(m.Labels["cloudsql_instance_id"])]
 				if instance == nil {
 					continue
 				}
@@ -178,7 +178,7 @@ func (c *Constructor) loadGCP(w *model.World, metrics map[string][]*model.Metric
 			}
 		case strings.HasPrefix(q.Name, "gcp_memorystore_") && q.Name != "gcp_memorystore_info":
 			for _, m := range metrics[q.Name] {
-				instance := gcpInstancesById[memorystoreKey(m.Labels["memorystore_instance_id"])]
+				instance := cloudInstancesById[memorystoreKey(m.Labels["memorystore_instance_id"])]
 				if instance == nil {
 					continue
 				}

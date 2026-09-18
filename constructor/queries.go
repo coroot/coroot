@@ -109,6 +109,14 @@ func qMemorystore(name, query string, labels ...string) Query {
 	return Q(name, query, slices.Concat([]string{"memorystore_instance_id"}, labels)...)
 }
 
+func qOCIDB(name, query string, labels ...string) Query {
+	return Q(name, query, slices.Concat([]string{"oci_db_id"}, labels)...)
+}
+
+func qOCICache(name, query string, labels ...string) Query {
+	return Q(name, query, slices.Concat([]string{"oci_cache_id"}, labels)...)
+}
+
 func qDB(name, query string, labels ...string) Query {
 	return Q(name, query, slices.Concat(possibleDBInstanceLabels, possibleNamespaceLabels, possiblePodLabels, labels)...)
 }
@@ -337,6 +345,7 @@ var QUERIES = []Query{
 
 	Q("aws_discovery_error", `aws_discovery_error`, "error"),
 	Q("gcp_discovery_error", `gcp_discovery_error`, "error"),
+	Q("oci_discovery_error", `oci_discovery_error`, "error"),
 	qRDS("aws_rds_info", `aws_rds_info`, "cluster_id", "ipv4", "port", "engine", "engine_version", "instance_type", "storage_type", "region", "availability_zone", "multi_az"),
 	qRDS("aws_rds_status", `aws_rds_status`, "status"),
 	qRDS("aws_rds_cpu_cores", `aws_rds_cpu_cores`),
@@ -381,6 +390,29 @@ var QUERIES = []Query{
 	qMemorystore("gcp_memorystore_memory_total_bytes", `gcp_memorystore_memory_total_bytes`),
 	qMemorystore("gcp_memorystore_memory_used_bytes", `gcp_memorystore_memory_used_bytes`),
 	qMemorystore("gcp_memorystore_network_bytes_per_second", `gcp_memorystore_network_bytes_per_second`, "direction"),
+	// OCI: the totals come before the metrics derived from them
+	qOCIDB("oci_db_info", `oci_db_info`, "name", "compartment", "region", "availability_domain", "ipv4", "port", "engine", "engine_version", "shape", "high_availability", "primary"),
+	qOCIDB("oci_db_status", `oci_db_status`, "status"),
+	qOCIDB("oci_db_cpu_cores", `oci_db_cpu_cores`),
+	qOCIDB("oci_db_cpu_usage_percent", `oci_db_cpu_usage_percent`),
+	qOCIDB("oci_db_cpu_usage_cores", `oci_db_cpu_usage_cores`),
+	qOCIDB("oci_db_memory_total_bytes", `oci_db_memory_total_bytes`),
+	qOCIDB("oci_db_memory_used_bytes", `oci_db_memory_used_bytes`),
+	qOCIDB("oci_db_memory_usage_percent", `oci_db_memory_usage_percent`),
+	qOCIDB("oci_db_disk_total_bytes", `oci_db_disk_total_bytes`),
+	qOCIDB("oci_db_disk_used_bytes", `oci_db_disk_used_bytes`),
+	qOCIDB("oci_db_network_bytes_per_second", `oci_db_network_bytes_per_second`, "direction"),
+	qOCIDB("oci_db_io_ops_per_second", `oci_db_io_ops_per_second`, "operation"),
+	qOCIDB("oci_db_io_bytes_per_second", `oci_db_io_bytes_per_second`, "operation"),
+	qOCIDB("oci_db_io_latency_seconds", `oci_db_io_latency_seconds`, "operation"), // after the ops it is multiplied by
+	qOCIDB("oci_db_log_messages_total", `oci_db_log_messages_total % 10000000`, "level", "pattern_hash", "sample", "job", "instance"),
+	qOCICache("oci_cache_info", `oci_cache_info`, "name", "compartment", "region", "ipv4", "port", "engine", "engine_version", "node_count", "node_memory_gb"),
+	qOCICache("oci_cache_status", `oci_cache_status`, "status"),
+	qOCICache("oci_cache_memory_total_bytes", `oci_cache_memory_total_bytes`),
+	qOCICache("oci_cache_cpu_usage_percent", `oci_cache_cpu_usage_percent`),
+	qOCICache("oci_cache_memory_used_bytes", `oci_cache_memory_used_bytes`),
+	qOCICache("oci_cache_network_bytes_per_second", `oci_cache_network_bytes_per_second`, "direction"),
+	qOCICache("oci_cache_log_messages_total", `oci_cache_log_messages_total % 10000000`, "level", "pattern_hash", "sample", "job", "instance"),
 
 	qDB("pg_up", `pg_up`),
 	qDB("pg_scrape_error", `pg_scrape_error`, "error", "warning"),

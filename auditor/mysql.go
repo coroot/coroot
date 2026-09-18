@@ -71,7 +71,6 @@ func (a *appAuditor) mysql() {
 	undoSizeChart := report.GetOrCreateChart("InnoDB undo tablespaces size, bytes", nil).Group("Storage", 8)
 
 	availabilityCheck.AddWidget(table.Widget())
-	availabilityCheck.AddWidget(galeraClusterSizeChart.Widget())
 
 	replicationStatusCheck.AddWidget(table.Widget())
 	replicationStatusCheck.AddWidget(replicationLagChart.Widget())
@@ -349,6 +348,9 @@ func (a *appAuditor) mysql() {
 	}
 	if grTotal > 0 && grOnline < grTotal {
 		groupReplicationCheck.AddDetail("%d of %d Group Replication members are ONLINE - the group has lost redundancy and is closer to losing quorum", grOnline, grTotal)
+	}
+	if !galeraClusterSizeChart.IsEmpty() { // Galera only
+		availabilityCheck.AddWidget(galeraClusterSizeChart.Widget())
 	}
 
 	if b := a.app.Cluster.Backups; b != nil && a.app.Cluster.Manager == model.ClusterManagerPerconaXtraDB &&

@@ -28,6 +28,7 @@ type World struct {
 
 	AWS AWS
 	GCP GCP
+	OCI OCI
 
 	IntegrationStatus IntegrationStatus
 
@@ -40,6 +41,7 @@ func NewWorld(from, to timeseries.Time, step, rawStep timeseries.Duration) *Worl
 		Applications:     map[ApplicationId]*Application{},
 		AWS:              AWS{DiscoveryErrors: map[string]bool{}},
 		GCP:              GCP{DiscoveryErrors: map[string]bool{}},
+		OCI:              OCI{DiscoveryErrors: map[string]bool{}},
 		ProjectNamesById: map[string]string{},
 	}
 }

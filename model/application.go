@@ -137,6 +137,12 @@ func (app *Application) LogServices() []string {
 		if i.Memorystore != nil && i.Memorystore.Id != "" {
 			res.Add("/gcp/memorystore/" + i.Memorystore.Id)
 		}
+		if i.OCIDB != nil && i.OCIDB.Id != "" {
+			res.Add("/oci/db/" + i.OCIDB.Id)
+		}
+		if i.OCICache != nil && i.OCICache.Id != "" {
+			res.Add("/oci/cache/" + i.OCICache.Id)
+		}
 	}
 	return res.Items()
 }
@@ -198,6 +204,10 @@ func (app *Application) Labels() Labels {
 		res["db"] = fmt.Sprintf(`%s (Cloud SQL)`, app.Instances[0].CloudSQL.Engine.Value())
 	case ApplicationKindMemorystore:
 		res["db"] = fmt.Sprintf(`%s (Memorystore)`, app.Instances[0].Memorystore.Engine.Value())
+	case ApplicationKindOCIDB:
+		res["db"] = fmt.Sprintf(`%s (OCI)`, app.Instances[0].OCIDB.Engine.Value())
+	case ApplicationKindOCICache:
+		res["db"] = fmt.Sprintf(`%s (OCI Cache)`, app.Instances[0].OCICache.Engine.Value())
 	case ApplicationKindUnknown, ApplicationKindDockerSwarmService, ApplicationKindNomadJobGroup:
 		if app.Id.Namespace != "_" {
 			res["ns"] = app.Id.Namespace
@@ -335,7 +345,7 @@ func (app *Application) IsStandalone() bool {
 
 func (app *Application) IsDatabase() bool {
 	switch app.Id.Kind {
-	case ApplicationKindRds, ApplicationKindElasticacheCluster, ApplicationKindCloudSQL, ApplicationKindMemorystore:
+	case ApplicationKindRds, ApplicationKindElasticacheCluster, ApplicationKindCloudSQL, ApplicationKindMemorystore, ApplicationKindOCIDB, ApplicationKindOCICache:
 		return true
 	}
 	for t := range app.ApplicationTypes() {

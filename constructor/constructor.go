@@ -126,9 +126,7 @@ func (c *Constructor) loadProjectWorld(ctx context.Context, cache Cache, project
 
 	pjs := promJobStatuses{}
 	nodes := nodeCache{}
-	rdsInstancesById := map[string]*model.Instance{}
-	ecInstancesById := map[string]*model.Instance{}
-	gcpInstancesById := map[string]*model.Instance{}
+	cloudInstancesById := map[string]*model.Instance{}
 	servicesByClusterIP := map[string]*model.Service{}
 	ip2fqdn := map[string]*utils.StringSet{}
 	fqdn2ip := map[string]*utils.StringSet{}
@@ -143,12 +141,14 @@ func (c *Constructor) loadProjectWorld(ctx context.Context, cache Cache, project
 	prof.stage("load_flux_resources", func() { loadFluxResources(w, metrics, project) })
 	prof.stage("load_argocd_resources", func() { loadArgoCDResources(w, metrics, project) })
 	prof.stage("load_cloud_status", func() { loadCloudStatus(w, metrics) })
-	prof.stage("load_rds_metadata", func() { c.loadRdsMetadata(w, metrics, pjs, rdsInstancesById, project) })
-	prof.stage("load_elasticache_metadata", func() { c.loadElasticacheMetadata(w, metrics, pjs, ecInstancesById, project) })
-	prof.stage("load_rds", func() { c.loadRds(w, metrics, pjs, rdsInstancesById) })
-	prof.stage("load_elasticache", func() { c.loadElasticache(w, metrics, pjs, ecInstancesById) })
-	prof.stage("load_gcp_metadata", func() { c.loadGCPMetadata(w, metrics, gcpInstancesById, project) })
-	prof.stage("load_gcp", func() { c.loadGCP(w, metrics, pjs, gcpInstancesById) })
+	prof.stage("load_rds_metadata", func() { c.loadRdsMetadata(w, metrics, pjs, cloudInstancesById, project) })
+	prof.stage("load_elasticache_metadata", func() { c.loadElasticacheMetadata(w, metrics, pjs, cloudInstancesById, project) })
+	prof.stage("load_rds", func() { c.loadRds(w, metrics, pjs, cloudInstancesById) })
+	prof.stage("load_elasticache", func() { c.loadElasticache(w, metrics, pjs, cloudInstancesById) })
+	prof.stage("load_gcp_metadata", func() { c.loadGCPMetadata(w, metrics, cloudInstancesById, project) })
+	prof.stage("load_gcp", func() { c.loadGCP(w, metrics, pjs, cloudInstancesById) })
+	prof.stage("load_oci_metadata", func() { c.loadOCIMetadata(w, metrics, cloudInstancesById, project) })
+	prof.stage("load_oci", func() { c.loadOCI(w, metrics, pjs, cloudInstancesById) })
 	prof.stage("load_fargate_containers", func() { loadFargateContainers(w, metrics, pjs) })
 	prof.stage("load_containers", func() { c.loadContainers(w, metrics, pjs, nodes, containers, servicesByClusterIP, ip2fqdn, project) })
 	prof.stage("load_app_to_app_connections", func() { c.loadAppToAppConnections(w, metrics, fqdn2ip, project) })
@@ -161,7 +161,7 @@ func (c *Constructor) loadProjectWorld(ctx context.Context, cache Cache, project
 	prof.stage("load_nodejs", func() { c.loadNodejs(metrics, containers) })
 	var instancesByListen map[model.Listen]*model.Instance
 	prof.stage("enrich_instances", func() {
-		instancesByListen = enrichInstances(w, metrics, rdsInstancesById, ecInstancesById, gcpInstancesById, pjs)
+		instancesByListen = enrichInstances(w, metrics, cloudInstancesById, pjs)
 	})
 	prof.stage("calc_app_categories", func() { c.calcApplicationCategories(w, project) })
 	prof.stage("group_custom_applications", func() { c.groupCustomApplications(w, project) })
@@ -378,7 +378,7 @@ type podId struct {
 	name, ns string
 }
 
-func enrichInstances(w *model.World, metrics map[string][]*model.MetricValues, rdsInstancesById map[string]*model.Instance, ecInstanceById map[string]*model.Instance, gcpInstancesById map[string]*model.Instance, pjs promJobStatuses) map[model.Listen]*model.Instance {
+func enrichInstances(w *model.World, metrics map[string][]*model.MetricValues, cloudInstancesById map[string]*model.Instance, pjs promJobStatuses) map[model.Listen]*model.Instance {
 	instancesByListen := map[model.Listen]*model.Instance{}
 	instancesByPod := map[podId]*model.Instance{}
 	for _, app := range w.Applications {
@@ -455,19 +455,19 @@ func enrichInstances(w *model.World, metrics map[string][]*model.MetricValues, r
 		for _, m := range metrics[queryName] {
 			switch {
 			case strings.HasPrefix(queryName, "pg_"):
-				instance := findInstance(instancesByPod, instancesByListenAddr, rdsInstancesById, ecInstanceById, gcpInstancesById, m.Labels, model.ApplicationTypePostgres)
+				instance := findInstance(instancesByPod, instancesByListenAddr, cloudInstancesById, m.Labels, model.ApplicationTypePostgres)
 				postgres(instance, queryName, m, pjs)
 			case strings.HasPrefix(queryName, "redis_"):
-				instance := findInstance(instancesByPod, instancesByListenAddr, rdsInstancesById, ecInstanceById, gcpInstancesById, m.Labels, model.ApplicationTypeRedis, model.ApplicationTypeKeyDB)
+				instance := findInstance(instancesByPod, instancesByListenAddr, cloudInstancesById, m.Labels, model.ApplicationTypeRedis, model.ApplicationTypeKeyDB)
 				redis(instance, queryName, m)
 			case strings.HasPrefix(queryName, "mongo_"):
-				instance := findInstance(instancesByPod, instancesByListenAddr, rdsInstancesById, ecInstanceById, gcpInstancesById, m.Labels, model.ApplicationTypeMongodb, model.ApplicationTypeMongos)
+				instance := findInstance(instancesByPod, instancesByListenAddr, cloudInstancesById, m.Labels, model.ApplicationTypeMongodb, model.ApplicationTypeMongos)
 				mongodb(instance, queryName, m, pjs)
 			case strings.HasPrefix(queryName, "memcached_"):
-				instance := findInstance(instancesByPod, instancesByListenAddr, rdsInstancesById, ecInstanceById, gcpInstancesById, m.Labels, model.ApplicationTypeMemcached)
+				instance := findInstance(instancesByPod, instancesByListenAddr, cloudInstancesById, m.Labels, model.ApplicationTypeMemcached)
 				memcached(instance, queryName, m)
 			case strings.HasPrefix(queryName, "mysql_"):
-				instance := findInstance(instancesByPod, instancesByListenAddr, rdsInstancesById, ecInstanceById, gcpInstancesById, m.Labels, model.ApplicationTypeMysql)
+				instance := findInstance(instancesByPod, instancesByListenAddr, cloudInstancesById, m.Labels, model.ApplicationTypeMysql)
 				mysql(instance, queryName, m)
 			}
 		}
@@ -611,18 +611,24 @@ func guessNamespace(ls model.Labels) string {
 	return ""
 }
 
-func findInstance(instancesByPod map[podId]*model.Instance, instancesByListen map[string]*model.Instance, rdsInstancesById map[string]*model.Instance, ecInstancesById map[string]*model.Instance, gcpInstancesById map[string]*model.Instance, ls model.Labels, applicationTypes ...model.ApplicationType) *model.Instance {
+func findInstance(instancesByPod map[podId]*model.Instance, instancesByListen map[string]*model.Instance, cloudInstancesById map[string]*model.Instance, ls model.Labels, applicationTypes ...model.ApplicationType) *model.Instance {
 	if rdsId := ls["rds_instance_id"]; rdsId != "" {
-		return rdsInstancesById[rdsId]
+		return cloudInstancesById[rdsKey(rdsId)]
 	}
 	if ecId := ls["ec_instance_id"]; ecId != "" {
-		return ecInstancesById[ecId]
+		return cloudInstancesById[ecKey(ecId)]
 	}
 	if id := ls["cloudsql_instance_id"]; id != "" {
-		return gcpInstancesById[cloudSQLKey(id)]
+		return cloudInstancesById[cloudSQLKey(id)]
 	}
 	if id := ls["memorystore_instance_id"]; id != "" {
-		return gcpInstancesById[memorystoreKey(id)]
+		return cloudInstancesById[memorystoreKey(id)]
+	}
+	if id := ls["oci_db_id"]; id != "" {
+		return cloudInstancesById[ociDBKey(id)]
+	}
+	if id := ls["oci_cache_id"]; id != "" {
+		return cloudInstancesById[ociCacheKey(id)]
 	}
 	address := ls["instance"]
 	if ls["address"] != "" {
