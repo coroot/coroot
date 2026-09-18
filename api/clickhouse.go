@@ -1,11 +1,13 @@
 package api
 
 import (
+	"crypto/tls"
 	"io"
 	"net"
 	"net/http"
 	"time"
 
+	"github.com/coroot/coroot/ch"
 	"github.com/coroot/coroot/collector"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/utils"
@@ -41,7 +43,13 @@ func (api *Api) ClickhouseConnect(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "clickhouse is not configured", http.StatusNotFound)
 		return
 	}
-	upstreamConn, err := net.DialTimeout("tcp", cfg.Addr, 10*time.Second)
+	var upstreamConn net.Conn
+	dialer := &net.Dialer{Timeout: 10 * time.Second}
+	if cfg.TlsEnable {
+		upstreamConn, err = tls.DialWithDialer(dialer, "tcp", cfg.Addr, ch.TlsConfig(cfg.TlsCAFile, cfg.TlsSkipVerify))
+	} else {
+		upstreamConn, err = dialer.Dial("tcp", cfg.Addr)
+	}
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, err.Error(), http.StatusBadGateway)

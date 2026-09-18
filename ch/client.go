@@ -57,11 +57,10 @@ func NewLowLevelClient(ctx context.Context, cfg *db.IntegrationClickhouse) (*Low
 		DialTimeout:      dialTimeout,
 		HandshakeTimeout: dialTimeout,
 	}
-	if cfg.TlsEnable {
-		opts.TLS = TlsConfig(cfg.TlsCAFile, cfg.TlsSkipVerify)
-	}
 	if dialer != nil {
 		opts.Dialer = dialer
+	} else if cfg.TlsEnable {
+		opts.TLS = TlsConfig(cfg.TlsCAFile, cfg.TlsSkipVerify)
 	}
 	pool, err := chpool.Dial(context.Background(), chpool.Options{ClientOptions: opts})
 	if err != nil {

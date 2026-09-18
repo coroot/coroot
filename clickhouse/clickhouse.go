@@ -69,7 +69,7 @@ func NewClient(config *db.IntegrationClickhouse, project *db.Project) (*Client, 
 	if dialer != nil {
 		opts.DialContext = dialer.Dial
 	}
-	if config.TlsEnable {
+	if config.TlsEnable && dialer == nil {
 		opts.TLS = ch.TlsConfig(config.TlsCAFile, config.TlsSkipVerify)
 	}
 	conn, err := clickhouse.Open(opts)
