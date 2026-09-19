@@ -12,6 +12,7 @@ This page presents the results:
 
 * [eBPF-based monitoring](#ebpf-based-monitoring-coroot-node-agent): the impact of coroot-node-agent on an application serving 10,000 requests per second.
 * [MySQL instrumentation](#mysql-instrumentation-coroot-cluster-agent): the impact of coroot-cluster-agent on a busy MySQL server with 10,000 tables.
+* [Postgres instrumentation](#postgres-instrumentation-coroot-cluster-agent): the impact of coroot-cluster-agent on a busy Postgres server with 100 databases and 10,000 tables.
 
 ## eBPF-based monitoring (coroot-node-agent)
 
@@ -201,3 +202,98 @@ On a MySQL server with 100 databases, 10,000 tables, 500 client connections and 
 
 If the defaults are still too heavy for your environment (for example, a server with hundreds of thousands of tables), schema and size tracking can be
 limited or turned off, and the scrape interval can be increased. See [what data is collected](/databases/mysql#what-data-is-collected) for the available options.
+
+## Postgres instrumentation (coroot-cluster-agent)
+
+For [Postgres](/databases/postgres), coroot-cluster-agent reads `pg_stat_statements`, `pg_stat_activity` and other statistics views over a single connection to the `postgres` database.
+In addition, once a minute it briefly connects to **every database** on the server to track table sizes, schema changes, bloat and autovacuum statistics.
+This makes a server with many databases the most demanding case for the agent, so that is what we tested, using the same method as in the MySQL benchmark above.
+
+### Lab
+
+* **Postgres 18** on a dedicated virtual machine (8 vCPU, 32GB RAM, NVMe SSD): 100 databases with 100 tables each (10,000 tables, 100M rows, 25GB),
+  `shared_buffers=8GB`, `max_connections=1000`, `pg_stat_statements` and `track_io_timing` enabled.
+* **Load**: 100 `sysbench` processes (one per database) on two other machines hold 500 client connections and execute
+  a fixed **800 transactions / 16,000 queries per second**, roughly half of what this server can handle.
+* **coroot-cluster-agent 1.11.3** on a separate machine, with the default settings: a 15-second scrape interval, and schema, size and bloat tracking enabled.
+  The monitoring role has the [recommended permissions](/databases/postgres#prerequisites) (`pg_monitor`).
+* **coroot-node-agent** on every machine as the measuring tool: query latency is captured by eBPF on the client side,
+  and the CPU and memory usage of Postgres and the agent come from container metrics.
+
+```bash
+# for each of the 100 databases
+sysbench oltp_read_write --db-driver=pgsql --pgsql-db=tenant_001 --tables=100 --table-size=10000 \
+  --threads=5 --rate=8 --time=0 --db-ps-mode=disable run
+```
+
+The workload produces about 100,000 distinct statements, so `pg_stat_statements` is permanently full (5,000 entries, the default `pg_stat_statements.max`).
+As before, the test runs six 20-minute phases under the same load, with the instrumentation alternately disabled and enabled.
+
+### Test Results
+
+In the charts below, the shaded areas are the phases with the instrumentation enabled.
+
+#### Client-side latency
+
+<img alt="Postgres query rate and latency during the test" src="/img/docs/databases/postgres/overhead_latency.png" class="card w-1200"/>
+
+| Phase                                              | 1 (off) | 2 (on) | 3 (off) | 4 (on) | 5 (off) | 6 (on) |
+|----------------------------------------------------|---------|--------|---------|--------|---------|--------|
+| Queries per second                                 | 16,051  | 16,035 | 16,051  | 15,959 | 15,969  | 15,912 |
+| Average query latency (eBPF), ms                   | 0.564   | 0.560  | 0.581   | 0.583  | 0.583   | 0.591  |
+| Queries completed within 5ms (eBPF), %             | 99.97   | 99.96  | 99.96   | 99.96  | 99.95   | 99.94  |
+| p99 transaction latency (sysbench, 20 queries), ms | 17.0    | 17.6   | 17.9    | 18.1   | 18.6    | 18.8   |
+
+The latency slowly grows throughout the test, as tables and indexes bloat under a continuous stream of updates, but this drift does not depend on the instrumentation:
+there is no step when it is switched on or off, and each "on" phase is in line with the adjacent "off" phases.
+
+#### Postgres resource usage
+
+<img alt="CPU usage of Postgres during the test" src="/img/docs/databases/postgres/overhead_postgres_cpu.png" class="card w-1200"/>
+
+| Phase                     | 1 (off) | 2 (on) | 3 (off) | 4 (on) | 5 (off) | 6 (on) |
+|---------------------------|---------|--------|---------|--------|---------|--------|
+| Postgres CPU usage, cores | 3.08    | 3.21   | 3.09    | 3.07   | 3.20    | 3.07   |
+
+The CPU usage of Postgres with the instrumentation enabled (3.11 cores on average) is the same as without it (3.12 cores).
+The two bumps on the chart (phases 2 and 5) are autoanalyze processing thousands of tables that reach the analyze threshold at about the same time. They occur regardless of the instrumentation.
+
+The cost of the agent's queries is too small to be seen in the CPU usage, so we logged them on the server (`log_min_duration_statement=0` for the monitoring role):
+about 970 statements per minute with a total execution time of **6.6 seconds per minute**, never more than one statement at a time.
+
+| Queries                                                                                 | Frequency                  | Avg. time          |
+|-----------------------------------------------------------------------------------------|----------------------------|--------------------|
+| `pg_stat_statements` (5,000 entries)                                                    | every scrape               | 13ms               |
+| `pg_stat_activity` (500 connections), WAL, replication, checkpoints, settings, etc.     | every scrape               | ~20ms in total     |
+| `pg_database_size()` for all databases                                                  | every minute               | 408ms              |
+| Table and index bloat estimation                                                        | every minute, per database | 31ms               |
+| Table sizes, dead tuples and analyze statistics                                         | every minute, per database | 12ms               |
+| Schema tracking (columns, indexes, constraints), autovacuum progress                    | every minute, per database | 17ms               |
+
+In other words, the per-database part takes about 60ms per database, or 6 seconds per minute for 100 databases, and accounts for most of the cost.
+
+#### coroot-cluster-agent resource usage
+
+<img alt="CPU usage of coroot-cluster-agent during the test" src="/img/docs/databases/postgres/overhead_agent_cpu.png" class="card w-800"/>
+
+<img alt="Memory usage of coroot-cluster-agent during the test" src="/img/docs/databases/postgres/overhead_agent_memory.png" class="card w-800"/>
+
+| Phase                     | 1 (off) | 2 (on) | 3 (off) | 4 (on) | 5 (off) | 6 (on) |
+|---------------------------|---------|--------|---------|--------|---------|--------|
+| CPU usage, cores          | 0.005   | 0.055  | 0.006   | 0.054  | 0.006   | 0.052  |
+| Memory (RSS), average, MB | 72      | 218    | 114     | 269    | 118     | 278    |
+| Memory (RSS), peak, MB    | 75      | 265    | 117     | 288    | 123     | 308    |
+
+Compared to the idle agent, monitoring this instance costs **about 0.05 CPU cores and 150-190MB of memory**.
+This is more than in the MySQL test because the agent reports bloat, size and vacuum statistics for the top tables of each of the 100 databases, which adds up to about 25,000 metric series.
+
+### Conclusion
+
+On a Postgres server with 100 databases, 10,000 tables, 500 client connections and 16,000 queries per second:
+
+* enabling the instrumentation has **no measurable impact on the latency** of application queries;
+* the additional CPU usage of Postgres is **below the measurement noise**: the agent's queries take about 6.6 seconds of execution time per minute;
+* coroot-cluster-agent consumes about **0.05 CPU cores and less than 310MB of memory**.
+
+The cost grows with the number of databases rather than with the query rate. If the defaults are too heavy for your environment, schema, size and bloat tracking can be
+limited or turned off, and the scrape interval can be increased. See [what data is collected](/databases/postgres#what-data-is-collected) for the available options.

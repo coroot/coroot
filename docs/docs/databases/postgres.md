@@ -228,6 +228,20 @@ Each capability can be toggled independently:
 - **`--track-database-sizes`** / `TRACK_DATABASE_SIZES` (default: `true`) - per-database and per-table size metrics.
 - **`--track-database-bloat`** / `TRACK_DATABASE_BLOAT` (default: `true`) - per-database, per-table, and per-index bloat estimation (Postgres only).
 
+## Performance impact
+
+Coroot collects most of the statistics over a single persistent connection to the `postgres` database. Once a minute it also connects to each database,
+one at a time, for schema, size and bloat tracking, so the agent never runs more than one query at a time.
+
+We benchmarked the integration on a Postgres 18 server with 100 databases, 10,000 tables and 500 client connections executing 16,000 queries per second.
+With the default agent settings (15-second scrape interval; schema, size and bloat tracking enabled):
+
+- the latency of application queries did not change when the instrumentation was switched on and off;
+- the additional CPU usage of Postgres was below the measurement noise: the agent's queries took about 6.6 seconds of execution time per minute;
+- coroot-cluster-agent consumed about 0.05 CPU cores and less than 310MB of memory.
+
+See [Performance Impact](/installation/performance-impact#postgres-instrumentation-coroot-cluster-agent) for the lab setup and detailed results.
+
 ## Kubernetes (pod annotations)
 
 The Kubernetes approach to monitoring databases typically involves running metric exporters as sidecar containers within database instance Pods.
