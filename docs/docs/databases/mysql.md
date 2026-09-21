@@ -198,7 +198,7 @@ With the default agent settings (15-second scrape interval, schema and size trac
 - `mysqld` consumed about 0.07 additional CPU cores (+2%), with no additional memory usage or disk I/O;
 - coroot-cluster-agent consumed about 0.01 CPU cores and less than 120MB of memory.
 
-See [Performance Impact](/installation/performance-impact#mysql-instrumentation-coroot-cluster-agent) for the lab setup and detailed results.
+See [Performance Impact](/installation/performance-impact#mysql-instrumentation) for the lab setup and detailed results.
 
 ## Kubernetes (pod annotations)
 
