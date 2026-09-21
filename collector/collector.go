@@ -40,8 +40,9 @@ type Collector struct {
 	projects     map[db.ProjectId]*db.Project
 	projectsLock sync.RWMutex
 
-	migrationDone     map[db.ProjectId]bool
-	migrationDoneLock sync.RWMutex
+	migrationDone       map[db.ProjectId]bool
+	migrationLastError  map[db.ProjectId]string
+	migrationDoneLock   sync.RWMutex
 
 	clickhouseClients     map[db.ProjectId]*ch.LowLevelClient
 	clickhouseClientsLock sync.RWMutex
@@ -63,7 +64,8 @@ func New(cfg config.CollectorConfig, database *db.DB, cache *cache.Cache, global
 		cache:             cache,
 		globalClickHouse:  globalClickHouse,
 		globalPrometheus:  globalPrometheus,
-		migrationDone:     map[db.ProjectId]bool{},
+		migrationDone:      map[db.ProjectId]bool{},
+		migrationLastError: map[db.ProjectId]string{},
 		clickhouseClients: map[db.ProjectId]*ch.LowLevelClient{},
 		traceBatches:      map[db.ProjectId]*TracesBatch{},
 		profileBatches:    map[db.ProjectId]*ProfilesBatch{},
@@ -295,4 +297,42 @@ func (c *Collector) GetClickhouseClusterInfo(project *db.Project) (ch.ClickHouse
 		return ch.ClickHouseInfo{}, err
 	}
 	return client.GetInfo()
+}
+
+type ClickhouseMigrationHealth struct {
+	Ready           bool              `json:"ready"`
+	TotalProjects   int               `json:"total_projects"`
+	PendingProjects int               `json:"pending_projects"`
+	Errors          map[string]string `json:"errors,omitempty"`
+}
+
+func (c *Collector) ClickhouseMigrationStatus() ClickhouseMigrationHealth {
+	c.projectsLock.RLock()
+	total := len(c.projects)
+	c.projectsLock.RUnlock()
+
+	c.migrationDoneLock.RLock()
+	defer c.migrationDoneLock.RUnlock()
+
+	pending := 0
+	errors := map[string]string{}
+	for id, errStr := range c.migrationLastError {
+		errors[string(id)] = errStr
+	}
+
+	c.projectsLock.RLock()
+	for pId := range c.projects {
+		if !c.migrationDone[pId] {
+			pending++
+		}
+	}
+	c.projectsLock.RUnlock()
+
+	ready := pending == 0 && len(errors) == 0
+	return ClickhouseMigrationHealth{
+		Ready:           ready,
+		TotalProjects:   total,
+		PendingProjects: pending,
+		Errors:          errors,
+	}
 }
