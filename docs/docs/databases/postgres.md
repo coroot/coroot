@@ -240,7 +240,7 @@ With the default agent settings (15-second scrape interval; schema, size and blo
 - the additional CPU usage of Postgres was below the measurement noise: the agent's queries took about 6.6 seconds of execution time per minute;
 - coroot-cluster-agent consumed about 0.05 CPU cores and less than 310MB of memory.
 
-See [Performance Impact](/installation/performance-impact#postgres-instrumentation-coroot-cluster-agent) for the lab setup and detailed results.
+See [Performance Impact](/installation/performance-impact#postgres-instrumentation) for the lab setup and detailed results.
 
 ## Kubernetes (pod annotations)
 

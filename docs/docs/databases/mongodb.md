@@ -25,6 +25,25 @@ db.getSiblingDB("admin").createUser({
 })
 ```
 
+To track index changes, Coroot reads the index definitions of all collections with a single `$listCatalog` aggregation (MongoDB 6.0+).
+It requires the `listCollections` and `listIndexes` privileges, which are not included in `clusterMonitor`.
+They can be granted with a custom role that gives access to the metadata only, not to the data:
+
+```js
+db.getSiblingDB("admin").createRole({
+    role: "corootCatalog",
+    privileges: [
+        { resource: { db: "", collection: "" }, actions: ["listCollections", "listIndexes"] },
+        { resource: { db: "", collection: "system.js" }, actions: ["listCollections", "listIndexes"] },
+        { resource: { db: "", system_buckets: "" }, actions: ["listCollections", "listIndexes"] },
+    ],
+    roles: []
+})
+db.getSiblingDB("admin").grantRolesToUser("coroot", [{ role: "corootCatalog", db: "admin" }])
+```
+
+Without this role, everything else works, but index changes are not tracked, and the agent logs an authorization error.
+
 The agent connects to each `mongod` instance directly (not through `mongos` or a load balancer), which is required for
 per-instance metrics such as replication status and WiredTiger statistics.
 
@@ -62,7 +81,12 @@ Grants read access to everything the agent collects:
 - `replSetGetStatus` / `replSetGetConfig` - per-member replication state, optimes, votes, and priorities.
 - `$currentOp` - in-flight operations (long-running operations, lock waits, per-application connection counts).
 - `system.profile` - per-query execution statistics (requires `operationProfiling` to be enabled).
-- `listDatabases`, `$collStats`, `listIndexes` - database/collection sizes, storage fragmentation, and index definitions.
+- `listDatabases`, `top`, `$collStats` - database sizes, and the sizes and storage fragmentation of the largest and the most actively written collections.
+
+**corootCatalog (optional custom role)**
+
+Grants `listCollections` and `listIndexes` on all databases, which `$listCatalog` requires to return index definitions.
+These privileges expose collection and index metadata only. Coroot uses them to detect index changes.
 
 **read on local**
 
@@ -210,6 +234,21 @@ the cluster-agent's [configuration file](/configuration/coroot-cluster-agent#con
 
 See the [cluster-agent metrics reference](/metrics/cluster-agent#mongodb) for the complete list of metrics,
 and the [MongoDB inspection](/inspections/mongodb) for the checks built on top of them.
+
+## Performance impact
+
+Most of the metrics come from in-memory counters and are cheap to collect. The only expensive statistics are collection storage stats (`$collStats`),
+so the agent doesn't walk all collections: on each round it only looks at the collections with the most writes (according to `top`)
+and the collections of the largest databases, up to 500 in total. All commands are executed sequentially over a single connection.
+
+We benchmarked the integration on a MongoDB 8.0 server with 100 databases, 10,000 collections and 500 client connections executing 7,200 operations per second.
+With the default agent settings (15-second scrape interval, collection size and index change tracking enabled):
+
+- the latency of application queries did not change when the instrumentation was switched on and off;
+- the additional CPU usage of `mongod` was below the measurement noise, with no additional memory usage;
+- coroot-cluster-agent consumed about 0.015 CPU cores and less than 60MB of memory.
+
+See [Performance Impact](/installation/performance-impact#mongodb-instrumentation) for the lab setup and detailed results.
 
 ## Troubleshooting
 

@@ -5,16 +5,18 @@ sidebar_position: 10
 # Performance Impact
 
 Observability should never come at the expense of the applications being observed.
-Coroot gathers telemetry in two ways: coroot-node-agent watches applications from the kernel using eBPF,
-and coroot-cluster-agent queries databases for their internal statistics.
-We benchmark both to make sure you get this visibility without paying for it in latency or resources.
+Coroot gathers telemetry from many sources: eBPF, OpenTelemetry, continuous profiling, logs, cloud provider APIs,
+and the statistics that databases report about themselves.
+Some of these collectors run right next to your workloads or send queries to your databases, so we benchmark them
+to make sure you get this visibility without paying for it in latency or resources.
 This page presents the results:
 
-* [eBPF-based monitoring](#ebpf-based-monitoring-coroot-node-agent): the impact of coroot-node-agent on an application serving 10,000 requests per second.
-* [MySQL instrumentation](#mysql-instrumentation-coroot-cluster-agent): the impact of coroot-cluster-agent on a busy MySQL server with 10,000 tables.
-* [Postgres instrumentation](#postgres-instrumentation-coroot-cluster-agent): the impact of coroot-cluster-agent on a busy Postgres server with 100 databases and 10,000 tables.
+* [eBPF-based monitoring](#ebpf-based-monitoring): the impact of coroot-node-agent on an application serving 10,000 requests per second.
+* [MySQL instrumentation](#mysql-instrumentation): the impact of coroot-cluster-agent on a busy MySQL server with 10,000 tables.
+* [Postgres instrumentation](#postgres-instrumentation): the impact of coroot-cluster-agent on a busy Postgres server with 100 databases and 10,000 tables.
+* [MongoDB instrumentation](#mongodb-instrumentation): the impact of coroot-cluster-agent on a busy MongoDB server with 100 databases and 10,000 collections.
 
-## eBPF-based monitoring (coroot-node-agent)
+## eBPF-based monitoring
 
 Coroot leverages eBPF to collect telemetry data, such as metrics and traces.
 This approach involves running small observer programs in the kernel space.
@@ -103,7 +105,7 @@ be approximately 20% of a single CPU core.
 If your workloads are significantly larger, we highly recommend conducting a similar load test. 
 The Coroot team is here to assist you with this, please feel free to reach out to us.
 
-## MySQL instrumentation (coroot-cluster-agent)
+## MySQL instrumentation
 
 eBPF shows how a database behaves from the outside, but explaining *why* it is slow requires data from the inside.
 For [MySQL](/databases/mysql), coroot-cluster-agent gets it the same way a DBA would: it connects as a regular client and periodically
@@ -203,7 +205,7 @@ On a MySQL server with 100 databases, 10,000 tables, 500 client connections and 
 If the defaults are still too heavy for your environment (for example, a server with hundreds of thousands of tables), schema and size tracking can be
 limited or turned off, and the scrape interval can be increased. See [what data is collected](/databases/mysql#what-data-is-collected) for the available options.
 
-## Postgres instrumentation (coroot-cluster-agent)
+## Postgres instrumentation
 
 For [Postgres](/databases/postgres), coroot-cluster-agent reads `pg_stat_statements`, `pg_stat_activity` and other statistics views over a single connection to the `postgres` database.
 In addition, once a minute it briefly connects to **every database** on the server to track table sizes, schema changes, bloat and autovacuum statistics.
@@ -297,3 +299,94 @@ On a Postgres server with 100 databases, 10,000 tables, 500 client connections a
 
 The cost grows with the number of databases rather than with the query rate. If the defaults are too heavy for your environment, schema, size and bloat tracking can be
 limited or turned off, and the scrape interval can be increased. See [what data is collected](/databases/postgres#what-data-is-collected) for the available options.
+
+## MongoDB instrumentation
+
+For [MongoDB](/databases/mongodb), coroot-cluster-agent collects most of the metrics from in-memory counters (`serverStatus`, `replSetGetStatus`, `$currentOp`), which is cheap.
+The only expensive statistics are collection storage stats (`$collStats`): they cost MongoDB a few milliseconds *per collection*, no matter how small the collection is.
+Since Coroot only needs the largest and the fastest-growing collections, the agent doesn't walk all of them. On each round it looks at
+the collections with the most writes (according to the `top` command) and the collections of the largest databases, up to 500 collections in total.
+Index definitions of all collections are fetched with a single `$listCatalog` aggregation.
+We tested this on a server with 10,000 collections, using the same method as in the benchmarks above.
+
+### Lab
+
+* **MongoDB 8.0** (a single-node replica set) on a dedicated virtual machine (8 vCPU, 32GB RAM, NVMe SSD): 100 databases with 100 collections each,
+  every collection has a secondary index (10,000 collections, 30,000 WiredTiger files, 100M documents, 37GB on disk), a 10GB WiredTiger cache,
+  and the profiler configured [as recommended](/databases/mongodb#prerequisites) (`slowOp`, 200ms).
+* **Load**: a load generator modeled after the `oltp_read_write` scenario of `sysbench`. Each event consists of 18 operations on a random collection:
+  10 point reads, 4 range reads, 2 updates, a delete and an insert. 100 clients (one per database) on two other machines hold 500 connections and execute
+  a fixed **400 events / 7,200 operations per second**. 20% of the documents are "hot", so the working set fits into the cache.
+* **coroot-cluster-agent** on a separate machine, with the default settings: a 15-second scrape interval, and collection size and index change tracking enabled.
+  The monitoring user has the [recommended permissions](/databases/mongodb#prerequisites), including the optional role for index change tracking.
+* **coroot-node-agent** on every machine as the measuring tool: query latency is captured by eBPF on the client side,
+  and the CPU and memory usage of `mongod` and the agent come from container metrics.
+
+The test runs four 15-minute phases under the same load, with the instrumentation alternately disabled and enabled.
+
+### Test Results
+
+In the charts below, the shaded areas are the phases with the instrumentation enabled.
+
+#### Client-side latency
+
+<img alt="MongoDB query rate and latency during the test" src="/img/docs/databases/mongodb/overhead_latency.png" class="card w-1200"/>
+
+| Phase                                        | 1 (off) | 2 (on) | 3 (off) | 4 (on) |
+|----------------------------------------------|---------|--------|---------|--------|
+| Operations per second (eBPF)                 | 6,867   | 6,874  | 6,942   | 7,027  |
+| Average operation latency (eBPF), ms         | 0.673   | 0.680  | 0.681   | 0.676  |
+| Operations completed within 5ms (eBPF), %    | 99.90   | 99.88  | 99.90   | 99.89  |
+| p99 event latency (18 operations), ms        | 26.3    | 27.4   | 26.8    | 26.7   |
+
+The latency with the instrumentation enabled is the same as the baseline, both on average and at the 99th percentile, and no operations failed.
+
+#### MongoDB resource usage
+
+<img alt="CPU usage of MongoDB during the test" src="/img/docs/databases/mongodb/overhead_mongodb_cpu.png" class="card w-1200"/>
+
+| Phase                   | 1 (off) | 2 (on) | 3 (off) | 4 (on) |
+|-------------------------|---------|--------|---------|--------|
+| mongod CPU usage, cores | 2.41    | 2.37   | 2.40    | 2.39   |
+| mongod memory (RSS), GB | 15.1    | 15.2   | 15.2    | 15.3   |
+
+The CPU usage of `mongod` with the instrumentation enabled is within the measurement noise of the baseline. Memory usage slowly grows during the test regardless of the instrumentation.
+
+All commands are executed sequentially over a single connection:
+
+| Command                                                         | Frequency                                   | Avg. time  |
+|-----------------------------------------------------------------|---------------------------------------------|------------|
+| `serverStatus`                                                  | every scrape                                | 11ms       |
+| `$currentOp` (750 connections and sessions)                     | every scrape                                | 18ms       |
+| profiler level and new `system.profile` entries                 | every scrape, per database                  | < 1ms      |
+| `listDatabases` (with sizes)                                    | every minute                                | 0.5 - 0.9s |
+| `top`                                                           | every minute                                | < 50ms     |
+| `$listCatalog` (index definitions of all collections)           | every minute                                | < 100ms    |
+| `$collStats` (only the size fields are requested)               | every minute, for at most 500 collections   | 3ms        |
+
+Collection tracking adds up to a few hundred commands per minute (about 350 in this test) regardless of the number of collections. Walking all 10,000 collections would take 20,000 commands and more than 30 seconds of execution time every minute.
+
+#### coroot-cluster-agent resource usage
+
+<img alt="CPU usage of coroot-cluster-agent during the test" src="/img/docs/databases/mongodb/overhead_agent_cpu.png" class="card w-800"/>
+
+<img alt="Memory usage of coroot-cluster-agent during the test" src="/img/docs/databases/mongodb/overhead_agent_memory.png" class="card w-800"/>
+
+| Phase                     | 1 (off) | 2 (on) | 3 (off) | 4 (on) |
+|---------------------------|---------|--------|---------|--------|
+| CPU usage, cores          | 0.005   | 0.015  | 0.005   | 0.015  |
+| Memory (RSS), average, MB | 33      | 50     | 35      | 51     |
+| Memory (RSS), peak, MB    | 34      | 60     | 36      | 60     |
+
+Compared to the idle agent, monitoring this instance costs **about 0.01 CPU cores and 15-25MB of memory**, and the agent receives about 1 Mbit/s from MongoDB.
+
+### Conclusion
+
+On a MongoDB server with 100 databases, 10,000 collections, 500 client connections and 7,200 operations per second:
+
+* enabling the instrumentation has **no measurable impact on the latency** of application queries;
+* the additional CPU usage of `mongod` is **below the measurement noise**, with no additional memory usage;
+* coroot-cluster-agent consumes about **0.015 CPU cores and less than 60MB of memory**.
+
+Note that this benchmark doesn't cover the cost of the MongoDB profiler itself: it was enabled during all phases, as writing profile entries
+is performed by `mongod` regardless of whether anything reads them. See [Prerequisites](/databases/mongodb#prerequisites) for how to keep it low.
