@@ -258,6 +258,7 @@ projects: # Create or update projects (configuration file only).
             webhook:
               enabled: false
     # Project custom applications settings.
+    # Optionally specify the name as "namespace/appname" to assign a custom namespace.
     customApplications:
       - name: custom-app
         instancePatterns:
