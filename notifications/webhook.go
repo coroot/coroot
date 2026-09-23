@@ -104,6 +104,9 @@ func mergeCustomFields(values any, customFields map[string]string) any {
 }
 
 func (wh *Webhook) SendIncident(ctx context.Context, baseUrl string, n *db.IncidentNotification) error {
+	if err := wh.cfg.Validate(); err != nil {
+		return err
+	}
 	tmpl, err := template.New("incidentTemplate").Funcs(templateFunctions).Parse(wh.cfg.IncidentTemplate)
 	if err != nil {
 		return fmt.Errorf("invalid incident template: %s", err)
@@ -131,6 +134,9 @@ func (wh *Webhook) SendIncident(ctx context.Context, baseUrl string, n *db.Incid
 func (wh *Webhook) SendAlert(ctx context.Context, baseUrl string, n *db.AlertNotification) error {
 	if wh.cfg.AlertTemplate == "" {
 		return nil
+	}
+	if err := wh.cfg.Validate(); err != nil {
+		return err
 	}
 	tmpl, err := template.New("alertTemplate").Funcs(templateFunctions).Parse(wh.cfg.AlertTemplate)
 	if err != nil {
@@ -161,6 +167,9 @@ func (wh *Webhook) SendAlert(ctx context.Context, baseUrl string, n *db.AlertNot
 }
 
 func (wh *Webhook) SendDeployment(ctx context.Context, project *db.Project, ds model.ApplicationDeploymentStatus) error {
+	if err := wh.cfg.Validate(); err != nil {
+		return err
+	}
 	tmpl, err := template.New("deploymentTemplate").Funcs(templateFunctions).Parse(wh.cfg.DeploymentTemplate)
 	if err != nil {
 		return fmt.Errorf("invalid deployment template: %s", err)
