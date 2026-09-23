@@ -1,0 +1,5 @@
+label: OpenTelemetry SDK overhead
+position: 10
+link:
+  type: doc
+  id: tracing/opentelemetry-overhead/overview

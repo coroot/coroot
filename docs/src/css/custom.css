@@ -83,3 +83,40 @@
 .primary-button:hover {
   background-color: #2958FD;
 }
+
+.markdown img.lang-logo {
+  height: 28px;
+  width: auto;
+  padding: 0;
+  margin: 0 8px 0 0;
+  vertical-align: middle;
+  background: none;
+  border-radius: 0;
+}
+.lang-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+  margin: 16px 0 24px;
+}
+.lang-cards a {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  text-decoration: none;
+  color: inherit;
+  font-weight: 600;
+}
+.lang-cards a:hover {
+  border-color: #999;
+}
+.lang-cards img {
+  height: 32px;
+  width: 32px;
+  padding: 0;
+  margin: 0;
+  background: none;
+}
