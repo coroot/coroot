@@ -92,6 +92,21 @@ auth:
 
 To rotate a config-defined key without downtime, list both the old and the new key (under different descriptions) during the rollout, switch the agents to the new key, then remove the old one.
 
+On Kubernetes, the [Coroot operator](/installation/k8s-operator) exposes the same settings as `spec.serviceAccounts` of the `Coroot` resource, and a key can reference a Secret through `keySecret`.
+The operator generates the Secret with a random key if it does not exist, so the agent's Deployment can mount the same Secret and no key ever needs to be copied by hand:
+
+```yaml
+spec:
+  serviceAccounts:
+    - name: claude-agent
+      role: Viewer
+      apiKeys:
+        - description: production investigation agent
+          keySecret:
+            name: coroot-claude-agent
+            key: api-key
+```
+
 Service accounts are independent of SSO: they never log in, so they keep working when [Force SSO](#force-sso) is enabled.
 
 ## Single Sign-On (SSO)

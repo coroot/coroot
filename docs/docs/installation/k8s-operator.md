@@ -66,6 +66,17 @@ spec:
 #  authBootstrapAdminPasswordSecret:  # Secret containing the initial admin password.
 #    name: # Name of the secret to select from.
 #    key:  # Key of the secret to select from.
+#  # Service accounts for programmatic access with API keys, e.g. autonomous agents using the MCP endpoint.
+#  # Coroot creates or updates them on startup; they are locked in the UI and their keys are managed here.
+#  serviceAccounts:
+#    - name: claude-agent # Service account name, used as its login (required).
+#      role: Viewer       # Admin, Editor, Viewer, or a custom role in the Enterprise Edition (required).
+#      apiKeys:           # At least one key is required. Descriptions are required and must be unique within the account.
+#        - description: production investigation agent
+#          key:           # Plain-text API key. Prefer using `keySecret` for better security.
+#          keySecret:     # Secret containing the API key. Generated automatically if missing.
+#            name: # Name of the secret to select from.
+#            key:  # Key of the secret to select from.
 #  env: # Environment variables for Coroot.
 #    - name:
 #      value:
