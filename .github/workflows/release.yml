@@ -37,6 +37,7 @@ jobs:
         with:
           name: static
           path: ./static
+          retention-days: 1
 
   build-images:
     needs: build-frontend
@@ -105,12 +106,14 @@ jobs:
         with:
           name: digest-${{ matrix.arch }}
           path: /tmp/digests/${{ matrix.arch }}
+          retention-days: 1
 
       - name: upload ${{ matrix.arch }} binary
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: binary-${{ matrix.arch }}
           path: /tmp/coroot-${{ matrix.arch }}
+          retention-days: 1
 
   release:
     needs: build-images
