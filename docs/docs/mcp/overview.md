@@ -122,6 +122,25 @@ auth:
           description: production investigation agent
 ```
 
+**Via the Kubernetes operator**. The [Coroot operator](/installation/k8s-operator) exposes the same settings as `spec.serviceAccounts` of the `Coroot` resource. A key can reference a Secret through `keySecret`, and the operator generates that Secret with a random key if it does not exist, so the agent's Deployment can mount the same Secret and nobody has to copy the key by hand.
+
+```yaml
+apiVersion: coroot.com/v1
+kind: Coroot
+metadata:
+  name: coroot
+  namespace: coroot
+spec:
+  serviceAccounts:
+    - name: claude-agent
+      role: Viewer
+      apiKeys:
+        - description: production investigation agent
+          keySecret:
+            name: coroot-claude-agent
+            key: api-key
+```
+
 **Connecting a client with a key**. Any MCP client that supports custom headers can use a key instead of OAuth, for example Claude Code:
 
 ```bash
