@@ -143,6 +143,7 @@
                             <template v-if="user && !user.anonymous">
                                 <v-divider class="my-2" />
                                 <v-list-item @click="changePassword = true">Change password</v-list-item>
+                                <v-list-item @click="apiKeys = true">API keys</v-list-item>
                                 <v-list-item :to="{ name: 'logout' }">Sign out</v-list-item>
                             </template>
                         </v-list>
@@ -244,6 +245,7 @@
                 <router-view v-else />
 
                 <ChangePassword v-if="user" v-model="changePassword" />
+                <ApiKeys v-if="user" v-model="apiKeys" :user="user" />
 
                 <CloudPromoDialog v-if="!ee && user" />
 
@@ -260,13 +262,14 @@ import CheckForUpdates from './components/CheckForUpdates.vue';
 import ThemeSelector from './components/ThemeSelector.vue';
 import AgentInstallation from './views/AgentInstallation.vue';
 import ChangePassword from './views/auth/ChangePassword.vue';
+import ApiKeys from './views/auth/ApiKeys.vue';
 import CloudPromoDialog from './components/CloudPromoDialog.vue';
 import LicenseCheck from './components/LicenseCheck.vue';
 import { views } from '@/views/Views.vue';
 import './app.css';
 
 export default {
-    components: { Welcome, Search, CheckForUpdates, ThemeSelector, AgentInstallation, ChangePassword, CloudPromoDialog, LicenseCheck },
+    components: { Welcome, Search, CheckForUpdates, ThemeSelector, AgentInstallation, ChangePassword, ApiKeys, CloudPromoDialog, LicenseCheck },
 
     data() {
         let menuCollapsed = this.$storage.local('menu-collapsed');
@@ -277,6 +280,7 @@ export default {
             user: null,
             context: this.$api.context,
             changePassword: false,
+            apiKeys: false,
             menuCollapsed: menuCollapsed,
             search: false,
             systemAlerts: [],

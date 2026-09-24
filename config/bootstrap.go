@@ -1,6 +1,8 @@
 package config
 
 import (
+	"fmt"
+
 	"github.com/coroot/coroot/cloud"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
@@ -158,6 +160,42 @@ func (cfg *Config) Bootstrap(database *db.DB) error {
 		}
 	}
 
+	return syncServiceAccounts(database, cfg.Auth.ServiceAccounts)
+}
+
+func syncServiceAccounts(database *db.DB, accounts []ServiceAccount) error {
+	if len(accounts) == 0 {
+		return nil
+	}
+	users, err := database.GetUsers()
+	if err != nil {
+		return err
+	}
+	byLogin := map[string]*db.User{}
+	for _, u := range users {
+		byLogin[u.Email] = u
+	}
+	for _, sa := range accounts {
+		u := byLogin[sa.Name]
+		switch {
+		case u == nil:
+			klog.Infoln("creating service account:", sa.Name)
+			id, err := database.AddServiceAccount(sa.Name, sa.Name, sa.Role)
+			if err != nil {
+				return err
+			}
+			u = &db.User{Id: id}
+		case !u.IsServiceAccount():
+			return fmt.Errorf("service account '%s' conflicts with an existing user", sa.Name)
+		default:
+			if err = database.UpdateUser(u.Id, u.Email, "", u.Name, sa.Role); err != nil {
+				return err
+			}
+		}
+		if err = database.SetUserApiKeys(u.Id, sa.ApiKeys); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

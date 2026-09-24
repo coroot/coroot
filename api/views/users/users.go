@@ -20,6 +20,8 @@ type User struct {
 	Anonymous bool          `json:"anonymous,omitempty"`
 	Readonly  bool          `json:"readonly,omitempty"`
 	Projects  []Project     `json:"projects,omitempty"`
+
+	ServiceAccount bool `json:"service_account,omitempty"`
 }
 
 type Project struct {
@@ -27,15 +29,16 @@ type Project struct {
 	Name string       `json:"name"`
 }
 
-func RenderUsers(users []*db.User, roles []rbac.Role) *Users {
+func RenderUsers(users []*db.User, roles []rbac.Role, readonly func(*db.User) bool) *Users {
 	v := &Users{}
 
 	for _, user := range users {
 		u := User{
-			Id:       user.Id,
-			Email:    user.Email,
-			Name:     user.Name,
-			Readonly: user.IsDefaultAdmin(),
+			Id:             user.Id,
+			Email:          user.Email,
+			Name:           user.Name,
+			Readonly:       user.IsDefaultAdmin() || readonly(user),
+			ServiceAccount: user.IsServiceAccount(),
 		}
 		if len(user.Roles) > 0 {
 			u.Role = user.Roles[0]
@@ -52,6 +55,7 @@ func RenderUsers(users []*db.User, roles []rbac.Role) *Users {
 
 func RenderUser(user *db.User, projects map[db.ProjectId]string, viewonly bool) *User {
 	v := &User{
+		Id:        user.Id,
 		Name:      user.Name,
 		Email:     user.Email,
 		Anonymous: user.Anonymous,

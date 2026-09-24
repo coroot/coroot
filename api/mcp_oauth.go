@@ -118,7 +118,7 @@ func (api *Api) MCPUserFromBearer(r *http.Request) *db.User {
 	token := strings.TrimPrefix(auth, mcpBearerPrefix)
 	var claims mcpTokenClaims
 	if err := api.mcpVerify(mcpAudAccess, token, &claims); err != nil {
-		return nil
+		return api.GetUserByApiKey(r)
 	}
 	userId, err := strconv.Atoi(claims.Subject)
 	if err != nil {

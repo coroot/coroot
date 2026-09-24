@@ -10,6 +10,7 @@ import (
 
 	"github.com/coroot/coroot/cloud"
 	"github.com/coroot/coroot/db"
+	"github.com/coroot/coroot/rbac"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 	"gopkg.in/yaml.v3"
@@ -191,8 +192,41 @@ func (p *Prometheus) Validate() error {
 }
 
 type Auth struct {
-	AnonymousRole          string `yaml:"anonymous_role"`
-	BootstrapAdminPassword string `yaml:"bootstrap_admin_password"`
+	AnonymousRole          string           `yaml:"anonymous_role"`
+	BootstrapAdminPassword string           `yaml:"bootstrap_admin_password"`
+	ServiceAccounts        []ServiceAccount `yaml:"serviceAccounts"`
+}
+
+type ServiceAccount struct {
+	Name    string        `yaml:"name"`
+	Role    rbac.RoleName `yaml:"role"`
+	ApiKeys []db.ApiKey   `yaml:"apiKeys"`
+}
+
+func (sa *ServiceAccount) Validate() error {
+	if sa.Name == "" {
+		return fmt.Errorf("name is required")
+	}
+	if sa.Role == "" {
+		return fmt.Errorf("role is required")
+	}
+	if len(sa.ApiKeys) == 0 {
+		return fmt.Errorf("no api keys defined")
+	}
+	descriptions := map[string]bool{}
+	for i, k := range sa.ApiKeys {
+		if err := k.Validate(); err != nil {
+			return fmt.Errorf("invalid api key #%d: %w", i, err)
+		}
+		if k.Description == "" {
+			return fmt.Errorf("invalid api key #%d: description is required", i)
+		}
+		if descriptions[k.Description] {
+			return fmt.Errorf("invalid api key #%d: duplicate description '%s'", i, k.Description)
+		}
+		descriptions[k.Description] = true
+	}
+	return nil
 }
 
 func NewConfig() *Config {
@@ -309,6 +343,12 @@ func (cfg *Config) Validate() error {
 	for i, p := range cfg.Projects {
 		if err = p.Validate(); err != nil {
 			return fmt.Errorf("invalid project #%d: %w", i, err)
+		}
+	}
+
+	for i, sa := range cfg.Auth.ServiceAccounts {
+		if err = sa.Validate(); err != nil {
+			return fmt.Errorf("invalid service account #%d: %w", i, err)
 		}
 	}
 

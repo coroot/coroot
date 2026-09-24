@@ -15,10 +15,15 @@
             </thead>
             <tbody>
                 <tr v-for="u in users">
-                    <td>{{ u.email }}</td>
+                    <td>
+                        {{ u.email }}
+                        <v-chip v-if="u.service_account" x-small label class="ml-1">service account</v-chip>
+                        <v-icon v-if="u.service_account && u.readonly" small title="defined in the config">mdi-lock</v-icon>
+                    </td>
                     <td>{{ u.name }}</td>
                     <td>{{ u.role }}</td>
-                    <td>
+                    <td class="text-no-wrap">
+                        <v-btn small icon @click="openKeys(u)" title="API keys"><v-icon small>mdi-key-outline</v-icon></v-btn>
                         <template v-if="!u.readonly">
                             <v-btn small icon @click="update(u)"><v-icon small>mdi-pencil</v-icon></v-btn>
                             <v-btn small icon @click="del(u)"><v-icon small>mdi-trash-can-outline</v-icon></v-btn>
@@ -37,16 +42,26 @@
                     <v-btn icon @click="form.active = false"><v-icon>mdi-close</v-icon></v-btn>
                 </div>
                 <v-form v-model="form.valid" ref="form">
-                    <div class="font-weight-medium">Email (Login)</div>
-                    <v-text-field
-                        outlined
+                    <v-checkbox
+                        v-if="form.action === 'create'"
+                        v-model="form.service_account"
+                        label="Service account (no password, API key access only)"
                         dense
-                        type="email"
-                        v-model="form.email"
-                        name="email"
-                        :disabled="form.readonly"
-                        :rules="[$validators.isEmail]"
+                        hide-details
+                        class="mt-0 mb-3"
                     />
+                    <template v-if="!form.service_account">
+                        <div class="font-weight-medium">Email (Login)</div>
+                        <v-text-field
+                            outlined
+                            dense
+                            type="email"
+                            v-model="form.email"
+                            name="email"
+                            :disabled="form.readonly"
+                            :rules="[$validators.isEmail]"
+                        />
+                    </template>
 
                     <div class="font-weight-medium">Name</div>
                     <v-text-field outlined dense v-model="form.name" name="name" :disabled="form.readonly" :rules="[$validators.notEmpty]" />
@@ -63,16 +78,18 @@
                         :rules="[$validators.notEmpty]"
                     />
 
-                    <div class="font-weight-medium">Password</div>
-                    <v-text-field
-                        outlined
-                        dense
-                        type="password"
-                        v-model="form.password"
-                        name="password"
-                        :disabled="form.readonly"
-                        :rules="form.action === 'create' ? [$validators.notEmpty] : []"
-                    />
+                    <template v-if="!form.service_account">
+                        <div class="font-weight-medium">Password</div>
+                        <v-text-field
+                            outlined
+                            dense
+                            type="password"
+                            v-model="form.password"
+                            name="password"
+                            :disabled="form.readonly"
+                            :rules="form.action === 'create' ? [$validators.notEmpty] : []"
+                        />
+                    </template>
 
                     <v-alert v-if="form.error" color="red" icon="mdi-alert-octagon-outline" outlined text>{{ form.error }}</v-alert>
                     <v-alert v-if="form.message" color="green" outlined text>{{ form.message }}</v-alert>
@@ -83,11 +100,17 @@
                 </v-form>
             </v-card>
         </v-dialog>
+
+        <ApiKeys v-model="keys.active" :user="keys.user" :locked="!!(keys.user.service_account && keys.user.readonly)" />
     </div>
 </template>
 
 <script>
+import ApiKeys from './auth/ApiKeys.vue';
+
 export default {
+    components: { ApiKeys },
+
     data() {
         return {
             users: [],
@@ -113,6 +136,11 @@ export default {
                 email: '',
                 role: '',
                 password: '',
+                service_account: false,
+            },
+            keys: {
+                active: false,
+                user: {},
             },
         };
     },
@@ -138,8 +166,8 @@ export default {
         },
         post() {
             this.form.loading = true;
-            const { id, action, name, email, role, password } = this.form;
-            this.$api.users({ id, action, name, email, role, password }, (data, error) => {
+            const { id, action, name, email, role, password, service_account } = this.form;
+            this.$api.users({ id, action, name, email, role, password, service_account }, (data, error) => {
                 this.form.loading = false;
                 if (error) {
                     this.form.error = error;
@@ -162,6 +190,7 @@ export default {
             this.form.email = '';
             this.form.role = '';
             this.form.password = '';
+            this.form.service_account = false;
             this.$refs.form && this.$refs.form.resetValidation();
         },
         update(user) {
@@ -173,6 +202,7 @@ export default {
             this.form.button.text = 'Save';
             this.form.button.color = 'primary';
             this.form.action = 'update';
+            this.form.service_account = !!user.service_account;
             this.form.id = user.id;
             this.form.name = user.name;
             this.form.email = user.email;
@@ -189,12 +219,17 @@ export default {
             this.form.button.text = 'Delete';
             this.form.button.color = 'error';
             this.form.action = 'delete';
+            this.form.service_account = !!user.service_account;
             this.form.id = user.id;
             this.form.name = user.name;
             this.form.email = user.email;
             this.form.role = user.role;
             this.form.password = '';
             this.$refs.form && this.$refs.form.resetValidation();
+        },
+        openKeys(user) {
+            this.keys.user = user;
+            this.keys.active = true;
         },
     },
 };

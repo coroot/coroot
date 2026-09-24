@@ -153,7 +153,13 @@ func (api *Api) Users(w http.ResponseWriter, r *http.Request, u *db.User) {
 				http.Error(w, fmt.Sprintf("Unknown role: %s", form.Name), http.StatusBadRequest)
 				return
 			}
-			if err := api.db.AddUser(form.Email, form.Password, form.Name, form.Role); err != nil {
+			var err error
+			if form.ServiceAccount {
+				_, err = api.db.AddServiceAccount(form.Email, form.Name, form.Role)
+			} else {
+				err = api.db.AddUser(form.Email, form.Password, form.Name, form.Role)
+			}
+			if err != nil {
 				klog.Errorln(err)
 				if errors.Is(err, db.ErrConflict) {
 					http.Error(w, "The user is already added.", http.StatusConflict)
@@ -188,7 +194,60 @@ func (api *Api) Users(w http.ResponseWriter, r *http.Request, u *db.User) {
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
-	utils.WriteJson(w, views.Users(users, roles))
+	utils.WriteJson(w, views.Users(users, roles, api.isConfigServiceAccount))
+}
+
+func (api *Api) UserApiKeys(w http.ResponseWriter, r *http.Request, u *db.User) {
+	userId, err := strconv.Atoi(mux.Vars(r)["user"])
+	if err != nil {
+		http.Error(w, "", http.StatusBadRequest)
+		return
+	}
+	own := !u.Anonymous && u.Id == userId
+	if !own && !api.IsAllowed(u, rbac.Actions.Users().Edit()) {
+		http.Error(w, "You are not allowed to manage API keys of other users.", http.StatusForbidden)
+		return
+	}
+	if r.Method == http.MethodPost {
+		if target, err := api.db.GetUser(userId); err != nil || api.isConfigServiceAccount(target) {
+			http.Error(w, "API keys of config-defined service accounts are managed in the config file.", http.StatusForbidden)
+			return
+		}
+		var form forms.UserApiKeyForm
+		if err := forms.ReadAndValidate(r, &form); err != nil {
+			klog.Warningln("bad request:", err)
+			http.Error(w, "", http.StatusBadRequest)
+			return
+		}
+		switch form.Action {
+		case forms.UserActionCreate:
+			key := "crt_" + utils.RandomString(32)
+			if err := api.db.AddUserApiKey(userId, key, form.Description); err != nil {
+				if errors.Is(err, db.ErrConflict) {
+					http.Error(w, "An API key with this description already exists.", http.StatusConflict)
+					return
+				}
+				klog.Errorln(err)
+				http.Error(w, "", http.StatusInternalServerError)
+				return
+			}
+			utils.WriteJson(w, map[string]string{"key": key})
+		case forms.UserActionDelete:
+			if err := api.db.DeleteUserApiKey(userId, form.Id); err != nil {
+				klog.Errorln(err)
+				http.Error(w, "", http.StatusInternalServerError)
+				return
+			}
+		}
+		return
+	}
+	keys, err := api.db.GetUserApiKeys(userId)
+	if err != nil {
+		klog.Errorln(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	utils.WriteJson(w, keys)
 }
 
 func (api *Api) Roles(w http.ResponseWriter, r *http.Request, u *db.User) {

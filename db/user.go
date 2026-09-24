@@ -1,7 +1,9 @@
 package db
 
 import (
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 
@@ -14,6 +16,8 @@ const (
 	AdminUserName            = "Admin"
 	AdminUserDefaultPassword = ""
 	AnonymousUserName        = "Anonymous"
+
+	UserTypeServiceAccount = "service_account"
 )
 
 type User struct {
@@ -21,7 +25,13 @@ type User struct {
 	Email     string
 	Name      string
 	Roles     []rbac.RoleName
+	Type      string
 	Anonymous bool
+}
+
+type UserApiKey struct {
+	Id          int    `json:"id"`
+	Description string `json:"description"`
 }
 
 func (u *User) Migrate(m *Migrator) error {
@@ -36,7 +46,24 @@ func (u *User) Migrate(m *Migrator) error {
 	if err != nil {
 		return err
 	}
-	return nil
+	if err = m.AddColumnIfNotExists("users", "type", "TEXT NOT NULL DEFAULT ''"); err != nil {
+		return err
+	}
+	err = m.Exec(`
+	CREATE TABLE IF NOT EXISTS user_api_keys (
+		id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+		user_id INTEGER NOT NULL,
+		hash TEXT NOT NULL UNIQUE,
+		description TEXT NOT NULL
+	)`)
+	if err != nil {
+		return err
+	}
+	return m.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS user_api_keys_user_description ON user_api_keys (user_id, description)`)
+}
+
+func (u *User) IsServiceAccount() bool {
+	return u.Type == UserTypeServiceAccount
 }
 
 func (u *User) IsDefaultAdmin() bool {
@@ -99,7 +126,7 @@ func (db *DB) DefaultAdminUserIsTheOnlyUser() (*User, error) {
 }
 
 func (db *DB) GetUsers() ([]*User, error) {
-	rows, err := db.db.Query("SELECT id, email, name, roles FROM users")
+	rows, err := db.db.Query("SELECT id, email, name, roles, type FROM users")
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +135,7 @@ func (db *DB) GetUsers() ([]*User, error) {
 	for rows.Next() {
 		var u User
 		var roles string
-		err = rows.Scan(&u.Id, &u.Email, &u.Name, &roles)
+		err = rows.Scan(&u.Id, &u.Email, &u.Name, &roles, &u.Type)
 		if err != nil {
 			return nil, err
 		}
@@ -140,7 +167,7 @@ func (db *DB) AuthUser(email, password string) (int, error) {
 func (db *DB) GetUser(id int) (*User, error) {
 	u := User{Id: id}
 	var roles string
-	err := db.db.QueryRow("SELECT email, name, roles FROM users WHERE id = $1", id).Scan(&u.Email, &u.Name, &roles)
+	err := db.db.QueryRow("SELECT email, name, roles, type FROM users WHERE id = $1", id).Scan(&u.Email, &u.Name, &roles, &u.Type)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNotFound
@@ -215,6 +242,119 @@ func (db *DB) ChangeUserPassword(id int, oldPassword, newPassword string) error 
 }
 
 func (db *DB) DeleteUser(id int) error {
+	if _, err := db.db.Exec("DELETE FROM user_api_keys WHERE user_id = $1", id); err != nil {
+		return err
+	}
 	_, err := db.db.Exec("DELETE FROM users WHERE id = $1", id)
 	return err
+}
+
+func (db *DB) AddServiceAccount(login, name string, role rbac.RoleName) (int, error) {
+	roles, err := json.Marshal([]rbac.RoleName{role})
+	if err != nil {
+		return 0, err
+	}
+	res, err := db.db.Exec("INSERT INTO users(email, name, password, roles, type) VALUES($1, $2, '', $3, $4)", login, name, string(roles), UserTypeServiceAccount)
+	if db.IsUniqueViolationError(err) {
+		return 0, ErrConflict
+	}
+	if err != nil {
+		return 0, err
+	}
+	id, err := res.LastInsertId()
+	if err != nil { // postgres doesn't support LastInsertId
+		err = db.db.QueryRow("SELECT id FROM users WHERE email = $1", login).Scan(&id)
+	}
+	return int(id), err
+}
+
+func hashApiKey(key string) string {
+	h := sha256.Sum256([]byte(key))
+	return hex.EncodeToString(h[:])
+}
+
+func (db *DB) GetUserByApiKey(key string) (*User, error) {
+	var u User
+	var roles string
+	err := db.db.QueryRow(
+		"SELECT u.id, u.email, u.name, u.roles, u.type FROM users u JOIN user_api_keys k ON k.user_id = u.id WHERE k.hash = $1",
+		hashApiKey(key),
+	).Scan(&u.Id, &u.Email, &u.Name, &roles, &u.Type)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	if err = json.Unmarshal([]byte(roles), &u.Roles); err != nil {
+		return nil, err
+	}
+	return &u, nil
+}
+
+func (db *DB) GetUserApiKeys(userId int) ([]UserApiKey, error) {
+	rows, err := db.db.Query("SELECT id, description FROM user_api_keys WHERE user_id = $1 ORDER BY id", userId)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	res := []UserApiKey{}
+	for rows.Next() {
+		var k UserApiKey
+		if err = rows.Scan(&k.Id, &k.Description); err != nil {
+			return nil, err
+		}
+		res = append(res, k)
+	}
+	return res, nil
+}
+
+func (db *DB) AddUserApiKey(userId int, key, description string) error {
+	_, err := db.db.Exec("INSERT INTO user_api_keys(user_id, hash, description) VALUES($1, $2, $3)", userId, hashApiKey(key), description)
+	if db.IsUniqueViolationError(err) {
+		return ErrConflict
+	}
+	return err
+}
+
+func (db *DB) DeleteUserApiKey(userId, id int) error {
+	_, err := db.db.Exec("DELETE FROM user_api_keys WHERE user_id = $1 AND id = $2", userId, id)
+	return err
+}
+
+func (db *DB) SetUserApiKeys(userId int, keys []ApiKey) error {
+	rows, err := db.db.Query("SELECT hash FROM user_api_keys WHERE user_id = $1", userId)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	existing := map[string]bool{}
+	for rows.Next() {
+		var hash string
+		if err = rows.Scan(&hash); err != nil {
+			return err
+		}
+		existing[hash] = true
+	}
+	wanted := map[string]ApiKey{}
+	for _, k := range keys {
+		wanted[hashApiKey(k.Key)] = k
+	}
+	for hash := range existing {
+		if _, ok := wanted[hash]; ok {
+			continue
+		}
+		if _, err = db.db.Exec("DELETE FROM user_api_keys WHERE user_id = $1 AND hash = $2", userId, hash); err != nil {
+			return err
+		}
+	}
+	for hash, k := range wanted {
+		if existing[hash] {
+			continue
+		}
+		if err = db.AddUserApiKey(userId, k.Key, k.Description); err != nil {
+			return err
+		}
+	}
+	return nil
 }

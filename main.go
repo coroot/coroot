@@ -171,6 +171,7 @@ func main() {
 
 	r.HandleFunc("/api/user", a.Auth(a.User)).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/users", a.Auth(a.Users)).Methods(http.MethodGet, http.MethodPost)
+	r.HandleFunc("/api/users/{user}/api_keys", a.Auth(a.UserApiKeys)).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/roles", a.Auth(a.Roles)).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/sso", a.Auth(a.SSO)).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/ai", a.Auth(a.AI)).Methods(http.MethodGet, http.MethodPost)

@@ -134,6 +134,14 @@ export default class Api {
         }
     }
 
+    userApiKeys(userId, form, cb) {
+        if (form) {
+            this.post(`users/${userId}/api_keys`, form, cb);
+        } else {
+            this.get(`users/${userId}/api_keys`, {}, cb);
+        }
+    }
+
     roles(form, cb) {
         if (form) {
             this.post(`roles`, form, cb);
