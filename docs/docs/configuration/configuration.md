@@ -137,6 +137,14 @@ clickhouse_space_manager: # Automatically manage ClickHouse disk space by cleani
 auth:
   anonymous_role:           # Disables authentication if set (one of Admin, Editor, or Viewer).
   bootstrap_admin_password: # Password for the default Admin user.
+  # Service accounts: users without a password for programmatic access (API keys), e.g. autonomous agents using the MCP endpoint.
+  # Accounts defined here are created on startup and locked in the UI; their API keys are exactly the ones listed here.
+  serviceAccounts:
+    - name: claude-agent    # Login of the account (must not clash with an existing user).
+      role: Viewer          # One of the roles available in this instance.
+      apiKeys:
+        - key: ${CLAUDE_AGENT_API_KEY} # Sent by the agent as "Authorization: Bearer <key>".
+          description: production investigation agent
 
 do_not_check_for_deployments: false # Do not check for new deployments.
 do_not_check_for_updates: false     # Do not check for new versions.

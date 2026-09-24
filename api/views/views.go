@@ -83,8 +83,8 @@ func Roles(rs []rbac.Role) *roles.View {
 	return roles.Render(rs)
 }
 
-func Users(us []*db.User, rs []rbac.Role) *users.Users {
-	return users.RenderUsers(us, rs)
+func Users(us []*db.User, rs []rbac.Role, readonly func(*db.User) bool) *users.Users {
+	return users.RenderUsers(us, rs, readonly)
 }
 
 func User(u *db.User, projects map[db.ProjectId]string, viewonly bool) *users.User {

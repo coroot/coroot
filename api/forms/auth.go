@@ -34,12 +34,13 @@ const (
 )
 
 type UserForm struct {
-	Action   UserAction    `json:"action"`
-	Id       int           `json:"id"`
-	Email    string        `json:"email"`
-	Name     string        `json:"name"`
-	Role     rbac.RoleName `json:"role"`
-	Password string        `json:"password"`
+	Action         UserAction    `json:"action"`
+	Id             int           `json:"id"`
+	Email          string        `json:"email"`
+	Name           string        `json:"name"`
+	Role           rbac.RoleName `json:"role"`
+	Password       string        `json:"password"`
+	ServiceAccount bool          `json:"service_account"`
 }
 
 func (f *UserForm) Valid() bool {
@@ -48,5 +49,25 @@ func (f *UserForm) Valid() bool {
 	}
 	f.Email = strings.TrimSpace(f.Email)
 	f.Name = strings.TrimSpace(f.Name)
+	if f.ServiceAccount && f.Email == "" {
+		f.Email = f.Name
+	}
 	return f.Email != "" && f.Name != ""
+}
+
+type UserApiKeyForm struct {
+	Action      UserAction `json:"action"`
+	Id          int        `json:"id"`
+	Description string     `json:"description"`
+}
+
+func (f *UserApiKeyForm) Valid() bool {
+	f.Description = strings.TrimSpace(f.Description)
+	switch f.Action {
+	case UserActionCreate:
+		return f.Description != ""
+	case UserActionDelete:
+		return f.Id > 0
+	}
+	return false
 }

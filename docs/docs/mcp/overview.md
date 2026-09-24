@@ -88,7 +88,61 @@ Then start `codex`, run the `/mcp` slash command, pick **coroot**, and choose **
 
 ## Authentication
 
-The MCP endpoint uses OAuth 2.0. Each user signs in with their own Coroot account on first connect, and the agent runs with that user's RBAC permissions. Every tool call is authorized server side, so an agent can only see and act on what its user is allowed to.
+The MCP endpoint supports two ways to authenticate. In both cases every tool call is authorized server side against Coroot's RBAC, so an agent can only see and act on what its identity is allowed to.
+
+### Interactive clients: OAuth 2.0
+
+Each user signs in with their own Coroot account on first connect, and the agent runs with that user's RBAC permissions. This is what Claude Code, Cursor, and Codex do when you follow the steps above.
+
+### Autonomous agents: service accounts and API keys
+
+A headless agent (a scheduled investigation job, a remote agent runtime, a CI step) cannot complete a browser-based OAuth flow. For such agents, create a **[service account](/configuration/authentication#service-accounts-and-api-keys)**: a Coroot user without a password that authenticates with an API key. The service account has a regular role (Viewer, Editor, or a custom role in the Enterprise Edition), so the same RBAC rules apply. A Viewer can investigate but cannot resolve alerts, an Editor can do both, and an EE custom role can be scoped to specific projects.
+
+The agent sends the key as a bearer token:
+
+```
+Authorization: Bearer <api key>
+```
+
+The key works for the `/mcp` endpoint and for the regular HTTP API.
+
+**Via the UI**. Go to **Project settings → Organization**, click **Add user**, check **Service account**, and pick a role. Then click the key icon next to the account to create an API key. The key is shown once.
+
+<img alt="API keys of a service account" src="/img/docs/service_account_api_keys.png" class="card w-600"/>
+
+**Via the config file** (recommended for infrastructure-as-code setups). Define the account and its keys in `config.yaml`. Coroot creates the account on startup, and its keys are exactly the ones listed here, so adding, removing, or rotating a key is a config change and a restart. Accounts defined this way are locked in the UI. Only the SHA-256 hash of a key is stored in the database.
+
+```yaml
+auth:
+  serviceAccounts:
+    - name: claude-agent
+      role: Viewer
+      apiKeys:
+        - key: ${CLAUDE_AGENT_API_KEY}   # environment variables are expanded
+          description: production investigation agent
+```
+
+**Connecting a client with a key**. Any MCP client that supports custom headers can use a key instead of OAuth, for example Claude Code:
+
+```bash
+claude mcp add --transport http coroot https://<your-coroot>/mcp \
+  --header "Authorization: Bearer <api key>"
+```
+
+or a generic `mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "coroot": {
+      "url": "https://<your-coroot>/mcp",
+      "headers": { "Authorization": "Bearer <api key>" }
+    }
+  }
+}
+```
+
+Service accounts are independent of SSO. They never log in, so they keep working when password login is disabled in favor of SSO.
 
 ## Switching between projects
 

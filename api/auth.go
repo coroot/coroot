@@ -71,6 +71,33 @@ func (api *Api) AuthInit(anonymousRole string, adminPassword string) error {
 	return nil
 }
 
+func (api *Api) isConfigServiceAccount(u *db.User) bool {
+	if !u.IsServiceAccount() {
+		return false
+	}
+	for _, sa := range api.cfg.Auth.ServiceAccounts {
+		if sa.Name == u.Email {
+			return true
+		}
+	}
+	return false
+}
+
+func (api *Api) GetUserByApiKey(r *http.Request) *db.User {
+	key, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
+	if !ok || key == "" {
+		return nil
+	}
+	user, err := api.db.GetUserByApiKey(key)
+	if err != nil {
+		if !errors.Is(err, db.ErrNotFound) {
+			klog.Errorln(err)
+		}
+		return nil
+	}
+	return user
+}
+
 func (api *Api) Auth(h func(http.ResponseWriter, *http.Request, *db.User)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if user := api.GetUser(r); user != nil {
@@ -219,6 +246,9 @@ func (api *Api) SetSessionCookie(w http.ResponseWriter, userId int, ttl time.Dur
 }
 
 func (api *Api) GetUser(r *http.Request) *db.User {
+	if user := api.GetUserByApiKey(r); user != nil {
+		return user
+	}
 	if api.authAnonymousRole != "" {
 		return db.AnonymousUser(api.authAnonymousRole)
 	}
