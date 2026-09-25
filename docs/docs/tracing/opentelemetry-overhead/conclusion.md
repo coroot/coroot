@@ -16,6 +16,7 @@ CPU usage with the OpenTelemetry SDK on, compared to the same app without it:
 |-------------------------------------------------------------------|--------------|--------|--------|--------------|-----------------------------------------|
 | <img src="/img/docs/tracing/opentelemetry-overhead/rust.svg" class="lang-logo" alt=""/> [Rust](/tracing/opentelemetry-overhead/rust)      | +21%         | +15%   | +7%    | +6%          | 0.009                                   |
 | <img src="/img/docs/tracing/opentelemetry-overhead/java.svg" class="lang-logo" alt=""/> [Java](/tracing/opentelemetry-overhead/java) (agent) | +30%      | +25%   | +19%   | +11%         | 0.03                                    |
+| <img src="/img/docs/tracing/opentelemetry-overhead/cpp.svg" class="lang-logo" alt=""/> [C++](/tracing/opentelemetry-overhead/cpp)        | +42%         | +33%   | +5%    | +10%         | 0.03                                    |
 | <img src="/img/docs/tracing/opentelemetry-overhead/golang.svg" class="lang-logo" alt=""/> [Go](/tracing/opentelemetry-overhead/go) (compile-time) | +35%  | +22%   | +24%   | +13%         | 0.04                                    |
 | <img src="/img/docs/tracing/opentelemetry-overhead/golang.svg" class="lang-logo" alt=""/> [Go](/tracing/opentelemetry-overhead/go) (manual SDK) | +50%    | +29%   | +24%   | +20%         | 0.05                                    |
 | <img src="/img/docs/tracing/opentelemetry-overhead/ruby.svg" class="lang-logo" alt=""/> [Ruby](/tracing/opentelemetry-overhead/ruby)      | +67%         | +45%   | +28%   | +21%         | 0.16                                    |
@@ -30,6 +31,7 @@ Memory, latency and network traffic with every request traced:
 | Language                                                          | Memory (RSS)    | Latency, p50     | Latency, p99   | Trace export traffic | Bytes per span |
 |-------------------------------------------------------------------|-----------------|------------------|----------------|----------------------|----------------|
 | <img src="/img/docs/tracing/opentelemetry-overhead/rust.svg" class="lang-logo" alt=""/> [Rust](/tracing/opentelemetry-overhead/rust)      | 4.5 → 7 MB      | 0.58 → 0.58 ms   | 1.6 → 1.5 ms   | 2.9 Mbit/s           | ~180           |
+| <img src="/img/docs/tracing/opentelemetry-overhead/cpp.svg" class="lang-logo" alt=""/> [C++](/tracing/opentelemetry-overhead/cpp)        | 4 → 6 MB        | 0.55 → 0.64 ms   | 1.9 → 2.9 ms   | 2.9 Mbit/s           | ~180           |
 | <img src="/img/docs/tracing/opentelemetry-overhead/golang.svg" class="lang-logo" alt=""/> [Go](/tracing/opentelemetry-overhead/go)        | 13 → 15 MB      | 0.56 → 0.56 ms   | 1.3 → 1.0 ms   | 5.6 Mbit/s           | ~350           |
 | <img src="/img/docs/tracing/opentelemetry-overhead/java.svg" class="lang-logo" alt=""/> [Java](/tracing/opentelemetry-overhead/java)      | 310 → 459 MB    | 0.63 → 0.64 ms   | 1.6 → 1.8 ms   | 6.3 Mbit/s           | ~400           |
 | <img src="/img/docs/tracing/opentelemetry-overhead/dotnet.svg" class="lang-logo" alt=""/> [.NET](/tracing/opentelemetry-overhead/dotnet)  | 41 → 75 MB      | 0.58 → 0.61 ms   | 1.3 → 1.5 ms   | 2.8 Mbit/s           | ~280           |
@@ -39,7 +41,7 @@ Memory, latency and network traffic with every request traced:
 
 ## What it means
 
-* **The cost is paid per request, and it varies 40x between languages.** Two spans cost 0.01 ms of CPU time in Rust, 0.03-0.05 ms in Java and Go, 0.09 ms in Node.js, 0.16 ms in Ruby and 0.36 ms in Python.
+* **The cost is paid per request, and it varies 40x between languages.** Two spans cost 0.01 ms of CPU time in Rust, 0.03-0.05 ms in C++, Java and Go, 0.09 ms in Node.js, 0.16 ms in Ruby and 0.36 ms in Python.
   Multiply by your request rate and you get the CPU cores you'll need. Our test app does nothing else, so the percentages (+21%...+160%) are the worst case:
   a real application does much more per request, and its relative overhead will be lower.
 * **Sampling lowers the cost but doesn't remove it.** At 0% sampling, when not one span leaves the process, the apps still use 6-74% more CPU than without the SDK.

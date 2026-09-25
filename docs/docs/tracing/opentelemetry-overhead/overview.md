@@ -17,6 +17,7 @@ and then serializes the spans and ships them to a backend. How much all of this 
   <a href="/tracing/opentelemetry-overhead/dotnet"><img src="/img/docs/tracing/opentelemetry-overhead/dotnet.svg" alt=""/>.NET</a>
   <a href="/tracing/opentelemetry-overhead/nodejs"><img src="/img/docs/tracing/opentelemetry-overhead/nodejs.svg" alt=""/>Node.js</a>
   <a href="/tracing/opentelemetry-overhead/ruby"><img src="/img/docs/tracing/opentelemetry-overhead/ruby.svg" alt=""/>Ruby</a>
+  <a href="/tracing/opentelemetry-overhead/cpp"><img src="/img/docs/tracing/opentelemetry-overhead/cpp.svg" alt=""/>C++</a>
 </div>
 
 Every language went through the same test, so the results are comparable. The [conclusion](/tracing/opentelemetry-overhead/conclusion) puts them side by side.
@@ -32,7 +33,7 @@ This makes the overhead as visible as it can be. A real application does much mo
 
 Tracing is switched on with an environment variable, so the very same build runs with and without the SDK:
 
-* we used what a typical developer would use: the official zero-code agent where there is one (Java, Python, Node.js) or the official SDK with its instrumentation libraries;
+* we used what a typical developer would use: the official zero-code agent where there is one (Java, Python, Node.js) or the official SDK with its instrumentation libraries. Rust and C++ have no instrumentation for their HTTP servers and Redis clients, so there the two spans are created by hand with the SDK API;
 * traces only: OpenTelemetry metrics and logs are off;
 * every request produces **exactly two spans**: a `SERVER` span for the HTTP request and a `CLIENT` span for the Valkey call. Where an instrumentation adds more spans by default, we turned them off;
 * spans go to Coroot over OTLP/HTTP (protobuf) through the batch span processor with its default settings.
@@ -77,4 +78,5 @@ Latency comes from wrk2, and we count the spans in Coroot's storage to make sure
 * [.NET](/tracing/opentelemetry-overhead/dotnet)
 * [Node.js](/tracing/opentelemetry-overhead/nodejs)
 * [Ruby](/tracing/opentelemetry-overhead/ruby)
+* [C++](/tracing/opentelemetry-overhead/cpp)
 * [Conclusion](/tracing/opentelemetry-overhead/conclusion): all of them side by side
