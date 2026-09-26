@@ -28,6 +28,7 @@ The MCP endpoint is served at `/mcp` on your Coroot instance. Tools marked **EE*
 | `select_project` | Set the active project for the session. | Acknowledgement of the selected project. |
 | `list_applications` | Triage which apps to look at. Filter with `namespace`, `search`, `min_status`. | One row per application (unhealthy first) with id, namespace, category, detected types (postgres, java), overall status, list of failing inspections. |
 | `list_alerts` | See currently firing or recently resolved alerts. | List of alerts with id, application, severity, summary, opened and resolved timestamps, full alert details. |
+| `list_risks` | See active availability and security risks. Filter by application or include dismissed risks. | The Risks page's risk identity, severity, application, description, and any dismissal reason. |
 | `list_incidents` | Browse the SLO incident timeline (open and resolved). | Incidents with id, application, severity, opened and resolved timestamps, burn rates, impact. |
 | `list_nodes` | Get a fleet-wide host overview. Filter with `search`. | One row per node (down first) with id, name, cluster, status, OS, kernel, instance type, current CPU%, memory%, GPUs, network throughput, IPs. |
 | `get_application_status` | Drill into one application's health. | Overall status, per-inspection issues with the failing checks, top log-pattern samples, upstream dependencies (connectivity, RTT, request latency), downstream clients. |
@@ -180,6 +181,6 @@ If you also use [multi-cluster projects](../configuration/multi-cluster.md), the
 Agent runtimes reject tool results that are too large for the model's context (Claude Code, for example, caps MCP tool output at 25,000 tokens), and some of them report such a call as failed even though the data was fetched. Coroot sizes every tool response to stay within such limits.
 
 * Responses are summaries built for an LLM, not the payloads the UI uses. Charts are reduced to last/min/max/avg plus a 12-point sparkline, and only failing inspections carry charts (top 10 series per chart).
-* List results (`list_applications`, `list_alerts`, `list_incidents`, `list_nodes`, `traces_summary`, `traces_errors`, `get_trace`) come as `{total, returned, items}` and are cut at about 50 KB. `query_logs` entries and `query_metrics` series are cut the same way.
+* List results (`list_applications`, `list_alerts`, `list_risks`, `list_incidents`, `list_nodes`, `traces_summary`, `traces_errors`, `get_trace`) come as `{total, returned, items}` and are cut at about 50 KB. `query_logs` entries and `query_metrics` series are cut the same way.
 * When a result is cut, the response sets `truncated: true` and a `hint` that tells the agent how to narrow the request (filters, a smaller `limit`, a shorter time range). The most relevant items come first: unhealthy applications, down nodes, newest log entries, busiest endpoints, most frequent errors.
 * Any other response is capped at 80 KB.

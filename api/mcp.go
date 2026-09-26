@@ -34,6 +34,7 @@ Responses are sized to fit an agent's context. List results come as {total, retu
 Pick a tool by intent, cheapest first:
 
 - "What's currently broken / where should I look?" → list_alerts (firing alerts), list_incidents (open SLO incidents), list_applications (per-app inspection issues + SLO status).
+- "What could fail next?" → list_risks (active availability and security risks; request dismissed risks when reviewing accepted exceptions).
 - "What's wrong with <app>?" → get_application_status: overall status, per-inspection (CPU, memory, SLO, postgres, ...) issues, log-pattern samples, upstream dependencies with connectivity/RTT/latency, and downstream clients.
 - "How are the hosts doing?" → list_nodes for an overview (CPU%/mem%/network/status); get_node_details for a single host (audit report + cpu/memory/network sparklines).
 - Distributed traces — three drill-down levels:
@@ -192,6 +193,18 @@ func (h *MCPHandler) registerTools() {
 			mcp.WithOpenWorldHintAnnotation(false),
 		),
 		h.toolListAlerts,
+	)
+	h.AddTool(
+		mcp.NewTool("list_risks",
+			mcp.WithDescription("List risks for the selected project, using the same risk assessment as the Risks page. Returns active risks by default; use state to include dismissed risks and their reasons."),
+			mcp.WithString("state", mcp.Description("'active' | 'dismissed' | 'any'. Default: 'active'.")),
+			mcp.WithString("app_id", mcp.Description("Filter to one application (full 4-part id from list_applications).")),
+			mcp.WithReadOnlyHintAnnotation(true),
+			mcp.WithDestructiveHintAnnotation(false),
+			mcp.WithIdempotentHintAnnotation(true),
+			mcp.WithOpenWorldHintAnnotation(false),
+		),
+		h.toolListRisks,
 	)
 	h.AddTool(
 		mcp.NewTool("list_incidents",
@@ -997,6 +1010,59 @@ func (h *MCPHandler) toolListAlerts(ctx context.Context, req mcp.CallToolRequest
 		out = append(out, a)
 	}
 	return mcpJSONList(out, "only the first alerts are returned, narrow with app_id or state, or lower the limit")
+}
+
+func (h *MCPHandler) toolListRisks(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	user, project, errResult := h.RequireUserAndProject(ctx)
+	if errResult != nil {
+		return errResult, nil
+	}
+	if !h.Api.IsAllowed(user, rbac.Actions.Project(string(project.Id)).Risks().View()) {
+		return mcp.NewToolResultError("forbidden: no permission to view risks in this project"), nil
+	}
+	state := req.GetString("state", "active")
+	switch state {
+	case "active", "dismissed", "any":
+	default:
+		return mcp.NewToolResultError("state must be 'active', 'dismissed', or 'any'"), nil
+	}
+	var appId *model.ApplicationId
+	if s := req.GetString("app_id", ""); s != "" {
+		id, err := mcpParseAppId(s)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("invalid app_id: %s", err)), nil
+		}
+		appId = &id
+	}
+
+	now := timeseries.Now()
+	world, _, err := h.Api.LoadWorld(ctx, project, now.Add(-timeseries.Hour), now)
+	if err != nil {
+		klog.Errorln("mcp: list_risks:", err)
+		return mcp.NewToolResultError("failed to load world"), nil
+	}
+	if world == nil {
+		return mcpJSONList([]*overview.Risk{}, "")
+	}
+	auditor.Audit(world, project, nil, nil)
+	risks := overview.Render(ctx, clickhouse.Clients{}, project, world, "risks", "").Risks
+	visible := func(risk *overview.Risk) bool {
+		id := risk.ApplicationId
+		return h.Api.IsAllowed(user, rbac.Actions.Project(string(project.Id)).Application(risk.ApplicationCategory, id.Namespace, id.Kind, id.Name).View())
+	}
+	return mcpJSONList(mcpFilterRisks(risks, state, appId, visible), "only the first risks are returned, narrow with state or app_id")
+}
+
+func mcpFilterRisks(risks []*overview.Risk, state string, appId *model.ApplicationId, visible func(*overview.Risk) bool) []*overview.Risk {
+	filtered := make([]*overview.Risk, 0, len(risks))
+	for _, risk := range risks {
+		if (state == "active" && risk.Dismissal != nil) || (state == "dismissed" && risk.Dismissal == nil) ||
+			(appId != nil && risk.ApplicationId != *appId) || !visible(risk) {
+			continue
+		}
+		filtered = append(filtered, risk)
+	}
+	return filtered
 }
 
 func (h *MCPHandler) toolListIncidents(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
