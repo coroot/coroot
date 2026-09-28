@@ -2,13 +2,27 @@
     <Views :loading="loading" :error="error">
         <NoData v-if="!loading && !applications.length" />
 
-        <ApplicationFilter v-else :applications="applications" :autoSelectNamespaceThreshold="maxApplications" @filter="setFilter" class="mb-4" />
+        <div v-else class="d-flex align-start mb-4" style="gap: 12px">
+            <ApplicationFilter :applications="applications" :autoSelectNamespaceThreshold="maxApplications" @filter="setFilter" class="flex-grow-1" />
+            <v-btn-toggle v-model="mode" mandatory dense>
+                <v-tooltip v-for="m in modeButtons" :key="m.value" bottom>
+                    <template #activator="{ on, attrs }">
+                        <v-btn :value="m.value" height="40" v-bind="attrs" v-on="on" :aria-label="m.label">
+                            <v-icon small>{{ m.icon }}</v-icon>
+                        </v-btn>
+                    </template>
+                    <v-card class="px-2 py-1">{{ m.label }}</v-card>
+                </v-tooltip>
+            </v-btn-toggle>
+        </div>
 
         <div v-if="tooManyApplications" class="text-center red--text mt-5">
             Too many applications ({{ tooManyApplications }}) to render. Please choose a different category or namespace.
         </div>
 
-        <div class="applications" v-on-resize="calc" @scroll="calc">
+        <ServiceMapGraph v-if="mode === 'graph' && filtered.length" :applications="filtered" :categories="categories" />
+
+        <div v-if="mode === 'columns'" class="applications" v-on-resize="calc" @scroll="calc">
             <div
                 v-for="apps in levels"
                 class="level"
@@ -79,6 +93,12 @@ import AppIcon from '@/components/AppIcon.vue';
 import ApplicationFilter from '@/components/ApplicationFilter.vue';
 import AppPreferences from '@/components/AppPreferences.vue';
 import NoData from '@/components/NoData.vue';
+import ServiceMapGraph from '@/components/ServiceMapGraph.vue';
+
+const modeButtons = [
+    { value: 'columns', label: 'Tiers view', icon: 'mdi-view-column-outline' },
+    { value: 'graph', label: 'Topology view', icon: 'mdi-graph-outline' },
+];
 
 function findBackLinks(index, a, discovered, finished, found) {
     if (!a) {
@@ -115,9 +135,10 @@ function calcLevel(index, a, level, backLinks) {
 }
 
 export default {
-    components: { Views, NoData, AppPreferences, ApplicationFilter, AppHealth, Labels, AppIcon },
+    components: { Views, NoData, AppPreferences, ApplicationFilter, AppHealth, Labels, AppIcon, ServiceMapGraph },
 
     data() {
+        const mode = this.$storage.local('service-map-mode');
         return {
             applications: [],
             categories: [],
@@ -128,6 +149,8 @@ export default {
             hi: null,
             filter: new Set(),
             tooManyApplications: 0,
+            filtered: [],
+            mode: modeButtons.some((m) => m.value === mode) ? mode : 'columns',
         };
     },
 
@@ -147,8 +170,17 @@ export default {
         selectedCategories() {
             this.calc();
         },
+        mode(mode) {
+            this.$storage.local('service-map-mode', mode);
+            if (mode === 'columns') {
+                this.$nextTick(this.calc);
+            }
+        },
     },
     computed: {
+        modeButtons() {
+            return modeButtons;
+        },
         maxApplications() {
             return 1000;
         },
@@ -184,13 +216,19 @@ export default {
             });
             this.tooManyApplications = 0;
             const filter = (a) => index.get(a.id) && this.filter.has(a.id);
-            const applications = this.applications.filter(filter).map((a) => ({ ...a }));
-            if (applications.length > this.maxApplications) {
-                this.tooManyApplications = applications.length;
+            const filtered = this.applications.filter(filter);
+            if (filtered.length > this.maxApplications) {
+                this.tooManyApplications = filtered.length;
+                this.filtered = [];
                 this.levels = [];
                 this.arrows = [];
                 return;
             }
+            this.filtered = filtered;
+            if (this.mode !== 'columns') {
+                return; // the graph mode renders `filtered` itself
+            }
+            const applications = filtered.map((a) => ({ ...a }));
             applications.forEach((a) => {
                 a.name = this.$utils.appId(a.id).name;
                 a.level = 0;
