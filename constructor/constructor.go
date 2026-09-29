@@ -22,6 +22,7 @@ const (
 	OptionLoadInstanceToInstanceConnections Option = iota
 	OptionDoNotLoadRawSLIs
 	OptionLoadContainerLogs
+	OptionDoNotLoadAppDBData
 )
 
 type DB interface {
@@ -170,12 +171,14 @@ func (c *Constructor) loadProjectWorld(ctx context.Context, cache Cache, project
 	prof.stage("load_postgres_backups", func() { loadPostgresBackups(w, metrics, project) })
 	prof.stage("load_mongo_backups", func() { loadMongoBackups(w, metrics, project) })
 	prof.stage("load_mysql_backups", func() { loadMysqlBackups(w, metrics) })
-	prof.stage("load_app_settings", func() { c.loadApplicationSettings(w, project) })
 	prof.stage("load_app_sli", func() { c.loadSLIs(w, metrics, project) })
 	prof.stage("load_container_logs", func() { c.loadContainerLogs(metrics, containers, pjs) })
 	prof.stage("load_app_logs", func() { c.loadApplicationLogs(w, metrics, project) })
-	prof.stage("load_app_deployments", func() { c.loadApplicationDeployments(w, project) })
-	prof.stage("load_app_incidents", func() { c.loadApplicationIncidents(w, project, parentProject) })
+	if !c.options[OptionDoNotLoadAppDBData] {
+		prof.stage("load_app_settings", func() { c.loadApplicationSettings(w, project) })
+		prof.stage("load_app_deployments", func() { c.loadApplicationDeployments(w, project) })
+		prof.stage("load_app_incidents", func() { c.loadApplicationIncidents(w, project, parentProject) })
+	}
 	prof.stage("calc_app_events", func() { calcAppEvents(w) })
 
 	klog.Infof("%s: got %d nodes, %d apps in %s", project.Id, len(w.Nodes), len(w.Applications), time.Since(start).Truncate(time.Millisecond))

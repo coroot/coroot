@@ -142,17 +142,8 @@ func (db *DB) GetIncidentByKey(projectId ProjectId, key string) (*model.Applicat
 	if i.ApplicationId.ClusterId == "" {
 		i.ApplicationId.ClusterId = string(projectId)
 	}
-	if d.String != "" {
-		if err = json.Unmarshal([]byte(d.String), &i.Details); err != nil {
-			return nil, err
-		}
-	}
-	if rca.String != "" {
-		i.RCA = &model.RCA{}
-		if err = json.Unmarshal([]byte(rca.String), i.RCA); err != nil {
-			return nil, err
-		}
-	}
+	parseIncidentDetails(i, d.String)
+	parseIncidentRCA(i, rca.String)
 	return i, err
 }
 
@@ -175,11 +166,7 @@ func (db *DB) GetLatestIncidentsBrief(projectId ProjectId, limit int) ([]*model.
 		if i.ApplicationId.ClusterId == "" {
 			i.ApplicationId.ClusterId = string(projectId)
 		}
-		if d.String != "" {
-			if err := json.Unmarshal([]byte(d.String), &i.Details); err != nil {
-				return nil, err
-			}
-		}
+		parseIncidentDetails(&i, d.String)
 		res = append(res, &i)
 	}
 	return res, rows.Err()
@@ -206,11 +193,7 @@ func (db *DB) GetIncidentsForList(projectId ProjectId, limit int) ([]*model.Appl
 		if i.ApplicationId.ClusterId == "" {
 			i.ApplicationId.ClusterId = string(projectId)
 		}
-		if d.String != "" {
-			if err := json.Unmarshal([]byte(d.String), &i.Details); err != nil {
-				return nil, err
-			}
-		}
+		parseIncidentDetails(&i, d.String)
 		if status.Valid || summary.Valid {
 			if status.String != "" || summary.String != "" {
 				i.RCA = &model.RCA{Status: status.String, ShortSummary: summary.String}
@@ -293,14 +276,32 @@ func (db *DB) GetApplicationIncidents(projectId ProjectId, from, to timeseries.T
 		if i.ApplicationId.ClusterId == "" {
 			i.ApplicationId.ClusterId = string(projectId)
 		}
-		if d.String != "" {
-			if err := json.Unmarshal([]byte(d.String), &i.Details); err != nil {
-				return nil, err
-			}
-		}
+		parseIncidentDetails(&i, d.String)
 		res[i.ApplicationId] = append(res[i.ApplicationId], &i)
 	}
 	return res, rows.Err()
+}
+
+func parseIncidentDetails(i *model.ApplicationIncident, details string) {
+	if details == "" {
+		return
+	}
+	if err := json.Unmarshal([]byte(details), &i.Details); err != nil {
+		klog.Warningln("failed to parse details of incident", i.Key, ":", err)
+		i.Details = model.IncidentDetails{}
+	}
+}
+
+func parseIncidentRCA(i *model.ApplicationIncident, rca string) {
+	if rca == "" {
+		return
+	}
+	var r model.RCA
+	if err := json.Unmarshal([]byte(rca), &r); err != nil {
+		klog.Warningln("failed to parse rca of incident", i.Key, ":", err)
+		return
+	}
+	i.RCA = &r
 }
 
 func scanIncident(rows *sql.Rows, projectId ProjectId) (*model.ApplicationIncident, error) {
@@ -312,17 +313,8 @@ func scanIncident(rows *sql.Rows, projectId ProjectId) (*model.ApplicationIncide
 	if i.ApplicationId.ClusterId == "" {
 		i.ApplicationId.ClusterId = string(projectId)
 	}
-	if d.String != "" {
-		if err := json.Unmarshal([]byte(d.String), &i.Details); err != nil {
-			return nil, err
-		}
-	}
-	if rca.String != "" {
-		i.RCA = &model.RCA{}
-		if err := json.Unmarshal([]byte(rca.String), i.RCA); err != nil {
-			return nil, err
-		}
-	}
+	parseIncidentDetails(&i, d.String)
+	parseIncidentRCA(&i, rca.String)
 	return &i, nil
 }
 
@@ -359,17 +351,8 @@ func (db *DB) GetLastOpenIncident(projectId ProjectId, appId model.ApplicationId
 		Scan(&last.Key, &last.OpenedAt, &last.ResolvedAt, &last.Severity, &dd, &rca)
 	switch err {
 	case nil:
-		if dd.String != "" {
-			if err = json.Unmarshal([]byte(dd.String), &last.Details); err != nil {
-				return nil, err
-			}
-		}
-		if rca.String != "" {
-			last.RCA = &model.RCA{}
-			if err = json.Unmarshal([]byte(rca.String), last.RCA); err != nil {
-				return nil, err
-			}
-		}
+		parseIncidentDetails(&last, dd.String)
+		parseIncidentRCA(&last, rca.String)
 		return &last, nil
 	case sql.ErrNoRows:
 		return nil, nil
