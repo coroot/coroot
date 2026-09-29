@@ -3,15 +3,25 @@
         <NoData v-if="!loading && !applications.length" />
 
         <div v-else class="d-flex align-start mb-4" style="gap: 12px">
-            <ApplicationFilter :applications="applications" :autoSelectNamespaceThreshold="maxApplications" @filter="setFilter" class="flex-grow-1" />
+            <ApplicationFilter
+                ref="filter"
+                :applications="applications"
+                :autoSelectNamespaceThreshold="maxApplications"
+                :highlightSearch="mode === 'graph'"
+                :searchInfo="mode === 'graph' && filtered.length ? searchInfo : ''"
+                @filter="setFilter"
+                @search="query = $event"
+                @search-keydown="searchKeyDown"
+                class="flex-grow-1"
+            />
             <v-btn-toggle v-model="mode" mandatory dense>
-                <v-tooltip v-for="m in modeButtons" :key="m.value" bottom>
+                <v-tooltip v-for="m in modeButtons" :key="m.value" bottom transition="none">
                     <template #activator="{ on, attrs }">
                         <v-btn :value="m.value" height="40" v-bind="attrs" v-on="on" :aria-label="m.label">
                             <v-icon small>{{ m.icon }}</v-icon>
                         </v-btn>
                     </template>
-                    <v-card class="px-2 py-1">{{ m.label }}</v-card>
+                    <v-card class="px-2">{{ m.label }}</v-card>
                 </v-tooltip>
             </v-btn-toggle>
         </div>
@@ -20,7 +30,16 @@
             Too many applications ({{ tooManyApplications }}) to render. Please choose a different category or namespace.
         </div>
 
-        <ServiceMapGraph v-if="mode === 'graph' && filtered.length" :applications="filtered" :categories="categories" />
+        <ServiceMapGraph
+            v-if="mode === 'graph' && filtered.length"
+            ref="graph"
+            :applications="filtered"
+            :categories="categories"
+            :query="query"
+            :selected="$route.query.app"
+            @select="setSelected"
+            @search-info="searchInfo = $event"
+        />
 
         <div v-if="mode === 'columns'" class="applications" v-on-resize="calc" @scroll="calc">
             <div
@@ -96,8 +115,8 @@ import NoData from '@/components/NoData.vue';
 import ServiceMapGraph from '@/components/ServiceMapGraph.vue';
 
 const modeButtons = [
-    { value: 'columns', label: 'Tiers view', icon: 'mdi-view-column-outline' },
-    { value: 'graph', label: 'Topology view', icon: 'mdi-graph-outline' },
+    { value: 'columns', label: 'tiers view', icon: 'mdi-view-column-outline' },
+    { value: 'graph', label: 'topology view', icon: 'mdi-graph-outline' },
 ];
 
 function findBackLinks(index, a, discovered, finished, found) {
@@ -150,7 +169,9 @@ export default {
             filter: new Set(),
             tooManyApplications: 0,
             filtered: [],
-            mode: modeButtons.some((m) => m.value === mode) ? mode : 'columns',
+            query: '',
+            searchInfo: '',
+            mode: this.$route.query.app ? 'graph' : modeButtons.some((m) => m.value === mode) ? mode : 'columns',
         };
     },
 
@@ -158,6 +179,11 @@ export default {
         this.get();
         this.$events.watch(this, this.get, 'refresh');
         this.calc();
+        window.addEventListener('keydown', this.keyDown);
+    },
+
+    beforeDestroy() {
+        window.removeEventListener('keydown', this.keyDown);
     },
 
     watch: {
@@ -170,9 +196,15 @@ export default {
         selectedCategories() {
             this.calc();
         },
+        query(query) {
+            if (query) {
+                this.setSelected(null);
+            }
+        },
         mode(mode) {
             this.$storage.local('service-map-mode', mode);
             if (mode === 'columns') {
+                this.setSelected(null);
                 this.$nextTick(this.calc);
             }
         },
@@ -202,6 +234,38 @@ export default {
                 this.categories = data.categories || [];
             });
         },
+        setSelected(id) {
+            if (id && this.query) {
+                this.$refs.filter.clearSearch();
+            }
+            if ((this.$route.query.app || null) === id) {
+                return;
+            }
+            this.$router.replace({ query: { ...this.$route.query, app: id || undefined } }).catch((err) => err);
+        },
+        searchKeyDown(e) {
+            if (this.mode !== 'graph') {
+                return;
+            }
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (this.$refs.graph && this.$refs.graph.goToMatches()) {
+                    e.target.blur();
+                }
+            } else if (e.key === 'Escape' && this.query) {
+                this.$refs.filter.clearSearch();
+            } else if (e.key === 'Escape') {
+                e.target.blur();
+            }
+        },
+        keyDown(e) {
+            const input = this.mode === 'graph' && this.$refs.filter && this.$refs.filter.searchInput();
+            if (input && (e.metaKey || e.ctrlKey) && e.key === 'f' && e.target !== input) {
+                e.preventDefault();
+                input.focus();
+                input.select();
+            }
+        },
         setFilter(filter) {
             this.filter = filter;
             this.calc();
@@ -226,7 +290,7 @@ export default {
             }
             this.filtered = filtered;
             if (this.mode !== 'columns') {
-                return; // the graph mode renders `filtered` itself
+                return;
             }
             const applications = filtered.map((a) => ({ ...a }));
             applications.forEach((a) => {

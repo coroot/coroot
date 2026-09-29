@@ -16,7 +16,7 @@
         <div v-if="layingOut" class="laying-out grey--text">Laying out…</div>
 
         <div class="toolbar">
-            <v-tooltip v-for="t in tools" :key="t.label" left>
+            <v-tooltip v-for="t in tools" :key="t.label" left transition="none">
                 <template #activator="{ on, attrs }">
                     <v-btn
                         icon
@@ -31,9 +31,11 @@
                         <v-icon small>{{ t.icon }}</v-icon>
                     </v-btn>
                 </template>
-                <v-card class="px-2 py-1">{{ t.label }}</v-card>
+                <v-card class="px-2">{{ t.label }}</v-card>
             </v-tooltip>
         </div>
+
+        <v-chip v-if="selection" class="selection" small close @click:close="select(null)">{{ selection.name }}</v-chip>
 
         <div
             v-show="menuApp"
@@ -97,29 +99,44 @@ const engine = {
 const durations = { zoom: 700, fit: 1000, resize: 150, menuClose: 400 };
 const sizes = { icon: 256, minSprite: 64, maxSprite: 512, labelFont: 10, statsFont: 11, fitPadding: 40, fitLabel: 30, maxLabel: 28, maxSubLabel: 36 };
 const zoomLimits = { max: 4, fit: 2 };
+const statsPositions = [0.5, 0.65, 0.8, 0.35];
+const statsSides = [
+    (w, h) => [-w / 2, -h / 2],
+    (w, h, g) => [-w / 2, -h - g],
+    (w, h, g) => [-w / 2, g],
+    (w, h, g) => [g, -h / 2],
+    (w, h, g) => [-w - g, -h / 2],
+];
+const statsRank = { critical: 2, warning: 1 };
+const overlap = (a, b) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
+const overlapArea = (a, b) => Math.max(0, Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0)) * Math.max(0, Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0));
 const max = (values) => values.reduce((m, v) => (v > m ? v : m), 0);
 const particleColor = '#0b8a3e';
+const fallbackIcons = { external: '\u{F059F}', other: '\u{F0493}' };
 
 export default {
     props: {
         applications: Array,
         categories: Array,
+        query: String,
+        selected: String,
     },
 
     components: { AppPreferences, Led },
 
     data() {
         return {
-            tooltip: null, // frozen plain objects only: Vue must not observe force-graph's simulation objects
+            tooltip: null,
             menuApp: null,
+            selection: null,
+            matchCount: 0,
             counts: { nodes: 0, links: 0 },
-            layingOut: false, // with reduced motion, the map is hidden while the layout settles instead of animating
+            layingOut: false,
             flow: this.$storage.local('service-map-graph-flow') !== false,
         };
     },
 
     created() {
-        // non-reactive: the graph data is mutated by the simulation
         this.fg = null;
         this.nodes = new Map();
         this.links = [];
@@ -127,7 +144,10 @@ export default {
         this.maxLevel = 0;
         this.hover = null;
         this.hoverLabel = null;
-        this.pinned = null;
+        this.focus = null;
+        this.viewBeforeSelection = null;
+        this.matches = null;
+        this.matchList = [];
         this.pointer = null;
         this.graphPointer = null;
         this.menuNode = null;
@@ -159,6 +179,7 @@ export default {
 
     beforeDestroy() {
         window.removeEventListener('resize', this.scheduleResize);
+        window.removeEventListener('keydown', this.keyDown);
         this.parentObserver && this.parentObserver.disconnect();
         clearTimeout(this.resizeTimer);
         clearTimeout(this.menuBtnTimer);
@@ -172,8 +193,20 @@ export default {
     },
 
     watch: {
+        selected() {
+            this.applySelected();
+        },
+        query() {
+            this.applySearch();
+            this.redraw();
+        },
+        searchInfo: {
+            handler(info) {
+                this.$emit('search-info', info);
+            },
+            immediate: true,
+        },
         applications() {
-            // a refresh changes both the applications and the filter: a single update for both
             if (this.updatePending) {
                 return;
             }
@@ -204,11 +237,11 @@ export default {
     computed: {
         tools() {
             return [
-                { label: 'Zoom in', icon: 'mdi-plus', action: () => this.zoomBy(1.5) },
-                { label: 'Zoom out', icon: 'mdi-minus', action: () => this.zoomBy(1 / 1.5) },
-                { label: 'Fit to screen', icon: 'mdi-fit-to-screen-outline', action: this.fit },
-                { label: 'Re-layout', icon: 'mdi-refresh', action: this.relayout },
-                { label: 'Flow left to right', icon: 'mdi-arrow-right-bold-box-outline', action: () => (this.flow = !this.flow), pressed: this.flow },
+                { label: 'zoom in', icon: 'mdi-plus', action: () => this.zoomBy(1.5) },
+                { label: 'zoom out', icon: 'mdi-minus', action: () => this.zoomBy(1 / 1.5) },
+                { label: 'fit to screen', icon: 'mdi-fit-to-screen-outline', action: this.fit },
+                { label: 're-layout', icon: 'mdi-refresh', action: this.relayout },
+                { label: 'flow left to right', icon: 'mdi-arrow-right-bold-box-outline', action: () => (this.flow = !this.flow), pressed: this.flow },
             ];
         },
         multicluster() {
@@ -216,6 +249,15 @@ export default {
         },
         dark() {
             return this.$vuetify.theme.dark;
+        },
+        searchInfo() {
+            if (!this.query) {
+                return '';
+            }
+            if (!this.matchCount) {
+                return 'no matches';
+            }
+            return String(this.matchCount);
         },
     },
 
@@ -242,23 +284,21 @@ export default {
                     }
                 })
                 .linkColor(this.linkColor)
-                .linkWidth((l) => (this.hover && this.isHiLink(l) ? 1 + 3 * (l.hr || 0) : 1 + l.w * 2.5))
+                .linkWidth((l) => (this.focus && this.isHiLink(l) ? 1 + 3 * (l.hr || 0) : 1 + l.w * 2.5))
                 .linkDirectionalArrowLength((l) => (this.isHiLink(l) ? 5 : 0))
                 .linkDirectionalArrowRelPos(1)
                 .linkLineDash((l) => (l.status === 'unknown' ? [4, 4] : l.status === 'warning' || l.status === 'critical' ? [6, 4] : null))
                 .linkDirectionalParticles((l) =>
-                    !this.reducedMotion && this.hover && this.isHiLink(l) && l.weight > 0 ? Math.max(1, Math.round((l.hr || 0) * 8)) : 0,
+                    !this.reducedMotion && this.focus && this.isHiLink(l) && l.weight > 0 ? Math.max(1, Math.round((l.hr || 0) * 8)) : 0,
                 )
                 .linkDirectionalParticleSpeed(0.006)
                 .linkDirectionalParticleWidth((l) => 2 + 2.5 * (l.hr || 0))
                 .linkDirectionalParticleColor((l) => (l.status === 'critical' ? this.colors.critical : particleColor))
                 .onNodeHover(this.nodeHover)
                 .onLinkHover(this.linkHover)
-                .onNodeClick(this.nodeClick)
+                .onNodeClick((n, e) => this.nodeClick(this.nodeAt(e) || n, e))
                 .onNodeDrag(() => {
                     this.tooltip = null;
-                    // force-graph re-heats a dragged layout via alphaTarget, but alpha only rises on the next tick,
-                    // and d3AlphaMin would stop a settled engine before that tick
                     this.fg.d3AlphaMin(0);
                 })
                 .onNodeDragEnd((n) => {
@@ -268,10 +308,14 @@ export default {
                         n.fy = undefined;
                     }
                 })
-                .onBackgroundClick(() => {
-                    if (this.pinned) {
-                        this.pinned = null;
-                        this.nodeHover(null);
+                .onBackgroundClick((e) => {
+                    const n = this.nodeAt(e);
+                    if (n) {
+                        this.nodeClick(n, e);
+                        return;
+                    }
+                    if (this.selection) {
+                        this.select(null);
                     }
                 })
                 .onZoom(() => (this.tooltip = null))
@@ -281,9 +325,8 @@ export default {
                     this.viewport = { x0: a.x, y0: a.y, x1: b.x, y1: b.y };
                 })
                 .onRenderFramePost((ctx, scale) => {
-                    // after the frame: force-graph paints particles and arrows after the links
-                    if (this.hover) {
-                        this.links.forEach((l) => l.stats.length && this.isHiLink(l) && this.drawLinkStats(l, ctx, scale));
+                    if (this.focus) {
+                        this.drawFocusStats(ctx, scale);
                     }
                     this.placeMenuBtn();
                 })
@@ -302,8 +345,8 @@ export default {
             fg.d3Force('y', forceY(0).strength(forces.centerY));
             this.fg = fg;
             this.resize();
-            // the height also depends on the window and on the content above the map
             window.addEventListener('resize', this.scheduleResize);
+            window.addEventListener('keydown', this.keyDown);
             if (window.ResizeObserver && this.$el.parentElement) {
                 this.parentObserver = new ResizeObserver(this.scheduleResize);
                 this.parentObserver.observe(this.$el.parentElement);
@@ -348,10 +391,7 @@ export default {
                 });
             });
             const maxW = Math.max(1, max(links.map((l) => l.weight)));
-            links.forEach((l) => {
-                l.w = Math.log1p(l.weight) / Math.log1p(maxW);
-                l.bidirectional = seen.has(l.target + '->' + l.source);
-            });
+            links.forEach((l) => (l.w = Math.log1p(l.weight) / Math.log1p(maxW)));
             nodes.forEach((n) => (n.r = 12 + Math.sqrt(n.deg) * 2));
 
             const adj = new Map();
@@ -385,7 +425,6 @@ export default {
             if (!prev.size || added.length > nodes.size * 0.2) {
                 this.startLayout();
             } else {
-                // a few apps came or went: new ones start next to their neighbours, the others stay while they settle
                 added.forEach((id) => {
                     const n = nodes.get(id);
                     const placed = [...adj.get(id)].map((i) => nodes.get(i)).filter((m) => m !== n && m.x !== undefined);
@@ -406,7 +445,6 @@ export default {
             this.links = links;
             this.measureLabels();
             this.ticks = 0;
-            // after force-graph has applied the data: it resolves link ends asynchronously
             this.hoverRefreshPending = true;
             this.fg.graphData({ nodes: [...nodes.values()], links });
         },
@@ -429,7 +467,7 @@ export default {
                 this.releaseSettle();
             }
             if (this.fitPending && this.ticks === engine.earlyFitTicks) {
-                this.fitView(durations.fit);
+                this.fitView(durations.fit, this.selection && this.adj.get(this.selection.id));
             }
         },
 
@@ -447,7 +485,8 @@ export default {
             }
             this.releaseSettle();
             if (this.fitPending) {
-                this.fit();
+                this.fitPending = false;
+                this.fitView(this.reducedMotion ? 0 : durations.fit, this.selection && this.adj.get(this.selection.id));
             }
         },
 
@@ -494,8 +533,6 @@ export default {
             fetch(`${this.$coroot.base_path}static/img/tech-icons/${icon}.svg`)
                 .then((r) => (r.ok ? r.text() : Promise.reject(r.status)))
                 .then((svg) => {
-                    // the icons have only a viewBox: Firefox can't draw SVGs without an intrinsic size on a canvas,
-                    // and drawing an SVG on every frame is slow, so it's rasterized once
                     const size = sizes.icon;
                     const sized = svg.replace(/<svg\b([^>]*)>/, (m, attrs) =>
                         /\swidth=/.test(attrs) ? m : `<svg width="${size}" height="${size}"${attrs}>`,
@@ -510,9 +547,16 @@ export default {
                         this.images[icon] = canvas;
                         this.redraw();
                     };
+                    img.onerror = () => {
+                        this.images[icon] = false;
+                        this.redraw();
+                    };
                     img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(sized);
                 })
-                .catch(() => {});
+                .catch(() => {
+                    this.images[icon] = false;
+                    this.redraw();
+                });
         },
 
         measureLabels() {
@@ -534,16 +578,17 @@ export default {
         },
 
         isHiLink(l) {
-            return !this.hover || l.source.id === this.hover || l.target.id === this.hover;
+            return !this.focus || l.source.id === this.focus || l.target.id === this.focus;
         },
 
         linkColor(l) {
             const c = this.colors;
-            if (!this.isHiLink(l)) {
+            const unmatched = !this.focus && this.matches && !(this.matches.has(l.source.id) && this.matches.has(l.target.id));
+            if (!this.isHiLink(l) || unmatched) {
                 return this.withAlpha(c.textDimmed, 0.06);
             }
             const color = c[l.status] || c.unknown;
-            return this.hover ? color : this.withAlpha(color, l.status === 'ok' ? 0.45 : 0.7);
+            return this.focus ? color : this.withAlpha(color, l.status === 'ok' ? 0.45 : 0.7);
         },
 
         sprite(key, draw, screenSize) {
@@ -567,36 +612,29 @@ export default {
             if (v && (n.x < v.x0 - margin || n.x > v.x1 + margin || n.y < v.y0 - margin || n.y > v.y1 + margin)) {
                 return;
             }
-            const neighbours = this.hover && this.adj.get(this.hover);
-            const hi = !neighbours || neighbours.has(n.id);
+            const neighbours = this.focus && this.adj.get(this.focus);
+            const matched = !!this.matches && this.matches.has(n.id);
+            const hi = neighbours ? neighbours.has(n.id) : !this.matches || matched;
             ctx.globalAlpha = hi ? 1 : 0.12;
 
             ctx.beginPath();
             ctx.arc(n.x, n.y, n.r, 0, 2 * Math.PI);
             ctx.fillStyle = c.bg;
             ctx.fill();
-            ctx.lineWidth = n.id === this.hover ? 2.5 : 1.2;
-            ctx.strokeStyle = n.id === this.hover ? c.selected : c.border;
+            ctx.lineWidth = n.id === this.focus ? 2.5 : matched ? 1.8 : 1.2;
+            ctx.strokeStyle = n.id === this.focus || matched ? c.selected : c.border;
             ctx.stroke();
 
             const img = n.icon && this.images[n.icon];
             if (img) {
                 const s = n.r * 1.1;
                 ctx.drawImage(img, n.x - s / 2, n.y - s / 2, s, s);
-            } else {
-                const text = n.kind === 'ExternalService' ? 'EXT' : (n.kind || '?').slice(0, 3).toUpperCase();
-                const kind = this.sprite(
-                    'kind:' + text,
-                    (sc, r) => {
-                        sc.fillStyle = c.textDimmed;
-                        sc.font = `600 ${r * 0.55}px Roboto, sans-serif`;
-                        sc.textAlign = 'center';
-                        sc.textBaseline = 'middle';
-                        sc.fillText(text, r, r);
-                    },
-                    2 * n.r * scale,
-                );
-                ctx.drawImage(kind, n.x - n.r, n.y - n.r, 2 * n.r, 2 * n.r);
+            } else if (!n.icon || this.images[n.icon] === false) {
+                ctx.fillStyle = c.textDimmed;
+                ctx.font = `${n.r * 1.1}px "Material Design Icons"`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(fallbackIcons[n.kind === 'ExternalService' ? 'external' : 'other'], n.x, n.y);
             }
 
             const br = (n.r * 0.36) / 0.9;
@@ -628,7 +666,7 @@ export default {
                 ctx.drawImage(btn, m.x - mr, m.y - mr, 2 * mr, 2 * mr);
             }
 
-            n.labelShown = scale > 0.7 || (!!this.hover && hi);
+            n.labelShown = scale > 0.7 || (!!(this.focus || this.matches) && hi);
             if (n.labelShown) {
                 const fs = Math.max(10 / scale, 4);
                 const k = fs / sizes.labelFont;
@@ -671,74 +709,129 @@ export default {
             ctx.globalAlpha = 1;
         },
 
-        drawLinkStats(l, ctx, scale) {
-            const s = l.source;
-            const t = l.target;
-            if (s.x === undefined || t.x === undefined) {
+        drawFocusStats(ctx, scale) {
+            const h = this.nodes.get(this.focus);
+            if (!h || h.x === undefined) {
                 return;
             }
-            const c = this.colors;
-            // two-way traffic comes as two overlapping links: each box is shifted towards its own source
-            const k = l.bidirectional ? 0.35 : 0.5;
-            const x = s.x + (t.x - s.x) * k;
-            const y = s.y + (t.y - s.y) * k;
+            const gap = 3 / scale;
+            const taken = [];
+            this.adj.get(h.id).forEach((id) => {
+                const n = this.nodes.get(id);
+                if (n.x === undefined) {
+                    return;
+                }
+                taken.push({ x0: n.x - n.r - gap, y0: n.y - n.r - gap, x1: n.x + n.r + gap, y1: n.y + n.r + gap });
+                if (n.labelShown) {
+                    taken.push(n.labelBox);
+                }
+            });
+            const links = this.links.filter((l) => l.stats.length && this.isHiLink(l) && l.source.x !== undefined && l.target.x !== undefined);
+            links.sort((a, b) => (statsRank[b.status] || 0) - (statsRank[a.status] || 0) || b.weight - a.weight);
             const fs = sizes.statsFont / scale;
             const lh = fs * 1.25;
             const pad = fs * 0.35;
-            const w = (l.statsW || 0) / scale + pad * 2;
-            const h = lh * l.stats.length + pad * 2 - (lh - fs);
-            const x0 = x - w / 2;
-            const y0 = y - h / 2;
+            const v = this.viewport;
+            const fits = (b) => !v || (b.x0 >= v.x0 && b.x1 <= v.x1 && b.y0 >= v.y0 && b.y1 <= v.y1);
+            const place = (l, b) => {
+                taken.push({ x0: b.x0 - gap, y0: b.y0 - gap, x1: b.x1 + gap, y1: b.y1 + gap });
+                this.drawLinkStats(l, b, ctx, scale);
+            };
+            links.forEach((l, i) => {
+                const o = l.source === h ? l.target : l.source;
+                const w = (l.statsW || 0) / scale + pad * 2;
+                const hh = lh * l.stats.length + pad * 2 - (lh - fs);
+                let best = null;
+                let bestArea = Infinity;
+                for (const side of statsSides) {
+                    const [dx, dy] = side(w, hh, gap);
+                    for (const t of statsPositions) {
+                        const x0 = h.x + (o.x - h.x) * t + dx;
+                        const y0 = h.y + (o.y - h.y) * t + dy;
+                        const b = { x0, y0, x1: x0 + w, y1: y0 + hh };
+                        if (!fits(b)) {
+                            continue;
+                        }
+                        if (!taken.some((tb) => overlap(b, tb))) {
+                            place(l, b);
+                            return;
+                        }
+                        const area = i === 0 ? taken.reduce((s, tb) => s + overlapArea(b, tb), 0) : Infinity;
+                        if (area < bestArea) {
+                            best = b;
+                            bestArea = area;
+                        }
+                    }
+                }
+                if (i === 0 && best) {
+                    place(l, best);
+                }
+            });
+        },
+
+        drawLinkStats(l, b, ctx, scale) {
+            const c = this.colors;
+            const fs = sizes.statsFont / scale;
+            const lh = fs * 1.25;
+            const pad = fs * 0.35;
             ctx.font = `${fs}px Roboto, sans-serif`;
             ctx.fillStyle = this.withAlpha(c.bg, 0.92);
             ctx.strokeStyle = l.status === 'critical' || l.status === 'warning' ? c[l.status] : c.border;
             ctx.lineWidth = 1 / scale;
             ctx.beginPath();
             if (ctx.roundRect) {
-                ctx.roundRect(x0, y0, w, h, 3 / scale);
+                ctx.roundRect(b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0, 3 / scale);
             } else {
-                ctx.rect(x0, y0, w, h);
+                ctx.rect(b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0);
             }
             ctx.fill();
             ctx.stroke();
             ctx.fillStyle = c.text;
             ctx.textAlign = 'left';
             ctx.textBaseline = 'top';
-            l.stats.forEach((st, i) => ctx.fillText(st, x0 + pad, y0 + pad + i * lh));
+            l.stats.forEach((st, i) => ctx.fillText(st, b.x0 + pad, b.y0 + pad + i * lh));
         },
 
         drawBadge(ctx, x, y, r, status) {
             const c = this.colors;
-            ctx.beginPath();
-            ctx.arc(x, y, r, 0, 2 * Math.PI);
-            ctx.fillStyle = c[status] || c.unknown;
-            ctx.fill();
-            ctx.lineWidth = r * 0.18;
-            ctx.strokeStyle = c.bg;
-            ctx.stroke();
-            ctx.lineWidth = r * 0.22;
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
+            ctx.fillStyle = c[status] || c.unknown;
+            ctx.strokeStyle = c.bg;
+            ctx.beginPath();
+            if (status === 'warning') {
+                ctx.moveTo(x, y - r * 0.85);
+                ctx.lineTo(x + r * 0.95, y + r * 0.78);
+                ctx.lineTo(x - r * 0.95, y + r * 0.78);
+                ctx.closePath();
+                ctx.lineWidth = r * 0.4;
+                ctx.stroke();
+                ctx.lineWidth = r * 0.2;
+                ctx.strokeStyle = ctx.fillStyle;
+                ctx.stroke();
+                ctx.fill();
+            } else {
+                ctx.arc(x, y, r, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.lineWidth = r * 0.18;
+                ctx.stroke();
+            }
+            ctx.lineWidth = r * 0.22;
             ctx.strokeStyle = status === 'warning' ? '#5a4a00' : '#fff';
+            ctx.fillStyle = ctx.strokeStyle;
             ctx.beginPath();
             if (status === 'ok') {
                 ctx.moveTo(x - r * 0.42, y + r * 0.02);
                 ctx.lineTo(x - r * 0.12, y + r * 0.32);
                 ctx.lineTo(x + r * 0.45, y - r * 0.3);
                 ctx.stroke();
-            } else if (status === 'critical') {
-                ctx.moveTo(x - r * 0.32, y - r * 0.32);
-                ctx.lineTo(x + r * 0.32, y + r * 0.32);
-                ctx.moveTo(x + r * 0.32, y - r * 0.32);
-                ctx.lineTo(x - r * 0.32, y + r * 0.32);
-                ctx.stroke();
-            } else if (status === 'warning') {
-                ctx.moveTo(x, y - r * 0.45);
-                ctx.lineTo(x, y + r * 0.1);
+            } else if (status === 'critical' || status === 'warning') {
+                const top = status === 'warning' ? -0.3 : -0.45;
+                ctx.moveTo(x, y + r * top);
+                ctx.lineTo(x, y + r * (top + 0.52));
                 ctx.stroke();
                 ctx.beginPath();
-                ctx.arc(x, y + r * 0.42, r * 0.11, 0, 2 * Math.PI);
-                ctx.fillStyle = ctx.strokeStyle;
+                ctx.arc(x, y + r * (top + 0.85), r * 0.12, 0, 2 * Math.PI);
                 ctx.fill();
             }
         },
@@ -749,22 +842,99 @@ export default {
 
         nodeHover(n) {
             if (n && !this.nodes.has(n.id)) {
-                n = null; // removed by a refresh, but force-graph's hit areas are repainted only periodically
-            }
-            if (this.pinned && (!n || n.id !== this.pinned)) {
-                return;
+                n = null;
             }
             this.hover = n ? n.id : null;
             this.updateLabelHover();
             if (n) {
-                this.calcHoverRatios();
                 this.showMenuBtn(n);
                 this.showNodeTooltip(n);
             } else {
                 this.tooltip = null;
                 this.scheduleMenuBtnClose();
             }
+            if (!this.selection) {
+                this.setFocus(this.hover);
+            }
+        },
+
+        setFocus(id) {
+            this.focus = id;
+            if (id) {
+                this.calcHoverRatios();
+            }
             this.refreshAccessors();
+            this.redraw();
+        },
+
+        select(n) {
+            const duration = this.reducedMotion ? 0 : durations.fit;
+            if (n && !this.selection && !this.fitPending) {
+                this.viewBeforeSelection = { k: this.fg.zoom(), center: this.fg.screen2GraphCoords(this.fg.width() / 2, this.fg.height() / 2) };
+            }
+            this.selection = n ? Object.freeze({ id: n.id, name: n.name }) : null;
+            this.$emit('select', n ? n.id : null);
+            this.setFocus(n ? n.id : this.hover);
+            if (n) {
+                this.showMenuBtn(n);
+                if (!this.fitPending) {
+                    this.fitView(duration, this.adj.get(n.id));
+                }
+                return;
+            }
+            if (!this.hover) {
+                this.scheduleMenuBtnClose();
+            }
+            const v = this.viewBeforeSelection;
+            this.viewBeforeSelection = null;
+            if (v) {
+                this.fg.centerAt(v.center.x, v.center.y, duration);
+                this.fg.zoom(v.k, duration);
+            } else {
+                this.fit();
+            }
+        },
+
+        applySelected() {
+            const id = this.selected || null;
+            const n = id && this.nodes.get(id);
+            if ((this.selection && this.selection.id) === id || (id && !n)) {
+                return;
+            }
+            this.select(n || null);
+        },
+
+        keyDown(e) {
+            if (e.key === 'Escape' && this.selection && !e.target.closest('input, textarea')) {
+                this.select(null);
+            }
+        },
+
+        applySearch() {
+            const q = this.query || '';
+            const matched = (n) => n.id.includes(q) || (!!n.app.cluster && n.app.cluster.includes(q));
+            this.matchList = q
+                ? [...this.nodes.values()]
+                      .filter(matched)
+                      .sort((a, b) => a.name.localeCompare(b.name))
+                      .map((n) => n.id)
+                : [];
+            this.matches = q ? new Set(this.matchList) : null;
+            this.matchCount = this.matchList.length;
+            this.refreshAccessors();
+        },
+
+        goToMatches() {
+            const exact = this.matchList.map((id) => this.nodes.get(id)).find((n) => n.name === this.query);
+            if (exact || this.matchCount === 1) {
+                this.select(exact || this.nodes.get(this.matchList[0]));
+                return true;
+            }
+            if (this.matchCount) {
+                this.fitPending = false;
+                this.fitView(this.reducedMotion ? 0 : durations.fit, this.matches);
+            }
+            return false;
         },
 
         calcHoverRatios() {
@@ -774,7 +944,6 @@ export default {
         },
 
         refreshAccessors() {
-            // force-graph evaluates these accessors only when they are set
             this.fg.linkDirectionalParticles(this.fg.linkDirectionalParticles());
             this.fg.linkDirectionalArrowLength(this.fg.linkDirectionalArrowLength());
         },
@@ -790,13 +959,11 @@ export default {
             }
             const n = this.hover && this.nodes.get(this.hover);
             if (this.hover && !n) {
-                this.pinned = null;
                 this.hover = null;
                 this.hoverLabel = null;
                 this.tooltip = null;
                 this.$refs.graph.style.cursor = null;
             } else if (n) {
-                this.calcHoverRatios();
                 if (this.tooltip && this.tooltip.kind === 'node') {
                     this.showNodeTooltip(n);
                 }
@@ -804,7 +971,15 @@ export default {
                 const l = this.links.find((l) => l.id === this.tooltip.id);
                 l ? this.showLinkTooltip(l) : (this.tooltip = null);
             }
-            this.refreshAccessors();
+            if (this.selection && !this.nodes.has(this.selection.id)) {
+                this.selection = null;
+                this.viewBeforeSelection = null;
+            }
+            if (this.query) {
+                this.applySearch();
+            }
+            this.setFocus(this.selection ? this.selection.id : this.hover);
+            this.applySelected();
         },
 
         showNodeTooltip(n) {
@@ -848,6 +1023,19 @@ export default {
             }
         },
 
+        nodeAt(e) {
+            const r = this.$refs.graph.getBoundingClientRect();
+            const p = this.fg.screen2GraphCoords(e.clientX - r.left, e.clientY - r.top);
+            this.graphPointer = p;
+            let found = null;
+            this.nodes.forEach((n) => {
+                if (n.x !== undefined && ((n.x - p.x) ** 2 + (n.y - p.y) ** 2 <= n.r ** 2 || this.onLabel(n))) {
+                    found = n;
+                }
+            });
+            return found;
+        },
+
         onLabel(n) {
             const p = this.graphPointer;
             if (!n || !n.labelShown || !p) {
@@ -883,18 +1071,14 @@ export default {
         },
 
         nodeClick(n, e) {
-            // touch: the first tap selects the node (there is no hover), a tap on its name opens the application
-            if (e && e.pointerType === 'touch') {
-                if (this.pinned !== n.id || !this.onLabel(n)) {
-                    this.pinned = null;
-                    this.nodeHover(n);
-                    this.pinned = n.id;
-                    return;
-                }
-            } else if (!this.onLabel(n)) {
+            const selected = !!this.selection && this.selection.id === n.id;
+            if (this.onLabel(n) && (e.pointerType !== 'touch' || selected)) {
+                this.openApp(n, e.ctrlKey || e.metaKey);
                 return;
             }
-            this.openApp(n, e && (e.ctrlKey || e.metaKey));
+            if (!selected) {
+                this.select(n);
+            }
         },
 
         openApp(n, newTab) {
@@ -906,11 +1090,10 @@ export default {
             this.$router.push(route).catch((err) => err);
         },
 
-        // middle-click on the name opens the application in a new tab, like a link (force-graph handles only left clicks)
         auxDown(e) {
             const n = this.hover && this.nodes.get(this.hover);
             if (this.onLabel(n)) {
-                e.preventDefault(); // no autoscroll
+                e.preventDefault();
             }
         },
         auxClick(e) {
@@ -943,7 +1126,7 @@ export default {
         scheduleMenuBtnClose() {
             clearTimeout(this.menuBtnTimer);
             this.menuBtnTimer = setTimeout(() => {
-                if (this.pinned && this.pinned === this.menuNode) {
+                if (this.selection && this.selection.id === this.menuNode) {
                     return;
                 }
                 if (!this.menuBtnHovered && !this.menuOpen()) {
@@ -967,7 +1150,6 @@ export default {
         },
 
         async openMenu(n) {
-            // AppPreferences' menu is opened and closed through its activator button
             const button = () => this.$refs.menuBtn && this.$refs.menuBtn.querySelector('button');
             if (this.menuOpen()) {
                 if (this.menuNode === n.id) {
@@ -993,14 +1175,13 @@ export default {
             const k = this.fg.zoom();
             const c = this.fg.graph2ScreenCoords(n.x, n.y);
             const size = Math.max(20, 2 * this.menuBtnPos(n).r * k);
-            const d = Math.max(0.72 * n.r * k, size / 2 + 6); // never covering the node when zoomed out
+            const d = Math.max(0.72 * n.r * k, size / 2 + 6);
             el.style.transform = `translate(${c.x + d - size / 2}px, ${c.y + d - size / 2}px)`;
             el.style.width = el.style.height = size + 'px';
         },
 
         leave() {
             this.tooltip = null;
-            // force-graph keeps the last pointer position when the pointer leaves the canvas: move it out
             const container = this.$refs.graph && this.$refs.graph.querySelector('.force-graph-container');
             if (container && window.PointerEvent) {
                 container.dispatchEvent(new PointerEvent('pointermove', { clientX: -1e5, clientY: -1e5 }));
@@ -1031,8 +1212,6 @@ export default {
         },
 
         redraw() {
-            // force-graph stops rendering once the layout stops; this prop's onChange requests a frame
-            // (re-setting the zoom would fire zoom events)
             if (this.fg) {
                 this.fg.nodeRelSize(this.fg.nodeRelSize());
             }
@@ -1047,9 +1226,8 @@ export default {
             return !this.links.length || typeof this.links[0].source === 'object';
         },
 
-        // like force-graph's zoomToFit, but with a zoom limit (few apps would fill the view) and room for the labels
-        fitView(duration) {
-            const bbox = this.fg.getGraphBbox();
+        fitView(duration, ids) {
+            const bbox = this.fg.getGraphBbox(ids ? (n) => ids.has(n.id) : undefined);
             if (!bbox) {
                 return;
             }
@@ -1068,13 +1246,12 @@ export default {
             this.fitView(this.reducedMotion ? 0 : durations.fit);
         },
 
-        // The longest call path to each app from a client; cycles are broken by ignoring DFS back edges.
         calcLevels(nodes, links) {
             const out = new Map();
             nodes.forEach((n, id) => out.set(id, []));
             links.forEach((l) => out.get(l.source).push(l.target));
             const back = new Set();
-            const state = new Map(); // 1: on the DFS stack, 2: done
+            const state = new Map();
             [...nodes.keys()].sort().forEach((root) => {
                 if (state.has(root)) {
                     return;
@@ -1148,9 +1325,6 @@ export default {
             if (e.type === 'pointermove' && e.buttons) {
                 this.fitPending = false;
             }
-            if (this.pinned && e.pointerType === 'mouse') {
-                this.pinned = null;
-            }
             if (this.fg) {
                 const g = this.$refs.graph.getBoundingClientRect();
                 this.graphPointer = this.fg.screen2GraphCoords(e.clientX - g.left, e.clientY - g.top);
@@ -1189,6 +1363,11 @@ export default {
     background-color: var(--background-color);
     border: 1px solid var(--border-color);
     border-radius: 4px;
+}
+.selection {
+    position: absolute;
+    top: 8px;
+    left: 8px;
 }
 .menu-btn {
     position: absolute;
