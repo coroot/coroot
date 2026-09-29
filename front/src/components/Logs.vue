@@ -192,7 +192,8 @@ export default {
     watch: {
         $route: {
             handler(newRoute, oldRoute) {
-                if (newRoute.query.query !== oldRoute?.query.query) {
+                const raw = newRoute.query.query;
+                if (raw !== oldRoute?.query.query && raw !== JSON.stringify(this.query)) {
                     let q = {};
                     try {
                         q = JSON.parse(this.$route.query.query || '{}');

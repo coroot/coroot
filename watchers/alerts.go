@@ -586,7 +586,7 @@ func (w *Alerts) evaluateKubernetesEventsAlerts(project *db.Project, rule *model
 
 	var events []*model.LogEntry
 	for _, chClient := range chClients.Clients {
-		evts, err := chClient.GetKubernetesEvents(ctx, from, to, 10000, clickhouse.LogFilter{Name: "Severity", Op: "!=", Value: model.SeverityInfo.String()})
+		evts, err := chClient.GetKubernetesEvents(ctx, from, to, 10000, clickhouse.LogFilter{Name: "Severity", Op: "!=", Value: "normal"})
 		if err != nil {
 			klog.Errorf("failed to get k8s events for rule %s: %v", rule.Id, err)
 			continue

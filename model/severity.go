@@ -98,3 +98,11 @@ func SeverityFromString(s string) Severity {
 	i, _ := strconv.Atoi(strings.TrimPrefix(s, "severity-"))
 	return Severity(i)
 }
+
+func NormalizeSeverityText(text string) string {
+	t := strings.ToLower(text)
+	if s := SeverityFromString(t); s != SeverityUnknown || t == "" {
+		return s.String()
+	}
+	return t
+}
