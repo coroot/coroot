@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -50,43 +51,67 @@ func (c *Client) GetLogSources(ctx context.Context, from timeseries.Time) (otelS
 }
 
 func (c *Client) GetLogsHistogram(ctx context.Context, query LogQuery) ([]model.LogHistogramBucket, error) {
+	query, err := c.resolveSeverityTexts(ctx, query)
+	if err != nil {
+		return nil, err
+	}
 	where, args := query.filters(nil)
-	q := fmt.Sprintf("SELECT multiIf(SeverityNumber=0, 0, intDiv(SeverityNumber, 4)+1), toStartOfInterval(Timestamp, INTERVAL %d second), count(1)", query.Ctx.Step)
+	q := fmt.Sprintf("SELECT SeverityText, max(multiIf(SeverityNumber=0, 0, intDiv(SeverityNumber, 4)+1)), toStartOfInterval(Timestamp, INTERVAL %d second), count(1)", query.Ctx.Step)
 	q += " FROM @@table_otel_logs@@"
 	q += " WHERE " + strings.Join(where, " AND ")
-	q += " GROUP BY 1, 2"
+	q += " GROUP BY 1, 3"
 	rows, err := c.Query(ctx, q, args...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	bySeverity := map[int64]*timeseries.TimeSeries{}
+	byText := map[string]*model.LogHistogramBucket{}
+	counts := map[string]map[timeseries.Time]uint64{}
+	var text string
 	var sev int64
 	var t time.Time
 	var count uint64
 	for rows.Next() {
-		if err = rows.Scan(&sev, &t, &count); err != nil {
+		if err = rows.Scan(&text, &sev, &t, &count); err != nil {
 			return nil, err
 		}
-		if bySeverity[sev] == nil {
-			bySeverity[sev] = timeseries.New(query.Ctx.From, query.Ctx.PointsCount(), query.Ctx.Step)
+		text = model.NormalizeSeverityText(text)
+		b := byText[text]
+		if b == nil {
+			b = &model.LogHistogramBucket{SeverityText: text}
+			byText[text] = b
+			counts[text] = map[timeseries.Time]uint64{}
 		}
-		bySeverity[sev].Set(timeseries.Time(t.Unix()), float32(count))
+		b.Severity = max(b.Severity, model.Severity(sev))
+		counts[text][timeseries.Time(t.Unix())] += count
 	}
-	res := make([]model.LogHistogramBucket, 0, len(bySeverity))
-	for s, ts := range bySeverity {
-		res = append(res, model.LogHistogramBucket{Severity: model.Severity(s), Timeseries: ts})
+	res := make([]model.LogHistogramBucket, 0, len(byText))
+	for text, b := range byText {
+		b.Timeseries = timeseries.New(query.Ctx.From, query.Ctx.PointsCount(), query.Ctx.Step)
+		for t, count := range counts[text] {
+			b.Timeseries.Set(t, float32(count))
+		}
+		res = append(res, *b)
 	}
-	sort.Slice(res, func(i, j int) bool { return res[i].Severity < res[j].Severity })
+	sort.Slice(res, func(i, j int) bool {
+		if res[i].Severity == res[j].Severity {
+			return res[i].SeverityText < res[j].SeverityText
+		}
+		return res[i].Severity < res[j].Severity
+	})
 	return res, nil
 }
 
 func (c *Client) GetLogs(ctx context.Context, query LogQuery) ([]*model.LogEntry, error) {
+	query, err := c.resolveSeverityTexts(ctx, query)
+	if err != nil {
+		return nil, err
+	}
 	where, args := query.filters(nil)
 	cond := strings.Join(where, " AND ")
 	limit := fmt.Sprint(query.Limit)
 	cutoff := "SELECT min(Timestamp) FROM (SELECT Timestamp FROM @@table_otel_logs@@ WHERE " + cond + " ORDER BY Timestamp DESC LIMIT " + limit + ")"
-	q := "SELECT ServiceName, Timestamp, multiIf(SeverityNumber=0, 0, intDiv(SeverityNumber, 4)+1), Body, TraceId, ResourceAttributes, LogAttributes"
+	q := "SELECT ServiceName, Timestamp, multiIf(SeverityNumber=0, 0, intDiv(SeverityNumber, 4)+1), SeverityText, Body, TraceId, ResourceAttributes, LogAttributes"
 	q += " FROM @@table_otel_logs@@"
 	q += " WHERE " + cond + " AND Timestamp >= (" + cutoff + ")"
 	q += " ORDER BY Timestamp DESC"
@@ -101,10 +126,11 @@ func (c *Client) GetLogs(ctx context.Context, query LogQuery) ([]*model.LogEntry
 	for rows.Next() {
 		var e model.LogEntry
 		var sev int64
-		if err = rows.Scan(&e.ServiceName, &e.Timestamp, &sev, &e.Body, &e.TraceId, &e.ResourceAttributes, &e.LogAttributes); err != nil {
+		if err = rows.Scan(&e.ServiceName, &e.Timestamp, &sev, &e.SeverityText, &e.Body, &e.TraceId, &e.ResourceAttributes, &e.LogAttributes); err != nil {
 			return nil, err
 		}
 		e.Severity = model.Severity(sev)
+		e.SeverityText = model.NormalizeSeverityText(e.SeverityText)
 		e.ClusterId = c.project.ClusterId()
 		e.ClusterName = c.project.Name
 		res = append(res, &e)
@@ -120,6 +146,10 @@ func (c *Client) GetLogFilters(ctx context.Context, query LogQuery, name string)
 			query.Ctx.From = query.Ctx.To.Add(-maxLogFilterScanWindow)
 		}
 	}
+	query, err := c.resolveSeverityTexts(ctx, query)
+	if err != nil {
+		return nil, err
+	}
 	where, args := query.filters(&name)
 	var q string
 	var res []string
@@ -131,7 +161,7 @@ func (c *Client) GetLogFilters(ctx context.Context, query LogQuery, name string)
 		q = "SELECT arrayJoin(arrayConcat(mapKeys(LogAttributes), mapKeys(ResourceAttributes))) AS k"
 		orderBy = `GROUP BY 1 HAVING NOT match(k, '\\.\\d+(\\.|$)') ORDER BY count(1) DESC, 1`
 	case "Severity":
-		q = "SELECT DISTINCT multiIf(SeverityNumber=0, 0, intDiv(SeverityNumber, 4)+1)"
+		q = "SELECT DISTINCT SeverityText"
 	case "Message", "TraceId":
 		return res, nil
 	case "Cluster":
@@ -149,17 +179,15 @@ func (c *Client) GetLogFilters(ctx context.Context, query LogQuery, name string)
 	}
 	defer rows.Close()
 	var s string
-	var i int64
 	for rows.Next() {
-		switch name {
-		case "Severity":
-			err = rows.Scan(&i)
-			s = model.Severity(i).String()
-		default:
-			err = rows.Scan(&s)
-		}
-		if err != nil {
+		if err = rows.Scan(&s); err != nil {
 			return nil, err
+		}
+		if name == "Severity" {
+			s = model.NormalizeSeverityText(s)
+			if slices.Contains(res, s) {
+				continue
+			}
 		}
 		if s == "" {
 			continue
@@ -187,6 +215,39 @@ type LogQuery struct {
 	Filters  []LogFilter
 	Limit    int
 	Since    time.Time
+
+	severityTexts map[string][]string
+}
+
+func (c *Client) resolveSeverityTexts(ctx context.Context, q LogQuery) (LogQuery, error) {
+	if !slices.ContainsFunc(q.Filters, func(f LogFilter) bool { return f.Name == "Severity" }) {
+		return q, nil
+	}
+	from := q.Ctx.From.ToStandard()
+	if !q.Since.IsZero() {
+		from = q.Since
+	}
+	query := "SELECT DISTINCT SeverityText FROM @@table_otel_logs_service_name_severity_text@@ WHERE LastSeen >= @from"
+	args := []any{clickhouse.DateNamed("from", from, clickhouse.NanoSeconds)}
+	if len(q.Services) > 0 {
+		query += " AND ServiceName IN (@services)"
+		args = append(args, clickhouse.Named("services", q.Services))
+	}
+	rows, err := c.Query(ctx, query, args...)
+	if err != nil {
+		return q, err
+	}
+	defer rows.Close()
+	q.severityTexts = map[string][]string{}
+	var text string
+	for rows.Next() {
+		if err = rows.Scan(&text); err != nil {
+			return q, err
+		}
+		n := model.NormalizeSeverityText(text)
+		q.severityTexts[n] = append(q.severityTexts[n], text)
+	}
+	return q, rows.Err()
 }
 
 type LogFilter struct {
@@ -278,24 +339,25 @@ func (q LogQuery) filters(attr *string) ([]string, []any) {
 		switch name {
 		case "Severity":
 			for j, a := range attrs {
-				r1, r2 := model.SeverityFromString(a.Value).Range()
 				var f *[]string
 				var expr string
 				switch a.Op {
 				case "=":
-					expr = "SeverityNumber BETWEEN @%[1]s AND @%[2]s"
+					expr = "SeverityText IN (@%s)"
 					f = &ors
 				case "!=":
-					expr = "SeverityNumber NOT BETWEEN @%[1]s AND @%[2]s"
+					expr = "SeverityText NOT IN (@%s)"
 					f = &ands
 				default:
 					continue
 				}
-				v1 := fmt.Sprintf("severity_from_%d", j)
-				v2 := fmt.Sprintf("severity_to_%d", j)
-				*f = append(*f, fmt.Sprintf(expr, v1, v2))
-				args = append(args, clickhouse.Named(v1, r1))
-				args = append(args, clickhouse.Named(v2, r2))
+				texts := q.severityTexts[model.NormalizeSeverityText(a.Value)]
+				if len(texts) == 0 {
+					texts = []string{a.Value}
+				}
+				v := fmt.Sprintf("severity_%d", j)
+				*f = append(*f, fmt.Sprintf(expr, v))
+				args = append(args, clickhouse.Named(v, texts))
 			}
 		case "TraceId":
 			for j, a := range attrs {

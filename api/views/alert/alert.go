@@ -144,7 +144,8 @@ func kubernetesEventsWidgets(w *model.World, a *model.Alert, chs clickhouse.Clie
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	bySeverity := map[model.Severity]*timeseries.Aggregate{}
+	bySeverity := map[string]*timeseries.Aggregate{}
+	severityOf := map[string]model.Severity{}
 	for _, ch := range chs.Clients {
 		if !clusterFilter.Matches(ch.Project().Name) {
 			continue
@@ -155,10 +156,11 @@ func kubernetesEventsWidgets(w *model.World, a *model.Alert, chs clickhouse.Clie
 			continue
 		}
 		for _, b := range histogram {
-			agg := bySeverity[b.Severity]
+			agg := bySeverity[b.SeverityText]
 			if agg == nil {
 				agg = timeseries.NewAggregate(timeseries.NanSum)
-				bySeverity[b.Severity] = agg
+				bySeverity[b.SeverityText] = agg
+				severityOf[b.SeverityText] = b.Severity
 			}
 			agg.Add(b.Timeseries)
 		}
@@ -167,13 +169,18 @@ func kubernetesEventsWidgets(w *model.World, a *model.Alert, chs clickhouse.Clie
 		return nil
 	}
 	chart := model.NewChart(w.Ctx, "Events").Column().Sorted()
-	severities := make([]model.Severity, 0, len(bySeverity))
+	severities := make([]string, 0, len(bySeverity))
 	for s := range bySeverity {
 		severities = append(severities, s)
 	}
-	sort.Slice(severities, func(i, j int) bool { return severities[i] < severities[j] })
+	sort.Slice(severities, func(i, j int) bool {
+		if severityOf[severities[i]] == severityOf[severities[j]] {
+			return severities[i] < severities[j]
+		}
+		return severityOf[severities[i]] < severityOf[severities[j]]
+	})
 	for _, s := range severities {
-		chart.AddSeries(s.String(), bySeverity[s], s.Color())
+		chart.AddSeries(s, bySeverity[s], severityOf[s].Color())
 	}
 	return []*model.Widget{{Chart: chart, Width: "100%"}}
 }

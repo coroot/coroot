@@ -237,7 +237,7 @@ func renderEntries(ctx context.Context, v *View, ch *clickhouse.Client, app *mod
 	if len(histogram) > 0 {
 		v.Chart = model.NewChart(w.Ctx, "").Column().Sorted()
 		for _, b := range histogram {
-			v.Chart.AddSeries(b.Severity.String(), b.Timeseries, b.Severity.Color())
+			v.Chart.AddSeries(b.SeverityText, b.Timeseries, b.Severity.Color())
 		}
 	}
 
@@ -245,7 +245,7 @@ func renderEntries(ctx context.Context, v *View, ch *clickhouse.Client, app *mod
 	for _, e := range entries {
 		entry := Entry{
 			Timestamp:  e.Timestamp.UnixMilli(),
-			Severity:   e.Severity.String(),
+			Severity:   e.SeverityText,
 			Color:      e.Severity.Color(),
 			Message:    e.Body,
 			Attributes: e.AllAttributes(),

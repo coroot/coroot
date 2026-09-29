@@ -106,7 +106,8 @@ func renderLogs(ctx context.Context, chs clickhouse.Clients, w *model.World, que
 	suggest := utils.NewStringSet()
 	var suggestLock sync.Mutex
 	var suggestWg sync.WaitGroup
-	bySeverity := map[model.Severity]*timeseries.Aggregate{}
+	bySeverity := map[string]*timeseries.Aggregate{}
+	severityOf := map[string]model.Severity{}
 	var overallEntries []*model.LogEntry
 
 	for _, ch := range chs.Clients {
@@ -133,10 +134,11 @@ func renderLogs(ctx context.Context, chs clickhouse.Clients, w *model.World, que
 			}
 			histogram, err = ch.GetLogsHistogram(ctx, lq)
 			for _, b := range histogram {
-				agg := bySeverity[b.Severity]
+				agg := bySeverity[b.SeverityText]
 				if agg == nil {
 					agg = timeseries.NewAggregate(timeseries.NanSum)
-					bySeverity[b.Severity] = agg
+					bySeverity[b.SeverityText] = agg
+					severityOf[b.SeverityText] = b.Severity
 				}
 				agg.Add(b.Timeseries)
 			}
@@ -161,8 +163,18 @@ func renderLogs(ctx context.Context, chs clickhouse.Clients, w *model.World, que
 
 	if len(bySeverity) > 0 {
 		v.Chart = model.NewChart(w.Ctx, "").Column().Sorted()
-		for severity, agg := range bySeverity {
-			v.Chart.AddSeries(severity.String(), agg, severity.Color())
+		severities := make([]string, 0, len(bySeverity))
+		for s := range bySeverity {
+			severities = append(severities, s)
+		}
+		sort.Slice(severities, func(i, j int) bool {
+			if severityOf[severities[i]] == severityOf[severities[j]] {
+				return severities[i] < severities[j]
+			}
+			return severityOf[severities[i]] < severityOf[severities[j]]
+		})
+		for _, s := range severities {
+			v.Chart.AddSeries(s, bySeverity[s], severityOf[s].Color())
 		}
 	}
 
@@ -205,7 +217,7 @@ func (v *Logs) renderEntries(entries []*model.LogEntry, w *model.World, limit in
 		entry := LogEntry{
 			Application: e.ServiceName,
 			Timestamp:   e.Timestamp.UnixMilli(),
-			Severity:    e.Severity.String(),
+			Severity:    e.SeverityText,
 			Color:       e.Severity.Color(),
 			Message:     e.Body,
 			Attributes:  e.AllAttributes(),

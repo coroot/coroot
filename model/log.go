@@ -33,6 +33,7 @@ type LogEntry struct {
 	ServiceName        string            `json:"service_name"`
 	Timestamp          time.Time         `json:"timestamp"`
 	Severity           Severity          `json:"severity"`
+	SeverityText       string            `json:"severity_text"`
 	Body               string            `json:"body"`
 	TraceId            string            `json:"trace_id,omitempty"`
 	LogAttributes      map[string]string `json:"log_attributes,omitempty"`
@@ -57,6 +58,7 @@ func (e *LogEntry) AllAttributes() map[string]string {
 }
 
 type LogHistogramBucket struct {
-	Severity   Severity
-	Timeseries *timeseries.TimeSeries
+	Severity     Severity
+	SeverityText string
+	Timeseries   *timeseries.TimeSeries
 }
