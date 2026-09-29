@@ -2,8 +2,11 @@
     <div class="d-flex flex-column flex-sm-row flex-wrap flex-md-nowrap" style="gap: 12px">
         <div>
             <v-text-field
+                ref="search"
                 v-model="searchString"
                 label="search"
+                :suffix="searchInfo"
+                @keydown="$emit('search-keydown', $event)"
                 clearable
                 dense
                 hide-details
@@ -100,6 +103,8 @@ export default {
     props: {
         applications: Array,
         autoSelectNamespaceThreshold: Number,
+        highlightSearch: Boolean,
+        searchInfo: String,
     },
 
     data() {
@@ -132,8 +137,11 @@ export default {
             categories.sort((a, b) => a.localeCompare(b));
             return categories;
         },
+        searchFilters() {
+            return !!this.search && !this.highlightSearch;
+        },
         categoriesDisabled() {
-            return !!this.search || !!this.selectedNamespaces.length;
+            return this.searchFilters || !!this.selectedNamespaces.length;
         },
         namespaces() {
             const map = {};
@@ -156,14 +164,14 @@ export default {
             return namespaces;
         },
         namespacesDisabled() {
-            return !!this.search;
+            return this.searchFilters;
         },
         filter() {
             const selectedCategories = new Set(this.selectedCategories);
             const selectedNamespaces = new Set(this.selectedNamespaces);
             const search = this.search;
             const applications = (this.applications || []).filter((a) => {
-                if (search) {
+                if (this.searchFilters) {
                     return a.id.includes(search) || (a.type && a.type.name.includes(search)) || (a.cluster && a.cluster.includes(search));
                 }
                 if (selectedNamespaces.size) {
@@ -213,6 +221,12 @@ export default {
     },
 
     methods: {
+        searchInput() {
+            return this.$refs.search.$refs.input;
+        },
+        clearSearch() {
+            this.searchString = '';
+        },
         removeNamespace(ns) {
             const i = this.selectedNamespaces.indexOf(ns);
             if (i >= 0) {
@@ -277,7 +291,7 @@ export default {
 .namespace:deep(.v-icon) {
     font-size: 16px !important;
 }
-.search:deep(input) {
-    width: 200px !important;
+.search {
+    width: 250px;
 }
 </style>

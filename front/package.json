@@ -20,6 +20,8 @@
     "axios": "^1.12.0",
     "color-convert": "^2.0.1",
     "core-js": "^3.8.3",
+    "d3-force-3d": "^3.0.6",
+    "force-graph": "^1.51.5",
     "gridstack": "^12.1.2",
     "highlight.js": "^11.7.0",
     "markdown-it": "^14.1.0",
