@@ -48,7 +48,7 @@ func Render(ctx context.Context, chs clickhouse.Clients, project *db.Project, w 
 	case "costs":
 		v.Costs = renderCosts(w)
 	case "risks":
-		v.Risks = renderRisks(w)
+		v.Risks = RenderRisks(w)
 	case "fluxcd":
 		v.FluxCD = renderFluxCD(w)
 	case "argocd":
