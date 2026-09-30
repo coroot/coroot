@@ -11,7 +11,9 @@ To bridge this gap, Coroot also collects statistics from Postgres system views s
 
 ## Prerequisites
 
-This integration requires a database user with the `pg_monitor` role and the `pg_stat_statements` extension enabled.
+This integration supports **Postgres 10 and later**. Older servers are reported as unsupported on the Postgres page, and no statistics are collected from them.
+
+It requires a database user with the `pg_monitor` role and the `pg_stat_statements` extension enabled.
 
 ```sql
 CREATE ROLE coroot WITH LOGIN PASSWORD '<PASSWORD>';
