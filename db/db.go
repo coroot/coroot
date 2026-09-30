@@ -40,13 +40,17 @@ type DB struct {
 }
 
 func NewSqlite(dataDir string) (*DB, error) {
-	db, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?mode=rwc", path.Join(dataDir, "db.sqlite")))
+	dsn := fmt.Sprintf("file:%s?mode=rwc&_journal_mode=WAL&_busy_timeout=10000&_synchronous=NORMAL", path.Join(dataDir, "db.sqlite"))
+	db, err := sql.Open("sqlite3", dsn)
 	if err != nil {
 		return nil, err
 	}
 	if _, err = db.Exec("PRAGMA foreign_keys = ON"); err != nil {
 		return nil, err
 	}
+	_, _ = db.Exec("PRAGMA journal_mode = WAL")
+	_, _ = db.Exec("PRAGMA busy_timeout = 10000")
+	_, _ = db.Exec("PRAGMA synchronous = NORMAL")
 	db.SetMaxOpenConns(1)
 	return &DB{typ: TypeSqlite, db: db}, nil
 }

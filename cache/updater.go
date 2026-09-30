@@ -8,6 +8,7 @@ import (
 	"path"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"sync"
 	"time"
 
@@ -22,10 +23,19 @@ import (
 )
 
 const (
-	QueryConcurrency   = 10
-	BackFillInterval   = 4 * timeseries.Hour
-	MinRefreshInterval = timeseries.Minute
+	DefaultQueryConcurrency = 30
+	BackFillInterval        = 4 * timeseries.Hour
+	MinRefreshInterval      = timeseries.Minute
 )
+
+func getQueryConcurrency() int {
+	if val := os.Getenv("CACHE_QUERY_CONCURRENCY"); val != "" {
+		if c, err := strconv.Atoi(val); err == nil && c > 0 {
+			return c
+		}
+	}
+	return DefaultQueryConcurrency
+}
 
 func (c *Cache) updater() {
 	workers := &sync.Map{}
@@ -148,7 +158,8 @@ func (c *Cache) projectUpdateIteration(project *db.Project, step timeseries.Dura
 	wg := sync.WaitGroup{}
 	tasks := make(chan UpdateTask)
 	to := now.Add(-step)
-	for i := 0; i < QueryConcurrency; i++ {
+	concurrency := getQueryConcurrency()
+	for i := 0; i < concurrency; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -323,6 +334,10 @@ func (c *Cache) processRecordingRules(to timeseries.Time, project *db.Project, s
 	intervals := calcIntervals(from, step, to, jitter)
 	if len(intervals) == 0 {
 		return
+	}
+	const maxRecordingRuleIntervalsPerIteration = 6 // 1 hour max per iteration to avoid CPU freeze
+	if len(intervals) > maxRecordingRuleIntervalsPerIteration {
+		intervals = intervals[len(intervals)-maxRecordingRuleIntervalsPerIteration:]
 	}
 	cacheClients := map[db.ProjectId]constructor.Cache{project.Id: c.GetCacheClient(project.Id)}
 
