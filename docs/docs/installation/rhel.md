@@ -245,3 +245,29 @@ To uninstall Coroot run the following command:
 
 </TabItem>
 </Tabs>
+
+## RHEL 7 & CentOS 7
+
+coroot-node-agent runs on RHEL 7.6 and later (kernel 3.10.0-957 or later, which includes the eBPF backport) with a reduced set of eBPF programs.
+The following features are not available on these kernels:
+* Protocol-level (L7) metrics and eBPF-based tracing, including TLS traffic
+* Network latency measurements between containers (`container_net_latency_seconds`)
+* Python GIL and Node.js event loop metrics for processes running in containers
+* eBPF-based continuous profiling
+
+Node and container resource metrics, TCP connections, listening sockets, retransmits, OOM kills and log parsing work as usual.
+
+The install script from Step #4 takes care of the SELinux policy: the RHEL 7 policy doesn't allow systemd services to use eBPF, so the script installs a small policy module.
+
+If you run coroot-node-agent as a Docker container instead (for example, with the Docker Compose or Docker Swarm setups), two adjustments are needed:
+
+* Install the policy module that allows privileged containers to use eBPF:
+
+```bash
+echo '(allow spc_t self (bpf (map_create map_read map_write prog_load prog_run)))' > coroot-node-agent-docker.cil
+sudo semodule -i coroot-node-agent-docker.cil
+```
+
+* Remove the `/sys/kernel/tracing:/sys/kernel/tracing` volume from the `docker run` command or the compose file. Kernel 3.10 has no `/sys/kernel/tracing`, so the container fails to start with this mount. The `/sys/kernel/debug` volume is sufficient.
+
+Docker 1.13 from the CentOS repositories can't pull the coroot-node-agent image because it is published in the OCI format. Use Docker CE instead.
