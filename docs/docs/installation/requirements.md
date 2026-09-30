@@ -4,7 +4,8 @@ sidebar_position: 1
 
 # Requirements
 
- * Coroot relies heavily on eBPF, therefore, the minimum supported Linux kernel version is 5.1.
+ * Coroot relies heavily on eBPF, therefore, the minimum supported Linux kernel version is 4.16.
+   RHEL 7 and CentOS 7 (kernel 3.10 with the eBPF backport) are supported starting from 7.6 with [limitations](/installation/rhel#rhel-7--centos-7).
  * eBPF-based continuous profiling utilizes CO-RE. CO-RE is supported by most modern Linux distributions, including:
    * Ubuntu 20.10 and above 
    * Debian 11 and above 
