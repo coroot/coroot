@@ -113,7 +113,12 @@ func (c *Constructor) getInstanceAndContainer(w *model.World, node *model.Node, 
 	if instance == nil {
 		customApp := project.GetCustomApplicationName(id.name)
 		if customApp != "" {
-			appId.Name = customApp
+			if ns, name := model.ParseCustomApplicationName(customApp); ns != "" {
+				appId.Namespace = ns
+				appId.Name = name
+			} else {
+				appId.Name = customApp
+			}
 		}
 		instance = w.GetOrCreateApplication(appId, customApp != "").GetOrCreateInstance(id.name, node)
 		instances[id] = instance
@@ -610,7 +615,12 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]*model
 				}
 				customApp := project.GetCustomApplicationName(instanceName)
 				if customApp != "" {
-					appId.Name = customApp
+					if ns, name := model.ParseCustomApplicationName(customApp); ns != "" {
+						appId.Namespace = ns
+						appId.Name = name
+					} else {
+						appId.Name = customApp
+					}
 				}
 				ri := w.GetOrCreateApplication(appId, customApp != "").GetOrCreateInstance(instanceName, nil)
 				ri.TcpListens[model.Listen{IP: u.ActualRemoteIP, Port: u.ActualRemotePort}] = true

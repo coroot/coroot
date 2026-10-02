@@ -27,8 +27,9 @@ var (
 
 	ErrInvalidForm = errors.New("invalid form")
 
-	slugRe  = regexp.MustCompile("^[-_0-9a-z]{3,}$")
-	emailRe = regexp.MustCompile(`^[^@\r\n\t\f\v ]+@[^@\r\n\t\f\v ]+\.[a-z]+$`)
+	slugRe          = regexp.MustCompile("^[-_0-9a-z]{3,}$")
+	customAppSlugRe = regexp.MustCompile(`^([-_0-9a-z]+/)?[-_0-9a-z]{3,}$`)
+	emailRe         = regexp.MustCompile(`^[^@\r\n\t\f\v ]+@[^@\r\n\t\f\v ]+\.[a-z]+$`)
 )
 
 func ptrBool(v bool) *bool {
@@ -234,7 +235,7 @@ type CustomApplicationForm struct {
 }
 
 func (f *CustomApplicationForm) Valid() bool {
-	if !slugRe.MatchString(f.NewName) {
+	if !customAppSlugRe.MatchString(f.NewName) {
 		return false
 	}
 	f.InstancePatterns = strings.Fields(f.InstancePatternsStr)
