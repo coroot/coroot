@@ -31,8 +31,15 @@ func (c *Collector) migrateProjects() {
 			cancel()
 			if err != nil {
 				klog.Errorf("failed to create or update clickhouse tables for project %s: %s", p.Id, err)
+				c.migrationDoneLock.Lock()
+				c.migrationLastError[p.Id] = err.Error()
+				c.migrationDoneLock.Unlock()
 				failed = true
 				continue
+			} else {
+				c.migrationDoneLock.Lock()
+				delete(c.migrationLastError, p.Id)
+				c.migrationDoneLock.Unlock()
 			}
 		}
 		if failed {
