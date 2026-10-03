@@ -451,10 +451,12 @@ export default {
     position: absolute;
     width: 100%;
     height: 100%;
+    pointer-events: none;
 }
 .selection-control {
     position: relative;
     display: inline-block;
+    pointer-events: auto;
     transform: translateY(calc(-100% - 16px));
 }
 .selection-left {
