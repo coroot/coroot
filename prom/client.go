@@ -39,8 +39,8 @@ func init() {
 		ResponseHeaderTimeout: requestTimeout,
 		IdleConnTimeout:       90 * time.Second,
 		ExpectContinueTimeout: time.Second,
-		MaxIdleConns:          100,
-		MaxIdleConnsPerHost:   10,
+		MaxIdleConns:          200,
+		MaxIdleConnsPerHost:   100,
 	}
 	insecureTransport = &http.Transport{
 		DialContext:           d.DialContext,
@@ -48,8 +48,8 @@ func init() {
 		ResponseHeaderTimeout: requestTimeout,
 		IdleConnTimeout:       90 * time.Second,
 		ExpectContinueTimeout: time.Second,
-		MaxIdleConns:          100,
-		MaxIdleConnsPerHost:   10,
+		MaxIdleConns:          200,
+		MaxIdleConnsPerHost:   100,
 		TLSClientConfig:       &tls.Config{InsecureSkipVerify: true},
 	}
 }
