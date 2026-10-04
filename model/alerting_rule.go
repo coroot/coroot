@@ -948,6 +948,91 @@ func BuiltinAlertingRules() []AlertingRule {
 			Builtin: true,
 		},
 		{
+			Id:   "rum-lcp-p75",
+			Name: "RUM LCP p75",
+			Source: AlertSource{
+				Type:  AlertSourceTypeCheck,
+				Check: &CheckSource{CheckId: Checks.RumLcpP75.Id},
+			},
+			Selector:      AppSelector{Type: AppSelectorTypeAll},
+			Severity:      WARNING,
+			For:           5 * timeseries.Minute,
+			KeepFiringFor: 5 * timeseries.Minute,
+			Templates: AlertTemplates{
+				Description: "Largest Contentful Paint p75 exceeds the objective. Users perceive slow page loads.",
+			},
+			Enabled: true,
+			Builtin: true,
+		},
+		{
+			Id:   "rum-inp-p75",
+			Name: "RUM INP p75",
+			Source: AlertSource{
+				Type:  AlertSourceTypeCheck,
+				Check: &CheckSource{CheckId: Checks.RumInpP75.Id},
+			},
+			Selector:      AppSelector{Type: AppSelectorTypeAll},
+			Severity:      WARNING,
+			For:           5 * timeseries.Minute,
+			KeepFiringFor: 5 * timeseries.Minute,
+			Templates: AlertTemplates{
+				Description: "Interaction to Next Paint p75 is elevated. The UI feels unresponsive.",
+			},
+			Enabled: true,
+			Builtin: true,
+		},
+		{
+			Id:   "rum-cls-p75",
+			Name: "RUM CLS p75",
+			Source: AlertSource{
+				Type:  AlertSourceTypeCheck,
+				Check: &CheckSource{CheckId: Checks.RumClsP75.Id},
+			},
+			Selector:      AppSelector{Type: AppSelectorTypeAll},
+			Severity:      WARNING,
+			For:           5 * timeseries.Minute,
+			KeepFiringFor: 5 * timeseries.Minute,
+			Templates: AlertTemplates{
+				Description: "Cumulative Layout Shift p75 exceeds the objective. Content is visually unstable.",
+			},
+			Enabled: true,
+			Builtin: true,
+		},
+		{
+			Id:   "rum-js-errors",
+			Name: "RUM JS errors",
+			Source: AlertSource{
+				Type:  AlertSourceTypeCheck,
+				Check: &CheckSource{CheckId: Checks.RumJsErrors.Id},
+			},
+			Selector:      AppSelector{Type: AppSelectorTypeAll},
+			Severity:      WARNING,
+			For:           2 * timeseries.Minute,
+			KeepFiringFor: 5 * timeseries.Minute,
+			Templates: AlertTemplates{
+				Description: "Elevated browser JavaScript or HTTP error rate from RUM.",
+			},
+			Enabled: true,
+			Builtin: true,
+		},
+		{
+			Id:   "rum-fetch-errors",
+			Name: "RUM fetch errors",
+			Source: AlertSource{
+				Type:  AlertSourceTypeCheck,
+				Check: &CheckSource{CheckId: Checks.RumFetchErrors.Id},
+			},
+			Selector:      AppSelector{Type: AppSelectorTypeAll},
+			Severity:      WARNING,
+			For:           2 * timeseries.Minute,
+			KeepFiringFor: 5 * timeseries.Minute,
+			Templates: AlertTemplates{
+				Description: "A high percentage of browser fetch/XHR requests are failing.",
+			},
+			Enabled: true,
+			Builtin: true,
+		},
+		{
 			Id:   "python-gil-waiting-time",
 			Name: "Python GIL waiting time",
 			Source: AlertSource{

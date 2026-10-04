@@ -46,8 +46,14 @@ type Collector struct {
 	clickhouseClients     map[db.ProjectId]*ch.LowLevelClient
 	clickhouseClientsLock sync.RWMutex
 
-	traceBatches       map[db.ProjectId]*TracesBatch
-	traceBatchesLock   sync.Mutex
+	traceBatches     map[db.ProjectId]*TracesBatch
+	traceBatchesLock sync.Mutex
+
+	rumSpansBatches      map[db.ProjectId]*RumSpansBatch
+	rumSpansBatchesLock  sync.Mutex
+	rumReplayBatches     map[db.ProjectId]*RumReplayBatch
+	rumReplayBatchesLock sync.Mutex
+
 	logBatches         map[db.ProjectId]*LogsBatch
 	logBatchesLock     sync.Mutex
 	profileBatches     map[db.ProjectId]*ProfilesBatch
@@ -66,6 +72,8 @@ func New(cfg config.CollectorConfig, database *db.DB, cache *cache.Cache, global
 		migrationDone:     map[db.ProjectId]bool{},
 		clickhouseClients: map[db.ProjectId]*ch.LowLevelClient{},
 		traceBatches:      map[db.ProjectId]*TracesBatch{},
+		rumSpansBatches:   map[db.ProjectId]*RumSpansBatch{},
+		rumReplayBatches:  map[db.ProjectId]*RumReplayBatch{},
 		profileBatches:    map[db.ProjectId]*ProfilesBatch{},
 		logBatches:        map[db.ProjectId]*LogsBatch{},
 		metricsBatches:    map[db.ProjectId]*MetricsBatch{},
@@ -102,6 +110,23 @@ func (c *Collector) updateProjects() {
 }
 
 func (c *Collector) getProject(apiKey string) (*db.Project, error) {
+	p, _, err := c.getProjectAndKey(apiKey)
+	return p, err
+}
+
+// getAgentProject resolves a project for agent/OTLP endpoints that must not accept browser RUM keys.
+func (c *Collector) getAgentProject(apiKey string) (*db.Project, error) {
+	p, key, err := c.getProjectAndKey(apiKey)
+	if err != nil {
+		return nil, err
+	}
+	if key != nil && key.IsRum() {
+		return nil, ErrProjectNotFound
+	}
+	return p, nil
+}
+
+func (c *Collector) getProjectAndKey(apiKey string) (*db.Project, *db.ApiKey, error) {
 	c.projectsLock.RLock()
 	defer c.projectsLock.RUnlock()
 
@@ -111,9 +136,10 @@ func (c *Collector) getProject(apiKey string) (*db.Project, error) {
 	}
 
 	for _, p := range c.projects {
-		for _, k := range p.Settings.ApiKeys {
+		for i := range p.Settings.ApiKeys {
+			k := &p.Settings.ApiKeys[i]
 			if k.Key == apiKey {
-				return p, nil
+				return p, k, nil
 			}
 		}
 	}
@@ -135,18 +161,29 @@ func (c *Collector) getProject(apiKey string) (*db.Project, error) {
 				Description: "Default project access (no API key required)",
 			})
 			if err := c.db.SaveProjectSettings(project); err != nil {
-				return nil, err
+				return nil, nil, err
 			}
-			return project, nil
+			k := &project.Settings.ApiKeys[len(project.Settings.ApiKeys)-1]
+			return project, k, nil
 		}
 	}
-	return nil, ErrProjectNotFound
+	return nil, nil, ErrProjectNotFound
 }
 
 func (c *Collector) Close() {
 	c.traceBatchesLock.Lock()
 	defer c.traceBatchesLock.Unlock()
 	for _, b := range c.traceBatches {
+		b.Close()
+	}
+	c.rumSpansBatchesLock.Lock()
+	defer c.rumSpansBatchesLock.Unlock()
+	for _, b := range c.rumSpansBatches {
+		b.Close()
+	}
+	c.rumReplayBatchesLock.Lock()
+	defer c.rumReplayBatchesLock.Unlock()
+	for _, b := range c.rumReplayBatches {
 		b.Close()
 	}
 	c.logBatchesLock.Lock()
@@ -248,6 +285,49 @@ func (c *Collector) getTracesBatch(project *db.Project) *TracesBatch {
 		c.traceBatches[project.Id] = b
 	}
 	return b
+}
+
+func (c *Collector) getRumSpansBatch(project *db.Project) *RumSpansBatch {
+	c.rumSpansBatchesLock.Lock()
+	defer c.rumSpansBatchesLock.Unlock()
+	b := c.rumSpansBatches[project.Id]
+	if b == nil {
+		b = NewRumSpansBatch(batchLimit, batchTimeout, func(query chgo.Query) error {
+			return c.clickhouseDo(context.TODO(), project, query)
+		})
+		c.rumSpansBatches[project.Id] = b
+	}
+	return b
+}
+
+func (c *Collector) getRumReplayBatch(project *db.Project) *RumReplayBatch {
+	c.rumReplayBatchesLock.Lock()
+	defer c.rumReplayBatchesLock.Unlock()
+	b := c.rumReplayBatches[project.Id]
+	if b == nil {
+		b = NewRumReplayBatch(batchLimit, batchTimeout, func(query chgo.Query) error {
+			return c.clickhouseDo(context.TODO(), project, query)
+		})
+		c.rumReplayBatches[project.Id] = b
+	}
+	return b
+}
+
+func (c *Collector) findRumKeyByOrigin(origin string) *db.ApiKey {
+	if origin == "" {
+		return nil
+	}
+	c.projectsLock.RLock()
+	defer c.projectsLock.RUnlock()
+	for _, p := range c.projects {
+		for i := range p.Settings.ApiKeys {
+			k := &p.Settings.ApiKeys[i]
+			if k.IsRum() && matchOrigin(origin, k.AllowedOrigins) {
+				return k
+			}
+		}
+	}
+	return nil
 }
 
 func (c *Collector) getLogsBatch(project *db.Project) *LogsBatch {

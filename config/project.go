@@ -175,6 +175,8 @@ type Project struct {
 	ApplicationCategories    []ApplicationCategory        `yaml:"applicationCategories"`
 	CustomApplications       []CustomApplication          `yaml:"customApplications"`
 
+	Rum *db.RumProjectSettings `yaml:"rum"`
+
 	AlertingRules []AlertingRule `yaml:"alertingRules"`
 
 	InspectionOverrides *InspectionOverrides `yaml:"inspectionOverrides"`

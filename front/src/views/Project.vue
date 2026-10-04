@@ -76,6 +76,7 @@
                 <template v-if="!multicluster">
                     <ProjectStatus :projectId="projectId" />
                     <ProjectApiKeys v-if="!multicluster" />
+                    <ProjectRumSettings v-if="!multicluster" />
                 </template>
 
                 <h2 class="text-h5 mt-10 mb-5">Danger zone</h2>
@@ -219,6 +220,7 @@
 
 <script>
 import ProjectApiKeys from './ProjectApiKeys.vue';
+import ProjectRumSettings from './ProjectRumSettings.vue';
 import ProjectDelete from './ProjectDelete.vue';
 import ApplicationCategories from './ApplicationCategories.vue';
 import Integrations from './Integrations.vue';
@@ -251,6 +253,7 @@ export default {
         IntegrationGCP,
         IntegrationOCI,
         ProjectApiKeys,
+        ProjectRumSettings,
         ProjectDelete,
         ApplicationCategories,
         Integrations,

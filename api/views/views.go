@@ -15,6 +15,7 @@ import (
 	"github.com/coroot/coroot/api/views/overview"
 	"github.com/coroot/coroot/api/views/profiling"
 	"github.com/coroot/coroot/api/views/roles"
+	"github.com/coroot/coroot/api/views/rum"
 	"github.com/coroot/coroot/api/views/tracing"
 	"github.com/coroot/coroot/api/views/users"
 	"github.com/coroot/coroot/clickhouse"
@@ -53,6 +54,10 @@ func Profiling(ctx context.Context, ch *clickhouse.Client, app *model.Applicatio
 
 func Tracing(ctx context.Context, ch *clickhouse.Client, app *model.Application, q url.Values, w *model.World) *tracing.View {
 	return tracing.Render(ctx, ch, app, q, w)
+}
+
+func Rum(ctx context.Context, ch *clickhouse.Client, app *model.Application, q url.Values, w *model.World) *rum.View {
+	return rum.Render(ctx, ch, app, q, w)
 }
 
 func Logs(ctx context.Context, ch *clickhouse.Client, app *model.Application, q url.Values, w *model.World) *logs.View {

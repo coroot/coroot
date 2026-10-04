@@ -53,7 +53,7 @@ func addLabelsIfNeeded(r *http.Request, body []byte, extraLabels map[string]stri
 }
 
 func (c *Collector) Metrics(w http.ResponseWriter, r *http.Request) {
-	project, err := c.getProject(r.Header.Get(ApiKeyHeader))
+	project, err := c.getAgentProject(r.Header.Get(ApiKeyHeader))
 	if err != nil {
 		klog.Errorln(err)
 		if errors.Is(err, ErrProjectNotFound) {

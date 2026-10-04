@@ -1,0 +1,172 @@
+:root {
+  --bg: #0f1714;
+  --panel: #17221d;
+  --text: #e8f0eb;
+  --muted: #9bb0a4;
+  --accent: #3ecf8e;
+  --accent-2: #f0b429;
+  --danger: #ef6b6b;
+  --line: #2a3a32;
+  --radius: 10px;
+  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--text);
+  background:
+    radial-gradient(1200px 600px at 10% -10%, #1d3a2d 0%, transparent 55%),
+    radial-gradient(900px 500px at 100% 0%, #2a2414 0%, transparent 50%),
+    var(--bg);
+}
+
+a { color: var(--accent); text-decoration: none; }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em; }
+
+.top {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--line);
+  backdrop-filter: blur(8px);
+  position: sticky;
+  top: 0;
+  background: rgba(15, 23, 20, 0.85);
+  z-index: 10;
+}
+
+.brand {
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--text);
+}
+
+nav { display: flex; gap: 1rem; flex: 1; }
+nav a { color: var(--muted); }
+nav a.active, nav a:hover { color: var(--text); }
+
+.badge {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.75rem;
+  padding: 0.35rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  background: var(--panel);
+}
+.badge.ok { color: var(--accent); border-color: #2f6b4e; }
+.badge.err { color: var(--danger); border-color: #6b2f2f; }
+
+main {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 4rem;
+}
+
+.hero h1, section > h1 {
+  font-size: clamp(2rem, 4vw, 3rem);
+  margin: 0 0 0.5rem;
+  letter-spacing: -0.02em;
+}
+
+.hero p, section > p { color: var(--muted); max-width: 40rem; }
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin: 1.25rem 0 2rem;
+}
+
+.btn {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--text);
+  padding: 0.65rem 1rem;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.95rem;
+}
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--accent); color: #062015; border-color: transparent; font-weight: 600; }
+.btn.danger { border-color: #6b2f2f; color: #ffd5d5; }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.card {
+  background: linear-gradient(160deg, #1c2a24, #141c18);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 1rem;
+}
+.card h3 { margin: 0 0 0.35rem; font-size: 1.1rem; }
+.card .price { color: var(--accent-2); font-weight: 700; }
+.card .meta { color: var(--muted); font-size: 0.9rem; margin-top: 0.35rem; }
+
+.log-panel {
+  margin-top: 2.5rem;
+  background: #0b1210;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 1rem;
+}
+.log-panel h2 { margin: 0 0 0.5rem; font-size: 1rem; color: var(--muted); }
+#log {
+  margin: 0;
+  min-height: 6rem;
+  white-space: pre-wrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8rem;
+  color: #b7d0c2;
+}
+
+.form {
+  display: grid;
+  gap: 0.9rem;
+  max-width: 420px;
+  margin-top: 1rem;
+}
+.form label { display: grid; gap: 0.35rem; color: var(--muted); font-size: 0.9rem; }
+.form input {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 0.7rem 0.8rem;
+  font: inherit;
+}
+.result {
+  margin-top: 1rem;
+  padding: 1rem;
+  border-radius: 10px;
+  background: #143226;
+  border: 1px solid #2f6b4e;
+}
+
+#cls-spacer {
+  height: 0;
+  overflow: hidden;
+  transition: height 0.01s linear;
+}
+#cls-spacer.boom {
+  height: 220px;
+  background: repeating-linear-gradient(45deg, #2a2414, #2a2414 12px, #1d3a2d 12px, #1d3a2d 24px);
+  margin: 1rem 1.5rem;
+  border-radius: 12px;
+}
+
+@media (max-width: 640px) {
+  .top { flex-wrap: wrap; }
+  nav { order: 3; width: 100%; }
+}

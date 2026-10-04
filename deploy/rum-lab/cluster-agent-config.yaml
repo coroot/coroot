@@ -1,0 +1,12 @@
+databases:
+  - type: postgres
+    host: demo-postgres
+    port: "5432"
+    credentials:
+      username: coroot
+      password: coroot
+    params:
+      sslmode: disable
+  - type: redis
+    host: demo-valkey
+    port: "6379"

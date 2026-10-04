@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tickets — Harbor Help</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="/">Harbor Help</a>
+    <nav>
+      <a href="/" data-nav>Home</a>
+      <a href="/tickets.html" data-nav>Tickets</a>
+      <a href="/status.html" data-nav>Status</a>
+    </nav>
+    <span class="badge" id="rum-status">RUM: starting…</span>
+  </header>
+
+  <main>
+    <section>
+      <h1>Tickets</h1>
+      <p>Create a support ticket via <code>demo-portal-api</code>.</p>
+      <div class="form-row">
+        <input id="ticket-subject" placeholder="Subject" value="Need help with order" />
+        <input id="ticket-email" placeholder="Email" value="user@example.com" />
+        <button class="btn primary" id="btn-create">Create ticket</button>
+        <button class="btn" id="btn-load">Refresh</button>
+      </div>
+      <div id="tickets" class="grid">Loading…</div>
+    </section>
+    <section class="log-panel">
+      <h2>Client log</h2>
+      <pre id="log"></pre>
+    </section>
+  </main>
+
+  <script src="http://localhost:8080/static/rum/coroot-rum.js"></script>
+  <script src="/js/rum-config.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>

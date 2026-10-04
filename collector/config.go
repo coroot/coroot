@@ -32,7 +32,7 @@ type ConfigData struct {
 }
 
 func (c *Collector) Config(w http.ResponseWriter, r *http.Request) {
-	project, err := c.getProject(r.Header.Get(ApiKeyHeader))
+	project, err := c.getAgentProject(r.Header.Get(ApiKeyHeader))
 	if err != nil {
 		klog.Errorln(err)
 		if errors.Is(err, ErrProjectNotFound) {

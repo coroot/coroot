@@ -1,0 +1,35 @@
+# Lab-only image: expects prebuilt ./static from host (`cd front && npm ci && npm run build-prod`).
+# Avoids `npm ci` inside Docker, which hangs on some Docker Desktop / macOS setups.
+FROM golang:1.25-bookworm AS backend-builder
+RUN apt update && apt install -y liblz4-dev
+WORKDIR /tmp/src
+COPY go.mod .
+COPY go.sum .
+RUN go mod download
+COPY . .
+ARG VERSION=unknown
+RUN test -f static/index.html || (echo "ERROR: static/ missing. Run: cd front && npm ci && npm run build-prod" && exit 1)
+RUN go build -mod=readonly -ldflags "-X main.version=$VERSION" -o coroot .
+
+
+FROM registry.access.redhat.com/ubi9/ubi
+
+ARG VERSION=unknown
+LABEL name="coroot" \
+      vendor="Coroot, Inc." \
+      maintainer="Coroot, Inc." \
+      version=${VERSION} \
+      release="1" \
+      summary="Coroot Community Edition." \
+      description="Coroot Community Edition container image."
+
+COPY LICENSE /licenses/LICENSE
+
+COPY --from=backend-builder /tmp/src/coroot /usr/bin/coroot
+RUN mkdir /data && chown 65534:65534 /data
+
+USER 65534:65534
+VOLUME /data
+EXPOSE 8080
+
+ENTRYPOINT ["/usr/bin/coroot"]

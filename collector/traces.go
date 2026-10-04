@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"io"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -11,27 +12,40 @@ import (
 	chproto "github.com/ClickHouse/ch-go/proto"
 	semconv "go.opentelemetry.io/collector/semconv/v1.18.0"
 	v1 "go.opentelemetry.io/proto/otlp/collector/trace/v1"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"k8s.io/klog"
 )
 
 func (c *Collector) Traces(w http.ResponseWriter, r *http.Request) {
-	project, err := c.getProject(r.Header.Get(ApiKeyHeader))
+	if r.Method == http.MethodOptions {
+		c.rumPreflight(w, r)
+		return
+	}
+
+	project, key, err := c.getProjectAndKey(r.Header.Get(ApiKeyHeader))
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
 
+	if r.ContentLength > maxRumBodyBytes {
+		http.Error(w, "request body too large", http.StatusRequestEntityTooLarge)
+		return
+	}
+
 	contentType := r.Header.Get("Content-Type")
-	switch contentType {
-	case "application/x-protobuf":
+	ct := strings.Split(contentType, ";")[0]
+	ct = strings.TrimSpace(ct)
+	switch ct {
+	case "application/x-protobuf", "application/json":
 	default:
 		http.Error(w, "unsupported content type: "+contentType, http.StatusBadRequest)
 		return
 	}
 
-	decoder, err := getDecoder(r.Header.Get("Content-Encoding"), r.Body)
+	decoder, err := getDecoder(r.Header.Get("Content-Encoding"), http.MaxBytesReader(w, r.Body, maxRumBodyBytes))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -44,18 +58,36 @@ func (c *Collector) Traces(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	req := &v1.ExportTraceServiceRequest{}
-	err = proto.Unmarshal(data, req)
+	if ct == "application/json" {
+		err = protojson.Unmarshal(data, req)
+	} else {
+		err = proto.Unmarshal(data, req)
+	}
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusBadRequest)
 		return
 	}
 
+	if isRumRequest(r, req) {
+		c.ingestRum(w, r, project, key, req, ct)
+		return
+	}
+	if key != nil && key.IsRum() {
+		http.Error(w, "rum api key cannot ingest backend traces", http.StatusForbidden)
+		return
+	}
+
 	c.getTracesBatch(project).Add(req)
 
 	resp := &v1.ExportTraceServiceResponse{}
-	w.Header().Set("Content-Type", contentType)
-	data, err = proto.Marshal(resp)
+	if ct == "application/json" {
+		w.Header().Set("Content-Type", "application/json")
+		data, err = protojson.Marshal(resp)
+	} else {
+		w.Header().Set("Content-Type", ct)
+		data, err = proto.Marshal(resp)
+	}
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, "", http.StatusInternalServerError)

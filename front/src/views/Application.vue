@@ -12,9 +12,14 @@
                 </v-tab>
             </v-tabs>
 
-            <v-card v-if="r && !r.custom && (r.checks || r.instrumentation)" outlined class="my-4 pa-4 pb-2">
+            <v-card v-if="r && !r.custom && (r.checks || r.instrumentation)" outlined :class="compactChecks ? 'my-3 pa-3' : 'my-4 pa-4 pb-2'">
                 <ApplicationInstrumentation v-if="r.instrumentation" :appId="id" :type="r.instrumentation" :active="r.status !== 'unknown'" />
-                <Check v-for="check in r.checks" :key="check.id" :appId="id" :check="check" class="mb-2" />
+                <div v-if="compactChecks" class="d-flex flex-wrap align-center rum-checks">
+                    <Check v-for="check in r.checks" :key="check.id" :appId="id" :check="check" compact />
+                </div>
+                <template v-else>
+                    <Check v-for="check in r.checks" :key="check.id" :appId="id" :check="check" class="mb-2" />
+                </template>
             </v-card>
 
             <v-alert
@@ -64,6 +69,7 @@ export default {
     },
 
     mounted() {
+        if (this.redirectRumClientToRumView()) return;
         this.get();
         this.$events.watch(this, this.get, 'refresh');
     },
@@ -72,10 +78,18 @@ export default {
         name() {
             return this.$utils.appId(this.id).name;
         },
+        isRumClient() {
+            return String(this.id || '').includes(':RumClient:');
+        },
+        compactChecks() {
+            // RUM inspections are many and already mirrored on KPI tiles — show as a chip row.
+            return this.r && this.r.name === 'RUM';
+        },
     },
 
     watch: {
         id() {
+            if (this.redirectRumClientToRumView()) return;
             this.app = null;
             this.get();
         },
@@ -85,6 +99,22 @@ export default {
     },
 
     methods: {
+        redirectRumClientToRumView() {
+            if (!this.isRumClient || this.$route.params.view !== 'applications') return false;
+            this.$router
+                .replace({
+                    name: 'overview',
+                    params: {
+                        ...this.$route.params,
+                        view: 'rum',
+                        id: this.id,
+                        report: this.report || 'RUM',
+                    },
+                    query: this.$route.query,
+                })
+                .catch((err) => err);
+            return true;
+        },
         get() {
             this.loading = true;
             this.error = '';

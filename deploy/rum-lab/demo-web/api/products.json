@@ -1,0 +1,8 @@
+{
+  "items": [
+    {"id": 1, "name": "Trail Runner", "price": 129, "stock": 14},
+    {"id": 2, "name": "City Pack", "price": 89, "stock": 7},
+    {"id": 3, "name": "Alpine Jacket", "price": 210, "stock": 3},
+    {"id": 4, "name": "Softshell Cap", "price": 32, "stock": 40}
+  ]
+}

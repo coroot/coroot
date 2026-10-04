@@ -111,6 +111,12 @@ var Checks = struct {
 	DnsLatency                 CheckConfig
 	DnsServerErrors            CheckConfig
 	DnsNxdomainErrors          CheckConfig
+	RumLcpP75                  CheckConfig
+	RumInpP75                  CheckConfig
+	RumClsP75                  CheckConfig
+	RumTtfbP75                 CheckConfig
+	RumJsErrors                CheckConfig
+	RumFetchErrors             CheckConfig
 	MysqlAvailability          CheckConfig
 	MysqlReplicationStatus     CheckConfig
 	MysqlReplicationLag        CheckConfig
@@ -535,6 +541,56 @@ var Checks = struct {
 		DefaultThreshold:        0,
 		MessageTemplate:         `the app received an empty DNS response {{.Count "time"}}`,
 		ConditionFormatTemplate: "the number of the NXDOMAIN DNS errors (for previously valid requests) > <threshold>",
+	},
+	RumLcpP75: CheckConfig{
+		Category:                AuditReportRum,
+		Type:                    CheckTypeValueBased,
+		Title:                   "RUM LCP p75",
+		DefaultThreshold:        2500,
+		MessageTemplate:         `LCP p75 is {{.Value}} ms`,
+		ConditionFormatTemplate: "Largest Contentful Paint p75 > <threshold> ms",
+	},
+	RumInpP75: CheckConfig{
+		Category:                AuditReportRum,
+		Type:                    CheckTypeValueBased,
+		Title:                   "RUM INP p75",
+		DefaultThreshold:        200,
+		MessageTemplate:         `INP p75 is {{.Value}} ms`,
+		ConditionFormatTemplate: "Interaction to Next Paint p75 > <threshold> ms",
+	},
+	RumClsP75: CheckConfig{
+		Category:                AuditReportRum,
+		Type:                    CheckTypeValueBased,
+		Title:                   "RUM CLS p75",
+		DefaultThreshold:        0.1,
+		MessageTemplate:         `CLS p75 is {{.Value}}`,
+		ConditionFormatTemplate: "Cumulative Layout Shift p75 > <threshold>",
+	},
+	RumTtfbP75: CheckConfig{
+		Category:                AuditReportRum,
+		Type:                    CheckTypeValueBased,
+		Title:                   "RUM TTFB p75",
+		DefaultThreshold:        800,
+		MessageTemplate:         `TTFB p75 is {{.Value}} ms`,
+		ConditionFormatTemplate: "Time to First Byte p75 > <threshold> ms",
+	},
+	RumJsErrors: CheckConfig{
+		Category:                AuditReportRum,
+		Type:                    CheckTypeValueBased,
+		Title:                   "RUM JS errors",
+		DefaultThreshold:        0.1,
+		Unit:                    CheckUnitSecondsPerSecond,
+		MessageTemplate:         `browser JS error rate is {{.Value}}/s`,
+		ConditionFormatTemplate: "browser JS/HTTP error rate > <threshold> per second",
+	},
+	RumFetchErrors: CheckConfig{
+		Category:                AuditReportRum,
+		Type:                    CheckTypeValueBased,
+		Title:                   "RUM fetch errors",
+		DefaultThreshold:        5,
+		Unit:                    CheckUnitPercent,
+		MessageTemplate:         `{{.Value}}% of browser fetch requests fail`,
+		ConditionFormatTemplate: "browser fetch error percentage > <threshold>",
 	},
 	MysqlAvailability: CheckConfig{
 		Category:                AuditReportMysql,

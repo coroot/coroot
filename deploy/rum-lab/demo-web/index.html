@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Nord Outfitters — RUM demo</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="/">Nord Outfitters</a>
+    <nav>
+      <a href="/" data-nav>Home</a>
+      <a href="/shop.html" data-nav>Shop</a>
+      <a href="/checkout.html" data-nav>Checkout</a>
+    </nav>
+    <span class="badge" id="rum-status">RUM: starting…</span>
+  </header>
+
+  <main>
+    <section class="hero">
+      <h1>Gear that keeps pace</h1>
+      <p>Demo storefront: RUM → <code>demo-api</code> (catalog) + <code>demo-checkout</code> → Postgres/Valkey.</p>
+      <div class="actions">
+        <a class="btn primary" href="/shop.html" data-nav>Browse catalog</a>
+        <button class="btn" id="btn-load">Load products (fetch)</button>
+        <button class="btn danger" id="btn-error">Throw JS error</button>
+        <button class="btn" id="btn-slow">Slow click (INP)</button>
+        <button class="btn" id="btn-cls">Shift layout (CLS)</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>Live catalog</h2>
+      <div id="products" class="grid">Loading…</div>
+    </section>
+
+    <section class="log-panel">
+      <h2>Client log</h2>
+      <pre id="log"></pre>
+    </section>
+  </main>
+
+  <div id="cls-spacer" aria-hidden="true"></div>
+
+  <script src="http://localhost:8080/static/rum/coroot-rum.js"></script>
+  <script src="/js/rum-config.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>

@@ -7,4 +7,5 @@ type CollectorConfig struct {
 	LogsTTL     timeseries.Duration
 	ProfilesTTL timeseries.Duration
 	MetricsTTL  timeseries.Duration
+	Rum         Rum
 }

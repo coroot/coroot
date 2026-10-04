@@ -1,6 +1,6 @@
 <template>
-    <div>
-        <CheckDetails :check="check" @configure="configure = true" />
+    <div :class="{ 'd-inline-block': compact }">
+        <CheckDetails :check="check" :compact="compact" @configure="configure = true" />
         <CheckForm :appId="appId" :check="check" v-model="configure" />
     </div>
 </template>
@@ -13,6 +13,7 @@ export default {
     props: {
         appId: String,
         check: Object,
+        compact: Boolean,
     },
 
     components: { CheckDetails, CheckForm },

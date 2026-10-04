@@ -705,7 +705,15 @@ func (api *Api) ApiKeys(w http.ResponseWriter, r *http.Request, u *db.User) {
 	}
 	switch form.Action {
 	case "generate":
-		form.Key = utils.RandomString(32)
+		if form.Type == db.ApiKeyTypeRum {
+			if len(form.AllowedOrigins) == 0 {
+				http.Error(w, "allowed_origins is required for rum keys", http.StatusBadRequest)
+				return
+			}
+			form.Key = db.RumApiKey()
+		} else {
+			form.Key = utils.RandomString(32)
+		}
 		project.Settings.ApiKeys = append(project.Settings.ApiKeys, form.ApiKey)
 	case "delete":
 		project.Settings.ApiKeys = slices.DeleteFunc(project.Settings.ApiKeys, func(k db.ApiKey) bool {
@@ -715,6 +723,8 @@ func (api *Api) ApiKeys(w http.ResponseWriter, r *http.Request, u *db.User) {
 		for i, k := range project.Settings.ApiKeys {
 			if k.Key == form.Key {
 				project.Settings.ApiKeys[i].Description = form.Description
+				project.Settings.ApiKeys[i].Type = form.Type
+				project.Settings.ApiKeys[i].AllowedOrigins = form.AllowedOrigins
 			}
 		}
 	default:
@@ -1155,6 +1165,7 @@ func (api *Api) Application(w http.ResponseWriter, r *http.Request, u *db.User) 
 		utils.WriteJson(w, api.WithContext(project, cacheStatus, world, nil))
 		return
 	}
+	api.enrichWorldWithRum(r.Context(), project, world)
 	app := world.GetApplication(appId)
 	if app == nil {
 		klog.Warningln("application not found:", appId)
@@ -1171,7 +1182,9 @@ func (api *Api) Application(w http.ResponseWriter, r *http.Request, u *db.User) 
 
 	auditor.Audit(world, project, app, nil)
 
-	app.AddReport(model.AuditReportProfiling, &model.Widget{Profiling: &model.Profiling{ApplicationId: app.Id}, Width: "100%"})
+	if app.Id.Kind != model.ApplicationKindRumClient {
+		app.AddReport(model.AuditReportProfiling, &model.Widget{Profiling: &model.Profiling{ApplicationId: app.Id}, Width: "100%"})
+	}
 	app.AddReport(model.AuditReportTracing, &model.Widget{Tracing: &model.Tracing{ApplicationId: app.Id}, Width: "100%"})
 
 	utils.WriteJson(w, api.WithContext(project, cacheStatus, world, views.Application(project, world, app)))
@@ -2177,6 +2190,7 @@ func (api *Api) Tracing(w http.ResponseWriter, r *http.Request, u *db.User) {
 		utils.WriteJson(w, api.WithContext(project, cacheStatus, world, nil))
 		return
 	}
+	api.enrichWorldWithRum(r.Context(), project, world)
 	app := world.GetApplication(appId)
 	if app == nil {
 		klog.Warningln("application not found:", appId)
@@ -2185,7 +2199,7 @@ func (api *Api) Tracing(w http.ResponseWriter, r *http.Request, u *db.User) {
 	}
 	q := r.URL.Query()
 	var ch *clickhouse.Client
-	if ch, err = api.GetClickhouseClient(project, app.Id.ClusterId); err != nil {
+	if ch, err = api.GetClickhouseClient(project, clickhouseClusterIdForApp(project, app)); err != nil {
 		klog.Warningln(err)
 		http.Error(w, "ClickHouse is not available", http.StatusInternalServerError)
 		return
@@ -2248,13 +2262,14 @@ func (api *Api) Logs(w http.ResponseWriter, r *http.Request, u *db.User) {
 		utils.WriteJson(w, api.WithContext(project, cacheStatus, world, nil))
 		return
 	}
+	api.enrichWorldWithRum(r.Context(), project, world)
 	app := world.GetApplication(appId)
 	if app == nil {
 		klog.Warningln("application not found:", appId)
 		http.Error(w, "Application not found", http.StatusNotFound)
 		return
 	}
-	ch, chErr := api.GetClickhouseClient(project, app.Id.ClusterId)
+	ch, chErr := api.GetClickhouseClient(project, clickhouseClusterIdForApp(project, app))
 	if chErr != nil {
 		klog.Warningln(chErr)
 	}

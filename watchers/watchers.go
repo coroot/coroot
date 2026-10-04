@@ -69,7 +69,7 @@ func Start(database *db.DB, mcache *cache.Cache, pricing *pricing.Manager, incid
 				} else {
 					for _, project := range projects {
 						if project.Multicluster() {
-							handleProjectUpdate(database, mcache, pricing, incidents, deployments, alerts, project.Id)
+							handleProjectUpdate(database, mcache, pricing, incidents, deployments, alerts, project.Id, globalClickHouse)
 						}
 					}
 				}
@@ -84,7 +84,7 @@ func Start(database *db.DB, mcache *cache.Cache, pricing *pricing.Manager, incid
 					continue
 				}
 
-				handleProjectUpdate(database, mcache, pricing, incidents, deployments, alerts, projectId)
+				handleProjectUpdate(database, mcache, pricing, incidents, deployments, alerts, projectId, globalClickHouse)
 
 				if time.Since(lastSpaceManagerRun) >= time.Hour {
 					lastSpaceManagerRun = time.Now()
@@ -95,7 +95,7 @@ func Start(database *db.DB, mcache *cache.Cache, pricing *pricing.Manager, incid
 	}()
 }
 
-func handleProjectUpdate(database *db.DB, cache *cache.Cache, pricing *pricing.Manager, incidents *Incidents, deployments *Deployments, alerts *Alerts, projectId db.ProjectId) {
+func handleProjectUpdate(database *db.DB, cache *cache.Cache, pricing *pricing.Manager, incidents *Incidents, deployments *Deployments, alerts *Alerts, projectId db.ProjectId, globalClickHouse *db.IntegrationClickhouse) {
 	start := time.Now()
 	project, err := database.GetProject(projectId)
 	if err != nil {
@@ -174,6 +174,13 @@ func handleProjectUpdate(database *db.DB, cache *cache.Cache, pricing *pricing.M
 		klog.Errorln("failed to load world:", err)
 		return
 	}
+
+	chs := clickhouse.GetClients(database, project, globalClickHouse)
+	if chs.Error == nil && len(chs.Clients) > 0 {
+		clickhouse.EnrichWorldWithRum(context.TODO(), chs, world, project)
+		chs.Close()
+	}
+
 	auditor.Audit(world, project, nil, nil)
 
 	wg := sync.WaitGroup{}

@@ -64,6 +64,9 @@ type AppToAppConnection struct {
 	RequestsCount   map[Protocol]map[string]*timeseries.TimeSeries // by status
 	RequestsLatency map[Protocol]*timeseries.TimeSeries
 
+	// RumObserved is true when this edge was enriched from browser RUM (may coexist with eBPF).
+	RumObserved bool
+
 	Endpoints *utils.StringSet // destination IP:PORT pairs used for connections to external services, allowing Coroot to identify the actual service in multi-cluster mode
 }
 

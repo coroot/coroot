@@ -103,6 +103,22 @@ func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, 
 	} else {
 		otelService = model.GuessService(otelServices, w, app)
 	}
+	isRumClient := app.Id.Kind == model.ApplicationKindRumClient
+	if isRumClient && otelService == "" {
+		otelService = app.Id.Name
+	}
+	if isRumClient && otelService != "" {
+		found := false
+		for _, s := range otelServices {
+			if s == otelService {
+				found = true
+				break
+			}
+		}
+		if !found {
+			otelServices = append(otelServices, otelService)
+		}
+	}
 	for _, s := range otelServices {
 		v.Services = append(v.Services, Service{Name: s, Linked: s == otelService})
 	}
@@ -110,7 +126,7 @@ func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, 
 		return v.Services[i].Name < v.Services[j].Name
 	})
 
-	if len(otelServices) > 0 {
+	if len(otelServices) > 0 || isRumClient {
 		v.Sources = append(v.Sources, Source{Type: model.TraceSourceOtel, Name: "OpenTelemetry"})
 	}
 	if ebpfSpansFound {
@@ -129,6 +145,39 @@ func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, 
 	switch {
 	case traceId != "":
 		spans, err = ch.GetSpansByTraceId(ctx, traceId)
+
+	case (source == "" || source == model.TraceSourceOtel) && otelService != "" && isRumClient:
+		// Browser RUM spans live in rum_spans (not otel_traces); TraceId lookup still joins both.
+		source = model.TraceSourceOtel
+		wg := sync.WaitGroup{}
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			var e error
+			histogram, e = ch.GetRumSpansHistogram(ctx, otelService, w.Ctx.From, w.Ctx.To, w.Ctx.Step)
+			if e != nil {
+				err = e
+			}
+		}()
+		go func() {
+			defer wg.Done()
+			var e error
+			sq := clickhouse.SpanQuery{
+				Ctx:     w.Ctx,
+				TsFrom:  tsFrom,
+				TsTo:    tsTo,
+				DurFrom: durFrom,
+				DurTo:   durTo,
+				Errors:  errors,
+				Limit:   limit,
+			}
+			sq.AddFilter("ServiceName", "=", otelService)
+			spans, e = ch.GetRumRootSpansByServiceName(ctx, sq)
+			if e != nil {
+				err = e
+			}
+		}()
+		wg.Wait()
 
 	case (source == "" || source == model.TraceSourceOtel) && otelService != "":
 		source = model.TraceSourceOtel

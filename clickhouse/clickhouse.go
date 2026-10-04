@@ -216,7 +216,7 @@ func (c *Client) GetTableSizes(ctx context.Context) ([]TableInfo, error) {
 		  	AND p.min_time > 0
 			AND p.database = currentDatabase()
 			AND p.engine NOT LIKE '%Distributed%'
-			AND (p.table LIKE 'otel_%' OR p.table LIKE 'profiling_%' OR p.table LIKE 'metrics%')
+			AND (p.table LIKE 'otel_%' OR p.table LIKE 'profiling_%' OR p.table LIKE 'metrics%' OR p.table LIKE 'rum_%')
 		GROUP BY p.database, p.table, t.create_table_query
 		ORDER BY p.table`
 

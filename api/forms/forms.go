@@ -287,6 +287,69 @@ func (f *ApplicationSettingsLogsForm) Valid() bool {
 	return true
 }
 
+type ApplicationSettingsRumForm struct {
+	model.ApplicationSettingsRum
+}
+
+func (f *ApplicationSettingsRumForm) Valid() bool {
+	return true
+}
+
+// ProjectRumSettingsForm updates project-wide RUM settings (retention, replay, geo).
+// Duration fields accept prometheus-style strings (e.g. "7d", "30d"); empty means global default.
+type ProjectRumSettingsForm struct {
+	GeoEnabled       bool    `json:"geo_enabled"`
+	ReplayEnabled    bool    `json:"replay_enabled"`
+	ReplaySampleRate float64 `json:"replay_sample_rate"`
+	RawTTL           string  `json:"raw_ttl"`
+	ReplayTTL        string  `json:"replay_ttl"`
+	AggregatesTTL    string  `json:"aggregates_ttl"`
+}
+
+func (f *ProjectRumSettingsForm) Valid() bool {
+	if f.ReplaySampleRate < 0 || f.ReplaySampleRate > 1 {
+		return false
+	}
+	ret := &db.RumRetention{}
+	if f.RawTTL != "" {
+		if err := ret.RawTTL.Set(f.RawTTL); err != nil {
+			return false
+		}
+	}
+	if f.ReplayTTL != "" {
+		if err := ret.ReplayTTL.Set(f.ReplayTTL); err != nil {
+			return false
+		}
+	}
+	if f.AggregatesTTL != "" {
+		if err := ret.AggregatesTTL.Set(f.AggregatesTTL); err != nil {
+			return false
+		}
+	}
+	return ret.Validate() == nil
+}
+
+func (f *ProjectRumSettingsForm) Retention() *db.RumRetention {
+	ret := &db.RumRetention{}
+	has := false
+	if f.RawTTL != "" {
+		_ = ret.RawTTL.Set(f.RawTTL)
+		has = true
+	}
+	if f.ReplayTTL != "" {
+		_ = ret.ReplayTTL.Set(f.ReplayTTL)
+		has = true
+	}
+	if f.AggregatesTTL != "" {
+		_ = ret.AggregatesTTL.Set(f.AggregatesTTL)
+		has = true
+	}
+	if !has {
+		return nil
+	}
+	return ret
+}
+
 type ApplicationSettingsRisksForm struct {
 	Action string        `json:"action"`
 	Key    model.RiskKey `json:"key"`

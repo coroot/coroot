@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/coroot/coroot/ch"
 	"github.com/coroot/coroot/config"
@@ -113,17 +115,42 @@ func (sm *SpaceManager) cleanupOldestPartitionsFromDisk(ctx context.Context, cli
 		tablePartitions[tableKey] = append(tablePartitions[tableKey], partition)
 	}
 
+	// Prefer dropping RUM replay/raw before aggregates and other telemetry.
+	type tableGroup struct {
+		key        string
+		priority   int
+		partitions []PartitionInfo
+	}
+	var groups []tableGroup
 	for tableKey, tablePartitionList := range tablePartitions {
-		if len(tablePartitionList) <= sm.cfg.MinPartitions {
+		tableName := tableKey
+		if i := strings.LastIndex(tableKey, "."); i >= 0 {
+			tableName = tableKey[i+1:]
+		}
+		groups = append(groups, tableGroup{
+			key:        tableKey,
+			priority:   RumTableCleanupPriority(tableName),
+			partitions: tablePartitionList,
+		})
+	}
+	sort.SliceStable(groups, func(i, j int) bool {
+		if groups[i].priority != groups[j].priority {
+			return groups[i].priority < groups[j].priority
+		}
+		return groups[i].key < groups[j].key
+	})
+
+	for _, g := range groups {
+		if len(g.partitions) <= sm.cfg.MinPartitions {
 			klog.Infof("table %s has %d partitions, keeping minimum %d",
-				tableKey, len(tablePartitionList), sm.cfg.MinPartitions)
+				g.key, len(g.partitions), sm.cfg.MinPartitions)
 			continue
 		}
 
-		oldestPartition := tablePartitionList[0]
+		oldestPartition := g.partitions[0]
 		if err := sm.dropPartition(ctx, client, oldestPartition); err != nil {
 			klog.Errorf("failed to drop partition %s from table %s on disk %s: %v",
-				oldestPartition.PartitionId, tableKey, diskName, err)
+				oldestPartition.PartitionId, g.key, diskName, err)
 			continue
 		}
 	}
@@ -154,7 +181,7 @@ func (sm *SpaceManager) getPartitionsFromDiskOnServer(ctx context.Context, clien
 			AND p.min_time > 0
 			AND p.disk_name = ?
 			AND p.database IN ?
-			AND (p.table LIKE 'otel_%' OR p.table LIKE 'profiling_%')
+			AND (p.table LIKE 'otel_%' OR p.table LIKE 'profiling_%' OR p.table LIKE 'rum_%')
 		ORDER BY p.min_time ASC`
 
 	rows, err := client.conn.Query(ctx, query, diskName, sm.databases)

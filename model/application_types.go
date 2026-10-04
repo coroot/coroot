@@ -43,6 +43,7 @@ const (
 	ApplicationTypeFoundationDB    ApplicationType = "foundationdb"
 	ApplicationTypeCorootCE        ApplicationType = "coroot-community-edition"
 	ApplicationTypeCorootEE        ApplicationType = "coroot-enterprise-edition"
+	ApplicationTypeBrowser         ApplicationType = "browser"
 )
 
 func (at ApplicationType) IsDatabase() bool {
@@ -153,6 +154,8 @@ func (at ApplicationType) Icon() string {
 		return "redis"
 	case at == ApplicationTypeVictoriaMetrics || at == ApplicationTypeVictoriaLogs:
 		return "victoriametrics"
+	case at == ApplicationTypeBrowser:
+		return "browser"
 	}
 	return string(at)
 }

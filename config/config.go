@@ -33,6 +33,7 @@ type Config struct {
 	Logs     Logs     `yaml:"logs"`
 	Profiles Profiles `yaml:"profiles"`
 	Metrics  Metrics  `yaml:"metrics"`
+	Rum      Rum      `yaml:"rum"`
 
 	Postgres         *Postgres   `yaml:"postgres"`
 	GlobalPrometheus *Prometheus `yaml:"global_prometheus"`
@@ -108,6 +109,13 @@ type Profiles struct {
 
 type Metrics struct {
 	TTL timeseries.Duration `yaml:"ttl"`
+}
+
+// Rum holds global RUM retention defaults (overridable per project).
+type Rum struct {
+	TTL           timeseries.Duration `yaml:"ttl"`
+	ReplayTTL     timeseries.Duration `yaml:"replay_ttl"`
+	AggregatesTTL timeseries.Duration `yaml:"aggregates_ttl"`
 }
 
 type Postgres struct {
@@ -253,6 +261,11 @@ func NewConfig() *Config {
 		},
 		Metrics: Metrics{
 			TTL: 7 * timeseries.Day,
+		},
+		Rum: Rum{
+			TTL:           7 * timeseries.Day,
+			ReplayTTL:     7 * timeseries.Day,
+			AggregatesTTL: 30 * timeseries.Day,
 		},
 
 		Auth: Auth{

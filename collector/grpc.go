@@ -51,7 +51,7 @@ func NewGRPCLogsService(collector *Collector) *GRPCLogsService {
 }
 
 func (s *GRPCLogsService) Export(ctx context.Context, req *logsv1.ExportLogsServiceRequest) (*logsv1.ExportLogsServiceResponse, error) {
-	project, err := s.collector.getProjectFromGRPCMetadata(ctx)
+	project, err := s.collector.getAgentProjectFromGRPCMetadata(ctx)
 	if err != nil {
 		klog.Errorln("failed to get project:", err)
 		return nil, err
@@ -68,4 +68,12 @@ func (c *Collector) getProjectFromGRPCMetadata(ctx context.Context) (*db.Project
 		apiKey = values[0]
 	}
 	return c.getProject(apiKey)
+}
+
+func (c *Collector) getAgentProjectFromGRPCMetadata(ctx context.Context) (*db.Project, error) {
+	var apiKey string
+	if values := metadata.ValueFromIncomingContext(ctx, ApiKeyHeader); len(values) > 0 {
+		apiKey = values[0]
+	}
+	return c.getAgentProject(apiKey)
 }

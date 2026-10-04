@@ -84,6 +84,7 @@ func (as ProjectActionSet) List() []Action {
 		as.AlertingRules().Edit(),
 		as.Alerts().View(),
 		as.Alerts().Edit(),
+		as.RumReplay().View(),
 	}
 }
 
@@ -161,6 +162,10 @@ func (as ProjectActionSet) AlertingRules() ProjectAction {
 
 func (as ProjectActionSet) Alerts() ProjectAction {
 	return ProjectAction{project: &as, scope: ScopeProjectAlerts}
+}
+
+func (as ProjectActionSet) RumReplay() ProjectViewAction {
+	return ProjectViewAction{project: &as, scope: ScopeProjectRumReplay}
 }
 
 type ProjectViewAction struct {

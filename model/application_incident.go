@@ -12,10 +12,11 @@ type Impact struct {
 }
 
 type IncidentDetails struct {
-	AvailabilityBurnRates []BurnRate `json:"availability_burn_rates"`
-	LatencyBurnRates      []BurnRate `json:"latency_burn_rates"`
-	AvailabilityImpact    Impact     `json:"availability_impact"`
-	LatencyImpact         Impact     `json:"latency_impact"`
+	AvailabilityBurnRates []BurnRate  `json:"availability_burn_rates"`
+	LatencyBurnRates      []BurnRate  `json:"latency_burn_rates"`
+	AvailabilityImpact    Impact      `json:"availability_impact"`
+	LatencyImpact         Impact      `json:"latency_impact"`
+	RumSignals            []RumSignal `json:"rum_signals,omitempty"`
 }
 
 type RCA struct {

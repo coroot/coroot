@@ -1,0 +1,61 @@
+# Local RUM lab — project + integrations are applied on startup.
+listen_address: 0.0.0.0:8080
+data_dir: /data
+do_not_check_for_updates: true
+disable_usage_statistics: true
+
+auth:
+  anonymous_role: Admin
+
+global_prometheus:
+  url: http://prometheus:9090
+  refresh_interval: 15s
+
+global_clickhouse:
+  address: clickhouse:9000
+  user: default
+  database: default
+
+projects:
+  - name: rum-lab
+    apiKeys:
+      - key: "agent-local-key-0000000000000001"
+        description: agents
+      - key: "rum-local-key-000000000000000001"
+        description: rum-demo
+        type: rum
+        allowed_origins:
+          - "http://localhost:3000"
+          - "http://127.0.0.1:3000"
+          - "http://demo-web"
+          - "http://localhost:3001"
+          - "http://127.0.0.1:3001"
+          - "http://demo-portal"
+    # Group demo-api-1 / demo-api-2 containers into one app (single Docker Desktop node).
+    customApplications:
+      - name: demo-api
+        instancePatterns:
+          - "demo-api-1@*"
+          - "demo-api-2@*"
+    # Map browser host:port → OTEL backend app so Service Map links frontends → backends.
+    rum:
+      geo_enabled: true
+      host_mappings:
+        - pattern: "localhost:4000"
+          app_id: "external:otel:ExternalService:demo-api"
+        - pattern: "127.0.0.1:4000"
+          app_id: "external:otel:ExternalService:demo-api"
+        - pattern: "demo-api"
+          app_id: "external:otel:ExternalService:demo-api"
+        - pattern: "localhost:4001"
+          app_id: "external:otel:ExternalService:demo-checkout"
+        - pattern: "127.0.0.1:4001"
+          app_id: "external:otel:ExternalService:demo-checkout"
+        - pattern: "demo-checkout"
+          app_id: "external:otel:ExternalService:demo-checkout"
+        - pattern: "localhost:4002"
+          app_id: "external:otel:ExternalService:demo-portal-api"
+        - pattern: "127.0.0.1:4002"
+          app_id: "external:otel:ExternalService:demo-portal-api"
+        - pattern: "demo-portal-api"
+          app_id: "external:otel:ExternalService:demo-portal-api"

@@ -38,22 +38,39 @@ type ProjectSettings struct {
 	ApiKeys                     []ApiKey                                                   `json:"api_keys"`
 	CustomCloudPricing          *CustomCloudPricing                                        `json:"custom_cloud_pricing"`
 	MemberProjects              []string                                                   `json:"member_projects"`
+	Rum                         *RumProjectSettings                                        `json:"rum,omitempty"`
 }
 
 type ApiKey struct {
 	Key         string `json:"key" yaml:"key"`
 	Description string `json:"description" yaml:"description"`
+
+	Type             string   `json:"type,omitempty" yaml:"type,omitempty"`
+	AllowedOrigins   []string `json:"allowed_origins,omitempty" yaml:"allowed_origins,omitempty"`
+	KeepSlowMs       int      `json:"keep_slow_ms,omitempty" yaml:"keep_slow_ms,omitempty"`
+	KeepError        *bool    `json:"keep_error,omitempty" yaml:"keep_error,omitempty"`
+	ServerSampleRate float64  `json:"server_sample_rate,omitempty" yaml:"server_sample_rate,omitempty"`
 }
 
 func (k *ApiKey) Validate() error {
 	if k.Key == "" {
 		return fmt.Errorf("key is required")
 	}
+	if k.Type != ApiKeyTypeDefault && k.Type != ApiKeyTypeRum {
+		return fmt.Errorf("invalid api key type: %s", k.Type)
+	}
+	if k.Type == ApiKeyTypeRum && len(k.AllowedOrigins) == 0 {
+		return fmt.Errorf("allowed_origins is required for rum keys")
+	}
 	return nil
 }
 
 func (k *ApiKey) IsEmpty() bool {
 	return k.Key == emptyApiKey
+}
+
+func (k *ApiKey) IsRum() bool {
+	return k.Type == ApiKeyTypeRum
 }
 
 func (p *Project) Migrate(m *Migrator) error {

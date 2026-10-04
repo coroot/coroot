@@ -48,25 +48,31 @@ func Audit(w *model.World, p *db.Project, generateDetailedReportFor *model.Appli
 			app:      app,
 			detailed: app == generateDetailedReportFor,
 		}
-		stages.stage("slo", a.slo)
-		stages.stage("instances", a.instances)
-		stages.stage("cpu", func() { a.cpu(ncs) })
-		stages.stage("memory", func() { a.memory(ncs) })
-		stages.stage("storage", a.storage)
-		stages.stage("gpu", a.gpu)
-		stages.stage("network", a.network)
-		stages.stage("dns", a.dns)
-		stages.stage("postgres", a.postgres)
-		stages.stage("mysql", a.mysql)
-		stages.stage("redis", a.redis)
-		stages.stage("mongodb", a.mongodb)
-		stages.stage("memcached", a.memcached)
-		stages.stage("jvm", a.jvm)
-		stages.stage("dotnet", a.dotnet)
-		stages.stage("python", a.python)
-		stages.stage("nodejs", a.nodejs)
-		stages.stage("logs", a.logs)
-		stages.stage("deployments", a.deployments)
+		// RumClient is a browser-only synthetic app (no containers/agent): only RUM reports apply.
+		if app.Id.Kind == model.ApplicationKindRumClient {
+			stages.stage("rum", a.rum)
+		} else {
+			stages.stage("slo", a.slo)
+			stages.stage("instances", a.instances)
+			stages.stage("cpu", func() { a.cpu(ncs) })
+			stages.stage("memory", func() { a.memory(ncs) })
+			stages.stage("storage", a.storage)
+			stages.stage("gpu", a.gpu)
+			stages.stage("network", a.network)
+			stages.stage("dns", a.dns)
+			stages.stage("postgres", a.postgres)
+			stages.stage("mysql", a.mysql)
+			stages.stage("redis", a.redis)
+			stages.stage("mongodb", a.mongodb)
+			stages.stage("memcached", a.memcached)
+			stages.stage("jvm", a.jvm)
+			stages.stage("dotnet", a.dotnet)
+			stages.stage("python", a.python)
+			stages.stage("nodejs", a.nodejs)
+			stages.stage("logs", a.logs)
+			stages.stage("deployments", a.deployments)
+			stages.stage("rum", a.rum)
+		}
 
 		for _, r := range a.reports {
 			widgets := a.enrichWidgets(r.Widgets, app.Events)
@@ -83,7 +89,7 @@ func Audit(w *model.World, p *db.Project, generateDetailedReportFor *model.Appli
 				}
 			}
 			switch r.Name {
-			case model.AuditReportPostgres, model.AuditReportMongodb, model.AuditReportMysql, model.AuditReportRedis, model.AuditReportInstances, model.AuditReportSLO:
+			case model.AuditReportPostgres, model.AuditReportMongodb, model.AuditReportMysql, model.AuditReportRedis, model.AuditReportInstances, model.AuditReportSLO, model.AuditReportRum:
 				if app.Status < r.Status {
 					app.Status = r.Status
 				}

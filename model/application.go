@@ -71,6 +71,9 @@ type Application struct {
 	InboundRequestsHistogram map[float32]*timeseries.TimeSeries
 
 	PeriodicSystemdJob bool
+
+	// RumStats is populated from ClickHouse before Audit (watchers / API enrichment).
+	RumStats *RumStats
 }
 
 func NewApplication(id ApplicationId) *Application {
@@ -401,6 +404,10 @@ func (app *Application) AddReport(name AuditReportName, widgets ...*Widget) {
 
 func (app *Application) ApplicationTypes() map[ApplicationType]bool {
 	res := map[ApplicationType]bool{}
+	if app.Id.Kind == ApplicationKindRumClient {
+		res[ApplicationTypeBrowser] = true
+		return res
+	}
 	for _, i := range app.Instances {
 		for t := range i.ApplicationTypes() {
 			res[t] = true

@@ -31,6 +31,7 @@ const (
 	ApplicationKindArgoWorkflow       ApplicationKind = "Workflow"
 	ApplicationKindSparkApplication   ApplicationKind = "SparkApplication"
 	ApplicationKindCustomApplication  ApplicationKind = "CustomApplication"
+	ApplicationKindRumClient          ApplicationKind = "RumClient"
 )
 
 type Job struct{}

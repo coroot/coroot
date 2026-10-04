@@ -33,6 +33,7 @@ const (
 	ScopeDashboard                    Scope = "project.dashboard"
 	ScopeProjectAlertingRules         Scope = "project.alerting_rules"
 	ScopeProjectAlerts                Scope = "project.alerts"
+	ScopeProjectRumReplay             Scope = "project.rum.replay"
 )
 
 type Action struct {

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -139,19 +140,33 @@ func (c *Client) GetSpansByTraceId(ctx context.Context, traceId string) ([]*mode
 		"SELECT min(Start), max(End)+1 FROM @@table_otel_traces_trace_id_ts@@ WHERE TraceId = @traceId",
 		clickhouse.Named("traceId", traceId),
 	).Scan(&minTs, &maxTs)
-	if err != nil {
-		return nil, err
+	var spans []*model.TraceSpan
+	if err == nil && !minTs.IsZero() {
+		q := SpanQuery{
+			TsFrom: timeseries.TimeFromStandard(minTs),
+			TsTo:   timeseries.TimeFromStandard(maxTs),
+		}
+		spans, err = c.getSpans(ctx, q, "Timestamp",
+			[]string{"TraceId = @traceId"},
+			[]any{
+				clickhouse.Named("traceId", traceId),
+			},
+		)
+		if err != nil {
+			return nil, err
+		}
 	}
-	q := SpanQuery{
-		TsFrom: timeseries.TimeFromStandard(minTs),
-		TsTo:   timeseries.TimeFromStandard(maxTs),
+	rumSpans, rumErr := c.GetRumSpansByTraceId(ctx, traceId)
+	if rumErr != nil {
+		return nil, rumErr
 	}
-	return c.getSpans(ctx, q, "Timestamp",
-		[]string{"TraceId = @traceId"},
-		[]any{
-			clickhouse.Named("traceId", traceId),
-		},
-	)
+	if len(rumSpans) > 0 {
+		spans = append(spans, rumSpans...)
+		sort.Slice(spans, func(i, j int) bool {
+			return spans[i].Timestamp.Before(spans[j].Timestamp)
+		})
+	}
+	return spans, nil
 }
 
 func (c *Client) getOtelTracesServiceName(ctx context.Context, world *model.World, app *model.Application) (string, error) {

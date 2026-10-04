@@ -59,7 +59,9 @@ func NewApplicationIdFromString(src string, fallbackClusterId string) (Applicati
 		id = ApplicationId{ClusterId: "", Namespace: parts[0], Kind: ApplicationKind(parts[1]), Name: parts[2]}
 	case 4:
 		id = ApplicationId{ClusterId: parts[0], Namespace: parts[1], Kind: ApplicationKind(parts[2]), Name: parts[3]}
-		if id.ClusterId == "external" && id.Namespace != "external" { // without cluster_id with ':' in the name
+		// ExternalService names may contain ':' (host:port). Form without cluster_id:
+		// external:ExternalService:host:port — do not apply this to RumClient (namespace "frontend").
+		if id.ClusterId == "external" && ApplicationKind(parts[1]) == ApplicationKindExternalService {
 			id = ApplicationId{ClusterId: "", Namespace: parts[0], Kind: ApplicationKind(parts[1]), Name: parts[2] + ":" + parts[3]}
 		}
 	default:
@@ -68,7 +70,7 @@ func NewApplicationIdFromString(src string, fallbackClusterId string) (Applicati
 	if id.ClusterId == "" {
 		id.ClusterId = fallbackClusterId
 	}
-	if id.Kind == ApplicationKindExternalService {
+	if id.Kind == ApplicationKindExternalService || id.Kind == ApplicationKindRumClient {
 		id.ClusterId = ClusterIdExternal
 	}
 	return id, nil

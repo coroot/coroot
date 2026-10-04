@@ -16,7 +16,7 @@ import (
 )
 
 func (c *Collector) Logs(w http.ResponseWriter, r *http.Request) {
-	project, err := c.getProject(r.Header.Get(ApiKeyHeader))
+	project, err := c.getAgentProject(r.Header.Get(ApiKeyHeader))
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, err.Error(), http.StatusNotFound)

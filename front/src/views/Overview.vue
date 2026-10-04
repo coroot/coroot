@@ -31,6 +31,11 @@
             <Traces />
         </template>
 
+        <template v-if="view === 'rum'">
+            <Application v-if="id" :id="id" :report="report || 'RUM'" />
+            <Rum v-else />
+        </template>
+
         <template v-if="view === 'logs'">
             <Logs />
         </template>
@@ -63,6 +68,7 @@ import Incident from '@/views/Incident.vue';
 import Alerts from '@/views/Alerts.vue';
 import ServiceMap from '@/views/ServiceMap.vue';
 import Traces from '@/views/Traces.vue';
+import Rum from '@/views/Rum.vue';
 import Logs from '@/views/Logs.vue';
 import Nodes from '@/views/Nodes.vue';
 import Node from '@/views/Node.vue';
@@ -84,6 +90,7 @@ export default {
         Alerts,
         ServiceMap,
         Traces,
+        Rum,
         Logs,
         Nodes,
         Node,

@@ -4,6 +4,7 @@ type ApplicationSettings struct {
 	Profiling *ApplicationSettingsProfiling `json:"profiling,omitempty"`
 	Tracing   *ApplicationSettingsTracing   `json:"tracing,omitempty"`
 	Logs      *ApplicationSettingsLogs      `json:"logs,omitempty"`
+	Rum       *ApplicationSettingsRum       `json:"rum,omitempty"`
 
 	Instrumentation map[ApplicationType]*ApplicationInstrumentation `json:"instrumentation,omitempty"`
 
@@ -20,6 +21,12 @@ type ApplicationSettingsTracing struct {
 
 type ApplicationSettingsLogs struct {
 	Service string `json:"service"`
+}
+
+type ApplicationSettingsRum struct {
+	Service string `json:"service"`
+	// HostPatterns maps browser http.host / server.address values to this backend app (glob or exact).
+	HostPatterns []string `json:"host_patterns,omitempty"`
 }
 
 type ApplicationInstrumentation struct {

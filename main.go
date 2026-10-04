@@ -117,6 +117,7 @@ func main() {
 		LogsTTL:     cfg.Logs.TTL,
 		ProfilesTTL: cfg.Profiles.TTL,
 		MetricsTTL:  cfg.Metrics.TTL,
+		Rum:         cfg.Rum,
 	}
 	coll := collector.New(collConfig, database, promCache, globalClickhouse, globalPrometheus, grpcServer)
 
@@ -145,6 +146,7 @@ func main() {
 	incidents := watchers.NewIncidents(database, a.IncidentRCA)
 
 	watchers.Start(database, promCache, pricing, incidents, !cfg.DoNotCheckForDeployments, globalClickhouse, globalPrometheus, cfg.ClickHouseSpaceManager, nil, nil)
+	watchers.StartRumRetention(cfg.Rum, database, globalClickhouse)
 
 	router := mux.NewRouter()
 	router.Use(statsCollector.MiddleWare)
@@ -155,6 +157,7 @@ func main() {
 	router.HandleFunc("/v1/logs", coll.Logs)
 	router.HandleFunc("/v1/profiles", coll.Profiles)
 	router.HandleFunc("/v1/config", coll.Config)
+	router.HandleFunc("/v1/rum/replay", coll.RumReplay)
 
 	r := router
 	if cfg.UrlBasePath != "/" {
@@ -164,6 +167,7 @@ func main() {
 		r.HandleFunc("/v1/logs", coll.Logs)
 		r.HandleFunc("/v1/profiles", coll.Profiles)
 		r.HandleFunc("/v1/config", coll.Config)
+		r.HandleFunc("/v1/rum/replay", coll.RumReplay)
 	}
 	r.UseEncodedPath()
 	r.HandleFunc("/api/login", a.Login).Methods(http.MethodPost)
@@ -180,6 +184,7 @@ func main() {
 	r.HandleFunc("/api/project/{project}", a.Auth(a.Project)).Methods(http.MethodGet, http.MethodPost, http.MethodDelete)
 	r.HandleFunc("/api/project/{project}/status", a.Auth(a.Status)).Methods(http.MethodGet)
 	r.HandleFunc("/api/project/{project}/api_keys", a.Auth(a.ApiKeys)).Methods(http.MethodGet, http.MethodPost)
+	r.HandleFunc("/api/project/{project}/rum_settings", a.Auth(a.ProjectRumSettings)).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/project/{project}/overview/{view}", a.Auth(a.Overview)).Methods(http.MethodGet)
 	r.HandleFunc("/api/project/{project}/incidents", a.Auth(a.Incidents)).Methods(http.MethodGet)
 	r.HandleFunc("/api/project/{project}/incident/{incident}", a.Auth(a.Incident)).Methods(http.MethodGet)
@@ -206,6 +211,7 @@ func main() {
 	r.HandleFunc("/api/project/{project}/app/{app}/instrumentation/{type}", a.Auth(a.Instrumentation)).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/project/{project}/app/{app}/profiling", a.Auth(a.Profiling)).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/project/{project}/app/{app}/tracing", a.Auth(a.Tracing)).Methods(http.MethodGet, http.MethodPost)
+	r.HandleFunc("/api/project/{project}/app/{app}/rum", a.Auth(a.Rum)).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/project/{project}/app/{app}/logs", a.Auth(a.Logs)).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/project/{project}/app/{app}/risks", a.Auth(a.Risks)).Methods(http.MethodPost)
 	r.HandleFunc("/api/project/{project}/node/{node}", a.Auth(a.Node)).Methods(http.MethodGet)

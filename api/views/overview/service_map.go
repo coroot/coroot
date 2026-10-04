@@ -25,6 +25,7 @@ type Link struct {
 	Status model.Status        `json:"status"`
 	Stats  []string            `json:"stats"`
 	Weight float32             `json:"weight"`
+	Source string              `json:"source,omitempty"` // "rum", "ebpf", or "both"
 }
 
 func renderServiceMap(w *model.World) []*Application {
@@ -79,6 +80,13 @@ func renderServiceMap(w *model.World) []*Application {
 				l.Weight = requests
 			}
 			l.Stats = utils.FormatLinkStats(requests, latency, s.connection.BytesSent.Last(), s.connection.BytesReceived.Last(), s.statusReason)
+			if s.connection.RumObserved {
+				if s.connection.SuccessfulConnections != nil || s.connection.Active != nil {
+					l.Source = "both"
+				} else {
+					l.Source = "rum"
+				}
+			}
 			app.Upstreams = append(app.Upstreams, l)
 			used[a.Id] = true
 			used[id] = true

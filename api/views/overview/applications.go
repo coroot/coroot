@@ -221,7 +221,12 @@ func renderApplications(w *model.World) []*ApplicationStatus {
 		calcApplicationStatus(a)
 
 		if a.Status == model.UNKNOWN {
-			continue
+			// RUM clients have no eBPF/SLO signals yet — still show them.
+			if app.Id.Kind == model.ApplicationKindRumClient {
+				a.Status = model.OK
+			} else {
+				continue
+			}
 		}
 
 		if t := a.Type; t != nil {

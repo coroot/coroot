@@ -1,0 +1,17 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # demo-api instances expose coroot-node-agent–compatible metrics (CPU/Mem) for Docker Desktop labs
+  # where eBPF node-agent cannot run. Scrape both replicas (LB /metrics would hit only one).
+  - job_name: demo-api
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["demo-api-1:4000", "demo-api-2:4000"]
+        labels:
+          app: demo-api

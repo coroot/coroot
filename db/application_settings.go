@@ -54,6 +54,8 @@ func (db *DB) SaveApplicationSetting(projectId ProjectId, appId model.Applicatio
 		as.Tracing = v
 	case *model.ApplicationSettingsLogs:
 		as.Logs = v
+	case *model.ApplicationSettingsRum:
+		as.Rum = v
 	case *model.ApplicationInstrumentation:
 		if as.Instrumentation == nil {
 			as.Instrumentation = map[model.ApplicationType]*model.ApplicationInstrumentation{}

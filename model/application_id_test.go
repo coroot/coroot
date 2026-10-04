@@ -18,6 +18,17 @@ func TestApplicationId(t *testing.T) {
 
 	id, _ = NewApplicationIdFromString("external:ExternalService:external:30001", "fallback")
 	assert.Equal(t, ApplicationId{ClusterId: "external", Kind: ApplicationKindExternalService, Name: "external:30001", Namespace: "external"}, id)
+
+	id, _ = NewApplicationIdFromString("external:frontend:RumClient:demo-web", "fallback")
+	assert.Equal(t, ApplicationId{ClusterId: "external", Kind: ApplicationKindRumClient, Name: "demo-web", Namespace: "frontend"}, id)
+	assert.Equal(t, NewApplicationId(ClusterIdExternal, "frontend", ApplicationKindRumClient, "demo-web"), id)
+}
+
+func TestApplicationIdRumClientRoundtrip(t *testing.T) {
+	id := NewApplicationId(ClusterIdExternal, "frontend", ApplicationKindRumClient, "demo-web")
+	parsed, err := NewApplicationIdFromString(id.String(), "fallback")
+	assert.NoError(t, err)
+	assert.Equal(t, id, parsed)
 }
 
 func TestNewApplicationIdReplicaSet(t *testing.T) {

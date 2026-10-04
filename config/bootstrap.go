@@ -73,6 +73,7 @@ func (cfg *Config) Bootstrap(database *db.DB) error {
 		pp.Settings.Readonly = true
 		pp.Settings.MemberProjects = p.MemberProjects
 		pp.Settings.ApiKeys = p.ApiKeys
+		pp.Settings.Rum = p.Rum
 		if p.NotificationIntegrations != nil {
 			pp.Settings.Integrations.NotificationIntegrations = *p.NotificationIntegrations
 		}

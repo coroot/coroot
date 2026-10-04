@@ -29,6 +29,7 @@
         <AppLogs v-if="w.logs" :appId="w.logs.application_id" :check="w.logs.check" />
         <Profiling v-if="w.profiling" :appId="w.profiling.application_id" />
         <AppTraces v-if="w.tracing" :appId="w.tracing.application_id" />
+        <AppRum v-if="w.rum" :appId="w.rum.application_id" />
         <h2 v-if="w.group_header" class="group-header text-h6">{{ w.group_header }}</h2>
     </div>
 </template>
@@ -43,13 +44,14 @@ import FlameGraphNode from './FlameGraphNode.vue';
 import AppLogs from '../views/AppLogs.vue';
 import Profiling from '../views/Profiling';
 import AppTraces from '../views/AppTraces.vue';
+import AppRum from '../views/AppRum.vue';
 
 export default {
     props: {
         w: Object,
     },
 
-    components: { Chart, ChartGroup, DependencyMap, Table, Heatmap, FlameGraphNode, AppLogs, Profiling, AppTraces },
+    components: { Chart, ChartGroup, DependencyMap, Table, Heatmap, FlameGraphNode, AppLogs, Profiling, AppTraces, AppRum },
 
     computed: {
         heatmapSelection() {

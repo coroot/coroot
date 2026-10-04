@@ -24,6 +24,9 @@ var (
 	logsTTL                                     = timeseries.DurationFlag(kingpin.Flag("logs-ttl", "Logs TTL (e.g. 8h, 3d, 2w; default 7d)").Envar("LOGS_TTL"))
 	profilesTTL                                 = timeseries.DurationFlag(kingpin.Flag("profiles-ttl", "Profiles TTL (e.g. 8h, 3d, 2w; default 7d)").Envar("PROFILES_TTL"))
 	metricsTTL                                  = timeseries.DurationFlag(kingpin.Flag("metrics-ttl", "Metrics TTL (e.g. 8h, 30d, 1y; default 7d)").Envar("METRICS_TTL"))
+	rumTTL                                      = timeseries.DurationFlag(kingpin.Flag("rum-ttl", "RUM raw data TTL (e.g. 8h, 3d, 2w; default 7d)").Envar("RUM_TTL"))
+	rumReplayTTL                                = timeseries.DurationFlag(kingpin.Flag("rum-replay-ttl", "RUM session replay TTL (e.g. 8h, 3d, 2w; default 7d)").Envar("RUM_REPLAY_TTL"))
+	rumAggregatesTTL                            = timeseries.DurationFlag(kingpin.Flag("rum-aggregates-ttl", "RUM aggregates TTL (e.g. 7d, 30d, 90d; default 30d)").Envar("RUM_AGGREGATES_TTL"))
 	pgConnectionString                          = kingpin.Flag("pg-connection-string", "Postgres connection string (sqlite is used if not set)").Envar("PG_CONNECTION_STRING").String()
 	doNotCheckForDeployments                    = kingpin.Flag("do-not-check-for-deployments", "Don't check for new deployments").Envar("DO_NOT_CHECK_FOR_DEPLOYMENTS").Bool()
 	doNotCheckForUpdates                        = kingpin.Flag("do-not-check-for-updates", "Don't check for new versions").Envar("DO_NOT_CHECK_FOR_UPDATES").Bool()
@@ -112,6 +115,15 @@ func (cfg *Config) ApplyFlags() {
 	}
 	if *metricsTTL > 0 {
 		cfg.Metrics.TTL = *metricsTTL
+	}
+	if *rumTTL > 0 {
+		cfg.Rum.TTL = *rumTTL
+	}
+	if *rumReplayTTL > 0 {
+		cfg.Rum.ReplayTTL = *rumReplayTTL
+	}
+	if *rumAggregatesTTL > 0 {
+		cfg.Rum.AggregatesTTL = *rumAggregatesTTL
 	}
 	if *pgConnectionString != "" {
 		cfg.Postgres = &Postgres{ConnectionString: *pgConnectionString}

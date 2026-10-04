@@ -354,6 +354,14 @@ export default class Api {
         this.post(this.projectPath(`app/${encodeURIComponent(appId)}/tracing`), form, cb);
     }
 
+    getRum(appId, params, cb) {
+        this.get(this.projectPath(`app/${encodeURIComponent(appId)}/rum`), params || {}, cb);
+    }
+
+    saveRumSettings(appId, form, cb) {
+        this.post(this.projectPath(`app/${encodeURIComponent(appId)}/rum`), form, cb);
+    }
+
     getLogs(appId, query, cb) {
         this.get(this.projectPath(`app/${encodeURIComponent(appId)}/logs`), { query }, cb);
     }

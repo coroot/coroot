@@ -41,6 +41,7 @@ export const views = {
     alerts: { name: 'Alerts', icon: 'mdi-bell-outline' },
     map: { name: 'Service Map', icon: 'mdi-map-outline' },
     traces: { name: 'Traces', icon: 'mdi-chart-timeline' },
+    rum: { name: 'RUM', icon: 'mdi-monitor-cellphone' },
     logs: { name: 'Logs', icon: 'mdi-text-search' },
     nodes: { name: 'Nodes', icon: 'mdi-server' },
     kubernetes: { name: 'Kubernetes', icon: 'mdi-ship-wheel' },

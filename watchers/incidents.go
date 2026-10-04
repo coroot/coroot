@@ -92,6 +92,7 @@ func (w *Incidents) Check(project *db.Project, world *model.World) {
 			}
 			incident.Details.AvailabilityImpact.AffectedRequestPercentage = calcImpact(incident.OpenedAt, aBadF, aTotalF)
 			incident.Details.LatencyImpact.AffectedRequestPercentage = calcImpact(incident.OpenedAt, lBadF, lTotalF)
+			incident.Details.RumSignals = collectRumSignals(app, world)
 			if err = w.db.CreateIncident(project.Id, app.Id, incident); err != nil {
 				klog.Errorln(err)
 				continue
@@ -112,6 +113,7 @@ func (w *Incidents) Check(project *db.Project, world *model.World) {
 				incident.Details.LatencyBurnRates = details.LatencyBurnRates
 				incident.Details.AvailabilityImpact.AffectedRequestPercentage = calcImpact(incident.OpenedAt, aBadF, aTotalF)
 				incident.Details.LatencyImpact.AffectedRequestPercentage = calcImpact(incident.OpenedAt, lBadF, lTotalF)
+				incident.Details.RumSignals = collectRumSignals(app, world)
 				if err = w.db.UpdateIncident(project.Id, incident.Key, incident.Severity, incident.Details); err != nil {
 					klog.Errorln(err)
 					continue

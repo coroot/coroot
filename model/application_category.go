@@ -4,6 +4,7 @@ type ApplicationCategory string
 
 const (
 	ApplicationCategoryApplication  ApplicationCategory = "application"
+	ApplicationCategoryFrontend     ApplicationCategory = "frontend"
 	ApplicationCategoryControlPlane ApplicationCategory = "control-plane"
 	ApplicationCategoryMonitoring   ApplicationCategory = "monitoring"
 )
@@ -31,6 +32,9 @@ func (c ApplicationCategory) ControlPlane() bool {
 
 var BuiltinCategoryPatterns = map[ApplicationCategory][]string{
 	ApplicationCategoryApplication: {},
+	ApplicationCategoryFrontend: {
+		"frontend/*",
+	},
 	ApplicationCategoryControlPlane: {
 		"kube-system/*",
 		"*/kubelet",

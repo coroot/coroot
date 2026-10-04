@@ -11,6 +11,7 @@ type Widget struct {
 	Logs      *Logs      `json:"logs,omitempty"`
 	Profiling *Profiling `json:"profiling,omitempty"`
 	Tracing   *Tracing   `json:"tracing,omitempty"`
+	Rum       *Rum       `json:"rum,omitempty"`
 
 	GroupHeader string `json:"group_header,omitempty"`
 	Group       string `json:"group,omitempty"`
@@ -99,5 +100,9 @@ type FlameGraph struct {
 }
 
 type Tracing struct {
+	ApplicationId ApplicationId `json:"application_id"`
+}
+
+type Rum struct {
 	ApplicationId ApplicationId `json:"application_id"`
 }

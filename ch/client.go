@@ -177,19 +177,37 @@ func (ci ClickHouseInfo) UseDistributed() bool {
 }
 
 func (c *LowLevelClient) Migrate(ctx context.Context, cfg config.CollectorConfig) error {
-	for _, t := range tables {
+	rumTTL := cfg.Rum.TTL
+	if rumTTL <= 0 {
+		rumTTL = cfg.TracesTTL
+	}
+	rumReplayTTL := cfg.Rum.ReplayTTL
+	if rumReplayTTL <= 0 {
+		rumReplayTTL = rumTTL
+	}
+	rumAggTTL := cfg.Rum.AggregatesTTL
+	if rumAggTTL <= 0 {
+		rumAggTTL = rumTTL
+	}
+	allTables := append(append([]string{}, tables...), rumTables...)
+	for _, t := range allTables {
 		t = strings.ReplaceAll(t, "@ttl_traces", fmt.Sprintf("%d", cfg.TracesTTL))
 		t = strings.ReplaceAll(t, "@ttl_logs", fmt.Sprintf("%d", cfg.LogsTTL))
 		t = strings.ReplaceAll(t, "@ttl_profiles", fmt.Sprintf("%d", cfg.ProfilesTTL))
 		t = strings.ReplaceAll(t, "@ttl_metrics", fmt.Sprintf("%d", cfg.MetricsTTL))
+		t = strings.ReplaceAll(t, "@ttl_rum_replay", fmt.Sprintf("%d", rumReplayTTL))
+		t = strings.ReplaceAll(t, "@ttl_rum_agg", fmt.Sprintf("%d", rumAggTTL))
+		t = strings.ReplaceAll(t, "@ttl_rum", fmt.Sprintf("%d", rumTTL))
 		if c.cluster != "" {
 			t = strings.ReplaceAll(t, "@merge_tree", "ReplicatedMergeTree('/clickhouse/tables/{shard}/{database}/{table}', '{replica}')")
 			t = strings.ReplaceAll(t, "@replacing_merge_tree", "ReplicatedReplacingMergeTree('/clickhouse/tables/{shard}/{database}/{table}', '{replica}')")
 			t = strings.ReplaceAll(t, "@summing_merge_tree", "ReplicatedSummingMergeTree('/clickhouse/tables/{shard}/{database}/{table}', '{replica}')")
+			t = strings.ReplaceAll(t, "@aggregating_merge_tree", "ReplicatedAggregatingMergeTree('/clickhouse/tables/{shard}/{database}/{table}', '{replica}')")
 		} else {
 			t = strings.ReplaceAll(t, "@merge_tree", "MergeTree()")
 			t = strings.ReplaceAll(t, "@replacing_merge_tree", "ReplacingMergeTree()")
 			t = strings.ReplaceAll(t, "@summing_merge_tree", "SummingMergeTree()")
+			t = strings.ReplaceAll(t, "@aggregating_merge_tree", "AggregatingMergeTree()")
 		}
 		err := c.Exec(ctx, t)
 		if err != nil {
@@ -197,7 +215,8 @@ func (c *LowLevelClient) Migrate(ctx context.Context, cfg config.CollectorConfig
 		}
 	}
 	if c.cluster != "" {
-		for _, t := range distributedTables {
+		allDist := append(append([]string{}, distributedTables...), rumDistributedTables...)
+		for _, t := range allDist {
 			err := c.Exec(ctx, t)
 			if err != nil {
 				return err
@@ -473,6 +492,7 @@ func ReplaceTables(query string, distributed bool) string {
 		"profiling_stacks", "profiling_samples", "profiling_profiles",
 		"metrics", "metrics_metadata",
 	}
+	tbls = append(tbls, rumTableNames...)
 	for _, t := range tbls {
 		placeholder := "@@table_" + t + "@@"
 		if distributed {
