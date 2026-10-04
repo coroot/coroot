@@ -69,7 +69,8 @@ export default {
     },
 
     mounted() {
-        if (this.redirectRumClientToRumView()) return;
+        // Redirect may reuse this component instance under view=rum (same id), so never skip get().
+        this.redirectRumClientToRumView();
         this.get();
         this.$events.watch(this, this.get, 'refresh');
     },
@@ -89,7 +90,7 @@ export default {
 
     watch: {
         id() {
-            if (this.redirectRumClientToRumView()) return;
+            this.redirectRumClientToRumView();
             this.app = null;
             this.get();
         },

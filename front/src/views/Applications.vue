@@ -207,7 +207,16 @@ export default {
             this.filter = filter;
         },
         link(id, report, query) {
-            return { name: 'overview', params: { view: 'applications', id, report }, query: { ...query, ...this.$utils.contextQuery() } };
+            const isRumClient = String(id || '').includes(':RumClient:');
+            return {
+                name: 'overview',
+                params: {
+                    view: isRumClient ? 'rum' : 'applications',
+                    id,
+                    report: report || (isRumClient ? 'RUM' : undefined),
+                },
+                query: { ...query, ...this.$utils.contextQuery() },
+            };
         },
     },
 };
