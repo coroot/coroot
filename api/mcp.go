@@ -33,7 +33,7 @@ Responses are sized to fit an agent's context. List results come as {total, retu
 
 Pick a tool by intent, cheapest first:
 
-- "What's currently broken / where should I look?" → list_alerts (firing alerts), list_incidents (open SLO incidents), list_applications (per-app inspection issues + SLO status).
+- "What's currently broken / where should I look?" → list_alerts (firing alerts), list_incidents (open SLO incidents), list_applications (per-app inspection issues + SLO status), list_risks (availability & security risks).
 - "What's wrong with <app>?" → get_application_status: overall status, per-inspection (CPU, memory, SLO, postgres, ...) issues, log-pattern samples, upstream dependencies with connectivity/RTT/latency, and downstream clients.
 - "How are the hosts doing?" → list_nodes for an overview (CPU%/mem%/network/status); get_node_details for a single host (audit report + cpu/memory/network sparklines).
 - Distributed traces — three drill-down levels:
@@ -206,6 +206,19 @@ func (h *MCPHandler) registerTools() {
 			mcp.WithOpenWorldHintAnnotation(false),
 		),
 		h.toolListIncidents,
+	)
+	h.AddTool(
+		mcp.NewTool("list_risks",
+			mcp.WithDescription("List availability and security risks for the selected project. Use state to choose: 'active' (default), 'dismissed', or 'any'."),
+			mcp.WithString("state", mcp.Description("'active' | 'dismissed' | 'any'. Default: 'active'.")),
+			mcp.WithString("app_id", mcp.Description("Filter to one application (full 4-part id from list_applications).")),
+			mcp.WithNumber("limit", mcp.Description("Max risks to return. Default: 100, max: 1000.")),
+			mcp.WithReadOnlyHintAnnotation(true),
+			mcp.WithDestructiveHintAnnotation(false),
+			mcp.WithIdempotentHintAnnotation(true),
+			mcp.WithOpenWorldHintAnnotation(false),
+		),
+		h.toolListRisks,
 	)
 	h.AddTool(
 		mcp.NewTool("resolve_alerts",
@@ -1069,6 +1082,69 @@ func (h *MCPHandler) toolListIncidents(ctx context.Context, req mcp.CallToolRequ
 		filtered = filtered[:limit]
 	}
 	return mcpJSONList(filtered, "only the first incidents are returned, narrow with app_id, state or hours, or lower the limit")
+}
+
+func (h *MCPHandler) toolListRisks(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	user, project, errResult := h.RequireUserAndProject(ctx)
+	if errResult != nil {
+		return errResult, nil
+	}
+	if !h.Api.IsAllowed(user, rbac.Actions.Project(string(project.Id)).Risks().View()) {
+		return mcp.NewToolResultError("forbidden: no permission to view risks in this project"), nil
+	}
+	state := req.GetString("state", "active")
+	switch state {
+	case "active", "dismissed", "any":
+	default:
+		return mcp.NewToolResultError("state must be 'active', 'dismissed', or 'any'"), nil
+	}
+	limit := int(req.GetFloat("limit", 100))
+	if limit <= 0 || limit > 1000 {
+		limit = 100
+	}
+	var filterId model.ApplicationId
+	if appIdFilter := req.GetString("app_id", ""); appIdFilter != "" {
+		id, err := mcpParseAppId(appIdFilter)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("invalid app_id: %s", err)), nil
+		}
+		filterId = id
+	}
+
+	now := timeseries.Now()
+	world, _, err := h.Api.LoadWorld(ctx, project, now.Add(-timeseries.Hour), now)
+	if err != nil {
+		klog.Errorln("mcp: list_risks:", err)
+		return mcp.NewToolResultError("failed to load world"), nil
+	}
+	if world == nil {
+		return mcpJSONList([]*overview.Risk{}, "")
+	}
+
+	auditor.Audit(world, project, nil, nil)
+	risks := overview.RenderRisks(world)
+
+	out := make([]*overview.Risk, 0, len(risks))
+	for _, r := range risks {
+		if !filterId.IsZero() && r.ApplicationId != filterId {
+			continue
+		}
+		isDismissed := r.Dismissal != nil
+		if state == "active" && isDismissed {
+			continue
+		}
+		if state == "dismissed" && !isDismissed {
+			continue
+		}
+		if !h.Api.IsAllowed(user, rbac.Actions.Project(string(project.Id)).Application(r.ApplicationCategory, r.ApplicationId.Namespace, r.ApplicationId.Kind, r.ApplicationId.Name).View()) {
+			continue
+		}
+		out = append(out, r)
+		if len(out) >= limit {
+			break
+		}
+	}
+	return mcpJSONList(out, "only the first risks are returned, narrow with app_id or state, or lower the limit")
 }
 
 func (h *MCPHandler) fetchIncidents(projectId db.ProjectId, hours int, state string, limit int) ([]*model.ApplicationIncident, error) {
