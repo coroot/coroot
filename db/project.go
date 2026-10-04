@@ -59,8 +59,22 @@ func (k *ApiKey) Validate() error {
 	if k.Type != ApiKeyTypeDefault && k.Type != ApiKeyTypeRum {
 		return fmt.Errorf("invalid api key type: %s", k.Type)
 	}
+	if len(k.AllowedOrigins) > 0 {
+		normalized := make([]string, 0, len(k.AllowedOrigins))
+		for _, o := range k.AllowedOrigins {
+			n, err := NormalizeAllowedOrigin(o)
+			if err != nil {
+				return err
+			}
+			normalized = append(normalized, n)
+		}
+		k.AllowedOrigins = normalized
+	}
 	if k.Type == ApiKeyTypeRum && len(k.AllowedOrigins) == 0 {
 		return fmt.Errorf("allowed_origins is required for rum keys")
+	}
+	if k.Type != ApiKeyTypeRum {
+		k.AllowedOrigins = nil
 	}
 	return nil
 }

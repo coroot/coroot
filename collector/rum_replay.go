@@ -39,7 +39,11 @@ func (c *Collector) RumReplay(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "rum api key required", http.StatusForbidden)
 		return
 	}
-	origin, ok := resolveCORSOrigin(r, key)
+	reqPath := ""
+	if ref := r.Header.Get("Referer"); ref != "" {
+		reqPath = pathFromURL(ref)
+	}
+	origin, ok := allowRumRequest(r, key, reqPath)
 	if !ok {
 		http.Error(w, "origin not allowed", http.StatusForbidden)
 		return

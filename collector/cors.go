@@ -2,7 +2,6 @@ package collector
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/coroot/coroot/db"
 )
@@ -26,27 +25,9 @@ func writeCORSHeaders(w http.ResponseWriter, origin string, allowCredentials boo
 	w.Header().Add("Vary", "Origin")
 }
 
+// matchOrigin checks the Origin header against the allowlist in host-only mode (CORS / preflight).
 func matchOrigin(origin string, allowed []string) bool {
-	if origin == "" || len(allowed) == 0 {
-		return false
-	}
-	for _, a := range allowed {
-		a = strings.TrimSpace(a)
-		if a == "" {
-			continue
-		}
-		if a == "*" || strings.EqualFold(a, origin) {
-			return true
-		}
-		// allow trailing /* for origin prefixes like https://*.example.com — only exact * or exact match for stage 1
-		if strings.HasSuffix(a, "/*") {
-			prefix := strings.TrimSuffix(a, "/*")
-			if strings.HasPrefix(origin, prefix) {
-				return true
-			}
-		}
-	}
-	return false
+	return db.MatchAllowedOrigin(origin, "", allowed)
 }
 
 func resolveCORSOrigin(r *http.Request, key *db.ApiKey) (string, bool) {
@@ -58,6 +39,24 @@ func resolveCORSOrigin(r *http.Request, key *db.ApiKey) (string, bool) {
 		return origin, true
 	}
 	return "", false
+}
+
+// allowRumRequest validates Origin (+ optional path) for a RUM key on POST ingest.
+func allowRumRequest(r *http.Request, key *db.ApiKey, reqPath string) (origin string, ok bool) {
+	if key == nil || !key.IsRum() {
+		return "", false
+	}
+	origin = r.Header.Get("Origin")
+	if origin == "" {
+		return "", false
+	}
+	if reqPath == "" && db.PathRequiredForOrigin(origin, key.AllowedOrigins) {
+		return "", false
+	}
+	if !db.MatchAllowedOrigin(origin, reqPath, key.AllowedOrigins) {
+		return "", false
+	}
+	return origin, true
 }
 
 func handleCORSPreflight(w http.ResponseWriter, r *http.Request, key *db.ApiKey) bool {

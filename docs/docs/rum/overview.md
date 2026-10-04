@@ -9,7 +9,7 @@ Coroot RUM collects **real browser telemetry** — Core Web Vitals, page loads, 
 ## Architecture
 
 1. The lightweight [`coroot-rum`](https://github.com/coroot/coroot/tree/main/rum-js) script runs in the browser.
-2. It exports spans over **OTLP/HTTP** (`POST /v1/traces`) using a **RUM API key** (origin allowlist).
+2. It exports spans over **OTLP/HTTP** (`POST /v1/traces`) using a **RUM API key** (domain / path allowlist).
 3. Coroot stores data in dedicated ClickHouse tables: `rum_spans`, `rum_events`, histogram MVs, and `rum_service_edges`.
 4. Backend OTLP/eBPF data stays in `otel_traces`. Shared **`TraceId` / `traceparent`** joins browser and backend in one trace tree.
 5. **Service Map (Topology)** shows `RumClient` nodes (category **frontend**) and edges derived from browser → API calls.
@@ -19,12 +19,21 @@ Coroot RUM collects **real browser telemetry** — Core Web Vitals, page loads, 
 
 ### 1. Create a RUM API key
 
-In **Project settings → API keys**, click **Generate RUM key** and set **Allowed origins** to your site origins (exact match), for example:
+In **Project settings → API keys**, click **Generate RUM key** and set **Allowed domains** to the hostnames (and optional path prefixes) that may send telemetry, for example:
 
 ```
-https://shop.example.com
-https://www.example.com
+shop.example.com
+www.example.com
 ```
+
+To host several frontends behind one domain, scope each RUM key with a path prefix:
+
+```
+example.com/shop
+example.com/portal
+```
+
+CORS preflight checks the browser `Origin` host; ingest also matches the page path (`Referer` or `page.path`) against path-scoped entries. Wildcards: `*.example.com`, or `*` (any host).
 
 Optional key fields for server-side sampling: `keep_slow_ms` (default 2500), `keep_error`, `server_sample_rate`.
 
@@ -58,7 +67,7 @@ RUM keys only accept browser traffic (`telemetry.sdk.language=webjs` or `X-Coroo
 | `allowedTraceUrls` | Origins that receive W3C `traceparent` |
 | `consent` | Set `false` until CMP grants; call `setConsent(true)` |
 
-Ensure Coroot is reachable cross-origin; CORS is enabled for RUM keys' allowed origins on `/v1/traces` and `/v1/rum/replay`.
+Ensure Coroot is reachable cross-origin; CORS is enabled for RUM keys' allowed domains on `/v1/traces` and `/v1/rum/replay`.
 
 CSP: allow `connect-src` to your Coroot ingest host.
 

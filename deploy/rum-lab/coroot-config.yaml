@@ -25,12 +25,12 @@ projects:
         description: rum-demo
         type: rum
         allowed_origins:
-          - "http://localhost:3000"
-          - "http://127.0.0.1:3000"
-          - "http://demo-web"
-          - "http://localhost:3001"
-          - "http://127.0.0.1:3001"
-          - "http://demo-portal"
+          - "localhost:3000"
+          - "127.0.0.1:3000"
+          - "demo-web"
+          - "localhost:3001"
+          - "127.0.0.1:3001"
+          - "demo-portal"
     # Group demo-api-1 / demo-api-2 containers into one app (single Docker Desktop node).
     customApplications:
       - name: demo-api

@@ -50,7 +50,7 @@ func (c *Collector) ingestRum(w http.ResponseWriter, r *http.Request, project *d
 		http.Error(w, "rum api key required", http.StatusForbidden)
 		return
 	}
-	origin, ok := resolveCORSOrigin(r, key)
+	origin, ok := allowRumRequest(r, key, rumRequestPath(r, req))
 	if !ok {
 		http.Error(w, "origin not allowed", http.StatusForbidden)
 		return

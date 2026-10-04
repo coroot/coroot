@@ -3,7 +3,7 @@
         <h2 class="text-h5 mt-10 mb-5">API keys</h2>
         <p>
             API keys authorize Coroot's agents and applications to write telemetry. Use type <b>rum</b> for browser Real User Monitoring — those keys
-            require allowed origins and only accept browser (webjs) OTLP traffic.
+            require allowed domains and only accept browser (webjs) OTLP traffic.
         </p>
         <v-simple-table dense>
             <thead>
@@ -11,7 +11,7 @@
                     <th>Description</th>
                     <th>Type</th>
                     <th>Key</th>
-                    <th>Allowed origins</th>
+                    <th>Allowed domains</th>
                     <th style="width: 100px">Actions</th>
                 </tr>
             </thead>
@@ -80,14 +80,14 @@
                             :menu-props="{ offsetY: true }"
                         />
                         <template v-if="form.type === 'rum'">
-                            <div class="subtitle-1">Allowed origins (one per line)</div>
+                            <div class="subtitle-1">Allowed domains (one per line)</div>
                             <v-textarea
                                 v-model="originsText"
                                 outlined
                                 dense
                                 rows="3"
-                                placeholder="https://shop.example.com&#10;https://www.example.com"
-                                hint="Browser Origin must match exactly (or use *)."
+                                placeholder="shop.example.com&#10;example.com/shop&#10;example.com/portal&#10;localhost:3000"
+                                hint="Hostname, optional path prefix (example.com/shop), *.example.com, or *. Path scopes a key to that app under a shared host."
                                 persistent-hint
                             />
                         </template>
@@ -107,7 +107,15 @@
                             Generate
                         </v-btn>
                         <v-btn v-else-if="form.action === 'delete'" type="submit" color="error" :loading="loading" autofocus> Delete </v-btn>
-                        <v-btn v-else type="submit" color="primary" :disabled="!form.description" :loading="loading"> Save </v-btn>
+                        <v-btn
+                            v-else
+                            type="submit"
+                            color="primary"
+                            :disabled="!form.description || (form.type === 'rum' && !originsText.trim())"
+                            :loading="loading"
+                        >
+                            Save
+                        </v-btn>
                     </div>
                 </v-form>
             </v-card>

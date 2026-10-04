@@ -1,8 +1,12 @@
 package collector
 
 import (
+	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
+
+	v1 "go.opentelemetry.io/proto/otlp/collector/trace/v1"
 )
 
 var (
@@ -45,6 +49,40 @@ func isCwvLeafSpanName(name string) bool {
 		return true
 	}
 	return strings.HasPrefix(n, "webvital.") || strings.HasPrefix(n, "web_vital_")
+}
+
+// rumRequestPath extracts the browser page path for allowlist checks:
+// Referer first, then page.path / page.url.path / url.full / http.url from OTLP spans.
+func rumRequestPath(r *http.Request, req *v1.ExportTraceServiceRequest) string {
+	if r != nil {
+		if ref := strings.TrimSpace(r.Header.Get("Referer")); ref != "" {
+			if u, err := url.Parse(ref); err == nil && u.Path != "" {
+				return u.Path
+			}
+			if p := pathFromURL(ref); p != "" {
+				return p
+			}
+		}
+	}
+	if req == nil {
+		return ""
+	}
+	for _, rs := range req.GetResourceSpans() {
+		for _, ss := range rs.GetScopeSpans() {
+			for _, span := range ss.GetSpans() {
+				attrs := attributesToMap(span.GetAttributes())
+				if p := firstNonEmpty(
+					attrs["page.path"],
+					attrs["page.url.path"],
+					pathFromURL(attrs["url.full"]),
+					pathFromURL(attrs["http.url"]),
+				); p != "" {
+					return p
+				}
+			}
+		}
+	}
+	return ""
 }
 
 // filterRumEventAttributes keeps only attributes needed by RUM queries.

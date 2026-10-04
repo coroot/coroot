@@ -706,13 +706,13 @@ func (api *Api) ApiKeys(w http.ResponseWriter, r *http.Request, u *db.User) {
 	switch form.Action {
 	case "generate":
 		if form.Type == db.ApiKeyTypeRum {
-			if len(form.AllowedOrigins) == 0 {
-				http.Error(w, "allowed_origins is required for rum keys", http.StatusBadRequest)
-				return
-			}
 			form.Key = db.RumApiKey()
 		} else {
 			form.Key = utils.RandomString(32)
+		}
+		if err = form.ApiKey.Validate(); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
 		}
 		project.Settings.ApiKeys = append(project.Settings.ApiKeys, form.ApiKey)
 	case "delete":
@@ -720,12 +720,22 @@ func (api *Api) ApiKeys(w http.ResponseWriter, r *http.Request, u *db.User) {
 			return k.Key == form.Key
 		})
 	case "edit":
+		found := false
 		for i, k := range project.Settings.ApiKeys {
 			if k.Key == form.Key {
 				project.Settings.ApiKeys[i].Description = form.Description
 				project.Settings.ApiKeys[i].Type = form.Type
 				project.Settings.ApiKeys[i].AllowedOrigins = form.AllowedOrigins
+				if err = project.Settings.ApiKeys[i].Validate(); err != nil {
+					http.Error(w, err.Error(), http.StatusBadRequest)
+					return
+				}
+				found = true
 			}
+		}
+		if !found {
+			http.Error(w, "api key not found", http.StatusBadRequest)
+			return
 		}
 	default:
 		return

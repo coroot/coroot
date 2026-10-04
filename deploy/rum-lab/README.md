@@ -94,7 +94,7 @@ Manual API knobs (also used by traffic):
 rum-local-key-000000000000000001
 ```
 
-Allowed origins: `http://localhost:3000`, `http://localhost:3001` (+ 127.0.0.1 variants).
+Allowed domains: `localhost:3000`, `localhost:3001` (+ 127.0.0.1 / demo-web / demo-portal). Path prefixes (e.g. `example.com/shop`) can scope a key to one app under a shared host.
 
 Agent key: `agent-local-key-0000000000000001`.
 
