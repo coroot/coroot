@@ -1408,6 +1408,9 @@ func (h *MCPHandler) runTracesQuery(ctx context.Context, req mcp.CallToolRequest
 	if res.Error != "" {
 		return nil, mcp.NewToolResultError(res.Error)
 	}
+	if res.Message == "not_found" {
+		return nil, mcp.NewToolResultError("no OpenTelemetry traces found in cluster (eBPF traces are recorded per container; specify an eBPF service name or use per-application tracing)")
+	}
 	return res, nil
 }
 

@@ -737,7 +737,9 @@ func rootSpanCondition(fromMV bool) string {
 func (q *SpanQuery) RootSpansFilter(fromMV bool) ([]string, []any) {
 	filter, args := q.Filter()
 	filter = append(filter, rootSpanCondition(fromMV))
-	filter = append(filter, "NOT startsWith(ServiceName, '/')")
+	if q.ServiceName == "" || !strings.HasPrefix(q.ServiceName, "/") {
+		filter = append(filter, "NOT startsWith(ServiceName, '/')")
+	}
 	if len(q.ExcludePeerAddrs) > 0 {
 		filter = append(filter, "NetSockPeerAddr NOT IN (@addrs)")
 		args = append(args, clickhouse.Named("addrs", q.ExcludePeerAddrs))
