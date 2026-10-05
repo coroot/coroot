@@ -21,7 +21,7 @@ For instance, the `projects` parameter (a list of predefined projects) can only 
 
 | Argument                             | Environment Variable               | Default Value | Description                                                                                                                                                                     |
 |--------------------------------------|------------------------------------|---------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| --config                             | CONFIG                             | 0.0.0.0:8080  | Configuration file.                                                                                                                                                             |
+| --config                             | CONFIG                             |               | Configuration file.                                                                                                                                                             |
 | --listen                             | LISTEN                             | 0.0.0.0:8080  | Listen address in the format `ip:port` or `:port`.                                                                                                                              |
 | --https-listen                       | HTTPS_LISTEN                       |               | HTTPS listen address in the format `ip:port` or `:port`.                                                                                                                         |
 | --http-disabled                      | HTTP_DISABLED                      | false         | Disable plain HTTP server.                                                                                                                                                      |
@@ -40,8 +40,6 @@ For instance, the `projects` parameter (a list of predefined projects) can only 
 | --metrics-ttl                        | METRICS_TTL                        | 7d            | Metrics Time-To-Live (TTL).                                                                                                                                                        |                                                                                                    
 | --pg-connection-string               | PG_CONNECTION_STRING               |               | PostgreSQL connection string (uses SQLite if not set).                                                                                                                          |
 | --disable-usage-statistics           | DISABLE_USAGE_STATISTICS           | false         | Disable usage statistics.                                                                                                                                                       |
-| --read-only                          | READ_ONLY                          | false         | Enable read-only mode where configuration changes don't take effect.                                                                                                            |
-| --do-not-check-slo                   | DO_NOT_CHECK_SLO                   | false         | Do not check Service Level Objective (SLO) compliance.                                                                                                                          |
 | --do-not-check-for-deployments       | DO_NOT_CHECK_FOR_DEPLOYMENTS       | false         | Do not check for new deployments.                                                                                                                                               |
 | --do-not-check-for-updates           | DO_NOT_CHECK_FOR_UPDATES           | false         | Do not check for new versions.                                                                                                                                                  |
 | --disable-builtin-alerts             | DISABLE_BUILTIN_ALERTS             | false         | Disable all built-in alerting rules for all projects on startup.                                                                                                                |
@@ -93,7 +91,7 @@ cache:
   ttl: 30d        # Metric Cache Time-To-Live (TTL).
   gc_interval: 10m # Metric Cache Garbage Collection (GC) interval. 
 
-# Coroot stores Traces, Logs, and Profiles in ClickHouse.  
+# Coroot stores Traces, Logs, Profiles, and (with use_clickhouse) Metrics in ClickHouse.  
 # Their retention is managed by setting a Time-To-Live (TTL) for the corresponding Clickhouse tables.  
 # The TTLs below are applied during table creation and do not currently affect existing tables.
 traces:
@@ -101,6 +99,8 @@ traces:
 logs:
   ttl: 7d
 profiles:
+  ttl: 7d
+metrics: # Used when metrics are stored in ClickHouse (use_clickhouse: true).
   ttl: 7d
 
 postgres: # Store configuration in a Postgres DB instead of SQLite
