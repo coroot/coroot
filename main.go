@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"embed"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -148,7 +149,14 @@ func main() {
 
 	router := mux.NewRouter()
 	router.Use(statsCollector.MiddleWare)
-	router.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {}).Methods(http.MethodGet)
+	router.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		status := map[string]any{
+			"status":     "ok",
+			"clickhouse": coll.ClickhouseMigrationStatus(),
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(status)
+	}).Methods(http.MethodGet)
 
 	router.HandleFunc("/v1/metrics", coll.Metrics)
 	router.HandleFunc("/v1/traces", coll.Traces)
