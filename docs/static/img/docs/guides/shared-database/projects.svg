@@ -1,0 +1,33 @@
+<svg width="1000" height="330" viewBox="0 0 1000 330" fill="none" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+<defs>
+<marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#000"/></marker>
+</defs>
+<rect width="1000" height="330" fill="#fff"/>
+<text x="20" y="34" font-size="14" fill="#555">Projects that receive telemetry</text>
+<rect x="20.5" y="50.5" width="280" height="90" rx="4" fill="#fff" stroke="#000"/>
+<text x="160" y="84" font-size="17" font-weight="600" text-anchor="middle" fill="#000">app1</text>
+<text x="160" y="108" font-size="13" text-anchor="middle" fill="#555">cluster 1: storefront, orders</text>
+<text x="160" y="126" font-size="13" text-anchor="middle" fill="#555">MySQL is seen as an external service</text>
+<rect x="360.5" y="50.5" width="280" height="90" rx="4" fill="#fff" stroke="#000"/>
+<text x="500" y="84" font-size="17" font-weight="600" text-anchor="middle" fill="#000">shared-db</text>
+<text x="500" y="108" font-size="13" text-anchor="middle" fill="#555">database host: MySQL</text>
+<text x="500" y="126" font-size="13" text-anchor="middle" fill="#555">host, logs and MySQL metrics</text>
+<rect x="700.5" y="50.5" width="280" height="90" rx="4" fill="#fff" stroke="#000"/>
+<text x="840" y="84" font-size="17" font-weight="600" text-anchor="middle" fill="#000">app2</text>
+<text x="840" y="108" font-size="13" text-anchor="middle" fill="#555">cluster 2: backoffice, billing</text>
+<text x="840" y="126" font-size="13" text-anchor="middle" fill="#555">MySQL is seen as an external service</text>
+
+<text x="20" y="266" font-size="14" fill="#555">Multi-cluster</text>
+<text x="20" y="286" font-size="14" fill="#555">projects</text>
+<rect x="150.5" y="230.5" width="300" height="80" rx="4" fill="#B8EFB6" stroke="#000"/>
+<text x="300" y="264" font-size="17" font-weight="600" text-anchor="middle" fill="#000">app1-with-db</text>
+<text x="300" y="288" font-size="13" text-anchor="middle" fill="#000">storefront → orders → MySQL</text>
+<rect x="550.5" y="230.5" width="300" height="80" rx="4" fill="#B8EFB6" stroke="#000"/>
+<text x="700" y="264" font-size="17" font-weight="600" text-anchor="middle" fill="#000">app2-with-db</text>
+<text x="700" y="288" font-size="13" text-anchor="middle" fill="#000">backoffice → billing → MySQL</text>
+
+<path d="M160 141L270 228" stroke="#000" marker-end="url(#arrow)"/>
+<path d="M460 141L340 228" stroke="#000" marker-end="url(#arrow)"/>
+<path d="M540 141L660 228" stroke="#000" marker-end="url(#arrow)"/>
+<path d="M840 141L730 228" stroke="#000" marker-end="url(#arrow)"/>
+</svg>

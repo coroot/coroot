@@ -1,0 +1,74 @@
+<svg width="1200" height="520" viewBox="0 0 1200 520" fill="none" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+<defs>
+<marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#000"/></marker>
+<marker id="arrow-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#2E9E46"/></marker>
+</defs>
+<rect width="1200" height="520" fill="#fff"/>
+
+<!-- cluster 1 -->
+<rect x="20.5" y="20.5" width="560" height="480" rx="4" stroke="#000"/>
+<text x="40" y="52" font-size="18" font-weight="600" fill="#000">Kubernetes cluster 1</text>
+
+<rect x="40.5" y="76.5" width="520" height="96" rx="4" stroke="#000" stroke-dasharray="5 4"/>
+<text x="56" y="100" font-size="14" fill="#555">namespace app1</text>
+<rect x="70.5" y="112.5" width="150" height="44" rx="4" fill="#fff" stroke="#000"/>
+<text x="145" y="140" font-size="15" text-anchor="middle" fill="#000">storefront</text>
+<rect x="290.5" y="112.5" width="150" height="44" rx="4" fill="#fff" stroke="#000"/>
+<text x="365" y="140" font-size="15" text-anchor="middle" fill="#000">orders</text>
+<path d="M221 134.5H288" stroke="#000" marker-end="url(#arrow)"/>
+
+<rect x="40.5" y="212.5" width="250" height="84" rx="4" fill="#fff" stroke="#000"/>
+<text x="165" y="250" font-size="15" text-anchor="middle" fill="#000">node-agent, cluster-agent</text>
+<text x="165" y="272" font-size="13" text-anchor="middle" fill="#555">project: app1</text>
+
+<rect x="310.5" y="212.5" width="250" height="84" rx="4" fill="#fff" stroke="#000"/>
+<text x="435" y="240" font-size="15" text-anchor="middle" fill="#000">additional cluster-agent</text>
+<text x="435" y="261" font-size="13" text-anchor="middle" fill="#555">Kubernetes monitoring disabled</text>
+<text x="435" y="281" font-size="13" text-anchor="middle" fill="#555">project: shared-db</text>
+
+<rect x="40.5" y="360.5" width="520" height="120" rx="4" fill="#B8EFB6" stroke="#000"/>
+<text x="300" y="396" font-size="18" font-weight="600" text-anchor="middle" fill="#000">Coroot</text>
+<text x="300" y="424" font-size="14" text-anchor="middle" fill="#000">projects: app1, app2, shared-db</text>
+<text x="300" y="448" font-size="14" text-anchor="middle" fill="#000">multi-cluster projects: app1-with-db, app2-with-db</text>
+
+<!-- cluster 2 -->
+<rect x="700.5" y="20.5" width="480" height="250" rx="4" stroke="#000"/>
+<text x="720" y="52" font-size="18" font-weight="600" fill="#000">Kubernetes cluster 2</text>
+<rect x="720.5" y="76.5" width="440" height="96" rx="4" stroke="#000" stroke-dasharray="5 4"/>
+<text x="736" y="100" font-size="14" fill="#555">namespace app2</text>
+<rect x="990.5" y="112.5" width="150" height="44" rx="4" fill="#fff" stroke="#000"/>
+<text x="1065" y="140" font-size="15" text-anchor="middle" fill="#000">backoffice</text>
+<rect x="770.5" y="112.5" width="150" height="44" rx="4" fill="#fff" stroke="#000"/>
+<text x="845" y="140" font-size="15" text-anchor="middle" fill="#000">billing</text>
+<path d="M989 134.5H922" stroke="#000" marker-end="url(#arrow)"/>
+<rect x="940.5" y="190.5" width="220" height="64" rx="4" fill="#fff" stroke="#000"/>
+<text x="1050" y="218" font-size="15" text-anchor="middle" fill="#000">node-agent, cluster-agent</text>
+<text x="1050" y="239" font-size="13" text-anchor="middle" fill="#555">project: app2</text>
+
+<!-- database host -->
+<rect x="700.5" y="300.5" width="480" height="200" rx="4" stroke="#000"/>
+<text x="940" y="332" font-size="18" font-weight="600" fill="#000">Database host</text>
+<rect x="720.5" y="346.5" width="200" height="64" rx="4" fill="#B8EFB6" stroke="#000"/>
+<text x="820" y="374" font-size="16" font-weight="600" text-anchor="middle" fill="#000">MySQL</text>
+<text x="820" y="395" font-size="13" text-anchor="middle" fill="#000">databases: app1, app2</text>
+<rect x="940.5" y="420.5" width="220" height="64" rx="4" fill="#fff" stroke="#000"/>
+<text x="1050" y="448" font-size="15" text-anchor="middle" fill="#000">node-agent</text>
+<text x="1050" y="469" font-size="13" text-anchor="middle" fill="#555">project: shared-db</text>
+
+<!-- queries -->
+<path d="M441 134C710 134 640 362 718 362" stroke="#000" marker-end="url(#arrow)"/>
+<text x="590" y="126" font-size="13" fill="#000">SQL</text>
+<path d="M845 157V344" stroke="#000" marker-end="url(#arrow)"/>
+<text x="855" y="290" font-size="13" fill="#000">SQL</text>
+<path d="M561 254C640 254 620 392 718 392" stroke="#000" stroke-dasharray="6 4" marker-end="url(#arrow)"/>
+<text x="586" y="246" font-size="13" fill="#000">metrics</text>
+
+<!-- telemetry -->
+<path d="M165 297V358" stroke="#2E9E46" stroke-width="1.5" marker-end="url(#arrow-g)"/>
+<path d="M435 297V358" stroke="#2E9E46" stroke-width="1.5" marker-end="url(#arrow-g)"/>
+<path d="M939 222C700 222 660 286 660 340C660 400 630 430 562 430" stroke="#2E9E46" stroke-width="1.5" marker-end="url(#arrow-g)"/>
+<path d="M939 452C800 452 700 460 562 460" stroke="#2E9E46" stroke-width="1.5" marker-end="url(#arrow-g)"/>
+<text x="175" y="332" font-size="12" fill="#2E9E46">telemetry</text>
+<text x="445" y="332" font-size="12" fill="#2E9E46">telemetry</text>
+<text x="600" y="482" font-size="12" fill="#2E9E46">telemetry</text>
+</svg>

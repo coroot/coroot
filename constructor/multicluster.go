@@ -2,6 +2,7 @@ package constructor
 
 import (
 	"net"
+	"slices"
 
 	"github.com/coroot/coroot/model"
 )
@@ -70,6 +71,7 @@ func mergeWorlds(worlds []*model.World) *model.World {
 					u.RemoteApplication = newDest
 					for id, c := range destApp.Downstreams {
 						if c == u {
+							newDest.Downstreams[id] = u
 							delete(destApp.Downstreams, id)
 							if len(destApp.Downstreams) == 0 {
 								delete(res.Applications, destApp.Id)
@@ -94,8 +96,15 @@ func updateSocketToApplicationMapping(w *model.World, mapping map[string]*model.
 	for _, app := range w.Applications {
 		for _, i := range app.Instances {
 			for l := range i.TcpListens {
-				if l.Proxied {
-					mapping[net.JoinHostPort(l.IP, l.Port)] = app
+				addr := net.JoinHostPort(l.IP, l.Port)
+				switch {
+				case l.Proxied:
+					mapping[addr] = app
+				case app.Id.Kind == model.ApplicationKindExternalService || i.Pod != nil:
+				case i.Node == nil || slices.Contains(nodeIPs, l.IP):
+					if mapping[addr] == nil {
+						mapping[addr] = app
+					}
 				}
 			}
 		}
