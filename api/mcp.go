@@ -41,6 +41,7 @@ Pick a tool by intent, cheapest first:
   • errors → traces_errors (top reasons grouped by endpoint, with sample_trace_id + sample_error).
   • slow tail → traces_outliers (flamegraph diff: traces in [dur_from..dur_to] vs the rest; default dur_from=1s).
   • full trace → get_trace trace_id=… (full span tree with attributes/events; use trace_ids from traces_errors / traces_summary samples).
+  If the project has no OpenTelemetry traces, these tools use the spans captured by the eBPF agent. Those are individual client-side spans (one outbound request each), not end-to-end traces, and their service is the calling workload, like '/k8s/<namespace>/<workload>'.
 - "Show me logs" → query_logs: app-scoped or project-wide, with severity / search / time range. Sorted newest-first.
 - "What does this metric look like?" / "Why is Coroot saying X?" → query_metrics for raw PromQL with labels and sparklines; list_metric_names to discover metric names.
 - Incident detail → get_incident_details.
@@ -1404,7 +1405,7 @@ func (h *MCPHandler) runTracesQuery(ctx context.Context, req mcp.CallToolRequest
 		q.Filters = append(q.Filters, overview.Filter{Field: "SpanName", Op: "=", Value: s})
 	}
 	queryJSON, _ := json.Marshal(q)
-	res := overview.RenderTraces(ctx, chs, world, string(queryJSON))
+	res := overview.RenderTraces(ctx, chs, world, string(queryJSON), true)
 	if res.Error != "" {
 		return nil, mcp.NewToolResultError(res.Error)
 	}

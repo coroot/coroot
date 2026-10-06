@@ -44,6 +44,8 @@ The MCP endpoint is served at `/mcp` on your Coroot instance. Tools marked **EE*
 | **`list_anomalies`** *(EE)* | Surface SLO violations and sub-SLO error or latency spikes across the fleet. | Apps with active anomalies, each with status, sample issue messages, and the related open incident. |
 | **`investigate_anomaly`** *(EE)* | Find the root cause of a problem in one app. Coroot follows the dependency graph from the affected service the way an engineer would, checking each candidate cause (saturation, deploys, downstream errors, slow databases, log spikes, profile shifts) against the anomaly window. The findings are then handed to an LLM that writes the human-readable explanation. | Root cause, immediate fixes, a detailed explanation, and a propagation map showing how the failure spread across services. Persisted onto the incident when an `incident_key` is provided, so subsequent `get_incident_details` calls return the same RCA without rerunning it. |
 
+The trace tools work with OpenTelemetry traces when the project has them. If it has none, they fall back to the spans captured by the eBPF agent. eBPF spans are individual client-side spans (one outbound request each, such as an HTTP call or a database query), not end-to-end traces. Their `service` is the calling workload, for example `/k8s/default/checkout`.
+
 :::info
 The tools marked **EE** are available in Coroot Enterprise Edition (from $1 per CPU core/month). [Start](https://coroot.com/account) your free trial today.
 :::

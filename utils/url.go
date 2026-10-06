@@ -70,8 +70,11 @@ func ParseHeatmapDuration(s string) time.Duration {
 	}
 	v, err := strconv.ParseFloat(s, 64)
 	if err != nil {
-		klog.Warningln(err)
-		return 0
+		d, err := time.ParseDuration(s)
+		if err != nil {
+			klog.Warningln(err)
+		}
+		return d
 	}
 	return time.Duration(v * float64(time.Second))
 }

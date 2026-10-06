@@ -685,8 +685,10 @@ type SpanQuery struct {
 
 	Limit int
 
+	Source           model.TraceSource
 	Filters          []SpanFilter
 	ExcludePeerAddrs []string
+	ExcludeServices  []string
 
 	Diff bool
 }
@@ -737,10 +739,18 @@ func rootSpanCondition(fromMV bool) string {
 func (q *SpanQuery) RootSpansFilter(fromMV bool) ([]string, []any) {
 	filter, args := q.Filter()
 	filter = append(filter, rootSpanCondition(fromMV))
-	filter = append(filter, "NOT startsWith(ServiceName, '/')")
+	if q.Source == model.TraceSourceAgent {
+		filter = append(filter, "startsWith(ServiceName, '/')")
+	} else {
+		filter = append(filter, "NOT startsWith(ServiceName, '/')")
+	}
 	if len(q.ExcludePeerAddrs) > 0 {
 		filter = append(filter, "NetSockPeerAddr NOT IN (@addrs)")
 		args = append(args, clickhouse.Named("addrs", q.ExcludePeerAddrs))
+	}
+	if len(q.ExcludeServices) > 0 {
+		filter = append(filter, "ServiceName NOT IN (@excludeServices)")
+		args = append(args, clickhouse.Named("excludeServices", q.ExcludeServices))
 	}
 	return filter, args
 }
