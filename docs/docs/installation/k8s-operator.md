@@ -159,6 +159,7 @@ spec:
 
 # Configuration for Coroot Node Agent.
 #  nodeAgent:
+#    enabled: true # Install the node-agent. If set to false, the node-agent is not installed (and is removed if it was installed).
 #    priorityClassName: # Priority class for the node-agent pods.
 #    update_strategy: # Update strategy for node-agent pods.
 #    nodeSelector: # Restricts scheduling to nodes matching the specified labels.
@@ -190,6 +191,14 @@ spec:
 
 # Configuration for Coroot Cluster Agent.
 #  clusterAgent:
+#    enabled: true # Install the cluster-agent. If set to false, the cluster-agent is not installed (and is removed if it was installed).
+#    kubernetes:
+#      # Collect telemetry from the Kubernetes cluster the cluster-agent runs in: kube-state-metrics, events,
+#      # and the databases, custom metrics and profiles discovered from pods.
+#      # If set to false, the cluster-agent monitors only the databases defined in `databases` and the cloud integrations below,
+#      # and gets no access to the Kubernetes API. Together with `agentsOnly` and `nodeAgent.enabled: false`, this allows
+#      # installing an additional cluster-agent that monitors databases for another cluster.
+#      enabled: true
 #    nodeSelector: # Restricts scheduling to nodes matching the specified labels.
 #    affinity: # Affinity rules for cluster-agent.
 #    tolerations: # Tolerations for cluster-agent.

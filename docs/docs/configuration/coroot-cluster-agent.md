@@ -24,6 +24,7 @@ You can configure coroot-cluster-agent using command-line flags or environment v
 | `--metrics-wal-dir` | `METRICS_WAL_DIR` | `/tmp` | Directory for the metrics write-ahead log |
 | `--profiles-scrape-interval` | `PROFILES_SCRAPE_INTERVAL` | `60s` | Interval between profiling scrapes |
 | `--profiles-scrape-timeout` | `PROFILES_SCRAPE_TIMEOUT` | `10s` | Timeout for profiling scrape requests |
+| `--disable-kubernetes` | `DISABLE_KUBERNETES` | `false` | Don't collect anything from the Kubernetes cluster the agent runs in: kube-state-metrics, events, and the databases, custom metrics and profiles discovered from pods. Only the databases defined in the [configuration file](#configuration-file) and the cloud integrations are monitored |
 | `--kube-state-metrics-listen-address` | `KUBE_STATE_METRICS_LISTEN_ADDRESS` | `127.0.0.1:10303` | Listen address for the kube-state-metrics endpoint |
 | `--insecure-skip-verify` | `INSECURE_SKIP_VERIFY` | `false` | Skip TLS certificate verification |
 | `--ca-file` | `CA_FILE` | – | Path to the custom CA certificate file |
