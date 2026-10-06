@@ -32,7 +32,7 @@ var (
 	authAnonymousRole                           = kingpin.Flag("auth-anonymous-role", "Disable authentication and assign one of the following roles to the anonymous user: Admin, Editor, or Viewer.").Envar("AUTH_ANONYMOUS_ROLE").String()
 	authBootstrapAdminPassword                  = kingpin.Flag("auth-bootstrap-admin-password", "Password for the default Admin user").Envar("AUTH_BOOTSTRAP_ADMIN_PASSWORD").String()
 	developerMode                               = kingpin.Flag("developer-mode", "If enabled, Coroot will not use embedded static assets").Envar("DEVELOPER_MODE").Bool()
-	clickHouseSpaceManagerDisabled              = kingpin.Flag("disable-clickhouse-space-manager", "If enabled, Coroot will manage ClickHouse disk space by removing old partitions").Envar("CLICKHOUSE_SPACE_MANAGER_DISABLED").Bool()
+	clickHouseSpaceManagerDisabled              = kingpin.Flag("disable-clickhouse-space-manager", "Disable ClickHouse space manager that automatically cleans up old partitions").Envar("CLICKHOUSE_SPACE_MANAGER_DISABLED").Bool()
 	clickHouseSpaceManagerUsageThresholdPercent = kingpin.Flag("clickhouse-space-manager-usage-threshold", "Disk usage percentage threshold for triggering partition cleanup in ClickHouse").Envar("CLICKHOUSE_SPACE_MANAGER_USAGE_THRESHOLD").Int()
 	clickHouseSpaceManagerMinPartitions         = kingpin.Flag("clickhouse-space-manager-min-partitions", "Minimum number of partitions to keep when cleaning up ClickHouse disk space").Envar("CLICKHOUSE_SPACE_MANAGER_MIN_PARTITIONS").Int()
 

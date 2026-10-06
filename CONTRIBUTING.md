@@ -91,7 +91,7 @@ Then, start goland and you will see the following coroot log.
 2024-06-12T16:53:26+08:00 debug layer=debugger Adding target 10436 "/root/mark/coroot/coroot --listen=0.0.0.0:8888 --bootstrap-clickhouse-address=10.31.0.220:13124 --bootstrap-clickhouse-user=default --bootstrap-clickhouse-database=default --bootstrap-clickhouse-password=SH9eDMx3e0 --bootstrap-prometheus-url=http://10.31.0.220:58021 --bootstrap-refresh-interval=15s"
 2024-06-12T16:53:46+08:00 debug layer=debugger continuing
 2024-06-12T16:53:46+08:00 debug layer=debugger ContinueOnce
-I0612 16:53:46.238961   10436 main.go:63] version: unknown, url-base-path: /, read-only: false
+I0612 16:53:46.238961   10436 main.go:47] version: unknown
 I0612 16:53:46.239085   10436 db.go:47] using sqlite database
 I0612 16:53:46.241036   10436 db.go:47] using sqlite database
 I0612 16:53:46.258643   10436 cache.go:169] loaded from disk in 17ms
