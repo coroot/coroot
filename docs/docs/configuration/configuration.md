@@ -91,7 +91,7 @@ cache:
   ttl: 30d        # Metric Cache Time-To-Live (TTL).
   gc_interval: 10m # Metric Cache Garbage Collection (GC) interval. 
 
-# Coroot stores Traces, Logs, Profiles, and (with use_clickhouse) Metrics in ClickHouse.  
+# Coroot stores Traces, Logs, and Profiles in ClickHouse, as well as Metrics when ClickHouse is used as the metrics storage (e.g., global_prometheus.use_clickhouse: true).
 # Their retention is managed by setting a Time-To-Live (TTL) for the corresponding Clickhouse tables.  
 # The TTLs below are applied during table creation and do not currently affect existing tables.
 traces:
@@ -100,7 +100,7 @@ logs:
   ttl: 7d
 profiles:
   ttl: 7d
-metrics: # Used when metrics are stored in ClickHouse (use_clickhouse: true).
+metrics: # The metrics table is created together with the other tables, even if metrics are not stored in ClickHouse yet.
   ttl: 7d
 
 postgres: # Store configuration in a Postgres DB instead of SQLite
