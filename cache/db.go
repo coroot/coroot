@@ -93,18 +93,24 @@ func (c *Cache) deleteProject(projectId db.ProjectId) error {
 
 func (c *Cache) getMinUpdateTime(projectId db.ProjectId) (timeseries.Time, error) {
 	var min sql.NullInt64
-	err := c.state.QueryRow("SELECT min(last_ts) FROM prometheus_query_state WHERE project_id = $1", projectId).Scan(&min)
+	err := c.state.QueryRow("SELECT min(last_ts) FROM prometheus_query_state WHERE project_id = $1 AND (last_error IS NULL OR last_error = '')", projectId).Scan(&min)
 	if err != nil {
 		return 0, err
+	}
+	if !min.Valid {
+		_ = c.state.QueryRow("SELECT min(last_ts) FROM prometheus_query_state WHERE project_id = $1", projectId).Scan(&min)
 	}
 	return timeseries.Time(min.Int64), nil
 }
 
 func (c *Cache) getMinUpdateTimeWithoutRecordingRules(projectId db.ProjectId) (timeseries.Time, error) {
 	var min sql.NullInt64
-	err := c.state.QueryRow("SELECT min(last_ts) FROM prometheus_query_state WHERE project_id = $1 AND query NOT LIKE 'rr_%'", projectId).Scan(&min)
+	err := c.state.QueryRow("SELECT min(last_ts) FROM prometheus_query_state WHERE project_id = $1 AND query NOT LIKE 'rr_%' AND (last_error IS NULL OR last_error = '')", projectId).Scan(&min)
 	if err != nil {
 		return 0, err
+	}
+	if !min.Valid {
+		_ = c.state.QueryRow("SELECT min(last_ts) FROM prometheus_query_state WHERE project_id = $1 AND query NOT LIKE 'rr_%'", projectId).Scan(&min)
 	}
 	return timeseries.Time(min.Int64), nil
 }
@@ -117,8 +123,13 @@ func (c *Cache) getStatus(projectId db.ProjectId) (*Status, error) {
 	}
 	now := timeseries.Now()
 	var max, avg sql.NullFloat64
-	if err := c.state.QueryRow("SELECT max($1 - last_ts), avg($1 - last_ts) FROM prometheus_query_state WHERE project_id = $2", now, projectId).Scan(&max, &avg); err != nil {
+	if err := c.state.QueryRow("SELECT max($1 - last_ts), avg($1 - last_ts) FROM prometheus_query_state WHERE project_id = $2 AND (last_error IS NULL OR last_error = '')", now, projectId).Scan(&max, &avg); err != nil {
 		return nil, err
+	}
+	if !max.Valid || !avg.Valid {
+		if err := c.state.QueryRow("SELECT max($1 - last_ts), avg($1 - last_ts) FROM prometheus_query_state WHERE project_id = $2", now, projectId).Scan(&max, &avg); err != nil {
+			return nil, err
+		}
 	}
 	if max.Valid && avg.Valid {
 		s.LagMax = timeseries.Duration(max.Float64)

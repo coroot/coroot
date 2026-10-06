@@ -9,6 +9,7 @@ import (
 	"github.com/coroot/coroot/cache"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
+	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 	"github.com/dustin/go-humanize/english"
 )
@@ -163,6 +164,10 @@ func renderStatus(p *db.Project, cacheStatus *cache.Status, w *model.World, glob
 	if refreshInterval < cache.MinRefreshInterval {
 		refreshInterval = cache.MinRefreshInterval
 	}
+	effectiveLagThreshold := refreshInterval
+	if effectiveLagThreshold < 2*timeseries.Minute {
+		effectiveLagThreshold = 2 * timeseries.Minute
+	}
 	switch {
 	case promCfg.Url == "" && !promCfg.UseClickHouse && !p.Multicluster():
 		res.Prometheus.Status = model.WARNING
@@ -173,7 +178,7 @@ func renderStatus(p *db.Project, cacheStatus *cache.Status, w *model.World, glob
 		res.Prometheus.Message = "An error has been occurred while querying Prometheus:"
 		res.Prometheus.Error = cacheStatus.Error
 		res.Prometheus.Action = "configure"
-	case cacheStatus != nil && cacheStatus.LagMax > 5*refreshInterval:
+	case cacheStatus != nil && cacheStatus.LagAvg > 3*effectiveLagThreshold && cacheStatus.LagMax > 6*effectiveLagThreshold:
 		lag := utils.FormatDuration(cacheStatus.LagAvg, 1)
 		res.Prometheus.Status = model.WARNING
 		res.Prometheus.Message = fmt.Sprintf("The Prometheus cache lag is %s, likely due to a restart or upgrade. Synchronization is in progress.", lag)
