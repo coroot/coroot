@@ -33,7 +33,7 @@ type AlertNotificationDetails struct {
 }
 
 func (n *AlertNotification) Migrate(m *Migrator) error {
-	return m.Exec(`
+	err := m.Exec(`
 	CREATE TABLE IF NOT EXISTS alert_notification (
 		project_id TEXT NOT NULL REFERENCES project(id),
 		alert_id TEXT NOT NULL,
@@ -47,6 +47,16 @@ func (n *AlertNotification) Migrate(m *Migrator) error {
 		details TEXT
 	);
 `)
+	if err != nil {
+		return err
+	}
+	if err = m.Exec(`CREATE INDEX IF NOT EXISTS alert_notification_unsent ON alert_notification (timestamp, sent_at)`); err != nil {
+		return err
+	}
+	if err = m.Exec(`CREATE INDEX IF NOT EXISTS alert_notification_project_alert ON alert_notification (project_id, alert_id)`); err != nil {
+		return err
+	}
+	return m.Exec(`CREATE INDEX IF NOT EXISTS alert_notification_lookup ON alert_notification (project_id, alert_id, destination, timestamp)`)
 }
 
 func (db *DB) PutAlertNotification(n AlertNotification) {
