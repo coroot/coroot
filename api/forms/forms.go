@@ -35,6 +35,10 @@ func ptrBool(v bool) *bool {
 	return &v
 }
 
+func boolValue(v *bool) bool {
+	return v != nil && *v
+}
+
 type Form interface {
 	Valid() bool
 }
@@ -541,7 +545,15 @@ func (f *IntegrationFormSlack) Update(ctx context.Context, project *db.Project, 
 }
 
 func (f *IntegrationFormSlack) Test(ctx context.Context, project *db.Project) error {
-	return notifications.NewSlack(f.Token, f.DefaultChannel).SendIncident(ctx, project.Settings.Integrations.BaseUrl, testIncidentNotification(project))
+	baseUrl := project.Settings.Integrations.BaseUrl
+	client := notifications.NewSlack(f.Token, f.DefaultChannel)
+	if err := client.SendIncident(ctx, baseUrl, testIncidentNotification(project)); err != nil {
+		return err
+	}
+	if boolValue(f.Alerts) {
+		return client.SendAlert(ctx, baseUrl, testAlertNotification(project))
+	}
+	return nil
 }
 
 type IntegrationFormTeams struct {
@@ -595,7 +607,15 @@ func (f *IntegrationFormTeams) Test(ctx context.Context, project *db.Project) er
 	if webhookUrl == "" {
 		return fmt.Errorf("no channels configured")
 	}
-	return notifications.NewTeams(webhookUrl).SendIncident(ctx, project.Settings.Integrations.BaseUrl, testIncidentNotification(project))
+	baseUrl := project.Settings.Integrations.BaseUrl
+	client := notifications.NewTeams(webhookUrl)
+	if err := client.SendIncident(ctx, baseUrl, testIncidentNotification(project)); err != nil {
+		return err
+	}
+	if boolValue(f.Alerts) {
+		return client.SendAlert(ctx, baseUrl, testAlertNotification(project))
+	}
+	return nil
 }
 
 type IntegrationFormPagerduty struct {
@@ -721,6 +741,12 @@ func (f *IntegrationFormWebhook) Test(ctx context.Context, project *db.Project) 
 			return err
 		}
 	}
+	if boolValue(cfg.Alerts) {
+		err := wh.SendAlert(ctx, project.Settings.Integrations.BaseUrl, testAlertNotification(project))
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -734,6 +760,25 @@ func testIncidentNotification(project *db.Project) *db.IncidentNotification {
 			Reports: []db.IncidentNotificationDetailsReport{
 				{Name: model.AuditReportNetwork, Check: model.Checks.NetworkRTT.Title, Message: "high network latency to 2 upstream services"},
 				{Name: model.AuditReportLogs, Check: model.Checks.LogErrors.Title, Message: "1206 errors occurred"},
+			},
+		},
+	}
+}
+
+func testAlertNotification(project *db.Project) *db.AlertNotification {
+	return &db.AlertNotification{
+		ProjectId:     project.Id,
+		AlertId:       "123ab456",
+		ApplicationId: model.NewApplicationId(string(project.Id), "default", model.ApplicationKindDeployment, "fake-app"),
+		Status:        model.WARNING,
+		Timestamp:     timeseries.Now(),
+		Details: &db.AlertNotificationDetails{
+			ProjectName: project.Name,
+			RuleName:    "Log errors",
+			Severity:    model.WARNING.String(),
+			Summary:     "1206 errors occurred",
+			Details: []model.AlertDetail{
+				{Name: "Sample", Value: "connection refused", Code: true},
 			},
 		},
 	}
