@@ -79,7 +79,7 @@ type Filter struct {
 	Value string `json:"value"`
 }
 
-func RenderTraces(ctx context.Context, chs clickhouse.Clients, w *model.World, query string) *Traces {
+func RenderTraces(ctx context.Context, chs clickhouse.Clients, w *model.World, query string, ebpfFallback bool) *Traces {
 	res := &Traces{}
 
 	if chs.Error != nil {
@@ -161,8 +161,11 @@ func RenderTraces(ctx context.Context, chs clickhouse.Clients, w *model.World, q
 			}
 		}
 		if !otelTracesFound {
-			res.Message = "not_found"
-			return res
+			if !ebpfFallback || len(services.Items()) == 0 {
+				res.Message = "not_found"
+				return res
+			}
+			sq.Source = model.TraceSourceAgent
 		}
 	}
 
@@ -190,6 +193,9 @@ func RenderTraces(ctx context.Context, chs clickhouse.Clients, w *model.World, q
 	for _, ch := range chs.Clients {
 		if !q.IncludeAux {
 			sq.ExcludePeerAddrs = getMonitoringAndControlPlanePodIps(w, ch.ClusterId())
+			if sq.Source == model.TraceSourceAgent {
+				sq.ExcludeServices = getMonitoringAndControlPlaneServices(w, ch.ClusterId())
+			}
 		}
 		switch {
 		case q.TraceId != "":
@@ -377,6 +383,23 @@ func getMonitoringAndControlPlanePodIps(w *model.World, clusterId string) []stri
 		}
 	}
 	return maps.Keys(res)
+}
+
+func getMonitoringAndControlPlaneServices(w *model.World, clusterId string) []string {
+	res := utils.NewStringSet()
+	for _, a := range w.Applications {
+		if clusterId != "" && a.Id.ClusterId != clusterId {
+			continue
+		}
+		if a.Category.Monitoring() || a.Category.ControlPlane() {
+			for _, i := range a.Instances {
+				for _, c := range i.Containers {
+					res.Add(model.ContainerIdToServiceName(c.Id))
+				}
+			}
+		}
+	}
+	return res.Items()
 }
 
 func parseQuery(query string, ctx timeseries.Context) Query {
