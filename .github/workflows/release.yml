@@ -29,7 +29,10 @@ jobs:
           registry-url: 'https://npm.pkg.github.com'
       - run: npm ci
       - run: npm version ${{ env.VERSION }}
-      - run: npm publish
+      - run: |
+          if [ -z "$(npm view "@coroot/coroot@$(npm pkg get version | tr -d '"')" version 2>/dev/null)" ]; then
+            npm publish
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: npm run build-prod
