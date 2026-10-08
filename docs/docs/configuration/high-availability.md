@@ -12,6 +12,8 @@ These instances work with the same ClickHouse and Prometheus servers while maint
 By default, Coroot uses [SQLite](/configuration/database#sqlite-default) to store configuration and incident history. 
 However, to run multiple instances, you must use [PostgreSQL](/configuration/database#postgres) as the configuration database. This ensures consistent configuration and incident history across all instances.
 
+Each Coroot instance uses at most 25 PostgreSQL connections. Size the database connection budget for all Coroot instances and any other clients, including PostgreSQL's reserved connections.
+
 ## Alerting and Deployment Tracking
 
 Coroot checks SLO compliance and tracks deployments every minute. 
@@ -21,4 +23,3 @@ To prevent race conditions and ensure accuracy, a leader election mechanism is i
 - **Automatic failover**: If the current leader becomes unavailable, the lock is automatically released, allowing another instance to take over these responsibilities seamlessly.
 
 This approach ensures reliable monitoring and eliminates duplication of effort across instances.
-
