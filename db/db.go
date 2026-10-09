@@ -39,8 +39,12 @@ type DB struct {
 	primaryLockConn *sql.Conn
 }
 
-func NewSqlite(dataDir string) (*DB, error) {
-	db, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?mode=rwc", path.Join(dataDir, "db.sqlite")))
+func NewSqlite(dataDir string, useWAL bool) (*DB, error) {
+	dsn := fmt.Sprintf("file:%s?mode=rwc", path.Join(dataDir, "db.sqlite"))
+	if useWAL {
+		dsn += "&_journal_mode=WAL&_synchronous=NORMAL"
+	}
+	db, err := sql.Open("sqlite3", dsn)
 	if err != nil {
 		return nil, err
 	}

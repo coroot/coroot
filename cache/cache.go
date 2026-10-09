@@ -38,7 +38,7 @@ func NewCache(cfg Config, database *db.DB, globalPrometheus *db.IntegrationProme
 	if err != nil {
 		return nil, err
 	}
-	state, err := db.NewSqlite(cfg.Path)
+	state, err := db.NewSqlite(cfg.Path, true)
 	if err != nil {
 		return nil, err
 	}
