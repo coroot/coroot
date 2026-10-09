@@ -61,7 +61,7 @@ func main() {
 		database, err = db.NewPostgres(cfg.Postgres.ConnectionString)
 	} else {
 		klog.Infoln("database type: sqlite")
-		database, err = db.NewSqlite(cfg.DataDir)
+		database, err = db.NewSqlite(cfg.DataDir, false)
 	}
 	if err != nil {
 		klog.Exitln(err)
