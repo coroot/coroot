@@ -26,6 +26,7 @@ func (db *DB) GetCheckConfigs(projectId ProjectId) (model.CheckConfigs, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 	var appId sql.NullString
 	var configs sql.NullString
 	res := model.CheckConfigs{}
