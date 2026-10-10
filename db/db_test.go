@@ -6,6 +6,39 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestNewPostgresBoundsOpenConnections(t *testing.T) {
+	for _, dsn := range []string{
+		"postgres://user:password@localhost:5432/dbname",
+		"host=localhost user=coroot password=secret dbname=coroot sslmode=require",
+	} {
+		t.Run(dsn, func(t *testing.T) {
+			database, err := NewPostgres(dsn)
+			if !assert.NoError(t, err) {
+				return
+			}
+			t.Cleanup(func() {
+				assert.NoError(t, database.DB().Close())
+			})
+
+			assert.Equal(t, TypePostgres, database.Type())
+			assert.Equal(t, 25, database.DB().Stats().MaxOpenConnections)
+		})
+	}
+}
+
+func TestNewSqliteKeepsSingleConnection(t *testing.T) {
+	database, err := NewSqlite(t.TempDir())
+	if !assert.NoError(t, err) {
+		return
+	}
+	t.Cleanup(func() {
+		assert.NoError(t, database.DB().Close())
+	})
+
+	assert.Equal(t, TypeSqlite, database.Type())
+	assert.Equal(t, 1, database.DB().Stats().MaxOpenConnections)
+}
+
 func TestAddPostgresConnectTimeout(t *testing.T) {
 	result, err := addPostgresConnectTimeout("postgres://user:password@localhost:5432/dbname")
 	assert.NoError(t, err)

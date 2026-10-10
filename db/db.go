@@ -23,6 +23,7 @@ const (
 	TypePostgres Type = "postgres"
 
 	defaultPostgresTimeoutSecond = "30"
+	defaultPostgresMaxOpenConns  = 25
 )
 
 var (
@@ -64,6 +65,8 @@ func NewPostgres(dsn string) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Bound per-instance concurrency so HA replicas share the database connection budget.
+	db.SetMaxOpenConns(defaultPostgresMaxOpenConns)
 	return &DB{typ: TypePostgres, db: db}, nil
 }
 
