@@ -47,6 +47,7 @@
                 <v-tab><v-icon class="mr-1">mdi-microsoft-windows</v-icon>Windows node</v-tab>
                 <v-tab><v-icon class="mr-1">mdi-docker</v-icon>Docker</v-tab>
                 <v-tab><v-icon class="mr-1">mdi-kubernetes</v-icon>Kubernetes</v-tab>
+                <v-tab><v-icon class="mr-1">mdi-aws</v-icon>Amazon ECS</v-tab>
             </v-tabs>
             <v-tabs-items v-model="tab">
                 <v-tab-item transition="none">
@@ -164,6 +165,73 @@ helm install -n coroot --create-namespace coroot-operator coroot/coroot-operator
                     <Code :disabled="!valid">
                         <pre>
 helm install -n coroot coroot coroot/{{ helm_chart }} --set "apiKey={{ api_key }},agentsOnly.corootURL={{ coroot_url || '&lt;COROOT_URL_HERE&gt;' }}"
+                        </pre>
+                    </Code>
+                </v-tab-item>
+                <v-tab-item transition="none">
+                    <p>
+                        On ECS clusters with the EC2 launch type the agent runs as a daemon service: ECS runs one agent task on every node (container
+                        instance) of the cluster, including nodes added later. AWS Fargate is not supported since it doesn't allow privileged
+                        containers. Register the task definition:
+                    </p>
+                    <Code :disabled="!valid">
+                        <pre>
+cat &lt;&lt;'EOF' > coroot-node-agent.json
+{
+  "family": "coroot-node-agent",
+  "requiresCompatibilities": ["EC2"],
+  "networkMode": "host",
+  "pidMode": "host",
+  "volumes": [
+    {"name": "tracing", "host": {"sourcePath": "/sys/kernel/tracing"}},
+    {"name": "debug", "host": {"sourcePath": "/sys/kernel/debug"}},
+    {"name": "cgroup", "host": {"sourcePath": "/sys/fs/cgroup"}},
+    {"name": "data", "dockerVolumeConfiguration": {"scope": "shared", "autoprovision": true, "driver": "local"}}
+  ],
+  "containerDefinitions": [
+    {
+      "name": "coroot-node-agent",
+      "image": "ghcr.io/coroot/coroot-node-agent:latest",
+      "essential": true,
+      "privileged": true,
+      "memoryReservation": 256,
+      "mountPoints": [
+        {"sourceVolume": "tracing", "containerPath": "/sys/kernel/tracing"},
+        {"sourceVolume": "debug", "containerPath": "/sys/kernel/debug"},
+        {"sourceVolume": "cgroup", "containerPath": "/host/sys/fs/cgroup", "readOnly": true},
+        {"sourceVolume": "data", "containerPath": "/data"}
+      ],
+      "command": [
+        "--cgroupfs-root=/host/sys/fs/cgroup",
+        "--wal-dir=/data",
+        "--collector-endpoint={{ coroot_url || '&lt;COROOT_URL_HERE&gt;' }}",
+        "--api-key={{ api_key || '&lt;API_KEY_HERE&gt;' }}",
+        "--scrape-interval={{ scrape_interval }}"
+      ]
+    }
+  ]
+}
+EOF
+aws ecs register-task-definition --cli-input-json file://coroot-node-agent.json
+                        </pre>
+                    </Code>
+                    <p>Then create a daemon service in your cluster:</p>
+                    <Code>
+                        <pre>
+aws ecs create-service --cluster &lt;CLUSTER_NAME&gt; --service-name coroot-node-agent \
+  --task-definition coroot-node-agent --launch-type EC2 --scheduling-strategy DAEMON
+                        </pre>
+                    </Code>
+                    <p>To upgrade the agent (the task definition references the <var>latest</var> image tag):</p>
+                    <Code>
+                        <pre>
+aws ecs update-service --cluster &lt;CLUSTER_NAME&gt; --service coroot-node-agent --force-new-deployment
+                        </pre>
+                    </Code>
+                    <p>To uninstall the agent:</p>
+                    <Code>
+                        <pre>
+aws ecs delete-service --cluster &lt;CLUSTER_NAME&gt; --service coroot-node-agent --force
                         </pre>
                     </Code>
                 </v-tab-item>

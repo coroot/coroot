@@ -208,7 +208,7 @@ func (app *Application) Labels() Labels {
 		res["db"] = fmt.Sprintf(`%s (OCI)`, app.Instances[0].OCIDB.Engine.Value())
 	case ApplicationKindOCICache:
 		res["db"] = fmt.Sprintf(`%s (OCI Cache)`, app.Instances[0].OCICache.Engine.Value())
-	case ApplicationKindUnknown, ApplicationKindDockerSwarmService, ApplicationKindNomadJobGroup:
+	case ApplicationKindUnknown, ApplicationKindDockerSwarmService, ApplicationKindNomadJobGroup, ApplicationKindECSService:
 		if app.Id.Namespace != "_" {
 			res["ns"] = app.Id.Namespace
 		} else {

@@ -14,6 +14,7 @@ sidebar_position: 1
    * Kubernetes Pods using Docker, Containerd, or CRI-O as their runtime environment 
    * Standalone containers: Docker, Containerd, CRI-O 
    * Docker Swarm 
+   * Amazon ECS tasks (EC2 launch type)
    * Systemd units: any systemd service is also considered as a container
  * Supported container orchestrators include:
    * Kubernetes: Self-managed, EKS (including basic support for AWS Fargate), GKE, AKS, OKE
@@ -21,6 +22,7 @@ sidebar_position: 1
    * K3s
    * MicroK8s
    * Docker Swarm
+   * Amazon ECS on EC2 (see [Amazon ECS](/installation/ecs))
  * Limitations:
    * Coroot doesn't support Docker-in-Docker environments such as MiniKube due to eBPF limitations
    * WSL1 (Windows Subsystem for Linux) is not supported
