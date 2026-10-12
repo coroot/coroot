@@ -88,6 +88,12 @@ func (c *Constructor) getInstanceAndContainer(w *model.World, node *model.Node, 
 		containerName = task
 		appId = c.newApplicationId(project.ClusterId(), ns, model.ApplicationKindNomadJobGroup, job+"."+group)
 		id = instanceId{ns: ns, name: group + "-" + allocId, node: nodeId}
+	} else if len(parts) == 6 && parts[1] == "ecs" {
+		// /ecs/<cluster>/<service>/<task-id>/<container-name>
+		cluster, service, taskId := parts[2], parts[3], parts[4]
+		containerName = parts[5]
+		appId = c.newApplicationId(project.ClusterId(), cluster, model.ApplicationKindECSService, service)
+		id = instanceId{ns: cluster, name: service + "-" + taskId, node: nodeId}
 	} else {
 		if len(parts) == 5 && parts[1] == "swarm" {
 			id.ns = parts[2]

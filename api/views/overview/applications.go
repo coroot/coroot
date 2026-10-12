@@ -51,6 +51,7 @@ func renderApplications(w *model.World) []*ApplicationStatus {
 		switch {
 		case app.IsK8s():
 		case app.Id.Kind == model.ApplicationKindNomadJobGroup:
+		case app.Id.Kind == model.ApplicationKindECSService:
 		case !app.IsStandalone():
 		default:
 			continue

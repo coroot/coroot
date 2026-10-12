@@ -28,6 +28,7 @@ const (
 	ApplicationKindOCIDB              ApplicationKind = "OCIDB"
 	ApplicationKindOCICache           ApplicationKind = "OCICache"
 	ApplicationKindNomadJobGroup      ApplicationKind = "NomadJobGroup"
+	ApplicationKindECSService         ApplicationKind = "ECSService"
 	ApplicationKindArgoWorkflow       ApplicationKind = "Workflow"
 	ApplicationKindSparkApplication   ApplicationKind = "SparkApplication"
 	ApplicationKindCustomApplication  ApplicationKind = "CustomApplication"

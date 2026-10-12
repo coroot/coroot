@@ -1,0 +1,34 @@
+{
+  "family": "coroot-node-agent",
+  "requiresCompatibilities": ["EC2"],
+  "networkMode": "host",
+  "pidMode": "host",
+  "volumes": [
+    {"name": "tracing", "host": {"sourcePath": "/sys/kernel/tracing"}},
+    {"name": "debug", "host": {"sourcePath": "/sys/kernel/debug"}},
+    {"name": "cgroup", "host": {"sourcePath": "/sys/fs/cgroup"}},
+    {"name": "data", "dockerVolumeConfiguration": {"scope": "shared", "autoprovision": true, "driver": "local"}}
+  ],
+  "containerDefinitions": [
+    {
+      "name": "coroot-node-agent",
+      "image": "ghcr.io/coroot/coroot-node-agent:latest",
+      "essential": true,
+      "privileged": true,
+      "memoryReservation": 256,
+      "mountPoints": [
+        {"sourceVolume": "tracing", "containerPath": "/sys/kernel/tracing"},
+        {"sourceVolume": "debug", "containerPath": "/sys/kernel/debug"},
+        {"sourceVolume": "cgroup", "containerPath": "/host/sys/fs/cgroup", "readOnly": true},
+        {"sourceVolume": "data", "containerPath": "/data"}
+      ],
+      "command": [
+        "--cgroupfs-root=/host/sys/fs/cgroup",
+        "--wal-dir=/data",
+        "--collector-endpoint=COROOT_URL",
+        "--api-key=API_KEY",
+        "--scrape-interval=15s"
+      ]
+    }
+  ]
+}
