@@ -49,8 +49,9 @@ func (f *UserForm) Valid() bool {
 	}
 	f.Email = strings.TrimSpace(f.Email)
 	f.Name = strings.TrimSpace(f.Name)
-	if f.ServiceAccount && f.Email == "" {
+	if f.ServiceAccount && f.Action == UserActionCreate {
 		f.Email = f.Name
+		f.Password = ""
 	}
 	return f.Email != "" && f.Name != ""
 }
