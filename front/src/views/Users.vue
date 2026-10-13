@@ -45,6 +45,7 @@
                     <v-checkbox
                         v-if="form.action === 'create'"
                         v-model="form.service_account"
+                        @change="toggleServiceAccount"
                         label="Service account (no password, API key access only)"
                         dense
                         hide-details
@@ -176,6 +177,11 @@ export default {
                 this.form.active = false;
                 this.get();
             });
+        },
+        toggleServiceAccount() {
+            this.form.email = '';
+            this.form.password = '';
+            this.$refs.form && this.$refs.form.resetValidation();
         },
         create() {
             this.form.message = '';
