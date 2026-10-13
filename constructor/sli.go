@@ -12,54 +12,71 @@ import (
 )
 
 func (c *Constructor) loadSLIs(w *model.World, metrics map[string][]*model.MetricValues, project *db.Project) {
+	inboundAvailabilityAgg := inboundAvailability(w, metrics[qRecordingRuleApplicationL7InboundRequests+"_avg"], project)
 	inboundAvailabilityRaw := inboundAvailability(w, metrics[qRecordingRuleApplicationL7InboundRequests+"_raw"], project)
+	inboundLatencyAgg := inboundLatency(w, metrics[qRecordingRuleApplicationL7InboundHistogram+"_avg"], project)
 	inboundLatencyRaw := inboundLatency(w, metrics[qRecordingRuleApplicationL7InboundHistogram+"_raw"], project)
+	builtinAvailabilityAgg := builtinAvailability(w, metrics[qRecordingRuleApplicationL7Requests+"_avg"], project)
 	builtinAvailabilityRaw := builtinAvailability(w, metrics[qRecordingRuleApplicationL7Requests+"_raw"], project)
+	builtinLatencyAgg := builtinLatency(w, metrics[qRecordingRuleApplicationL7Histogram+"_avg"], project)
 	builtinLatencyRaw := builtinLatency(w, metrics[qRecordingRuleApplicationL7Histogram+"_raw"], project)
 
+	customAvailabilityAgg := map[model.ApplicationId]availabilitySlis{}
 	customAvailabilityRaw := map[model.ApplicationId]availabilitySlis{}
+	customLatencyAgg := map[model.ApplicationId][]model.HistogramBucket{}
 	customLatencyRaw := map[model.ApplicationId][]model.HistogramBucket{}
-	loadCustomSLIs(metrics, customAvailabilityRaw, customLatencyRaw, project)
+	loadCustomSLIs(metrics, customAvailabilityAgg, customLatencyAgg, project, "_avg")
+	loadCustomSLIs(metrics, customAvailabilityRaw, customLatencyRaw, project, "_raw")
 
 	for _, app := range w.Applications {
 		availabilityCfg, _ := w.CheckConfigs.GetAvailability(app.Id)
 		if availabilityCfg.Custom {
+			agg := customAvailabilityAgg[app.Id]
 			raw := customAvailabilityRaw[app.Id]
+			if agg.failed.IsEmpty() {
+				agg.failed = agg.total.WithNewValue(timeseries.NaN)
+			}
 			app.AvailabilitySLIs = append(app.AvailabilitySLIs, &model.AvailabilitySLI{
 				Config:        availabilityCfg,
-				TotalRequests: aggregateSLI(w.Ctx, raw.total), TotalRequestsRaw: raw.total,
-				FailedRequests: aggregateSLI(w.Ctx, raw.failed), FailedRequestsRaw: raw.failed,
+				TotalRequests: agg.total, TotalRequestsRaw: raw.total,
+				FailedRequests: agg.failed, FailedRequestsRaw: raw.failed,
 			})
 		} else {
-			raw, ok := inboundAvailabilityRaw[app.Id]
-			if !ok || raw.total.IsEmpty() {
+			agg, ok := inboundAvailabilityAgg[app.Id]
+			raw := inboundAvailabilityRaw[app.Id]
+			if !ok || agg.total.IsEmpty() {
+				agg = builtinAvailabilityAgg[app.Id]
 				raw = builtinAvailabilityRaw[app.Id]
 			}
-			if !raw.total.IsEmpty() {
+			if agg.failed.IsEmpty() {
+				agg.failed = agg.total.WithNewValue(timeseries.NaN)
+			}
+			if !agg.total.IsEmpty() {
 				app.AvailabilitySLIs = append(app.AvailabilitySLIs, &model.AvailabilitySLI{
 					Config:        availabilityCfg,
-					TotalRequests: aggregateSLI(w.Ctx, raw.total), TotalRequestsRaw: raw.total,
-					FailedRequests: aggregateSLI(w.Ctx, raw.failed), FailedRequestsRaw: raw.failed,
+					TotalRequests: agg.total, TotalRequestsRaw: raw.total,
+					FailedRequests: agg.failed, FailedRequestsRaw: raw.failed,
 				})
 			}
 		}
 
 		latencyCfg, _ := w.CheckConfigs.GetLatency(app.Id, app.Category)
 		if latencyCfg.Custom {
-			raw := customLatencyRaw[app.Id]
 			app.LatencySLIs = append(app.LatencySLIs, &model.LatencySLI{
 				Config:    latencyCfg,
-				Histogram: aggregateHistogram(w.Ctx, raw), HistogramRaw: raw,
+				Histogram: customLatencyAgg[app.Id], HistogramRaw: customLatencyRaw[app.Id],
 			})
 		} else {
+			agg := inboundLatencyAgg[app.Id]
 			raw := inboundLatencyRaw[app.Id]
-			if len(raw) == 0 {
+			if len(agg) == 0 {
+				agg = builtinLatencyAgg[app.Id]
 				raw = builtinLatencyRaw[app.Id]
 			}
-			if len(raw) > 0 {
+			if len(agg) > 0 {
 				app.LatencySLIs = append(app.LatencySLIs, &model.LatencySLI{
 					Config:    latencyCfg,
-					Histogram: aggregateHistogram(w.Ctx, raw), HistogramRaw: raw,
+					Histogram: agg, HistogramRaw: raw,
 				})
 			}
 		}
@@ -134,6 +151,7 @@ func loadCustomSLIs(metrics map[string][]*model.MetricValues,
 	availabilityRaw map[model.ApplicationId]availabilitySlis,
 	latencyRaw map[model.ApplicationId][]model.HistogramBucket,
 	project *db.Project,
+	suffix string,
 ) {
 	for queryName, values := range metrics {
 		if len(values) == 0 || !strings.HasPrefix(queryName, qApplicationCustomSLI) {
@@ -145,15 +163,15 @@ func loadCustomSLIs(metrics map[string][]*model.MetricValues,
 		}
 		appId, _ := model.NewApplicationIdFromString(parts[1], project.ClusterId())
 		switch parts[2] {
-		case "total_requests_raw":
+		case "total_requests" + suffix:
 			a := availabilityRaw[appId]
 			a.total = values[0].Values
 			availabilityRaw[appId] = a
-		case "failed_requests_raw":
+		case "failed_requests" + suffix:
 			a := availabilityRaw[appId]
 			a.failed = values[0].Values
 			availabilityRaw[appId] = a
-		case "requests_histogram_raw":
+		case "requests_histogram" + suffix:
 			buckets := map[string]*timeseries.TimeSeries{}
 			for _, mv := range values {
 				leStr := mv.Labels["le"]
@@ -259,43 +277,4 @@ func histogramBuckets(values map[string]*timeseries.TimeSeries) []model.Histogra
 		return buckets[i].Le < buckets[j].Le
 	})
 	return buckets
-}
-
-func aggregateHistogram(ctx timeseries.Context, raw []model.HistogramBucket) []model.HistogramBucket {
-	res := make([]model.HistogramBucket, 0, len(raw))
-	for _, b := range raw {
-		res = append(res, model.HistogramBucket{
-			Le:         b.Le,
-			TimeSeries: aggregateSLI(ctx, b.TimeSeries),
-		})
-	}
-	return res
-}
-
-func aggregateSLI(ctx timeseries.Context, raw *timeseries.TimeSeries) *timeseries.TimeSeries {
-	from := ctx.From.Truncate(ctx.Step)
-	to := ctx.To.Truncate(ctx.Step)
-	resPoints := int(to.Sub(from)/ctx.Step + 1)
-	res := timeseries.New(from, resPoints, ctx.Step)
-	var sum, count float32
-	tNext := from
-	iter := raw.IterFrom(from)
-	for iter.Next() {
-		tRaw, vRaw := iter.Value()
-		if t := tRaw.Truncate(ctx.Step); t > tNext {
-			if count > 0 {
-				res.Set(tNext, sum/count)
-			}
-			sum, count = 0., 0.
-			tNext = t
-		}
-		if !timeseries.IsNaN(vRaw) {
-			sum += vRaw
-			count++
-		}
-	}
-	if count > 0 {
-		res.Set(tNext, sum/count)
-	}
-	return res
 }

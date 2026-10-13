@@ -210,11 +210,7 @@ type cacheQuery struct {
 
 func (c *Constructor) queryCache(ctx context.Context, cache Cache, project *db.Project, from, to timeseries.Time, step, rawStep timeseries.Duration, checkConfigs model.CheckConfigs, stats map[string]QueryStats) (map[string][]*model.MetricValues, error) {
 	loadRawSLIs := !c.options[OptionDoNotLoadRawSLIs]
-	rawFrom := from
-	if t := to.Add(-model.MaxAlertRuleWindow); t.Before(rawFrom) {
-		rawFrom = t
-	}
-	rawFrom = rawFrom.Truncate(rawStep)
+	rawFrom := to.Add(-model.MaxAlertRuleWindow).Truncate(rawStep)
 	rawTo := to.Truncate(rawStep)
 
 	from = from.Truncate(step)
@@ -223,6 +219,7 @@ func (c *Constructor) queryCache(ctx context.Context, cache Cache, project *db.P
 	addQuery := func(name, statsName, query string, sli bool, fillFunc timeseries.FillFunc) {
 		if sli && loadRawSLIs {
 			queries[name+"_raw"] = cacheQuery{query: query, from: rawFrom, to: rawTo, step: rawStep, statsName: statsName + "_raw"}
+			queries[name+"_avg"] = cacheQuery{query: query, from: from, to: to, step: step, statsName: statsName + "_avg", fillFunc: timeseries.FillAvg}
 		}
 		if !sli {
 			queries[name] = cacheQuery{query: query, from: from, to: to, step: step, statsName: statsName, fillFunc: fillFunc}
