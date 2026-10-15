@@ -609,11 +609,14 @@ func (api *Api) PanelData(w http.ResponseWriter, r *http.Request, u *db.User) {
 		return
 	}
 	promClients := map[string]prom.Client{}
+	extraSelectors := map[string]string{}
 
 	var maxRefreshInterval timeseries.Duration
 	if !project.Multicluster() {
-		promConfig := project.PrometheusConfig(api.globalPrometheus)
-		promClient, err := prom.NewClient(promConfig, project.ClickHouseConfig(api.globalClickHouse))
+		promConfig := *project.PrometheusConfig(api.globalPrometheus)
+		extraSelectors[project.Name] = promConfig.ExtraSelector
+		promConfig.ExtraSelector = ""
+		promClient, err := prom.NewClient(&promConfig, project.ClickHouseConfig(api.globalClickHouse))
 		if err != nil {
 			klog.Errorln(err)
 			http.Error(w, "", http.StatusInternalServerError)
@@ -636,8 +639,10 @@ func (api *Api) PanelData(w http.ResponseWriter, r *http.Request, u *db.User) {
 				http.Error(w, "", http.StatusInternalServerError)
 				return
 			}
-			promConfig := p.PrometheusConfig(api.globalPrometheus)
-			promClient, err := prom.NewClient(promConfig, p.ClickHouseConfig(api.globalClickHouse))
+			promConfig := *p.PrometheusConfig(api.globalPrometheus)
+			extraSelectors[p.Name] = promConfig.ExtraSelector
+			promConfig.ExtraSelector = ""
+			promClient, err := prom.NewClient(&promConfig, p.ClickHouseConfig(api.globalClickHouse))
 			if err != nil {
 				klog.Errorln(err)
 				http.Error(w, "", http.StatusInternalServerError)
@@ -654,7 +659,7 @@ func (api *Api) PanelData(w http.ResponseWriter, r *http.Request, u *db.User) {
 	q := r.URL.Query()
 	from, to, _, _ := api.getTimeContext(db.ProjectId(mux.Vars(r)["project"]), q.Get("from"), q.Get("to"), q.Get("incident"), q.Get("alert"))
 	step := increaseStepForBigDurations(from, to, maxRefreshInterval)
-	data, err := views.Dashboards.PanelData(r.Context(), promClients, config, from, to, step)
+	data, err := views.Dashboards.PanelData(r.Context(), promClients, extraSelectors, config, from, to, step)
 	if err != nil {
 		klog.Errorln(err)
 		http.Error(w, err.Error(), http.StatusBadRequest)

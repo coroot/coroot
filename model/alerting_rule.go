@@ -29,6 +29,7 @@ type CheckSource struct {
 
 type PromQLSource struct {
 	Expression string `json:"expression" yaml:"expression"`
+	Scope      string `json:"scope" yaml:"scope"`
 }
 
 type KubernetesEventsSource struct {

@@ -62,6 +62,18 @@
                     <div class="caption">PromQL expression.</div>
                     <MetricSelector v-model="config.source.metrics.queries[i].query" :datasource="config.source.metrics.queries[i].datasource" />
 
+                    <div class="subtitle-1 mt-2">Scope</div>
+                    <div class="caption"><b>Project</b> restricts the query to metrics collected by Coroot agents for this project.</div>
+                    <v-btn-toggle
+                        :value="config.source.metrics.queries[i].scope || 'global'"
+                        @change="$set(config.source.metrics.queries[i], 'scope', $event)"
+                        dense
+                        mandatory
+                    >
+                        <v-btn value="global">Global</v-btn>
+                        <v-btn value="project">Project</v-btn>
+                    </v-btn-toggle>
+
                     <div class="subtitle-1 mt-2">Legend</div>
                     <div class="caption">
                         Text to be displayed in the legend and the tooltip. Use <var v-pre>{{ label_name }}</var> to interpolate label values.

@@ -418,7 +418,20 @@ func (w *Alerts) evaluateLogPatternAlerts(project *db.Project, rule *model.Alert
 }
 
 func (w *Alerts) evaluatePromQLAlerts(project *db.Project, rule *model.AlertingRule, from, to timeseries.Time, step timeseries.Duration, now timeseries.Time) {
-	client, err := prom.NewClient(project.PrometheusConfig(w.globalPrometheus), project.ClickHouseConfig(w.globalClickHouse))
+	promConfig := *project.PrometheusConfig(w.globalPrometheus)
+	expression := rule.Source.PromQL.Expression
+	if rule.Source.PromQL.Scope == "project" {
+		var err error
+		if expression, err = prom.AddExtraSelector(expression, promConfig.ExtraSelector); err != nil {
+			klog.Errorf("failed to evaluate PromQL rule %s: %v", rule.Id, err)
+			return
+		}
+	}
+	promConfig.ExtraSelector = ""
+	if step <= 0 {
+		step = promConfig.RefreshInterval
+	}
+	client, err := prom.NewClient(&promConfig, project.ClickHouseConfig(w.globalClickHouse))
 	if err != nil {
 		klog.Errorf("failed to create prom client for PromQL rule %s: %v", rule.Id, err)
 		return
@@ -428,7 +441,7 @@ func (w *Alerts) evaluatePromQLAlerts(project *db.Project, rule *model.AlertingR
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	results, err := client.QueryRange(ctx, rule.Source.PromQL.Expression, prom.FilterLabelsKeepAll, from, to, step)
+	results, err := client.QueryRange(ctx, expression, prom.FilterLabelsKeepAll, from, to, step)
 	if err != nil {
 		klog.Errorf("failed to evaluate PromQL rule %s: %v", rule.Id, err)
 		return
@@ -474,7 +487,7 @@ func (w *Alerts) evaluatePromQLAlerts(project *db.Project, rule *model.AlertingR
 		if description != "" {
 			details = append(details, model.AlertDetail{Name: "Description", Value: description})
 		}
-		scopedQuery := rule.Source.PromQL.Expression
+		scopedQuery := expression
 		if len(mv.Labels) > 0 {
 			parts := make([]string, 0, len(mv.Labels))
 			for k, v := range mv.Labels {
@@ -482,7 +495,7 @@ func (w *Alerts) evaluatePromQLAlerts(project *db.Project, rule *model.AlertingR
 			}
 			sort.Strings(parts)
 			details = append(details, model.AlertDetail{Name: "Labels", Value: utils.Truncate(strings.Join(parts, "\n"), alertDetailValueMaxLen), Code: true})
-			if q, err := prom.AddExtraSelector(rule.Source.PromQL.Expression, "{"+strings.Join(parts, ",")+"}"); err == nil {
+			if q, err := prom.AddExtraSelector(expression, "{"+strings.Join(parts, ",")+"}"); err == nil {
 				scopedQuery = q
 			}
 		}
