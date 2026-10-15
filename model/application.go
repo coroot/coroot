@@ -169,7 +169,13 @@ func (app *Application) GetInstance(name, node string) *Instance {
 				return i
 			}
 		default:
-			return i
+			if i.Pod != nil {
+				if node == "" || i.NodeName() == "" || i.NodeName() == node {
+					return i
+				}
+			} else {
+				return i
+			}
 		}
 	}
 	return nil
