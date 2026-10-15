@@ -16,7 +16,7 @@ type PanelData struct {
 	Chart *model.Chart `json:"chart,omitempty"`
 }
 
-func (ds *Dashboards) PanelData(ctx context.Context, promClients map[string]prom.Client, config db.DashboardPanel, from, to timeseries.Time, step timeseries.Duration) (*PanelData, error) {
+func (ds *Dashboards) PanelData(ctx context.Context, promClients map[string]prom.Client, extraSelectors map[string]string, config db.DashboardPanel, from, to timeseries.Time, step timeseries.Duration) (*PanelData, error) {
 	var res PanelData
 	switch {
 	case config.Source.Metrics != nil:
@@ -32,7 +32,15 @@ func (ds *Dashboards) PanelData(ctx context.Context, promClients map[string]prom
 				return nil, fmt.Errorf("invalid datasource")
 			}
 
-			mvs, err := pc.QueryRange(ctx, q.Query, prom.FilterLabelsKeepAll, from, to, step)
+			query := q.Query
+			if q.Scope == "project" {
+				var err error
+				if query, err = prom.AddExtraSelector(query, extraSelectors[q.DataSource]); err != nil {
+					return nil, err
+				}
+			}
+
+			mvs, err := pc.QueryRange(ctx, query, prom.FilterLabelsKeepAll, from, to, step)
 			if err != nil {
 				return nil, err
 			}

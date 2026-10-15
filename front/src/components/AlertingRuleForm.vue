@@ -162,6 +162,15 @@
                         </div>
                         <MetricSelector v-model="promqlExpression" :rules="[$validators.notEmpty]" :debounce="500" class="mb-4" />
 
+                        <div class="subtitle-1">Scope</div>
+                        <div class="caption grey--text">
+                            <b>Project</b> restricts the expression to metrics collected by Coroot agents for this project.
+                        </div>
+                        <v-btn-toggle v-model="promqlScope" dense mandatory class="mb-4">
+                            <v-btn value="global">Global</v-btn>
+                            <v-btn value="project">Project</v-btn>
+                        </v-btn-toggle>
+
                         <div class="subtitle-1">Preview</div>
                         <Panel :config="previewPanelConfig" style="height: 200px" class="mb-4" />
 
@@ -338,6 +347,7 @@ export default {
             templateDescription: '',
             enabled: true,
             promqlExpression: '',
+            promqlScope: 'global',
             templateSummary: '',
             notificationCategory: 'application',
             sourceTypes: [
@@ -382,7 +392,7 @@ export default {
                 description: '',
                 source: {
                     metrics: {
-                        queries: [{ query: this.promqlExpression, legend: '', color: '', datasource: '' }],
+                        queries: [{ query: this.promqlExpression, legend: '', color: '', datasource: '', scope: this.promqlScope }],
                     },
                 },
                 widget: { chart: {} },
@@ -483,6 +493,7 @@ export default {
                 }
                 if (data.source && data.source.promql) {
                     this.promqlExpression = data.source.promql.expression || '';
+                    this.promqlScope = data.source.promql.scope || 'global';
                 }
                 this.selectorType = (data.selector && data.selector.type) || 'all';
                 this.selectorCategories = (data.selector && data.selector.categories) || [];
@@ -520,7 +531,7 @@ export default {
                                   evaluate_with_ai: this.k8sEventEvaluateWithAI,
                               }
                             : null,
-                    promql: isPromQL ? { expression: this.promqlExpression } : null,
+                    promql: isPromQL ? { expression: this.promqlExpression, scope: this.promqlScope } : null,
                 },
                 selector: {
                     type: isPromQL ? 'all' : this.selectorType,

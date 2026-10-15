@@ -130,8 +130,10 @@ func (p *Project) PrometheusConfig(globalPrometheus *IntegrationPrometheus) *Int
 	}
 	if globalPrometheus != nil {
 		gp := *globalPrometheus
-		gp.ExtraSelector = fmt.Sprintf(`{coroot_project_id="%s"}`, p.Id)
-		gp.ExtraLabels = map[string]string{"coroot_project_id": string(p.Id)}
+		if !gp.UseClickHouse {
+			gp.ExtraSelector = fmt.Sprintf(`{coroot_project_id="%s"}`, p.Id)
+			gp.ExtraLabels = map[string]string{"coroot_project_id": string(p.Id)}
+		}
 		return &gp
 	}
 	return &p.Prometheus
