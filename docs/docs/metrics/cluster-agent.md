@@ -455,6 +455,10 @@ Backup state is collected through the agent's embedded kube-state-metrics from t
 * **Type**: Gauge
 * **Labels**: server_version, server_id, server_uuid
 
+### mysql_performance_schema_enabled
+* **Description**: Whether `performance_schema` is enabled on the server (1 = ON). Per-query statistics, table I/O waits and lock waits are collected from it
+* **Type**: Gauge
+
 ### mysql_top_query_calls_per_second
 * **Description**: Number of times the query has been executed
 * **Type**: Gauge

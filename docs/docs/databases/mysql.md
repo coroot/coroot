@@ -18,6 +18,8 @@ CREATE USER 'coroot'@'%' IDENTIFIED BY '<PASSWORD>';
 GRANT SELECT, PROCESS, REPLICATION CLIENT ON *.* TO 'coroot'@'%';
 ```
 
+Per-query statistics, table I/O waits and lock waits come from `performance_schema`, so it must be enabled on the server (`performance_schema=ON`, the default in a self-managed MySQL). Coroot shows a hint on the MySQL tab when it is off. On Amazon RDS it is off unless Performance Insights is enabled: set `performance_schema=1` in the instance's parameter group and reboot the instance, since the parameter is static.
+
 ### Minimal permissions
 
 If you don't need schema and size tracking for user databases, you can use narrower grants:

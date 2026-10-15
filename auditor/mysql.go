@@ -25,6 +25,8 @@ func (a *appAuditor) mysql() {
 		return
 	}
 
+	mysqlConfigurationHints(report, a.app.Instances)
+
 	availabilityCheck := report.CreateCheck(model.Checks.MysqlAvailability)
 	latencyCheck := report.CreateCheck(model.Checks.MysqlLatency)
 	replicationStatusCheck := report.CreateCheck(model.Checks.MysqlReplicationStatus)
@@ -676,5 +678,26 @@ func mysqlDiskUsageFindings(instance *model.Instance, capacity float32, ctx time
 	}
 	if reportGrowers(instance.Name, check, growers) == 0 {
 		reportLargest(instance.Name, "table", capacity, my.TableSize, my.DatabaseSize, check)
+	}
+}
+
+func mysqlConfigurationHints(report *model.AuditReport, instances []*model.Instance) {
+	seen, enabled := false, false
+	for _, i := range instances {
+		if i.Mysql == nil {
+			continue
+		}
+		if s := i.Mysql.PerformanceSchemaEnabled; !s.IsEmpty() {
+			seen = true
+			if s.Last() == 1 {
+				enabled = true
+			}
+		}
+	}
+	if seen && !enabled {
+		report.ConfigurationHint = &model.ConfigurationHint{
+			Message:      "performance_schema is disabled on this server: per-query statistics, table I/O waits and lock waits are not available. Enable it in the server configuration (on Amazon RDS: set performance_schema=1 in the parameter group and reboot the instance).",
+			ReadMoreLink: "https://docs.coroot.com/databases/mysql",
+		}
 	}
 }

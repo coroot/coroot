@@ -468,6 +468,7 @@ var QUERIES = []Query{
 	qDB("mysql_up", `mysql_up`),
 	qDB("mysql_scrape_error", `mysql_scrape_error`, "error", "warning"),
 	qDB("mysql_info", `mysql_info`, "server_uuid", "server_version"),
+	qDB("mysql_performance_schema_enabled", `mysql_performance_schema_enabled`),
 	qDB("mysql_top_query_calls_per_second", `mysql_top_query_calls_per_second`, "schema", "query"),
 	qDB("mysql_top_query_time_per_second", `mysql_top_query_time_per_second`, "schema", "query"),
 	qDB("mysql_top_query_lock_time_per_second", `mysql_top_query_lock_time_per_second`, "schema", "query"),
