@@ -45,6 +45,8 @@ type Mysql struct {
 	Version    LabelLastValue
 	PerQuery   map[MysqlQueryKey]*MysqlQueryStat
 
+	PerformanceSchemaEnabled *timeseries.TimeSeries
+
 	LockedQueries                  map[MysqlQueryKey]*timeseries.TimeSeries
 	AwaitingQueriesByBlockingQuery map[MysqlQueryKey]*timeseries.TimeSeries
 

@@ -21,6 +21,8 @@ func mysql(instance *model.Instance, queryName string, m *model.MetricValues) {
 	case "mysql_info":
 		instance.Mysql.ServerUUID.Update(m.Values, m.Labels["server_uuid"])
 		instance.Mysql.Version.Update(m.Values, m.Labels["server_version"])
+	case "mysql_performance_schema_enabled":
+		instance.Mysql.PerformanceSchemaEnabled = merge(instance.Mysql.PerformanceSchemaEnabled, m.Values, timeseries.Any)
 	case "mysql_top_query_calls_per_second", "mysql_top_query_time_per_second", "mysql_top_query_lock_time_per_second",
 		"mysql_top_query_rows_examined_per_second", "mysql_top_query_rows_sent_per_second":
 		k := model.MysqlQueryKey{Schema: m.Labels["schema"], Query: m.Labels["query"]}
