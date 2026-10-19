@@ -235,6 +235,7 @@ var QUERIES = []Query{
 		"label_app_kubernetes_io_name",
 		"label_app_kubernetes_io_component", "label_app_kubernetes_io_part_of",
 		"label_valkey_io_cluster",
+		"label_project_runner_gitlab_com_name",
 	),
 	qPod("kube_pod_status_phase", `kube_pod_status_phase > 0`, "phase"),
 	qPod("kube_pod_status_ready", `kube_pod_status_ready{condition="true"}`),

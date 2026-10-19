@@ -83,6 +83,9 @@ type AlertingRule struct {
 }
 
 func (r *AlertingRule) Matches(app *Application) bool {
+	if app.AlertingDisabled() {
+		return false
+	}
 	switch r.Selector.Type {
 	case AppSelectorTypeAll:
 		return true

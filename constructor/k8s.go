@@ -25,7 +25,7 @@ type serviceId struct {
 
 func (c *Constructor) loadKubernetesMetadata(w *model.World, metrics map[string][]*model.MetricValues, servicesByClusterIP map[string]*model.Service, project *db.Project) {
 	jobOwners := c.getJobOwners(metrics["kube_job_owner"], project.ClusterId())
-	pods := c.podInfo(w, metrics["kube_pod_info"], jobOwners, project)
+	pods := c.podInfo(w, metrics["kube_pod_info"], metrics["kube_pod_labels"], jobOwners, project)
 	podLabels(metrics["kube_pod_labels"], pods)
 	podAnnotations(metrics["kube_pod_annotations"], pods)
 
@@ -168,8 +168,14 @@ func (c *Constructor) getJobOwners(metrics []*model.MetricValues, clusterId stri
 	return owners
 }
 
-func (c *Constructor) podInfo(w *model.World, metrics []*model.MetricValues, jobOwners map[podId]model.ApplicationId, project *db.Project) map[string]*model.Instance {
+func (c *Constructor) podInfo(w *model.World, metrics []*model.MetricValues, labelMetrics []*model.MetricValues, jobOwners map[podId]model.ApplicationId, project *db.Project) map[string]*model.Instance {
 	pods := map[string]*model.Instance{}
+	gitlabProjects := map[string]string{}
+	for _, m := range labelMetrics {
+		if name := m.Labels["label_project_runner_gitlab_com_name"]; name != "" {
+			gitlabProjects[m.Labels["uid"]] = name
+		}
+	}
 	podOwners := map[podId]model.ApplicationId{}
 	var podsOwnedByPods []*model.Instance
 
@@ -193,7 +199,11 @@ func (c *Constructor) podInfo(w *model.World, metrics []*model.MetricValues, job
 		node := k8sNodes[nodeName]
 		var appId model.ApplicationId
 
+		gitlabProject := gitlabProjects[uid]
+
 		switch {
+		case (ownerKind == "" || ownerKind == "<none>") && gitlabProject != "":
+			appId = c.newApplicationId(project.ClusterId(), ns, model.ApplicationKindGitLabJob, gitlabProject)
 		case ownerKind == "" || ownerKind == "<none>" || ownerKind == "Node":
 			appId = c.newApplicationId(project.ClusterId(), ns, model.ApplicationKindStaticPods, strings.TrimSuffix(pod, "-"+nodeName))
 		case ownerKind == model.ApplicationKindSparkApplication || ownerKind == model.ApplicationKindArgoWorkflow:

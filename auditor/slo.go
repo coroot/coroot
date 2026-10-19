@@ -32,6 +32,10 @@ func availability(w *model.World, app *model.Application, report *model.AuditRep
 	if ch := report.GetOrCreateChart("Errors, per second", nil); ch != nil {
 		ch.AddSeries("errors", sli.FailedRequests.Map(timeseries.NanToZero), "black").Stacked()
 	}
+	if app.AlertingDisabled() {
+		check.SetStatus(model.OK, "not tracked for %s", app.Id.Kind)
+		return
+	}
 	check.SetStatus(model.OK, "OK")
 	if last := lastIncident(app); last != nil && (!last.Resolved() || last.ResolvedAt.After(w.Ctx.To)) {
 		for _, br := range last.Details.AvailabilityBurnRates {
@@ -54,6 +58,10 @@ func latency(w *model.World, app *model.Application, report *model.AuditReport) 
 	totalRaw, _ := sli.GetTotalAndFast(false)
 	if totalRaw.TailIsEmpty() {
 		check.SetStatus(model.UNKNOWN, "no data")
+		return
+	}
+	if app.AlertingDisabled() {
+		check.SetStatus(model.OK, "not tracked for %s", app.Id.Kind)
 		return
 	}
 	check.SetStatus(model.OK, "OK")
