@@ -560,7 +560,13 @@ func (c *Constructor) groupCustomApplications(w *model.World, project *db.Projec
 		if customName == "" {
 			continue
 		}
-		id := c.newApplicationId(project.ClusterId(), app.Id.Namespace, model.ApplicationKindCustomApplication, customName)
+		ns := app.Id.Namespace
+		name := customName
+		if customNs, customAppName := model.ParseCustomApplicationName(customName); customNs != "" {
+			ns = customNs
+			name = customAppName
+		}
+		id := c.newApplicationId(project.ClusterId(), ns, model.ApplicationKindCustomApplication, name)
 		group := customApps[id]
 		if group == nil {
 			group = &appGroup{app: w.GetOrCreateApplication(id, true), members: map[model.ApplicationId]*model.Application{}}
