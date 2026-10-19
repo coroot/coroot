@@ -32,6 +32,7 @@ const (
 	ApplicationKindArgoWorkflow       ApplicationKind = "Workflow"
 	ApplicationKindSparkApplication   ApplicationKind = "SparkApplication"
 	ApplicationKindCustomApplication  ApplicationKind = "CustomApplication"
+	ApplicationKindGitLabJob          ApplicationKind = "GitLabJob"
 )
 
 type Job struct{}

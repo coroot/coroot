@@ -32,6 +32,9 @@ func (w *Incidents) Check(project *db.Project, world *model.World) {
 	now := timeseries.Now()
 
 	for _, app := range world.Applications {
+		if app.AlertingDisabled() {
+			continue
+		}
 		var (
 			aBadF, aTotalF sumFromFunc
 			lBadF, lTotalF sumFromFunc
@@ -125,25 +128,30 @@ func (w *Incidents) Check(project *db.Project, world *model.World) {
 			w.notifier.Enqueue(project, app, incident, now)
 		}
 	}
-	w.resolveIncidentsForMissingApps(project, world, now)
+	w.resolveStaleIncidents(project, world, now)
 
 	klog.Infof("%s: checked %d apps in %s", project.Id, apps, time.Since(start).Truncate(time.Millisecond))
 }
 
-func (w *Incidents) resolveIncidentsForMissingApps(project *db.Project, world *model.World, now timeseries.Time) {
+func (w *Incidents) resolveStaleIncidents(project *db.Project, world *model.World, now timeseries.Time) {
 	incidents, err := w.db.GetOpenIncidents(project.Id)
 	if err != nil {
 		klog.Errorln("failed to get open incidents:", err)
 		return
 	}
 	for _, incident := range incidents {
-		if world.GetApplication(incident.ApplicationId) != nil {
+		app := world.GetApplication(incident.ApplicationId)
+		if app != nil && !app.AlertingDisabled() {
 			continue
 		}
 		incident.ResolvedAt = now
 		incident.Severity = model.OK
 		if err := w.db.ResolveIncident(project.Id, incident); err != nil {
-			klog.Errorln("failed to resolve incident for missing app:", err)
+			klog.Errorln("failed to resolve stale incident:", err)
+			continue
+		}
+		if app != nil {
+			w.notifier.Enqueue(project, app, incident, now)
 		}
 	}
 }

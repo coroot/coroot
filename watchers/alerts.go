@@ -667,6 +667,9 @@ func (w *Alerts) evaluateKubernetesEventsAlerts(project *db.Project, rule *model
 		if app == nil {
 			app = appByComponentId[appId]
 		}
+		if app != nil && app.AlertingDisabled() {
+			continue
+		}
 		if rule.Selector.Type != model.AppSelectorTypeAll && (app == nil || !rule.Matches(app)) {
 			continue
 		}
@@ -992,7 +995,8 @@ func (w *Alerts) resolveNonMatchingAlerts(project *db.Project, rule *model.Alert
 		return
 	}
 	for _, a := range alerts {
-		if rule.Enabled && rule.MatchesAlert(a) && (a.ApplicationId.IsZero() || world.GetApplication(a.ApplicationId) != nil) {
+		app := world.GetApplication(a.ApplicationId)
+		if rule.Enabled && rule.MatchesAlert(a) && (a.ApplicationId.IsZero() || (app != nil && !app.AlertingDisabled())) {
 			continue
 		}
 		a.ResolvedAt = now
