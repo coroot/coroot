@@ -132,13 +132,14 @@ func (c *Constructor) loadProjectWorld(ctx context.Context, cache Cache, project
 	ip2fqdn := map[string]*utils.StringSet{}
 	fqdn2ip := map[string]*utils.StringSet{}
 	containers := containerCache{}
+	inferenceServices := map[model.ApplicationId]model.ApplicationId{}
 
 	// order is important
 	prof.stage("load_job_statuses", func() { loadPromJobStatuses(metrics, pjs) })
 	prof.stage("load_nodes", func() { c.loadNodes(w, metrics, nodes, project) })
 	prof.stage("load_fqdn", func() { loadFQDNs(metrics, ip2fqdn, fqdn2ip) })
 	prof.stage("load_fargate_nodes", func() { c.loadFargateNodes(metrics, nodes) })
-	prof.stage("load_k8s_metadata", func() { c.loadKubernetesMetadata(w, metrics, servicesByClusterIP, project) })
+	prof.stage("load_k8s_metadata", func() { c.loadKubernetesMetadata(w, metrics, servicesByClusterIP, inferenceServices, project) })
 	prof.stage("load_flux_resources", func() { loadFluxResources(w, metrics, project) })
 	prof.stage("load_argocd_resources", func() { loadArgoCDResources(w, metrics, project) })
 	prof.stage("load_cloud_status", func() { loadCloudStatus(w, metrics) })
@@ -166,6 +167,7 @@ func (c *Constructor) loadProjectWorld(ctx context.Context, cache Cache, project
 	})
 	prof.stage("calc_app_categories", func() { c.calcApplicationCategories(w, project) })
 	prof.stage("group_custom_applications", func() { c.groupCustomApplications(w, project) })
+	prof.stage("group_inference_services", func() { c.groupInferenceServices(w, inferenceServices, project) })
 	prof.stage("join_db_cluster_components", func() { c.joinDBClusterComponents(w, project) })
 	prof.stage("merge_external_into_pods", func() { mergeExternalServicesIntoPods(w, instancesByListen) })
 	prof.stage("load_postgres_backups", func() { loadPostgresBackups(w, metrics, project) })
@@ -569,6 +571,23 @@ func (c *Constructor) groupCustomApplications(w *model.World, project *db.Projec
 		group.members[app.Id] = app
 	}
 	c.groupApplications(w, customApps, project)
+}
+
+func (c *Constructor) groupInferenceServices(w *model.World, inferenceServices map[model.ApplicationId]model.ApplicationId, project *db.Project) {
+	groups := map[model.ApplicationId]*appGroup{}
+	for deploymentId, id := range inferenceServices {
+		app := w.GetApplication(deploymentId)
+		if app == nil {
+			continue
+		}
+		group := groups[id]
+		if group == nil {
+			group = &appGroup{app: w.GetOrCreateApplication(id, false), members: map[model.ApplicationId]*model.Application{}}
+			groups[id] = group
+		}
+		group.members[app.Id] = app
+	}
+	c.groupApplications(w, groups, project)
 }
 
 func (c *Constructor) joinDBClusterComponents(w *model.World, project *db.Project) {

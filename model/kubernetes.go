@@ -33,6 +33,7 @@ const (
 	ApplicationKindSparkApplication   ApplicationKind = "SparkApplication"
 	ApplicationKindCustomApplication  ApplicationKind = "CustomApplication"
 	ApplicationKindGitLabJob          ApplicationKind = "GitLabJob"
+	ApplicationKindInferenceService   ApplicationKind = "InferenceService"
 )
 
 type Job struct{}

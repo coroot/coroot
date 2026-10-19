@@ -11,7 +11,19 @@ const (
 	ClusterRolePrimary
 	ClusterRoleReplica
 	ClusterRoleArbiter
+	ClusterRolePredictor
+	ClusterRoleTransformer
+	ClusterRoleExplainer
 )
+
+var clusterRolesByName = map[string]ClusterRole{
+	"primary":     ClusterRolePrimary,
+	"replica":     ClusterRoleReplica,
+	"arbiter":     ClusterRoleArbiter,
+	"predictor":   ClusterRolePredictor,
+	"transformer": ClusterRoleTransformer,
+	"explainer":   ClusterRoleExplainer,
+}
 
 func (r ClusterRole) String() string {
 	switch r {
@@ -21,6 +33,12 @@ func (r ClusterRole) String() string {
 		return "replica"
 	case ClusterRoleArbiter:
 		return "arbiter"
+	case ClusterRolePredictor:
+		return "predictor"
+	case ClusterRoleTransformer:
+		return "transformer"
+	case ClusterRoleExplainer:
+		return "explainer"
 	}
 	return ""
 }
@@ -155,31 +173,16 @@ func (instance *Instance) NodeId() NodeId {
 }
 
 func (instance *Instance) UpdateClusterRole(role string, v *timeseries.TimeSeries) {
-	switch role {
-	case "primary":
-		v = v.Map(func(t timeseries.Time, v float32) float32 {
-			if v == 1 {
-				return float32(ClusterRolePrimary)
-			}
-			return timeseries.NaN
-		})
-	case "replica":
-		v = v.Map(func(t timeseries.Time, v float32) float32 {
-			if v == 1 {
-				return float32(ClusterRoleReplica)
-			}
-			return timeseries.NaN
-		})
-	case "arbiter":
-		v = v.Map(func(t timeseries.Time, v float32) float32 {
-			if v == 1 {
-				return float32(ClusterRoleArbiter)
-			}
-			return timeseries.NaN
-		})
-	default:
+	r, ok := clusterRolesByName[role]
+	if !ok {
 		return
 	}
+	v = v.Map(func(t timeseries.Time, v float32) float32 {
+		if v == 1 {
+			return float32(r)
+		}
+		return timeseries.NaN
+	})
 	if instance.clusterRole == nil {
 		instance.clusterRole = v
 	} else {
