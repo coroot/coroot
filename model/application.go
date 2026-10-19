@@ -369,7 +369,7 @@ func (app *Application) IsK8s() bool {
 	switch app.Id.Kind {
 	case ApplicationKindCronJob, ApplicationKindJob, ApplicationKindDeployment, ApplicationKindDaemonSet,
 		ApplicationKindPod, ApplicationKindReplicaSet, ApplicationKindStatefulSet, ApplicationKindStaticPods,
-		ApplicationKindArgoWorkflow, ApplicationKindSparkApplication, ApplicationKindGitLabJob, ApplicationKindInferenceService:
+		ApplicationKindArgoWorkflow, ApplicationKindSparkApplication, ApplicationKindGitLabJob, ApplicationKindInferenceService, ApplicationKindSandbox:
 		return true
 	}
 
@@ -463,7 +463,7 @@ func (app *Application) ApplicationType() ApplicationType {
 
 func (app *Application) PeriodicJob() bool {
 	switch app.Id.Kind {
-	case ApplicationKindJob, ApplicationKindCronJob, ApplicationKindGitLabJob:
+	case ApplicationKindJob, ApplicationKindCronJob, ApplicationKindGitLabJob, ApplicationKindSandbox:
 		return true
 	}
 	return app.PeriodicSystemdJob
@@ -472,7 +472,7 @@ func (app *Application) PeriodicJob() bool {
 func (app *Application) AlertingDisabled() bool {
 	switch app.Id.Kind {
 	case ApplicationKindGitLabJob, ApplicationKindStaticPods, ApplicationKindCronJob,
-		ApplicationKindJob, ApplicationKindArgoWorkflow:
+		ApplicationKindJob, ApplicationKindArgoWorkflow, ApplicationKindSandbox:
 		return true
 	}
 	return false

@@ -25,7 +25,7 @@ type serviceId struct {
 
 func (c *Constructor) loadKubernetesMetadata(w *model.World, metrics map[string][]*model.MetricValues, servicesByClusterIP map[string]*model.Service, inferenceServices map[model.ApplicationId]model.ApplicationId, project *db.Project) {
 	jobOwners := c.getJobOwners(metrics["kube_job_owner"], project.ClusterId())
-	pods := c.podInfo(w, metrics["kube_pod_info"], metrics["kube_pod_labels"], jobOwners, project)
+	pods := c.podInfo(w, metrics["kube_pod_info"], metrics["kube_pod_labels"], metrics["kube_pod_owner"], jobOwners, project)
 	c.podLabels(metrics["kube_pod_labels"], pods, inferenceServices, project)
 	podAnnotations(metrics["kube_pod_annotations"], pods)
 
@@ -168,13 +168,17 @@ func (c *Constructor) getJobOwners(metrics []*model.MetricValues, clusterId stri
 	return owners
 }
 
-func (c *Constructor) podInfo(w *model.World, metrics []*model.MetricValues, labelMetrics []*model.MetricValues, jobOwners map[podId]model.ApplicationId, project *db.Project) map[string]*model.Instance {
+func (c *Constructor) podInfo(w *model.World, metrics []*model.MetricValues, labelMetrics []*model.MetricValues, ownerMetrics []*model.MetricValues, jobOwners map[podId]model.ApplicationId, project *db.Project) map[string]*model.Instance {
 	pods := map[string]*model.Instance{}
 	gitlabProjects := map[string]string{}
 	for _, m := range labelMetrics {
 		if name := m.Labels["label_project_runner_gitlab_com_name"]; name != "" {
 			gitlabProjects[m.Labels["uid"]] = name
 		}
+	}
+	nonControllerOwners := map[string]*model.MetricValues{}
+	for _, m := range ownerMetrics {
+		nonControllerOwners[m.Labels["uid"]] = m
 	}
 	podOwners := map[podId]model.ApplicationId{}
 	var podsOwnedByPods []*model.Instance
@@ -200,6 +204,12 @@ func (c *Constructor) podInfo(w *model.World, metrics []*model.MetricValues, lab
 		var appId model.ApplicationId
 
 		gitlabProject := gitlabProjects[uid]
+		if ownerKind == "" || ownerKind == "<none>" {
+			if o := nonControllerOwners[uid]; o != nil {
+				ownerKind = model.ApplicationKind(o.Labels["owner_kind"])
+				ownerName = o.Labels["owner_name"]
+			}
+		}
 
 		switch {
 		case (ownerKind == "" || ownerKind == "<none>") && gitlabProject != "":
