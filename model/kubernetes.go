@@ -34,6 +34,7 @@ const (
 	ApplicationKindCustomApplication  ApplicationKind = "CustomApplication"
 	ApplicationKindGitLabJob          ApplicationKind = "GitLabJob"
 	ApplicationKindInferenceService   ApplicationKind = "InferenceService"
+	ApplicationKindSandbox            ApplicationKind = "Sandbox"
 )
 
 type Job struct{}
