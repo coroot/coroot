@@ -975,9 +975,10 @@ func (cc CheckConfigs) GetAvailability(appId ApplicationId) (CheckConfigSLOAvail
 
 func (cc CheckConfigs) GetLatency(appId ApplicationId, category ApplicationCategory) (CheckConfigSLOLatency, bool) {
 	objectiveBucket := float32(0.5)
-	auxObjectiveBucket := float32(5)
-	if category.Auxiliary() {
-		objectiveBucket = auxObjectiveBucket
+	relaxedObjectiveBucket := float32(5)
+	relaxed := category.Auxiliary() || appId.Kind.InferenceService()
+	if relaxed {
+		objectiveBucket = relaxedObjectiveBucket
 	}
 	defaultCfg := CheckConfigSLOLatency{
 		Custom:              false,
@@ -999,9 +1000,9 @@ func (cc CheckConfigs) GetLatency(appId ApplicationId, category ApplicationCateg
 	if len(res) == 0 {
 		return defaultCfg, true
 	}
-	if projectDefault && category.Auxiliary() {
+	if projectDefault && relaxed {
 		v := res[0]
-		v.ObjectiveBucket = auxObjectiveBucket
+		v.ObjectiveBucket = relaxedObjectiveBucket
 		return v, false
 	}
 	return res[0], false

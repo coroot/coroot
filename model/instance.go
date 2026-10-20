@@ -14,33 +14,39 @@ const (
 	ClusterRolePredictor
 	ClusterRoleTransformer
 	ClusterRoleExplainer
+	ClusterRoleFrontend
+	ClusterRoleWorker
+	ClusterRolePrefill
+	ClusterRoleDecode
+	ClusterRolePlanner
+	ClusterRoleEPP
 )
 
-var clusterRolesByName = map[string]ClusterRole{
-	"primary":     ClusterRolePrimary,
-	"replica":     ClusterRoleReplica,
-	"arbiter":     ClusterRoleArbiter,
-	"predictor":   ClusterRolePredictor,
-	"transformer": ClusterRoleTransformer,
-	"explainer":   ClusterRoleExplainer,
+var clusterRoleNames = map[ClusterRole]string{
+	ClusterRolePrimary:     "primary",
+	ClusterRoleReplica:     "replica",
+	ClusterRoleArbiter:     "arbiter",
+	ClusterRolePredictor:   "predictor",
+	ClusterRoleTransformer: "transformer",
+	ClusterRoleExplainer:   "explainer",
+	ClusterRoleFrontend:    "frontend",
+	ClusterRoleWorker:      "worker",
+	ClusterRolePrefill:     "prefill",
+	ClusterRoleDecode:      "decode",
+	ClusterRolePlanner:     "planner",
+	ClusterRoleEPP:         "epp",
 }
 
-func (r ClusterRole) String() string {
-	switch r {
-	case ClusterRolePrimary:
-		return "primary"
-	case ClusterRoleReplica:
-		return "replica"
-	case ClusterRoleArbiter:
-		return "arbiter"
-	case ClusterRolePredictor:
-		return "predictor"
-	case ClusterRoleTransformer:
-		return "transformer"
-	case ClusterRoleExplainer:
-		return "explainer"
+var clusterRolesByName = func() map[string]ClusterRole {
+	res := make(map[string]ClusterRole, len(clusterRoleNames))
+	for r, name := range clusterRoleNames {
+		res[name] = r
 	}
-	return ""
+	return res
+}()
+
+func (r ClusterRole) String() string {
+	return clusterRoleNames[r]
 }
 
 type Instance struct {

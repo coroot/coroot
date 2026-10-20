@@ -369,7 +369,7 @@ func (app *Application) IsK8s() bool {
 	switch app.Id.Kind {
 	case ApplicationKindCronJob, ApplicationKindJob, ApplicationKindDeployment, ApplicationKindDaemonSet,
 		ApplicationKindPod, ApplicationKindReplicaSet, ApplicationKindStatefulSet, ApplicationKindStaticPods,
-		ApplicationKindArgoWorkflow, ApplicationKindSparkApplication, ApplicationKindGitLabJob, ApplicationKindInferenceService, ApplicationKindSandbox:
+		ApplicationKindArgoWorkflow, ApplicationKindSparkApplication, ApplicationKindGitLabJob, ApplicationKindInferenceService, ApplicationKindDynamoGraphDeployment, ApplicationKindSandbox:
 		return true
 	}
 

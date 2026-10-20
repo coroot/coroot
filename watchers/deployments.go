@@ -41,7 +41,7 @@ func (w *Deployments) Check(project *db.Project, world *model.World) {
 func (w *Deployments) discoverAndSaveDeployments(project *db.Project, world *model.World) int {
 	var apps int
 	for _, app := range world.Applications {
-		if app.Id.Kind != model.ApplicationKindDeployment && app.Id.Kind != model.ApplicationKindInferenceService {
+		if !tracksDeployments(app.Id.Kind) {
 			continue
 		}
 		apps++
@@ -167,8 +167,16 @@ func (w *Deployments) sendNotifications(project *db.Project, world *model.World)
 	}
 }
 
+func tracksDeployments(kind model.ApplicationKind) bool {
+	switch kind {
+	case model.ApplicationKindDeployment, model.ApplicationKindInferenceService, model.ApplicationKindDynamoGraphDeployment:
+		return true
+	}
+	return false
+}
+
 func calcDeployments(app *model.Application) []*model.ApplicationDeployment {
-	if (app.Id.Kind != model.ApplicationKindDeployment && app.Id.Kind != model.ApplicationKindInferenceService) || len(app.Instances) == 0 {
+	if !tracksDeployments(app.Id.Kind) || len(app.Instances) == 0 {
 		return nil
 	}
 
