@@ -291,6 +291,9 @@ func (w *Alerts) evaluateLogPatternAlerts(project *db.Project, rule *model.Alert
 
 	activeFingerprints := map[string]bool{}
 
+	from := rule.EventsFrom(world.Ctx.From, world.Ctx.To)
+	window := world.Ctx.To.Sub(from)
+
 	for _, app := range matchingApps {
 		appId := app.Id.String()
 
@@ -302,7 +305,7 @@ func (w *Alerts) evaluateLogPatternAlerts(project *db.Project, rule *model.Alert
 				if lp == nil || lp.Messages == nil || lp.Pattern == nil {
 					continue
 				}
-				messageCount := lp.Messages.Reduce(timeseries.NanSum)
+				messageCount := lp.Messages.ReduceFrom(from, timeseries.NanSum)
 				if timeseries.IsNaN(messageCount) || messageCount < float32(minCount) {
 					continue
 				}
@@ -313,7 +316,7 @@ func (w *Alerts) evaluateLogPatternAlerts(project *db.Project, rule *model.Alert
 				if blockingAlert := w.findBlockingAlert(string(rule.Id), fingerprint, appId, lp, alertByFingerprint, alertsByApp); blockingAlert != nil {
 					activeFingerprints[blockingAlert.Fingerprint] = true
 					if !blockingAlert.Suppressed && blockingAlert.ManuallyResolvedAt == 0 {
-						blockingAlert.Summary = fmt.Sprintf("new %s in the logs (%d messages in the last %s)", sev.String(), int(math.Round(float64(messageCount))), world.Ctx.To.Sub(world.Ctx.From))
+						blockingAlert.Summary = fmt.Sprintf("new %s in the logs (%d messages in the last %s)", sev.String(), int(math.Round(float64(messageCount))), window)
 						var updatedDetails []model.AlertDetail
 						if rule.Templates.Description != "" {
 							updatedDetails = append(updatedDetails, model.AlertDetail{Name: "Description", Value: rule.Templates.Description})
@@ -353,7 +356,7 @@ func (w *Alerts) evaluateLogPatternAlerts(project *db.Project, rule *model.Alert
 					}
 				}
 
-				summary := fmt.Sprintf("new %s in the logs (%d messages in the last %s)", sev.String(), int(math.Round(float64(messageCount))), world.Ctx.To.Sub(world.Ctx.From))
+				summary := fmt.Sprintf("new %s in the logs (%d messages in the last %s)", sev.String(), int(math.Round(float64(messageCount))), window)
 
 				var logDetails []model.AlertDetail
 				if rule.Templates.Description != "" {
@@ -404,7 +407,7 @@ func (w *Alerts) evaluateLogPatternAlerts(project *db.Project, rule *model.Alert
 		if a.Suppressed {
 			continue
 		}
-		if rule.KeepFiringFor > 0 && now.Sub(a.UpdatedAt) < rule.KeepFiringFor {
+		if now.Sub(a.UpdatedAt) < rule.KeepFiringFor-window {
 			continue
 		}
 		a.ResolvedAt = now
@@ -577,6 +580,8 @@ func buildPromQLTemplateData(labels model.Labels, value float32) map[string]any 
 
 func (w *Alerts) evaluateKubernetesEventsAlerts(project *db.Project, rule *model.AlertingRule, world *model.World, from, to timeseries.Time, now timeseries.Time) {
 	src := rule.Source.KubernetesEvents
+	from = rule.EventsFrom(from, to)
+	window := to.Sub(from)
 
 	minCount := src.MinCount
 	if minCount <= 0 {
@@ -613,11 +618,9 @@ func (w *Alerts) evaluateKubernetesEventsAlerts(project *db.Project, rule *model
 		reason          string
 		objKind         string
 		objNs           string
-		objName         string
 		clusterId       string
 		clusterName     string
 		sourceComponent string
-		nodeLevel       bool
 		events          []*model.LogEntry
 	}
 
@@ -643,22 +646,6 @@ func (w *Alerts) evaluateKubernetesEventsAlerts(project *db.Project, rule *model
 		reason := event.LogAttributes["event.reason"]
 		sourceComponent := event.LogAttributes["source.component"]
 
-		// Node-level events (e.g., NodeNotReady from node-controller) are grouped
-		// by cluster+reason instead of per-app to avoid alert storms when a node fails.
-		if sourceComponent == "node-controller" {
-			if rule.Selector.Type != model.AppSelectorTypeAll {
-				continue
-			}
-			key := event.ClusterId + "|" + reason
-			g := groups[key]
-			if g == nil {
-				g = &eventGroup{reason: reason, clusterId: event.ClusterId, clusterName: event.ClusterName, sourceComponent: sourceComponent, nodeLevel: true}
-				groups[key] = g
-			}
-			g.events = append(g.events, event)
-			continue
-		}
-
 		appId := model.NewApplicationId(event.ClusterId, ns, model.ApplicationKind(kind), name)
 		app := world.GetApplication(appId)
 		if app == nil {
@@ -675,16 +662,18 @@ func (w *Alerts) evaluateKubernetesEventsAlerts(project *db.Project, rule *model
 		}
 
 		var groupAppId model.ApplicationId
+		var key string
 		if app != nil {
 			groupAppId = app.Id
+			key = groupAppId.String() + "|" + reason
 		} else {
-			groupAppId = appId
+			// events of objects that can't be resolved to an application (nodes, a pod not seen in metrics yet, etc.)
+			// are grouped by namespace, kind and reason rather than by object name to avoid alert storms
+			key = event.ClusterId + "|" + ns + "|" + kind + "|" + reason
 		}
-
-		key := groupAppId.String() + "|" + reason
 		g := groups[key]
 		if g == nil {
-			g = &eventGroup{appId: groupAppId, app: app, reason: reason, objKind: kind, objNs: ns, objName: name, clusterId: event.ClusterId, clusterName: event.ClusterName, sourceComponent: sourceComponent}
+			g = &eventGroup{appId: groupAppId, app: app, reason: reason, objKind: kind, objNs: ns, clusterId: event.ClusterId, clusterName: event.ClusterName, sourceComponent: sourceComponent}
 			groups[key] = g
 		}
 		g.events = append(g.events, event)
@@ -722,13 +711,18 @@ func (w *Alerts) evaluateKubernetesEventsAlerts(project *db.Project, rule *model
 		}
 
 		var fingerprintAppId string
-		if !g.nodeLevel {
+		fingerprintLabels := map[string]string{"reason": g.reason}
+		if g.app != nil {
 			fingerprintAppId = g.appId.String()
+		} else {
+			fingerprintLabels["cluster"] = g.clusterId
+			fingerprintLabels["namespace"] = g.objNs
+			fingerprintLabels["kind"] = g.objKind
 		}
-		fingerprint := calcFingerprint(string(rule.Id), fingerprintAppId, map[string]string{"reason": g.reason})
+		fingerprint := calcFingerprint(string(rule.Id), fingerprintAppId, fingerprintLabels)
 		activeFingerprints[fingerprint] = true
 
-		summary := fmt.Sprintf("%s (%d events in the last %s)", g.reason, len(g.events), to.Sub(from))
+		summary := fmt.Sprintf("%s (%d events in the last %s)", g.reason, len(g.events), window)
 
 		var details []model.AlertDetail
 		if rule.Templates.Description != "" {
@@ -750,23 +744,25 @@ func (w *Alerts) evaluateKubernetesEventsAlerts(project *db.Project, rule *model
 		}
 		queryFilters = append(queryFilters, map[string]string{"name": "event.reason", "op": "=", "value": g.reason})
 
-		if g.nodeLevel {
-			queryFilters = append(queryFilters, map[string]string{"name": "source.component", "op": "=", "value": "node-controller"})
-			objNames := map[string]bool{}
+		if g.app != nil {
+			objNames := utils.NewStringSet()
 			for _, e := range g.events {
 				if n := e.LogAttributes["object.name"]; n != "" {
-					objNames[n] = true
+					objNames.Add(n)
 				}
 			}
-			if len(objNames) > 0 {
-				names := make([]string, 0, len(objNames))
-				for n := range objNames {
-					names = append(names, n)
+			switch objNames.Len() {
+			case 0:
+			case 1:
+				queryFilters = append(queryFilters, map[string]string{"name": "object.name", "op": "=", "value": objNames.Items()[0]})
+			default:
+				names := make([]string, 0, objNames.Len())
+				for _, n := range objNames.Items() {
+					names = append(names, regexp.QuoteMeta(n))
 				}
-				sort.Strings(names)
-				labelParts = append(labelParts, fmt.Sprintf(`affected="%s"`, strings.Join(names, ", ")))
+				queryFilters = append(queryFilters, map[string]string{"name": "object.name", "op": "~", "value": "^(" + strings.Join(names, "|") + ")$"})
 			}
-		} else if g.app == nil {
+		} else {
 			if g.objKind != "" {
 				labelParts = append(labelParts, fmt.Sprintf(`kind="%s"`, g.objKind))
 				queryFilters = append(queryFilters, map[string]string{"name": "object.kind", "op": "=", "value": g.objKind})
@@ -774,27 +770,6 @@ func (w *Alerts) evaluateKubernetesEventsAlerts(project *db.Project, rule *model
 			if g.objNs != "" {
 				labelParts = append(labelParts, fmt.Sprintf(`namespace="%s"`, g.objNs))
 				queryFilters = append(queryFilters, map[string]string{"name": "object.namespace", "op": "=", "value": g.objNs})
-			}
-			labelParts = append(labelParts, fmt.Sprintf(`name="%s"`, g.objName))
-			queryFilters = append(queryFilters, map[string]string{"name": "object.name", "op": "=", "value": g.objName})
-		} else {
-			objNames := map[string]bool{}
-			for _, e := range g.events {
-				if n := e.LogAttributes["object.name"]; n != "" {
-					objNames[n] = true
-				}
-			}
-			if len(objNames) == 1 {
-				for n := range objNames {
-					queryFilters = append(queryFilters, map[string]string{"name": "object.name", "op": "=", "value": n})
-				}
-			} else if len(objNames) > 1 {
-				names := make([]string, 0, len(objNames))
-				for n := range objNames {
-					names = append(names, regexp.QuoteMeta(n))
-				}
-				sort.Strings(names)
-				queryFilters = append(queryFilters, map[string]string{"name": "object.name", "op": "~", "value": "^(" + strings.Join(names, "|") + ")$"})
 			}
 		}
 		sort.Strings(labelParts)
@@ -828,11 +803,8 @@ func (w *Alerts) evaluateKubernetesEventsAlerts(project *db.Project, rule *model
 			continue
 		}
 
-		if !g.nodeLevel {
-			appIdStr := g.appId.String()
-			if firingCountByApp[appIdStr] >= maxAlertsPerApp {
-				continue
-			}
+		if g.app != nil && firingCountByApp[g.appId.String()] >= maxAlertsPerApp {
+			continue
 		}
 
 		var aiExplanation string
@@ -884,7 +856,7 @@ func (w *Alerts) evaluateKubernetesEventsAlerts(project *db.Project, rule *model
 			if !aiSuppressed {
 				w.notifier.Enqueue(project, g.app, alert, rule, now)
 			}
-			if !g.nodeLevel {
+			if g.app != nil {
 				firingCountByApp[g.appId.String()]++
 			}
 		}
@@ -897,7 +869,7 @@ func (w *Alerts) evaluateKubernetesEventsAlerts(project *db.Project, rule *model
 		if a.Suppressed {
 			continue
 		}
-		if rule.KeepFiringFor > 0 && now.Sub(a.UpdatedAt) < rule.KeepFiringFor {
+		if now.Sub(a.UpdatedAt) < rule.KeepFiringFor-window {
 			continue
 		}
 		a.ResolvedAt = now

@@ -83,6 +83,16 @@ type AlertingRule struct {
 	UpdatedAt            timeseries.Time     `json:"updated_at"`
 }
 
+func (r *AlertingRule) EventsFrom(from, to timeseries.Time) timeseries.Time {
+	if r.KeepFiringFor <= 0 {
+		return from
+	}
+	if f := to.Add(-r.KeepFiringFor); f.After(from) {
+		return f
+	}
+	return from
+}
+
 func (r *AlertingRule) Matches(app *Application) bool {
 	if app.AlertingDisabled() {
 		return false
@@ -1014,7 +1024,7 @@ func BuiltinAlertingRules() []AlertingRule {
 					EvaluateWithAI:  true,
 				},
 			},
-			KeepFiringFor: timeseries.Hour,
+			KeepFiringFor: 5 * timeseries.Minute,
 			Selector:      AppSelector{Type: AppSelectorTypeAll},
 			Severity:      WARNING,
 			Templates: AlertTemplates{
@@ -1034,7 +1044,7 @@ func BuiltinAlertingRules() []AlertingRule {
 					EvaluateWithAI:  true,
 				},
 			},
-			KeepFiringFor: timeseries.Hour,
+			KeepFiringFor: 5 * timeseries.Minute,
 			Selector:      AppSelector{Type: AppSelectorTypeAll},
 			Severity:      WARNING,
 			Templates: AlertTemplates{

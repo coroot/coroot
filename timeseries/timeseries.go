@@ -380,6 +380,19 @@ func (ts *TimeSeries) Reduce(f F) float32 {
 	return accumulator
 }
 
+func (ts *TimeSeries) ReduceFrom(from Time, f F) float32 {
+	if ts.IsEmpty() {
+		return NaN
+	}
+	accumulator := NaN
+	iter := ts.IterFrom(from)
+	for iter.Next() {
+		t, v := iter.Value()
+		accumulator = f(t, accumulator, v)
+	}
+	return accumulator
+}
+
 func (ts *TimeSeries) Map(f func(t Time, v float32) float32) *TimeSeries {
 	if ts.IsEmpty() {
 		return nil

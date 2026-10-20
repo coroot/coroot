@@ -17,7 +17,7 @@ There are four types of alert sources:
 
 * **Check-based alerts**: Coroot runs a set of built-in inspections (checks) for every application, such as CPU utilization, instance availability, or database latency. When a check exceeds its threshold, the corresponding alert fires.
 * **Log-based alerts**: Coroot automatically detects new error and fatal log patterns using its log pattern detection engine. When a new pattern appears with enough occurrences, an alert fires. Optionally, patterns can be evaluated by AI to reduce noise.
-* **Kubernetes events-based alerts**: Coroot monitors Kubernetes events (e.g., FailedScheduling, BackOff, Unhealthy) collected by coroot-cluster-agent and fires alerts when Warning events are detected. Events are automatically grouped by application and reason, so multiple pods of the same Deployment produce a single alert rather than an alert storm. Node-level events from the node-controller (e.g., NodeNotReady) are grouped by cluster and reason instead of per-application, because a single node failure typically affects many applications at once and would otherwise cause an alert storm.
+* **Kubernetes events-based alerts**: Coroot monitors Kubernetes events (e.g., FailedScheduling, BackOff, Unhealthy) collected by coroot-cluster-agent and fires alerts when Warning events are detected. Events are automatically grouped by application and reason, so multiple pods of the same Deployment produce a single alert rather than an alert storm. Events of objects that don't belong to an application (e.g., NodeNotReady on nodes) are grouped by namespace, kind, and reason, because a single node failure typically affects many objects at once and would otherwise cause an alert storm. Events of applications that aren't monitored (Jobs, CronJobs, static pods, agent sandboxes) are ignored.
 * **PromQL-based alerts**: Custom alerting rules based on PromQL expressions. This allows you to alert on any metric available in your Prometheus-compatible data source.
 
 ### Evaluation flow
@@ -40,7 +40,7 @@ Each rule has the following settings:
 * **Application selector**: Which applications the rule applies to (all, by category, or specific applications).
 * **Severity**: Warning or Critical.
 * **For**: How long the condition must be true before the alert fires.
-* **Keep firing for**: How long the alert stays active after the condition clears.
+* **Keep firing for**: How long the alert stays active after the condition clears. For log pattern and Kubernetes event rules this is also the window in which messages or events are counted: the alert resolves once there are none within it.
 
 <img alt="Create Alerting Rule" src="/img/docs/alerting-rule-create.png" class="card w-600"/>
 
