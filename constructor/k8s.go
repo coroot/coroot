@@ -23,10 +23,10 @@ type serviceId struct {
 	name, ns string
 }
 
-func (c *Constructor) loadKubernetesMetadata(w *model.World, metrics map[string][]*model.MetricValues, servicesByClusterIP map[string]*model.Service, inferenceServices map[model.ApplicationId]model.ApplicationId, project *db.Project) {
+func (c *Constructor) loadKubernetesMetadata(w *model.World, metrics map[string][]*model.MetricValues, servicesByClusterIP map[string]*model.Service, inferenceGroups map[model.ApplicationId]model.ApplicationId, project *db.Project) {
 	jobOwners := c.getJobOwners(metrics["kube_job_owner"], project.ClusterId())
 	pods := c.podInfo(w, metrics["kube_pod_info"], metrics["kube_pod_labels"], metrics["kube_pod_owner"], jobOwners, project)
-	c.podLabels(metrics["kube_pod_labels"], pods, inferenceServices, project)
+	c.podLabels(metrics["kube_pod_labels"], pods, inferenceGroups, project)
 	podAnnotations(metrics["kube_pod_annotations"], pods)
 
 	appsByPodIP := map[string]*model.Application{}
@@ -278,7 +278,7 @@ func (c *Constructor) podInfo(w *model.World, metrics []*model.MetricValues, lab
 	return pods
 }
 
-func (c *Constructor) podLabels(metrics []*model.MetricValues, pods map[string]*model.Instance, inferenceServices map[model.ApplicationId]model.ApplicationId, project *db.Project) {
+func (c *Constructor) podLabels(metrics []*model.MetricValues, pods map[string]*model.Instance, inferenceGroups map[model.ApplicationId]model.ApplicationId, project *db.Project) {
 	for _, m := range metrics {
 		uid := m.Labels["uid"]
 		if uid == "" {
@@ -344,9 +344,14 @@ func (c *Constructor) podLabels(metrics []*model.MetricValues, pods map[string]*
 			cluster = m.Labels["label_app_kubernetes_io_part_of"] + "-" + m.Labels["label_app_kubernetes_io_component"]
 		case m.Labels["label_serving_kserve_io_inferenceservice"] != "":
 			if instance.Owner.Id.Kind == model.ApplicationKindDeployment {
-				inferenceServices[instance.Owner.Id] = c.newApplicationId(project.ClusterId(), instance.Owner.Id.Namespace, model.ApplicationKindInferenceService, m.Labels["label_serving_kserve_io_inferenceservice"])
+				inferenceGroups[instance.Owner.Id] = c.newApplicationId(project.ClusterId(), instance.Owner.Id.Namespace, model.ApplicationKindInferenceService, m.Labels["label_serving_kserve_io_inferenceservice"])
 			}
 			role = m.Labels["label_component"]
+		case m.Labels["label_nvidia_com_dynamo_graph_deployment_name"] != "":
+			if instance.Owner.Id.Kind == model.ApplicationKindDeployment {
+				inferenceGroups[instance.Owner.Id] = c.newApplicationId(project.ClusterId(), instance.Owner.Id.Namespace, model.ApplicationKindDynamoGraphDeployment, m.Labels["label_nvidia_com_dynamo_graph_deployment_name"])
+			}
+			role = m.Labels["label_nvidia_com_dynamo_component_type"]
 		default:
 			continue
 		}

@@ -238,6 +238,7 @@ var QUERIES = []Query{
 		"label_valkey_io_cluster",
 		"label_project_runner_gitlab_com_name",
 		"label_serving_kserve_io_inferenceservice", "label_component",
+		"label_nvidia_com_dynamo_graph_deployment_name", "label_nvidia_com_dynamo_component_type",
 	),
 	qPod("kube_pod_status_phase", `kube_pod_status_phase > 0`, "phase"),
 	qPod("kube_pod_status_ready", `kube_pod_status_ready{condition="true"}`),

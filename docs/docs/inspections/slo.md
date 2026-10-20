@@ -22,7 +22,9 @@ You can easily adjust the objective:
 
 ## Latency
 
-The predefined `Latency` SLO: 99% of requests should be served in less that 500ms.
+The predefined `Latency` SLO: 99% of requests should be served in less than 500ms.
+For applications in the `control-plane` and `monitoring` categories, as well as for AI inference services (KServe `InferenceService`, NVIDIA Dynamo `DynamoGraphDeployment`),
+the default threshold is 5s since such workloads are expected to be slower than regular applications.
 
 <img alt="Latency SLO" src="/img/docs/inspections_slo_latency.png" class="card w-600"/>
 
