@@ -25,7 +25,7 @@ type nsName struct {
 	name string
 }
 
-func (c *Constructor) getInstanceByAppId(apps map[nsName]*model.Application, appId string) (*model.Instance, *model.Container) {
+func (c *Constructor) getInstanceByAppId(apps map[nsName]*model.Application, instances map[instanceId]*model.Instance, appId string) (*model.Instance, *model.Container) {
 	if !strings.HasPrefix(appId, "/") {
 		klog.Warningln("invalid app id:", appId)
 		return nil, nil
@@ -41,7 +41,18 @@ func (c *Constructor) getInstanceByAppId(apps map[nsName]*model.Application, app
 		klog.Warningln("unknown app:", appId)
 		return nil, nil
 	}
-	app := apps[nsName{parts[2], parts[3]}]
+	key := nsName{parts[2], parts[3]}
+	app, ok := apps[key]
+	if !ok {
+		prefix := key.name + "-"
+		for id, i := range instances {
+			if id.ns == key.ns && strings.HasPrefix(id.name, prefix) {
+				app = i.Owner
+				break
+			}
+		}
+		apps[key] = app
+	}
 	if app == nil || len(app.Instances) == 0 {
 		return nil, nil
 	}
@@ -161,7 +172,7 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]*model
 		for _, m := range ms {
 			appId := m.Labels["app_id"]
 			if appId != "" {
-				instance, container := c.getInstanceByAppId(apps, appId)
+				instance, container := c.getInstanceByAppId(apps, instances, appId)
 				if instance != nil {
 					f(instance, container, m)
 				}
