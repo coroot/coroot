@@ -211,6 +211,15 @@ func (r *AuditReport) CreateCheck(cfg CheckConfig) *Check {
 			utils.FormatLatency(latencyCfg.ObjectiveBucket),
 			1,
 		)
+	case Checks.SLOLLMLatency.Id:
+		latencyCfg, _ := r.checkConfigs.GetLLMLatency(r.app.Id)
+		ch.Threshold = latencyCfg.ObjectivePercentage
+		ch.ConditionFormatTemplate = strings.Replace(
+			ch.ConditionFormatTemplate,
+			"<bucket>",
+			utils.FormatLatency(latencyCfg.ObjectiveBucket),
+			1,
+		)
 	default:
 		ch.Threshold = r.checkConfigs.GetSimple(cfg.Id, r.app.Id).Threshold
 	}

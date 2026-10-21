@@ -14,8 +14,10 @@ type Impact struct {
 type IncidentDetails struct {
 	AvailabilityBurnRates []BurnRate `json:"availability_burn_rates"`
 	LatencyBurnRates      []BurnRate `json:"latency_burn_rates"`
+	LLMLatencyBurnRates   []BurnRate `json:"llm_latency_burn_rates,omitempty"`
 	AvailabilityImpact    Impact     `json:"availability_impact"`
 	LatencyImpact         Impact     `json:"latency_impact"`
+	LLMLatencyImpact      Impact     `json:"llm_latency_impact"`
 }
 
 type RCA struct {
@@ -91,7 +93,7 @@ func (i *ApplicationIncident) ShortDescription() string {
 	if i.Details.AvailabilityImpact.AffectedRequestPercentage > 0 {
 		a = true
 	}
-	if i.Details.LatencyImpact.AffectedRequestPercentage > 0 {
+	if i.Details.LatencyImpact.AffectedRequestPercentage > 0 || i.Details.LLMLatencyImpact.AffectedRequestPercentage > 0 {
 		l = true
 	}
 	switch {

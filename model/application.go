@@ -50,6 +50,7 @@ type Application struct {
 
 	LatencySLIs      []*LatencySLI
 	AvailabilitySLIs []*AvailabilitySLI
+	LLMLatencySLI    *LatencySLI // latency of inbound LLM inference requests, nil if the app doesn't serve them
 
 	Events      []*ApplicationEvent
 	Deployments []*ApplicationDeployment
@@ -67,8 +68,9 @@ type Application struct {
 	DNSRequests          map[DNSRequest]map[string]*timeseries.TimeSeries
 	DNSRequestsHistogram map[float32]*timeseries.TimeSeries
 
-	InboundRequestsCount     map[string]*timeseries.TimeSeries
-	InboundRequestsHistogram map[float32]*timeseries.TimeSeries
+	InboundRequestsCount        map[string]*timeseries.TimeSeries
+	InboundRequestsHistogram    map[float32]*timeseries.TimeSeries
+	InboundLLMRequestsHistogram map[float32]*timeseries.TimeSeries
 
 	PeriodicSystemdJob bool
 }
@@ -85,8 +87,9 @@ func NewApplication(id ApplicationId) *Application {
 		DNSRequests:          map[DNSRequest]map[string]*timeseries.TimeSeries{},
 		DNSRequestsHistogram: map[float32]*timeseries.TimeSeries{},
 
-		InboundRequestsCount:     map[string]*timeseries.TimeSeries{},
-		InboundRequestsHistogram: map[float32]*timeseries.TimeSeries{},
+		InboundRequestsCount:        map[string]*timeseries.TimeSeries{},
+		InboundRequestsHistogram:    map[float32]*timeseries.TimeSeries{},
+		InboundLLMRequestsHistogram: map[float32]*timeseries.TimeSeries{},
 	}
 	return app
 }

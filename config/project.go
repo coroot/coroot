@@ -275,12 +275,20 @@ type SLOLatencyOverride struct {
 }
 
 func (o *SLOLatencyOverride) Validate() error {
+	return o.validate(model.DefaultHistogramBuckets, "[5ms, 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s, 2.5s, 5s, 10s]")
+}
+
+func (o *SLOLatencyOverride) ValidateLLM() error {
+	return o.validate(model.LLMHistogramBuckets, "[100ms, 250ms, 500ms, 1s, 2.5s, 5s, 10s, 20s, 30s, 1m, 2m, 5m, 10m]")
+}
+
+func (o *SLOLatencyOverride) validate(buckets []float32, bucketsDescription string) error {
 	if o.ObjectivePercent < 0 || o.ObjectivePercent > 100 {
 		return fmt.Errorf("invalid objective_percent")
 	}
-	bucket := model.RoundUpToDefaultBucket(float32(o.ObjectiveThreshold.Seconds()))
-	if bucket > model.DefaultHistogramBuckets[len(model.DefaultHistogramBuckets)-1] {
-		return fmt.Errorf("invalid objective_threshold: must match one of the standard buckets [5ms, 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s, 2.5s, 5s, 10s]")
+	bucket := model.RoundUpToBucket(float32(o.ObjectiveThreshold.Seconds()), buckets)
+	if bucket > buckets[len(buckets)-1] {
+		return fmt.Errorf("invalid objective_threshold: must match one of the standard buckets %s", bucketsDescription)
 	}
 	return nil
 }
@@ -288,6 +296,7 @@ func (o *SLOLatencyOverride) Validate() error {
 type InspectionOverrides struct {
 	SLOAvailability []SLOAvailabilityOverride `yaml:"sloAvailability"`
 	SLOLatency      []SLOLatencyOverride      `yaml:"sloLatency"`
+	SLOLLMLatency   []SLOLatencyOverride      `yaml:"sloLLMLatency"`
 }
 
 func (io *InspectionOverrides) Validate() error {
@@ -299,6 +308,11 @@ func (io *InspectionOverrides) Validate() error {
 	for _, o := range io.SLOLatency {
 		if err := o.Validate(); err != nil {
 			return fmt.Errorf("invalid application latency SLO override for app %s: %w", o.ApplicationId.String(), err)
+		}
+	}
+	for _, o := range io.SLOLLMLatency {
+		if err := o.ValidateLLM(); err != nil {
+			return fmt.Errorf("invalid application LLM latency SLO override for app %s: %w", o.ApplicationId.String(), err)
 		}
 	}
 	return nil

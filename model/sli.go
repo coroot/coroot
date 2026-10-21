@@ -8,10 +8,17 @@ import (
 	"github.com/dustin/go-humanize"
 )
 
-var DefaultHistogramBuckets = []float32{.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10}
+var (
+	DefaultHistogramBuckets = []float32{.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10}
+	LLMHistogramBuckets     = []float32{.1, .25, .5, 1, 2.5, 5, 10, 20, 30, 60, 120, 300, 600}
+)
 
 func RoundUpToDefaultBucket(threshold float32) float32 {
-	for _, b := range DefaultHistogramBuckets {
+	return RoundUpToBucket(threshold, DefaultHistogramBuckets)
+}
+
+func RoundUpToBucket(threshold float32, buckets []float32) float32 {
+	for _, b := range buckets {
 		if b >= threshold {
 			return b
 		}

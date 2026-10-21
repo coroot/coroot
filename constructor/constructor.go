@@ -253,6 +253,7 @@ func (c *Constructor) queryCache(ctx context.Context, cache Cache, project *db.P
 		addQuery(qRecordingRuleApplicationL7Histogram, qRecordingRuleApplicationL7Histogram, qRecordingRuleApplicationL7Histogram, true, nil)
 		addQuery(qRecordingRuleApplicationL7InboundRequests, qRecordingRuleApplicationL7InboundRequests, qRecordingRuleApplicationL7InboundRequests, true, nil)
 		addQuery(qRecordingRuleApplicationL7InboundHistogram, qRecordingRuleApplicationL7InboundHistogram, qRecordingRuleApplicationL7InboundHistogram, true, nil)
+		addQuery(qRecordingRuleApplicationLLMInboundHistogram, qRecordingRuleApplicationLLMInboundHistogram, qRecordingRuleApplicationLLMInboundHistogram, true, nil)
 	}
 	for appId := range checkConfigs {
 		qName := fmt.Sprintf("%s/%s/", qApplicationCustomSLI, appId)
@@ -545,6 +546,9 @@ func (c *Constructor) groupApplications(w *model.World, groups map[model.Applica
 			}
 			for le, ts := range app.InboundRequestsHistogram {
 				group.app.InboundRequestsHistogram[le] = merge(group.app.InboundRequestsHistogram[le], ts, timeseries.NanSum)
+			}
+			for le, ts := range app.InboundLLMRequestsHistogram {
+				group.app.InboundLLMRequestsHistogram[le] = merge(group.app.InboundLLMRequestsHistogram[le], ts, timeseries.NanSum)
 			}
 			delete(w.Applications, app.Id)
 		}

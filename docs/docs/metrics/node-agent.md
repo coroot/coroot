@@ -177,13 +177,17 @@ Each container metric has the `container_id` label. This is a compound identifie
 * **Description**: Total number of outbound HTTP requests made by the container
 * **Type**: Counter
 * **Source**: eBPF
-* **Labels**: `destination`, `actual_destination`, `status`
+* **Labels**: `destination`, `actual_destination`, `status`, `type`
+
+Requests to LLM inference APIs (OpenAI-compatible chat and text completions, Anthropic Messages, Ollama, KServe/Triton inference) are reported
+as separate series with `type="llm"`, since such requests take seconds by nature. Coroot excludes them from latency metrics and SLOs
+but still counts them as requests and errors.
 
 ### container_http_requests_duration_seconds_total
 * **Description**: Histogram of the response time for each outbound HTTP request
 * **Type**: Counter
 * **Source**: eBPF
-* **Labels**: `destination`, `actual_destination`, `le`
+* **Labels**: `destination`, `actual_destination`, `le`, `type`
 
 ### container_postgres_queries_total
 * **Description**: Total number of outbound Postgres queries made by the container
@@ -347,6 +351,18 @@ These metrics count requests *received* by the container, decoded on the server 
 
 ### container_http_inbound_requests_duration_seconds_total
 * **Description**: Histogram of the response time for each inbound HTTP request
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `le`
+
+### container_llm_inbound_requests_total
+* **Description**: Total number of inbound LLM inference requests (OpenAI-compatible chat and text completions, Anthropic Messages, Ollama, KServe/Triton inference). These requests are excluded from `container_http_inbound_requests_total`
+* **Type**: Counter
+* **Source**: eBPF
+* **Labels**: `status`
+
+### container_llm_inbound_requests_duration_seconds_total
+* **Description**: Histogram of the response time (time to the first byte of the response, i.e. time to first token for streaming responses) for each inbound LLM inference request, with buckets from 100ms to 10m
 * **Type**: Counter
 * **Source**: eBPF
 * **Labels**: `le`

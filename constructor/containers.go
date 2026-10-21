@@ -445,6 +445,7 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]*model
 		})
 	}
 	loadL7InboundRequestsCount("container_http_inbound_requests_count")
+	loadL7InboundRequestsCount("container_llm_inbound_requests_count")
 	loadL7InboundRequestsCount("container_postgres_inbound_queries_count")
 	loadL7InboundRequestsCount("container_mysql_inbound_queries_count")
 	loadL7InboundRequestsCount("container_mongo_inbound_queries_count")
@@ -478,6 +479,16 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]*model
 	loadL7InboundRequestsHistogram("container_clickhouse_inbound_queries_histogram")
 	loadL7InboundRequestsHistogram("container_zookeeper_inbound_requests_histogram")
 	loadL7InboundRequestsHistogram("container_foundationdb_inbound_requests_histogram")
+
+	loadContainer("container_llm_inbound_requests_histogram", func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
+		le, err := strconv.ParseFloat(metric.Labels["le"], 32)
+		if err != nil {
+			klog.Warningln(err)
+			return
+		}
+		app := instance.Owner
+		app.InboundLLMRequestsHistogram[float32(le)] = merge(app.InboundLLMRequestsHistogram[float32(le)], metric.Values, timeseries.NanSum)
+	})
 
 	loadInstanceByDest := func(queryName string, f func(instance *model.Instance, m *model.MetricValues)) {
 		ms := metrics[queryName]

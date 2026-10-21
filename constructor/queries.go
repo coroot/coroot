@@ -20,26 +20,27 @@ import (
 const (
 	qApplicationCustomSLI = "application_custom_sli"
 
-	qRecordingRuleApplicationLogMessages        = "rr_application_log_messages"
-	qRecordingRuleApplicationTCPSuccessful      = "rr_connection_tcp_successful"
-	qRecordingRuleApplicationTCPActive          = "rr_connection_tcp_active"
-	qRecordingRuleApplicationTCPFailed          = "rr_connection_tcp_failed"
-	qRecordingRuleApplicationTCPConnectionTime  = "rr_connection_tcp_connection_time"
-	qRecordingRuleApplicationTCPBytesSent       = "rr_connection_tcp_bytes_sent"
-	qRecordingRuleApplicationTCPBytesReceived   = "rr_connection_tcp_bytes_received"
-	qRecordingRuleApplicationTCPRetransmissions = "rr_connection_tcp_retransmissions"
-	qRecordingRuleApplicationNetLatency         = "rr_connection_net_latency"
-	qRecordingRuleApplicationL7Requests         = "rr_connection_l7_requests"
-	qRecordingRuleApplicationL7Latency          = "rr_connection_l7_latency"
-	qRecordingRuleApplicationTraffic            = "rr_application_traffic"
-	qRecordingRuleApplicationL7Histogram        = "rr_application_l7_histogram"
-	qRecordingRuleApplicationL7InboundRequests  = "rr_application_l7_inbound_requests"
-	qRecordingRuleApplicationL7InboundHistogram = "rr_application_l7_inbound_histogram"
-	qRecordingRuleApplicationCategories         = "rr_application_categories"
-	qRecordingRuleApplicationSLO                = "rr_application_slo"
-	qRecordingRuleApplicationExternalEndpoint   = "rr_connection_external_endpoints"
-	qRecordingRuleApplicationDNSRequests        = "rr_application_dns_requests"
-	qRecordingRuleApplicationDNSLatency         = "rr_application_dns_latency"
+	qRecordingRuleApplicationLogMessages         = "rr_application_log_messages"
+	qRecordingRuleApplicationTCPSuccessful       = "rr_connection_tcp_successful"
+	qRecordingRuleApplicationTCPActive           = "rr_connection_tcp_active"
+	qRecordingRuleApplicationTCPFailed           = "rr_connection_tcp_failed"
+	qRecordingRuleApplicationTCPConnectionTime   = "rr_connection_tcp_connection_time"
+	qRecordingRuleApplicationTCPBytesSent        = "rr_connection_tcp_bytes_sent"
+	qRecordingRuleApplicationTCPBytesReceived    = "rr_connection_tcp_bytes_received"
+	qRecordingRuleApplicationTCPRetransmissions  = "rr_connection_tcp_retransmissions"
+	qRecordingRuleApplicationNetLatency          = "rr_connection_net_latency"
+	qRecordingRuleApplicationL7Requests          = "rr_connection_l7_requests"
+	qRecordingRuleApplicationL7Latency           = "rr_connection_l7_latency"
+	qRecordingRuleApplicationTraffic             = "rr_application_traffic"
+	qRecordingRuleApplicationL7Histogram         = "rr_application_l7_histogram"
+	qRecordingRuleApplicationL7InboundRequests   = "rr_application_l7_inbound_requests"
+	qRecordingRuleApplicationL7InboundHistogram  = "rr_application_l7_inbound_histogram"
+	qRecordingRuleApplicationLLMInboundHistogram = "rr_application_llm_inbound_histogram"
+	qRecordingRuleApplicationCategories          = "rr_application_categories"
+	qRecordingRuleApplicationSLO                 = "rr_application_slo"
+	qRecordingRuleApplicationExternalEndpoint    = "rr_connection_external_endpoints"
+	qRecordingRuleApplicationDNSRequests         = "rr_application_dns_requests"
+	qRecordingRuleApplicationDNSLatency          = "rr_application_dns_latency"
 )
 
 var applicationAnnotations = maps.Keys(model.ApplicationAnnotationLabels)
@@ -142,11 +143,11 @@ func l7ReqWithMethod(metric string) string {
 }
 
 func l7Latency(metric string) string {
-	return fmt.Sprintf(`sum by(app_id, destination, actual_destination) (rate(%s{app_id!=""}[$RANGE])) or rate(%s{app_id=""}[$RANGE])`, metric, metric)
+	return fmt.Sprintf(`sum by(app_id, destination, actual_destination) (rate(%s{app_id!="", type!="llm"}[$RANGE])) or rate(%s{app_id="", type!="llm"}[$RANGE])`, metric, metric)
 }
 
 func l7Histogram(metric string) string {
-	return fmt.Sprintf(`sum by(app_id, destination, actual_destination, le) (rate(%s{app_id!=""}[$RANGE])) or rate(%s{app_id=""}[$RANGE])`, metric, metric)
+	return fmt.Sprintf(`sum by(app_id, destination, actual_destination, le) (rate(%s{app_id!="", type!="llm"}[$RANGE])) or rate(%s{app_id="", type!="llm"}[$RANGE])`, metric, metric)
 }
 
 func l7InboundReq(metric string) string {
@@ -320,6 +321,8 @@ var QUERIES = []Query{
 
 	qItoI("container_http_inbound_requests_count", l7InboundReq("container_http_inbound_requests_total"), "status"),
 	qItoI("container_http_inbound_requests_histogram", l7InboundHistogram("container_http_inbound_requests_duration_seconds_total_bucket"), "le"),
+	qItoI("container_llm_inbound_requests_count", l7InboundReq("container_llm_inbound_requests_total"), "status"),
+	qItoI("container_llm_inbound_requests_histogram", l7InboundHistogram("container_llm_inbound_requests_duration_seconds_total_bucket"), "le"),
 	qItoI("container_postgres_inbound_queries_count", l7InboundReq("container_postgres_inbound_queries_total"), "status"),
 	qItoI("container_postgres_inbound_queries_histogram", l7InboundHistogram("container_postgres_inbound_queries_duration_seconds_total_bucket"), "le"),
 	qItoI("container_redis_inbound_queries_count", l7InboundReq("container_redis_inbound_queries_total"), "status"),
@@ -970,6 +973,21 @@ var RecordingRules = map[string]func(db *db.DB, p *db.Project, w *model.World) [
 		return res
 	},
 
+	qRecordingRuleApplicationLLMInboundHistogram: func(db *db.DB, p *db.Project, w *model.World) []*model.MetricValues {
+		var res []*model.MetricValues
+		for _, app := range w.Applications {
+			appId := app.Id.String()
+			for le, ts := range app.InboundLLMRequestsHistogram {
+				if ts.IsEmpty() {
+					continue
+				}
+				ls := model.Labels{"app": appId, "le": fmt.Sprintf("%f", le)}
+				res = append(res, &model.MetricValues{Labels: ls, LabelsHash: promModel.LabelsToSignature(ls), Values: ts})
+			}
+		}
+		return res
+	},
+
 	qRecordingRuleApplicationDNSRequests: func(db *db.DB, p *db.Project, w *model.World) []*model.MetricValues {
 		var res []*model.MetricValues
 		for _, app := range w.Applications {
@@ -1045,7 +1063,10 @@ var RecordingRules = map[string]func(db *db.DB, p *db.Project, w *model.World) [
 	qRecordingRuleApplicationSLO: func(database *db.DB, p *db.Project, w *model.World) []*model.MetricValues {
 		for _, app := range w.Applications {
 			updateAvailabilitySLOFromAnnotations(database, p, w, app)
-			updateLatencySLOFromAnnotations(database, p, w, app)
+			latencyCfg, _ := w.CheckConfigs.GetLatency(app.Id, app.Category)
+			updateLatencySLOFromAnnotations(database, p, app, model.Checks.SLOLatency, latencyCfg, model.ApplicationAnnotationSLOLatencyObjective, model.ApplicationAnnotationSLOLatencyThreshold, model.DefaultHistogramBuckets)
+			llmLatencyCfg, _ := w.CheckConfigs.GetLLMLatency(app.Id)
+			updateLatencySLOFromAnnotations(database, p, app, model.Checks.SLOLLMLatency, llmLatencyCfg, model.ApplicationAnnotationSLOLLMLatencyObjective, model.ApplicationAnnotationSLOLLMLatencyThreshold, model.LLMHistogramBuckets)
 		}
 		return nil
 	},
@@ -1149,13 +1170,13 @@ func updateAvailabilitySLOFromAnnotations(database *db.DB, p *db.Project, w *mod
 	}
 }
 
-func updateLatencySLOFromAnnotations(database *db.DB, p *db.Project, w *model.World, app *model.Application) {
-	objectiveStr := app.GetAnnotation(model.ApplicationAnnotationSLOLatencyObjective)
-	thresholdStr := app.GetAnnotation(model.ApplicationAnnotationSLOLatencyThreshold)
+func updateLatencySLOFromAnnotations(database *db.DB, p *db.Project, app *model.Application, check model.CheckConfig, cfg model.CheckConfigSLOLatency,
+	objectiveAnnotation, thresholdAnnotation model.ApplicationAnnotation, buckets []float32) {
+	objectiveStr := app.GetAnnotation(objectiveAnnotation)
+	thresholdStr := app.GetAnnotation(thresholdAnnotation)
 	if objectiveStr == "" && thresholdStr == "" {
 		return
 	}
-	cfg, _ := w.CheckConfigs.GetLatency(app.Id, app.Category)
 	cfgSaved := cfg
 	cfg.Source = model.CheckConfigSourceKubernetesAnnotations
 	cfg.Custom = false
@@ -1166,13 +1187,13 @@ func updateLatencySLOFromAnnotations(database *db.DB, p *db.Project, w *model.Wo
 	if objectiveStr != "" {
 		objective, err = parseObjective(objectiveStr)
 		if err != nil {
-			cfg.Error = fmt.Sprintf("Invalid annotation 'coroot.com/slo-latency-objective': %s", err)
+			cfg.Error = fmt.Sprintf("Invalid annotation 'coroot.com/%s': %s", strings.ReplaceAll(string(objectiveAnnotation), "_", "-"), err)
 		}
 	}
 	if objective > 0 && thresholdStr != "" {
-		threshold, err = parseThreshold(thresholdStr)
+		threshold, err = parseThreshold(thresholdStr, buckets)
 		if err != nil && cfg.Error == "" {
-			cfg.Error = fmt.Sprintf("Invalid annotation 'coroot.com/slo-latency-threshold': %s", err)
+			cfg.Error = fmt.Sprintf("Invalid annotation 'coroot.com/%s': %s", strings.ReplaceAll(string(thresholdAnnotation), "_", "-"), err)
 		}
 	}
 	if cfg.Error != "" {
@@ -1184,7 +1205,7 @@ func updateLatencySLOFromAnnotations(database *db.DB, p *db.Project, w *model.Wo
 	if cfg == cfgSaved {
 		return
 	}
-	if err = database.SaveCheckConfig(p.Id, app.Id, model.Checks.SLOLatency.Id, []model.CheckConfigSLOLatency{cfg}); err != nil {
+	if err = database.SaveCheckConfig(p.Id, app.Id, check.Id, []model.CheckConfigSLOLatency{cfg}); err != nil {
 		klog.Errorln(err)
 	}
 }
@@ -1195,11 +1216,11 @@ func parseObjective(s string) (float32, error) {
 	return float32(v), err
 }
 
-func parseThreshold(s string) (float32, error) {
+func parseThreshold(s string, buckets []float32) (float32, error) {
 	d, err := time.ParseDuration(strings.TrimSpace(s))
 	if err != nil {
 		return 0, err
 	}
-	v := model.RoundUpToDefaultBucket(float32(d.Seconds()))
+	v := model.RoundUpToBucket(float32(d.Seconds()), buckets)
 	return v, err
 }

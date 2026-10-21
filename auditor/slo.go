@@ -14,6 +14,7 @@ func (a *appAuditor) slo() {
 	sloRequestsChart(a.app, report)
 	availability(a.w, a.app, report)
 	latency(a.w, a.app, report)
+	llmLatency(a.w, a.app, report)
 	clientRequests(a.app, report)
 }
 
@@ -75,6 +76,38 @@ func latency(w *model.World, app *model.Application, report *model.AuditReport) 
 	}
 }
 
+func llmLatency(w *model.World, app *model.Application, report *model.AuditReport) {
+	sli := app.LLMLatencySLI
+	if sli == nil {
+		return
+	}
+	check := report.CreateCheck(model.Checks.SLOLLMLatency)
+	if ch := report.GetOrCreateChart(fmt.Sprintf("LLM requests to the <var>%s</var> app, per second", app.Id.Name), nil); ch != nil {
+		ch.Sorted().Stacked()
+		for _, h := range model.HistogramSeries(sli.Histogram, sli.Config.ObjectiveBucket, sli.Config.ObjectivePercentage) {
+			ch.AddSeries(h.Title, h.Data, h.Color)
+		}
+	}
+	totalRaw, _ := sli.GetTotalAndFast(false)
+	if totalRaw.TailIsEmpty() {
+		check.SetStatus(model.UNKNOWN, "no data")
+		return
+	}
+	if app.AlertingDisabled() {
+		check.SetStatus(model.OK, "not tracked for %s", app.Id.Kind)
+		return
+	}
+	check.SetStatus(model.OK, "OK")
+	if last := lastIncident(app); last != nil && (!last.Resolved() || last.ResolvedAt.After(w.Ctx.To)) {
+		for _, br := range last.Details.LLMLatencyBurnRates {
+			if br.Severity > model.OK {
+				check.SetStatus(br.Severity, "%s", br.FormatSLOStatus())
+				break
+			}
+		}
+	}
+}
+
 func lastIncident(app *model.Application) *model.ApplicationIncident {
 	if len(app.Incidents) == 0 {
 		return nil
@@ -97,6 +130,13 @@ func sloRequestsChart(app *model.Application, report *model.AuditReport) {
 			for _, h := range model.HistogramSeries(sli.Histogram, sli.Config.ObjectiveBucket, sli.Config.ObjectivePercentage) {
 				ch.AddSeries(h.Title, h.Data, h.Color)
 				hm.AddSeries(h.Name, h.Title, h.Data, h.Threshold, h.Value)
+			}
+		}
+	}
+	if sli := app.LLMLatencySLI; sli != nil {
+		for _, b := range sli.Histogram {
+			if timeseries.IsInf(b.Le, 1) {
+				ch.AddSeries("LLM requests", b.TimeSeries, "blue-lighten2")
 			}
 		}
 	}

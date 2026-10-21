@@ -144,6 +144,34 @@
                                 </template>
                             </td>
                         </tr>
+                        <tr v-if="incident.llm_latency_slo">
+                            <td>LLM latency</td>
+                            <td>
+                                {{ incident.llm_latency_slo.objective }}
+                                <v-btn small icon @click="edit('SLOLLMLatency', 'LLM latency')"><v-icon small>mdi-pencil</v-icon></v-btn>
+                            </td>
+                            <td>
+                                <span :class="{ fired: incident.llm_latency_slo.violated }">
+                                    {{ incident.llm_latency_slo.compliance }}
+                                </span>
+                            </td>
+                            <td>
+                                <template v-if="llmLatencyBurnRate">
+                                    <span class="caption grey&#45;&#45;text">{{ $format.durationPretty(llmLatencyBurnRate.long_window) }}: </span>
+                                    <span :class="{ 'red--text': llmLatencyBurnRate.long_window_burn_rate > llmLatencyBurnRate.threshold }">
+                                        {{ llmLatencyBurnRate.long_window_burn_rate.toFixed(0) }}
+                                    </span>
+
+                                    <span class="caption grey--text">{{ $format.durationPretty(llmLatencyBurnRate.short_window) }}: </span>
+                                    <span :class="{ 'red--text': llmLatencyBurnRate.short_window_burn_rate > llmLatencyBurnRate.threshold }">
+                                        {{ llmLatencyBurnRate.short_window_burn_rate.toFixed(0) }}
+                                    </span>
+
+                                    <span class="caption grey--text">threshold: </span>
+                                    {{ llmLatencyBurnRate.threshold.toFixed(0) }}
+                                </template>
+                            </td>
+                        </tr>
                     </tbody>
                 </v-simple-table>
             </v-card>
@@ -229,6 +257,13 @@ export default {
         },
         latencyBurnRate() {
             const rates = this.incident?.details?.latency_burn_rates;
+            if (!Array.isArray(rates) || rates.length === 0) {
+                return null;
+            }
+            return rates.find((br) => br.severity !== 'ok') || rates[0];
+        },
+        llmLatencyBurnRate() {
+            const rates = this.incident?.details?.llm_latency_burn_rates;
             if (!Array.isArray(rates) || rates.length === 0) {
                 return null;
             }

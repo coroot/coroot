@@ -65,6 +65,7 @@ var Checks = struct {
 
 	SLOAvailability            CheckConfig
 	SLOLatency                 CheckConfig
+	SLOLLMLatency              CheckConfig
 	CPUNode                    CheckConfig
 	CPUContainer               CheckConfig
 	MemoryOOM                  CheckConfig
@@ -140,6 +141,15 @@ var Checks = struct {
 		DefaultThreshold:        99,
 		Unit:                    CheckUnitPercent,
 		ConditionFormatTemplate: "the percentage of requests served faster than <bucket> < <threshold>",
+	},
+	SLOLLMLatency: CheckConfig{
+		Category:                AuditReportSLO,
+		Type:                    CheckTypeManual,
+		Title:                   "LLM latency",
+		MessageTemplate:         `the app is serving LLM requests slowly`,
+		DefaultThreshold:        99,
+		Unit:                    CheckUnitPercent,
+		ConditionFormatTemplate: "the percentage of LLM requests served faster than <bucket> < <threshold>",
 	},
 	CPUNode: CheckConfig{
 		Category:                AuditReportCPU,
@@ -934,7 +944,7 @@ func (cc CheckConfigs) GetByCheck(id CheckId) map[ApplicationId][]any {
 			switch id {
 			case Checks.SLOAvailability.Id:
 				cfg, err = unmarshal[[]CheckConfigSLOAvailability](raw)
-			case Checks.SLOLatency.Id:
+			case Checks.SLOLatency.Id, Checks.SLOLLMLatency.Id:
 				cfg, err = unmarshal[[]CheckConfigSLOLatency](raw)
 			default:
 				cfg, err = unmarshal[CheckConfigSimple](raw)
@@ -973,10 +983,15 @@ func (cc CheckConfigs) GetAvailability(appId ApplicationId) (CheckConfigSLOAvail
 	return res[0], false
 }
 
+const (
+	DefaultLatencyObjectiveBucket    float32 = 0.5
+	DefaultLLMLatencyObjectiveBucket float32 = 10
+)
+
 func (cc CheckConfigs) GetLatency(appId ApplicationId, category ApplicationCategory) (CheckConfigSLOLatency, bool) {
-	objectiveBucket := float32(0.5)
+	objectiveBucket := DefaultLatencyObjectiveBucket
 	relaxedObjectiveBucket := float32(5)
-	relaxed := category.Auxiliary() || appId.Kind.InferenceService()
+	relaxed := category.Auxiliary()
 	if relaxed {
 		objectiveBucket = relaxedObjectiveBucket
 	}
@@ -1004,6 +1019,26 @@ func (cc CheckConfigs) GetLatency(appId ApplicationId, category ApplicationCateg
 		v := res[0]
 		v.ObjectiveBucket = relaxedObjectiveBucket
 		return v, false
+	}
+	return res[0], false
+}
+
+func (cc CheckConfigs) GetLLMLatency(appId ApplicationId) (CheckConfigSLOLatency, bool) {
+	defaultCfg := CheckConfigSLOLatency{
+		ObjectivePercentage: Checks.SLOLLMLatency.DefaultThreshold,
+		ObjectiveBucket:     DefaultLLMLatencyObjectiveBucket,
+	}
+	raw, _ := cc.getRaw(appId, Checks.SLOLLMLatency.Id)
+	if raw == nil {
+		return defaultCfg, true
+	}
+	res, err := unmarshal[[]CheckConfigSLOLatency](raw)
+	if err != nil {
+		klog.Warningln("failed to unmarshal check config:", err)
+		return defaultCfg, true
+	}
+	if len(res) == 0 {
+		return defaultCfg, true
 	}
 	return res[0], false
 }

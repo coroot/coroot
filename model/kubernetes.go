@@ -38,14 +38,6 @@ const (
 	ApplicationKindSandbox               ApplicationKind = "Sandbox"
 )
 
-func (k ApplicationKind) InferenceService() bool {
-	switch k {
-	case ApplicationKindInferenceService, ApplicationKindDynamoGraphDeployment:
-		return true
-	}
-	return false
-}
-
 type Job struct{}
 
 type CronJob struct {
