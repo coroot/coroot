@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -48,6 +49,8 @@ type metricMeta struct {
 
 const metricMetaSize = 16
 
+var ErrCorrupted = errors.New("corrupted chunk")
+
 type header struct {
 	Version     uint8
 	From        timeseries.Time
@@ -72,6 +75,12 @@ func ReadMeta(path string) (*Meta, error) {
 	h := header{}
 	if err = binary.Read(f, binary.LittleEndian, &h); err != nil {
 		return nil, err
+	}
+	if h.Version != V3 && h.Version != V4 {
+		return nil, fmt.Errorf("%w: unknown version %d", ErrCorrupted, h.Version)
+	}
+	if h.PointsCount == 0 || h.Step <= 0 {
+		return nil, fmt.Errorf("%w: invalid header: points_count=%d, step=%d", ErrCorrupted, h.PointsCount, h.Step)
 	}
 	return &Meta{
 		Path:        path,
@@ -101,7 +110,7 @@ func Read(path string, from timeseries.Time, pointsCount int, step timeseries.Du
 	case V4:
 		return readV4(reader, &h, from, pointsCount, step, dest, fillFunc)
 	default:
-		return fmt.Errorf("unknown version: %d", h.Version)
+		return fmt.Errorf("%w: unknown version %d", ErrCorrupted, h.Version)
 	}
 }
 

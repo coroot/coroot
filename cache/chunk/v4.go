@@ -135,7 +135,7 @@ func (br *blockReader) readNextBlock() error {
 	}
 	_, err := lz4.Uncompress(br.data, br.compressionBuf)
 	if err != nil {
-		return err
+		return fmt.Errorf("%w: %w", ErrCorrupted, err)
 	}
 	br.data = br.data[:m.Decompressed]
 	br.offset = 0
@@ -207,7 +207,7 @@ func readNStrings(buf []byte, n int) ([]string, error) {
 	size := 0
 	for i := 0; i < n; i++ {
 		if offset+2 > len(buf) {
-			return nil, io.ErrUnexpectedEOF
+			return nil, fmt.Errorf("%w: %w", ErrCorrupted, io.ErrUnexpectedEOF)
 		}
 		size = int(binary.LittleEndian.Uint16(buf[offset:]))
 		offset += 2
@@ -215,7 +215,7 @@ func readNStrings(buf []byte, n int) ([]string, error) {
 			size = math.MaxUint16 + 1
 		}
 		if offset+size > len(buf) {
-			return nil, io.ErrUnexpectedEOF
+			return nil, fmt.Errorf("%w: %w", ErrCorrupted, io.ErrUnexpectedEOF)
 		}
 		res = append(res, unsafe.String(&buf[offset], size))
 		offset += size
@@ -402,7 +402,7 @@ func readLabelsV4(r *bufio.Reader, hashes []uint64, missing map[uint64]*model.Me
 		return fmt.Errorf("failed to read compressed vals: %w", err)
 	}
 	if _, err = lz4.Uncompress(uncompressedVals, compressedVals); err != nil {
-		return fmt.Errorf("failed to uncompress vals: %w", err)
+		return fmt.Errorf("%w: failed to uncompress vals: %w", ErrCorrupted, err)
 	}
 	vals, err := readNStrings(uncompressedVals, int(lm.ValsDictSize))
 	if err != nil {
@@ -433,7 +433,7 @@ func readLabelsV4(r *bufio.Reader, hashes []uint64, missing map[uint64]*model.Me
 			vi = int(idx[1]) | int(idx[2])<<8 | int(idx[3])<<16
 
 			if ki >= len(keys) || vi >= len(vals) {
-				return errors.New("corrupted labels buffer: key or value index out of range")
+				return fmt.Errorf("%w: key or value index out of range", ErrCorrupted)
 			}
 			key = keys[ki]
 			val = vals[vi]
