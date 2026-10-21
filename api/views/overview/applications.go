@@ -93,6 +93,11 @@ func renderApplications(w *model.World) []*ApplicationStatus {
 						}
 						break
 					}
+				case model.Checks.SLOLLMLatency.Id:
+					if ch.Status >= model.WARNING {
+						a.Latency.Status = model.CRITICAL
+						sloIsViolating = true
+					}
 				case model.Checks.InstanceAvailability.Id:
 					a.Instances.Status = ch.Status
 					if ch.Desired() > 0 {

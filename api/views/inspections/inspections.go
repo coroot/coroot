@@ -1,6 +1,8 @@
 package inspections
 
 import (
+	"strings"
+
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/utils"
 	"k8s.io/klog"
@@ -50,6 +52,12 @@ func (v *View) addCheck(c model.CheckConfig) {
 		},
 		Category:        string(c.Category),
 		GlobalThreshold: c.DefaultThreshold,
+	}
+	switch c.Id {
+	case model.Checks.SLOLatency.Id:
+		ch.ConditionFormatTemplate = strings.Replace(ch.ConditionFormatTemplate, "<bucket>", utils.FormatLatency(model.DefaultLatencyObjectiveBucket), 1)
+	case model.Checks.SLOLLMLatency.Id:
+		ch.ConditionFormatTemplate = strings.Replace(ch.ConditionFormatTemplate, "<bucket>", utils.FormatLatency(model.DefaultLLMLatencyObjectiveBucket), 1)
 	}
 	for appId, configs := range v.configs.GetByCheck(c.Id) {
 		for _, unk := range configs {

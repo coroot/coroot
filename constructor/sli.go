@@ -20,6 +20,8 @@ func (c *Constructor) loadSLIs(w *model.World, metrics map[string][]*model.Metri
 	builtinAvailabilityRaw := builtinAvailability(w, metrics[qRecordingRuleApplicationL7Requests+"_raw"], project)
 	builtinLatencyAgg := builtinLatency(w, metrics[qRecordingRuleApplicationL7Histogram+"_avg"], project)
 	builtinLatencyRaw := builtinLatency(w, metrics[qRecordingRuleApplicationL7Histogram+"_raw"], project)
+	llmLatencyAgg := inboundLatency(w, metrics[qRecordingRuleApplicationLLMInboundHistogram+"_avg"], project)
+	llmLatencyRaw := inboundLatency(w, metrics[qRecordingRuleApplicationLLMInboundHistogram+"_raw"], project)
 
 	customAvailabilityAgg := map[model.ApplicationId]availabilitySlis{}
 	customAvailabilityRaw := map[model.ApplicationId]availabilitySlis{}
@@ -79,6 +81,10 @@ func (c *Constructor) loadSLIs(w *model.World, metrics map[string][]*model.Metri
 					Histogram: agg, HistogramRaw: raw,
 				})
 			}
+		}
+		if agg := llmLatencyAgg[app.Id]; len(agg) > 0 {
+			cfg, _ := w.CheckConfigs.GetLLMLatency(app.Id)
+			app.LLMLatencySLI = &model.LatencySLI{Config: cfg, Histogram: agg, HistogramRaw: llmLatencyRaw[app.Id]}
 		}
 	}
 }

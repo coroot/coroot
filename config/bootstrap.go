@@ -125,6 +125,16 @@ func (cfg *Config) Bootstrap(database *db.DB) error {
 				return err
 			}
 		}
+		for _, override := range po.overrides.SLOLLMLatency {
+			c := []model.CheckConfigSLOLatency{{
+				Custom:              false,
+				ObjectivePercentage: override.ObjectivePercent,
+				ObjectiveBucket:     model.RoundUpToBucket(float32(override.ObjectiveThreshold.Seconds()), model.LLMHistogramBuckets),
+			}}
+			if err = saveInspectionOverride(database, byName, po.project, override.ApplicationId, model.Checks.SLOLLMLatency.Id, c); err != nil {
+				return err
+			}
+		}
 	}
 	for _, p := range byName {
 		if p.Settings.ApiKeys == nil {

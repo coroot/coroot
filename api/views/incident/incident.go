@@ -31,6 +31,7 @@ func renderIncident(w *model.World, incident *model.ApplicationIncident) Inciden
 		Impact: max(
 			incident.Details.LatencyImpact.AffectedRequestPercentage,
 			incident.Details.AvailabilityImpact.AffectedRequestPercentage,
+			incident.Details.LLMLatencyImpact.AffectedRequestPercentage,
 		),
 	}
 	i.ApplicationCategory = model.ApplicationCategoryApplication
@@ -60,6 +61,7 @@ type View struct {
 	Incident
 	AvailabilitySLO *SLODetails     `json:"availability_slo,omitempty"`
 	LatencySLO      *SLODetails     `json:"latency_slo,omitempty"`
+	LLMLatencySLO   *SLODetails     `json:"llm_latency_slo,omitempty"`
 	ActualFrom      timeseries.Time `json:"actual_from"`
 	ActualTo        timeseries.Time `json:"actual_to"`
 
@@ -115,6 +117,23 @@ func Render(w *model.World, app *model.Application, incident *model.ApplicationI
 			}
 		}
 	}
+	if sli := app.LLMLatencySLI; sli != nil {
+		v.LLMLatencySLO = &SLODetails{
+			Objective:  utils.FormatPercentage(sli.Config.ObjectivePercentage) + " of LLM requests should be served faster than " + utils.FormatLatency(sli.Config.ObjectiveBucket),
+			Compliance: "100%",
+			Threshold:  sli.Config.ObjectiveBucket,
+		}
+		for _, br := range incident.Details.LLMLatencyBurnRates {
+			if br.Severity > model.OK {
+				if t := incident.OpenedAt.Add(-br.ShortWindow); v.ActualFrom.IsZero() || t.After(v.ActualFrom) {
+					v.ActualFrom = t
+				}
+				v.LLMLatencySLO.Violated = true
+				v.LLMLatencySLO.Compliance = utils.FormatPercentage(100 - br.LongWindowPercentage)
+				break
+			}
+		}
+	}
 	for _, widget := range v.Widgets {
 		widget.AddAnnotation(model.Annotation{Name: "incident", X1: v.ActualFrom, X2: to})
 	}
@@ -126,6 +145,11 @@ func incidentWidgets(w *model.World, app *model.Application) []*model.Widget {
 	if len(app.LatencySLIs) > 0 {
 		ch := model.NewChart(w.Ctx, "Latency, seconds").
 			PercentilesFrom(app.LatencySLIs[0].Histogram, 0.25, 0.5, 0.75, 0.95, 0.99)
+		res = append(res, &model.Widget{Chart: ch})
+	}
+	if app.LLMLatencySLI != nil {
+		ch := model.NewChart(w.Ctx, "LLM latency, seconds").
+			PercentilesFrom(app.LLMLatencySLI.Histogram, 0.25, 0.5, 0.75, 0.95, 0.99)
 		res = append(res, &model.Widget{Chart: ch})
 	}
 	if len(app.AvailabilitySLIs) > 0 {

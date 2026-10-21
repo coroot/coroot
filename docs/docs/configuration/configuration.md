@@ -352,6 +352,10 @@ projects: # Create or update projects (configuration file only).
       sloAvailability:
         - applicationId: default:Deployment:catalog
           objectivePercent: 98
+      sloLLMLatency: # latency of LLM inference requests served by the app
+        - applicationId: default:Deployment:vllm
+          objectivePercent: 99
+          objectiveThreshold: 30s
 
 # Single Sign-on configuration (Coroot Enterprise edition only).
 # Choose either SAML or OIDC as the provider.

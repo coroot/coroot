@@ -13,6 +13,8 @@ const (
 	ApplicationAnnotationSLOAvailabilityObjective ApplicationAnnotation = "slo_availability_objective"
 	ApplicationAnnotationSLOLatencyObjective      ApplicationAnnotation = "slo_latency_objective"
 	ApplicationAnnotationSLOLatencyThreshold      ApplicationAnnotation = "slo_latency_threshold"
+	ApplicationAnnotationSLOLLMLatencyObjective   ApplicationAnnotation = "slo_llm_latency_objective"
+	ApplicationAnnotationSLOLLMLatencyThreshold   ApplicationAnnotation = "slo_llm_latency_threshold"
 )
 
 var ApplicationAnnotationsList = []ApplicationAnnotation{
@@ -21,6 +23,8 @@ var ApplicationAnnotationsList = []ApplicationAnnotation{
 	ApplicationAnnotationSLOAvailabilityObjective,
 	ApplicationAnnotationSLOLatencyObjective,
 	ApplicationAnnotationSLOLatencyThreshold,
+	ApplicationAnnotationSLOLLMLatencyObjective,
+	ApplicationAnnotationSLOLLMLatencyThreshold,
 }
 
 var ApplicationAnnotationLabels = map[string]ApplicationAnnotation{}

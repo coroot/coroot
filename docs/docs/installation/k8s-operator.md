@@ -620,6 +620,10 @@ spec:
 #          - applicationId: external:ExternalService:api.github.com:443
 #            objectivePercent: 99 
 #            objectiveThreshold: 2s
+#        sloLLMLatency:
+#          - applicationId: default:Deployment:vllm
+#            objectivePercent: 99     # The percentage of LLM inference requests that should be served faster than `objectiveThreshold`.
+#            objectiveThreshold: 30s  # The latency threshold (e.g., 100ms, 250ms, 500ms, 1s, 2.5s, 5s, 10s, 20s, 30s, 1m, 2m, 5m, 10m).
 
 # Coroot Cloud integration.
 #  corootCloud:

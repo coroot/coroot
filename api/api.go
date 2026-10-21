@@ -1901,6 +1901,9 @@ func (api *Api) Inspection(w http.ResponseWriter, r *http.Request, u *db.User) {
 		case model.Checks.SLOLatency.Id:
 			cfg, def := checkConfigs.GetLatency(appId, category)
 			res.Form = forms.CheckConfigSLOLatencyForm{Configs: []model.CheckConfigSLOLatency{cfg}, Default: def}
+		case model.Checks.SLOLLMLatency.Id:
+			cfg, def := checkConfigs.GetLLMLatency(appId)
+			res.Form = forms.CheckConfigSLOLatencyForm{Configs: []model.CheckConfigSLOLatency{cfg}, Default: def}
 		default:
 			form := forms.CheckConfigForm{
 				Configs: checkConfigs.GetSimpleAll(checkId, appId),
@@ -1937,7 +1940,7 @@ func (api *Api) Inspection(w http.ResponseWriter, r *http.Request, u *db.User) {
 				http.Error(w, "", http.StatusInternalServerError)
 				return
 			}
-		case model.Checks.SLOLatency.Id:
+		case model.Checks.SLOLatency.Id, model.Checks.SLOLLMLatency.Id:
 			var form forms.CheckConfigSLOLatencyForm
 			if err = forms.ReadAndValidate(r, &form); err != nil {
 				klog.Warningln("bad request:", err)

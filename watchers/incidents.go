@@ -36,12 +36,14 @@ func (w *Incidents) Check(project *db.Project, world *model.World) {
 			continue
 		}
 		var (
-			aBadF, aTotalF sumFromFunc
-			lBadF, lTotalF sumFromFunc
+			aBadF, aTotalF   sumFromFunc
+			lBadF, lTotalF   sumFromFunc
+			llBadF, llTotalF sumFromFunc
 		)
 		details := model.IncidentDetails{}
 		details.AvailabilityBurnRates, aBadF, aTotalF = availability(world.Ctx, app)
 		details.LatencyBurnRates, lBadF, lTotalF = latency(world.Ctx, app)
+		details.LLMLatencyBurnRates, llBadF, llTotalF = llmLatency(world.Ctx, app)
 
 		calcImpact := func(openedAt timeseries.Time, badF, totalF sumFromFunc) float32 {
 			from := openedAt.Add(-model.MinAlertRuleShortWindow)
@@ -62,6 +64,11 @@ func (w *Incidents) Check(project *db.Project, world *model.World) {
 
 		status := model.UNKNOWN
 		for _, br := range details.LatencyBurnRates {
+			if br.Severity > status {
+				status = br.Severity
+			}
+		}
+		for _, br := range details.LLMLatencyBurnRates {
 			if br.Severity > status {
 				status = br.Severity
 			}
@@ -95,6 +102,7 @@ func (w *Incidents) Check(project *db.Project, world *model.World) {
 			}
 			incident.Details.AvailabilityImpact.AffectedRequestPercentage = calcImpact(incident.OpenedAt, aBadF, aTotalF)
 			incident.Details.LatencyImpact.AffectedRequestPercentage = calcImpact(incident.OpenedAt, lBadF, lTotalF)
+			incident.Details.LLMLatencyImpact.AffectedRequestPercentage = calcImpact(incident.OpenedAt, llBadF, llTotalF)
 			if err = w.db.CreateIncident(project.Id, app.Id, incident); err != nil {
 				klog.Errorln(err)
 				continue
@@ -113,8 +121,10 @@ func (w *Incidents) Check(project *db.Project, world *model.World) {
 				incident.Severity = status
 				incident.Details.AvailabilityBurnRates = details.AvailabilityBurnRates
 				incident.Details.LatencyBurnRates = details.LatencyBurnRates
+				incident.Details.LLMLatencyBurnRates = details.LLMLatencyBurnRates
 				incident.Details.AvailabilityImpact.AffectedRequestPercentage = calcImpact(incident.OpenedAt, aBadF, aTotalF)
 				incident.Details.LatencyImpact.AffectedRequestPercentage = calcImpact(incident.OpenedAt, lBadF, lTotalF)
+				incident.Details.LLMLatencyImpact.AffectedRequestPercentage = calcImpact(incident.OpenedAt, llBadF, llTotalF)
 				if err = w.db.UpdateIncident(project.Id, incident.Key, incident.Severity, incident.Details); err != nil {
 					klog.Errorln(err)
 					continue
@@ -192,7 +202,17 @@ func latency(ctx timeseries.Context, app *model.Application) ([]model.BurnRate, 
 	if len(app.LatencySLIs) == 0 {
 		return nil, nil, nil
 	}
-	sli := app.LatencySLIs[0]
+	return latencyBurnRates(ctx, app.LatencySLIs[0])
+}
+
+func llmLatency(ctx timeseries.Context, app *model.Application) ([]model.BurnRate, sumFromFunc, sumFromFunc) {
+	if app.LLMLatencySLI == nil {
+		return nil, nil, nil
+	}
+	return latencyBurnRates(ctx, app.LLMLatencySLI)
+}
+
+func latencyBurnRates(ctx timeseries.Context, sli *model.LatencySLI) ([]model.BurnRate, sumFromFunc, sumFromFunc) {
 	totalRaw, fastRaw := sli.GetTotalAndFast(true)
 
 	totalF := totalSum(totalRaw)

@@ -1,19 +1,21 @@
 <template>
     <div>
-        Metrics:
-        <v-select
-            v-model="config.custom"
-            :items="[
-                { value: false, text: 'inbound requests (built-in)' },
-                { value: true, text: 'custom' },
-            ]"
-            outlined
-            dense
-            :menu-props="{ offsetY: true }"
-            :disabled="readonly || appId === '::'"
-            hide-details
-            class="mb-3"
-        />
+        <template v-if="!llm">
+            Metrics:
+            <v-select
+                v-model="config.custom"
+                :items="[
+                    { value: false, text: 'inbound requests (built-in)' },
+                    { value: true, text: 'custom' },
+                ]"
+                outlined
+                dense
+                :menu-props="{ offsetY: true }"
+                :disabled="readonly || appId === '::'"
+                hide-details
+                class="mb-3"
+            />
+        </template>
 
         <template v-if="config.custom">
             Histogram query:
@@ -40,7 +42,7 @@
                 >
                     <template #append><span class="grey--text">%</span></template>
                 </v-text-field>
-                of requests should be served faster than
+                of {{ llm ? 'LLM ' : '' }}requests should be served faster than
                 <v-select
                     v-model.number="config.objective_bucket"
                     :items="buckets"
@@ -72,11 +74,27 @@ const buckets = [
     { value: 5, text: '5s' },
     { value: 10, text: '10s' },
 ];
+const llmBuckets = [
+    { value: 0.1, text: '100ms' },
+    { value: 0.25, text: '250ms' },
+    { value: 0.5, text: '500ms' },
+    { value: 1, text: '1s' },
+    { value: 2.5, text: '2.5s' },
+    { value: 5, text: '5s' },
+    { value: 10, text: '10s' },
+    { value: 20, text: '20s' },
+    { value: 30, text: '30s' },
+    { value: 60, text: '1m' },
+    { value: 120, text: '2m' },
+    { value: 300, text: '5m' },
+    { value: 600, text: '10m' },
+];
 export default {
     components: { MetricSelector },
     props: {
         form: Object,
         appId: String,
+        llm: Boolean,
     },
     data() {
         return {
@@ -88,7 +106,7 @@ export default {
             return this.form.configs[0];
         },
         buckets() {
-            return buckets;
+            return this.llm ? llmBuckets : buckets;
         },
         readonly() {
             return !!this.config.source;

@@ -2,7 +2,7 @@
     <v-dialog v-if="check" :value="value" @input="emitValue" max-width="800">
         <v-card class="pa-5">
             <div class="d-flex align-center font-weight-medium mb-4">
-                <template v-if="check.id === 'SLOAvailability' || check.id === 'SLOLatency'">
+                <template v-if="check.id === 'SLOAvailability' || check.id === 'SLOLatency' || check.id === 'SLOLLMLatency'">
                     Configure the "{{ check.title }}" inspection
                     <v-btn v-if="form && !form.default" small icon @click="confirmation = true"><v-icon small>mdi-trash-can-outline</v-icon></v-btn>
                     <v-overlay :value="confirmation" absolute opacity="0.8">
@@ -26,6 +26,7 @@
             <v-form v-if="form" v-model="valid">
                 <CheckFormSLOAvailability v-if="check.id === 'SLOAvailability'" :appId="appId" :form="form" />
                 <CheckFormSLOLatency v-else-if="check.id === 'SLOLatency'" :appId="appId" :form="form" />
+                <CheckFormSLOLatency v-else-if="check.id === 'SLOLLMLatency'" :appId="appId" :form="form" llm />
                 <CheckConfigForm v-else :form="form" :check="check" :appId="appId" />
 
                 <div v-if="check.id.startsWith('SLO')" class="my-3">
