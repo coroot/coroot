@@ -2,6 +2,7 @@ package cache
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"golang.org/x/exp/maps"
+	"k8s.io/klog"
 )
 
 func (c *Cache) GetCacheClient(projectId db.ProjectId) *Client {
@@ -50,9 +52,12 @@ func (c *Client) QueryRange(ctx context.Context, query string, from, to timeseri
 		if ch.From > to || ch.To() < from {
 			continue
 		}
-		err := chunk.Read(ch.Path, from, resPoints, step, res, fillFunc)
-		if err != nil {
-			return nil, err
+		if err := chunk.Read(ch.Path, from, resPoints, step, res, fillFunc); err != nil {
+			if !errors.Is(err, chunk.ErrCorrupted) {
+				return nil, err
+			}
+			klog.Errorf("skipping chunk %s: %s", ch.Path, err)
+			continue
 		}
 	}
 	return maps.Values(res), nil

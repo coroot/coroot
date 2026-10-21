@@ -286,6 +286,9 @@ func (c *Cache) writeChunk(projectId db.ProjectId, queryHash string, from timese
 	if err = chunk.Write(f, from, pointsCount, step, finalized, metrics); err != nil {
 		return err
 	}
+	if err = f.Sync(); err != nil {
+		return err
+	}
 	if err = f.Close(); err != nil {
 		return err
 	}
