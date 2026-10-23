@@ -378,7 +378,7 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]*model
 				connection.RequestsCount[protocol] = map[string]*timeseries.TimeSeries{}
 			}
 			status := metric.Labels["status"]
-			connection.RequestsCount[protocol][status] = merge(connection.RequestsCount[protocol][status], metric.Values, timeseries.NanSum)
+			connection.RequestsCount[protocol][status] = merge(connection.RequestsCount[protocol][status], metric.Values, timeseries.NanSumOrNaN)
 		})
 	}
 	loadL7RequestsCount("container_http_requests_count", model.ProtocolHttp)
@@ -441,7 +441,7 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]*model
 		loadContainer(queryName, func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
 			app := instance.Owner
 			status := metric.Labels["status"]
-			app.InboundRequestsCount[status] = merge(app.InboundRequestsCount[status], metric.Values, timeseries.NanSum)
+			app.InboundRequestsCount[status] = merge(app.InboundRequestsCount[status], metric.Values, timeseries.NanSumOrNaN)
 		})
 	}
 	loadL7InboundRequestsCount("container_http_inbound_requests_count")
