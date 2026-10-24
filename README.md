@@ -104,6 +104,11 @@ Coroot's eBPF-based instrumentation can capture requests without requiring any c
 You can run Coroot as a Docker container or deploy it into any Kubernetes cluster.
 Check out the [Installation guide](https://docs.coroot.com/).
 
+## One-Click Deploy
+
+<a href="https://repocloud.io/details/Coroot/"><img src="https://d16t0pc4846x52.cloudfront.net/deploylobe.svg" alt="Deploy on RepoCloud" height="42"></a>
+<a href="https://elest.io/open-source/coroot"><img src="https://elest.io/images/logos/deploy-to-elestio-btn.png" alt="Deploy on Elestio" height="42"></a>
+
 ## Documentation
 
 The Coroot documentation is available at [docs.coroot.com/docs](https://docs.coroot.com/).
