@@ -1753,16 +1753,15 @@ func (api *Api) AlertingRulesExport(w http.ResponseWriter, r *http.Request, u *d
 	var exported []config.AlertingRule
 	for _, r := range rules {
 		severity := r.Severity.String()
+		// Always exported: 0 is a setting too (fire on the first failed check).
+		forDuration := config.RuleDuration(r.For)
+		keepFiringFor := config.RuleDuration(r.KeepFiringFor)
 		er := config.AlertingRule{
-			Id:       string(r.Id),
-			Name:     &r.Name,
-			Severity: &severity,
-		}
-		if r.For > 0 {
-			er.For = &r.For
-		}
-		if r.KeepFiringFor > 0 {
-			er.KeepFiringFor = &r.KeepFiringFor
+			Id:            string(r.Id),
+			Name:          &r.Name,
+			Severity:      &severity,
+			For:           &forDuration,
+			KeepFiringFor: &keepFiringFor,
 		}
 		if r.Source.Type != "" {
 			er.Source = &r.Source

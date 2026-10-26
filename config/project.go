@@ -10,6 +10,8 @@ import (
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
+	promModel "github.com/prometheus/common/model"
+	"gopkg.in/yaml.v3"
 )
 
 type RemoteCoroot struct {
@@ -72,11 +74,28 @@ type AlertingRule struct {
 	Source               *model.AlertSource         `yaml:"source,omitempty"`
 	Selector             *model.AppSelector         `yaml:"selector,omitempty"`
 	Severity             *string                    `yaml:"severity,omitempty"`
-	For                  *timeseries.Duration       `yaml:"for,omitempty"`
-	KeepFiringFor        *timeseries.Duration       `yaml:"keepFiringFor,omitempty"`
+	For                  *RuleDuration              `yaml:"for,omitempty"`
+	KeepFiringFor        *RuleDuration              `yaml:"keepFiringFor,omitempty"`
 	Templates            *model.AlertTemplates      `yaml:"templates,omitempty"`
 	NotificationCategory *model.ApplicationCategory `yaml:"notificationCategory,omitempty"`
 	Enabled              *bool                      `yaml:"enabled,omitempty"`
+}
+
+// RuleDuration is a timeseries.Duration that also accepts 0, as the UI and the built-in rules do:
+// for: 0s fires on the first failed check.
+type RuleDuration timeseries.Duration
+
+func (d *RuleDuration) UnmarshalYAML(value *yaml.Node) error {
+	pd, err := promModel.ParseDuration(value.Value)
+	if err != nil {
+		return fmt.Errorf("invalid duration: %s", value.Value)
+	}
+	*d = RuleDuration(timeseries.DurationFromStandard(time.Duration(pd)))
+	return nil
+}
+
+func (d RuleDuration) MarshalYAML() (any, error) {
+	return timeseries.Duration(d).String(), nil
 }
 
 func (ar *AlertingRule) Validate() error {
@@ -139,10 +158,10 @@ func applyConfigOverrides(base *model.AlertingRule, override AlertingRule) *mode
 		}
 	}
 	if override.For != nil {
-		result.For = *override.For
+		result.For = timeseries.Duration(*override.For)
 	}
 	if override.KeepFiringFor != nil {
-		result.KeepFiringFor = *override.KeepFiringFor
+		result.KeepFiringFor = timeseries.Duration(*override.KeepFiringFor)
 	}
 	if override.Templates != nil {
 		if override.Templates.Summary != "" {

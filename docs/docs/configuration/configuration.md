@@ -296,7 +296,7 @@ projects: # Create or update projects (configuration file only).
           categories:
             - production
         severity: critical         # One of: warning, critical.
-        for: 5m
+        for: 5m                    # 0s fires on the first failed check.
         keepFiringFor: 5m
         templates:
           description: "Postgres latency is critically high in production."
