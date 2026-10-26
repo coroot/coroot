@@ -186,7 +186,7 @@ func (api *Api) MCPOAuthRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for _, ru := range req.RedirectURIs {
-		if _, err := url.Parse(ru); err != nil {
+		if !validRedirectURI(ru) {
 			mcpOAuthError(w, http.StatusBadRequest, oauthErrInvalidRedirectURI, "invalid redirect_uri")
 			return
 		}
@@ -257,11 +257,11 @@ func (api *Api) MCPOAuthAuthorize(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if req.ResponseType != "code" {
-		mcpRedirectErr(w, r, req.RedirectURI, req.State, oauthErrUnsupportedResponseType, "")
+		mcpOAuthError(w, http.StatusBadRequest, oauthErrUnsupportedResponseType, "response_type must be code")
 		return
 	}
 	if req.CodeChallenge == "" || req.CodeChallengeMethod != "S256" {
-		mcpRedirectErr(w, r, req.RedirectURI, req.State, oauthErrInvalidRequest, "PKCE S256 required")
+		mcpOAuthError(w, http.StatusBadRequest, oauthErrInvalidRequest, "PKCE S256 required")
 		return
 	}
 
@@ -458,6 +458,40 @@ func mcpVerifyPKCE(verifier, challenge string) bool {
 	h := sha256.Sum256([]byte(verifier))
 	got := base64.RawURLEncoding.EncodeToString(h[:])
 	return subtle.ConstantTimeCompare([]byte(got), []byte(challenge)) == 1
+}
+
+func validRedirectURI(ru string) bool {
+	u, err := url.Parse(ru)
+	if err != nil {
+		return false
+	}
+	if !u.IsAbs() || u.Fragment != "" {
+		return false
+	}
+	scheme := strings.ToLower(u.Scheme)
+	switch scheme {
+	case "https":
+		return u.Host != ""
+	case "http":
+		hostname := strings.ToLower(u.Hostname())
+		return hostname == "localhost" || hostname == "127.0.0.1" || hostname == "::1"
+	default:
+		if scheme == "javascript" || scheme == "data" || scheme == "vbscript" || scheme == "file" {
+			return false
+		}
+		for i, c := range scheme {
+			if i == 0 {
+				if !(c >= 'a' && c <= 'z') {
+					return false
+				}
+			} else {
+				if !(c >= 'a' && c <= 'z') && !(c >= '0' && c <= '9') && c != '+' && c != '-' && c != '.' {
+					return false
+				}
+			}
+		}
+		return true
+	}
 }
 
 func mcpRedirectURIAllowed(allowed []string, given string) bool {
