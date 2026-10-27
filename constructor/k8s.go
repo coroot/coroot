@@ -352,6 +352,20 @@ func (c *Constructor) podLabels(metrics []*model.MetricValues, pods map[string]*
 				inferenceGroups[instance.Owner.Id] = c.newApplicationId(project.ClusterId(), instance.Owner.Id.Namespace, model.ApplicationKindDynamoGraphDeployment, m.Labels["label_nvidia_com_dynamo_graph_deployment_name"])
 			}
 			role = m.Labels["label_nvidia_com_dynamo_component_type"]
+		case m.Labels["label_disaggregatedset_x_k8s_io_name"] != "":
+			if instance.Owner.Id.Kind == model.ApplicationKindDeployment || instance.Owner.Id.Kind == model.ApplicationKindStatefulSet {
+				inferenceGroups[instance.Owner.Id] = c.newApplicationId(project.ClusterId(), instance.Owner.Id.Namespace, model.ApplicationKindDisaggregatedSet, m.Labels["label_disaggregatedset_x_k8s_io_name"])
+			}
+			role = m.Labels["label_disaggregatedset_x_k8s_io_role"]
+		case m.Labels["label_leaderworkerset_sigs_k8s_io_name"] != "":
+			if instance.Owner.Id.Kind == model.ApplicationKindStatefulSet {
+				inferenceGroups[instance.Owner.Id] = c.newApplicationId(project.ClusterId(), instance.Owner.Id.Namespace, model.ApplicationKindLeaderWorkerSet, m.Labels["label_leaderworkerset_sigs_k8s_io_name"])
+			}
+			if m.Labels["label_leaderworkerset_sigs_k8s_io_worker_index"] == "0" {
+				role = "leader"
+			} else {
+				role = "worker"
+			}
 		default:
 			continue
 		}

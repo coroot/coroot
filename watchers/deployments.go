@@ -169,7 +169,7 @@ func (w *Deployments) sendNotifications(project *db.Project, world *model.World)
 
 func tracksDeployments(kind model.ApplicationKind) bool {
 	switch kind {
-	case model.ApplicationKindDeployment, model.ApplicationKindInferenceService, model.ApplicationKindDynamoGraphDeployment:
+	case model.ApplicationKindDeployment, model.ApplicationKindInferenceService, model.ApplicationKindDynamoGraphDeployment, model.ApplicationKindDisaggregatedSet:
 		return true
 	}
 	return false
