@@ -35,6 +35,8 @@ const (
 	ApplicationKindGitLabJob             ApplicationKind = "GitLabJob"
 	ApplicationKindInferenceService      ApplicationKind = "InferenceService"
 	ApplicationKindDynamoGraphDeployment ApplicationKind = "DynamoGraphDeployment"
+	ApplicationKindDisaggregatedSet      ApplicationKind = "DisaggregatedSet"
+	ApplicationKindLeaderWorkerSet       ApplicationKind = "LeaderWorkerSet"
 	ApplicationKindSandbox               ApplicationKind = "Sandbox"
 )
 

@@ -240,6 +240,8 @@ var QUERIES = []Query{
 		"label_project_runner_gitlab_com_name",
 		"label_serving_kserve_io_inferenceservice", "label_component",
 		"label_nvidia_com_dynamo_graph_deployment_name", "label_nvidia_com_dynamo_component_type",
+		"label_disaggregatedset_x_k8s_io_name", "label_disaggregatedset_x_k8s_io_role",
+		"label_leaderworkerset_sigs_k8s_io_name", "label_leaderworkerset_sigs_k8s_io_worker_index",
 	),
 	qPod("kube_pod_status_phase", `kube_pod_status_phase > 0`, "phase"),
 	qPod("kube_pod_status_ready", `kube_pod_status_ready{condition="true"}`),
