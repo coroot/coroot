@@ -15,6 +15,9 @@ const config = {
   favicon: 'img/favicon.ico',
   url: 'https://docs.coroot.com',
   baseUrl: '/',
+  // The host redirects /page to /page/, so emit canonical URLs, links and the
+  // sitemap with the trailing slash; otherwise Google sees two URLs per page.
+  trailingSlash: true,
   organizationName: 'coroot', // Usually your GitHub org/user name.
   projectName: 'coroot', // Usually your repo name.
   onBrokenLinks: 'throw',
