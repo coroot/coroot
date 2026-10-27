@@ -1,4 +1,5 @@
 const slugRe = /^[-_0-9a-z]{3,}$/;
+const customAppSlugRe = /^([-_0-9a-z]+\/)?[-_0-9a-z]{3,}$/;
 const urlRe = /^https?:\/\/.{3,}$/;
 const addrRe = /^[-_0-9a-z.]+:[0-9]+$/;
 const selectorRe = /^{.+=.+}$/;
@@ -11,6 +12,10 @@ export function notEmpty(v) {
 
 export function isSlug(v) {
     return slugRe.test(v) || '3 or more letters/numbers, lower case';
+}
+
+export function isCustomAppSlug(v) {
+    return customAppSlugRe.test(v) || '3 or more letters/numbers, lower case (optional "namespace/" prefix)';
 }
 
 export function isUrl(v) {

@@ -43,7 +43,7 @@
 
                 <v-form v-model="form.valid" ref="form">
                     <div class="subtitle-1">Name</div>
-                    <v-text-field v-model="form.name" outlined dense :disabled="form.del" :rules="[$validators.isSlug]" />
+                    <v-text-field v-model="form.name" outlined dense :disabled="form.del" :rules="[$validators.isCustomAppSlug]" placeholder="app_name or namespace/app_name" />
 
                     <template>
                         <div class="subtitle-1">Instance patterns</div>
