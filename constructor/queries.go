@@ -473,6 +473,7 @@ var QUERIES = []Query{
 	qDB("pg_buffers_written_total", `rate(pg_buffers_written_total[$RANGE])`, "source"),
 	qDB("pg_time_since_last_checkpoint_seconds", `pg_time_since_last_checkpoint_seconds`),
 	qDB("pg_wal_since_last_checkpoint_bytes", `pg_wal_since_last_checkpoint_bytes`),
+	qDB("pg_wal_since_last_checkpoint_record_bytes", `pg_wal_since_last_checkpoint_record_bytes`),
 
 	qDB("mysql_up", `mysql_up`),
 	qDB("mysql_scrape_error", `mysql_scrape_error`, "error", "warning"),
