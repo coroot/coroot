@@ -51,6 +51,9 @@ type Container struct {
 	MemoryPressureSome *timeseries.TimeSeries
 	MemoryPressureFull *timeseries.TimeSeries
 
+	IOPressureSome *timeseries.TimeSeries
+	IOPressureFull *timeseries.TimeSeries
+
 	OOMKills *timeseries.TimeSeries
 }
 

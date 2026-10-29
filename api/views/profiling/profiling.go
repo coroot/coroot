@@ -52,7 +52,7 @@ func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, 
 	var category model.ProfileCategory
 	if s := query.Get("query"); s != "" {
 		switch s {
-		case model.ProfileCategoryCPU, model.ProfileCategoryMemory, model.ProfileCategoryLock:
+		case model.ProfileCategoryCPU, model.ProfileCategoryMemory, model.ProfileCategoryLock, model.ProfileCategoryIO:
 			category = model.ProfileCategory(s)
 		default:
 			if err := json.Unmarshal([]byte(s), &q); err != nil {
@@ -218,6 +218,19 @@ func getChart(app *model.Application, typ model.ProfileType, ctx timeseries.Cont
 			return getJvmChart(app, ctx, instance, "Lock wait time by instance, seconds/second",
 				func(jvm *model.Jvm) *timeseries.TimeSeries { return jvm.LockTime })
 		}
+	case model.ProfileCategoryIO:
+		switch typ {
+		case model.ProfileTypeNodeAgentIORead:
+			return getIOChart(app, ctx, instance, "Disk reads by instance, bytes/second",
+				func(d *model.DiskStats) *timeseries.TimeSeries { return d.ReadBytes })
+		case model.ProfileTypeNodeAgentIOWrite:
+			return getIOChart(app, ctx, instance, "Disk writes by instance, bytes/second",
+				func(d *model.DiskStats) *timeseries.TimeSeries { return d.WrittenBytes })
+		}
+		return getIOChart(app, ctx, instance, "I/O load (total latency) by instance, seconds/second",
+			func(d *model.DiskStats) *timeseries.TimeSeries {
+				return timeseries.NewAggregate(timeseries.NanSum).Add(d.ReadTime, d.WriteTime).Get()
+			})
 	default:
 		return nil, nil
 	}
@@ -231,6 +244,42 @@ func getChart(app *model.Application, typ model.ProfileType, ctx timeseries.Cont
 		if instance == "" || i.Name == instance {
 			chart.AddSeries(i.Name, agg)
 		}
+	}
+	events := model.EventsToAnnotations(app.Events, ctx)
+	incidents := model.IncidentsToAnnotations(app.Incidents, ctx)
+	return chart.AddAnnotation(events...).AddAnnotation(incidents...), containers
+}
+
+func getIOChart(app *model.Application, ctx timeseries.Context, instance string, title string, seriesF func(d *model.DiskStats) *timeseries.TimeSeries) (*model.Chart, map[string][]string) {
+	chart := model.NewChart(ctx, title)
+	containers := map[string][]string{}
+	isK8s := app.IsK8s()
+	for _, i := range app.Instances {
+		for _, c := range i.Containers {
+			containers[i.Name] = append(containers[i.Name], c.Id)
+		}
+		if instance != "" && i.Name != instance {
+			continue
+		}
+		if i.Node == nil {
+			continue
+		}
+		agg := timeseries.NewAggregate(timeseries.NanSum)
+		seenDevices := map[string]bool{}
+		for _, v := range i.Volumes {
+			if isK8s && v.Name.Value() == "" {
+				continue
+			}
+			device := v.Device.Value()
+			if seenDevices[device] {
+				continue
+			}
+			seenDevices[device] = true
+			if d := i.Node.Disks[device]; d != nil {
+				agg.Add(seriesF(d))
+			}
+		}
+		chart.AddSeries(i.Name, agg)
 	}
 	events := model.EventsToAnnotations(app.Events, ctx)
 	incidents := model.IncidentsToAnnotations(app.Incidents, ctx)

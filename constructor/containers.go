@@ -229,6 +229,14 @@ func (c *Constructor) loadContainers(w *model.World, metrics map[string][]*model
 			container.MemoryPressureFull = merge(container.MemoryPressureFull, metric.Values, timeseries.Any)
 		}
 	})
+	loadContainer("container_io_pressure", func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
+		switch metric.Labels["kind"] {
+		case "some":
+			container.IOPressureSome = merge(container.IOPressureSome, metric.Values, timeseries.Any)
+		case "full":
+			container.IOPressureFull = merge(container.IOPressureFull, metric.Values, timeseries.Any)
+		}
+	})
 	loadContainer("container_memory_limit", func(instance *model.Instance, container *model.Container, metric *model.MetricValues) {
 		container.MemoryLimit = merge(container.MemoryLimit, metric.Values, timeseries.Any)
 	})
