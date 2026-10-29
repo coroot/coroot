@@ -121,6 +121,9 @@ func (b *ProfilesBatch) Add(serviceName string, labels model.Labels, p *profile.
 			continue
 		}
 		for _, s := range p.Sample {
+			if s.Value[i] == 0 {
+				continue
+			}
 			var stack []string
 			for _, location := range s.Location {
 				for _, line := range location.Line {

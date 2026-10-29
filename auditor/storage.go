@@ -2,6 +2,7 @@ package auditor
 
 import (
 	"cmp"
+	"encoding/json"
 	"fmt"
 	"slices"
 
@@ -17,12 +18,13 @@ func (a *appAuditor) storage() {
 	ioCheck := report.CreateCheck(model.Checks.StorageIOLoad)
 	spaceCheck := report.CreateCheck(model.Checks.StorageSpace)
 
-	ioLatencyChart := report.GetOrCreateChartGroup("Average I/O latency <selector>, seconds", nil)
-	ioLoadChart := report.GetOrCreateChartGroup("I/O load (total latency) <selector>, seconds/second", nil)
-	iopsChart := report.GetOrCreateChartGroup("IOPS <selector>", nil)
-	bandwidthChart := report.GetOrCreateChartGroup("Bandwidth <selector>, bytes/second", nil)
-	ioUtilizationChart := report.GetOrCreateChartGroup("I/O utilization <selector>, %", nil)
-	spaceChart := report.GetOrCreateChartGroup("Disk space <selector>, bytes", nil)
+	ioLatencyChart := report.GetOrCreateChartGroup("Average I/O latency <selector>, seconds", model.NewDocLink("inspections", "storage", "average-io-latency"))
+	ioLoadChart := report.GetOrCreateChartGroup("I/O load (total latency) <selector>, seconds/second", model.NewDocLink("inspections", "storage", "io-load"))
+	iopsChart := report.GetOrCreateChartGroup("IOPS <selector>", model.NewDocLink("inspections", "storage", "iops"))
+	bandwidthChart := report.GetOrCreateChartGroup("Bandwidth <selector>, bytes/second", model.NewDocLink("inspections", "storage", "bandwidth"))
+	ioUtilizationChart := report.GetOrCreateChartGroup("I/O utilization <selector>, %", model.NewDocLink("inspections", "storage", "io-utilization"))
+	pressureChart := report.GetOrCreateChartGroup("I/O pressure <selector>, seconds/second", model.NewDocLink("inspections", "storage", "io-pressure"))
+	spaceChart := report.GetOrCreateChartGroup("Disk space <selector>, bytes", model.NewDocLink("inspections", "storage", "disk-space"))
 
 	ioCheck.AddWidget(ioLoadChart.Widget())
 	ioCheck.AddWidget(ioLatencyChart.Widget())
@@ -33,6 +35,16 @@ func (a *appAuditor) storage() {
 	ioInvestigated := map[string]bool{}
 	isK8s := a.app.IsK8s()
 	for _, i := range a.app.Instances {
+		if pressureChart != nil && len(i.Containers) > 0 {
+			pressureSome := timeseries.NewAggregate(timeseries.NanSum)
+			pressureFull := timeseries.NewAggregate(timeseries.NanSum)
+			for _, c := range i.Containers {
+				pressureSome.Add(c.IOPressureSome)
+				pressureFull.Add(c.IOPressureFull)
+			}
+			pressureChart.GetOrCreateChart("some").AddSeries(i.Name, pressureSome).Feature()
+			pressureChart.GetOrCreateChart("full").AddSeries(i.Name, pressureFull)
+		}
 		for _, v := range i.Volumes {
 			fullName := i.Name + ":" + v.MountPoint
 			if i.Node != nil {
@@ -81,9 +93,19 @@ func (a *appAuditor) storage() {
 							AddSeries("write", d.WriteOps, "amber")
 					}
 					if bandwidthChart != nil {
+						profileType := model.ProfileTypeNodeAgentIORead
+						if d.WrittenBytes.Reduce(timeseries.NanSum) > d.ReadBytes.Reduce(timeseries.NanSum) {
+							profileType = model.ProfileTypeNodeAgentIOWrite
+						}
+						query, _ := json.Marshal(map[string]any{"type": profileType})
 						bandwidthChart.GetOrCreateChart(fullName).Stacked().Sorted().
 							AddSeries("read", d.ReadBytes, "blue").
-							AddSeries("written", d.WrittenBytes, "amber")
+							AddSeries("written", d.WrittenBytes, "amber").
+							DrillDownLink = model.NewRouterLink("profile", "overview").
+							SetParam("view", "applications").
+							SetParam("id", a.app.Id).
+							SetParam("report", model.AuditReportProfiling).
+							SetArg("query", string(query))
 					}
 
 					latencyMs := model.NewTableCell().SetUnit("ms").SetValue(utils.FormatFloat(d.Await.Last() * 1000))
@@ -127,6 +149,15 @@ func (a *appAuditor) storage() {
 						SetThreshold("total", v.CapacityBytes)
 				}
 			}
+		}
+	}
+	if ioLoadChart != nil {
+		for _, ch := range ioLoadChart.Charts {
+			ch.DrillDownLink = model.NewRouterLink("profile", "overview").
+				SetParam("view", "applications").
+				SetParam("id", a.app.Id).
+				SetParam("report", model.AuditReportProfiling).
+				SetArg("query", model.ProfileCategoryIO)
 		}
 	}
 	if !seenVolumes {

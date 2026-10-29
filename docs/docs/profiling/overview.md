@@ -32,7 +32,7 @@ Coroot's profiling stack consists of several components:
 
 When you use Helm to install Coroot, all these components are automatically installed and seamlessly integrated with each other.
 
-The eBPF-based approach can only gather CPU profiles.
+The eBPF-based approach gathers CPU profiles and [disk I/O profiles](/profiling/ebpf-based-profiling#disk-io-profiling).
 To collect other profile types, such as memory or lock contention, language-specific profilers are used.
 
 To reduce network traffic and the memory Coroot needs for profile ingestion, `coroot-node-agent` prunes insignificant

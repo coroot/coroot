@@ -14,12 +14,16 @@ const (
 	ProfileCategoryCPU    = "cpu"
 	ProfileCategoryMemory = "memory"
 	ProfileCategoryLock   = "lock"
+	ProfileCategoryIO     = "io"
 )
 
 type ProfileType string
 
 const (
 	ProfileTypeNodeAgentCPU       ProfileType = "ebpf:cpu:nanoseconds"
+	ProfileTypeNodeAgentIOTime    ProfileType = "ebpf:io_time:nanoseconds"
+	ProfileTypeNodeAgentIORead    ProfileType = "ebpf:io_read:bytes"
+	ProfileTypeNodeAgentIOWrite   ProfileType = "ebpf:io_write:bytes"
 	ProfileTypeGoCPU              ProfileType = "go:profile_cpu:nanoseconds"
 	ProfileTypeGoHeapAllocObjects ProfileType = "go:heap_alloc_objects:count"
 	ProfileTypeGoHeapAllocSpace   ProfileType = "go:heap_alloc_space:bytes"
@@ -69,6 +73,24 @@ var (
 		ProfileTypeNodeAgentCPU: {
 			Category:    ProfileCategoryCPU,
 			Name:        "CPU (eBPF)",
+			Aggregation: ProfileAggregationSum,
+			NodeAgent:   true,
+		},
+		ProfileTypeNodeAgentIOTime: {
+			Category:    ProfileCategoryIO,
+			Name:        "Disk I/O time (eBPF)",
+			Aggregation: ProfileAggregationSum,
+			NodeAgent:   true,
+		},
+		ProfileTypeNodeAgentIORead: {
+			Category:    ProfileCategoryIO,
+			Name:        "Disk read bytes (eBPF)",
+			Aggregation: ProfileAggregationSum,
+			NodeAgent:   true,
+		},
+		ProfileTypeNodeAgentIOWrite: {
+			Category:    ProfileCategoryIO,
+			Name:        "Disk write bytes (eBPF)",
 			Aggregation: ProfileAggregationSum,
 			NodeAgent:   true,
 		},

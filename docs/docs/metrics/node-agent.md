@@ -68,11 +68,6 @@ Each container metric has the `container_id` label. This is a compound identifie
 
 ## Disk
 
-### container_resources_disk_delay_seconds_total
-* **Description**:  Total time duration the container has been waiting for I/Os to complete
-* **Type**: Counter
-* **Source**: [Delay accounting](https://www.kernel.org/doc/html/latest/accounting/delay-accounting.html)
-
 ### container_resources_io_pressure_waiting_seconds_total
 * **Description**: Total time in seconds that the container were delayed due to I/O pressure
 * **Type**: Counter
