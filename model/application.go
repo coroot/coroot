@@ -166,14 +166,13 @@ func (app *Application) SimilarLogPatternHashes(hash string) []string {
 
 func (app *Application) GetInstance(name, node string) *Instance {
 	for _, i := range app.instancesByName[name] {
-		switch app.Id.Kind {
-		case ApplicationKindStatefulSet:
+		if app.Id.Kind == ApplicationKindStatefulSet || i.Pod != nil {
 			if node == "" || i.NodeName() == "" || i.NodeName() == node {
 				return i
 			}
-		default:
-			return i
+			continue
 		}
+		return i
 	}
 	return nil
 }
