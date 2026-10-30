@@ -62,6 +62,55 @@ You can configure coroot-node-agent using command-line flags or environment vari
 | `--scrape-interval` | `SCRAPE_INTERVAL` | `15s` | How often to collect internal metrics |
 | `--wal-dir` | `WAL_DIR` | `/tmp/coroot-node-agent` | Directory for WAL storage |
 | `--max-spool-size` | `MAX_SPOOL_SIZE` | `500MB` | Max size for on-disk spool |
+| `--config-file` | `CONFIG_FILE` | `/etc/coroot-node-agent/config.yaml` | Path to the optional YAML configuration file (see [Configuration file](#configuration-file)) |
+
+## Configuration file
+
+Databases running on a node can be monitored by the node agent itself, from inside the node, instead of by
+[coroot-cluster-agent](/configuration/coroot-cluster-agent). This is meant for the cases where the cluster agent cannot
+reach the database: a MySQL or Postgres server installed as a system service on a VM and listening on `127.0.0.1` only,
+or a database in a network the cluster agent has no route to. For everything else, including databases in Kubernetes
+and managed cloud databases, use the cluster agent.
+
+The databases to monitor are listed in a YAML file. The agent reads it once at startup from the path given by `--config-file`,
+`/etc/coroot-node-agent/config.yaml` by default. The file is optional: when it is missing, the agent runs as usual and
+monitors no databases. When the agent runs as a container, mount the file into the container at that path. Environment
+variable references (`${VAR}`) in the file are expanded when it is read, so credentials can be kept out of the file.
+This feature is not available on Windows.
+
+```yaml
+databases:
+  - type: mysql                   # postgres, mysql, redis, memcached or mongodb
+    host: 127.0.0.1               # an IP address the server listens on, as seen from the node
+    port: "3306"
+    credentials:
+      username: coroot
+      password: ${MYSQL_PASSWORD}
+    params: {tls: "false"}        # the same per-type parameters as in the cluster agent: tls, sslmode, authSource
+  - type: postgres
+    host: 127.0.0.1
+    port: "5432"
+    credentials: {username: coroot, password: ${PG_PASSWORD}}
+    params: {sslmode: disable}
+  - type: redis
+    host: 127.0.0.1
+    port: "6379"
+```
+
+Every ten seconds the agent looks for a process on the node that listens on the configured address. The address must be
+an IP address, not a hostname. A loopback address matches only a server running in the host network namespace, that is a
+system service rather than a container. For a server in a container, use one of the container's own IP addresses. Once the
+listening process is found, the agent connects to the database from the node and attributes everything it collects to that
+process's container (a systemd unit, a Docker container or a pod), so the data shows up on the same application as the
+server's CPU, memory, network and log telemetry. If the server is stopped, the collection stops with it and resumes when it
+is back.
+
+What is collected is the same as with the cluster agent: the per-type metrics described on the database pages
+([Postgres](/databases/postgres), [MySQL](/databases/mysql), [Redis](/databases/redis), [MongoDB](/databases/mongodb),
+[Memcached](/databases/memcached)), and the schema and settings changes shown as events on the application, which are sent
+through the agent's logs endpoint. The required database privileges are also the same. The MySQL error log is not read
+from `performance_schema.error_log` in this mode, since the node agent already collects the server's log file and journal
+as container logs.
 
 ## Windows
 

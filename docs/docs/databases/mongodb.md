@@ -216,6 +216,25 @@ Coroot attributes the collected metrics to the application it sees clients conne
 custom resource take precedence over the UI. Installations without the operator can put the same `databases` list in
 the cluster-agent's [configuration file](/configuration/coroot-cluster-agent#configuration-file).
 
+### Monitoring from the node
+
+A MongoDB server installed as a system service on a VM, especially one listening on `127.0.0.1` only, can be monitored by
+[coroot-node-agent](/configuration/coroot-node-agent#configuration-file) running on that VM instead of the cluster agent.
+List it in the node agent's configuration file, `/etc/coroot-node-agent/config.yaml` by default:
+
+```yaml
+databases:
+  - type: mongodb
+    host: 127.0.0.1
+    port: "27017"
+    credentials:
+      username: coroot
+      password: ${MONGODB_PASSWORD}
+```
+
+The node agent finds the process listening on that address and attributes the collected metrics and the schema and settings
+change events to its application, so they appear next to the server's CPU, memory, network and log telemetry.
+
 ## What data is collected
 
 - **Server status**: connections (current, available, active, created, rejected), operation counters, document operations,
