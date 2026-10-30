@@ -27,14 +27,12 @@ The setup used in this guide:
 
 <img alt="A database shared by two Kubernetes clusters" src="/img/docs/guides/shared-database/architecture.svg" class="card w-1200"/>
 
-The database is monitored by two agents:
+The database is monitored by **coroot-node-agent** on the database host. It collects host metrics, logs, and the TCP
+connections of the MySQL process, and, with the database credentials in its
+[configuration file](/configuration/coroot-node-agent#configuration-file), connects to MySQL and collects the database
+metrics as well: queries, locks, replication, table sizes, and so on. Nothing has to reach the database from the outside.
 
-- **coroot-node-agent** on the database host collects host metrics, logs, and the TCP connections of the MySQL process.
-- **An additional coroot-cluster-agent** in cluster 1 connects to MySQL and collects database metrics: queries,
-  locks, replication, table sizes, and so on. It is installed with Kubernetes monitoring disabled, so it reports
-  nothing about the cluster it runs in: its only job is the database.
-
-Both of them report to the `shared-db` project. Cluster 1 and cluster 2 keep reporting to `app1` and `app2`.
+It reports to the `shared-db` project. Cluster 1 and cluster 2 keep reporting to `app1` and `app2`.
 Then two [multi-cluster projects](/configuration/multi-cluster), `app1-with-db` and `app2-with-db`, combine each
 application project with `shared-db`:
 
@@ -47,10 +45,9 @@ listens on the same address.
 ## Prerequisites
 
 - Two Kubernetes clusters with `kubectl` contexts (the examples below use `cluster-1` and `cluster-2`) and Helm 3.
-- Coroot 1.27.1 or later, Coroot Operator 1.10.6 or later, coroot-cluster-agent 1.11.5 or later.
-- Network access:
-  - from cluster 2 and from the database host to Coroot in cluster 1 (the examples use the node port `30001` on `10.10.0.2`),
-  - from cluster 1 to the database (`10.10.0.4:3306`).
+- Coroot 1.29.0 or later, Coroot Operator 1.10.6 or later, coroot-node-agent 1.39.0 or later.
+- Network access from cluster 2 and from the database host to Coroot in cluster 1 (the examples use the node port
+  `30001` on `10.10.0.2`).
 
 ## Step 1: Install Coroot in cluster 1
 
@@ -164,6 +161,31 @@ the database itself.
 
 ## Step 3: Install the node-agent on the database host
 
+Database metrics are collected over a regular MySQL connection, from the host itself. Create a user for the agent,
+limited to local connections (see [MySQL](/databases/mysql) for what each privilege is used for):
+
+```sql
+CREATE USER 'coroot'@'localhost' IDENTIFIED BY '<PASSWORD>';
+GRANT SELECT, PROCESS, REPLICATION CLIENT ON *.* TO 'coroot'@'localhost';
+```
+
+Put the database into the node-agent configuration file. The agent reads it at startup, so create it before installing
+the agent:
+
+```bash
+mkdir -p /etc/coroot-node-agent
+cat > /etc/coroot-node-agent/config.yaml <<EOF
+databases:
+  - type: mysql
+    host: 127.0.0.1
+    port: "3306"
+    credentials:
+      username: coroot
+      password: <PASSWORD>
+EOF
+chmod 600 /etc/coroot-node-agent/config.yaml
+```
+
 Get the API key of the `shared-db` project:
 
 ```bash
@@ -181,103 +203,24 @@ curl -sfL https://raw.githubusercontent.com/coroot/coroot-node-agent/main/instal
   sh -
 ```
 
-The agent discovers the MySQL process and the address it listens on. This is what lets Coroot recognize later that
-the external endpoint `10.10.0.4:3306` seen from the clusters and this MySQL instance are the same thing.
-
-## Step 4: Add a cluster-agent for the database
-
-Database metrics are collected by coroot-cluster-agent over a regular MySQL connection. Create a user for it
-on the database, limited to the network the agent connects from (see [MySQL](/databases/mysql) for what each
-privilege is used for):
-
-```sql
-CREATE USER 'coroot'@'10.10.0.%' IDENTIFIED BY '<PASSWORD>';
-GRANT SELECT, PROCESS, REPLICATION CLIENT ON *.* TO 'coroot'@'10.10.0.%';
-```
-
-Store the credentials in a secret in cluster 1:
+The agent discovers the MySQL process and the addresses it listens on. This is what lets Coroot recognize later that
+the external endpoint `10.10.0.4:3306` seen from the clusters and this MySQL instance are the same thing. It also finds
+that the process listens on the configured `127.0.0.1:3306`, connects to it, and attributes the collected MySQL metrics
+to the `mysqld` service. The log confirms it:
 
 ```bash
-kubectl config use-context cluster-1
-kubectl create secret generic -n coroot shared-db-mysql \
-  --from-literal=username=coroot \
-  --from-literal=password='<PASSWORD>'
-```
-
-The cluster-agent that is already running in cluster 1 reports to the `app1` project, so the database needs
-an agent of its own that reports to `shared-db`. Add a second Coroot custom resource to the same cluster:
-
-```yaml title="shared-db.yaml"
-apiVersion: coroot.com/v1
-kind: Coroot
-metadata:
-  name: shared-db # must differ from the name of the main custom resource
-  namespace: coroot
-spec:
-  agentsOnly:
-    corootURL: http://coroot-coroot.coroot:8080 # Coroot runs in the same cluster
-  apiKeySecret: # report to the shared-db project
-    name: coroot-api-keys
-    key: shared-db
-  nodeAgent:
-    enabled: false # the nodes of this cluster are already monitored
-  clusterAgent:
-    kubernetes:
-      enabled: false # collect nothing from this cluster: its only job is the database
-    databases:
-      - type: mysql
-        host: 10.10.0.4
-        port: "3306"
-        credentials:
-          usernameSecret:
-            name: shared-db-mysql
-            key: username
-          passwordSecret:
-            name: shared-db-mysql
-            key: password
-```
-
-```bash
-kubectl apply -f shared-db.yaml
-```
-
-What these settings do:
-
-- `agentsOnly` installs agents without another Coroot instance.
-- `nodeAgent.enabled: false` skips the node-agent DaemonSet: the one installed in Step 1 already covers the nodes.
-- `clusterAgent.kubernetes.enabled: false` turns off everything the cluster-agent normally collects from the cluster
-  it runs in: Kubernetes state metrics, events, and the databases, custom metrics and profiles discovered from pods.
-  Without it the `shared-db` project would get a second copy of cluster 1. The operator also doesn't grant this agent
-  any access to the Kubernetes API.
-- `clusterAgent.databases` lists the databases to monitor. The credentials are read from the secret by the operator
-  and passed to the agent as environment variables.
-
-The operator creates a single Deployment:
-
-```bash
-kubectl get pods -n coroot -l app.kubernetes.io/part-of=shared-db
+journalctl -u coroot-node-agent | grep 'database target'
 ```
 ```bash
-NAME                                       READY   STATUS    RESTARTS   AGE
-shared-db-cluster-agent-6b657c9894-sqcp8   1/1     Running   0          1m
-```
-
-Its log confirms the mode it runs in and the database it monitors:
-
-```bash
-kubectl logs -n coroot deploy/shared-db-cluster-agent | grep -E 'kubernetes|new target'
-```
-```bash
-k8s.go:50] kubernetes is disabled
-scraper.go:143] kubernetes is disabled, disabling k8s service discovery
-metrics.go:148] new target: mysql://10.10.0.4:3306 (10.10.0.4)
+databases.go:126] loaded 1 database targets from /etc/coroot-node-agent/config.yaml
+databases.go:162] database target mysql://127.0.0.1:3306: started exporter for /system.slice/mysqld.service
 ```
 
 In a few minutes the `shared-db` project contains the database host and the MySQL instance with its metrics.
 On its own this project is not very informative: none of the database clients report to it, so its Service Map
 doesn't show who uses the database. That's what the next step is for.
 
-## Step 5: Create the multi-cluster projects
+## Step 4: Create the multi-cluster projects
 
 Add two more projects to `coroot.yaml`. They have no API keys, only the list of projects they combine:
 
@@ -307,8 +250,8 @@ instance from the `shared-db` project.
 <img alt="The app1-with-db project: the database is a part of the service map" src="/img/docs/guides/shared-database/app1-with-db-map.png" class="card w-1200"/>
 
 The database is a regular application here, with its clients, instances, host metrics, logs, and the MySQL
-dashboard built from the metrics of the additional cluster-agent. The agent itself is listed among the clients,
-since it runs in cluster 1 and connects to the database to collect these metrics:
+dashboard built from the metrics collected by the node-agent on the host. The agent is listed among the clients as well,
+since it connects to the database to collect them:
 
 <img alt="MySQL metrics in the app1-with-db project" src="/img/docs/guides/shared-database/app1-with-db-mysql.png" class="card w-1200"/>
 
@@ -321,7 +264,4 @@ queries. Neither project contains anything from the other cluster.
 
 - The database is monitored once. Adding another cluster that uses it takes a project for the cluster and
   a multi-cluster project with `shared-db` as a member, with no changes on the database side.
-- The additional custom resource must be in the same namespace as the secrets it references and must have its own name:
-  the names of the resources created by the operator are derived from it.
-- To monitor several shared databases, add them to `clusterAgent.databases` of the same custom resource and install
-  the node-agent on each database host.
+- To monitor several shared databases, install the node-agent on each database host with its own configuration file.

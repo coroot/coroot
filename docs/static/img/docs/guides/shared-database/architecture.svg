@@ -17,14 +17,9 @@
 <text x="365" y="140" font-size="15" text-anchor="middle" fill="#000">orders</text>
 <path d="M221 134.5H288" stroke="#000" marker-end="url(#arrow)"/>
 
-<rect x="40.5" y="212.5" width="250" height="84" rx="4" fill="#fff" stroke="#000"/>
-<text x="165" y="250" font-size="15" text-anchor="middle" fill="#000">node-agent, cluster-agent</text>
-<text x="165" y="272" font-size="13" text-anchor="middle" fill="#555">project: app1</text>
-
-<rect x="310.5" y="212.5" width="250" height="84" rx="4" fill="#fff" stroke="#000"/>
-<text x="435" y="240" font-size="15" text-anchor="middle" fill="#000">additional cluster-agent</text>
-<text x="435" y="261" font-size="13" text-anchor="middle" fill="#555">Kubernetes monitoring disabled</text>
-<text x="435" y="281" font-size="13" text-anchor="middle" fill="#555">project: shared-db</text>
+<rect x="40.5" y="212.5" width="520" height="84" rx="4" fill="#fff" stroke="#000"/>
+<text x="300" y="250" font-size="15" text-anchor="middle" fill="#000">node-agent, cluster-agent</text>
+<text x="300" y="272" font-size="13" text-anchor="middle" fill="#555">project: app1</text>
 
 <rect x="40.5" y="360.5" width="520" height="120" rx="4" fill="#B8EFB6" stroke="#000"/>
 <text x="300" y="396" font-size="18" font-weight="600" text-anchor="middle" fill="#000">Coroot</text>
@@ -54,21 +49,19 @@
 <rect x="940.5" y="420.5" width="220" height="64" rx="4" fill="#fff" stroke="#000"/>
 <text x="1050" y="448" font-size="15" text-anchor="middle" fill="#000">node-agent</text>
 <text x="1050" y="469" font-size="13" text-anchor="middle" fill="#555">project: shared-db</text>
+<path d="M939 440H900V413" stroke="#000" stroke-dasharray="6 4" marker-end="url(#arrow)"/>
+<text x="846" y="434" font-size="13" fill="#000">metrics</text>
 
 <!-- queries -->
 <path d="M441 134C710 134 640 362 718 362" stroke="#000" marker-end="url(#arrow)"/>
 <text x="590" y="126" font-size="13" fill="#000">SQL</text>
 <path d="M845 157V344" stroke="#000" marker-end="url(#arrow)"/>
 <text x="855" y="290" font-size="13" fill="#000">SQL</text>
-<path d="M561 254C640 254 620 392 718 392" stroke="#000" stroke-dasharray="6 4" marker-end="url(#arrow)"/>
-<text x="586" y="246" font-size="13" fill="#000">metrics</text>
 
 <!-- telemetry -->
-<path d="M165 297V358" stroke="#2E9E46" stroke-width="1.5" marker-end="url(#arrow-g)"/>
-<path d="M435 297V358" stroke="#2E9E46" stroke-width="1.5" marker-end="url(#arrow-g)"/>
+<path d="M300 297V358" stroke="#2E9E46" stroke-width="1.5" marker-end="url(#arrow-g)"/>
 <path d="M939 222C700 222 660 286 660 340C660 400 630 430 562 430" stroke="#2E9E46" stroke-width="1.5" marker-end="url(#arrow-g)"/>
-<path d="M939 452C800 452 700 460 562 460" stroke="#2E9E46" stroke-width="1.5" marker-end="url(#arrow-g)"/>
-<text x="175" y="332" font-size="12" fill="#2E9E46">telemetry</text>
-<text x="445" y="332" font-size="12" fill="#2E9E46">telemetry</text>
+<path d="M939 468C800 468 700 466 562 460" stroke="#2E9E46" stroke-width="1.5" marker-end="url(#arrow-g)"/>
+<text x="310" y="332" font-size="12" fill="#2E9E46">telemetry</text>
 <text x="600" y="482" font-size="12" fill="#2E9E46">telemetry</text>
 </svg>
