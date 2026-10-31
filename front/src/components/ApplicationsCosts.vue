@@ -26,8 +26,9 @@
             </span>
         </h2>
 
-        <v-data-table
+        <DataTable
             v-if="category === null"
+            table-id="costs-categories"
             sort-by="usage_costs"
             sort-desc
             must-sort
@@ -109,10 +110,11 @@
                     </tr>
                 </tfoot>
             </template>
-        </v-data-table>
+        </DataTable>
 
-        <v-data-table
+        <DataTable
             v-else-if="!application"
+            table-id="costs-applications"
             sort-by="usage_costs"
             sort-desc
             must-sort
@@ -158,7 +160,7 @@
                 </template>
                 <template v-else>—</template>
             </template>
-        </v-data-table>
+        </DataTable>
 
         <div v-else>
             <div class="text-right">
@@ -241,7 +243,11 @@
 </template>
 
 <script>
+import DataTable from './DataTable.vue';
+
 export default {
+    components: { DataTable },
+
     props: {
         applications: Array,
     },
