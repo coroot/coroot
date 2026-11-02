@@ -319,6 +319,18 @@ func (cfg *Config) Validate() error {
 	if cfg.DefaultTimeRange < timeseries.Minute || cfg.DefaultTimeRange%timeseries.Minute != 0 {
 		return fmt.Errorf("invalid defaultTimeRange: %s (must be a whole number of minutes, e.g. 30m, 1h, 3h)", cfg.DefaultTimeRange)
 	}
+	for name, d := range map[string]timeseries.Duration{
+		"cache.ttl":         cfg.Cache.TTL,
+		"cache.gc_interval": cfg.Cache.GCInterval,
+		"traces.ttl":        cfg.Traces.TTL,
+		"logs.ttl":          cfg.Logs.TTL,
+		"profiles.ttl":      cfg.Profiles.TTL,
+		"metrics.ttl":       cfg.Metrics.TTL,
+	} {
+		if d <= 0 {
+			return fmt.Errorf("invalid %s: %s", name, d)
+		}
+	}
 
 	if cfg.HTTPDisabled && cfg.HTTPSListenAddress == "" {
 		return fmt.Errorf("at least one of HTTP or HTTPS listener must be enabled")

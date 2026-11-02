@@ -296,8 +296,8 @@ projects: # Create or update projects (configuration file only).
           categories:
             - production
         severity: critical         # One of: warning, critical.
-        for: 5m
-        keepFiringFor: 5m
+        for: 5m                    # How long the condition must be true before firing. Use 0s to fire on the first failed check.
+        keepFiringFor: 5m          # How long to keep firing after the condition clears. Use 0s to resolve immediately.
         templates:
           description: "Postgres latency is critically high in production."
         enabled: true

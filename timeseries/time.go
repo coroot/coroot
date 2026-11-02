@@ -73,7 +73,7 @@ func (d *Duration) UnmarshalJSON(b []byte) error {
 }
 
 func (d *Duration) UnmarshalYAML(value *yaml.Node) error {
-	return d.Set(value.Value)
+	return d.set(value.Value, true)
 }
 
 func (d Duration) MarshalYAML() (any, error) {
@@ -103,12 +103,16 @@ func (d Duration) ShortString() string {
 }
 
 func (d *Duration) Set(s string) error {
+	return d.set(s, false)
+}
+
+func (d *Duration) set(s string, allowZero bool) error {
 	pd, err := promModel.ParseDuration(s)
 	if err != nil {
 		return fmt.Errorf("invalid duration: %s", s)
 	}
 	td := DurationFromStandard(time.Duration(pd))
-	if td <= 0 {
+	if td <= 0 && !allowZero {
 		return fmt.Errorf("invalid duration: %s", s)
 	}
 	*d = td
