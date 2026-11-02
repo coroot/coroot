@@ -86,6 +86,7 @@ type AlertTemplateValues struct {
 Custom fields are static key-value pairs that you can configure in the webhook integration settings.
 Once defined, they are merged into the root of every notification's template data (incidents, deployments, and alerts)
 and are accessible both in templates and in `{{ json . }}` output.
+Field names must start with a letter and contain only letters, digits, and underscores.
 
 For example, if you add a custom field `environment` = `production`, you can reference it in templates as `{{ .Environment }}`.
 When using `{{ json . }}`, it will appear as a top-level key in the resulting JSON.
