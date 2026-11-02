@@ -148,7 +148,8 @@
             </div>
 
             <div v-else-if="query.view === 'overview'" class="mt-5" style="min-height: 50vh">
-                <v-data-table
+                <DataTable
+                    table-id="traces-overview"
                     :items="view.summary ? view.summary.stats : []"
                     :items-per-page="50"
                     sort-by="total"
@@ -230,7 +231,7 @@
                             </tr>
                         </tfoot>
                     </template>
-                </v-data-table>
+                </DataTable>
             </div>
 
             <div v-else-if="query.view === 'traces'" class="mt-5" style="min-height: 50vh">
@@ -323,7 +324,8 @@
                     This section highlights the underlying reasons why traces within the selected range contain errors. It identifies the tracing
                     spans where errors originated.
                 </div>
-                <v-data-table
+                <DataTable
+                    table-id="traces-errors"
                     :items="view.errors || []"
                     :items-per-page="20"
                     sort-by="count"
@@ -369,7 +371,7 @@
                             </div>
                         </div>
                     </template>
-                </v-data-table>
+                </DataTable>
             </div>
 
             <div v-else-if="query.view === 'latency'">
@@ -396,9 +398,10 @@ import Heatmap from '../components/Heatmap.vue';
 import TracingTrace from '../components/TracingTrace.vue';
 import FlameGraph from '../components/FlameGraph.vue';
 import OpenTelemetryIntegration from '@/views/OpenTelemetryIntegration.vue';
+import DataTable from '../components/DataTable.vue';
 
 export default {
-    components: { Views, OpenTelemetryIntegration, FlameGraph, TracingTrace, Heatmap },
+    components: { Views, OpenTelemetryIntegration, FlameGraph, TracingTrace, Heatmap, DataTable },
 
     data() {
         return {

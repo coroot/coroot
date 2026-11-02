@@ -2,11 +2,11 @@
     <Views :loading="loading" :error="error">
         <ApplicationFilter :applications="applications" @filter="setFilter" class="mb-4" />
 
-        <v-data-table
+        <DataTable
+            table-id="anomalies"
             dense
             class="table"
             mobile-breakpoint="0"
-            :items-per-page="50"
             :items="items"
             sort-by="application"
             sort-desc
@@ -80,16 +80,17 @@
                     </router-link>
                 </div>
             </template>
-        </v-data-table>
+        </DataTable>
     </Views>
 </template>
 
 <script>
 import Views from '@/views/Views.vue';
 import ApplicationFilter from '../components/ApplicationFilter.vue';
+import DataTable from '../components/DataTable.vue';
 
 export default {
-    components: { Views, ApplicationFilter },
+    components: { Views, ApplicationFilter, DataTable },
 
     data() {
         return {

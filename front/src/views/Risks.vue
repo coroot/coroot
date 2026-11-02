@@ -18,7 +18,8 @@
             />
         </div>
 
-        <v-data-table
+        <DataTable
+            table-id="risks"
             dense
             class="table"
             mobile-breakpoint="0"
@@ -149,13 +150,14 @@
                     </v-list>
                 </v-menu>
             </template>
-        </v-data-table>
+        </DataTable>
     </Views>
 </template>
 
 <script>
 import Views from '@/views/Views.vue';
 import ApplicationFilter from '../components/ApplicationFilter.vue';
+import DataTable from '../components/DataTable.vue';
 
 const statuses = {
     critical: { name: 'Critical', color: 'red lighten-1' },
@@ -164,7 +166,7 @@ const statuses = {
 };
 
 export default {
-    components: { Views, ApplicationFilter },
+    components: { Views, ApplicationFilter, DataTable },
 
     data() {
         return {

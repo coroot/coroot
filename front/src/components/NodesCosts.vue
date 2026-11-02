@@ -7,7 +7,8 @@
             </a>
         </h2>
 
-        <v-data-table
+        <DataTable
+            table-id="costs-nodes"
             :items="items"
             sort-by="idle_costs"
             sort-desc
@@ -59,19 +60,20 @@
                     </tr>
                 </tfoot>
             </template>
-        </v-data-table>
+        </DataTable>
     </div>
 </template>
 
 <script>
 import NodeUsageBar from './NodeUsageBar';
+import DataTable from './DataTable.vue';
 
 export default {
     props: {
         nodes: Array,
     },
 
-    components: { NodeUsageBar },
+    components: { NodeUsageBar, DataTable },
 
     computed: {
         items() {

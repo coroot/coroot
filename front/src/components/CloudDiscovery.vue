@@ -8,7 +8,8 @@
         <div v-for="e in errors" class="error--text mt-1" style="max-width: 800px">• {{ e }}</div>
 
         <h2 class="text-h6 mt-6 mb-3">Discovered instances</h2>
-        <v-data-table
+        <DataTable
+            :table-id="provider.toLowerCase() + '-instances'"
             :items="instances"
             sort-by="application_id"
             must-sort
@@ -33,15 +34,16 @@
                     {{ $utils.appId(item.application_id).name }}
                 </router-link>
             </template>
-        </v-data-table>
+        </DataTable>
     </div>
 </template>
 
 <script>
 import Led from './Led.vue';
+import DataTable from './DataTable.vue';
 
 export default {
-    components: { Led },
+    components: { Led, DataTable },
 
     props: {
         provider: String,
