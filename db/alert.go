@@ -136,7 +136,7 @@ func (db *DB) CreateAlertingRule(projectId ProjectId, r *model.AlertingRule) err
 	now := timeseries.Now()
 	r.CreatedAt = now
 	r.UpdatedAt = now
-	config, _ := json.Marshal(alertingRuleConfig{
+	config, err := json.Marshal(alertingRuleConfig{
 		Name:                 r.Name,
 		Source:               r.Source,
 		Selector:             r.Selector,
@@ -147,8 +147,11 @@ func (db *DB) CreateAlertingRule(projectId ProjectId, r *model.AlertingRule) err
 		NotificationCategory: r.NotificationCategory,
 		Readonly:             r.Readonly,
 	})
+	if err != nil {
+		return err
+	}
 
-	_, err := db.db.Exec(
+	_, err = db.db.Exec(
 		"INSERT INTO alerting_rule (id, project_id, config, enabled, builtin, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7)",
 		r.Id, projectId, string(config), boolToInt(r.Enabled), boolToInt(r.Builtin), r.CreatedAt, r.UpdatedAt)
 	return err
@@ -156,7 +159,7 @@ func (db *DB) CreateAlertingRule(projectId ProjectId, r *model.AlertingRule) err
 
 func (db *DB) UpdateAlertingRule(projectId ProjectId, r *model.AlertingRule) error {
 	r.UpdatedAt = timeseries.Now()
-	config, _ := json.Marshal(alertingRuleConfig{
+	config, err := json.Marshal(alertingRuleConfig{
 		Name:                 r.Name,
 		Source:               r.Source,
 		Selector:             r.Selector,
@@ -167,8 +170,11 @@ func (db *DB) UpdateAlertingRule(projectId ProjectId, r *model.AlertingRule) err
 		NotificationCategory: r.NotificationCategory,
 		Readonly:             r.Readonly,
 	})
+	if err != nil {
+		return err
+	}
 
-	_, err := db.db.Exec(
+	_, err = db.db.Exec(
 		"UPDATE alerting_rule SET config = $1, enabled = $2, updated_at = $3 WHERE project_id = $4 AND id = $5",
 		string(config), boolToInt(r.Enabled), r.UpdatedAt, projectId, r.Id)
 	return err
@@ -409,8 +415,11 @@ func (db *DB) CreateAlert(projectId ProjectId, a *model.Alert) error {
 	now := timeseries.Now()
 	a.OpenedAt = now
 	a.UpdatedAt = now
-	detailsJSON, _ := json.Marshal(a.Details)
-	_, err := db.db.Exec(
+	detailsJSON, err := json.Marshal(a.Details)
+	if err != nil {
+		return err
+	}
+	_, err = db.db.Exec(
 		"INSERT INTO alert (id, fingerprint, rule_id, project_id, application_id, application_category, severity, summary, details, opened_at, resolved_at, updated_at, suppressed, resolved_by, report, pattern_words, manually_resolved_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)",
 		a.Id, a.Fingerprint, a.RuleId, projectId, a.ApplicationId.String(), a.ApplicationCategory, a.Severity.String(), a.Summary, string(detailsJSON), a.OpenedAt, a.ResolvedAt, a.UpdatedAt, boolToInt(a.Suppressed), a.ResolvedBy, a.Report, a.PatternWords, a.ManuallyResolvedAt)
 	return err
@@ -418,8 +427,11 @@ func (db *DB) CreateAlert(projectId ProjectId, a *model.Alert) error {
 
 func (db *DB) UpdateAlert(projectId ProjectId, a *model.Alert) error {
 	a.UpdatedAt = timeseries.Now()
-	detailsJSON, _ := json.Marshal(a.Details)
-	_, err := db.db.Exec(
+	detailsJSON, err := json.Marshal(a.Details)
+	if err != nil {
+		return err
+	}
+	_, err = db.db.Exec(
 		"UPDATE alert SET severity = $1, summary = $2, details = $3, resolved_at = $4, updated_at = $5 WHERE project_id = $6 AND id = $7",
 		a.Severity.String(), a.Summary, string(detailsJSON), a.ResolvedAt, a.UpdatedAt, projectId, a.Id)
 	return err
