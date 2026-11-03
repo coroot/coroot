@@ -26,6 +26,21 @@ jobs:
       - run: mkdir static && touch static/file.txt && go vet ./...
       - run: go test ./...
       - run: go build -mod=readonly .
+  GO-LINT:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version: '1.25'
+      - run: mkdir static && touch static/file.txt
+      - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+        with:
+          version: v2.15.0
+          # Report only issues introduced by the change until existing ones are fixed.
+          only-new-issues: true
   UI:
     runs-on: ubuntu-latest
     defaults:

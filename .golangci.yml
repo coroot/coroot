@@ -1,0 +1,113 @@
+version: "2"
+
+run:
+  timeout: 10m
+  tests: true
+
+linters:
+  default: none
+  enable:
+    # bugs
+    - asasalint
+    - bidichk
+    - bodyclose
+    - contextcheck
+    - durationcheck
+    - errcheck
+    - errchkjson
+    - errorlint
+    - exhaustive
+    - fatcontext
+    - gocheckcompilerdirectives
+    - gosec
+    - govet
+    - ineffassign
+    - loggercheck
+    - makezero
+    - nilerr
+    - nilnesserr
+    - reassign
+    - rowserrcheck
+    - spancheck
+    - sqlclosecheck
+    - staticcheck
+    - testifylint
+    - unused
+    - wastedassign
+    # style and modernization
+    - asciicheck
+    - copyloopvar
+    - decorder
+    - dupword
+    - exptostd
+    - gocritic
+    - goconst
+    - godot
+    - intrange
+    - mirror
+    - misspell
+    - modernize
+    - nakedret
+    - nolintlint
+    - nosprintfhostport
+    - perfsprint
+    - predeclared
+    - revive
+    - sloglint
+    - unconvert
+    - unparam
+    - usestdlibvars
+    - usetesting
+
+  settings:
+    exhaustive:
+      default-signifies-exhaustive: true
+    goconst:
+      min-len: 5
+      min-occurrences: 4
+    revive:
+      rules:
+        - name: blank-imports
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: dot-imports
+        - name: empty-block
+        - name: error-naming
+        - name: error-return
+        - name: error-strings
+        - name: errorf
+        - name: increment-decrement
+        - name: indent-error-flow
+        - name: range
+        - name: receiver-naming
+        - name: redefines-builtin-id
+        - name: superfluous-else
+        - name: time-naming
+        - name: unexported-return
+        - name: unreachable-code
+        - name: var-declaration
+
+  exclusions:
+    generated: lax
+    paths:
+      - front
+      - docs
+    rules:
+      - path: _test\.go
+        linters:
+          - errcheck
+          - gosec
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - front
+      - docs
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
