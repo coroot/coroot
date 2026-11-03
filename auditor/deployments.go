@@ -1,6 +1,8 @@
 package auditor
 
 import (
+	"slices"
+
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
@@ -19,8 +21,7 @@ func (a *appAuditor) deployments() {
 
 	now := timeseries.Now()
 	statuses := model.CalcApplicationDeploymentStatuses(a.app, a.w.CheckConfigs, now)
-	for i := len(statuses) - 1; i >= 0; i-- {
-		ds := statuses[i]
+	for i, ds := range slices.Backward(statuses) {
 		version := model.NewTableCell().SetStatus(ds.Status, ds.Deployment.Version()).AddTag("age: %s", utils.FormatDuration(ds.Lifetime, 1))
 		from, to := ds.Deployment.StartedAt.Add(-30*timeseries.Minute), ds.Deployment.StartedAt.Add(30*timeseries.Minute)
 		version.Link = model.NewRouterLink(ds.Deployment.Version(), "overview").

@@ -87,7 +87,7 @@ func mergeCustomFields(values any, customFields map[string]string) any {
 		customKeys = append(customKeys, k)
 		fields = append(fields, reflect.StructField{
 			Name: exported,
-			Type: reflect.TypeOf(""),
+			Type: reflect.TypeFor[string](),
 			Tag:  reflect.StructTag(`json:"` + k + `"`),
 		})
 	}

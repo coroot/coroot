@@ -23,13 +23,13 @@ const (
 
 var (
 	blockBufferPool = sync.Pool{
-		New: func() interface{} {
+		New: func() any {
 			return make([]byte, blockSize)
 		},
 	}
 
 	blockCompressionBufferPool = sync.Pool{
-		New: func() interface{} {
+		New: func() any {
 			return make([]byte, blockCompressBound)
 		},
 	}
@@ -249,10 +249,7 @@ func (d *dict) idx(s string) int {
 	if !ok {
 		idx = len(d.d)
 		d.d[s] = idx
-		size := len(s)
-		if size > math.MaxUint16 {
-			size = math.MaxUint16
-		}
+		size := min(len(s), math.MaxUint16)
 		_ = binary.Write(d.buf, binary.LittleEndian, uint16(size))
 		_, _ = d.buf.Write(unsafe.Slice(unsafe.StringData(s), size))
 	}

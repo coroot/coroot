@@ -30,13 +30,13 @@ func fullURL(r *http.Request) *url.URL {
 
 	// RFC 7239 Forwarded header
 	if fwd := r.Header.Get("Forwarded"); fwd != "" {
-		parts := strings.Split(fwd, ";")
-		for _, p := range parts {
+		parts := strings.SplitSeq(fwd, ";")
+		for p := range parts {
 			p = strings.TrimSpace(p)
-			if strings.HasPrefix(p, "proto=") {
-				u.Scheme = strings.TrimPrefix(p, "proto=")
-			} else if strings.HasPrefix(p, "host=") {
-				u.Host = strings.TrimPrefix(p, "host=")
+			if after, ok := strings.CutPrefix(p, "proto="); ok {
+				u.Scheme = after
+			} else if after, ok := strings.CutPrefix(p, "host="); ok {
+				u.Host = after
 			}
 		}
 	}

@@ -268,7 +268,7 @@ func calcApplicationStatus(s *ApplicationStatus) {
 		if !v.Type().Field(i).IsExported() {
 			continue
 		}
-		p, ok := v.Field(i).Interface().(ApplicationParam)
+		p, ok := reflect.TypeAssert[ApplicationParam](v.Field(i))
 		if ok && p.Status > s.Status {
 			s.Status = p.Status
 		}

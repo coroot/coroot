@@ -178,25 +178,19 @@ func handleProjectUpdate(database *db.DB, cache *cache.Cache, pricing *pricing.M
 
 	wg := sync.WaitGroup{}
 	if incidents != nil {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			incidents.Check(project, world)
-		}()
+		})
 	}
 	if deployments != nil {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			deployments.Check(project, world)
-		}()
+		})
 	}
 	if alerts != nil {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			alerts.Check(project, world, from, to, step)
-		}()
+		})
 	}
 	wg.Wait()
 	klog.Infof("%s: iteration done in %s", project.Id, time.Since(start).Truncate(time.Millisecond))

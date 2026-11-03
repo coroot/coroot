@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
@@ -48,10 +49,8 @@ type PropagationMapApplication struct {
 
 func (app *PropagationMapApplication) Issue(format string, a ...any) {
 	issue := fmt.Sprintf(format, a...)
-	for _, i := range app.Issues {
-		if i == issue {
-			return
-		}
+	if slices.Contains(app.Issues, issue) {
+		return
 	}
 	app.Issues = append(app.Issues, issue)
 }

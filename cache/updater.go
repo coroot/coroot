@@ -58,7 +58,7 @@ func (c *Cache) updater() {
 				go c.updaterWorker(workers, project.Id, step)
 			}
 		}
-		workers.Range(func(key, value interface{}) bool {
+		workers.Range(func(key, value any) bool {
 			if !ids[key.(db.ProjectId)] {
 				workers.Delete(key)
 			}
@@ -149,13 +149,11 @@ func (c *Cache) projectUpdateIteration(project *db.Project, step timeseries.Dura
 	tasks := make(chan UpdateTask)
 	to := now.Add(-step)
 	for i := 0; i < QueryConcurrency; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			for task := range tasks {
 				c.download(to, promClient, project.Id, step, task)
 			}
-		}()
+		})
 	}
 	for _, q := range queries {
 		tasks <- UpdateTask{query: q, state: states[q.Query]}
@@ -206,10 +204,7 @@ func (c *Cache) updaterWorker(projects *sync.Map, projectId db.ProjectId, step t
 		}
 		duration := time.Since(start)
 		klog.Infof("%s: cache updated in %s", projectId, duration.Truncate(time.Millisecond))
-		refreshInterval := step
-		if refreshInterval < MinRefreshInterval {
-			refreshInterval = MinRefreshInterval
-		}
+		refreshInterval := max(step, MinRefreshInterval)
 		time.Sleep(refreshInterval.ToStandard() - duration)
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"math"
 	"regexp"
 	"sort"
@@ -464,9 +465,7 @@ func (w *Alerts) evaluatePromQLAlerts(project *db.Project, rule *model.AlertingR
 		}
 
 		labels := make(map[string]string, len(mv.Labels))
-		for k, v := range mv.Labels {
-			labels[k] = v
-		}
+		maps.Copy(labels, mv.Labels)
 		fingerprint := calcFingerprint(string(rule.Id), "", labels)
 		activeFingerprints[fingerprint] = true
 

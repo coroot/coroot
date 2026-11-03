@@ -1,6 +1,7 @@
 package constructor
 
 import (
+	"maps"
 	"net"
 	"slices"
 
@@ -27,14 +28,10 @@ func mergeWorlds(worlds []*model.World) *model.World {
 			if dest == nil {
 				res.Applications[appId] = app
 			} else {
-				for id, c := range app.Downstreams {
-					dest.Downstreams[id] = c
-				}
+				maps.Copy(dest.Downstreams, app.Downstreams)
 			}
 		}
-		for appId, checkConfig := range w.CheckConfigs {
-			res.CheckConfigs[appId] = checkConfig
-		}
+		maps.Copy(res.CheckConfigs, w.CheckConfigs)
 		if w.Flux != nil {
 			if res.Flux == nil {
 				res.Flux = model.NewFlux()
@@ -56,9 +53,7 @@ func mergeWorlds(worlds []*model.World) *model.World {
 		if w.IntegrationStatus.KubeStateMetrics.Installed {
 			res.IntegrationStatus.KubeStateMetrics.Installed = true
 		}
-		for id, name := range w.ProjectNamesById {
-			res.ProjectNamesById[id] = name
-		}
+		maps.Copy(res.ProjectNamesById, w.ProjectNamesById)
 	}
 	for _, app := range res.Applications {
 		for _, u := range app.Upstreams {
