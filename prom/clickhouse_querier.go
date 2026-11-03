@@ -52,7 +52,7 @@ func (q *clickhouseQuerier) Select(ctx context.Context, _ bool, hints *storage.S
 			{Name: "Values", Data: values},
 		},
 		OnResult: func(ctx context.Context, block proto.Block) error {
-			for i := 0; i < block.Rows; i++ {
+			for i := range block.Rows {
 				lsMap := metricLabels.Row(i)
 				lb := labels.NewScratchBuilder(len(lsMap) + 1)
 				lb.Add(promModel.MetricNameLabel, metricName.Row(i))
@@ -104,7 +104,7 @@ func (q *clickhouseQuerier) LabelValues(ctx context.Context, name string, _ *sto
 				q.mint/1000, q.maxt/1000, q.buildWhere(matchers)),
 			Result: proto.Results{{Name: "LabelValue", Data: value}},
 			OnResult: func(ctx context.Context, block proto.Block) error {
-				for i := 0; i < block.Rows; i++ {
+				for i := range block.Rows {
 					res = append(res, value.Row(i))
 				}
 				return nil
@@ -122,7 +122,7 @@ func (q *clickhouseQuerier) LabelValues(ctx context.Context, name string, _ *sto
 			"Labels['"+escapeString(name)+"']", q.mint/1000, q.maxt/1000, q.buildWhere(matchers)),
 		Result: proto.Results{{Name: "LabelValue", Data: value}},
 		OnResult: func(ctx context.Context, block proto.Block) error {
-			for i := 0; i < block.Rows; i++ {
+			for i := range block.Rows {
 				res = append(res, value.Row(i))
 			}
 			return nil

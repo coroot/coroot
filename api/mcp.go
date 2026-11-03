@@ -876,7 +876,7 @@ func mcpDownsample(values []float32, n int) []*float32 {
 		return nil
 	}
 	out := make([]*float32, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		start := i * total / n
 		end := (i + 1) * total / n
 		if end > total {

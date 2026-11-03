@@ -57,7 +57,7 @@ func EscapeJsonMultilineStrings(data []byte) []byte {
 	for o := range offsets {
 		to := offsets[o]
 		b.Write(data[from:to])
-		b.Write([]byte("\\n"))
+		b.WriteString("\\n")
 		from = to + 1
 	}
 	b.Write(data[from:])

@@ -628,7 +628,7 @@ var Checks = struct {
 
 func init() {
 	cs := reflect.ValueOf(&Checks).Elem()
-	for i := 0; i < cs.NumField(); i++ {
+	for i := range cs.NumField() {
 		if !cs.Type().Field(i).IsExported() {
 			continue
 		}

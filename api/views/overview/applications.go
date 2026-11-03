@@ -264,7 +264,7 @@ func init() {
 
 func calcApplicationStatus(s *ApplicationStatus) {
 	v := reflect.ValueOf(s).Elem()
-	for i := 0; i < v.NumField(); i++ {
+	for i := range v.NumField() {
 		if !v.Type().Field(i).IsExported() {
 			continue
 		}

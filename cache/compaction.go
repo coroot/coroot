@@ -76,7 +76,7 @@ func (c *Cache) compaction() {
 	}
 	tasksCh := make(chan CompactionTask)
 
-	for i := 0; i < cfg.WorkersNum; i++ {
+	for range cfg.WorkersNum {
 		go func(ch <-chan CompactionTask) {
 			klog.Infoln("compaction worker started")
 			for t := range ch {
