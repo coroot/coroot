@@ -3,6 +3,7 @@ package model
 import (
 	"fmt"
 	"sort"
+	"strconv"
 
 	"github.com/coroot/coroot/timeseries"
 )
@@ -252,7 +253,7 @@ func (c *TableCell) SetEventsCount(count uint64) *TableCell {
 		c.Value = fmt.Sprintf("%.1f", float32(count)/1e3)
 		c.SetUnit("k")
 	default:
-		c.Value = fmt.Sprintf("%d", count)
+		c.Value = strconv.FormatUint(count, 10)
 	}
 	return c
 }

@@ -2,6 +2,7 @@ package dashboards
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"regexp"
 
@@ -29,7 +30,7 @@ func (ds *Dashboards) PanelData(ctx context.Context, promClients map[string]prom
 			}
 			pc, ok := promClients[q.DataSource]
 			if !ok {
-				return nil, fmt.Errorf("invalid datasource")
+				return nil, errors.New("invalid datasource")
 			}
 
 			query := q.Query

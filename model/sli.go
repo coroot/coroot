@@ -102,7 +102,7 @@ func HistogramSeries(buckets []HistogramBucket, objectiveBucket, objectivePercen
 			h.Name = fmt.Sprintf("%.0fms", to*1000)
 			h.Title = fmt.Sprintf("%.0f-%.0f ms", from*1000, to*1000)
 		default:
-			h.Name = fmt.Sprintf("%ss", humanize.Ftoa(float64(to)))
+			h.Name = humanize.Ftoa(float64(to)) + "s"
 			h.Title = fmt.Sprintf("%s-%s s", humanize.Ftoa(float64(from)), humanize.Ftoa(float64(to)))
 		}
 		res = append(res, h)

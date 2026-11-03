@@ -2,7 +2,7 @@ package db
 
 import (
 	"database/sql"
-	"fmt"
+	"errors"
 
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
@@ -33,7 +33,7 @@ func (ad *ApplicationDeployment) Migrate(m *Migrator) error {
 
 func (db *DB) SaveApplicationDeployment(projectId ProjectId, d *model.ApplicationDeployment) error {
 	if d.StartedAt.IsZero() {
-		return fmt.Errorf("invalid deployment")
+		return errors.New("invalid deployment")
 	}
 
 	rows, err := db.db.Query(

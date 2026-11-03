@@ -36,10 +36,10 @@ func (s *Slack) SendIncident(ctx context.Context, baseUrl string, n *db.Incident
 	var header, snippet string
 	if n.Status == model.OK {
 		header = fmt.Sprintf("<%s|*%s* incident resolved>", incidentUrl(baseUrl, n), n.ApplicationId.Name)
-		snippet = fmt.Sprintf("%s incident resolved", n.ApplicationId.Name)
+		snippet = n.ApplicationId.Name + " incident resolved"
 	} else {
 		header = fmt.Sprintf("[%s] <%s|*%s* is not meeting its SLOs>", strings.ToUpper(n.Status.String()), incidentUrl(baseUrl, n), n.ApplicationId.Name)
-		snippet = fmt.Sprintf("%s is not meeting its SLOs", n.ApplicationId.Name)
+		snippet = n.ApplicationId.Name + " is not meeting its SLOs"
 	}
 	var details []string
 	if n.Details != nil {
@@ -54,9 +54,9 @@ func (s *Slack) SendIncident(ctx context.Context, baseUrl string, n *db.Incident
 		blocks = append(blocks, s.section(s.text("%s", strings.Join(details, "\n"))))
 	}
 	if n.Details != nil && n.Details.RCASummary != "" {
-		rca := fmt.Sprintf("*Root Cause*: %s", n.Details.RCASummary)
+		rca := "*Root Cause*: " + n.Details.RCASummary
 		if n.Details.RCARemediations != "" {
-			rca += fmt.Sprintf("\n*Remediations*: %s", utils.Truncate(n.Details.RCARemediations, 2000))
+			rca += "\n*Remediations*: " + utils.Truncate(n.Details.RCARemediations, 2000)
 		}
 		blocks = append(blocks, s.section(s.text("%s", rca)))
 	}
@@ -92,9 +92,11 @@ func (s *Slack) SendDeployment(ctx context.Context, project *db.Project, ds mode
 		items := "No notable changes"
 		if len(ds.Summary) > 0 {
 			items = ""
+			var sb strings.Builder
 			for _, s := range ds.Summary {
-				items += fmt.Sprintf("%s %s\n", s.Emoji(), s.Message)
+				fmt.Fprintf(&sb, "%s %s\n", s.Emoji(), s.Message)
 			}
+			items += sb.String()
 		}
 		summary = s.section(s.text("*Summary*\n%s", items))
 	}
@@ -171,10 +173,10 @@ func (s *Slack) SendAlert(ctx context.Context, baseUrl string, n *db.AlertNotifi
 	var details []string
 	if n.Details != nil {
 		if n.Details.ProjectName != "" {
-			details = append(details, fmt.Sprintf("*Project*: %s", n.Details.ProjectName))
+			details = append(details, "*Project*: "+n.Details.ProjectName)
 		}
 		if n.Details.RuleName != "" {
-			details = append(details, fmt.Sprintf("*Alerting rule*: %s", n.Details.RuleName))
+			details = append(details, "*Alerting rule*: "+n.Details.RuleName)
 		}
 		for _, d := range n.Details.Details {
 			if d.Code {

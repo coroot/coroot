@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
@@ -114,13 +115,15 @@ func (db *DB) GetAlertNotificationsByAlertIds(projectId ProjectId, alertIds []st
 		FROM alert_notification
 		WHERE project_id = $1 AND alert_id IN (`
 	args := []any{projectId}
+	var sb strings.Builder
 	for i, id := range alertIds {
 		if i > 0 {
-			query += ", "
+			sb.WriteString(", ")
 		}
 		args = append(args, id)
-		query += fmt.Sprintf("$%d", len(args))
+		fmt.Fprintf(&sb, "$%d", len(args))
 	}
+	query += sb.String() //nolint:gosec // only $N placeholders are concatenated, values are passed as args
 	query += `) ORDER BY alert_id, timestamp`
 
 	rows, err := db.db.Query(query, args...)

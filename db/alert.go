@@ -329,11 +329,13 @@ func (db *DB) QueryAlerts(projectId ProjectId, q AlertsQuery) (*AlertsResult, er
 			}
 			sort.Strings(ids)
 			expr := "CASE"
+			var sb strings.Builder
 			for _, id := range ids {
-				expr += fmt.Sprintf(" WHEN alert.application_id LIKE $%d THEN $%d", argIndex, argIndex+1)
+				fmt.Fprintf(&sb, " WHEN alert.application_id LIKE $%d THEN $%d", argIndex, argIndex+1)
 				args = append(args, id+":%", q.ClusterNames[id])
 				argIndex += 2
 			}
+			expr += sb.String()
 			expr += " ELSE '' END"
 			orderBy = expr
 		}

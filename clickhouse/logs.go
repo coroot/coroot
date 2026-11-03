@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -109,7 +110,7 @@ func (c *Client) GetLogs(ctx context.Context, query LogQuery) ([]*model.LogEntry
 	}
 	where, args := query.filters(nil)
 	cond := strings.Join(where, " AND ")
-	limit := fmt.Sprint(query.Limit)
+	limit := strconv.Itoa(query.Limit)
 	cutoff := "SELECT min(Timestamp) FROM (SELECT Timestamp FROM @@table_otel_logs@@ WHERE " + cond + " ORDER BY Timestamp DESC LIMIT " + limit + ")"
 	q := "SELECT ServiceName, Timestamp, multiIf(SeverityNumber=0, 0, intDiv(SeverityNumber, 4)+1), SeverityText, Body, TraceId, ResourceAttributes, LogAttributes"
 	q += " FROM @@table_otel_logs@@"
