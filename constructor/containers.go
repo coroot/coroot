@@ -751,7 +751,7 @@ func getOrCreateInstanceGPU(instance *model.Instance, m *model.MetricValues) *mo
 }
 
 func externalServiceName(port string) string {
-	service := ""
+	var service string
 	switch port {
 	case "5432":
 		service = "postgres"

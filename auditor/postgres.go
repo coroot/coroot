@@ -1242,10 +1242,10 @@ func checkReplicationLag(instance *model.Instance, instances []*model.Instance, 
 	}
 
 	tCurr, vCurr := primaryLsn.LastNotNull()
-	t, tPast, vPast := timeseries.Time(0), timeseries.Time(0), timeseries.NaN
+	var tPast timeseries.Time
 	iter := primaryLsn.Iter()
 	for iter.Next() {
-		t, vPast = iter.Value()
+		t, vPast := iter.Value()
 		if vPast > vCurr { // wraparound (e.g., complete cluster redeploy)
 			continue
 		}

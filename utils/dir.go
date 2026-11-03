@@ -29,13 +29,12 @@ func CreateDirectoryIfNotExists(path string) error {
 }
 
 func GetInstanceUuid(dataDir string) string {
-	instanceUuid := ""
 	filePath := path.Join(dataDir, "instance.uuid")
 	data, err := os.ReadFile(filePath)
 	if err != nil && !os.IsNotExist(err) {
 		klog.Errorln("failed to read instance id:", err)
 	}
-	instanceUuid = strings.TrimSpace(string(data))
+	instanceUuid := strings.TrimSpace(string(data))
 	if _, err = uuid.Parse(instanceUuid); err != nil {
 		instanceUuid = uuid.NewString()
 		if err = os.WriteFile(filePath, []byte(instanceUuid), 0644); err != nil {
