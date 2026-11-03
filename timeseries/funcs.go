@@ -36,30 +36,30 @@ func NanCount(t Time, count, v float32) float32 {
 	return count
 }
 
-func Max(t Time, max, v float32) float32 {
-	if IsNaN(max) {
+func Max(t Time, acc, v float32) float32 {
+	if IsNaN(acc) {
 		return v
 	}
 	if IsNaN(v) {
-		return max
+		return acc
 	}
-	if v > max {
+	if v > acc {
 		return v
 	}
-	return max
+	return acc
 }
 
-func Min(t Time, min, v float32) float32 {
-	if IsNaN(min) {
+func Min(t Time, acc, v float32) float32 {
+	if IsNaN(acc) {
 		return v
 	}
 	if IsNaN(v) {
-		return min
+		return acc
 	}
-	if v < min {
+	if v < acc {
 		return v
 	}
-	return min
+	return acc
 }
 
 func Defined(t Time, v float32) float32 {

@@ -92,21 +92,21 @@ func (c *Cache) deleteProject(projectId db.ProjectId) error {
 }
 
 func (c *Cache) getMinUpdateTime(projectId db.ProjectId) (timeseries.Time, error) {
-	var min sql.NullInt64
-	err := c.state.QueryRow("SELECT min(last_ts) FROM prometheus_query_state WHERE project_id = $1", projectId).Scan(&min)
+	var minTs sql.NullInt64
+	err := c.state.QueryRow("SELECT min(last_ts) FROM prometheus_query_state WHERE project_id = $1", projectId).Scan(&minTs)
 	if err != nil {
 		return 0, err
 	}
-	return timeseries.Time(min.Int64), nil
+	return timeseries.Time(minTs.Int64), nil
 }
 
 func (c *Cache) getMinUpdateTimeWithoutRecordingRules(projectId db.ProjectId) (timeseries.Time, error) {
-	var min sql.NullInt64
-	err := c.state.QueryRow("SELECT min(last_ts) FROM prometheus_query_state WHERE project_id = $1 AND query NOT LIKE 'rr_%'", projectId).Scan(&min)
+	var minTs sql.NullInt64
+	err := c.state.QueryRow("SELECT min(last_ts) FROM prometheus_query_state WHERE project_id = $1 AND query NOT LIKE 'rr_%'", projectId).Scan(&minTs)
 	if err != nil {
 		return 0, err
 	}
-	return timeseries.Time(min.Int64), nil
+	return timeseries.Time(minTs.Int64), nil
 }
 
 func (c *Cache) getStatus(projectId db.ProjectId) (*Status, error) {
@@ -116,13 +116,13 @@ func (c *Cache) getStatus(projectId db.ProjectId) (*Status, error) {
 		return nil, err
 	}
 	now := timeseries.Now()
-	var max, avg sql.NullFloat64
-	if err := c.state.QueryRow("SELECT max($1 - last_ts), avg($1 - last_ts) FROM prometheus_query_state WHERE project_id = $2", now, projectId).Scan(&max, &avg); err != nil {
+	var maxLag, avgLag sql.NullFloat64
+	if err := c.state.QueryRow("SELECT max($1 - last_ts), avg($1 - last_ts) FROM prometheus_query_state WHERE project_id = $2", now, projectId).Scan(&maxLag, &avgLag); err != nil {
 		return nil, err
 	}
-	if max.Valid && avg.Valid {
-		s.LagMax = timeseries.Duration(max.Float64)
-		s.LagAvg = timeseries.Duration(avg.Float64)
+	if maxLag.Valid && avgLag.Valid {
+		s.LagMax = timeseries.Duration(maxLag.Float64)
+		s.LagAvg = timeseries.Duration(avgLag.Float64)
 	} else {
 		s.LagMax = BackFillInterval
 		s.LagAvg = BackFillInterval
