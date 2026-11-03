@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
 	"slices"
 	"strconv"
@@ -24,7 +25,6 @@ import (
 	"github.com/prometheus/prometheus/promql"
 	"github.com/prometheus/prometheus/promql/parser"
 	"github.com/prometheus/prometheus/storage"
-	"golang.org/x/exp/maps"
 	"k8s.io/klog"
 )
 
@@ -107,7 +107,7 @@ func (c *ClickHouse) QueryRange(ctx context.Context, query string, filterLabels 
 			mv.Values.Set(timeseries.Time(f.T/1000), float32(f.F))
 		}
 	}
-	return maps.Values(res), nil
+	return slices.Collect(maps.Values(res)), nil
 }
 
 func (c *ClickHouse) QueryRangeHandler(r *http.Request, w http.ResponseWriter) {

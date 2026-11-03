@@ -3,7 +3,9 @@ package collector
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
+	"slices"
 	"sort"
 
 	"github.com/coroot/coroot/constructor"
@@ -11,7 +13,6 @@ import (
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
-	"golang.org/x/exp/maps"
 	"inet.af/netaddr"
 	"k8s.io/klog"
 )
@@ -125,7 +126,7 @@ func (c *Collector) Config(w http.ResponseWriter, r *http.Request) {
 						}
 					}
 				}
-				if ip := SelectIP(maps.Values(ips)); ip != nil {
+				if ip := SelectIP(slices.Collect(maps.Values(ips))); ip != nil {
 					i := ApplicationInstrumentation{
 						Type:        instrumentation.Type,
 						Host:        ip.String(),

@@ -1,8 +1,10 @@
 package model
 
 import (
+	"maps"
+	"slices"
+
 	"github.com/coroot/coroot/timeseries"
-	"golang.org/x/exp/maps"
 )
 
 type IntegrationStatus struct {
@@ -85,7 +87,7 @@ func (w *World) GetCorootComponents() []*Application {
 			}
 		}
 	}
-	return maps.Values(components)
+	return slices.Collect(maps.Values(components))
 }
 
 func (w *World) ClusterName(clusterId string) string {

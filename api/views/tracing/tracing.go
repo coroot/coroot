@@ -3,7 +3,9 @@ package tracing
 import (
 	"context"
 	"fmt"
+	"maps"
 	"net/url"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -11,7 +13,6 @@ import (
 	"github.com/coroot/coroot/clickhouse"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/utils"
-	"golang.org/x/exp/maps"
 	"k8s.io/klog"
 )
 
@@ -191,7 +192,7 @@ func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, 
 			sq := clickhouse.SpanQuery{
 				Ctx: w.Ctx,
 			}
-			histogram, e = ch.GetInboundSpansHistogram(ctx, sq, maps.Keys(appClients), listens)
+			histogram, e = ch.GetInboundSpansHistogram(ctx, sq, slices.Collect(maps.Keys(appClients)), listens)
 			if e != nil {
 				err = e
 			}
@@ -208,7 +209,7 @@ func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, 
 				Errors:  errors,
 				Limit:   limit,
 			}
-			spans, e = ch.GetInboundSpans(ctx, sq, maps.Keys(appClients), listens)
+			spans, e = ch.GetInboundSpans(ctx, sq, slices.Collect(maps.Keys(appClients)), listens)
 			if e != nil {
 				err = e
 			}
@@ -383,5 +384,5 @@ func getMonitoringPodIps(w *model.World, clusterId string) []string {
 			}
 		}
 	}
-	return maps.Keys(res)
+	return slices.Collect(maps.Keys(res))
 }

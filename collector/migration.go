@@ -2,12 +2,13 @@ package collector
 
 import (
 	"context"
+	"maps"
+	"slices"
 	"time"
 
 	"github.com/coroot/coroot/ch"
 	"github.com/coroot/coroot/db"
 	"github.com/jpillora/backoff"
-	"golang.org/x/exp/maps"
 	"k8s.io/klog"
 )
 
@@ -16,7 +17,7 @@ func (c *Collector) migrateProjects() {
 	for {
 		t := time.Now()
 		c.projectsLock.Lock()
-		projects := maps.Values(c.projects)
+		projects := slices.Collect(maps.Values(c.projects))
 		c.projectsLock.Unlock()
 		var failed bool
 		for _, p := range projects {

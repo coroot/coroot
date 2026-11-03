@@ -2,6 +2,8 @@ package watchers
 
 import (
 	"context"
+	"maps"
+	"slices"
 	"sync"
 	"time"
 
@@ -13,7 +15,6 @@ import (
 	"github.com/coroot/coroot/constructor"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/timeseries"
-	"golang.org/x/exp/maps"
 	"k8s.io/klog"
 )
 
@@ -215,7 +216,7 @@ func runSpaceManagerOnce(cfg config.ClickHouseSpaceManager, database *db.DB, glo
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	if err := clickhouse.RunSpaceManagerForProjects(ctx, cfg, maps.Values(projects), globalClickHouse); err != nil {
+	if err := clickhouse.RunSpaceManagerForProjects(ctx, cfg, slices.Collect(maps.Values(projects)), globalClickHouse); err != nil {
 		klog.Errorf("clickhouse space manager: failed: %v", err)
 	}
 }

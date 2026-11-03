@@ -5,9 +5,11 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net"
 	"net/http"
 	"net/textproto"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -18,7 +20,6 @@ import (
 	chproto "github.com/ClickHouse/ch-go/proto"
 	"github.com/coroot/coroot/config"
 	"github.com/coroot/coroot/db"
-	"golang.org/x/exp/maps"
 	"golang.org/x/net/websocket"
 	"k8s.io/klog"
 )
@@ -148,7 +149,7 @@ func (c *LowLevelClient) info(ctx context.Context, address string) error {
 	switch {
 	case len(clusters) == 0:
 	case len(clusters) == 1:
-		c.cluster = maps.Keys(clusters)[0]
+		c.cluster = slices.Collect(maps.Keys(clusters))[0]
 	case clusters["coroot"]:
 		c.cluster = "coroot"
 	case clusters["default"]:

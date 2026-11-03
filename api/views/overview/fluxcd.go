@@ -1,10 +1,11 @@
 package overview
 
 import (
+	"maps"
+	"slices"
 	"sort"
 
 	"github.com/coroot/coroot/model"
-	"golang.org/x/exp/maps"
 )
 
 type InventoryEntry struct {
@@ -133,7 +134,7 @@ func renderFluxCD(w *model.World) []*FluxCDResource {
 	}
 
 	for id, kustomization := range flux.Kustomizations {
-		dependencies := maps.Keys(kustomization.DependsOn)
+		dependencies := slices.Collect(maps.Keys(kustomization.DependsOn))
 		sort.Slice(dependencies, func(i, j int) bool {
 			return dependencies[i].String() < dependencies[j].String()
 		})
@@ -160,7 +161,7 @@ func renderFluxCD(w *model.World) []*FluxCDResource {
 	}
 
 	for id, resourceSet := range flux.ResourceSets {
-		dependencies := maps.Keys(resourceSet.DependsOn)
+		dependencies := slices.Collect(maps.Keys(resourceSet.DependsOn))
 		sort.Slice(dependencies, func(i, j int) bool {
 			return dependencies[i].String() < dependencies[j].String()
 		})

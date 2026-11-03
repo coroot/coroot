@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
 	"net/url"
 	"slices"
@@ -32,7 +33,6 @@ import (
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 	"github.com/gorilla/mux"
-	"golang.org/x/exp/maps"
 	"gopkg.in/yaml.v3"
 	"k8s.io/klog"
 )
@@ -807,7 +807,7 @@ func (api *Api) ApplicationCategories(w http.ResponseWriter, r *http.Request, u 
 
 	categories := project.GetApplicationCategories()
 	if !r.URL.Query().Has("name") {
-		cs := maps.Values(categories)
+		cs := slices.Collect(maps.Values(categories))
 		sort.Slice(cs, func(i, j int) bool {
 			if cs[i].Builtin != cs[j].Builtin {
 				return cs[i].Builtin

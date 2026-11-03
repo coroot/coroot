@@ -1,6 +1,7 @@
 package application
 
 import (
+	"maps"
 	"slices"
 	"sort"
 
@@ -8,7 +9,6 @@ import (
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
-	"golang.org/x/exp/maps"
 )
 
 type View struct {
@@ -61,7 +61,7 @@ func Render(project *db.Project, world *model.World, app *model.Application) *Vi
 			Indicators: model.CalcIndicators(app),
 			Labels:     app.Labels(),
 		},
-		CustomApplications: maps.Keys(project.Settings.CustomApplications),
+		CustomApplications: slices.Collect(maps.Keys(project.Settings.CustomApplications)),
 	}
 	for name := range project.Settings.ApplicationCategorySettings {
 		if !name.Default() {

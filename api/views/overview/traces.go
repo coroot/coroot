@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -13,7 +15,6 @@ import (
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
-	"golang.org/x/exp/maps"
 	"k8s.io/klog"
 )
 
@@ -382,7 +383,7 @@ func getMonitoringAndControlPlanePodIps(w *model.World, clusterId string) []stri
 			}
 		}
 	}
-	return maps.Keys(res)
+	return slices.Collect(maps.Keys(res))
 }
 
 func getMonitoringAndControlPlaneServices(w *model.World, clusterId string) []string {
@@ -456,7 +457,7 @@ func addChildrenSpans(node *model.FlameGraphNode, byParent map[string][]*model.T
 			intervalSet[s.Timestamp.UnixNano()] = true
 			intervalSet[s.Timestamp.Add(s.Duration).UnixNano()] = true
 		}
-		intervals := maps.Keys(intervalSet)
+		intervals := slices.Collect(maps.Keys(intervalSet))
 		sort.Slice(intervals, func(i, j int) bool { return intervals[i] < intervals[j] })
 		for i := range intervals[:len(intervals)-1] {
 			from, to := intervals[i], intervals[i+1]

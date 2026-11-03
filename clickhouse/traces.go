@@ -5,7 +5,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"maps"
 	"math"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -15,7 +17,6 @@ import (
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
-	"golang.org/x/exp/maps"
 	"k8s.io/klog"
 )
 
@@ -115,7 +116,7 @@ func (c *Client) GetParentSpans(ctx context.Context, spans []*model.TraceSpan) (
 	var minTs, maxTs time.Time
 	err := c.QueryRow(ctx,
 		"SELECT min(Start), max(End)+1 FROM @@table_otel_traces_trace_id_ts@@ WHERE TraceId IN (@traceIds)",
-		clickhouse.Named("traceIds", maps.Keys(traceIds)),
+		clickhouse.Named("traceIds", slices.Collect(maps.Keys(traceIds))),
 	).Scan(&minTs, &maxTs)
 	if err != nil {
 		return nil, err
@@ -127,7 +128,7 @@ func (c *Client) GetParentSpans(ctx context.Context, spans []*model.TraceSpan) (
 	return c.getSpans(ctx, q, "",
 		[]string{"TraceId IN (@traceIds)", "(TraceId, SpanId) IN (@ids)"},
 		[]any{
-			clickhouse.Named("traceIds", maps.Keys(traceIds)),
+			clickhouse.Named("traceIds", slices.Collect(maps.Keys(traceIds))),
 			clickhouse.Named("ids", ids),
 		},
 	)
@@ -519,7 +520,7 @@ func (c *Client) getTraces(ctx context.Context, from, to timeseries.Time, filter
 			return nil, err
 		}
 	}
-	return maps.Values(res), nil
+	return slices.Collect(maps.Values(res)), nil
 }
 
 func (c *Client) getTraceSpans(ctx context.Context, from, to timeseries.Time, traceIds []string, res map[string]*model.Trace) error {
@@ -857,7 +858,7 @@ func inboundSpansFilter(clients []string, listens []model.Listen, fromMV bool) (
 	}
 	args := []any{
 		clickhouse.Named("services", clients),
-		clickhouse.Named("ips", maps.Keys(ips)),
+		clickhouse.Named("ips", slices.Collect(maps.Keys(ips))),
 		clickhouse.Named("addrs", addrs),
 	}
 	return filter, args

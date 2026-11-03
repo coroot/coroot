@@ -4,13 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"sort"
 
 	"github.com/coroot/coroot/cache/chunk"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
-	"golang.org/x/exp/maps"
 	"k8s.io/klog"
 )
 
@@ -43,7 +44,7 @@ func (c *Client) QueryRange(ctx context.Context, query string, from, to timeseri
 	res := map[uint64]*model.MetricValues{}
 	resPoints := int(to.Sub(from)/step + 1)
 
-	chunks := maps.Values(qData.chunksOnDisk)
+	chunks := slices.Collect(maps.Values(qData.chunksOnDisk))
 	sort.Slice(chunks, func(i, j int) bool {
 		return chunks[i].Created < chunks[j].Created
 	})
@@ -60,7 +61,7 @@ func (c *Client) QueryRange(ctx context.Context, query string, from, to timeseri
 			continue
 		}
 	}
-	return maps.Values(res), nil
+	return slices.Collect(maps.Values(res)), nil
 }
 
 func (c *Client) GetStep(from, to timeseries.Time) (timeseries.Duration, error) {

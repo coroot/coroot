@@ -4,14 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/url"
+	"slices"
 	"sort"
 	"strings"
 
 	"github.com/coroot/coroot/clickhouse"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
-	"golang.org/x/exp/maps"
 	"k8s.io/klog"
 )
 
@@ -86,7 +87,7 @@ func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, 
 				services[model.ContainerIdToServiceName(c.Id)] = true
 			}
 		}
-		if s := model.GuessService(maps.Keys(profileTypes), w, app); len(services) == 0 && s != "" {
+		if s := model.GuessService(slices.Collect(maps.Keys(profileTypes)), w, app); len(services) == 0 && s != "" {
 			services[s] = true
 		}
 	}
@@ -146,7 +147,7 @@ func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, 
 
 	chart, containers := getChart(app, q.Type, w.Ctx, q.Instance)
 	v.Chart = chart
-	v.Instances = maps.Keys(containers)
+	v.Instances = slices.Collect(maps.Keys(containers))
 	sort.Strings(v.Instances)
 	v.Profile = &model.Profile{Type: q.Type, Diff: q.Mode == "diff"}
 	pq := clickhouse.ProfileQuery{
@@ -154,7 +155,7 @@ func Render(ctx context.Context, ch *clickhouse.Client, app *model.Application, 
 		From:     q.From,
 		To:       q.To,
 		Diff:     v.Profile.Diff,
-		Services: maps.Keys(services),
+		Services: slices.Collect(maps.Keys(services)),
 	}
 	if q.Instance != "" {
 		if model.Profiles[q.Type].NodeAgent {

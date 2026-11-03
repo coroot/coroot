@@ -2,9 +2,9 @@ package utils
 
 import (
 	"encoding/json"
+	"maps"
+	"slices"
 	"sort"
-
-	"golang.org/x/exp/maps"
 )
 
 type StringSet struct {
@@ -54,7 +54,7 @@ func (ss *StringSet) Items() []string {
 	if ss == nil {
 		return []string{}
 	}
-	res := maps.Keys(ss.m)
+	res := slices.Collect(maps.Keys(ss.m))
 	sort.Strings(res)
 	return res
 }

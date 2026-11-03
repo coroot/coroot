@@ -2,12 +2,12 @@ package db
 
 import (
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/utils"
-	"golang.org/x/exp/maps"
 )
 
 type ApplicationCategory struct {
@@ -88,7 +88,7 @@ func (p *Project) CalcApplicationCategory(appId model.ApplicationId) model.Appli
 	id := fmt.Sprintf("%s/%s", appId.Namespace, appId.Name)
 
 	settings := p.Settings.ApplicationCategorySettings
-	names := maps.Keys(settings)
+	names := slices.Collect(maps.Keys(settings))
 	slices.Sort(names)
 	for _, name := range names {
 		if s := settings[name]; s == nil || len(s.CustomPatterns) == 0 {
@@ -98,7 +98,7 @@ func (p *Project) CalcApplicationCategory(appId model.ApplicationId) model.Appli
 		}
 	}
 
-	names = maps.Keys(model.BuiltinCategoryPatterns)
+	names = slices.Collect(maps.Keys(model.BuiltinCategoryPatterns))
 	slices.Sort(names)
 	for _, name := range names {
 		if utils.GlobMatch(id, model.BuiltinCategoryPatterns[name]...) {

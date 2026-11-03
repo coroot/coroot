@@ -3,13 +3,14 @@ package clickhouse
 import (
 	"context"
 	"fmt"
+	"maps"
 	"net"
+	"slices"
 	"strconv"
 
 	"github.com/coroot/coroot/ch"
 	"github.com/coroot/coroot/config"
 	"github.com/coroot/coroot/db"
-	"golang.org/x/exp/maps"
 	"k8s.io/klog"
 )
 
@@ -207,7 +208,7 @@ func RunSpaceManagerForProjects(ctx context.Context, cfg config.ClickHouseSpaceM
 		return nil
 	}
 	for addr, cluster := range clusters {
-		if err := runSpaceManagerOnCluster(ctx, cluster.project, cfg, cluster.config, maps.Keys(cluster.databases)); err != nil {
+		if err := runSpaceManagerOnCluster(ctx, cluster.project, cfg, cluster.config, slices.Collect(maps.Keys(cluster.databases))); err != nil {
 			klog.Errorf("failed for cluster %s: %v", addr, err)
 		}
 	}

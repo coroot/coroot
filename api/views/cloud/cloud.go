@@ -1,12 +1,11 @@
 package cloud
 
 import (
+	"maps"
+	"slices"
 	"strings"
 
-	"slices"
-
 	"github.com/coroot/coroot/model"
-	"golang.org/x/exp/maps"
 )
 
 type View struct {
@@ -115,7 +114,7 @@ func instances(w *model.World, managed func(*model.Instance) (status, engine, ve
 }
 
 func errors(m map[string]bool) []string {
-	res := maps.Keys(m)
+	res := slices.Collect(maps.Keys(m))
 	slices.Sort(res)
 	return res
 }

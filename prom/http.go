@@ -7,9 +7,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"net/url"
 	"path"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -18,7 +20,6 @@ import (
 	"github.com/coroot/coroot/timeseries"
 	promModel "github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/promql/parser"
-	"golang.org/x/exp/maps"
 	"k8s.io/klog"
 )
 
@@ -165,7 +166,7 @@ func (c *HttpClient) QueryRange(ctx context.Context, query string, filterLabels 
 	if _, err := jsonparser.ArrayEach(buf.Bytes(), f, "data", "result"); err != nil {
 		return nil, err
 	}
-	return maps.Values(res), nil
+	return slices.Collect(maps.Values(res)), nil
 }
 
 func (c *HttpClient) MetricMetadata(r *http.Request, w http.ResponseWriter) {

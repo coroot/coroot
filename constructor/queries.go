@@ -2,6 +2,7 @@ package constructor
 
 import (
 	"fmt"
+	"maps"
 	"net"
 	"slices"
 	"strconv"
@@ -13,7 +14,6 @@ import (
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 	promModel "github.com/prometheus/common/model"
-	"golang.org/x/exp/maps"
 	"k8s.io/klog"
 )
 
@@ -43,7 +43,7 @@ const (
 	qRecordingRuleApplicationDNSLatency          = "rr_application_dns_latency"
 )
 
-var applicationAnnotations = maps.Keys(model.ApplicationAnnotationLabels)
+var applicationAnnotations = slices.Collect(maps.Keys(model.ApplicationAnnotationLabels))
 
 var qConnectionAggregations = []string{
 	qRecordingRuleApplicationTCPSuccessful,

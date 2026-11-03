@@ -2,13 +2,14 @@ package model
 
 import (
 	"fmt"
+	"maps"
 	"net"
+	"slices"
 	"sort"
 	"strconv"
 
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
-	"golang.org/x/exp/maps"
 )
 
 type ClusterManager string
@@ -445,7 +446,7 @@ func (app *Application) ApplicationTypes() map[ApplicationType]bool {
 }
 
 func (app *Application) ApplicationType() ApplicationType {
-	types := maps.Keys(app.ApplicationTypes())
+	types := slices.Collect(maps.Keys(app.ApplicationTypes()))
 	if len(types) == 0 {
 		return ApplicationTypeUnknown
 	}

@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -14,7 +16,6 @@ import (
 	"github.com/coroot/coroot/config"
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/grpc"
-	"golang.org/x/exp/maps"
 	"k8s.io/klog"
 )
 
@@ -120,7 +121,7 @@ func (c *Collector) getProject(apiKey string) (*db.Project, error) {
 	if isEmptyKey {
 		var project *db.Project
 		if len(c.projects) == 1 {
-			project = maps.Values(c.projects)[0]
+			project = slices.Collect(maps.Values(c.projects))[0]
 		} else {
 			for _, p := range c.projects {
 				if p.Name == "default" {

@@ -38,7 +38,6 @@ require (
 	go.opentelemetry.io/collector/semconv v0.110.0
 	go.opentelemetry.io/proto/otlp v1.9.0
 	golang.org/x/crypto v0.53.0
-	golang.org/x/exp v0.0.0-20260218203240-3dfff04db8fa
 	golang.org/x/net v0.56.0
 	golang.org/x/term v0.44.0
 	gonum.org/v1/gonum v0.17.0

@@ -3,13 +3,14 @@ package dashboards
 import (
 	"context"
 	"fmt"
+	"maps"
 	"regexp"
+	"slices"
 
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/prom"
 	"github.com/coroot/coroot/timeseries"
-	"golang.org/x/exp/maps"
 )
 
 type PanelData struct {
@@ -25,7 +26,7 @@ func (ds *Dashboards) PanelData(ctx context.Context, promClients map[string]prom
 				continue
 			}
 			if len(promClients) == 1 && q.DataSource == "" {
-				q.DataSource = maps.Keys(promClients)[0]
+				q.DataSource = slices.Collect(maps.Keys(promClients))[0]
 			}
 			pc, ok := promClients[q.DataSource]
 			if !ok {
