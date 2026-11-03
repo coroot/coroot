@@ -137,6 +137,11 @@ func (w *Alerts) Check(project *db.Project, world *model.World, from, to timeser
 
 func (w *Alerts) evaluateCheckAlert(project *db.Project, rule *model.AlertingRule, app *model.Application, check *model.Check, report model.AuditReportName, now timeseries.Time) {
 	fingerprint := calcFingerprint(string(rule.Id), app.Id.String(), nil)
+	if check.Status == model.UNKNOWN {
+		// Missing observations establish neither recovery nor a continuous breach.
+		delete(w.pendingAlerts, fingerprint)
+		return
+	}
 
 	isFiring := check.Status > model.OK
 
