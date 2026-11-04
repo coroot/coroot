@@ -47,6 +47,9 @@ func (db *DB) SaveApplicationDeployment(projectId ProjectId, d *model.Applicatio
 	}()
 
 	if !rows.Next() {
+		if err = rows.Err(); err != nil {
+			return err
+		}
 		details, err := marshal(d.Details)
 		if err != nil {
 			return err
@@ -66,7 +69,7 @@ func (db *DB) SaveApplicationDeployment(projectId ProjectId, d *model.Applicatio
 	}
 	var savedFinishedAt timeseries.Time
 	if err := rows.Scan(&savedFinishedAt); err != nil {
-		return nil
+		return err
 	}
 	_ = rows.Close()
 	if !savedFinishedAt.IsZero() {

@@ -336,7 +336,7 @@ func (db *DB) GetOpenIncidents(projectId ProjectId) ([]*model.ApplicationInciden
 		}
 		res = append(res, i)
 	}
-	return res, nil
+	return res, rows.Err()
 }
 
 func (db *DB) GetLastOpenIncident(projectId ProjectId, appId model.ApplicationId) (*model.ApplicationIncident, error) {
@@ -450,7 +450,7 @@ func (db *DB) GetNotSentIncidentNotifications(from timeseries.Time) ([]IncidentN
 		}
 		res = append(res, n)
 	}
-	return res, nil
+	return res, rows.Err()
 }
 
 func (db *DB) GetPreviousIncidentNotifications(n IncidentNotification) ([]IncidentNotification, error) {
@@ -484,7 +484,7 @@ func (db *DB) GetPreviousIncidentNotifications(n IncidentNotification) ([]Incide
 		}
 		res = append(res, n)
 	}
-	return res, nil
+	return res, rows.Err()
 }
 
 func (db *DB) GetSentIncidentNotificationsStat(from timeseries.Time) map[IntegrationType]int {
@@ -505,6 +505,10 @@ func (db *DB) GetSentIncidentNotificationsStat(from timeseries.Time) map[Integra
 			return nil
 		}
 		res[destination] = count
+	}
+	if err = rows.Err(); err != nil {
+		klog.Errorln(err)
+		return nil
 	}
 	return res
 }

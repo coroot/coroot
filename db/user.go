@@ -112,6 +112,9 @@ func (db *DB) DefaultAdminUserIsTheOnlyUser() (*User, error) {
 			return nil, err
 		}
 	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
 	if !u.IsDefaultAdmin() {
 		return nil, nil
 	}
@@ -145,7 +148,7 @@ func (db *DB) GetUsers() ([]*User, error) {
 		}
 		res = append(res, &u)
 	}
-	return res, nil
+	return res, rows.Err()
 }
 
 func (db *DB) AuthUser(email, password string) (int, error) {
@@ -242,11 +245,13 @@ func (db *DB) ChangeUserPassword(id int, oldPassword, newPassword string) error 
 }
 
 func (db *DB) DeleteUser(id int) error {
-	if _, err := db.db.Exec("DELETE FROM user_api_keys WHERE user_id = $1", id); err != nil {
+	return db.withTx(func(tx *sql.Tx) error {
+		if _, err := tx.Exec("DELETE FROM user_api_keys WHERE user_id = $1", id); err != nil {
+			return err
+		}
+		_, err := tx.Exec("DELETE FROM users WHERE id = $1", id)
 		return err
-	}
-	_, err := db.db.Exec("DELETE FROM users WHERE id = $1", id)
-	return err
+	})
 }
 
 func (db *DB) AddServiceAccount(login, name string, role rbac.RoleName) (int, error) {
@@ -306,11 +311,15 @@ func (db *DB) GetUserApiKeys(userId int) ([]UserApiKey, error) {
 		}
 		res = append(res, k)
 	}
-	return res, nil
+	return res, rows.Err()
 }
 
 func (db *DB) AddUserApiKey(userId int, key, description string) error {
-	_, err := db.db.Exec("INSERT INTO user_api_keys(user_id, hash, description) VALUES($1, $2, $3)", userId, hashApiKey(key), description)
+	return db.addUserApiKey(db.db, userId, key, description)
+}
+
+func (db *DB) addUserApiKey(e execer, userId int, key, description string) error {
+	_, err := e.Exec("INSERT INTO user_api_keys(user_id, hash, description) VALUES($1, $2, $3)", userId, hashApiKey(key), description)
 	if db.IsUniqueViolationError(err) {
 		return ErrConflict
 	}
@@ -323,38 +332,48 @@ func (db *DB) DeleteUserApiKey(userId, id int) error {
 }
 
 func (db *DB) SetUserApiKeys(userId int, keys []ApiKey) error {
-	rows, err := db.db.Query("SELECT hash FROM user_api_keys WHERE user_id = $1", userId)
+	return db.withTx(func(tx *sql.Tx) error {
+		existing, err := getUserApiKeyHashes(tx, userId)
+		if err != nil {
+			return err
+		}
+		wanted := map[string]ApiKey{}
+		for _, k := range keys {
+			wanted[hashApiKey(k.Key)] = k
+		}
+		for hash := range existing {
+			if _, ok := wanted[hash]; ok {
+				continue
+			}
+			if _, err = tx.Exec("DELETE FROM user_api_keys WHERE user_id = $1 AND hash = $2", userId, hash); err != nil {
+				return err
+			}
+		}
+		for hash, k := range wanted {
+			if existing[hash] {
+				continue
+			}
+			if err = db.addUserApiKey(tx, userId, k.Key, k.Description); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+func getUserApiKeyHashes(tx *sql.Tx, userId int) (map[string]bool, error) {
+	rows, err := tx.Query("SELECT hash FROM user_api_keys WHERE user_id = $1", userId)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer rows.Close()
-	existing := map[string]bool{}
+	res := map[string]bool{}
 	for rows.Next() {
 		var hash string
 		if err = rows.Scan(&hash); err != nil {
-			return err
+			return nil, err
 		}
-		existing[hash] = true
+		res[hash] = true
 	}
-	wanted := map[string]ApiKey{}
-	for _, k := range keys {
-		wanted[hashApiKey(k.Key)] = k
-	}
-	for hash := range existing {
-		if _, ok := wanted[hash]; ok {
-			continue
-		}
-		if _, err = db.db.Exec("DELETE FROM user_api_keys WHERE user_id = $1 AND hash = $2", userId, hash); err != nil {
-			return err
-		}
-	}
-	for hash, k := range wanted {
-		if existing[hash] {
-			continue
-		}
-		if err = db.AddUserApiKey(userId, k.Key, k.Description); err != nil {
-			return err
-		}
-	}
-	return nil
+	return res, rows.Err()
 }
