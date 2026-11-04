@@ -46,6 +46,8 @@ func (n *AlertNotification) Migrate(m *Migrator) error {
 		external_key TEXT NOT NULL DEFAULT '',
 		details TEXT
 	);
+	CREATE INDEX IF NOT EXISTS alert_notification_not_sent ON alert_notification (timestamp) WHERE sent_at = 0;
+	CREATE INDEX IF NOT EXISTS alert_notification_alert ON alert_notification (project_id, alert_id, destination, timestamp);
 `)
 }
 

@@ -79,6 +79,8 @@ func (n *IncidentNotification) Migrate(m *Migrator) error {
 		external_key TEXT NOT NULL DEFAULT '',
 		details TEXT
 	);
+	CREATE INDEX IF NOT EXISTS incident_notification_not_sent ON incident_notification (timestamp) WHERE sent_at = 0;
+	CREATE INDEX IF NOT EXISTS incident_notification_incident ON incident_notification (project_id, incident_key, destination, timestamp);
 `)
 }
 
