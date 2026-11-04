@@ -20,7 +20,7 @@ require (
 	github.com/grafana/pyroscope-go/godeltaprof v0.1.8
 	github.com/hako/durafmt v0.0.0-20210608085754-5c1018a4e16b
 	github.com/jpillora/backoff v1.0.0
-	github.com/klauspost/compress v1.18.5
+	github.com/klauspost/compress v1.18.7
 	github.com/lib/pq v1.10.7
 	github.com/mark3labs/mcp-go v0.45.0
 	github.com/matoous/go-nanoid v1.5.0
