@@ -204,7 +204,6 @@ func Write(f io.Writer, from timeseries.Time, pointsCount int, step timeseries.D
 func readNStrings(buf []byte, n int) ([]string, error) {
 	res := make([]string, 0, n)
 	offset := 0
-	size := 0
 	for range n {
 		if offset+2 > len(buf) {
 			return nil, fmt.Errorf("%w: %w", ErrCorrupted, io.ErrUnexpectedEOF)
