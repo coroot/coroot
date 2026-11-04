@@ -1,6 +1,7 @@
 package constructor
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/coroot/coroot/db"
@@ -100,11 +101,8 @@ func (c *Constructor) loadApplicationLogs(w *model.World, metrics map[string][]*
 		similarPatterns := strings.Split(similar, " ")
 		var p *model.LogPattern
 		for _, pp := range msgs.Patterns {
-			for _, h := range similarPatterns {
-				if pp.SimilarPatternHashes.Has(h) {
-					p = pp
-					break
-				}
+			if slices.ContainsFunc(similarPatterns, pp.SimilarPatternHashes.Has) {
+				p = pp
 			}
 			if p != nil {
 				break

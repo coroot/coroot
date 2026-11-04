@@ -1,6 +1,8 @@
 package model
 
 import (
+	"slices"
+
 	"github.com/coroot/coroot/timeseries"
 	"github.com/coroot/coroot/utils"
 )
@@ -101,12 +103,7 @@ func (r *AlertingRule) Matches(app *Application) bool {
 	case AppSelectorTypeAll:
 		return true
 	case AppSelectorTypeCategory:
-		for _, cat := range r.Selector.Categories {
-			if string(app.Category) == cat {
-				return true
-			}
-		}
-		return false
+		return slices.Contains(r.Selector.Categories, string(app.Category))
 	case AppSelectorTypeApplications:
 		return utils.GlobMatch(app.Id.StringWithoutClusterId(), r.Selector.ApplicationIdPatterns...)
 	}
@@ -118,12 +115,7 @@ func (r *AlertingRule) MatchesAlert(a *Alert) bool {
 	case AppSelectorTypeAll:
 		return true
 	case AppSelectorTypeCategory:
-		for _, cat := range r.Selector.Categories {
-			if string(a.ApplicationCategory) == cat {
-				return true
-			}
-		}
-		return false
+		return slices.Contains(r.Selector.Categories, string(a.ApplicationCategory))
 	case AppSelectorTypeApplications:
 		return utils.GlobMatch(a.ApplicationId.StringWithoutClusterId(), r.Selector.ApplicationIdPatterns...)
 	}

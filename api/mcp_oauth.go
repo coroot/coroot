@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -461,12 +462,7 @@ func mcpVerifyPKCE(verifier, challenge string) bool {
 }
 
 func mcpRedirectURIAllowed(allowed []string, given string) bool {
-	for _, a := range allowed {
-		if a == given {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(allowed, given)
 }
 
 func mcpOAuthError(w http.ResponseWriter, status int, code, desc string) {

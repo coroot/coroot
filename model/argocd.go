@@ -1,6 +1,10 @@
 package model
 
-import "github.com/coroot/coroot/timeseries"
+import (
+	"maps"
+
+	"github.com/coroot/coroot/timeseries"
+)
 
 const (
 	ApplicationKindArgoApplication ApplicationKind = "ArgoCDApplication"
@@ -17,9 +21,7 @@ func NewArgoCD() *ArgoCD {
 }
 
 func (a *ArgoCD) Merge(other *ArgoCD) {
-	for id, v := range other.Applications {
-		a.Applications[id] = v
-	}
+	maps.Copy(a.Applications, other.Applications)
 }
 
 type ArgoManagedResource struct {

@@ -137,12 +137,12 @@ func (c *Client) ClusterId() string {
 	return c.project.ClusterId()
 }
 
-func (c *Client) Query(ctx context.Context, query string, args ...interface{}) (driver.Rows, error) {
+func (c *Client) Query(ctx context.Context, query string, args ...any) (driver.Rows, error) {
 	query = ch.ReplaceTables(query, c.useDistributed)
 	return c.conn.Query(ctx, query, args...)
 }
 
-func (c *Client) QueryRow(ctx context.Context, query string, args ...interface{}) driver.Row {
+func (c *Client) QueryRow(ctx context.Context, query string, args ...any) driver.Row {
 	query = ch.ReplaceTables(query, c.useDistributed)
 	return c.conn.QueryRow(ctx, query, args...)
 }
@@ -389,7 +389,7 @@ type ServerDiskInfo struct {
 
 type ServerResult struct {
 	Addr  string
-	Data  interface{}
+	Data  any
 	Error error
 }
 
@@ -429,7 +429,7 @@ func GetClusterInfo(ctx context.Context, cfg *db.IntegrationClickhouse, project 
 	return ci, nil
 }
 
-func executeOnAllServers(ctx context.Context, config *db.IntegrationClickhouse, topology []ClusterNode, project *db.Project, operation func(*Client) (interface{}, error)) ([]ServerResult, error) {
+func executeOnAllServers(ctx context.Context, config *db.IntegrationClickhouse, topology []ClusterNode, project *db.Project, operation func(*Client) (any, error)) ([]ServerResult, error) {
 	serverAddrs := make(map[string]bool)
 	for _, node := range topology {
 		serverAddrs[net.JoinHostPort(node.HostName, strconv.Itoa(int(node.Port)))] = true
@@ -440,7 +440,7 @@ func executeOnAllServers(ctx context.Context, config *db.IntegrationClickhouse, 
 
 	type serverExecResult struct {
 		addr   string
-		result interface{}
+		result any
 		err    error
 	}
 
@@ -498,7 +498,7 @@ func getClusterTableSizes(ctx context.Context, config *db.IntegrationClickhouse,
 		}
 		return aggregateTableStats(allTables), nil
 	}
-	results, err := executeOnAllServers(ctx, config, topology, project, func(client *Client) (interface{}, error) {
+	results, err := executeOnAllServers(ctx, config, topology, project, func(client *Client) (any, error) {
 		return client.GetTableSizes(ctx)
 	})
 	if err != nil {
@@ -522,7 +522,7 @@ func getClusterServerDisks(ctx context.Context, config *db.IntegrationClickhouse
 	if ch.cloud {
 		return nil, nil
 	}
-	results, err := executeOnAllServers(ctx, config, topology, project, func(client *Client) (interface{}, error) {
+	results, err := executeOnAllServers(ctx, config, topology, project, func(client *Client) (any, error) {
 		return client.GetDiskInfo(ctx)
 	})
 	if err != nil {

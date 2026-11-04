@@ -1,6 +1,10 @@
 package model
 
-import "github.com/coroot/coroot/timeseries"
+import (
+	"maps"
+
+	"github.com/coroot/coroot/timeseries"
+)
 
 const (
 	ApplicationKindFluxGitRepository  ApplicationKind = "GitRepository"
@@ -31,21 +35,11 @@ func NewFlux() *Flux {
 }
 
 func (f *Flux) Merge(other *Flux) {
-	for appId, v := range other.Repositories {
-		f.Repositories[appId] = v
-	}
-	for appId, v := range other.HelmCharts {
-		f.HelmCharts[appId] = v
-	}
-	for appId, v := range other.HelmReleases {
-		f.HelmReleases[appId] = v
-	}
-	for appId, v := range other.Kustomizations {
-		f.Kustomizations[appId] = v
-	}
-	for appId, v := range other.ResourceSets {
-		f.ResourceSets[appId] = v
-	}
+	maps.Copy(f.Repositories, other.Repositories)
+	maps.Copy(f.HelmCharts, other.HelmCharts)
+	maps.Copy(f.HelmReleases, other.HelmReleases)
+	maps.Copy(f.Kustomizations, other.Kustomizations)
+	maps.Copy(f.ResourceSets, other.ResourceSets)
 }
 
 type FluxStatus struct {

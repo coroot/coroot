@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -300,10 +301,8 @@ func (api *Api) IsAllowed(u *db.User, actions ...rbac.Action) bool {
 			if r.Name != rn {
 				continue
 			}
-			for _, action := range actions {
-				if r.Permissions.Allows(action) {
-					return true
-				}
+			if slices.ContainsFunc(actions, r.Permissions.Allows) {
+				return true
 			}
 		}
 	}

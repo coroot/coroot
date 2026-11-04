@@ -21,7 +21,7 @@ var (
 	secureTransport   *http.Transport
 	insecureTransport *http.Transport
 
-	pool = &sync.Pool{New: func() interface{} {
+	pool = &sync.Pool{New: func() any {
 		return bytes.NewBuffer(nil)
 	}}
 )

@@ -878,10 +878,7 @@ func mcpDownsample(values []float32, n int) []*float32 {
 	out := make([]*float32, n)
 	for i := range n {
 		start := i * total / n
-		end := (i + 1) * total / n
-		if end > total {
-			end = total
-		}
+		end := min((i+1)*total/n, total)
 		var s float32
 		var c int
 		for j := start; j < end; j++ {

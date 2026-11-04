@@ -1,6 +1,8 @@
 package config
 
 import (
+	"maps"
+
 	"github.com/coroot/coroot/db"
 	"github.com/coroot/coroot/timeseries"
 	"gopkg.in/alecthomas/kingpin.v2"
@@ -203,9 +205,7 @@ func (cfg *Config) ApplyFlags() {
 	if *globalPrometheusUseClickHouse {
 		cfg.GlobalPrometheus.UseClickHouse = *globalPrometheusUseClickHouse
 	}
-	for name, value := range *globalPrometheusCustomHeaders {
-		cfg.GlobalPrometheus.CustomHeaders[name] = value
-	}
+	maps.Copy(cfg.GlobalPrometheus.CustomHeaders, *globalPrometheusCustomHeaders)
 	if !keep {
 		cfg.GlobalPrometheus = nil
 	}

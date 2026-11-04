@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -457,7 +458,7 @@ func addChildrenSpans(node *model.FlameGraphNode, byParent map[string][]*model.T
 			intervalSet[s.Timestamp.Add(s.Duration).UnixNano()] = true
 		}
 		intervals := maps.Keys(intervalSet)
-		sort.Slice(intervals, func(i, j int) bool { return intervals[i] < intervals[j] })
+		slices.Sort(intervals)
 		for i := range intervals[:len(intervals)-1] {
 			from, to := intervals[i], intervals[i+1]
 			var ss []*model.TraceSpan
