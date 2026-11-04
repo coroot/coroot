@@ -2637,7 +2637,7 @@ func loadDbChangeEvents(ctx context.Context, api *Api, project *db.Project, app 
 		return
 	}
 
-	logsQuery, _ := json.Marshal(map[string]any{
+	logsQuery, _ := json.Marshal(map[string]any{ //nolint:errchkjson // only strings and plain structs, cannot fail
 		"view":    "messages",
 		"filters": filters,
 	})

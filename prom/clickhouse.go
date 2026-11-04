@@ -346,7 +346,9 @@ func writePrometheusResponse(w http.ResponseWriter, err error, errorType errorTy
 		resp.Error = err.Error()
 		resp.ErrorType = errorType
 	}
-	_ = json.NewEncoder(w).Encode(resp)
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		klog.Errorln("failed to encode response:", err)
+	}
 }
 
 func parseTime(s string) (time.Time, error) {

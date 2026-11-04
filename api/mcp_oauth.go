@@ -476,7 +476,9 @@ func mcpOAuthError(w http.ResponseWriter, status int, code, desc string) {
 	if desc != "" {
 		body["error_description"] = desc
 	}
-	_ = json.NewEncoder(w).Encode(body)
+	if err := json.NewEncoder(w).Encode(body); err != nil {
+		klog.Errorln("failed to encode response:", err)
+	}
 }
 
 func mcpRedirectErr(w http.ResponseWriter, r *http.Request, redirectURI, state, code, desc string) {

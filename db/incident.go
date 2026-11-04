@@ -364,16 +364,22 @@ func (db *DB) GetLastOpenIncident(projectId ProjectId, appId model.ApplicationId
 func (db *DB) CreateIncident(projectId ProjectId, appId model.ApplicationId, i *model.ApplicationIncident) error {
 	appIdStr := appId.String()
 
-	d, _ := json.Marshal(i.Details)
-	_, err := db.db.Exec(
+	d, err := json.Marshal(i.Details)
+	if err != nil {
+		return err
+	}
+	_, err = db.db.Exec(
 		"INSERT INTO incident (project_id, application_id, key, opened_at, severity, details, rca_status, rca_summary) VALUES ($1, $2, $3, $4, $5, $6, '', '')",
 		projectId, appIdStr, i.Key, i.OpenedAt, i.Severity, string(d))
 	return err
 }
 
 func (db *DB) UpdateIncident(projectId ProjectId, key string, severity model.Status, details model.IncidentDetails) error {
-	d, _ := json.Marshal(details)
-	_, err := db.db.Exec(
+	d, err := json.Marshal(details)
+	if err != nil {
+		return err
+	}
+	_, err = db.db.Exec(
 		"UPDATE incident SET severity = $1, details = $2 WHERE project_id = $3 AND key = $4", severity, string(d), projectId, key)
 	return err
 }
