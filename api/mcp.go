@@ -1223,6 +1223,9 @@ func (h *MCPHandler) toolQueryMetrics(ctx context.Context, req mcp.CallToolReque
 	}
 
 	step, err := client.GetStep(0, 0)
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
 	if s := req.GetFloat("step_seconds", 0); s > 0 {
 		step = timeseries.Duration(s)
 	}
