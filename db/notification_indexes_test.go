@@ -10,6 +10,7 @@ import (
 )
 
 func TestNotificationIndexes(t *testing.T) {
+	alertsByIdsQuery, alertsByIdsArgs := alertNotificationsByAlertIdsQuery("p", []string{"a1", "a2"})
 	cases := []struct {
 		name  string
 		index string
@@ -19,37 +20,43 @@ func TestNotificationIndexes(t *testing.T) {
 		{
 			name:  "not sent alert notifications",
 			index: "alert_notification_not_sent",
-			query: "SELECT alert_id FROM alert_notification WHERE timestamp >= $1 AND sent_at = 0",
+			query: queryNotSentAlertNotifications,
 			args:  []any{0},
 		},
 		{
 			name:  "update alert notification",
 			index: "alert_notification_alert",
-			query: "UPDATE alert_notification SET sent_at = $1, external_key = $2 WHERE project_id = $3 AND alert_id = $4 AND timestamp = $5 AND destination = $6",
+			query: queryUpdateAlertNotification,
 			args:  []any{1, "", "p", "a", 1, "d"},
 		},
 		{
 			name:  "alert notifications by alert ids",
 			index: "alert_notification_alert",
-			query: "SELECT alert_id FROM alert_notification WHERE project_id = $1 AND alert_id IN ($2, $3) ORDER BY alert_id, timestamp",
-			args:  []any{"p", "a1", "a2"},
+			query: alertsByIdsQuery,
+			args:  alertsByIdsArgs,
+		},
+		{
+			name:  "previous alert notifications",
+			index: "alert_notification_alert",
+			query: queryPreviousAlertNotifications,
+			args:  []any{"p", "a", "d", 1},
 		},
 		{
 			name:  "not sent incident notifications",
 			index: "incident_notification_not_sent",
-			query: "SELECT incident_key FROM incident_notification WHERE timestamp >= $1 AND sent_at = 0",
+			query: queryNotSentIncidentNotifications,
 			args:  []any{0},
 		},
 		{
 			name:  "update incident notification",
 			index: "incident_notification_incident",
-			query: "UPDATE incident_notification SET sent_at = $1, external_key = $2 WHERE project_id = $3 AND incident_key = $4 AND timestamp = $5 AND destination = $6",
+			query: queryUpdateIncidentNotification,
 			args:  []any{1, "", "p", "i", 1, "d"},
 		},
 		{
 			name:  "previous incident notifications",
 			index: "incident_notification_incident",
-			query: "SELECT incident_key FROM incident_notification WHERE project_id = $1 AND incident_key = $2 AND destination = $3 AND timestamp < $4 ORDER BY timestamp",
+			query: queryPreviousIncidentNotifications,
 			args:  []any{"p", "i", "d", 1},
 		},
 	}

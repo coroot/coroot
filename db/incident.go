@@ -66,6 +66,24 @@ type IncidentNotification struct {
 	Details       *IncidentNotificationDetails
 }
 
+const (
+	queryUpdateIncidentNotification = "UPDATE incident_notification SET sent_at = $1, external_key = $2 WHERE project_id = $3 AND incident_key = $4 AND timestamp = $5 AND destination = $6"
+
+	queryNotSentIncidentNotifications = `
+		SELECT project_id, application_id, incident_key, status, destination, timestamp, external_key, details
+		FROM incident_notification
+		WHERE timestamp >= $1 AND sent_at = 0
+		ORDER BY project_id, application_id, incident_key, timestamp
+	`
+
+	queryPreviousIncidentNotifications = `
+		SELECT project_id, application_id, incident_key, status, destination, timestamp, external_key, details
+		FROM incident_notification
+		WHERE project_id = $1 AND incident_key = $2 AND destination = $3 AND timestamp < $4
+		ORDER BY timestamp
+	`
+)
+
 func (n *IncidentNotification) Migrate(m *Migrator) error {
 	return m.Exec(`
 	CREATE TABLE IF NOT EXISTS incident_notification (
@@ -416,19 +434,14 @@ func (db *DB) PutIncidentNotification(n IncidentNotification) {
 
 func (db *DB) UpdateIncidentNotification(n IncidentNotification) error {
 	_, err := db.db.Exec(
-		"UPDATE incident_notification SET sent_at = $1, external_key = $2 WHERE project_id = $3 AND incident_key = $4 AND timestamp = $5 AND destination = $6",
+		queryUpdateIncidentNotification,
 		n.SentAt, n.ExternalKey, n.ProjectId, n.IncidentKey, n.Timestamp, n.Destination,
 	)
 	return err
 }
 
 func (db *DB) GetNotSentIncidentNotifications(from timeseries.Time) ([]IncidentNotification, error) {
-	rows, err := db.db.Query(`
-		SELECT project_id, application_id, incident_key, status, destination, timestamp, external_key, details 
-		FROM incident_notification 
-		WHERE timestamp >= $1 AND sent_at = 0 
-		ORDER BY project_id, application_id, incident_key, timestamp
-	`, from)
+	rows, err := db.db.Query(queryNotSentIncidentNotifications, from)
 	if err != nil {
 		return nil, err
 	}
@@ -456,13 +469,7 @@ func (db *DB) GetNotSentIncidentNotifications(from timeseries.Time) ([]IncidentN
 }
 
 func (db *DB) GetPreviousIncidentNotifications(n IncidentNotification) ([]IncidentNotification, error) {
-	rows, err := db.db.Query(`
-		SELECT project_id, application_id, incident_key, status, destination, timestamp, external_key, details 
-		FROM incident_notification 
-		WHERE project_id = $1 AND incident_key = $2 AND destination = $3 AND timestamp < $4 
-		ORDER BY timestamp
-	`, n.ProjectId, n.IncidentKey, n.Destination, n.Timestamp,
-	)
+	rows, err := db.db.Query(queryPreviousIncidentNotifications, n.ProjectId, n.IncidentKey, n.Destination, n.Timestamp)
 	if err != nil {
 		return nil, err
 	}

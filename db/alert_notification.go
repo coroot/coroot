@@ -32,6 +32,41 @@ type AlertNotificationDetails struct {
 	ResolvedBy  string              `json:"resolved_by,omitempty"`
 }
 
+const (
+	queryUpdateAlertNotification = "UPDATE alert_notification SET sent_at = $1, external_key = $2 WHERE project_id = $3 AND alert_id = $4 AND timestamp = $5 AND destination = $6"
+
+	queryNotSentAlertNotifications = `
+		SELECT project_id, alert_id, rule_id, application_id, status, destination, timestamp, external_key, details
+		FROM alert_notification
+		WHERE timestamp >= $1 AND sent_at = 0
+		ORDER BY project_id, application_id, alert_id, timestamp
+	`
+
+	queryPreviousAlertNotifications = `
+		SELECT project_id, alert_id, rule_id, application_id, status, destination, timestamp, external_key, details
+		FROM alert_notification
+		WHERE project_id = $1 AND alert_id = $2 AND destination = $3 AND timestamp < $4
+		ORDER BY timestamp
+	`
+)
+
+func alertNotificationsByAlertIdsQuery(projectId ProjectId, alertIds []string) (string, []any) {
+	query := `
+		SELECT project_id, alert_id, rule_id, application_id, status, destination, timestamp, external_key, details
+		FROM alert_notification
+		WHERE project_id = $1 AND alert_id IN (`
+	args := []any{projectId}
+	for i, id := range alertIds {
+		if i > 0 {
+			query += ", "
+		}
+		args = append(args, id)
+		query += fmt.Sprintf("$%d", len(args))
+	}
+	query += `) ORDER BY alert_id, timestamp`
+	return query, args
+}
+
 func (n *AlertNotification) Migrate(m *Migrator) error {
 	return m.Exec(`
 	CREATE TABLE IF NOT EXISTS alert_notification (
@@ -68,19 +103,14 @@ func (db *DB) PutAlertNotification(n AlertNotification) {
 
 func (db *DB) UpdateAlertNotification(n AlertNotification) error {
 	_, err := db.db.Exec(
-		"UPDATE alert_notification SET sent_at = $1, external_key = $2 WHERE project_id = $3 AND alert_id = $4 AND timestamp = $5 AND destination = $6",
+		queryUpdateAlertNotification,
 		n.SentAt, n.ExternalKey, n.ProjectId, n.AlertId, n.Timestamp, n.Destination,
 	)
 	return err
 }
 
 func (db *DB) GetNotSentAlertNotifications(from timeseries.Time) ([]AlertNotification, error) {
-	rows, err := db.db.Query(`
-		SELECT project_id, alert_id, rule_id, application_id, status, destination, timestamp, external_key, details
-		FROM alert_notification
-		WHERE timestamp >= $1 AND sent_at = 0
-		ORDER BY project_id, application_id, alert_id, timestamp
-	`, from)
+	rows, err := db.db.Query(queryNotSentAlertNotifications, from)
 	if err != nil {
 		return nil, err
 	}
@@ -111,20 +141,7 @@ func (db *DB) GetAlertNotificationsByAlertIds(projectId ProjectId, alertIds []st
 	if len(alertIds) == 0 {
 		return nil, nil
 	}
-	query := `
-		SELECT project_id, alert_id, rule_id, application_id, status, destination, timestamp, external_key, details
-		FROM alert_notification
-		WHERE project_id = $1 AND alert_id IN (`
-	args := []any{projectId}
-	for i, id := range alertIds {
-		if i > 0 {
-			query += ", "
-		}
-		args = append(args, id)
-		query += fmt.Sprintf("$%d", len(args))
-	}
-	query += `) ORDER BY alert_id, timestamp`
-
+	query, args := alertNotificationsByAlertIdsQuery(projectId, alertIds)
 	rows, err := db.db.Query(query, args...)
 	if err != nil {
 		return nil, err
@@ -152,13 +169,7 @@ func (db *DB) GetAlertNotificationsByAlertIds(projectId ProjectId, alertIds []st
 }
 
 func (db *DB) GetPreviousAlertNotifications(n AlertNotification) ([]AlertNotification, error) {
-	rows, err := db.db.Query(`
-		SELECT project_id, alert_id, rule_id, application_id, status, destination, timestamp, external_key, details
-		FROM alert_notification
-		WHERE project_id = $1 AND alert_id = $2 AND destination = $3 AND timestamp < $4
-		ORDER BY timestamp
-	`, n.ProjectId, n.AlertId, n.Destination, n.Timestamp,
-	)
+	rows, err := db.db.Query(queryPreviousAlertNotifications, n.ProjectId, n.AlertId, n.Destination, n.Timestamp)
 	if err != nil {
 		return nil, err
 	}
