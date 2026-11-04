@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"net/url"
@@ -24,10 +25,10 @@ func (rc *RemoteCoroot) Validate() error {
 		return fmt.Errorf("invalid url %s: %w", rc.Url, err)
 	}
 	if len(rc.ApiKey) == 0 {
-		return fmt.Errorf("missing api key")
+		return errors.New("missing api key")
 	}
 	if rc.MetricResolution < time.Second {
-		return fmt.Errorf("metric_resolution too short")
+		return errors.New("metric_resolution too short")
 	}
 	return nil
 }
@@ -81,13 +82,13 @@ type AlertingRule struct {
 
 func (ar *AlertingRule) Validate() error {
 	if ar.Id == "" {
-		return fmt.Errorf("id is required")
+		return errors.New("id is required")
 	}
 	if ar.Source != nil {
 		switch ar.Source.Type {
 		case model.AlertSourceTypeCheck:
 			if ar.Source.Check == nil || ar.Source.Check.CheckId == "" {
-				return fmt.Errorf("source.check.checkId is required for check source")
+				return errors.New("source.check.checkId is required for check source")
 			}
 			configs := model.GetCheckConfigs()
 			if _, ok := configs[ar.Source.Check.CheckId]; !ok {
@@ -95,15 +96,15 @@ func (ar *AlertingRule) Validate() error {
 			}
 		case model.AlertSourceTypePromQL:
 			if ar.Source.PromQL == nil || ar.Source.PromQL.Expression == "" {
-				return fmt.Errorf("source.promql.expression is required for promql source")
+				return errors.New("source.promql.expression is required for promql source")
 			}
 		case model.AlertSourceTypeLogPatterns:
 			if ar.Source.LogPattern == nil || len(ar.Source.LogPattern.Severities) == 0 {
-				return fmt.Errorf("source.logPattern.severities is required for log_patterns source")
+				return errors.New("source.logPattern.severities is required for log_patterns source")
 			}
 		case model.AlertSourceTypeKubernetesEvents:
 			if ar.Source.KubernetesEvents == nil {
-				return fmt.Errorf("source.kubernetesEvents is required for kubernetes_events source")
+				return errors.New("source.kubernetesEvents is required for kubernetes_events source")
 			}
 		default:
 			return fmt.Errorf("invalid source type: %s", ar.Source.Type)
@@ -182,14 +183,14 @@ type Project struct {
 
 func (p *Project) Validate() error {
 	if p.Name == "" {
-		return fmt.Errorf("name is required")
+		return errors.New("name is required")
 	}
 
 	if len(p.ApiKeys) == 0 {
 		p.ApiKeys = p.ApiKeysSnake
 	}
 	if len(p.ApiKeys) == 0 && len(p.MemberProjects) == 0 && p.RemoteCoroot == nil {
-		return fmt.Errorf("no api keys defined")
+		return errors.New("no api keys defined")
 	}
 	for i, k := range p.ApiKeys {
 		if err := k.Validate(); err != nil {
@@ -239,7 +240,7 @@ type ApplicationCategory struct {
 
 func (c *ApplicationCategory) Validate() error {
 	if c.Name == "" {
-		return fmt.Errorf("name is required")
+		return errors.New("name is required")
 	}
 	return nil
 }
@@ -251,7 +252,7 @@ type CustomApplication struct {
 
 func (c *CustomApplication) Validate() error {
 	if c.Name == "" {
-		return fmt.Errorf("name is required")
+		return errors.New("name is required")
 	}
 	return nil
 }
@@ -263,7 +264,7 @@ type SLOAvailabilityOverride struct {
 
 func (o *SLOAvailabilityOverride) Validate() error {
 	if o.ObjectivePercent < 0 || o.ObjectivePercent > 100 {
-		return fmt.Errorf("invalid objective_percent")
+		return errors.New("invalid objective_percent")
 	}
 	return nil
 }
@@ -284,7 +285,7 @@ func (o *SLOLatencyOverride) ValidateLLM() error {
 
 func (o *SLOLatencyOverride) validate(buckets []float32, bucketsDescription string) error {
 	if o.ObjectivePercent < 0 || o.ObjectivePercent > 100 {
-		return fmt.Errorf("invalid objective_percent")
+		return errors.New("invalid objective_percent")
 	}
 	bucket := model.RoundUpToBucket(float32(o.ObjectiveThreshold.Seconds()), buckets)
 	if bucket > buckets[len(buckets)-1] {

@@ -1,6 +1,7 @@
 package db
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -49,10 +50,10 @@ type NotificationIntegrations struct {
 
 func (i *NotificationIntegrations) Validate() error {
 	if i.BaseUrl == "" {
-		return fmt.Errorf("base url is required")
+		return errors.New("base url is required")
 	}
 	if _, err := url.Parse(i.BaseUrl); err != nil {
-		return fmt.Errorf("invalid base url")
+		return errors.New("invalid base url")
 	}
 	i.BaseUrl = strings.TrimRight(i.BaseUrl, "/")
 
@@ -105,7 +106,7 @@ func (integrations Integrations) GetInfo() []IntegrationInfo {
 		i.Incidents = cfg.Incidents
 		i.Deployments = cfg.Deployments
 		i.Alerts = boolValue(cfg.Alerts)
-		i.Details = fmt.Sprintf("default channel: #%s", cfg.DefaultChannel)
+		i.Details = "default channel: #" + cfg.DefaultChannel
 	}
 	res = append(res, i)
 
@@ -115,7 +116,7 @@ func (integrations Integrations) GetInfo() []IntegrationInfo {
 		i.Incidents = cfg.Incidents
 		i.Deployments = cfg.Deployments
 		i.Alerts = boolValue(cfg.Alerts)
-		i.Details = fmt.Sprintf("default channel: %s", cfg.GetDefaultChannel())
+		i.Details = "default channel: " + cfg.GetDefaultChannel()
 	}
 	res = append(res, i)
 
@@ -136,7 +137,7 @@ func (integrations Integrations) GetInfo() []IntegrationInfo {
 		if cfg.EUInstance {
 			region = "EU"
 		}
-		i.Details = fmt.Sprintf("region: %s", region)
+		i.Details = "region: " + region
 	}
 	res = append(res, i)
 
@@ -187,10 +188,10 @@ type IntegrationSlack struct {
 
 func (i *IntegrationSlack) Validate() error {
 	if i.Token == "" {
-		return fmt.Errorf("token is required")
+		return errors.New("token is required")
 	}
 	if i.DefaultChannel == "" {
-		return fmt.Errorf("default channel is required")
+		return errors.New("default channel is required")
 	}
 	return nil
 }
@@ -214,19 +215,19 @@ type IntegrationTeamsChannel struct {
 
 func (i *IntegrationTeams) Validate() error {
 	if i.WebhookUrl != "" && len(i.Channels) > 0 {
-		return fmt.Errorf("webhookURL is deprecated and cannot be used together with channels")
+		return errors.New("webhookURL is deprecated and cannot be used together with channels")
 	}
 	channels := i.GetChannels()
 	if len(channels) == 0 {
-		return fmt.Errorf("at least one channel is required")
+		return errors.New("at least one channel is required")
 	}
 	names := map[string]bool{}
 	for _, ch := range channels {
 		if ch.Name == "" {
-			return fmt.Errorf("channel name is required")
+			return errors.New("channel name is required")
 		}
 		if strings.Contains(ch.Name, ":") {
-			return fmt.Errorf("channel name must not contain ':'")
+			return errors.New("channel name must not contain ':'")
 		}
 		if ch.WebhookUrl == "" {
 			return fmt.Errorf("webhook url is required for channel %s", ch.Name)
@@ -240,7 +241,7 @@ func (i *IntegrationTeams) Validate() error {
 		names[ch.Name] = true
 	}
 	if !names[i.GetDefaultChannel()] {
-		return fmt.Errorf("default channel must be one of the configured channels")
+		return errors.New("default channel must be one of the configured channels")
 	}
 	return nil
 }
@@ -282,7 +283,7 @@ type IntegrationPagerduty struct {
 
 func (i *IntegrationPagerduty) Validate() error {
 	if i.IntegrationKey == "" {
-		return fmt.Errorf("integration key is required")
+		return errors.New("integration key is required")
 	}
 	return nil
 }
@@ -296,7 +297,7 @@ type IntegrationOpsgenie struct {
 
 func (i *IntegrationOpsgenie) Validate() error {
 	if i.ApiKey == "" {
-		return fmt.Errorf("api key is required")
+		return errors.New("api key is required")
 	}
 	return nil
 }
@@ -317,16 +318,16 @@ type IntegrationWebhook struct {
 
 func (i *IntegrationWebhook) Validate() error {
 	if i.Url == "" {
-		return fmt.Errorf("url is required")
+		return errors.New("url is required")
 	}
 	if i.Incidents && i.IncidentTemplate == "" {
-		return fmt.Errorf("incident template is required")
+		return errors.New("incident template is required")
 	}
 	if i.Deployments && i.DeploymentTemplate == "" {
-		return fmt.Errorf("deployment template is required")
+		return errors.New("deployment template is required")
 	}
 	if i.Alerts != nil && *i.Alerts && i.AlertTemplate == "" {
-		return fmt.Errorf("alert template is required")
+		return errors.New("alert template is required")
 	}
 	return nil
 }

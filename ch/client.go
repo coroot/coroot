@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -154,7 +155,7 @@ func (c *LowLevelClient) info(ctx context.Context, address string) error {
 	case clusters["default"]:
 		c.cluster = "default"
 	default:
-		return fmt.Errorf(`multiple ClickHouse clusters found, but neither "coroot" nor "default" cluster found`)
+		return errors.New(`multiple ClickHouse clusters found, but neither "coroot" nor "default" cluster found`)
 	}
 	return nil
 }
@@ -531,7 +532,7 @@ func (c *wsConn) RemoteAddr() net.Addr { return c.raw.RemoteAddr() }
 func (c *wsConn) SyscallConn() (syscall.RawConn, error) {
 	sc, ok := c.raw.(syscall.Conn)
 	if !ok {
-		return nil, fmt.Errorf("underlying connection does not support syscall.Conn")
+		return nil, errors.New("underlying connection does not support syscall.Conn")
 	}
 	return sc.SyscallConn()
 }

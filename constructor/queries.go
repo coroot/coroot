@@ -739,7 +739,7 @@ var RecordingRules = map[string]func(db *db.DB, p *db.Project, w *model.World) [
 					for _, pattern := range msgs.Patterns {
 						if pattern.Messages.Reduce(timeseries.NanSum) > 0 {
 							ls := model.Labels{"application": appId, "level": severity.String()}
-							ls["multiline"] = fmt.Sprintf("%t", pattern.Multiline)
+							ls["multiline"] = strconv.FormatBool(pattern.Multiline)
 							ls["similar"] = strings.Join(pattern.SimilarPatternHashes.Items(), " ")
 							ls["sample"] = pattern.Sample
 							ls["words"] = pattern.Pattern.String()

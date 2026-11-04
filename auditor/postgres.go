@@ -724,29 +724,29 @@ func pgLast(a *timeseries.Aggregate, defaultValue float32) float32 {
 }
 
 func pgTopBloatInDb(tables map[model.DbTableKey]*timeseries.Aggregate, db string) (string, float32) {
-	name, max := "", float32(0)
+	name, maxBloat := "", float32(0)
 	for k, a := range tables {
 		if k.Db != db {
 			continue
 		}
-		if v := pgLast(a, 0); v > max {
-			name, max = k.Table, v
+		if v := pgLast(a, 0); v > maxBloat {
+			name, maxBloat = k.Table, v
 		}
 	}
-	return name, max
+	return name, maxBloat
 }
 
 func pgTopBloatIndexInDb(indexes map[model.DbIndexKey]*timeseries.Aggregate, db string) (string, float32) {
-	name, max := "", float32(0)
+	name, maxBloat := "", float32(0)
 	for k, a := range indexes {
 		if k.Db != db {
 			continue
 		}
-		if v := pgLast(a, 0); v > max {
-			name, max = k.Index, v
+		if v := pgLast(a, 0); v > maxBloat {
+			name, maxBloat = k.Index, v
 		}
 	}
-	return name, max
+	return name, maxBloat
 }
 
 func pgFormatBytes(v float32) string {
@@ -1242,10 +1242,10 @@ func checkReplicationLag(instance *model.Instance, instances []*model.Instance, 
 	}
 
 	tCurr, vCurr := primaryLsn.LastNotNull()
-	t, tPast, vPast := timeseries.Time(0), timeseries.Time(0), timeseries.NaN
+	var tPast timeseries.Time
 	iter := primaryLsn.Iter()
 	for iter.Next() {
-		t, vPast = iter.Value()
+		t, vPast := iter.Value()
 		if vPast > vCurr { // wraparound (e.g., complete cluster redeploy)
 			continue
 		}
@@ -1313,8 +1313,8 @@ func pgConnections(report *model.AuditReport, instance *model.Instance, connecti
 			total += last
 		}
 	}
-	if max := instance.Postgres.Settings["max_connections"].Samples.Last(); max > 0 && total > 0 {
-		if total/max*100 > connectionsCheck.Threshold {
+	if maxConns := instance.Postgres.Settings["max_connections"].Samples.Last(); maxConns > 0 && total > 0 {
+		if total/maxConns*100 > connectionsCheck.Threshold {
 			connectionsCheck.AddItem("%s", instance.Name)
 		}
 	}

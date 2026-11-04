@@ -47,7 +47,7 @@ type ApiKey struct {
 
 func (k *ApiKey) Validate() error {
 	if k.Key == "" {
-		return fmt.Errorf("key is required")
+		return errors.New("key is required")
 	}
 	return nil
 }

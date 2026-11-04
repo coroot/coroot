@@ -490,7 +490,7 @@ func mongoLatencyCauses(mongo *model.Mongodb) []string {
 		}
 	}
 	if topQuery != "" && topTime > mongoLatencyDetailQueryMinTime {
-		causes = append(causes, fmt.Sprintf("the most time-consuming query: %s", topQuery))
+		causes = append(causes, "the most time-consuming query: "+topQuery)
 	}
 	return causes
 }

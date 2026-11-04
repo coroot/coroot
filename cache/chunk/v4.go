@@ -209,7 +209,7 @@ func readNStrings(buf []byte, n int) ([]string, error) {
 		if offset+2 > len(buf) {
 			return nil, fmt.Errorf("%w: %w", ErrCorrupted, io.ErrUnexpectedEOF)
 		}
-		size = int(binary.LittleEndian.Uint16(buf[offset:]))
+		size := int(binary.LittleEndian.Uint16(buf[offset:]))
 		offset += 2
 		if size == 0 { // TODO: remove
 			size = math.MaxUint16 + 1

@@ -2,6 +2,7 @@ package notifications
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -67,7 +68,7 @@ func (og *Opsgenie) SendIncident(ctx context.Context, baseUrl string, n *db.Inci
 			}
 		}
 	}
-	req.Description += fmt.Sprintf("\n%s", incidentUrl(baseUrl, n))
+	req.Description += "\n" + incidentUrl(baseUrl, n)
 	_, err := og.client.Create(ctx, req)
 	return err
 }
@@ -108,11 +109,11 @@ func (og *Opsgenie) SendAlert(ctx context.Context, baseUrl string, n *db.AlertNo
 			req.Description += fmt.Sprintf("%s: %s\n", d.Name, d.Value)
 		}
 	}
-	req.Description += fmt.Sprintf("\n%s", alertUrl(baseUrl, n))
+	req.Description += "\n" + alertUrl(baseUrl, n)
 	_, err := og.client.Create(ctx, req)
 	return err
 }
 
 func (og *Opsgenie) SendDeployment(ctx context.Context, project *db.Project, ds model.ApplicationDeploymentStatus) error {
-	return fmt.Errorf("not supported")
+	return errors.New("not supported")
 }

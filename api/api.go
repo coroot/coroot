@@ -150,7 +150,7 @@ func (api *Api) Users(w http.ResponseWriter, r *http.Request, u *db.User) {
 		switch form.Action {
 		case forms.UserActionCreate:
 			if !form.Role.Valid(roles) {
-				http.Error(w, fmt.Sprintf("Unknown role: %s", form.Name), http.StatusBadRequest)
+				http.Error(w, "Unknown role: "+form.Name, http.StatusBadRequest)
 				return
 			}
 			var err error
@@ -170,7 +170,7 @@ func (api *Api) Users(w http.ResponseWriter, r *http.Request, u *db.User) {
 			}
 		case forms.UserActionUpdate:
 			if !form.Role.Valid(roles) {
-				http.Error(w, fmt.Sprintf("Unknown role: %s", form.Name), http.StatusBadRequest)
+				http.Error(w, "Unknown role: "+form.Name, http.StatusBadRequest)
 				return
 			}
 			if err := api.db.UpdateUser(form.Id, form.Email, form.Password, form.Name, form.Role); err != nil {
@@ -1872,7 +1872,7 @@ func (api *Api) Inspection(w http.ResponseWriter, r *http.Request, u *db.User) {
 				notificationSettings := categorySettings.NotificationSettings.Incidents
 				if notificationSettings.Enabled {
 					if slack := notificationSettings.Slack; slack != nil && slack.Enabled {
-						res.Integrations = append(res.Integrations, Integration{Name: "Slack", Details: fmt.Sprintf("channel: #%s", slack.Channel)})
+						res.Integrations = append(res.Integrations, Integration{Name: "Slack", Details: "channel: #" + slack.Channel})
 					}
 					if teams := notificationSettings.Teams; teams != nil && teams.Enabled {
 						res.Integrations = append(res.Integrations, Integration{Name: "MS Teams"})
@@ -2580,7 +2580,7 @@ func (api *Api) GetClickhouseClient(project *db.Project, memberProjectId string)
 	p := project
 	if project.Multicluster() {
 		if memberProjectId == "" {
-			return nil, fmt.Errorf("invalid member project id")
+			return nil, errors.New("invalid member project id")
 		}
 		var err error
 		if p, err = api.db.GetProject(db.ProjectId(memberProjectId)); err != nil {
@@ -2637,7 +2637,7 @@ func loadDbChangeEvents(ctx context.Context, api *Api, project *db.Project, app 
 		return
 	}
 
-	logsQuery, _ := json.Marshal(map[string]any{
+	logsQuery, _ := json.Marshal(map[string]any{ //nolint:errchkjson // only strings and plain structs, cannot fail
 		"view":    "messages",
 		"filters": filters,
 	})
