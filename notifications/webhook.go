@@ -65,7 +65,7 @@ func mergeCustomFields(values any, customFields map[string]string) any {
 
 	existingFields := make(map[string]bool)
 	var fields []reflect.StructField
-	for i := 0; i < t.NumField(); i++ {
+	for i := range t.NumField() {
 		f := t.Field(i)
 		fields = append(fields, reflect.StructField{
 			Name: f.Name,
@@ -94,7 +94,7 @@ func mergeCustomFields(values any, customFields map[string]string) any {
 
 	newType := reflect.StructOf(fields)
 	newValue := reflect.New(newType).Elem()
-	for i := 0; i < t.NumField(); i++ {
+	for i := range t.NumField() {
 		newValue.Field(i).Set(v.Field(i))
 	}
 	for i, k := range customKeys {

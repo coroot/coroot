@@ -1,7 +1,6 @@
 package model
 
 import (
-	"fmt"
 	"net"
 	"sort"
 	"strconv"
@@ -200,17 +199,17 @@ func (app *Application) Labels() Labels {
 	res := Labels{}
 	switch app.Id.Kind {
 	case ApplicationKindRds:
-		res["db"] = fmt.Sprintf(`%s (RDS)`, app.Instances[0].Rds.Engine.Value())
+		res["db"] = app.Instances[0].Rds.Engine.Value() + " (RDS)"
 	case ApplicationKindElasticacheCluster:
-		res["db"] = fmt.Sprintf(`%s (EC)`, app.Instances[0].Elasticache.Engine.Value())
+		res["db"] = app.Instances[0].Elasticache.Engine.Value() + " (EC)"
 	case ApplicationKindCloudSQL:
-		res["db"] = fmt.Sprintf(`%s (Cloud SQL)`, app.Instances[0].CloudSQL.Engine.Value())
+		res["db"] = app.Instances[0].CloudSQL.Engine.Value() + " (Cloud SQL)"
 	case ApplicationKindMemorystore:
-		res["db"] = fmt.Sprintf(`%s (Memorystore)`, app.Instances[0].Memorystore.Engine.Value())
+		res["db"] = app.Instances[0].Memorystore.Engine.Value() + " (Memorystore)"
 	case ApplicationKindOCIDB:
-		res["db"] = fmt.Sprintf(`%s (OCI)`, app.Instances[0].OCIDB.Engine.Value())
+		res["db"] = app.Instances[0].OCIDB.Engine.Value() + " (OCI)"
 	case ApplicationKindOCICache:
-		res["db"] = fmt.Sprintf(`%s (OCI Cache)`, app.Instances[0].OCICache.Engine.Value())
+		res["db"] = app.Instances[0].OCICache.Engine.Value() + " (OCI Cache)"
 	case ApplicationKindUnknown, ApplicationKindDockerSwarmService, ApplicationKindNomadJobGroup, ApplicationKindECSService:
 		if app.Id.Namespace != "_" {
 			res["ns"] = app.Id.Namespace

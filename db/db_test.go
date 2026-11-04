@@ -31,6 +31,6 @@ func TestAddPostgresConnectTimeout(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "host=localhost user=coroot password=secret dbname=coroot sslmode=require connect_timeout=60", result)
 
-	result, err = addPostgresConnectTimeout("postgres://invalid url with spaces")
+	_, err = addPostgresConnectTimeout("postgres://invalid url with spaces")
 	assert.Error(t, err)
 }

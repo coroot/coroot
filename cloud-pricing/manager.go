@@ -203,7 +203,7 @@ func (mgr *Manager) GetDataTransferPrice(node *model.Node) *model.DataTransferPr
 }
 
 func (mgr *Manager) updateModel() error {
-	req, err := http.NewRequest("GET", dumpURL, nil)
+	req, err := http.NewRequest(http.MethodGet, dumpURL, nil)
 	if err != nil {
 		return err
 	}

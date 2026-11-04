@@ -222,7 +222,7 @@ func renderStatus(p *db.Project, cacheStatus *cache.Status, w *model.World, glob
 			cs.Message = fmt.Sprintf("the cluster runs on %s, but the integration is not configured: its managed databases are not discovered", c.name)
 		case len(c.view.Errors) > 0:
 			cs.Status = model.WARNING
-			cs.Message = fmt.Sprintf("%s reported by the cluster-agent", english.Plural(len(c.view.Errors), "discovery error", ""))
+			cs.Message = english.Plural(len(c.view.Errors), "discovery error", "") + " reported by the cluster-agent"
 			res.Status = model.WARNING
 		default:
 			cs.Status = model.OK

@@ -51,7 +51,7 @@ func valueToString(value *v1.AnyValue) string {
 		for _, v := range vs {
 			s = append(s, valueToString(v))
 		}
-		j, _ := json.Marshal(s)
+		j, _ := json.Marshal(s) //nolint:errchkjson // marshaling []string or map[string]string cannot fail
 		return string(j)
 	case *v1.AnyValue_KvlistValue:
 		vs := value.GetKvlistValue().Values
@@ -59,7 +59,7 @@ func valueToString(value *v1.AnyValue) string {
 		for _, kv := range vs {
 			s[kv.GetKey()] = valueToString(kv.GetValue())
 		}
-		j, _ := json.Marshal(s)
+		j, _ := json.Marshal(s) //nolint:errchkjson // marshaling []string or map[string]string cannot fail
 		return string(j)
 	}
 	return fmt.Sprintf("unknown attribute value type: %T", value.Value)

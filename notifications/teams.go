@@ -35,9 +35,11 @@ func (t *Teams) SendIncident(ctx context.Context, baseUrl string, n *db.Incident
 	}
 	text := ""
 	if n.Details != nil {
+		var sb strings.Builder
 		for _, r := range n.Details.Reports {
-			text += fmt.Sprintf("* **%s** / %s: %s\n", r.Name, r.Check, r.Message)
+			fmt.Fprintf(&sb, "* **%s** / %s: %s\n", r.Name, r.Check, r.Message)
 		}
+		text += sb.String()
 		if n.Details.RCASummary != "" {
 			text += fmt.Sprintf("\n**Root Cause**: %s\n", n.Details.RCASummary)
 			if n.Details.RCARemediations != "" {
@@ -94,13 +96,15 @@ func (t *Teams) SendAlert(ctx context.Context, baseUrl string, n *db.AlertNotifi
 		if n.Details.RuleName != "" {
 			text += fmt.Sprintf("**Alerting rule**: %s\n\n", n.Details.RuleName)
 		}
+		var sb strings.Builder
 		for _, d := range n.Details.Details {
 			if d.Code {
-				text += fmt.Sprintf("**%s**:\n```\n%s\n```\n\n", d.Name, d.Value)
+				fmt.Fprintf(&sb, "**%s**:\n```\n%s\n```\n\n", d.Name, d.Value)
 			} else {
-				text += fmt.Sprintf("**%s**: %s\n\n", d.Name, d.Value)
+				fmt.Fprintf(&sb, "**%s**: %s\n\n", d.Name, d.Value)
 			}
 		}
+		text += sb.String()
 	}
 	if text == "" {
 		text = " "
@@ -147,9 +151,11 @@ func (t *Teams) SendDeployment(ctx context.Context, project *db.Project, ds mode
 	if ds.State == model.ApplicationDeploymentStateSummary {
 		summary := ""
 		if len(ds.Summary) > 0 {
+			var sb strings.Builder
 			for _, s := range ds.Summary {
-				summary += fmt.Sprintf("* %s %s\n", s.Emoji(), s.Message)
+				fmt.Fprintf(&sb, "* %s %s\n", s.Emoji(), s.Message)
 			}
+			summary += sb.String()
 		} else {
 			summary = "No notable changes"
 		}

@@ -97,7 +97,7 @@ func (a *appAuditor) storage() {
 						if d.WrittenBytes.Reduce(timeseries.NanSum) > d.ReadBytes.Reduce(timeseries.NanSum) {
 							profileType = model.ProfileTypeNodeAgentIOWrite
 						}
-						query, _ := json.Marshal(map[string]any{"type": profileType})
+						query, _ := json.Marshal(map[string]any{"type": profileType}) //nolint:errchkjson // a single string value, cannot fail
 						bandwidthChart.GetOrCreateChart(fullName).Stacked().Sorted().
 							AddSeries("read", d.ReadBytes, "blue").
 							AddSeries("written", d.WrittenBytes, "amber").

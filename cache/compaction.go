@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"sort"
@@ -76,7 +77,7 @@ func (c *Cache) compaction() {
 	}
 	tasksCh := make(chan CompactionTask)
 
-	for i := 0; i < cfg.WorkersNum; i++ {
+	for range cfg.WorkersNum {
 		go func(ch <-chan CompactionTask) {
 			klog.Infoln("compaction worker started")
 			for t := range ch {
@@ -113,7 +114,7 @@ func (c *Cache) compaction() {
 
 func (c *Cache) compact(t CompactionTask) error {
 	if len(t.src) == 0 {
-		return fmt.Errorf("no src chunks")
+		return errors.New("no src chunks")
 	}
 	start := time.Now()
 	metrics := map[uint64]*model.MetricValues{}

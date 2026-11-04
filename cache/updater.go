@@ -148,7 +148,7 @@ func (c *Cache) projectUpdateIteration(project *db.Project, step timeseries.Dura
 	wg := sync.WaitGroup{}
 	tasks := make(chan UpdateTask)
 	to := now.Add(-step)
-	for i := 0; i < QueryConcurrency; i++ {
+	for range QueryConcurrency {
 		wg.Go(func() {
 			for task := range tasks {
 				c.download(to, promClient, project.Id, step, task)

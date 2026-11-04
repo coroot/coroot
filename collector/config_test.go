@@ -15,7 +15,7 @@ func TestSelectIP(t *testing.T) {
 		for _, s := range from {
 			ips = append(ips, netaddr.MustParseIP(s))
 		}
-		for i := 0; i < 100; i++ {
+		for range 100 {
 			rand.Shuffle(len(ips), func(i, j int) {
 				ips[i], ips[j] = ips[j], ips[i]
 			})

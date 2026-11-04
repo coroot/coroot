@@ -204,12 +204,11 @@ func Write(f io.Writer, from timeseries.Time, pointsCount int, step timeseries.D
 func readNStrings(buf []byte, n int) ([]string, error) {
 	res := make([]string, 0, n)
 	offset := 0
-	size := 0
-	for i := 0; i < n; i++ {
+	for range n {
 		if offset+2 > len(buf) {
 			return nil, fmt.Errorf("%w: %w", ErrCorrupted, io.ErrUnexpectedEOF)
 		}
-		size = int(binary.LittleEndian.Uint16(buf[offset:]))
+		size := int(binary.LittleEndian.Uint16(buf[offset:]))
 		offset += 2
 		if size == 0 { // TODO: remove
 			size = math.MaxUint16 + 1
@@ -422,7 +421,7 @@ func readLabelsV4(r *bufio.Reader, hashes []uint64, missing map[uint64]*model.Me
 			continue
 		}
 		mv.Labels = make(model.Labels)
-		for i := 0; i < int(pairsNum); i++ {
+		for range pairsNum {
 			if _, err = io.ReadFull(r, idx[:]); err != nil {
 				return err
 			}

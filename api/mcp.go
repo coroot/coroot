@@ -876,7 +876,7 @@ func mcpDownsample(values []float32, n int) []*float32 {
 		return nil
 	}
 	out := make([]*float32, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		start := i * total / n
 		end := min((i+1)*total/n, total)
 		var s float32
@@ -1220,6 +1220,9 @@ func (h *MCPHandler) toolQueryMetrics(ctx context.Context, req mcp.CallToolReque
 	}
 
 	step, err := client.GetStep(0, 0)
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
 	if s := req.GetFloat("step_seconds", 0); s > 0 {
 		step = timeseries.Duration(s)
 	}
@@ -1401,7 +1404,10 @@ func (h *MCPHandler) runTracesQuery(ctx context.Context, req mcp.CallToolRequest
 	if s := req.GetString("span", ""); s != "" {
 		q.Filters = append(q.Filters, overview.Filter{Field: "SpanName", Op: "=", Value: s})
 	}
-	queryJSON, _ := json.Marshal(q)
+	queryJSON, err := json.Marshal(q)
+	if err != nil {
+		return nil, mcp.NewToolResultError(err.Error())
+	}
 	res := overview.RenderTraces(ctx, chs, world, string(queryJSON), true)
 	if res.Error != "" {
 		return nil, mcp.NewToolResultError(res.Error)
