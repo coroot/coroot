@@ -44,17 +44,8 @@ func (db *DB) SetSetting(name string, value any) error {
 	if err != nil {
 		return err
 	}
-	res, err := db.db.Exec("UPDATE settings SET value = $1 WHERE name = $2", v, name)
-	if err != nil {
-		return err
-	}
-	n, err := res.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if n > 0 {
-		return nil
-	}
-	_, err = db.db.Exec("INSERT INTO settings(name, value) VALUES ($1, $2)", name, v)
+	_, err = db.db.Exec(
+		"INSERT INTO settings (name, value) VALUES ($1, $2) ON CONFLICT (name) DO UPDATE SET value = excluded.value",
+		name, v)
 	return err
 }

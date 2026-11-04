@@ -107,6 +107,36 @@ func (db *DB) QueryRow(query string, args ...any) *sql.Row {
 	return db.db.QueryRow(query, args...)
 }
 
+// execer is implemented by both *sql.DB and *sql.Tx.
+type execer interface {
+	Exec(query string, args ...any) (sql.Result, error)
+}
+
+// withTx runs f in a transaction, committing it if f succeeds and rolling it back otherwise.
+// Inside f, use only tx: on SQLite the pool has a single connection, which the transaction holds.
+func (db *DB) withTx(f func(tx *sql.Tx) error) error {
+	tx, err := db.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = tx.Rollback()
+	}()
+	if err = f(tx); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// forUpdate returns a row-locking clause for SELECTs in read-modify-write transactions.
+// SQLite doesn't support it and doesn't need it: a write transaction locks the whole database.
+func (db *DB) forUpdate() string {
+	if db.typ == TypePostgres {
+		return " FOR UPDATE"
+	}
+	return ""
+}
+
 func (db *DB) Migrator() *Migrator {
 	return NewMigrator(db.typ, db)
 }
