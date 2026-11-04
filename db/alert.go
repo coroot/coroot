@@ -312,7 +312,9 @@ func (db *DB) QueryAlerts(projectId ProjectId, q AlertsQuery) (*AlertsResult, er
 	orderBy := "alert.opened_at"
 	switch q.SortBy {
 	case "duration":
-		orderBy = "CASE WHEN alert.resolved_at > 0 THEN alert.resolved_at ELSE strftime('%s', 'now') END - alert.opened_at"
+		orderBy = fmt.Sprintf("CASE WHEN alert.resolved_at > 0 THEN alert.resolved_at ELSE $%d END - alert.opened_at", argIndex)
+		args = append(args, timeseries.Now())
+		argIndex++
 	case "application":
 		orderBy = "alert.application_id"
 	case "summary":
