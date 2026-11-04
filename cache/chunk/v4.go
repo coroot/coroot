@@ -294,6 +294,9 @@ func writeLabelsV4(w *bufio.Writer, metrics []*model.MetricValues) error {
 			return nil
 		}
 		ki := keys.idx(k)
+		if ki > math.MaxUint8 {
+			return errors.New("keyIdx value exceeds 8-bit limit")
+		}
 		vi := vals.idx(v)
 		if vi >= (1 << 24) {
 			return errors.New("valIdx value exceeds 24-bit limit")
@@ -307,7 +310,11 @@ func writeLabelsV4(w *bufio.Writer, metrics []*model.MetricValues) error {
 	}
 	var err error
 	for _, mv := range metrics {
-		if err = labelPairs.WriteByte(byte(pairsCount(mv))); err != nil {
+		pairs := pairsCount(mv)
+		if pairs < 0 || pairs > math.MaxUint8 {
+			return errors.New("label pairs count exceeds 8-bit limit")
+		}
+		if err = labelPairs.WriteByte(byte(pairs)); err != nil {
 			return err
 		}
 		if mv.MachineID != "" {
@@ -415,7 +422,7 @@ func readLabelsV4(r *bufio.Reader, hashes []uint64, missing map[uint64]*model.Me
 		}
 		mv := missing[h]
 		if mv == nil {
-			if _, err = r.Discard(int(pairsNum * 4)); err != nil {
+			if _, err = r.Discard(int(pairsNum) * 4); err != nil {
 				return err
 			}
 			continue
