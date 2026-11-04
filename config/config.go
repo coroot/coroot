@@ -2,6 +2,7 @@ package config
 
 import (
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -72,10 +73,10 @@ func (c *TLS) Validate() error {
 		return nil
 	}
 	if c.CertFile == "" {
-		return fmt.Errorf("certFile is required")
+		return errors.New("certFile is required")
 	}
 	if c.KeyFile == "" {
-		return fmt.Errorf("keyFile is required")
+		return errors.New("keyFile is required")
 	}
 	if _, err := tls.LoadX509KeyPair(c.CertFile, c.KeyFile); err != nil {
 		return fmt.Errorf("invalid certificate: %w", err)
@@ -129,7 +130,7 @@ func (c *Clickhouse) Validate() error {
 		return nil
 	}
 	if c.Address == "" {
-		return fmt.Errorf("address is required")
+		return errors.New("address is required")
 	}
 	host, port, err := net.SplitHostPort(c.Address)
 	if host == "" || port == "" {
@@ -175,7 +176,7 @@ func (p *Prometheus) Validate() error {
 		return nil
 	}
 	if p.Url == "" {
-		return fmt.Errorf("url is required")
+		return errors.New("url is required")
 	}
 	if err := validateUrl(p.Url); err != nil {
 		return err
@@ -205,13 +206,13 @@ type ServiceAccount struct {
 
 func (sa *ServiceAccount) Validate() error {
 	if sa.Name == "" {
-		return fmt.Errorf("name is required")
+		return errors.New("name is required")
 	}
 	if sa.Role == "" {
-		return fmt.Errorf("role is required")
+		return errors.New("role is required")
 	}
 	if len(sa.ApiKeys) == 0 {
-		return fmt.Errorf("no api keys defined")
+		return errors.New("no api keys defined")
 	}
 	descriptions := map[string]bool{}
 	for i, k := range sa.ApiKeys {
@@ -333,11 +334,11 @@ func (cfg *Config) Validate() error {
 	}
 
 	if cfg.HTTPDisabled && cfg.HTTPSListenAddress == "" {
-		return fmt.Errorf("at least one of HTTP or HTTPS listener must be enabled")
+		return errors.New("at least one of HTTP or HTTPS listener must be enabled")
 	}
 
 	if cfg.HTTPSListenAddress != "" && cfg.TLS == nil {
-		return fmt.Errorf("TLS certificate and key are required for HTTPS")
+		return errors.New("TLS certificate and key are required for HTTPS")
 	}
 
 	if cfg.TLS != nil {

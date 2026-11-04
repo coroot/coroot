@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -415,7 +416,7 @@ func (c *Client) querySpans(ctx context.Context, q SpanQuery, orderBy string, fi
 	query += " FROM @@table_otel_traces@@"
 	query += " WHERE " + cond
 	if orderBy == "" && q.Limit > 0 {
-		cutoff := "SELECT min(Timestamp) FROM (SELECT Timestamp FROM @@table_otel_traces@@ WHERE " + cond + " ORDER BY Timestamp DESC LIMIT " + fmt.Sprint(q.Limit) + ")"
+		cutoff := "SELECT min(Timestamp) FROM (SELECT Timestamp FROM @@table_otel_traces@@ WHERE " + cond + " ORDER BY Timestamp DESC LIMIT " + strconv.Itoa(q.Limit) + ")"
 		query += " AND Timestamp >= (" + cutoff + ")"
 		orderBy = "Timestamp DESC"
 	}
@@ -423,7 +424,7 @@ func (c *Client) querySpans(ctx context.Context, q SpanQuery, orderBy string, fi
 		query += " ORDER BY " + orderBy
 	}
 	if q.Limit > 0 {
-		query += " LIMIT " + fmt.Sprint(q.Limit)
+		query += " LIMIT " + strconv.Itoa(q.Limit)
 	}
 
 	rows, err := c.Query(ctx, query, filterArgs...)
@@ -482,7 +483,7 @@ func (c *Client) getTraces(ctx context.Context, from, to timeseries.Time, filter
 	for _, b := range sliceBounds {
 		query := "SELECT count(1), groupArray(distinct TraceId)"
 		query += " FROM (SELECT TraceId FROM @@table_otel_traces@@ WHERE " + cond
-		query += " AND Timestamp >= @sliceFrom AND Timestamp < @sliceTo ORDER BY Timestamp DESC LIMIT " + fmt.Sprint(remaining) + ")"
+		query += " AND Timestamp >= @sliceFrom AND Timestamp < @sliceTo ORDER BY Timestamp DESC LIMIT " + strconv.Itoa(remaining) + ")"
 		args := append(append([]any{}, filterArgs...),
 			clickhouse.DateNamed("sliceFrom", b[0].ToStandard(), clickhouse.NanoSeconds),
 			clickhouse.DateNamed("sliceTo", b[1].ToStandard(), clickhouse.NanoSeconds),

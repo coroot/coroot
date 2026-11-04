@@ -393,7 +393,7 @@ func (f *IntegrationFormPrometheus) Get(project *db.Project, masked bool) {
 
 func (f *IntegrationFormPrometheus) Update(ctx context.Context, project *db.Project, remove bool) error {
 	if f.global != nil {
-		return fmt.Errorf("global Prometheus configuration is used and cannot be changed")
+		return errors.New("global Prometheus configuration is used and cannot be changed")
 	}
 	if err := f.Test(ctx, project); err != nil {
 		return err
@@ -449,7 +449,7 @@ func (f *IntegrationFormClickhouse) Get(project *db.Project, masked bool) {
 
 func (f *IntegrationFormClickhouse) Update(ctx context.Context, project *db.Project, remove bool) error {
 	if f.global != nil {
-		return fmt.Errorf("global ClickHouse configuration is used and cannot be changed")
+		return errors.New("global ClickHouse configuration is used and cannot be changed")
 	}
 	cfg := &f.IntegrationClickhouse
 	if remove {
@@ -605,7 +605,7 @@ func (f *IntegrationFormTeams) Update(ctx context.Context, project *db.Project, 
 func (f *IntegrationFormTeams) Test(ctx context.Context, project *db.Project) error {
 	webhookUrl := f.GetWebhookUrl("")
 	if webhookUrl == "" {
-		return fmt.Errorf("no channels configured")
+		return errors.New("no channels configured")
 	}
 	baseUrl := project.Settings.Integrations.BaseUrl
 	client := notifications.NewTeams(webhookUrl)

@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"crypto/tls"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -165,10 +164,10 @@ func (c *Collector) Metrics(w http.ResponseWriter, r *http.Request) {
 
 func parseMetricsRequestBody(r *http.Request, body []byte) (*prompb.WriteRequest, error) {
 	if r.Header.Get("Content-Type") != "application/x-protobuf" {
-		return nil, fmt.Errorf("expected application/x-protobuf content-type")
+		return nil, errors.New("expected application/x-protobuf content-type")
 	}
 	if r.Header.Get("Content-Encoding") != "snappy" {
-		return nil, fmt.Errorf("expected snappy content-encoding")
+		return nil, errors.New("expected snappy content-encoding")
 	}
 
 	decompressed, err := snappy.Decode(nil, body)

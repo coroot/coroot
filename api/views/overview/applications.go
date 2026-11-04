@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"strconv"
 
 	"github.com/coroot/coroot/model"
 	"github.com/coroot/coroot/timeseries"
@@ -106,7 +107,7 @@ func renderApplications(w *model.World) []*ApplicationStatus {
 				case model.Checks.InstanceRestarts.Id:
 					a.Restarts.Status = ch.Status
 					if ch.Count() > 0 {
-						a.Restarts.Value = fmt.Sprintf("%d", ch.Count())
+						a.Restarts.Value = strconv.FormatInt(ch.Count(), 10)
 					}
 				case model.Checks.CPUNode.Id:
 					if ch.Status >= model.WARNING && sloIsViolating {

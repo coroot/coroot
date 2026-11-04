@@ -1,7 +1,6 @@
 package overview
 
 import (
-	"fmt"
 	"sort"
 
 	"github.com/coroot/coroot/model"
@@ -68,7 +67,7 @@ func renderDeployments(w *model.World) []*Deployment {
 				if ds.Last {
 					d.Summary = append(d.Summary, DeploymentSummaryItem{Message: "Collecting data..."})
 				} else {
-					msg := fmt.Sprintf("Not enough data due to the lifetime < %s", utils.FormatDuration(model.ApplicationDeploymentMinLifetime, 1))
+					msg := "Not enough data due to the lifetime < " + utils.FormatDuration(model.ApplicationDeploymentMinLifetime, 1)
 					d.Summary = append(d.Summary, DeploymentSummaryItem{Message: msg})
 				}
 			case model.ApplicationDeploymentStateStuck:

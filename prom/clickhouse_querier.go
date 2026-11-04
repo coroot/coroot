@@ -2,6 +2,7 @@ package prom
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -132,7 +133,7 @@ func (q *clickhouseQuerier) LabelValues(ctx context.Context, name string, _ *sto
 }
 
 func (q *clickhouseQuerier) LabelNames(ctx context.Context, _ *storage.LabelHints, _ ...*labels.Matcher) ([]string, annotations.Annotations, error) {
-	return nil, nil, fmt.Errorf("not yet implemented")
+	return nil, nil, errors.New("not yet implemented")
 }
 
 func (q *clickhouseQuerier) Close() error {

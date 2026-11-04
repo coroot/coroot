@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"embed"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -320,7 +321,7 @@ func setAdminPassword(db *db.DB) error {
 	}
 	password := string(data)
 	if password == "" {
-		return fmt.Errorf("password cannot be blank")
+		return errors.New("password cannot be blank")
 	}
 	fmt.Print("Confirm new password: ")
 	data, err = term.ReadPassword(int(os.Stdin.Fd()))
@@ -330,7 +331,7 @@ func setAdminPassword(db *db.DB) error {
 	}
 	confirm := string(data)
 	if password != confirm {
-		return fmt.Errorf("passwords do not match")
+		return errors.New("passwords do not match")
 	}
 	err = db.CreateAdminIfNotExists(password)
 	if err != nil {

@@ -2,6 +2,7 @@ package notifications
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -95,5 +96,5 @@ func (pd *Pagerduty) SendAlert(ctx context.Context, baseUrl string, n *db.AlertN
 }
 
 func (pd *Pagerduty) SendDeployment(ctx context.Context, project *db.Project, ds model.ApplicationDeploymentStatus) error {
-	return fmt.Errorf("not supported")
+	return errors.New("not supported")
 }

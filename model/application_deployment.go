@@ -158,7 +158,7 @@ func CalcApplicationDeploymentStatuses(app *Application, checkConfigs CheckConfi
 		case now.Sub(d.StartedAt) > durationThreshold:
 			s.Status = CRITICAL
 			s.State = ApplicationDeploymentStateStuck
-			s.Message = fmt.Sprintf("The rollout has been in progress for over %s", utils.FormatDuration(durationThreshold, 1))
+			s.Message = "The rollout has been in progress for over " + utils.FormatDuration(durationThreshold, 1)
 		default:
 			s.Status = WARNING
 			s.State = ApplicationDeploymentStateInProgress
