@@ -297,7 +297,7 @@ func (c *ClickHouse) Series(r *http.Request, w http.ResponseWriter) {
 	for set.Next() {
 		metrics = append(metrics, set.At().Labels())
 	}
-	if set.Err() != nil {
+	if err = set.Err(); err != nil {
 		writePrometheusResponse(w, err, errorExec, nil)
 		return
 	}
