@@ -205,7 +205,12 @@ func (cfg *Config) ApplyFlags() {
 	if *globalPrometheusUseClickHouse {
 		cfg.GlobalPrometheus.UseClickHouse = *globalPrometheusUseClickHouse
 	}
-	maps.Copy(cfg.GlobalPrometheus.CustomHeaders, *globalPrometheusCustomHeaders)
+	if len(*globalPrometheusCustomHeaders) > 0 {
+		if cfg.GlobalPrometheus.CustomHeaders == nil {
+			cfg.GlobalPrometheus.CustomHeaders = map[string]string{}
+		}
+		maps.Copy(cfg.GlobalPrometheus.CustomHeaders, *globalPrometheusCustomHeaders)
+	}
 	if !keep {
 		cfg.GlobalPrometheus = nil
 	}
