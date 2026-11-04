@@ -481,17 +481,17 @@ func (ts *TimeSeries) LastNMax(nPoints int, defaultValue float32) float32 {
 	if ts.IsEmpty() || len(ts.data) < nPoints {
 		return defaultValue
 	}
-	max := defaultValue
+	res := defaultValue
 	found := false
 	for _, v := range ts.data[len(ts.data)-nPoints:] {
 		if IsNaN(v) {
 			continue
 		}
-		if !found || v > max {
-			max, found = v, true
+		if !found || v > res {
+			res, found = v, true
 		}
 	}
-	return max
+	return res
 }
 
 func (ts *TimeSeries) Average() float32 {

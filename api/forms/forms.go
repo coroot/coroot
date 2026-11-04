@@ -316,7 +316,7 @@ func (f *IntegrationsForm) Valid() bool {
 type IntegrationForm interface {
 	Form
 	Get(project *db.Project, masked bool)
-	Update(ctx context.Context, project *db.Project, clear bool) error
+	Update(ctx context.Context, project *db.Project, remove bool) error
 	Test(ctx context.Context, project *db.Project) error
 }
 
@@ -391,7 +391,7 @@ func (f *IntegrationFormPrometheus) Get(project *db.Project, masked bool) {
 	}
 }
 
-func (f *IntegrationFormPrometheus) Update(ctx context.Context, project *db.Project, clear bool) error {
+func (f *IntegrationFormPrometheus) Update(ctx context.Context, project *db.Project, remove bool) error {
 	if f.global != nil {
 		return fmt.Errorf("global Prometheus configuration is used and cannot be changed")
 	}
@@ -447,12 +447,12 @@ func (f *IntegrationFormClickhouse) Get(project *db.Project, masked bool) {
 	}
 }
 
-func (f *IntegrationFormClickhouse) Update(ctx context.Context, project *db.Project, clear bool) error {
+func (f *IntegrationFormClickhouse) Update(ctx context.Context, project *db.Project, remove bool) error {
 	if f.global != nil {
 		return fmt.Errorf("global ClickHouse configuration is used and cannot be changed")
 	}
 	cfg := &f.IntegrationClickhouse
-	if clear {
+	if remove {
 		cfg = nil
 	} else {
 		if err := f.Test(ctx, project); err != nil {
@@ -493,9 +493,9 @@ func (f *IntegrationFormAWS) Get(project *db.Project, masked bool) {
 	}
 }
 
-func (f *IntegrationFormAWS) Update(ctx context.Context, project *db.Project, clear bool) error {
+func (f *IntegrationFormAWS) Update(ctx context.Context, project *db.Project, remove bool) error {
 	cfg := &f.IntegrationAWS
-	if clear {
+	if remove {
 		cfg = nil
 	} else {
 		if err := f.Test(ctx, project); err != nil {
@@ -535,9 +535,9 @@ func (f *IntegrationFormSlack) Get(project *db.Project, masked bool) {
 	}
 }
 
-func (f *IntegrationFormSlack) Update(ctx context.Context, project *db.Project, clear bool) error {
+func (f *IntegrationFormSlack) Update(ctx context.Context, project *db.Project, remove bool) error {
 	cfg := &f.IntegrationSlack
-	if clear {
+	if remove {
 		cfg = nil
 	}
 	project.Settings.Integrations.Slack = cfg
@@ -593,9 +593,9 @@ func (f *IntegrationFormTeams) Get(project *db.Project, masked bool) {
 	}
 }
 
-func (f *IntegrationFormTeams) Update(ctx context.Context, project *db.Project, clear bool) error {
+func (f *IntegrationFormTeams) Update(ctx context.Context, project *db.Project, remove bool) error {
 	cfg := &f.IntegrationTeams
-	if clear || len(f.GetChannels()) == 0 {
+	if remove || len(f.GetChannels()) == 0 {
 		cfg = nil
 	}
 	project.Settings.Integrations.Teams = cfg
@@ -642,9 +642,9 @@ func (f *IntegrationFormPagerduty) Get(project *db.Project, masked bool) {
 	}
 }
 
-func (f *IntegrationFormPagerduty) Update(ctx context.Context, project *db.Project, clear bool) error {
+func (f *IntegrationFormPagerduty) Update(ctx context.Context, project *db.Project, remove bool) error {
 	cfg := &f.IntegrationPagerduty
-	if clear {
+	if remove {
 		cfg = nil
 	}
 	project.Settings.Integrations.Pagerduty = cfg
@@ -679,9 +679,9 @@ func (f *IntegrationFormOpsgenie) Get(project *db.Project, masked bool) {
 	}
 }
 
-func (f *IntegrationFormOpsgenie) Update(ctx context.Context, project *db.Project, clear bool) error {
+func (f *IntegrationFormOpsgenie) Update(ctx context.Context, project *db.Project, remove bool) error {
 	cfg := &f.IntegrationOpsgenie
-	if clear {
+	if remove {
 		cfg = nil
 	}
 	project.Settings.Integrations.Opsgenie = cfg
@@ -717,9 +717,9 @@ func (f *IntegrationFormWebhook) Get(project *db.Project, masked bool) {
 	}
 }
 
-func (f *IntegrationFormWebhook) Update(ctx context.Context, project *db.Project, clear bool) error {
+func (f *IntegrationFormWebhook) Update(ctx context.Context, project *db.Project, remove bool) error {
 	cfg := &f.IntegrationWebhook
-	if clear {
+	if remove {
 		cfg = nil
 	}
 	project.Settings.Integrations.Webhook = cfg
