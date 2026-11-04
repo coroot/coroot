@@ -121,7 +121,7 @@ func readV3(reader io.Reader, header *header, from timeseries.Time, pointsCount 
 	var labelsToRead []*metricMeta
 	var maxLabelSize uint32
 	var err error
-	for i := uint32(0); i < header.DataSizeOrMetricsCount; i++ {
+	for range header.DataSizeOrMetricsCount {
 		if _, err = io.ReadFull(r, buf); err != nil {
 			return err
 		}

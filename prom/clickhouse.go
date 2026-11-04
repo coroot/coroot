@@ -180,7 +180,7 @@ func (c *ClickHouse) MetricMetadata(r *http.Request, w http.ResponseWriter) {
 			{Name: "Unit", Data: unit},
 		},
 		OnResult: func(ctx context.Context, block proto.Block) error {
-			for i := 0; i < block.Rows; i++ {
+			for i := range block.Rows {
 				res[metricFamilyName.Row(i)] = []metadata.Metadata{{
 					Type: promModel.MetricType(typ.Row(i)),
 					Unit: unit.Row(i),

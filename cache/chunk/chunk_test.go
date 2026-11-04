@@ -12,9 +12,7 @@ import (
 )
 
 func TestChunk(t *testing.T) {
-	tmp, err := os.MkdirTemp(os.TempDir(), "")
-	require.NoError(t, err)
-	defer os.RemoveAll(tmp)
+	tmp := t.TempDir()
 
 	chunk1 := path.Join(tmp, "chunk1.db")
 	chunk2 := path.Join(tmp, "chunk2.db")
