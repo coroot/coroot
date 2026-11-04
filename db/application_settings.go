@@ -111,5 +111,5 @@ func (db *DB) GetApplicationSettingsByProject(projectId ProjectId) (map[model.Ap
 		}
 		res[appId] = settings
 	}
-	return res, nil
+	return res, rows.Err()
 }

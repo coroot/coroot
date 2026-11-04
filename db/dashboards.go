@@ -93,7 +93,7 @@ func (db *DB) GetDashboards(projectId ProjectId) ([]*Dashboard, error) {
 		}
 		ds = append(ds, &d)
 	}
-	return ds, nil
+	return ds, rows.Err()
 }
 
 func (db *DB) GetDashboard(projectId ProjectId, id string) (*Dashboard, error) {

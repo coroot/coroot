@@ -200,7 +200,7 @@ func (m *Migrator) AddColumnIfNotExists(table, column, dataType string) error {
 	case TypeSqlite:
 		rows, err := m.db.Query(fmt.Sprintf("SELECT name FROM pragma_table_info('%s');", table))
 		if err != nil {
-			return nil
+			return err
 		}
 		defer func() {
 			_ = rows.Close()
@@ -213,6 +213,9 @@ func (m *Migrator) AddColumnIfNotExists(table, column, dataType string) error {
 			if name == column {
 				return nil
 			}
+		}
+		if err = rows.Err(); err != nil {
+			return err
 		}
 		_, err = m.db.Exec(fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s %s", table, column, dataType))
 		if err != nil {

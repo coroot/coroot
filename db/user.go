@@ -112,6 +112,9 @@ func (db *DB) DefaultAdminUserIsTheOnlyUser() (*User, error) {
 			return nil, err
 		}
 	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
 	if !u.IsDefaultAdmin() {
 		return nil, nil
 	}
@@ -145,7 +148,7 @@ func (db *DB) GetUsers() ([]*User, error) {
 		}
 		res = append(res, &u)
 	}
-	return res, nil
+	return res, rows.Err()
 }
 
 func (db *DB) AuthUser(email, password string) (int, error) {
@@ -306,7 +309,7 @@ func (db *DB) GetUserApiKeys(userId int) ([]UserApiKey, error) {
 		}
 		res = append(res, k)
 	}
-	return res, nil
+	return res, rows.Err()
 }
 
 func (db *DB) AddUserApiKey(userId int, key, description string) error {
@@ -335,6 +338,9 @@ func (db *DB) SetUserApiKeys(userId int, keys []ApiKey) error {
 			return err
 		}
 		existing[hash] = true
+	}
+	if err = rows.Err(); err != nil {
+		return err
 	}
 	wanted := map[string]ApiKey{}
 	for _, k := range keys {

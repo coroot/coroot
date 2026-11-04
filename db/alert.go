@@ -114,7 +114,7 @@ func (db *DB) GetAlertingRules(projectId ProjectId) ([]*model.AlertingRule, erro
 		}
 		res = append(res, rule)
 	}
-	return res, nil
+	return res, rows.Err()
 }
 
 func (db *DB) GetAlertingRule(projectId ProjectId, id model.AlertingRuleId) (*model.AlertingRule, error) {
@@ -232,7 +232,7 @@ func (db *DB) GetFiringAlertCountsByRule(projectId ProjectId) (map[string]int, e
 		}
 		res[ruleId] = count
 	}
-	return res, nil
+	return res, rows.Err()
 }
 
 func (db *DB) GetFiringAlertCountsBySeverity(projectId ProjectId) (map[string]int, error) {
@@ -253,7 +253,7 @@ func (db *DB) GetFiringAlertCountsBySeverity(projectId ProjectId) (map[string]in
 		}
 		res[severity] = count
 	}
-	return res, nil
+	return res, rows.Err()
 }
 
 type AlertsQuery struct {
@@ -377,6 +377,9 @@ func (db *DB) QueryAlerts(projectId ProjectId, q AlertsQuery) (*AlertsResult, er
 		}
 		result.Alerts = append(result.Alerts, a)
 	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
 	if result.Alerts == nil {
 		result.Alerts = []*model.Alert{}
 	}
@@ -455,6 +458,9 @@ func (db *DB) ResolveAlertsByRule(projectId ProjectId, ruleId string) ([]*model.
 		alerts = append(alerts, alert)
 	}
 	rows.Close()
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
 	_, err = db.db.Exec(
 		"UPDATE alert SET resolved_at = $1, updated_at = $1 WHERE project_id = $2 AND rule_id = $3 AND resolved_at = 0",
 		now, projectId, ruleId)
@@ -630,7 +636,7 @@ func (db *DB) GetLatestAlertsByRule(projectId ProjectId, ruleId string) ([]*mode
 		}
 		alerts = append(alerts, alert)
 	}
-	return alerts, nil
+	return alerts, rows.Err()
 }
 
 func (db *DB) HasAlerts(projectId ProjectId) (bool, error) {
