@@ -47,6 +47,8 @@ func main() {
 	klog.Infof("edition: %s", Edition)
 	klog.Infof("version: %s", version)
 
+	utils.SetMemoryLimit()
+
 	cfg, err := config.Load()
 	if err != nil {
 		klog.Exitf("failed to load config: %s", err)
