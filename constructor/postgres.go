@@ -202,6 +202,8 @@ func postgres(instance *model.Instance, queryName string, m *model.MetricValues,
 		pg.TimeSinceLastCheckpoint = merge(pg.TimeSinceLastCheckpoint, values, timeseries.Any)
 	case "pg_wal_since_last_checkpoint_bytes":
 		pg.WalSinceLastCheckpoint = merge(pg.WalSinceLastCheckpoint, values, timeseries.Any)
+	case "pg_wal_since_last_checkpoint_record_bytes":
+		pg.WalSinceLastCheckpointRecord = merge(pg.WalSinceLastCheckpointRecord, values, timeseries.Any)
 	}
 }
 
