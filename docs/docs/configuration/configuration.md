@@ -65,6 +65,18 @@ For instance, the `projects` parameter (a list of predefined projects) can only 
 | --clickhouse-space-manager-usage-threshold | CLICKHOUSE_SPACE_MANAGER_USAGE_THRESHOLD | 70      | Disk usage percentage threshold for triggering partition cleanup in ClickHouse.                                                                                                 |
 | --clickhouse-space-manager-min-partitions | CLICKHOUSE_SPACE_MANAGER_MIN_PARTITIONS | 1        | Minimum number of partitions to keep when cleaning up ClickHouse disk space.                                                                                                    |
 
+## Memory limit
+
+When Coroot runs in a container with a memory limit (e.g., Kubernetes `resources.limits.memory` or `docker run --memory`), 
+it automatically sets the Go runtime soft memory limit ([GOMEMLIMIT](https://pkg.go.dev/runtime#hdr-Environment_Variables)) to 90% of that limit.
+This makes the garbage collector work harder as memory usage approaches the limit, reducing the risk of the container being OOM-killed.
+The applied limit is reported in the log on startup.
+
+| Environment Variable | Description                                                                                             |
+|----------------------|---------------------------------------------------------------------------------------------------------|
+| GOMEMLIMIT           | Sets the limit explicitly, e.g., `GOMEMLIMIT=1500MiB`. Automatic detection is skipped.                  |
+| AUTOMEMLIMIT         | The fraction of the container memory limit to use (default `0.9`), or `off` to disable the feature.     |
+
 ## Configuration file
 
 Use the `--config` flag to specify the configuration file to load. The file must be in YAML format.
