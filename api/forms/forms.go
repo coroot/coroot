@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/coroot/coroot/clickhouse"
@@ -379,12 +380,16 @@ func (f *IntegrationFormPrometheus) Get(project *db.Project, masked bool) {
 	if masked {
 		f.Url = "http://<hidden>"
 		if f.BasicAuth != nil {
-			f.BasicAuth.User = "<hidden>"
-			f.BasicAuth.Password = "<hidden>"
+			ba := *f.BasicAuth
+			ba.User = "<hidden>"
+			ba.Password = "<hidden>"
+			f.BasicAuth = &ba
 		}
-		for i := range f.CustomHeaders {
-			f.CustomHeaders[i].Value = "<hidden>"
+		ch := slices.Clone(f.CustomHeaders)
+		for i := range ch {
+			ch[i].Value = "<hidden>"
 		}
+		f.CustomHeaders = ch
 		if f.RemoteWriteUrl != "" {
 			f.RemoteWriteUrl = "<hidden>"
 		}
