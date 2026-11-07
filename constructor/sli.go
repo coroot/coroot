@@ -107,12 +107,12 @@ func inboundAvailability(w *model.World, values []*model.MetricValues, project *
 		if byApp[appId] == nil {
 			byApp[appId] = map[string]*timeseries.TimeSeries{}
 		}
-		byApp[appId][status] = merge(byApp[appId][status], mv.Values, timeseries.NanSum)
+		byApp[appId][status] = merge(byApp[appId][status], mv.Values, timeseries.NanSumOrNaN)
 	}
 	res := map[model.ApplicationId]availabilitySlis{}
 	for appId, byStatus := range byApp {
-		total := timeseries.NewAggregate(timeseries.NanSum)
-		failed := timeseries.NewAggregate(timeseries.NanSum)
+		total := timeseries.NewAggregate(timeseries.NanSumOrNaN)
+		failed := timeseries.NewAggregate(timeseries.NanSumOrNaN)
 		for status, ts := range byStatus {
 			total.Add(ts)
 			if model.IsRequestStatusFailed(status) {
@@ -221,12 +221,12 @@ func builtinAvailability(w *model.World, values []*model.MetricValues, project *
 		if byApp[dstId] == nil {
 			byApp[dstId] = map[string]*timeseries.TimeSeries{}
 		}
-		byApp[dstId][status] = merge(byApp[dstId][status], mv.Values, timeseries.NanSum)
+		byApp[dstId][status] = merge(byApp[dstId][status], mv.Values, timeseries.NanSumOrNaN)
 	}
 	res := map[model.ApplicationId]availabilitySlis{}
 	for appId, byStatus := range byApp {
-		total := timeseries.NewAggregate(timeseries.NanSum)
-		failed := timeseries.NewAggregate(timeseries.NanSum)
+		total := timeseries.NewAggregate(timeseries.NanSumOrNaN)
+		failed := timeseries.NewAggregate(timeseries.NanSumOrNaN)
 		for status, ts := range byStatus {
 			total.Add(ts)
 			if model.IsRequestStatusFailed(status) {

@@ -182,20 +182,9 @@ func availability(ctx timeseries.Context, app *model.Application) ([]model.BurnR
 		return 0
 	}
 	if !sli.FailedRequestsRaw.IsEmpty() {
-		failedF = func(from timeseries.Time) float32 {
-			iter := sli.FailedRequestsRaw.IterFrom(from)
-			var sum float32
-			for iter.Next() {
-				_, v := iter.Value()
-				if timeseries.IsNaN(v) {
-					continue
-				}
-				sum += v
-			}
-			return sum
-		}
+		failedF = totalSum(sli.FailedRequestsRaw)
 	}
-	return calcBurnRates(ctx.To, failedF, totalF, sli.Config.ObjectivePercentage), failedF, totalF
+	return calcAvailabilityBurnRates(ctx.To, failedF, totalF, sli.Config.ObjectivePercentage), failedF, totalF
 }
 
 func latency(ctx timeseries.Context, app *model.Application) ([]model.BurnRate, sumFromFunc, sumFromFunc) {
@@ -244,6 +233,21 @@ func latencyBurnRates(ctx timeseries.Context, sli *model.LatencySLI) ([]model.Bu
 }
 
 func calcBurnRates(now timeseries.Time, badSum, totalSum sumFromFunc, objectivePercentage float32) []model.BurnRate {
+	return calcBurnRatesWithRatio(now, badSum, totalSum, objectivePercentage, func(bad, total float32) float32 {
+		return bad / total
+	})
+}
+
+func calcAvailabilityBurnRates(now timeseries.Time, badSum, totalSum sumFromFunc, objectivePercentage float32) []model.BurnRate {
+	return calcBurnRatesWithRatio(now, badSum, totalSum, objectivePercentage, func(bad, total float32) float32 {
+		if bad == 0 && total == 0 {
+			return 0
+		}
+		return bad / total
+	})
+}
+
+func calcBurnRatesWithRatio(now timeseries.Time, badSum, totalSum sumFromFunc, objectivePercentage float32, ratio func(bad, total float32) float32) []model.BurnRate {
 	objective := 1 - objectivePercentage/100
 	var res []model.BurnRate
 
@@ -257,14 +261,14 @@ func calcBurnRates(now timeseries.Time, badSum, totalSum sumFromFunc, objectiveP
 			Threshold:   r.BurnRateThreshold,
 			Severity:    model.OK,
 		}
-		if v := bad / total; !timeseries.IsNaN(v) {
+		if v := ratio(bad, total); !timeseries.IsNaN(v) {
 			br.LongWindowPercentage = v * 100
 			br.LongWindowBurnRate = v / objective
 		} else {
 			continue
 		}
 		from = now.Add(-r.ShortWindow)
-		if v := badSum(from) / totalSum(from); !timeseries.IsNaN(v) {
+		if v := ratio(badSum(from), totalSum(from)); !timeseries.IsNaN(v) {
 			br.ShortWindowPercentage = v * 100
 			br.ShortWindowBurnRate = v / objective
 		} else {
@@ -292,7 +296,7 @@ func totalSum(ts *timeseries.TimeSeries) sumFromFunc {
 			sum += v
 			countDefined++
 		}
-		if float32(countDefined)/float32(count) < 0.5 {
+		if count == 0 || float32(countDefined)/float32(count) < 0.5 {
 			return timeseries.NaN
 		}
 		return sum
