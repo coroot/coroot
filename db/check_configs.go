@@ -51,7 +51,7 @@ func (db *DB) GetCheckConfigs(projectId ProjectId) (model.CheckConfigs, error) {
 		}
 		res[id] = cs
 	}
-	return res, nil
+	return res, rows.Err()
 }
 
 func (db *DB) SaveCheckConfig(projectId ProjectId, appId model.ApplicationId, checkId model.CheckId, cfg any) error {

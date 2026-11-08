@@ -103,7 +103,7 @@ func (db *DB) GetNotSentAlertNotifications(from timeseries.Time) ([]AlertNotific
 		}
 		res = append(res, n)
 	}
-	return res, nil
+	return res, rows.Err()
 }
 
 func (db *DB) GetAlertNotificationsByAlertIds(projectId ProjectId, alertIds []string) (map[string][]AlertNotification, error) {
@@ -149,7 +149,7 @@ func (db *DB) GetAlertNotificationsByAlertIds(projectId ProjectId, alertIds []st
 		}
 		res[n.AlertId] = append(res[n.AlertId], n)
 	}
-	return res, nil
+	return res, rows.Err()
 }
 
 func (db *DB) GetPreviousAlertNotifications(n AlertNotification) ([]AlertNotification, error) {
@@ -183,5 +183,5 @@ func (db *DB) GetPreviousAlertNotifications(n AlertNotification) ([]AlertNotific
 		}
 		res = append(res, n)
 	}
-	return res, nil
+	return res, rows.Err()
 }
