@@ -19,7 +19,8 @@
             </v-menu>
         </div>
 
-        <v-data-table
+        <DataTable
+            table-id="inspections"
             dense
             class="table"
             mobile-breakpoint="0"
@@ -62,7 +63,7 @@
                     <v-icon small>mdi-file-replace-outline</v-icon>
                 </a>
             </template>
-        </v-data-table>
+        </DataTable>
 
         <CheckForm v-model="editing.active" :appId="editing.appId" :check="editing.check" />
 
@@ -97,9 +98,10 @@
 
 <script>
 import CheckForm from './CheckForm.vue';
+import DataTable from './DataTable.vue';
 
 export default {
-    components: { CheckForm },
+    components: { CheckForm, DataTable },
 
     data() {
         return {

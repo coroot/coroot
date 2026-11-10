@@ -32,7 +32,8 @@
 
             <StatusFacets :facets="facets" :selected="selectedStatus" @toggle="toggleStatus" />
 
-            <v-data-table
+            <DataTable
+                table-id="fluxcd-resources"
                 sort-by="name"
                 must-sort
                 dense
@@ -105,7 +106,7 @@
                     </div>
                     <div v-else>—</div>
                 </template>
-            </v-data-table>
+            </DataTable>
         </div>
     </div>
 </template>
@@ -113,12 +114,13 @@
 <script>
 import Led from './Led';
 import StatusFacets from './StatusFacets';
+import DataTable from './DataTable.vue';
 
 const APP_KINDS = ['Kustomization', 'HelmRelease', 'ResourceSet'];
 const FACETS = [{ key: 'status', label: 'Status', statusField: 'status', levelField: 'level' }];
 
 export default {
-    components: { Led, StatusFacets },
+    components: { Led, StatusFacets, DataTable },
     data() {
         return {
             loading: false,

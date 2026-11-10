@@ -2,7 +2,8 @@
     <div>
         <ApplicationFilter :applications="applications" @filter="setFilter" class="mb-4" />
 
-        <v-data-table
+        <DataTable
+            table-id="deployments"
             dense
             class="table"
             mobile-breakpoint="0"
@@ -46,16 +47,17 @@
                 </div>
             </template>
             <template #no-data> No deployments detected </template>
-        </v-data-table>
+        </DataTable>
     </div>
 </template>
 
 <script>
 import Led from '../components/Led.vue';
 import ApplicationFilter from '../components/ApplicationFilter.vue';
+import DataTable from '../components/DataTable.vue';
 
 export default {
-    components: { ApplicationFilter, Led },
+    components: { ApplicationFilter, Led, DataTable },
 
     data() {
         return {

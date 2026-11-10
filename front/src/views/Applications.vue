@@ -9,7 +9,8 @@
             </div>
         </div>
 
-        <v-data-table
+        <DataTable
+            table-id="applications"
             dense
             class="table"
             mobile-breakpoint="0"
@@ -91,7 +92,7 @@
                     />
                 </router-link>
             </template>
-        </v-data-table>
+        </DataTable>
     </Views>
 </template>
 
@@ -99,6 +100,7 @@
 import ApplicationFilter from '../components/ApplicationFilter.vue';
 import AppIcon from '../components/AppIcon.vue';
 import Views from '@/views/Views.vue';
+import DataTable from '../components/DataTable.vue';
 
 const statuses = {
     critical: { name: 'SLO violation', color: 'red lighten-1' },
@@ -109,7 +111,7 @@ const statuses = {
 };
 
 export default {
-    components: { Views, ApplicationFilter, AppIcon },
+    components: { Views, ApplicationFilter, AppIcon, DataTable },
 
     data() {
         return {
