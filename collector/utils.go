@@ -23,8 +23,14 @@ func attributesToMap(kv []*v1.KeyValue) map[string]string {
 	return res
 }
 
+const maxValueDepth = 4
+
 func valueToString(value *v1.AnyValue) string {
-	switch value.Value.(type) {
+	return valueToStringDepth(value, 0)
+}
+
+func valueToStringDepth(value *v1.AnyValue, depth int) string {
+	switch value.GetValue().(type) {
 	case *v1.AnyValue_StringValue:
 		return value.GetStringValue()
 	case *v1.AnyValue_BoolValue:
@@ -46,23 +52,29 @@ func valueToString(value *v1.AnyValue) string {
 	case *v1.AnyValue_BytesValue:
 		return string(value.GetBytesValue())
 	case *v1.AnyValue_ArrayValue:
+		if depth >= maxValueDepth {
+			return "..."
+		}
 		vs := value.GetArrayValue().GetValues()
 		s := make([]string, 0, len(vs))
 		for _, v := range vs {
-			s = append(s, valueToString(v))
+			s = append(s, valueToStringDepth(v, depth+1))
 		}
 		j, _ := json.Marshal(s) //nolint:errchkjson // marshaling []string or map[string]string cannot fail
 		return string(j)
 	case *v1.AnyValue_KvlistValue:
+		if depth >= maxValueDepth {
+			return "..."
+		}
 		vs := value.GetKvlistValue().Values
 		s := make(map[string]string, len(vs))
 		for _, kv := range vs {
-			s[kv.GetKey()] = valueToString(kv.GetValue())
+			s[kv.GetKey()] = valueToStringDepth(kv.GetValue(), depth+1)
 		}
 		j, _ := json.Marshal(s) //nolint:errchkjson // marshaling []string or map[string]string cannot fail
 		return string(j)
 	}
-	return fmt.Sprintf("unknown attribute value type: %T", value.Value)
+	return fmt.Sprintf("unknown attribute value type: %T", value.GetValue())
 }
 
 func getDecoder(encoding string, body io.ReadCloser) (io.ReadCloser, error) {
