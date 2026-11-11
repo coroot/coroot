@@ -8,6 +8,7 @@ require (
 	github.com/DataDog/golz4 v1.3.0
 	github.com/KimMachineGun/automemlimit v1.0.1
 	github.com/PagerDuty/go-pagerduty v1.6.0
+	github.com/VictoriaMetrics/easyproto v1.2.0
 	github.com/atc0005/go-teams-notify/v2 v2.13.0
 	github.com/buger/jsonparser v1.1.2
 	github.com/coroot/logparser v1.1.4
