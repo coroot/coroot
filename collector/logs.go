@@ -4,7 +4,6 @@ import (
 	"encoding/hex"
 	"io"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/ClickHouse/ch-go"
@@ -63,8 +62,6 @@ func (c *Collector) Logs(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(data)
 }
 
-const logsFlushConcurrency = 4
-
 type logsColumns struct {
 	Timestamp          *chproto.ColDateTime64
 	TraceId            *chproto.ColStr
@@ -113,6 +110,10 @@ func (c *logsColumns) append(rows []logRow) {
 	}
 }
 
+func (c *logsColumns) rows() int {
+	return c.Timestamp.Rows()
+}
+
 func (c *logsColumns) input() chproto.Input {
 	return chproto.Input{
 		chproto.InputColumn{Name: "Timestamp", Data: c.Timestamp},
@@ -129,94 +130,15 @@ func (c *logsColumns) input() chproto.Input {
 }
 
 type LogsBatch struct {
-	limit int
-	exec  func(query ch.Query) error
-
-	lock    sync.Mutex
-	columns *logsColumns
-	spare   chan *logsColumns
-	flushes chan struct{}
-	wg      sync.WaitGroup
-	done    chan struct{}
+	batch[*logsColumns]
 }
 
 func NewLogsBatch(limit int, timeout time.Duration, exec func(query ch.Query) error) *LogsBatch {
-	b := &LogsBatch{
-		limit:   limit,
-		exec:    exec,
-		columns: newLogsColumns(),
-		spare:   make(chan *logsColumns, logsFlushConcurrency),
-		flushes: make(chan struct{}, logsFlushConcurrency),
-		done:    make(chan struct{}),
-	}
-
-	go func() {
-		ticker := time.NewTicker(timeout)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-b.done:
-				return
-			case <-ticker.C:
-				b.lock.Lock()
-				b.save()
-				b.lock.Unlock()
-			}
-		}
-	}()
-
+	b := &LogsBatch{}
+	b.start(limit, timeout, "@@table_otel_logs@@", newLogsColumns, exec)
 	return b
 }
 
-func (b *LogsBatch) Close() {
-	b.done <- struct{}{}
-	b.lock.Lock()
-	defer b.lock.Unlock()
-	b.save()
-	b.wg.Wait()
-}
-
-func (b *LogsBatch) Add(req *v1.ExportLogsServiceRequest) {
-	rows := getLogRows()
-	defer putLogRows(rows)
-	rows.FromRequest(req)
-	b.add(rows)
-}
-
 func (b *LogsBatch) add(rows *logRows) {
-	b.lock.Lock()
-	defer b.lock.Unlock()
-	b.columns.append(rows.rows)
-	if b.columns.Timestamp.Rows() < b.limit {
-		return
-	}
-	b.save()
-}
-
-func (b *LogsBatch) save() {
-	if b.columns.Timestamp.Rows() == 0 {
-		return
-	}
-	columns := b.columns
-	b.flushes <- struct{}{}
-	select {
-	case b.columns = <-b.spare:
-	default:
-		b.columns = newLogsColumns()
-	}
-	b.wg.Go(func() {
-		input := columns.input()
-		err := b.exec(ch.Query{Body: input.Into("@@table_otel_logs@@"), Input: input})
-		if err != nil {
-			klog.Errorln(err)
-		}
-		for _, i := range input {
-			i.Data.(chproto.Resettable).Reset()
-		}
-		select {
-		case b.spare <- columns:
-		default:
-		}
-		<-b.flushes
-	})
+	b.write(func(c *logsColumns) { c.append(rows.rows) })
 }

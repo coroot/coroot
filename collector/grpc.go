@@ -7,58 +7,46 @@ import (
 	"github.com/coroot/coroot/grpc"
 	logsv1 "go.opentelemetry.io/proto/otlp/collector/logs/v1"
 	tracesv1 "go.opentelemetry.io/proto/otlp/collector/trace/v1"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 	"k8s.io/klog"
 )
 
 func (c *Collector) registerGRPCServices(server *grpc.Server) {
-	logsv1.RegisterLogsServiceServer(server, NewGRPCLogsService(c))
-	tracesv1.RegisterTraceServiceServer(server, NewGRPCTracesService(c))
+	server.RegisterRawMethod(tracesv1.TraceService_ServiceDesc.ServiceName, "Export", c.exportTraces)
+	server.RegisterRawMethod(logsv1.LogsService_ServiceDesc.ServiceName, "Export", c.exportLogs)
 }
 
-type GRPCTracesService struct {
-	collector *Collector
-	tracesv1.UnimplementedTraceServiceServer
-}
-
-func NewGRPCTracesService(collector *Collector) *GRPCTracesService {
-	return &GRPCTracesService{
-		collector: collector,
-	}
-}
-
-func (s *GRPCTracesService) Export(ctx context.Context, req *tracesv1.ExportTraceServiceRequest) (*tracesv1.ExportTraceServiceResponse, error) {
-	project, err := s.collector.getProjectFromGRPCMetadata(ctx)
+func (c *Collector) exportTraces(ctx context.Context, request []byte) (any, error) {
+	project, err := c.getProjectFromGRPCMetadata(ctx)
 	if err != nil {
 		klog.Errorln("failed to get project:", err)
 		return nil, err
 	}
-
-	s.collector.getTracesBatch(project).Add(req)
-
+	rows := getSpanRows()
+	defer putSpanRows(rows)
+	if err = rows.Unmarshal(request); err != nil {
+		klog.Errorln(err)
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	c.getTracesBatch(project).add(rows)
 	return &tracesv1.ExportTraceServiceResponse{}, nil
 }
 
-type GRPCLogsService struct {
-	collector *Collector
-	logsv1.UnimplementedLogsServiceServer
-}
-
-func NewGRPCLogsService(collector *Collector) *GRPCLogsService {
-	return &GRPCLogsService{
-		collector: collector,
-	}
-}
-
-func (s *GRPCLogsService) Export(ctx context.Context, req *logsv1.ExportLogsServiceRequest) (*logsv1.ExportLogsServiceResponse, error) {
-	project, err := s.collector.getProjectFromGRPCMetadata(ctx)
+func (c *Collector) exportLogs(ctx context.Context, request []byte) (any, error) {
+	project, err := c.getProjectFromGRPCMetadata(ctx)
 	if err != nil {
 		klog.Errorln("failed to get project:", err)
 		return nil, err
 	}
-
-	s.collector.getLogsBatch(project).Add(req)
-
+	rows := getLogRows()
+	defer putLogRows(rows)
+	if err = rows.Unmarshal(request); err != nil {
+		klog.Errorln(err)
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	c.getLogsBatch(project).add(rows)
 	return &logsv1.ExportLogsServiceResponse{}, nil
 }
 

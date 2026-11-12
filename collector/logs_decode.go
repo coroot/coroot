@@ -8,7 +8,6 @@ import (
 	chproto "github.com/ClickHouse/ch-go/proto"
 	"github.com/VictoriaMetrics/easyproto"
 	semconv "go.opentelemetry.io/collector/semconv/v1.18.0"
-	collectorv1 "go.opentelemetry.io/proto/otlp/collector/logs/v1"
 	commonv1 "go.opentelemetry.io/proto/otlp/common/v1"
 	resourcev1 "go.opentelemetry.io/proto/otlp/resource/v1"
 	"google.golang.org/protobuf/proto"
@@ -30,8 +29,8 @@ type logRow struct {
 }
 
 type logRows struct {
-	rows  []logRow
-	attrs []logAttr
+	attrList
+	rows []logRow
 }
 
 var logRowsPool = sync.Pool{New: func() any { return &logRows{} }}
@@ -48,7 +47,11 @@ func putLogRows(l *logRows) {
 	logRowsPool.Put(l)
 }
 
-func (l *logRows) setAttr(from int, key, value string) {
+type attrList struct {
+	attrs []logAttr
+}
+
+func (l *attrList) setAttr(from int, key, value string) {
 	for i := from; i < len(l.attrs); i++ {
 		if l.attrs[i].Key == key {
 			l.attrs[i].Value = value
@@ -56,53 +59,6 @@ func (l *logRows) setAttr(from int, key, value string) {
 		}
 	}
 	l.attrs = append(l.attrs, logAttr{Key: key, Value: value})
-}
-
-func (l *logRows) FromRequest(req *collectorv1.ExportLogsServiceRequest) {
-	for _, rl := range req.GetResourceLogs() {
-		var serviceName string
-		from := len(l.attrs)
-		for _, kv := range rl.GetResource().GetAttributes() {
-			l.setAttr(from, kv.GetKey(), valueToString(kv.GetValue()))
-		}
-		resourceAttributes := l.attrs[from:len(l.attrs):len(l.attrs)]
-		for _, a := range resourceAttributes {
-			if a.Key == semconv.AttributeServiceName {
-				serviceName = a.Value
-			}
-		}
-		for _, sl := range rl.GetScopeLogs() {
-			scopeName := sl.GetScope().GetName()
-			scopeVersion := sl.GetScope().GetVersion()
-			for _, lr := range sl.GetLogRecords() {
-				if int64(lr.GetTimeUnixNano()) < 0 { //nolint:gosec // negative means out of range, skipped
-					continue
-				}
-				from = len(l.attrs)
-				for _, kv := range lr.GetAttributes() {
-					l.setAttr(from, kv.GetKey(), valueToString(kv.GetValue()))
-				}
-				if scopeName != "" {
-					l.setAttr(from, semconv.AttributeOtelScopeName, scopeName)
-				}
-				if scopeVersion != "" {
-					l.setAttr(from, semconv.AttributeOtelScopeVersion, scopeVersion)
-				}
-				l.rows = append(l.rows, logRow{
-					timestamp:          int64(lr.GetTimeUnixNano()), //nolint:gosec // checked above
-					traceId:            lr.GetTraceId(),
-					spanId:             lr.GetSpanId(),
-					traceFlags:         lr.GetFlags(),
-					severityText:       lr.GetSeverityText(),
-					severityNumber:     int32(lr.GetSeverityNumber()),
-					serviceName:        serviceName,
-					body:               lr.GetBody().GetStringValue(),
-					resourceAttributes: resourceAttributes,
-					logAttributes:      l.attrs[from:len(l.attrs):len(l.attrs)],
-				})
-			}
-		}
-	}
 }
 
 func (l *logRows) Unmarshal(data []byte) error {
@@ -125,9 +81,8 @@ func (l *logRows) Unmarshal(data []byte) error {
 }
 
 func (l *logRows) unmarshalResourceLogs(data []byte) error {
-	var fc, rc easyproto.FieldContext
+	var fc easyproto.FieldContext
 	var err error
-	var serviceName string
 	from := len(l.attrs)
 	for d := data; len(d) > 0; {
 		if d, err = nextField(&fc, d); err != nil {
@@ -140,30 +95,12 @@ func (l *logRows) unmarshalResourceLogs(data []byte) error {
 		if !ok {
 			continue
 		}
-		for r := resource; len(r) > 0; {
-			if r, err = nextField(&rc, r); err != nil {
-				return err
-			}
-			b, ok := rc.MessageData()
-			if !ok {
-				continue
-			}
-			if rc.FieldNum == 1 {
-				err = l.unmarshalAttr(from, b)
-			} else {
-				err = proto.Unmarshal(resource, &resourcev1.Resource{})
-			}
-			if err != nil {
-				return err
-			}
+		if err = l.unmarshalResource(from, resource); err != nil {
+			return err
 		}
 	}
 	resourceAttributes := l.attrs[from:len(l.attrs):len(l.attrs)]
-	for _, a := range resourceAttributes {
-		if a.Key == semconv.AttributeServiceName {
-			serviceName = a.Value
-		}
-	}
+	serviceName := getServiceName(resourceAttributes)
 	for d := data; len(d) > 0; {
 		if d, err = nextField(&fc, d); err != nil {
 			return err
@@ -181,7 +118,7 @@ func (l *logRows) unmarshalResourceLogs(data []byte) error {
 }
 
 func (l *logRows) unmarshalScopeLogs(data []byte, serviceName string, resourceAttributes []logAttr) error {
-	var fc, sc easyproto.FieldContext
+	var fc easyproto.FieldContext
 	var err error
 	var scopeName, scopeVersion string
 	for d := data; len(d) > 0; {
@@ -195,24 +132,8 @@ func (l *logRows) unmarshalScopeLogs(data []byte, serviceName string, resourceAt
 		if !ok {
 			continue
 		}
-		for s := scope; len(s) > 0; {
-			if s, err = nextField(&sc, s); err != nil {
-				return err
-			}
-			v, ok := sc.String()
-			if !ok {
-				continue
-			}
-			switch sc.FieldNum {
-			case 1:
-				scopeName = v
-			case 2:
-				scopeVersion = v
-			default:
-				if err = proto.Unmarshal(scope, &commonv1.InstrumentationScope{}); err != nil {
-					return err
-				}
-			}
+		if err = unmarshalScope(scope, &scopeName, &scopeVersion); err != nil {
+			return err
 		}
 	}
 	for d := data; len(d) > 0; {
@@ -335,7 +256,7 @@ func unmarshalBody(data []byte, body string) (string, error) {
 	return body, nil
 }
 
-func (l *logRows) unmarshalAttr(from int, data []byte) error {
+func (l *attrList) unmarshalAttr(from int, data []byte) error {
 	var fc easyproto.FieldContext
 	var err error
 	all := data
@@ -375,6 +296,64 @@ func (l *logRows) unmarshalAttr(from int, data []byte) error {
 	}
 	l.setAttr(from, key, v)
 	return nil
+}
+
+func (l *attrList) unmarshalResource(from int, data []byte) error {
+	var fc easyproto.FieldContext
+	var err error
+	for d := data; len(d) > 0; {
+		if d, err = nextField(&fc, d); err != nil {
+			return err
+		}
+		b, ok := fc.MessageData()
+		if !ok {
+			continue
+		}
+		if fc.FieldNum == 1 {
+			err = l.unmarshalAttr(from, b)
+		} else {
+			err = proto.Unmarshal(data, &resourcev1.Resource{})
+		}
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func unmarshalScope(data []byte, name, version *string) error {
+	var fc easyproto.FieldContext
+	var err error
+	for d := data; len(d) > 0; {
+		if d, err = nextField(&fc, d); err != nil {
+			return err
+		}
+		v, ok := fc.String()
+		if !ok {
+			continue
+		}
+		switch fc.FieldNum {
+		case 1:
+			*name = v
+		case 2:
+			*version = v
+		default:
+			if err = proto.Unmarshal(data, &commonv1.InstrumentationScope{}); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func getServiceName(resourceAttributes []logAttr) string {
+	var serviceName string
+	for _, a := range resourceAttributes {
+		if a.Key == semconv.AttributeServiceName {
+			serviceName = a.Value
+		}
+	}
+	return serviceName
 }
 
 func unmarshalValue(data []byte) (string, error) {

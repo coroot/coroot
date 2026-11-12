@@ -1,6 +1,7 @@
 package grpc
 
 import (
+	"context"
 	"crypto/tls"
 	"math"
 	"net"
@@ -8,6 +9,9 @@ import (
 	"github.com/coroot/coroot/config"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/encoding"
+	"google.golang.org/grpc/encoding/proto"
+	"google.golang.org/grpc/mem"
 	"k8s.io/klog"
 )
 
@@ -24,6 +28,7 @@ func NewServer(cfg config.GRPC, tlsConfig *config.TLS) (*Server, error) {
 
 	opts := []grpc.ServerOption{
 		grpc.MaxRecvMsgSize(math.MaxInt),
+		grpc.ForceServerCodecV2(rawCodec{encoding.GetCodecV2(proto.Name)}),
 	}
 
 	if tlsConfig != nil {
@@ -50,6 +55,48 @@ func (s *Server) RegisterService(desc *grpc.ServiceDesc, impl any) {
 		return
 	}
 	s.server.RegisterService(desc, impl)
+}
+
+type rawMessage []byte
+
+type rawCodec struct {
+	encoding.CodecV2
+}
+
+func (c rawCodec) Unmarshal(data mem.BufferSlice, v any) error {
+	if raw, ok := v.(*rawMessage); ok {
+		*raw = data.Materialize()
+		return nil
+	}
+	return c.CodecV2.Unmarshal(data, v)
+}
+
+type RawHandler func(ctx context.Context, request []byte) (any, error)
+
+func (s *Server) RegisterRawMethod(service, method string, handler RawHandler) {
+	if s == nil {
+		return
+	}
+	s.server.RegisterService(&grpc.ServiceDesc{
+		ServiceName: service,
+		HandlerType: (*any)(nil),
+		Methods: []grpc.MethodDesc{{
+			MethodName: method,
+			Handler: func(_ any, ctx context.Context, dec func(any) error, interceptor grpc.UnaryServerInterceptor) (any, error) {
+				var raw rawMessage
+				if err := dec(&raw); err != nil {
+					return nil, err
+				}
+				if interceptor == nil {
+					return handler(ctx, raw)
+				}
+				info := &grpc.UnaryServerInfo{FullMethod: "/" + service + "/" + method}
+				return interceptor(ctx, []byte(raw), info, func(ctx context.Context, _ any) (any, error) {
+					return handler(ctx, raw)
+				})
+			},
+		}},
+	}, nil)
 }
 
 func (s *Server) Start() error {
