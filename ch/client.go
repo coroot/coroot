@@ -26,6 +26,7 @@ import (
 
 const (
 	dialTimeout    = 10 * time.Second
+	maxConnIdle    = 2 * time.Minute
 	authHeader     = "X-API-Key"
 	ProtocolCoroot = "coroot"
 )
@@ -63,7 +64,7 @@ func NewLowLevelClient(ctx context.Context, cfg *db.IntegrationClickhouse) (*Low
 	} else if cfg.TlsEnable {
 		opts.TLS = TlsConfig(cfg.TlsCAFile, cfg.TlsSkipVerify)
 	}
-	pool, err := chpool.Dial(context.Background(), chpool.Options{ClientOptions: opts})
+	pool, err := chpool.Dial(context.Background(), chpool.Options{ClientOptions: opts, MaxConnIdleTime: maxConnIdle})
 	if err != nil {
 		return nil, err
 	}

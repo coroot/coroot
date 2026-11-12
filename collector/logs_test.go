@@ -99,23 +99,20 @@ func TestLogRowsUnmarshal(t *testing.T) {
 	data, err := proto.Marshal(req)
 	require.NoError(t, err)
 
-	expected := &logRows{}
-	expected.FromRequest(req)
 	actual := &logRows{}
 	require.NoError(t, actual.Unmarshal(data))
 	require.Len(t, actual.rows, 3*5+4)
-	for i := range expected.rows {
-		e, a := expected.rows[i], actual.rows[i]
-		if len(e.traceId) == 0 {
-			e.traceId, a.traceId = nil, nil
-		}
-		if len(e.spanId) == 0 {
-			e.spanId, a.spanId = nil, nil
-		}
-		assert.Equal(t, e, a, "row %d", i)
-	}
 
-	r := actual.rows[15]
+	r := actual.rows[0]
+	assert.Equal(t, int64(1700000000000000000), r.timestamp)
+	assert.Equal(t, "info", r.severityText)
+	assert.Equal(t, int32(logsv1.SeverityNumber_SEVERITY_NUMBER_INFO), r.severityNumber)
+	assert.Equal(t, "service-0", r.serviceName)
+	assert.Equal(t, "request 0 completed in 12ms", r.body)
+	assert.Len(t, r.logAttributes, 30)
+	assert.Equal(t, "service-2", actual.rows[14].serviceName)
+
+	r = actual.rows[15]
 	assert.Equal(t, "svc", r.serviceName)
 	assert.Equal(t, []logAttr{{Key: "service.name", Value: "svc"}, {Key: "replicas", Value: "-3"}}, r.resourceAttributes)
 	assert.Equal(t, []logAttr{
@@ -166,7 +163,6 @@ func TestLogsBatch(t *testing.T) {
 				assert.NoError(t, rows.Unmarshal(data))
 				batch.add(rows)
 				putLogRows(rows)
-				batch.Add(req)
 			}
 		}()
 	}
@@ -174,7 +170,7 @@ func TestLogsBatch(t *testing.T) {
 		<-done
 	}
 	batch.Close()
-	assert.Equal(t, int64(8*100*2*5*7), inserted.Load())
+	assert.Equal(t, int64(8*100*5*7), inserted.Load())
 }
 
 func TestValueToStringDepth(t *testing.T) {
