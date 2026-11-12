@@ -26,6 +26,17 @@ func NanSum(t Time, sum, v float32) float32 {
 	return sum
 }
 
+// NanSumOrNaN sums defined values and returns NaN when both operands are NaN.
+func NanSumOrNaN(t Time, sum, v float32) float32 {
+	if IsNaN(sum) {
+		return v
+	}
+	if IsNaN(v) {
+		return sum
+	}
+	return sum + v
+}
+
 func NanCount(t Time, count, v float32) float32 {
 	if IsNaN(count) {
 		count = 0

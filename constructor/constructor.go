@@ -542,7 +542,7 @@ func (c *Constructor) groupApplications(w *model.World, groups map[model.Applica
 			categories.Add(string(app.Category))
 
 			for status, ts := range app.InboundRequestsCount {
-				group.app.InboundRequestsCount[status] = merge(group.app.InboundRequestsCount[status], ts, timeseries.NanSum)
+				group.app.InboundRequestsCount[status] = merge(group.app.InboundRequestsCount[status], ts, timeseries.NanSumOrNaN)
 			}
 			for le, ts := range app.InboundRequestsHistogram {
 				group.app.InboundRequestsHistogram[le] = merge(group.app.InboundRequestsHistogram[le], ts, timeseries.NanSum)
