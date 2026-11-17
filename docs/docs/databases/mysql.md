@@ -38,7 +38,7 @@ Schema and size tracking will not error but will only cover system databases, si
 **SELECT ON \*.\***
 
 Coroot reads from:
-- `performance_schema` tables (`events_statements_summary_by_digest`, `table_io_waits_summary_by_table`, `data_lock_waits`, `threads`, `events_statements_current`, `variables_info`) for query statistics, table I/O waits, lock contention, and settings change detection.
+- `performance_schema` tables (`events_statements_summary_by_digest`, `table_io_waits_summary_by_table`, `table_io_waits_summary_by_index_usage`, `data_lock_waits`, `threads`, `events_statements_current`, `variables_info`) for query statistics, table I/O waits, index usage, lock contention, and settings change detection.
 - `information_schema` tables (`tables`, `columns`, `statistics`, `key_column_usage`) for schema and size tracking.
 
 The grant must be `ON *.*` because MySQL filters `information_schema` views to only show objects the user has privileges on. A narrower grant would cause schema and size queries to return empty results for user databases. See [Minimal permissions](#minimal-permissions) if you don't need schema or size tracking.
@@ -175,6 +175,19 @@ Coroot queries `information_schema` to reconstruct table DDL and detect schema c
 - **`information_schema.columns`** - column name, type, nullability, default, extra attributes.
 - **`information_schema.statistics`** - index name, uniqueness, column list.
 - **`information_schema.key_column_usage`** - foreign key name, columns, referenced table and columns.
+
+#### Schema snapshots
+
+Besides the change events, the agent sends the current definition of every table to Coroot: right after the table is created or changed,
+and then once an hour. [AI-powered Root Cause Analysis](/ai/overview) uses these snapshots to base its index recommendations on the indexes
+that actually exist and on how they are used, instead of guessing. Each snapshot contains the table DDL and the following statistics:
+
+- **`information_schema.tables`** - the estimated number of rows, data size and the total size of indexes.
+- **`information_schema.statistics`** - for every index: its type, columns in the key order, uniqueness and cardinality.
+- **`performance_schema.table_io_waits_summary_by_index_usage`** - rows read through each index and without an index, rows inserted, updated and deleted.
+  These counters accumulate since the server start and require `performance_schema` to be enabled (it is off by default on MariaDB); without it the snapshots contain only definitions and sizes.
+
+Only definitions and counters are read, never the table data. No additional privileges are required.
 
 ### Table and database sizes
 

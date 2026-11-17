@@ -11,6 +11,7 @@ Coroot-cluster-agent is a dedicated tool for collecting cluster-wide telemetry d
  * It gathers database metrics by discovering databases through Coroot's Service Map and Kubernetes control-plane.
 Using the credentials provided by Coroot or via Kubernetes annotations, the agent connects to the identified databases such as Postgres, MySQL, Redis, Memcached, and MongoDB, collects database-specific metrics, and sends them to Coroot using the Prometheus Remote Write protocol.
  * When `--track-database-changes` is enabled, the agent tracks schema and configuration changes in databases. Change events are sent to Coroot as OpenTelemetry log records under the `DatabaseChanges` service name.
+The current definition of every table along with its size and index usage statistics is sent under the `DatabaseSchema` service name.
  * The agent can be integrated with AWS to discover RDS and ElastiCache clusters and collect their telemetry data.
  * The agent discovers and scrapes [custom metrics](/metrics/custom-metrics) from annotated pods.
  * The agent monitors GitOps tooling by reading [FluxCD](#fluxcd) and [ArgoCD](#argocd) custom resources through its embedded kube-state-metrics and exposing their state as metrics.
@@ -264,6 +265,20 @@ When `--track-database-changes` is enabled, the agent detects and emits change e
 * **Settings changes** — The agent snapshots all `pg_settings` values each cycle. When a setting changes (e.g., after a configuration reload or restart), a change event is emitted with the diff. Session-level and client-level overrides are excluded.
 
 Each change event includes `db.system`, `db.target`, `db.name`, `db_change.object`, and `db_change.type` attributes.
+
+#### Schema snapshots
+
+The current state of every table is sent as a log record under the `DatabaseSchema` service name: right after the table is created or changed,
+and then once an hour. The record body is the table DDL, and the attributes are:
+
+* `db.system`, `db.target`, `db.name`, `db.schema`, `db.table` — the table the record describes. `db.table.dropped` is set to `true` in the last record of a dropped table.
+* `db.table.rows`, `db.table.data_size_bytes`, `db.table.indexes_size_bytes` — the estimated number of rows and sizes.
+* `db.table.seq_scans`, `db.table.seq_rows_read`, `db.table.index_scans`, `db.table.index_rows_fetched`, `db.table.rows_inserted`, `db.table.rows_updated`, `db.table.rows_deleted` — cumulative usage counters from `pg_stat_user_tables`. `db.table.stats_since` is the time they have been accumulating since, `db.table.last_analyze` is the time of the last `ANALYZE` (both are Unix timestamps).
+* `db.table.columns` — a JSON array of columns: `name`, `type`, `nullable`, `default`.
+* `db.table.indexes` — a JSON array with an entry per index: `name`, `method`, `columns`, `include`, `predicate`, `size_bytes`, `scans`, `rows_read`, `rows_fetched`, `primary`, `unique`, `invalid`.
+
+Records sent by coroot-node-agent also carry the `host.id` and `host.name` resource attributes, so the same local address
+(e.g. `127.0.0.1:5432`) on different hosts can be told apart. The same applies to the change events.
 
 ### Size and bloat metrics
 
@@ -594,6 +609,20 @@ When `--track-database-changes` is enabled, the agent detects and emits change e
 * **Settings changes** — The agent snapshots all `SHOW GLOBAL VARIABLES` values each cycle. When a variable changes (e.g., after a `SET GLOBAL` or restart), a change event is emitted with the diff.
 
 Each change event includes `db.system`, `db.target`, `db.name`, `db_change.object`, and `db_change.type` attributes.
+
+#### Schema snapshots
+
+The current state of every table is sent as a log record under the `DatabaseSchema` service name: right after the table is created or changed,
+and then once an hour. The record body is the table DDL, and the attributes are:
+
+* `db.system`, `db.target`, `db.name`, `db.table` — the table the record describes. `db.table.dropped` is set to `true` in the last record of a dropped table.
+* `db.table.rows`, `db.table.data_size_bytes`, `db.table.indexes_size_bytes` — the estimated number of rows and sizes.
+* `db.table.seq_rows_read`, `db.table.index_rows_fetched`, `db.table.rows_inserted`, `db.table.rows_updated`, `db.table.rows_deleted` — cumulative usage counters from `performance_schema.table_io_waits_summary_by_index_usage` (reported only if `performance_schema` is enabled). `db.table.stats_since` is the server start time (a Unix timestamp).
+* `db.table.columns` — a JSON array of columns: `name`, `type`, `nullable`, `default`, `extra`.
+* `db.table.indexes` — a JSON array with an entry per index: `name`, `method`, `columns`, `cardinality`, `rows_read`, `primary`, `unique`.
+
+Records sent by coroot-node-agent also carry the `host.id` and `host.name` resource attributes, so the same local address
+(e.g. `127.0.0.1:3306`) on different hosts can be told apart. The same applies to the change events.
 
 ### Size metrics
 
@@ -1275,6 +1304,18 @@ When `--track-database-changes` is enabled, the agent detects and emits change e
 MongoDB system databases (admin, config, local) are always excluded from index tracking.
 
 Each change event includes `db.system`, `db.target`, `db.name`, `db_change.object`, and `db_change.type` attributes.
+
+#### Schema snapshots
+
+The current state of every collection is sent as a log record under the `DatabaseSchema` service name: right after its indexes are created or changed,
+and then once an hour. The record body is the list of the collection indexes, and the attributes are:
+
+* `db.system`, `db.target`, `db.name`, `db.table` — the collection the record describes. `db.table.dropped` is set to `true` in the last record of a dropped collection.
+* `db.table.rows`, `db.table.data_size_bytes`, `db.table.indexes_size_bytes` — the estimated number of rows and sizes.
+* `db.table.indexes` — a JSON array with an entry per index: `name`, `columns` (key fields in order with their direction or type, e.g. `user_id:1`), `primary`, `unique`.
+
+Records sent by coroot-node-agent also carry the `host.id` and `host.name` resource attributes, so the same local address
+(e.g. `127.0.0.1:27017`) on different hosts can be told apart. The same applies to the change events.
 
 ### Size metrics
 
