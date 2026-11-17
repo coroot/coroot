@@ -53,7 +53,7 @@ Coroot connects to the `postgres` database by default. For schema and size track
 
 **Schema and size tracking**
 
-Schema tracking queries `pg_catalog` system catalogs (`pg_class`, `pg_namespace`, `pg_attribute`, `pg_attrdef`, `pg_constraint`, `pg_indexes`) and calls `pg_total_relation_size()` for table sizes. The `pg_monitor` role provides sufficient access to these catalogs. Coroot connects to each user database to read its schema, so the monitoring user must have `CONNECT` privilege on the databases it should track (granted to `PUBLIC` by default in Postgres).
+Schema tracking queries `pg_catalog` system catalogs (`pg_class`, `pg_namespace`, `pg_attribute`, `pg_attrdef`, `pg_constraint`, `pg_indexes`, `pg_index`, `pg_am`) and the `pg_stat_user_tables`, `pg_stat_user_indexes` and `pg_stat_database` views, and calls `pg_total_relation_size()`, `pg_table_size()`, `pg_indexes_size()` and `pg_relation_size()` for table and index sizes. The `pg_monitor` role provides sufficient access to these catalogs. Coroot connects to each user database to read its schema, so the monitoring user must have `CONNECT` privilege on the databases it should track (granted to `PUBLIC` by default in Postgres).
 
 :::note
 All access is **read-only**. Coroot never modifies any data, schema, or configuration on your Postgres server.
@@ -210,6 +210,19 @@ Coroot connects to each user database and queries `pg_catalog` to reconstruct ta
 - **`pg_indexes`** - index definitions.
 
 System schemas (`pg_catalog`, `information_schema`) are excluded.
+
+#### Schema snapshots
+
+Besides the change events, the agent sends the current definition of every table to Coroot: right after the table is created or changed,
+and then once an hour. [AI-powered Root Cause Analysis](/ai/overview) uses these snapshots to base its index recommendations on the indexes
+that actually exist and on how they are used, instead of guessing. Each snapshot contains the table DDL and the following statistics:
+
+- **`pg_class`** - the estimated number of rows (`reltuples`), the table size (`pg_table_size()`) and the total size of its indexes (`pg_indexes_size()`).
+- **`pg_stat_user_tables`** - sequential and index scans, rows read by them, rows inserted, updated and deleted, and the time of the last `ANALYZE`.
+- **`pg_index`** + **`pg_am`** + **`pg_stat_user_indexes`** - for every index: the access method, key and `INCLUDE` columns, the predicate of a partial index, size, whether the index is valid, and how many times it has been scanned.
+- **`pg_stat_database`** - `stats_reset`, the moment the usage counters have been accumulating since.
+
+Only definitions and counters are read, never the table data. No additional privileges are required.
 
 ### Table and database sizes
 

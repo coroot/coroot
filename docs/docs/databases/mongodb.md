@@ -86,7 +86,7 @@ Grants read access to everything the agent collects:
 **corootCatalog (optional custom role)**
 
 Grants `listCollections` and `listIndexes` on all databases, which `$listCatalog` requires to return index definitions.
-These privileges expose collection and index metadata only. Coroot uses them to detect index changes.
+These privileges expose collection and index metadata only. Coroot uses them to detect index changes and to report the current indexes of every collection.
 
 **read on local**
 
@@ -156,6 +156,18 @@ spec:
         coroot.com/mongodb-scrape-credentials-secret-name: "internal-mongodb-users"
         coroot.com/mongodb-scrape-credentials-secret-username-key: "MONGODB_CLUSTER_MONITOR_USER"
         coroot.com/mongodb-scrape-credentials-secret-password-key: "MONGODB_CLUSTER_MONITOR_PASSWORD"
+```
+
+The operator's monitoring user can't be used for index tracking: the operator resets the roles of its system users on every
+reconciliation, so the `corootCatalog` role granted to it gets revoked, and the custom roles declared in the `PerconaServerMongoDB`
+resource (`spec.roles`) can't express the `system_buckets` privilege that `$listCatalog` requires.
+To track index changes, create the `corootCatalog` role and a dedicated `coroot` user with `mongosh` as described in [Prerequisites](#prerequisites)
+(the operator doesn't touch the users it doesn't manage), store its credentials in a Secret, and reference that Secret in the annotations instead:
+
+```yaml
+coroot.com/mongodb-scrape-credentials-secret-name: "coroot-mongodb-user"
+coroot.com/mongodb-scrape-credentials-secret-username-key: "username"
+coroot.com/mongodb-scrape-credentials-secret-password-key: "password"
 ```
 
 The operator's default TLS mode (`preferTLS`) accepts plaintext connections from within the cluster, so no TLS parameters are needed.
@@ -250,6 +262,9 @@ change events to its application, so they appear next to the server's CPU, memor
   operations waiting for locks, and connection counts per client application.
 - **Storage**: database and collection sizes, growth rates, and reclaimable (fragmented) collection storage.
 - **Change tracking**: index changes and server parameter changes are emitted as events on the change timeline.
+- **Index snapshots**: the current indexes of every collection (name, key fields in order, uniqueness) along with the document count and sizes
+  are sent to Coroot right after a change and then once an hour (MongoDB 6.0+, requires the `corootCatalog` role).
+  [AI-powered Root Cause Analysis](/ai/overview) uses them to base its index recommendations on the indexes that actually exist.
 
 See the [cluster-agent metrics reference](/metrics/cluster-agent#mongodb) for the complete list of metrics,
 and the [MongoDB inspection](/inspections/mongodb) for the checks built on top of them.
