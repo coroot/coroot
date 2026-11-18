@@ -20,12 +20,11 @@ This is the same data the Coroot UI uses, exposed as structured tools so an LLM 
 
 ## Tools
 
-The MCP endpoint is served at `/mcp` on your Coroot instance. Tools marked **EE** are available in Coroot Enterprise Edition. The rest ship with the Community Edition.
+The MCP endpoint is served at `/mcp` on your Coroot instance. Every tool except `list_projects` takes a required `project_id` argument (an id returned by `list_projects`). Tools marked **EE** are available in Coroot Enterprise Edition. The rest ship with the Community Edition.
 
 | Tool | Purpose | Returns |
 | --- | --- | --- |
 | `list_projects` | Discover projects (clusters) the user can access. | A `{name: id}` map. |
-| `select_project` | Set the active project for the session. | Acknowledgement of the selected project. |
 | `list_applications` | Triage which apps to look at. Filter with `namespace`, `search`, `min_status`. | One row per application (unhealthy first) with id, namespace, category, detected types (postgres, java), overall status, list of failing inspections. |
 | `list_alerts` | See currently firing or recently resolved alerts. | List of alerts with id, application, severity, summary, opened and resolved timestamps, full alert details. |
 | `list_incidents` | Browse the SLO incident timeline (open and resolved). | Incidents with id, application, severity, opened and resolved timestamps, burn rates, impact. |
@@ -167,11 +166,11 @@ Service accounts are independent of SSO. They never log in, so they keep working
 
 ## Switching between projects
 
-A Coroot project usually corresponds to one cluster, and a single MCP session can move between as many projects as the user has access to.
+A Coroot project usually corresponds to one cluster, and a single conversation can move between as many projects as the user has access to.
 
 * The agent calls `list_projects` to see what is available. The result is a `{name: id}` map.
-* It calls `select_project` with one id. The selection sticks for the rest of the session, so subsequent tools (list_applications, query_logs, traces_summary) all run against that project.
-* Switching is just another `select_project` call. No reconnect, no re-auth.
+* It passes one of the ids as `project_id` on every other tool call (list_applications, query_logs, traces_summary). The server keeps no per-conversation state, so there is no "current project" to select.
+* Switching is just a different `project_id` on the next call. No reconnect, no re-auth.
 * Application ids returned by tools are 4-part `cluster_id:namespace:Kind:name` (for example `hwvop6p7:default:Deployment:checkout`). The cluster prefix keeps ids unambiguous when the user moves between projects, so pass them back unchanged. Short forms such as `namespace:Kind:name` are rejected with an error that asks for the full id.
 * Node ids work the same way. They are `cluster_id:name` (for example `hwvop6p7:ip-10-0-1-15`). Names of managed databases contain a colon themselves, so their ids look like `hwvop6p7:rds:db1`. `get_node_details` takes the `id` returned by `list_nodes`.
 

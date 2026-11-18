@@ -3,12 +3,12 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"net/http"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/coroot/coroot/api/views/overview"
@@ -27,7 +27,7 @@ import (
 
 const MCPInstructions = `Coroot is a production observability platform. Reach for it when the user asks about live behavior of a running system: why a service is slow or erroring, what changed, what alerts are firing, what depends on what, recent incidents, capacity, deploys. It is NOT for source-code questions, generic ML/ops advice, or anything that doesn't map to a running cluster.
 
-Multiple projects (clusters) may be available. Always start with list_projects + select_project; the selection persists for the session. Application ids are 4-part 'cluster_id:namespace:Kind:name' — pass them through as returned (don't strip the cluster_id even if the project looks single-cluster). Node ids are 'cluster_id:name' (the name itself may contain ':', e.g. 'hwvop6p7:rds:db1'). Short forms are rejected.
+Multiple projects (clusters) may be available. Always start with list_projects, then pass the chosen id as project_id on every other tool call: the server keeps no per-conversation state, so there is no "current project". Application ids are 4-part 'cluster_id:namespace:Kind:name' — pass them through as returned (don't strip the cluster_id even if the project looks single-cluster). Node ids are 'cluster_id:name' (the name itself may contain ':', e.g. 'hwvop6p7:rds:db1'). Short forms are rejected.
 
 Responses are sized to fit an agent's context. List results come as {total, returned, items}; when a result is cut it sets 'truncated: true' with a 'hint' on how to narrow the request (filters, a smaller limit, a shorter time range).
 
@@ -51,15 +51,14 @@ Time arguments accept epoch ms or relative strings like 'now-1h', 'now-15m'. Def
 
 type mcpUserCtxKey struct{}
 
-type mcpSessionState struct {
-	mu        sync.Mutex
-	projectId db.ProjectId
-}
+const (
+	mcpListProjectsTool = "list_projects"
+	mcpProjectIdArg     = "project_id"
+)
 
 type MCPHandler struct {
-	Api      *Api
-	Server   *mcpserver.MCPServer
-	sessions sync.Map // sessionID -> *mcpSessionState
+	Api    *Api
+	Server *mcpserver.MCPServer
 }
 
 func (api *Api) SetupMCP(instructions string) *MCPHandler {
@@ -80,7 +79,6 @@ func (api *Api) SetupMCP(instructions string) *MCPHandler {
 func (h *MCPHandler) HTTPHandler() http.Handler {
 	httpSrv := mcpserver.NewStreamableHTTPServer(
 		h.Server,
-		mcpserver.WithStateful(true),
 		mcpserver.WithHTTPContextFunc(func(ctx context.Context, r *http.Request) context.Context {
 			if user := h.Api.MCPUserFromBearer(r); user != nil {
 				ctx = context.WithValue(ctx, mcpUserCtxKey{}, user)
@@ -104,39 +102,14 @@ func mcpUserFromContext(ctx context.Context) *db.User {
 	return u
 }
 
-func (h *MCPHandler) sessionState(ctx context.Context) *mcpSessionState {
-	cs := mcpserver.ClientSessionFromContext(ctx)
-	if cs == nil {
-		return nil
-	}
-	id := cs.SessionID()
-	if id == "" {
-		return nil
-	}
-	if v, ok := h.sessions.Load(id); ok {
-		return v.(*mcpSessionState)
-	}
-	st := &mcpSessionState{}
-	actual, _ := h.sessions.LoadOrStore(id, st)
-	return actual.(*mcpSessionState)
-}
-
-func (h *MCPHandler) currentProject(ctx context.Context) (*db.Project, error) {
-	st := h.sessionState(ctx)
-	if st == nil {
-		return nil, nil
-	}
-	st.mu.Lock()
-	id := st.projectId
-	st.mu.Unlock()
-	if id == "" {
-		return nil, nil
-	}
-	return h.Api.db.GetProject(id)
-}
-
 func (h *MCPHandler) AddTool(tool mcp.Tool, handler mcpserver.ToolHandlerFunc) {
 	name := tool.Name
+	if name != mcpListProjectsTool {
+		mcp.WithString(mcpProjectIdArg,
+			mcp.Required(),
+			mcp.Description("Project id from list_projects."),
+		)(&tool)
+	}
 	h.Server.AddTool(tool, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		h.Api.stats.RegisterMCPCall(name)
 		return handler(ctx, req)
@@ -145,8 +118,8 @@ func (h *MCPHandler) AddTool(tool mcp.Tool, handler mcpserver.ToolHandlerFunc) {
 
 func (h *MCPHandler) registerTools() {
 	h.AddTool(
-		mcp.NewTool("list_projects",
-			mcp.WithDescription("List Coroot projects (clusters) the current user can access. Returns a {name: id} map. Call before select_project (which takes the id)."),
+		mcp.NewTool(mcpListProjectsTool,
+			mcp.WithDescription("List Coroot projects (clusters) the current user can access. Returns a {name: id} map. Call it first: every other tool takes the id as project_id."),
 			mcp.WithReadOnlyHintAnnotation(true),
 			mcp.WithDestructiveHintAnnotation(false),
 			mcp.WithIdempotentHintAnnotation(true),
@@ -155,22 +128,8 @@ func (h *MCPHandler) registerTools() {
 		h.toolListProjects,
 	)
 	h.AddTool(
-		mcp.NewTool("select_project",
-			mcp.WithDescription("Set the active project (cluster) for subsequent tool calls in this session."),
-			mcp.WithString("project_id",
-				mcp.Required(),
-				mcp.Description("Project id from list_projects."),
-			),
-			mcp.WithReadOnlyHintAnnotation(false),
-			mcp.WithDestructiveHintAnnotation(false),
-			mcp.WithIdempotentHintAnnotation(true),
-			mcp.WithOpenWorldHintAnnotation(false),
-		),
-		h.toolSelectProject,
-	)
-	h.AddTool(
 		mcp.NewTool("list_applications",
-			mcp.WithDescription("List applications in the selected project, unhealthy first. Returns id, namespace, application category (e.g. application, monitoring, control-plane), detected types (postgres, java, nginx, ...), overall status (ok|warning|critical), and a list of failing inspections (CPU, Memory, SLO, Postgres, Logs, ...) with their statuses. Use this to triage which apps to drill into via get_application_status. Large projects are cut to fit the response size limit (`truncated: true`), so narrow with the filters."),
+			mcp.WithDescription("List applications in the project, unhealthy first. Returns id, namespace, application category (e.g. application, monitoring, control-plane), detected types (postgres, java, nginx, ...), overall status (ok|warning|critical), and a list of failing inspections (CPU, Memory, SLO, Postgres, Logs, ...) with their statuses. Use this to triage which apps to drill into via get_application_status. Large projects are cut to fit the response size limit (`truncated: true`), so narrow with the filters."),
 			mcp.WithString("namespace", mcp.Description("Filter to one namespace.")),
 			mcp.WithString("search", mcp.Description("Case-insensitive substring of the application id.")),
 			mcp.WithString("min_status", mcp.Description("'warning' (apps with issues only) | 'critical'. Applies to the worst of the overall status and the failing inspections. Default: all applications.")),
@@ -183,7 +142,7 @@ func (h *MCPHandler) registerTools() {
 	)
 	h.AddTool(
 		mcp.NewTool("list_alerts",
-			mcp.WithDescription("List alerts for the selected project. Use state to choose: 'firing' (active triage, default), 'resolved' (most-recent resolved history), or 'any' (mixed, sorted by opened time)."),
+			mcp.WithDescription("List alerts for the project. Use state to choose: 'firing' (active triage, default), 'resolved' (most-recent resolved history), or 'any' (mixed, sorted by opened time)."),
 			mcp.WithString("state", mcp.Description("'firing' | 'resolved' | 'any'. Default: 'firing'.")),
 			mcp.WithString("app_id", mcp.Description("Filter to one application (full 4-part id from list_applications).")),
 			mcp.WithNumber("limit", mcp.Description("Max alerts to return. Default: 100, max: 1000.")),
@@ -250,7 +209,7 @@ func (h *MCPHandler) registerTools() {
 	)
 	h.AddTool(
 		mcp.NewTool("list_nodes",
-			mcp.WithDescription("List nodes (hosts/VMs) in the selected project: id ('cluster_id:name'), name, cluster, status (up/down/no-agent), OS/kernel, instance type, CPU/memory utilization %, network throughput, GPUs. Mirrors the UI's Nodes view. Nodes with problems come first; large fleets are cut to fit the response size limit (`truncated: true`)."),
+			mcp.WithDescription("List nodes (hosts/VMs) in the project: id ('cluster_id:name'), name, cluster, status (up/down/no-agent), OS/kernel, instance type, CPU/memory utilization %, network throughput, GPUs. Mirrors the UI's Nodes view. Nodes with problems come first; large fleets are cut to fit the response size limit (`truncated: true`)."),
 			mcp.WithString("search", mcp.Description("Case-insensitive substring of the node name.")),
 			mcp.WithReadOnlyHintAnnotation(true),
 			mcp.WithDestructiveHintAnnotation(false),
@@ -398,32 +357,6 @@ func (h *MCPHandler) toolListProjects(ctx context.Context, _ mcp.CallToolRequest
 	return MCPJSON(out)
 }
 
-func (h *MCPHandler) toolSelectProject(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	user := mcpUserFromContext(ctx)
-	if user == nil {
-		return mcp.NewToolResultError("unauthorized"), nil
-	}
-	projectId, err := req.RequireString("project_id")
-	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
-	}
-	if !h.Api.IsAllowed(user, rbac.Actions.Project(projectId).List()...) {
-		return mcp.NewToolResultError("forbidden: no access to this project"), nil
-	}
-	p, err := h.Api.db.GetProject(db.ProjectId(projectId))
-	if err != nil || p == nil {
-		return mcp.NewToolResultError("project not found"), nil
-	}
-	st := h.sessionState(ctx)
-	if st == nil {
-		return mcp.NewToolResultError("no session"), nil
-	}
-	st.mu.Lock()
-	st.projectId = p.Id
-	st.mu.Unlock()
-	return MCPJSON(map[string]string{"selected_project_id": string(p.Id), "name": p.Name})
-}
-
 type mcpAppInfo struct {
 	Id        string             `json:"id"`
 	Namespace string             `json:"namespace,omitempty"`
@@ -440,26 +373,31 @@ type mcpInspectionRef struct {
 	Status     string `json:"status"`
 }
 
-func (h *MCPHandler) RequireUserAndProject(ctx context.Context) (*db.User, *db.Project, *mcp.CallToolResult) {
+func (h *MCPHandler) RequireUserAndProject(ctx context.Context, req mcp.CallToolRequest) (*db.User, *db.Project, *mcp.CallToolResult) {
 	user := mcpUserFromContext(ctx)
 	if user == nil {
 		return nil, nil, mcp.NewToolResultError("unauthorized")
 	}
-	project, err := h.currentProject(ctx)
-	if err != nil {
-		return nil, nil, mcp.NewToolResultError("failed to load project: " + err.Error())
+	projectId := db.ProjectId(req.GetString(mcpProjectIdArg, ""))
+	if projectId == "" {
+		return nil, nil, mcp.NewToolResultError("project_id is required — get it from list_projects")
 	}
-	if project == nil {
-		return nil, nil, mcp.NewToolResultError("no project selected — call select_project first")
-	}
-	if !h.Api.IsAllowed(user, rbac.Actions.Project(string(project.Id)).List()...) {
+	if !h.Api.IsAllowed(user, rbac.Actions.Project(string(projectId)).List()...) {
 		return nil, nil, mcp.NewToolResultError("forbidden: no access to this project")
+	}
+	project, err := h.Api.db.GetProject(projectId)
+	if err != nil {
+		if errors.Is(err, db.ErrNotFound) {
+			return nil, nil, mcp.NewToolResultError("project not found")
+		}
+		klog.Errorln("mcp: failed to load project:", err)
+		return nil, nil, mcp.NewToolResultError("failed to load project")
 	}
 	return user, project, nil
 }
 
 func (h *MCPHandler) toolListApplications(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	user, project, errResult := h.RequireUserAndProject(ctx)
+	user, project, errResult := h.RequireUserAndProject(ctx, req)
 	if errResult != nil {
 		return errResult, nil
 	}
@@ -607,7 +545,7 @@ type mcpClient struct {
 }
 
 func (h *MCPHandler) toolGetApplicationStatus(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	user, project, errResult := h.RequireUserAndProject(ctx)
+	user, project, errResult := h.RequireUserAndProject(ctx, req)
 	if errResult != nil {
 		return errResult, nil
 	}
@@ -940,7 +878,7 @@ func MCPFormatTime(t timeseries.Time) string {
 }
 
 func (h *MCPHandler) toolListAlerts(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	user, project, errResult := h.RequireUserAndProject(ctx)
+	user, project, errResult := h.RequireUserAndProject(ctx, req)
 	if errResult != nil {
 		return errResult, nil
 	}
@@ -998,7 +936,7 @@ func (h *MCPHandler) toolListAlerts(ctx context.Context, req mcp.CallToolRequest
 }
 
 func (h *MCPHandler) toolListIncidents(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	user, project, errResult := h.RequireUserAndProject(ctx)
+	user, project, errResult := h.RequireUserAndProject(ctx, req)
 	if errResult != nil {
 		return errResult, nil
 	}
@@ -1091,7 +1029,7 @@ func (h *MCPHandler) fetchIncidents(projectId db.ProjectId, hours int, state str
 }
 
 func (h *MCPHandler) toolResolveAlerts(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	user, project, errResult := h.RequireUserAndProject(ctx)
+	user, project, errResult := h.RequireUserAndProject(ctx, req)
 	if errResult != nil {
 		return errResult, nil
 	}
@@ -1119,7 +1057,7 @@ func (h *MCPHandler) toolResolveAlerts(ctx context.Context, req mcp.CallToolRequ
 }
 
 func (h *MCPHandler) toolGetIncidentDetails(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	user, project, errResult := h.RequireUserAndProject(ctx)
+	user, project, errResult := h.RequireUserAndProject(ctx, req)
 	if errResult != nil {
 		return errResult, nil
 	}
@@ -1191,7 +1129,7 @@ type mcpListMetricNamesResult struct {
 }
 
 func (h *MCPHandler) toolQueryMetrics(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	user, project, errResult := h.RequireUserAndProject(ctx)
+	user, project, errResult := h.RequireUserAndProject(ctx, req)
 	if errResult != nil {
 		return errResult, nil
 	}
@@ -1289,7 +1227,7 @@ type mcpNode struct {
 }
 
 func (h *MCPHandler) toolListNodes(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	user, project, errResult := h.RequireUserAndProject(ctx)
+	user, project, errResult := h.RequireUserAndProject(ctx, req)
 	if errResult != nil {
 		return errResult, nil
 	}
@@ -1324,7 +1262,7 @@ func (h *MCPHandler) toolListNodes(ctx context.Context, req mcp.CallToolRequest)
 }
 
 func (h *MCPHandler) toolGetNodeDetails(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	user, project, errResult := h.RequireUserAndProject(ctx)
+	user, project, errResult := h.RequireUserAndProject(ctx, req)
 	if errResult != nil {
 		return errResult, nil
 	}
@@ -1383,7 +1321,7 @@ func (h *MCPHandler) toolGetNodeDetails(ctx context.Context, req mcp.CallToolReq
 }
 
 func (h *MCPHandler) runTracesQuery(ctx context.Context, req mcp.CallToolRequest, q overview.Query) (*overview.Traces, *mcp.CallToolResult) {
-	user, project, errResult := h.RequireUserAndProject(ctx)
+	user, project, errResult := h.RequireUserAndProject(ctx, req)
 	if errResult != nil {
 		return nil, errResult
 	}
@@ -1475,7 +1413,7 @@ func (h *MCPHandler) toolGetTrace(ctx context.Context, req mcp.CallToolRequest) 
 }
 
 func (h *MCPHandler) toolListMetricNames(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	user, project, errResult := h.RequireUserAndProject(ctx)
+	user, project, errResult := h.RequireUserAndProject(ctx, req)
 	if errResult != nil {
 		return errResult, nil
 	}
@@ -1569,7 +1507,7 @@ type mcpLogsResult struct {
 }
 
 func (h *MCPHandler) toolQueryLogs(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	user, project, errResult := h.RequireUserAndProject(ctx)
+	user, project, errResult := h.RequireUserAndProject(ctx, req)
 	if errResult != nil {
 		return errResult, nil
 	}
