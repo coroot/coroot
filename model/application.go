@@ -500,6 +500,24 @@ func (app *Application) ListensTCP() bool {
 	return false
 }
 
+func (app *Application) IsUp() bool {
+	for _, i := range app.Instances {
+		if !i.IsObsolete() && i.IsUp() {
+			return true
+		}
+	}
+	return false
+}
+
+func (app *Application) HasClients() bool {
+	for _, d := range app.Downstreams {
+		if d.Application != d.RemoteApplication {
+			return true
+		}
+	}
+	return false
+}
+
 func (app *Application) IsCorootComponent() bool {
 	for t := range app.ApplicationTypes() {
 		if t.IsCorootComponent() {
