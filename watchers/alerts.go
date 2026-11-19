@@ -577,6 +577,36 @@ func buildPromQLTemplateData(labels model.Labels, value float32) map[string]any 
 	return data
 }
 
+// newK8sEventAppResolver returns a function that maps the object of a Kubernetes event to an application.
+func newK8sEventAppResolver(world *model.World) func(clusterId, ns, kind, name string) *model.Application {
+	// pods with the same name may exist in different namespaces (e.g., StatefulSet pods),
+	// so pods are looked up by cluster, namespace and name
+	type podKey struct{ clusterId, ns, name string }
+	appByPod := map[podKey]*model.Application{}
+	appByComponentId := map[model.ApplicationId]*model.Application{}
+	for _, a := range world.Applications {
+		for _, inst := range a.Instances {
+			if inst.Pod == nil {
+				continue
+			}
+			appByPod[podKey{clusterId: a.Id.ClusterId, ns: a.Id.Namespace, name: inst.Name}] = a
+			if inst.ClusterComponent != nil {
+				appByComponentId[inst.ClusterComponent.Id] = a
+			}
+		}
+	}
+	return func(clusterId, ns, kind, name string) *model.Application {
+		appId := model.NewApplicationId(clusterId, ns, model.ApplicationKind(kind), name)
+		if app := world.GetApplication(appId); app != nil {
+			return app
+		}
+		if app := appByPod[podKey{clusterId: appId.ClusterId, ns: appId.Namespace, name: name}]; app != nil {
+			return app
+		}
+		return appByComponentId[appId]
+	}
+}
+
 func (w *Alerts) evaluateKubernetesEventsAlerts(project *db.Project, rule *model.AlertingRule, world *model.World, from, to timeseries.Time, now timeseries.Time) {
 	src := rule.Source.KubernetesEvents
 	from = rule.EventsFrom(from, to)
@@ -623,19 +653,7 @@ func (w *Alerts) evaluateKubernetesEventsAlerts(project *db.Project, rule *model
 		events          []*model.LogEntry
 	}
 
-	instanceByName := map[string]*model.Application{}
-	appByComponentId := map[model.ApplicationId]*model.Application{}
-	for _, a := range world.Applications {
-		for _, inst := range a.Instances {
-			if inst.Pod == nil {
-				continue
-			}
-			instanceByName[inst.Name] = a
-			if inst.ClusterComponent != nil {
-				appByComponentId[inst.ClusterComponent.Id] = a
-			}
-		}
-	}
+	resolveApp := newK8sEventAppResolver(world)
 
 	groups := map[string]*eventGroup{}
 	for _, event := range events {
@@ -645,14 +663,7 @@ func (w *Alerts) evaluateKubernetesEventsAlerts(project *db.Project, rule *model
 		reason := event.LogAttributes["event.reason"]
 		sourceComponent := event.LogAttributes["source.component"]
 
-		appId := model.NewApplicationId(event.ClusterId, ns, model.ApplicationKind(kind), name)
-		app := world.GetApplication(appId)
-		if app == nil {
-			app = instanceByName[name]
-		}
-		if app == nil {
-			app = appByComponentId[appId]
-		}
+		app := resolveApp(event.ClusterId, ns, kind, name)
 		if app != nil && app.AlertingDisabled() {
 			continue
 		}
@@ -745,10 +756,17 @@ func (w *Alerts) evaluateKubernetesEventsAlerts(project *db.Project, rule *model
 
 		if g.app != nil {
 			objNames := utils.NewStringSet()
+			objNamespaces := utils.NewStringSet()
 			for _, e := range g.events {
 				if n := e.LogAttributes["object.name"]; n != "" {
 					objNames.Add(n)
 				}
+				if ns := e.LogAttributes["object.namespace"]; ns != "" {
+					objNamespaces.Add(ns)
+				}
+			}
+			if objNamespaces.Len() == 1 {
+				queryFilters = append(queryFilters, map[string]string{"name": "object.namespace", "op": "=", "value": objNamespaces.Items()[0]})
 			}
 			switch objNames.Len() {
 			case 0:
