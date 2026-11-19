@@ -129,15 +129,19 @@ func (br *blockReader) readNextBlock() error {
 	if err := binary.Read(br.r, binary.LittleEndian, &m); err != nil {
 		return err
 	}
+	if m.Compressed > blockCompressBound || m.Decompressed > blockSize {
+		return fmt.Errorf("%w: invalid block size: compressed=%d, decompressed=%d", ErrCorrupted, m.Compressed, m.Decompressed)
+	}
 	br.compressionBuf = br.compressionBuf[:m.Compressed]
 	if _, err := io.ReadFull(br.r, br.compressionBuf); err != nil {
 		return err
 	}
-	_, err := lz4.Uncompress(br.data, br.compressionBuf)
+	br.data = br.data[:blockSize]
+	n, err := lz4.Uncompress(br.data, br.compressionBuf)
 	if err != nil {
 		return fmt.Errorf("%w: %w", ErrCorrupted, err)
 	}
-	br.data = br.data[:m.Decompressed]
+	br.data = br.data[:n]
 	br.offset = 0
 	return nil
 }

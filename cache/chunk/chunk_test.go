@@ -1,6 +1,8 @@
 package chunk
 
 import (
+	"bytes"
+	"encoding/binary"
 	"os"
 	"path"
 	"testing"
@@ -53,4 +55,39 @@ func TestChunk(t *testing.T) {
 		"TimeSeries(60, 10, 30, [. . 2 . . . 3 . . 1])",
 		res[111].Values.String(),
 	)
+}
+
+func TestReadCorruptedBlockMeta(t *testing.T) {
+	metrics := []*model.MetricValues{
+		{Labels: model.Labels{"a": "b"}, LabelsHash: 111, Values: timeseries.NewWithData(0, 30, []float32{1, 2, 3})},
+	}
+	var valid bytes.Buffer
+	require.NoError(t, Write(&valid, 0, 3, 30, false, metrics))
+
+	var h header
+	require.NoError(t, binary.Read(bytes.NewReader(valid.Bytes()), binary.LittleEndian, &h))
+	blockMetaOffset := binary.Size(h) + len(metrics)*8
+
+	tests := []struct {
+		name   string
+		offset int
+	}{
+		{name: "CompressedTooLarge", offset: blockMetaOffset + 4},
+		{name: "DecompressedTooLarge", offset: blockMetaOffset},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			corrupted := bytes.Clone(valid.Bytes())
+			binary.LittleEndian.PutUint32(corrupted[tt.offset:], ^uint32(0))
+
+			p := path.Join(t.TempDir(), "corrupted.db")
+			require.NoError(t, os.WriteFile(p, corrupted, 0o600))
+
+			var err error
+			require.NotPanics(t, func() {
+				err = Read(p, 0, 3, 30, map[uint64]*model.MetricValues{}, timeseries.FillAny)
+			})
+			require.ErrorIs(t, err, ErrCorrupted)
+		})
+	}
 }
