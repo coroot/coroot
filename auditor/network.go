@@ -34,6 +34,7 @@ func (a *appAuditor) network() {
 	connectionsCheck.AddWidget(failedConnectionsChart.Widget())
 	connectivityCheck.AddWidget(activeConnectionsChart.Widget())
 
+	appIsUp := a.app.IsUp()
 	for _, u := range a.app.Upstreams {
 		var rttCheck *model.Check
 		var rttChart *model.Chart
@@ -56,7 +57,7 @@ func (a *appAuditor) network() {
 				rttCheck.AddItem("%s", u.RemoteApplication.Id.String())
 			}
 		}
-		if u.HasConnectivityIssues() {
+		if appIsUp && u.HasConnectivityIssues() {
 			connectivityCheck.AddItem("%s", u.RemoteApplication.Id.String())
 		}
 		if u.HasFailedConnectionAttempts() {

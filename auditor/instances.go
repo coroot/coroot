@@ -28,6 +28,7 @@ func (a *appAuditor) instances() {
 	var availableInstances, unavailableInstances int
 	periodicJob := a.app.PeriodicJob()
 	nonNetworkWinApp := a.app.WindowsApp() && !a.app.ListensTCP()
+	singleInstanceWithoutClients := a.app.Id.Kind == model.ApplicationKindUnknown && len(a.app.Instances) <= 1 && !a.app.HasClients()
 
 	for _, i := range a.app.Instances {
 		if !periodicJob && i.IsJobPod() {
@@ -213,6 +214,8 @@ func (a *appAuditor) instances() {
 	} else if nonNetworkWinApp {
 		availabilityCheck.SetStatus(model.OK, "not checked for non-network windows services")
 		restartsCheck.SetStatus(model.OK, "not checked for non-network windows services")
+	} else if singleInstanceWithoutClients {
+		availabilityCheck.SetStatus(model.OK, "not checked for single-instance apps without clients")
 	} else if desired > 0 {
 		availabilityCheck.SetDesired(int64(desired))
 		available := float32(availabilityCheck.Count())
