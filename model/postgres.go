@@ -103,12 +103,13 @@ type Postgres struct {
 	OldestXminAge      map[string]*timeseries.TimeSeries
 	TransactionSeconds map[QueryKey]*timeseries.TimeSeries
 
-	CheckpointsScheduledByType map[string]*timeseries.TimeSeries
-	Checkpoints                *timeseries.TimeSeries
-	Restartpoints              *timeseries.TimeSeries
-	TimeSinceLastCheckpoint    *timeseries.TimeSeries
-	WalSinceLastCheckpoint     *timeseries.TimeSeries
-	BuffersWrittenBySource     map[string]*timeseries.TimeSeries
+	CheckpointsScheduledByType   map[string]*timeseries.TimeSeries
+	Checkpoints                  *timeseries.TimeSeries
+	Restartpoints                *timeseries.TimeSeries
+	TimeSinceLastCheckpoint      *timeseries.TimeSeries
+	WalSinceLastCheckpoint       *timeseries.TimeSeries
+	WalSinceLastCheckpointRecord *timeseries.TimeSeries
+	BuffersWrittenBySource       map[string]*timeseries.TimeSeries
 
 	DatabaseSize    map[string]*timeseries.TimeSeries
 	TableSize       map[DbTableKey]*timeseries.TimeSeries

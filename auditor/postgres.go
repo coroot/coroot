@@ -1434,7 +1434,7 @@ func pgCheckpoints(report *model.AuditReport, instance *model.Instance, instance
 			),
 		)
 		if last := pg.TimeSinceLastCheckpoint.Last(); !timeseries.IsNaN(last) && last > timeout.Last()*mult {
-			if wal := pg.WalSinceLastCheckpoint.Last(); wal > pgWalSegmentSizeBytes {
+			if wal := pgCheckpointWalDistance(pg); wal > pgWalSegmentSizeBytes {
 				checkpointCheck.AddItem("%s", instance.Name)
 				if cause := pgCheckpointStallCause(instance, instances, primaryLsn); cause != "" {
 					checkpointCheck.AddDetail("%s: %s", instance.Name, cause)
@@ -1443,6 +1443,20 @@ func pgCheckpoints(report *model.AuditReport, instance *model.Instance, instance
 			}
 		}
 	}
+}
+
+// Archive-timeout switches during a checkpoint can leave its REDO pointer more
+// than one segment behind, even when PostgreSQL correctly skips idle checkpoints.
+// Measure subsequent WAL from the completed checkpoint/restartpoint record. Keep
+// the original check when the collector does not provide a current finite value.
+func pgCheckpointWalDistance(pg *model.Postgres) float32 {
+	observedAt, _ := pg.TimeSinceLastCheckpoint.LastNotNull()
+	recordAt, _ := pg.WalSinceLastCheckpointRecord.LastNotNull()
+	distance := pg.WalSinceLastCheckpointRecord.Last()
+	if recordAt == observedAt && distance >= 0 && !timeseries.IsInf(distance, 0) {
+		return distance
+	}
+	return pg.WalSinceLastCheckpoint.Last()
 }
 
 func pgSettingBytes(s model.PgSetting) *timeseries.TimeSeries {
