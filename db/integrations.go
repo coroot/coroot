@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"regexp"
 	"strings"
 
 	"github.com/coroot/coroot/timeseries"
@@ -316,6 +317,8 @@ type IntegrationWebhook struct {
 	AlertTemplate      string            `json:"alert_template" yaml:"alertTemplate"`
 }
 
+var webhookCustomFieldName = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_]*$`)
+
 func (i *IntegrationWebhook) Validate() error {
 	if i.Url == "" {
 		return errors.New("url is required")
@@ -328,6 +331,17 @@ func (i *IntegrationWebhook) Validate() error {
 	}
 	if i.Alerts != nil && *i.Alerts && i.AlertTemplate == "" {
 		return errors.New("alert template is required")
+	}
+	fields := make(map[string]bool, len(i.CustomFields))
+	for name := range i.CustomFields {
+		if !webhookCustomFieldName.MatchString(name) {
+			return fmt.Errorf("invalid custom field name %q: use letters, digits and underscores, starting with a letter", name)
+		}
+		field := strings.ToUpper(name[:1]) + name[1:]
+		if fields[field] {
+			return fmt.Errorf("duplicate custom field name %q", name)
+		}
+		fields[field] = true
 	}
 	return nil
 }
