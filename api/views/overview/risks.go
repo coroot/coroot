@@ -33,7 +33,7 @@ type Availability struct {
 	Description string `json:"description"`
 }
 
-func renderRisks(w *model.World) []*Risk {
+func RenderRisks(w *model.World) []*Risk {
 	res := dbPortExposures(w)
 	res = append(res, availabilityRisks(w)...)
 
