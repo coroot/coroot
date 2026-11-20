@@ -828,7 +828,7 @@ var RecordingRules = map[string]func(db *db.DB, p *db.Project, w *model.World) [
 							k := key{dest: dest, status: bucket, protocol: proto}
 							agg := byProtoStatus[k]
 							if agg == nil {
-								agg = timeseries.NewAggregate(timeseries.NanSum)
+								agg = timeseries.NewAggregate(timeseries.NanSumOrNaN)
 								byProtoStatus[k] = agg
 							}
 							agg.Add(ts)
@@ -944,7 +944,7 @@ var RecordingRules = map[string]func(db *db.DB, p *db.Project, w *model.World) [
 				}
 				agg := byBucket[bucket]
 				if agg == nil {
-					agg = timeseries.NewAggregate(timeseries.NanSum)
+					agg = timeseries.NewAggregate(timeseries.NanSumOrNaN)
 					byBucket[bucket] = agg
 				}
 				agg.Add(ts)
