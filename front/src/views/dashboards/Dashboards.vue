@@ -3,7 +3,8 @@
         <div class="d-flex">
             <v-text-field v-model="search" label="search" clearable dense hide-details prepend-inner-icon="mdi-magnify" outlined class="search" />
         </div>
-        <v-data-table
+        <DataTable
+            table-id="dashboards"
             class="table"
             mobile-breakpoint="0"
             :items-per-page="20"
@@ -27,7 +28,7 @@
                     <v-icon small>mdi-trash-can-outline</v-icon>
                 </v-btn>
             </template>
-        </v-data-table>
+        </DataTable>
 
         <v-btn color="primary" @click="edit('create', {})">
             <v-icon small>mdi-plus</v-icon>
@@ -68,9 +69,10 @@
 
 <script>
 import Views from '@/views/Views.vue';
+import DataTable from '@/components/DataTable.vue';
 
 export default {
-    components: { Views },
+    components: { Views, DataTable },
 
     data() {
         return {

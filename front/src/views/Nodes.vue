@@ -3,7 +3,8 @@
         <div class="d-flex">
             <v-text-field v-model="search" label="search" clearable dense hide-details prepend-inner-icon="mdi-magnify" outlined class="search" />
         </div>
-        <v-data-table
+        <DataTable
+            table-id="nodes"
             sort-by="name"
             must-sort
             dense
@@ -109,7 +110,7 @@
                 </template>
                 {{ item.network }}
             </template>
-        </v-data-table>
+        </DataTable>
 
         <div class="mt-4">
             <AgentInstallation color="primary">Add nodes</AgentInstallation>
@@ -122,9 +123,10 @@ import Views from '@/views/Views.vue';
 import AgentInstallation from '@/views/AgentInstallation.vue';
 import Led from '@/components/Led.vue';
 import AppIcon from '@/components/AppIcon.vue';
+import DataTable from '@/components/DataTable.vue';
 
 export default {
-    components: { Led, Views, AgentInstallation, AppIcon },
+    components: { Led, Views, AgentInstallation, AppIcon, DataTable },
 
     data() {
         return {

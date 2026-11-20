@@ -32,7 +32,8 @@
             <v-btn small outlined @click="bulkSetEnabled(false)"> Disable ({{ selected.length }}) </v-btn>
         </div>
 
-        <v-data-table
+        <DataTable
+            table-id="alerting-rules"
             dense
             class="table"
             mobile-breakpoint="0"
@@ -115,7 +116,7 @@
                 <span v-else-if="item.selector.type === 'applications'">{{ (item.selector.application_id_patterns || []).join(', ') }}</span>
                 <span v-else>-</span>
             </template>
-        </v-data-table>
+        </DataTable>
 
         <v-dialog v-model="exportDialog" width="80%" scrollable>
             <v-card class="pa-5">
@@ -149,9 +150,10 @@
 
 <script>
 import AlertingRuleForm from './AlertingRuleForm.vue';
+import DataTable from './DataTable.vue';
 
 export default {
-    components: { AlertingRuleForm },
+    components: { AlertingRuleForm, DataTable },
 
     data() {
         return {
