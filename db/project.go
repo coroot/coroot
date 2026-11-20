@@ -180,7 +180,7 @@ func (db *DB) GetProjects() (map[string]*Project, error) {
 		p.applyDefaults()
 		res[p.Name] = &p
 	}
-	return res, nil
+	return res, rows.Err()
 }
 
 func (db *DB) GetProjectNames() (map[ProjectId]string, error) {
@@ -200,7 +200,7 @@ func (db *DB) GetProjectNames() (map[ProjectId]string, error) {
 		}
 		res[id] = name
 	}
-	return res, nil
+	return res, rows.Err()
 }
 
 func (db *DB) GetProject(id ProjectId) (*Project, error) {

@@ -38,46 +38,55 @@ func (db *DB) GetApplicationSettings(projectId ProjectId, appId model.Applicatio
 }
 
 func (db *DB) SaveApplicationSetting(projectId ProjectId, appId model.ApplicationId, s any) error {
-	as, err := db.GetApplicationSettings(projectId, appId)
-	if err != nil {
-		return err
-	}
-	insert := false
-	if as == nil {
-		insert = true
-		as = &model.ApplicationSettings{}
-	}
-	switch v := s.(type) {
-	case *model.ApplicationSettingsProfiling:
-		as.Profiling = v
-	case *model.ApplicationSettingsTracing:
-		as.Tracing = v
-	case *model.ApplicationSettingsLogs:
-		as.Logs = v
-	case *model.ApplicationInstrumentation:
-		if as.Instrumentation == nil {
-			as.Instrumentation = map[model.ApplicationType]*model.ApplicationInstrumentation{}
+	return db.withTx(func(tx *sql.Tx) error {
+		// make sure the row exists so that it can be locked: concurrent saves of different settings must not overwrite each other
+		_, err := tx.Exec(
+			"INSERT INTO application_settings (project_id, application_id, settings) VALUES ($1, $2, '{}') ON CONFLICT (project_id, application_id) DO NOTHING",
+			projectId, appId.String())
+		if err != nil {
+			return err
 		}
-		as.Instrumentation[v.Type] = v
-	case []model.RiskOverride:
-		as.RiskOverrides = v
-	default:
-		return fmt.Errorf("unsupported type: %T", s)
-	}
-	settings, err := marshal(as)
-	if err != nil {
-		return err
-	}
-	if insert {
-		_, err = db.db.Exec(
-			"INSERT INTO application_settings (project_id, application_id, settings) VALUES ($1, $2, $3)",
-			projectId, appId.String(), settings)
-	} else {
-		_, err = db.db.Exec(
+		var settings string
+		err = tx.QueryRow(
+			"SELECT settings FROM application_settings WHERE project_id = $1 AND application_id = $2"+db.forUpdate(),
+			projectId, appId.String(),
+		).Scan(&settings)
+		if err != nil {
+			return err
+		}
+		var as *model.ApplicationSettings
+		if err = unmarshal(settings, &as); err != nil {
+			return err
+		}
+		if as == nil {
+			as = &model.ApplicationSettings{}
+		}
+		switch v := s.(type) {
+		case *model.ApplicationSettingsProfiling:
+			as.Profiling = v
+		case *model.ApplicationSettingsTracing:
+			as.Tracing = v
+		case *model.ApplicationSettingsLogs:
+			as.Logs = v
+		case *model.ApplicationInstrumentation:
+			if as.Instrumentation == nil {
+				as.Instrumentation = map[model.ApplicationType]*model.ApplicationInstrumentation{}
+			}
+			as.Instrumentation[v.Type] = v
+		case []model.RiskOverride:
+			as.RiskOverrides = v
+		default:
+			return fmt.Errorf("unsupported type: %T", s)
+		}
+		data, err := marshal(as)
+		if err != nil {
+			return err
+		}
+		_, err = tx.Exec(
 			"UPDATE application_settings SET settings = $1 WHERE project_id = $2 AND application_id = $3",
-			settings, projectId, appId.String())
-	}
-	return err
+			data, projectId, appId.String())
+		return err
+	})
 }
 
 func (db *DB) GetApplicationSettingsByProject(projectId ProjectId) (map[model.ApplicationId]*model.ApplicationSettings, error) {
@@ -111,5 +120,5 @@ func (db *DB) GetApplicationSettingsByProject(projectId ProjectId) (map[model.Ap
 		}
 		res[appId] = settings
 	}
-	return res, nil
+	return res, rows.Err()
 }
