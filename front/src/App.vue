@@ -84,7 +84,7 @@
             <template #append>
                 <v-list dense class="ma-0 pa-0">
                     <v-divider class="ma-3" style="border-color: var(--border-dark)"></v-divider>
-                    <v-menu v-if="user" dark right offset-x tile>
+                    <v-menu v-if="user" ref="projectMenu" v-model="projectMenu" :close-on-content-click="false" dark right offset-x tile>
                         <template #activator="{ on }">
                             <v-list-item v-on="on">
                                 <v-list-item-icon class="mr-3">
@@ -100,10 +100,29 @@
                             </v-list-item>
                         </template>
                         <v-list dense class="pa-0">
-                            <v-list-item v-for="p in projects" :key="p.name" :to="{ name: 'overview', params: { projectId: p.id } }">
-                                {{ p.name }}
-                            </v-list-item>
-                            <v-list-item v-if="!user.readonly" :to="{ name: 'project_new' }" exact>
+                            <div class="pa-2">
+                                <v-text-field
+                                    v-model="projectSearch"
+                                    label="search"
+                                    dense
+                                    outlined
+                                    hide-details
+                                    prepend-inner-icon="mdi-magnify"
+                                    autofocus
+                                />
+                            </div>
+                            <div class="project-list">
+                                <v-list-item
+                                    v-for="p in filteredProjects"
+                                    :key="p.name"
+                                    :to="{ name: 'overview', params: { projectId: p.id } }"
+                                    @click="projectMenu = false"
+                                >
+                                    {{ p.name }}
+                                </v-list-item>
+                            </div>
+                            <v-divider />
+                            <v-list-item v-if="!user.readonly" :to="{ name: 'project_new' }" exact @click="projectMenu = false">
                                 <v-icon small class="mr-1">mdi-plus</v-icon> new project
                             </v-list-item>
                             <v-list-item v-else-if="!projects.length"> no projects available </v-list-item>
@@ -283,6 +302,8 @@ export default {
             apiKeys: false,
             menuCollapsed: menuCollapsed,
             search: false,
+            projectMenu: false,
+            projectSearch: '',
             systemAlerts: [],
         };
     },
@@ -306,6 +327,12 @@ export default {
                 return [];
             }
             return this.user.projects || [];
+        },
+        filteredProjects() {
+            if (!this.projectSearch) {
+                return this.projects;
+            }
+            return this.projects.filter((p) => p.name.toLowerCase().includes(this.projectSearch.toLowerCase()));
         },
         project() {
             const id = this.$route.params.projectId;
@@ -392,6 +419,15 @@ export default {
             },
             immediate: true,
         },
+        projectMenu(v) {
+            if (v) {
+                this.projectSearch = '';
+            }
+        },
+        projectSearch() {
+            // keep the menu docked to the button when its height changes
+            this.$nextTick(this.$refs.projectMenu?.updateDimensions);
+        },
         '$route.params.projectId'(v) {
             this.$events.emit('refresh');
             this.lastProject(v);
@@ -466,6 +502,10 @@ export default {
 </script>
 
 <style scoped>
+.project-list {
+    max-height: 50vh;
+    overflow-y: auto;
+}
 .badge:deep(.v-badge__badge) {
     height: 16px;
     min-width: 16px;
